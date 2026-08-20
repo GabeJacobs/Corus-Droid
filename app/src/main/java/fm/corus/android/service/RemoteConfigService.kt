@@ -311,6 +311,20 @@ class RemoteConfigService @Inject constructor(
     val artistsOnCorusSectionEnabled: Boolean
         get() = feedFlag("artists_on_corus_section_enabled")
 
+    /// Profile → artist-page card ("View artist page" + optional taste-match
+    /// row). Default OFF. @gabe is hardcoded on in [isProfileArtistLinkEnabled]
+    /// so the owner can evaluate without an RC condition. Shares
+    /// `profile_artist_link_enabled` with iOS.
+    val profileArtistLinkEnabled: Boolean
+        get() = feedFlag("profile_artist_link_enabled")
+
+    fun isProfileArtistLinkEnabled(viewerUsername: String?): Boolean =
+        fm.corus.android.domain.ProfileArtistLinkGate.isEnabled(
+            flag = profileArtistLinkEnabled,
+            artistPagesEnabled = artistPagesEnabled,
+            viewerUsername = viewerUsername,
+        )
+
     /// Unified compose picker: one search field over songs AND films with
     /// All/Songs/Films chips and a blended zero state (recently saved +
     /// trending, last-posted medium leading) instead of the Songs/Films
@@ -429,6 +443,21 @@ class RemoteConfigService @Inject constructor(
     val spotifyLibrarySaveEnabled: Boolean
         get() = flagWithDefault("spotify_library_save_enabled", false)
 
+    /// Spotify first-time playback experiment for new users. `off` (default) =
+    /// today's Always Full ON, no new prompt. `a` / `b` are console-assigned.
+    val spotifyFtueVariant: String
+        get() {
+            if (BuildConfig.DEBUG) {
+                debugSpotifyFtueVariantOverride
+                    ?.trim()
+                    ?.lowercase()
+                    ?.takeIf { it == "a" || it == "b" || it == "off" }
+                    ?.let { return it }
+            }
+            val raw = remoteConfig.getString(SPOTIFY_FTUE_VARIANT_KEY).trim().lowercase()
+            return if (raw == "a" || raw == "b") raw else "off"
+        }
+
     /// Passwordless email OTP login. Native/web auth UI no longer gates the
     /// Continue with Email button on this flag (always shown); server
     /// `email_otp_auth_enabled` remains the kill switch. Kept for tooling /
@@ -531,6 +560,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("profile_share_enabled", remoteConfig.getBoolean("profile_share_enabled"))
             .putBoolean("unified_search_enabled", remoteConfig.getBoolean("unified_search_enabled"))
             .putBoolean("artists_on_corus_section_enabled", remoteConfig.getBoolean("artists_on_corus_section_enabled"))
+            .putBoolean("profile_artist_link_enabled", remoteConfig.getBoolean("profile_artist_link_enabled"))
             .putBoolean("compose_unified_search_enabled", remoteConfig.getBoolean("compose_unified_search_enabled"))
             .putBoolean("feed_switch_hint_enabled", remoteConfig.getBoolean("feed_switch_hint_enabled"))
             .putBoolean("onboarding_taste_match_enabled", remoteConfig.getBoolean("onboarding_taste_match_enabled"))
@@ -573,6 +603,13 @@ class RemoteConfigService @Inject constructor(
     }
 
     companion object {
+        const val SPOTIFY_FTUE_VARIANT_KEY = "spotify_ftue_variant"
+
+        /// Device QA for a fresh signup. Set to `"a"` or `"b"`, uninstall the app,
+        /// then sign up as a new user with Spotify installed. `null` reads Remote Config.
+        /// Debug builds only — [spotifyFtueVariant] ignores this in release.
+        val debugSpotifyFtueVariantOverride: String? = null
+
         /// In-app Remote Config defaults. Applied locally in init() (so flag-gated
         /// UI is correct before any network fetch) and re-applied in
         /// fetchAndActivate(). Single source of truth — keep in sync with the
@@ -623,6 +660,7 @@ class RemoteConfigService @Inject constructor(
             "profile_share_enabled" to false,
             "unified_search_enabled" to false,
             "artists_on_corus_section_enabled" to false,
+            "profile_artist_link_enabled" to false,
             "compose_unified_search_enabled" to false,
             "feed_switch_hint_enabled" to false,
             // Default FALSE in code — the server-side param defaults true (web
@@ -635,6 +673,7 @@ class RemoteConfigService @Inject constructor(
             "reposters_list_enabled" to false,
             "feed_decade_filter_enabled" to false,
             "spotify_library_save_enabled" to false,
+            "spotify_ftue_variant" to "off",
             "feed_mode_order" to FeedModeOrder.DEFAULT_RAW,
         )
     }

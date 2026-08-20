@@ -71,7 +71,7 @@ import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import fm.corus.android.ui.util.PushNotificationPermission
 
 // Order mirrors iOS: find friends → curate feed → choose player (last).
-private enum class SetupStep { SYNC_CONTACTS, FOLLOW_FRIENDS, MUSIC_SERVICE }
+private enum class SetupStep { SYNC_CONTACTS, FOLLOW_FRIENDS, MUSIC_SERVICE, NOTIFICATIONS }
 
 @Composable
 fun SocialSetupFlow(
@@ -79,8 +79,8 @@ fun SocialSetupFlow(
     viewModel: SocialSetupViewModel = hiltViewModel(),
 ) {
     // Read the flag once per flow entry so a mid-flow Remote Config activation
-    // can't restructure the steps under the user's feet. Flag OFF renders the
-    // existing three-step flow byte-identically.
+    // can't restructure the steps under the user's feet. Flag OFF is the
+    // contacts → follow → player chain, plus the notification primer last.
     val tasteFlowEnabled = remember { viewModel.onboardingTasteMatchEnabled }
     if (tasteFlowEnabled) {
         TasteOnboardingFlow(onFinished = onFinished, viewModel = viewModel)
@@ -88,6 +88,7 @@ fun SocialSetupFlow(
     }
 
     var step by remember { mutableStateOf(SetupStep.SYNC_CONTACTS) }
+    val context = LocalContext.current
 
     AnimatedContent(
         targetState = step,
@@ -106,14 +107,24 @@ fun SocialSetupFlow(
                 viewModel = viewModel,
                 onContinue = { step = SetupStep.MUSIC_SERVICE },
             )
-            // Choose Your Player is the final step — its "GET STARTED" button
-            // ends onboarding (and fires the push-permission prompt).
+            // Choose Your Player was the final step; the notification primer
+            // now sits after it so GET STARTED no longer fires a cold system
+            // dialog.
             SetupStep.MUSIC_SERVICE -> MusicServiceScreen(
                 viewModel = viewModel,
                 onFinished = {
                     viewModel.applyPostOnboardingFeedDefault()
-                    onFinished()
+                    if (PushNotificationPermission.shouldRequestPushPermission(context)) {
+                        step = SetupStep.NOTIFICATIONS
+                    } else {
+                        viewModel.markPushPermissionRequested()
+                        onFinished()
+                    }
                 },
+            )
+            SetupStep.NOTIFICATIONS -> NotificationPermissionScreen(
+                viewModel = viewModel,
+                onFinished = onFinished,
             )
         }
     }
@@ -127,40 +138,18 @@ fun SocialSetupFlow(
 internal fun MusicServiceScreen(
     viewModel: SocialSetupViewModel,
     onFinished: () -> Unit,
-    // Flag-on taste flow moves this step to #2, where finishing language and
-    // the push prompt would be wrong: the CTA reads CONTINUE and the prompt
-    // fires at the flow's real finish instead. Defaults preserve the legacy
-    // (flag-off) final-step behavior byte-identically.
+    // Flag-on taste flow moves this step to #2, where finishing language
+    // would be wrong: the CTA reads CONTINUE. Defaults preserve the legacy
+    // (flag-off) GET STARTED label. The system push dialog no longer fires
+    // here — the notification primer is the real last step.
     ctaLabelRes: Int = R.string.music_service_get_started,
-    promptPushOnFinish: Boolean = true,
 ) {
     var selected by remember { mutableStateOf(MusicService.SPOTIFY) }
     val tidalEnabled = viewModel.tidalEnabled
     val youtubeMusicEnabled = viewModel.youtubeMusicEnabled
     val deezerEnabled = viewModel.deezerEnabled
     val fullPlaybackSubtitle = stringResource(R.string.music_service_full_playback)
-
-    // In the legacy flow this is the last onboarding step, so the push-permission
-    // prompt fires here (just before entering the app) regardless of which
-    // service was chosen.
     val context = LocalContext.current
-    val pushPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        viewModel.analyticsService.logNotificationPermissionResult(granted)
-        viewModel.markPushPermissionRequested()
-        onFinished()
-    }
-    val finishWithPushPrompt: () -> Unit = {
-        if (promptPushOnFinish && PushNotificationPermission.shouldRequestPushPermission(context)) {
-            pushPermissionLauncher.launch(PushNotificationPermission.permission)
-        } else if (promptPushOnFinish) {
-            viewModel.markPushPermissionRequested()
-            onFinished()
-        } else {
-            onFinished()
-        }
-    }
 
     Column(
         modifier = Modifier
@@ -255,8 +244,11 @@ internal fun MusicServiceScreen(
 
         Button(
             onClick = {
-                viewModel.saveMusicService(selected)
-                finishWithPushPrompt()
+                viewModel.saveMusicService(
+                    selected,
+                    fm.corus.android.domain.SpotifyPlaybackService.isSpotifyAppInstalled(context),
+                )
+                onFinished()
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -273,8 +265,11 @@ internal fun MusicServiceScreen(
         // Secondary links always sit BELOW the primary (matches every other
         // onboarding step); lg + the ~40dp link = ONBOARDING_CTA_BOTTOM_ZONE.
         TextButton(onClick = {
-            viewModel.saveMusicService(MusicService.SPOTIFY)
-            finishWithPushPrompt()
+            viewModel.saveMusicService(
+                MusicService.SPOTIFY,
+                fm.corus.android.domain.SpotifyPlaybackService.isSpotifyAppInstalled(context),
+            )
+            onFinished()
         }) {
             Text(
                 stringResource(id = R.string.music_service_skip),

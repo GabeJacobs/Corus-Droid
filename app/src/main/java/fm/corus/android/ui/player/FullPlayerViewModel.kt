@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
@@ -33,6 +34,8 @@ class FullPlayerViewModel @Inject constructor(
     private val cloudFunctions: CloudFunctionsDataSource,
     private val hapticManager: HapticManager,
 ) : ViewModel() {
+    val currentUserProfile: StateFlow<CymbalUser?> get() = authRepository.userProfile
+
     private val _sourcePost = MutableStateFlow<CymbalPost?>(null)
     val sourcePost: StateFlow<CymbalPost?> = _sourcePost.asStateFlow()
 
@@ -129,6 +132,7 @@ class FullPlayerViewModel @Inject constructor(
                     engagementManager.startListening(post.id)
                     uid?.let { engagementManager.checkSaveStatuses(listOf(post.id), it) }
                     loadComments(post.id, reason = CommentReloadReason.PostChanged)
+                    fetchRecentLikersIfNeeded(post)
                 } else {
                     clearComments()
                 }
@@ -410,6 +414,22 @@ class FullPlayerViewModel @Inject constructor(
                 }
             }
         } catch (_: Exception) {
+        }
+    }
+
+    private fun fetchRecentLikersIfNeeded(post: CymbalPost) {
+        if (post.likers.isNotEmpty()) return
+        if (post.likeCount <= 0 && !post.isLiked) return
+        val postId = post.id
+        viewModelScope.launch {
+            val page = runCatching {
+                postRepository.fetchPostLikers(postId, limit = 3)
+            }.getOrNull() ?: return@launch
+            if (loadedPostId != postId) return@launch
+            val current = _sourcePost.value ?: return@launch
+            if (current.id == postId && current.likers.isEmpty()) {
+                _sourcePost.value = current.copy(likers = page.users.take(3))
+            }
         }
     }
 

@@ -563,6 +563,7 @@ class CloudFunctionsDataSource @Inject constructor(
         val user: CymbalUser?,
         val posts: List<CymbalPost>,
         val match: MusicMatchData? = null,
+        val linkedArtist: LinkedArtist? = null,
     )
 
     /**
@@ -600,7 +601,8 @@ class CloudFunctionsDataSource @Inject constructor(
                 && parsed.sharedDirectorNames.isEmpty()
             ) null else parsed
         }
-        return ProfileData(user, posts, match)
+        val linkedArtist = LinkedArtist.fromMap(data["linkedArtist"] as? Map<String, Any?>)
+        return ProfileData(user, posts, match, linkedArtist)
     }
 
     @Suppress("UNCHECKED_CAST")

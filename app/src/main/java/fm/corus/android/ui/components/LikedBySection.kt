@@ -22,6 +22,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import fm.corus.android.R
@@ -32,8 +33,8 @@ import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 
 /**
- * Shared "Liked by **username** and **N others**" row used in both
- * PostCard and PostDetailScreen so styles are defined in exactly one place.
+ * Shared "Liked by **username** and **N others**" row used on the feed,
+ * post page, and full-player card so styles are defined in exactly one place.
  */
 @Composable
 fun LikedBySection(
@@ -44,6 +45,10 @@ fun LikedBySection(
     modifier: Modifier = Modifier,
     currentUser: CymbalUser? = null,
     isLiked: Boolean = false,
+    /** Skip feed-style outer padding so the row can sit inside an already-padded card. */
+    embedded: Boolean = false,
+    enabled: Boolean = true,
+    textColor: Color = CorusColors.Text,
 ) {
     if (likeCount <= 0) return
 
@@ -64,11 +69,18 @@ fun LikedBySection(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = {
-                if (isSingleLiker) onLikerTap(effectiveLikers.first()) else onLikesTap()
-            })
-            .padding(horizontal = CorusSpacing.lg)
-            .padding(bottom = CorusSpacing.xs),
+            .clickable(
+                enabled = enabled,
+                onClick = {
+                    if (isSingleLiker) onLikerTap(effectiveLikers.first()) else onLikesTap()
+                },
+            )
+            .then(
+                if (embedded) Modifier
+                else Modifier
+                    .padding(horizontal = CorusSpacing.lg)
+                    .padding(bottom = CorusSpacing.xs),
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Overlapping avatar stack
@@ -112,7 +124,7 @@ fun LikedBySection(
         Text(
             text = likedByText,
             style = CorusFont.body,
-            color = CorusColors.Text,
+            color = textColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),

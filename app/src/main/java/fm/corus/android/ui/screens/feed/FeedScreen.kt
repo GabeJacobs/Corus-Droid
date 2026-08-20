@@ -61,6 +61,7 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -106,6 +107,7 @@ import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.FrostedStatusStrip
+import fm.corus.android.ui.components.LocalContainingTabSelected
 import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.PopularUsersInfiniteGrid
 import fm.corus.android.ui.components.rememberImmersiveHeaderState
@@ -429,7 +431,6 @@ fun FeedScreen(
             onSetFeedMode = { viewModel.setFeedMode(it) },
             onSwitcherOpened = { viewModel.onFeedSwitcherOpened() },
             showFeedSwitchHint = feedSwitchHintVisible,
-            onDismissFeedSwitchHint = { viewModel.dismissFeedSwitchHint() },
         )
     }
 
@@ -1328,9 +1329,9 @@ private fun FeedTitleWithModeMenu(
     onSetFeedMode: (String) -> Unit,
     onSwitcherOpened: () -> Unit = {},
     showHint: Boolean = false,
-    onDismissHint: () -> Unit = {},
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     // Feed-switch hint geometry: capture the following-icon's on-screen center so
     // the coachmark's arrow points at the circle while the bubble body stays
     // centered on screen.
@@ -1444,9 +1445,25 @@ private fun FeedTitleWithModeMenu(
 
         // One-time discovery coachmark, anchored just below the logo (this Box)
         // and centered on it. A Popup so it isn't clipped by the LazyColumn and
-        // tracks the logo as the feed scrolls.
-        if (showHint) {
-            FeedSwitchHintPopup(onDismiss = onDismissHint, arrowOffset = hintArrowOffset)
+        // tracks the logo as the feed scrolls. Only composed while the feed tab
+        // is on screen — the windowed Popup would otherwise float over Search /
+        // Profile. Visibility itself stays true until the user taps the bubble
+        // or the switcher, matching iOS.
+        val feedTabSelected = LocalContainingTabSelected.current
+        if (showHint && feedTabSelected) {
+            FeedSwitchHintPopup(
+                onDismiss = {
+                    // Same path as a logo tap, matching iOS: retire the hint
+                    // then present the picker after the hint Popup tears down
+                    // so the menu isn't immediately dismissed.
+                    onSwitcherOpened()
+                    scope.launch {
+                        yield()
+                        expanded = true
+                    }
+                },
+                arrowOffset = hintArrowOffset,
+            )
         }
     }
 }
@@ -1472,8 +1489,14 @@ private fun FeedSwitchHintPopup(onDismiss: () -> Unit, arrowOffset: Dp) {
     }
     Popup(
         popupPositionProvider = positionProvider,
-        onDismissRequest = onDismiss,
-        properties = PopupProperties(focusable = false),
+        // Scroll, tab switches, and taps elsewhere must not retire the hint.
+        // Only a bubble tap (onDismiss) or a switcher tap retires it.
+        onDismissRequest = {},
+        properties = PopupProperties(
+            focusable = false,
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false,
+        ),
     ) {
         FeedSwitchHintBubble(onDismiss = onDismiss, arrowOffset = arrowOffset)
     }
@@ -2033,7 +2056,6 @@ internal fun FeedHeader(
     onSetFeedMode: (String) -> Unit = {},
     onSwitcherOpened: () -> Unit = {},
     showFeedSwitchHint: Boolean = false,
-    onDismissFeedSwitchHint: () -> Unit = {},
 ) {
     Box(
         modifier = Modifier
@@ -2051,7 +2073,6 @@ internal fun FeedHeader(
                 onSetFeedMode = onSetFeedMode,
                 onSwitcherOpened = onSwitcherOpened,
                 showHint = showFeedSwitchHint,
-                onDismissHint = onDismissFeedSwitchHint,
             )
         } else {
             Text(

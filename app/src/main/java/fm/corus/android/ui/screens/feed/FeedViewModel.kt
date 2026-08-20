@@ -561,6 +561,13 @@ class FeedViewModel @Inject constructor(
         viewModelScope.launch {
             userRepository.followingIds.collect { ids -> _followingIds.value = ids }
         }
+        // First follow (onboarding or later) unblocks the feed-switch hint for
+        // users who were auto-landed on Trending with an empty following set.
+        viewModelScope.launch {
+            followingUserIds.collect { ids ->
+                if (ids.isNotEmpty()) feedSwitchHintManager.noteFollowedSomeone()
+            }
+        }
         // Auto-retry the feed when the network returns if the previous load
         // failed and the screen has no posts to show. Mirrors iOS FeedView's
         // reconnect handler.

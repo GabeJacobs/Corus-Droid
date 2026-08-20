@@ -84,6 +84,7 @@ import fm.corus.android.ui.player.rememberPlayerExpansionState
 import fm.corus.android.ui.screens.compose.ComposeScreen
 import fm.corus.android.ui.screens.compose.ComposeViewModel
 import fm.corus.android.ui.screens.feed.CommentsBottomSheet
+import fm.corus.android.ui.screens.feed.LikesBottomSheet
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.service.DeepLinkDestination
 import fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet
@@ -124,8 +125,10 @@ fun MainTabScreen(
     val unreadMessageCount by viewModel.unreadMessageCount.collectAsState()
     val hasRequestedPushPermission by viewModel.hasRequestedPushPermission.collectAsState()
 
-    // Fallback push-permission prompt for users who signed up before the
-    // onboarding ask shipped. Matches iOS MainTabView.requestNotificationPermissionIfNeeded.
+    // Fallback for users who signed up before the onboarding primer shipped.
+    // hasRequestedPushPermission is also set on Not now, so the feed does not
+    // immediately fire the system dialog after they skip. Matches iOS
+    // MainTabView.requestNotificationPermissionIfNeeded.
     val context = LocalContext.current
 
     // Re-assert the app's theme-default system-bar appearance on every tab switch.
@@ -240,6 +243,7 @@ fun MainTabScreen(
     // the tab bar like iOS and gets real window insets (the nav-graph content consumes
     // them). Tabs open it via onShowComments; navigation routes through the active tab.
     var commentPostId by remember { mutableStateOf<String?>(null) }
+    var playerLikesPostId by remember { mutableStateOf<String?>(null) }
     var commentSheetAutoFocus by remember { mutableStateOf(false) }
     var commentsRefreshSignal by remember { mutableIntStateOf(0) }
     var showPlayerQueue by remember { mutableStateOf(false) }
@@ -669,6 +673,8 @@ fun MainTabScreen(
                         }
                     },
                     commentsRefreshSignal = commentsRefreshSignal,
+                    onOpenLikes = { postId -> playerLikesPostId = postId },
+                    onLikeLongPress = { postId -> playerLikesPostId = postId },
                     onOpenInService = {
                         // Same path as the mini-player logo — Spotify preference
                         // opens the track URI/web URL (resolveLinkOut returns null).
@@ -773,12 +779,22 @@ fun MainTabScreen(
         )
     }
 
-    if (playbackModePending != null) {
+    playbackModePending?.let { pendingChoice ->
         PlaybackModePromptOverlay(
-            musicService = musicService,
-            onChoosePreviews = { viewModel.playbackModePromptManager.choosePreviews() },
-            onChooseFullSongs = { viewModel.playbackModePromptManager.chooseFullSongs() },
-            modifier = Modifier.fillMaxSize(),
+            kind = pendingChoice.kind,
+            onSecondary = {
+                if (pendingChoice.kind ==
+                    fm.corus.android.domain.SpotifyFtuePromptKind.LINK_SPOTIFY
+                ) {
+                    viewModel.playbackModePromptManager.chooseNotNow()
+                } else {
+                    viewModel.playbackModePromptManager.choosePreviews()
+                }
+            },
+            onLinkSpotify = { viewModel.playbackModePromptManager.chooseLinkSpotify() },
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(3f),
         )
     }
 
@@ -928,6 +944,22 @@ fun MainTabScreen(
             context.startActivity(android.content.Intent.createChooser(send, null))
         }
         playerSharePost = null
+    }
+
+    playerLikesPostId?.let { postId ->
+        LikesBottomSheet(
+            postId = postId,
+            onDismiss = { playerLikesPostId = null },
+            onNavigateToUser = { userId ->
+                playerLikesPostId = null
+                playerScope.launch {
+                    if (playerExpansion.isExpandedOrExpanding) {
+                        playerExpansion.collapse()
+                    }
+                    navControllers[selectedTab]?.navigate(OtherProfileRoute(userId))
+                }
+            },
+        )
     }
 
     // Comments sheet hosted at the root so it covers the tab bar (full iOS parity) and

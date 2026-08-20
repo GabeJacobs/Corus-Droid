@@ -549,8 +549,12 @@ class NowPlayingManager @Inject constructor(
         playbackModeDowngradeJob = null
 
         if (toFull) {
-            if (!isPlaying || isExternalSpotifyListening) return
-            upgradeCurrentPreviewToFullSong()
+            if (isExternalSpotifyListening) return
+            if (isPlaying && isPreviewMode) {
+                upgradeCurrentPreviewToFullSong()
+            } else {
+                restartCurrentTrackForDesiredPlaybackMode()
+            }
             return
         }
 
@@ -603,16 +607,17 @@ class NowPlayingManager @Inject constructor(
                 audiomackUrl = _state.value.audiomackUrl,
             )
         }
-        val preferFull = preferencesDataStore.effectivePlayFullSongsSync()
         val q = queue.ifEmpty { listOf(track) }
         this.queue = q
         this.currentQueueIndex = q.indexOfActive(track.trackId, track.sourcePostId)
+        // Don't skip the prompt or force preferFullSong — Settings Always Full
+        // defers the A link sheet to this play tap.
         routePlayTap(
             track = track.toCymbalTrack(),
             sourcePostId = track.sourcePostId,
             queue = q,
-            preferFullSong = preferFull,
-            skipPlaybackModePrompt = true,
+            preferFullSong = false,
+            skipPlaybackModePrompt = false,
             onPreview = {
                 playInternal(track, userInitiated = true, forceSwitch = true)
             },

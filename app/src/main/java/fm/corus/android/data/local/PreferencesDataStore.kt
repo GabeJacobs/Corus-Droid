@@ -222,6 +222,7 @@ class PreferencesDataStore @Inject constructor(
         val HAS_SEEN_FIRST_POST_PAYWALL = booleanPreferencesKey("has_seen_first_post_paywall")
         val HAS_SEEN_TENTH_POST_PAYWALL = booleanPreferencesKey("has_seen_tenth_post_paywall")
         val HAS_REQUESTED_PUSH_PERMISSION = booleanPreferencesKey("has_requested_push_permission")
+        val HAS_DISMISSED_NOTIF_DISABLED_BANNER = booleanPreferencesKey("has_dismissed_notif_disabled_banner")
         val HAS_TAPPED_ALBUM_ART = booleanPreferencesKey("has_tapped_album_art")
         val HAS_CONFIRMED_FEED_PLAYLIST = booleanPreferencesKey("has_confirmed_feed_playlist")
         val RECENT_SEARCHES = stringPreferencesKey("recent_searches")
@@ -229,6 +230,10 @@ class PreferencesDataStore @Inject constructor(
         val PLAY_FULL_SONGS = booleanPreferencesKey("play_full_songs")
         val ALWAYS_PLAY_FULL_SONGS = booleanPreferencesKey("always_play_full_songs")
         val PLAYBACK_MODE_CHOSEN = booleanPreferencesKey("playback_mode_chosen")
+        val SPOTIFY_FTUE_UID = stringPreferencesKey("spotify_ftue_uid")
+        val SPOTIFY_FTUE_VARIANT = stringPreferencesKey("spotify_ftue_variant")
+        val SPOTIFY_FTUE_LINK_PROMPT_CONSUMED = booleanPreferencesKey("spotify_ftue_link_prompt_consumed")
+        val SPOTIFY_FTUE_FIRST_PLAY_CONSUMED = booleanPreferencesKey("spotify_ftue_first_play_consumed")
         val AUTO_ADD_SPOTIFY = booleanPreferencesKey("auto_add_saved_to_spotify")
         val FEED_FOLLOWS_NOW_PLAYING = booleanPreferencesKey("feed_follows_now_playing")
         val TRENDING_SONGS_WINDOW = stringPreferencesKey("trending_songs_window")
@@ -364,6 +369,56 @@ class PreferencesDataStore @Inject constructor(
     /** Full playback on feed posts — always-on setting or mini-player toggle. */
     fun effectivePlayFullSongsSync(): Boolean =
         alwaysPlayFullSongsSync() || playFullSongsSync()
+
+    fun isSpotifyFtueAssigned(uid: String): Boolean {
+        val prefs = context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString("spotify_ftue_uid", null) == uid &&
+            !prefs.getString("spotify_ftue_variant", null).isNullOrBlank()
+    }
+
+    fun spotifyFtueVariantSync(): String? =
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .getString("spotify_ftue_variant", null)
+
+    fun spotifyFtueLinkPromptConsumedSync(): Boolean =
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean("spotify_ftue_link_prompt_consumed", false)
+
+    fun spotifyFtueFirstPlayChooserConsumedSync(): Boolean =
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean("spotify_ftue_first_play_consumed", false)
+
+    suspend fun persistSpotifyFtueAssignment(
+        uid: String,
+        variant: String,
+        alwaysPlayFullSongs: Boolean,
+    ) {
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString("spotify_ftue_uid", uid)
+            .putString("spotify_ftue_variant", variant)
+            .apply()
+        dataStore.edit {
+            it[SPOTIFY_FTUE_UID] = uid
+            it[SPOTIFY_FTUE_VARIANT] = variant
+        }
+        setAlwaysPlayFullSongs(alwaysPlayFullSongs)
+        if (!alwaysPlayFullSongs) {
+            setPlayFullSongs(false)
+        }
+    }
+
+    suspend fun setSpotifyFtueLinkPromptConsumed() {
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("spotify_ftue_link_prompt_consumed", true).apply()
+        dataStore.edit { it[SPOTIFY_FTUE_LINK_PROMPT_CONSUMED] = true }
+    }
+
+    suspend fun setSpotifyFtueFirstPlayChooserConsumed() {
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("spotify_ftue_first_play_consumed", true).apply()
+        dataStore.edit { it[SPOTIFY_FTUE_FIRST_PLAY_CONSUMED] = true }
+    }
 
     /**
      * Opt-in: once the user turns on the Settings "Add Saved Songs to Library"
@@ -632,6 +687,14 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setHasRequestedPushPermission() {
         dataStore.edit { it[HAS_REQUESTED_PUSH_PERMISSION] = true }
+    }
+
+    val hasDismissedNotifDisabledBanner: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[HAS_DISMISSED_NOTIF_DISABLED_BANNER] ?: false
+    }
+
+    suspend fun setHasDismissedNotifDisabledBanner() {
+        dataStore.edit { it[HAS_DISMISSED_NOTIF_DISABLED_BANNER] = true }
     }
 
     val hasTappedAlbumArt: Flow<Boolean> = dataStore.data.map { prefs ->

@@ -40,8 +40,11 @@ import javax.inject.Provider
  * back to its WebView handler renders a full-screen "Loading…" ProgressDialog
  * over Corus. Reported 2026-08-04 by an Android tester who saw it on most songs.
  *
- * The invariant: a silent connect is always attempted first, and interactive
- * auth is the fallback for when App Remote actually refuses.
+ * The invariant: after this install has used App Remote once, a silent
+ * connect is always attempted first, and interactive auth is the fallback
+ * for when App Remote actually refuses. A first-time Link (no token, no
+ * last-usage stamp) skips silent so Spotify's Agree page is not delayed
+ * behind a mini-player spinner.
  */
 @RunWith(RobolectricTestRunner::class)
 // Vanilla Application so Robolectric doesn't boot CorusApplication, which
@@ -66,6 +69,7 @@ class SpotifyPlaybackConnectOrderTest {
         SpotifyConnectContext.setActivity(null)
 
         context = ApplicationProvider.getApplicationContext()
+        context.getSharedPreferences("corus_prefs", Context.MODE_PRIVATE).edit().clear().commit()
         installSpotifyApp()
 
         authService = mock<SpotifyAuthService>()
@@ -126,9 +130,17 @@ class SpotifyPlaybackConnectOrderTest {
      * to read that as "not authorized" and open the consent flow without ever
      * asking App Remote, which is what put the "Loading…" box on screen.
      */
+    private fun stampPriorAppRemoteUsage() {
+        context.getSharedPreferences("corus_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .putLong("fm.corus.spotify.lastAppRemoteUsage", System.currentTimeMillis())
+            .commit()
+    }
+
     @Test
     fun `expired cached token still attempts a silent connect`() = runTest {
         whenever(authService.cachedAccessToken()).thenReturn(null)
+        stampPriorAppRemoteUsage()
 
         playOnce()
 
@@ -146,6 +158,7 @@ class SpotifyPlaybackConnectOrderTest {
     @Test
     fun `silent attempt does not ask the SDK to show its auth view`() = runTest {
         whenever(authService.cachedAccessToken()).thenReturn(null)
+        stampPriorAppRemoteUsage()
 
         playOnce()
 
@@ -153,6 +166,22 @@ class SpotifyPlaybackConnectOrderTest {
         assertTrue(
             "First connect attempt must be the silent one",
             !connectAttempts.first().shouldShowAuthView(),
+        )
+    }
+
+    /**
+     * First Link Spotify tap: no grant exists yet. Silent App Remote retries
+     * cannot succeed and leave the mini-player spinning like a stuck buffer.
+     */
+    @Test
+    fun `first link skips silent connect and opens interactive auth`() = runTest {
+        whenever(authService.cachedAccessToken()).thenReturn(null)
+
+        playOnce()
+
+        assertTrue(
+            "A never-linked install must not wait on silent App Remote before Spotify's Agree page",
+            connectAttempts.isEmpty(),
         )
     }
 

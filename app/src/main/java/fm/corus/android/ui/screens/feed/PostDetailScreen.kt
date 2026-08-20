@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -59,6 +60,7 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.ui.components.FeedPlayingPill
+import fm.corus.android.ui.components.albumArtPinchZoom
 import fm.corus.android.ui.components.PostRowFullSongControlXOffset
 import fm.corus.android.ui.components.PostRowServiceControlYOffset
 import fm.corus.android.ui.components.SoundCloudAdaptiveLogo
@@ -676,6 +678,7 @@ private fun PostDetailAlbumArt(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(aspectRatio)
+            .clipToBounds()
             .graphicsLayer {
                 rotationY = flipRotation
                 cameraDistance = cameraDistancePx
@@ -717,7 +720,9 @@ private fun PostDetailAlbumArt(
                 AsyncImage(
                     model = post.displayImageLargeURL ?: post.displayImageURL,
                     contentDescription = post.displayTitle,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(if (post.isTrack) Modifier.albumArtPinchZoom() else Modifier),
                     contentScale = ContentScale.Crop,
                 )
 
@@ -828,7 +833,9 @@ private fun PostDetailAlbumArt(
                 AsyncImage(
                     model = flipState.backCoverURL,
                     contentDescription = stringResource(R.string.post_detail_cd_album_back_cover),
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .albumArtPinchZoom(),
                     contentScale = ContentScale.Crop,
                 )
             }

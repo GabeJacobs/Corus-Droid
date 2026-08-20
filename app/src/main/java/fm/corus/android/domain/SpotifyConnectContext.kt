@@ -85,7 +85,7 @@ object SpotifyConnectContext {
                     ),
                 )
             }
-            else -> onFailure(SpotifyPlaybackError.NotAuthorized())
+            else -> onFailure(SpotifyPlaybackError.AuthorizationCancelled())
         }
     }
 

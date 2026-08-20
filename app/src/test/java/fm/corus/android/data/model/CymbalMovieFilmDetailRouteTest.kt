@@ -28,6 +28,7 @@ class CymbalMovieFilmDetailRouteTest {
             posterURL = "https://img/poster.jpg",
             posterLargeURL = "https://img/poster_large.jpg",
             trailerURL = "https://youtu.be/abc",
+            releaseDate = "2010-09-04",
         )
 
         val route = movie.toFilmDetailRoute()
@@ -39,6 +40,7 @@ class CymbalMovieFilmDetailRouteTest {
         assertEquals("https://img/poster.jpg", route.posterURL)
         assertEquals("https://img/poster_large.jpg", route.posterLargeURL)
         assertEquals("https://youtu.be/abc", route.trailerURL)
+        assertEquals("2010-09-04", route.movieReleaseDate)
     }
 
     @Test

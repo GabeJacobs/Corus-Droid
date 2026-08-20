@@ -35,6 +35,7 @@ sealed class SpotifyPlaybackError(message: String) : Exception(message) {
     class NotAuthorized : SpotifyPlaybackError("Spotify is not connected.")
     class NotConnected : SpotifyPlaybackError("Couldn't connect to the Spotify app.")
     class SpotifyNotInstalled : SpotifyPlaybackError("Install the Spotify app to play full songs from Corus.")
+    class AuthorizationCancelled : SpotifyPlaybackError("Spotify authorization cancelled.")
     class ApiError(message: String) : SpotifyPlaybackError(message)
 }
 
@@ -344,6 +345,11 @@ class SpotifyPlaybackService @Inject constructor(
 
         val error = uri.getQueryParameter("error")
         if (error != null) {
+            if (error.equals("access_denied", ignoreCase = true)) {
+                analyticsService.logSpotifyAuthConnectCancelled()
+            } else {
+                analyticsService.logSpotifyAuthConnectFailed(error)
+            }
             connectDeferred?.let { if (it.isActive) it.completeExceptionally(SpotifyPlaybackError.NotAuthorized()) }
             connectDeferred = null
             playDeferred?.let { if (it.isActive) it.completeExceptionally(SpotifyPlaybackError.NotAuthorized()) }
@@ -356,6 +362,8 @@ class SpotifyPlaybackService @Inject constructor(
                 ?.removePrefix("access_token=")
         if (!token.isNullOrBlank()) {
             spotifyAuthService.storeAppRemoteAccessToken(token)
+            analyticsService.logSpotifyAuthConnected("app_remote")
+            analyticsService.setSpotifyFullPlaybackConnected(true)
             android.util.Log.i("SpotifyPlayback", "Auth redirect received — reconnecting App Remote")
             scope.launch {
                 runCatching { connect(showAuthView = false) }
@@ -369,6 +377,13 @@ class SpotifyPlaybackService @Inject constructor(
             return true
         }
         return false
+    }
+
+    /** Settings → Link with no current track: hop to Spotify for App Remote consent. */
+    suspend fun authorizeForLink() {
+        if (!isSpotifyAppInstalled(context)) return
+        allowProactiveReconnect()
+        ensureAuthorizedAndConnected(requireInteractiveAuth = true)
     }
 
     suspend fun play(
@@ -422,23 +437,29 @@ class SpotifyPlaybackService @Inject constructor(
             clearStaleSpotifyQueue()
         }
 
-        // Always try silent first, whatever [SpotifyAuthService] holds. The App
-        // Remote grant lives in the Spotify app, not here: [ConnectionParams]
-        // carries only the client id and redirect URI, and the cached token is
-        // never handed to the SDK — it only records that we authorized once, and
-        // it expires after an hour with no refresh. Gating this attempt on it
-        // sent every play tap past that hour into auth-lib's consent flow, which
-        // on devices that fall back to its WebView handler paints a full-screen
-        // "Loading…" dialog over Corus. Interactive auth is the fallback for a
-        // connect App Remote actually refused.
+        // Returning users: always try silent first, whatever [SpotifyAuthService]
+        // holds. The App Remote grant lives in the Spotify app, not here:
+        // [ConnectionParams] carries only the client id and redirect URI, and the
+        // cached token is never handed to the SDK — it only records that we
+        // authorized once, and it expires after an hour with no refresh. Gating
+        // this attempt on that token sent every play tap past the hour into
+        // auth-lib's consent flow, which on devices that fall back to its WebView
+        // handler paints a full-screen "Loading…" dialog over Corus.
         //
         // After Corus has been sitting idle, the first silent IPC often fails
         // because Spotify is asleep — iOS retries (`playWithCachedToken`) before
         // re-auth. Wiping the token on that miss forced the Loading… WebView
         // and then a false "No preview available" fallback.
-        if (playWithSilentConnectRetries(trackUri, queueSessionId)) return
-
-        android.util.Log.w("SpotifyPlayback", "Silent reconnect failed, opening Spotify auth")
+        //
+        // First Link (never used App Remote in this install): skip silent.
+        // There is no grant yet, so those retries just spin the mini-player
+        // "buffering" chrome for several seconds before Spotify's Agree page.
+        if (hasPriorAppRemoteSession()) {
+            if (playWithSilentConnectRetries(trackUri, queueSessionId)) return
+            android.util.Log.w("SpotifyPlayback", "Silent reconnect failed, opening Spotify auth")
+        } else {
+            android.util.Log.i("SpotifyPlayback", "No prior App Remote session — opening Spotify auth")
+        }
         // Auth opens/wakes Spotify. Do not share the 15s play timeout with that
         // trip — leftover budget is too short for App Remote after a cold start,
         // which is what produced a false "No preview available".
@@ -564,8 +585,20 @@ class SpotifyPlaybackService @Inject constructor(
         if (isConnected) return
         if (requireInteractiveAuth) {
             android.util.Log.i("SpotifyPlayback", "Starting interactive Spotify auth (auth-lib)")
-            val token = SpotifyConnectContext.awaitInteractiveAuthorization()
+            val token = try {
+                SpotifyConnectContext.awaitInteractiveAuthorization()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: SpotifyPlaybackError.AuthorizationCancelled) {
+                analyticsService.logSpotifyAuthConnectCancelled()
+                throw e
+            } catch (e: Exception) {
+                analyticsService.logSpotifyAuthConnectFailed(e.message ?: e.javaClass.simpleName)
+                throw e
+            }
             spotifyAuthService.storeAppRemoteAccessToken(token)
+            analyticsService.logSpotifyAuthConnected("app_remote")
+            analyticsService.setSpotifyFullPlaybackConnected(true)
             android.util.Log.i("SpotifyPlayback", "Interactive auth succeeded — connecting App Remote")
         }
         connect(showAuthView = false)
@@ -1201,11 +1234,24 @@ class SpotifyPlaybackService @Inject constructor(
     }
 
     private fun hasRecentUsage(withinMs: Long = 3_600_000L): Boolean {
-        val last = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getLong(LAST_USAGE_KEY, 0L)
+        val last = lastAppRemoteUsageMs()
         if (last <= 0L) return false
         return System.currentTimeMillis() - last < withinMs
     }
+
+    /**
+     * True after any successful App Remote play in this install (or a live
+     * cached token). Not time-windowed — an hour-old grant still lives in
+     * Spotify and must keep the silent-first path.
+     */
+    private fun hasPriorAppRemoteSession(): Boolean {
+        if (spotifyAuthService.cachedAccessToken() != null) return true
+        return lastAppRemoteUsageMs() > 0L
+    }
+
+    private fun lastAppRemoteUsageMs(): Long =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getLong(LAST_USAGE_KEY, 0L)
 
     private fun clearRecentUsage() {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

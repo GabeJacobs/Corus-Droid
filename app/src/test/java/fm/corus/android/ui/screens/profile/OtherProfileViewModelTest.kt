@@ -4,6 +4,7 @@ import android.content.Context
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.LinkedArtist
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
@@ -70,6 +71,7 @@ class OtherProfileViewModelTest {
         context = mock()
         authRepository = mock {
             on { currentUserId } doReturn "viewer1"
+            on { userProfile } doReturn MutableStateFlow(null)
         }
         userRepository = mock {
             on { blockedIds } doReturn MutableStateFlow(emptySet())
@@ -194,6 +196,27 @@ class OtherProfileViewModelTest {
         // call succeeds — that's the whole point of the fix.
         verify(userRepository, never()).fetchUserProfile(any())
         verify(postRepository, never()).getProfilePosts(any(), any(), any(), anyOrNull(), anyOrNull())
+    }
+
+    @Test
+    fun `loadProfile applies linkedArtist from the same getProfileData payload`() = runTest {
+        val targetId = "target1"
+        val artist = LinkedArtist(id = "spotify-id", name = "Daedelus", imageUrl = "https://img")
+        whenever(postRepository.getProfileData(eq(targetId), any(), anyOrNull()))
+            .thenReturn(
+                CloudFunctionsDataSource.ProfileData(
+                    user = makeUser(targetId, cymbalCount = 1),
+                    posts = listOf(makePost("p1", targetId)),
+                    linkedArtist = artist,
+                ),
+            )
+        whenever(userRepository.isSubscribedToUserPosts(any(), any())).thenReturn(false)
+
+        val viewModel = createViewModel()
+        viewModel.start(targetId, initialIsFollowing = false)
+        advanceUntilIdle()
+
+        assertEquals(artist, viewModel.linkedArtist.value)
     }
 
     /**

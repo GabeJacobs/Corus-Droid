@@ -64,6 +64,11 @@
     <string name="settings_section_notifications_messaging">NOTIFICAÇÕES E MENSAGENS</string>
     <string name="settings_row_notifications">Notificações</string>
     <string name="settings_row_notifications_subtitle">Gerencie as preferências de notificações push</string>
+    <string name="settings_push_notifications">Notificações push</string>
+    <string name="settings_push_off">Desligado</string>
+    <string name="settings_push_open_settings">Ativar em Ajustes</string>
+    <string name="notif_disabled_banner_title">Notificações desativadas</string>
+    <string name="notif_disabled_banner_body">Avisamos quando amigos te seguirem, comentarem, te mencionarem ou reproduzirem seus posts.</string>
     <string name="settings_row_who_can_message">Quem Pode Me Enviar Mensagens</string>
     <string name="settings_message_everyone">Todos</string>
     <string name="settings_message_my_followers">Meus Seguidores</string>
@@ -1197,6 +1202,10 @@
     <string name="onboarding_headstart_subtitle">Vamos postar suas escolhas para as pessoas poderem te encontrar.</string>
     <string name="onboarding_headstart_start_fresh">Começar do zero</string>
     <string name="onboarding_headstart_cd_dont_post">Não postar %1$s</string>
+    <string name="onboarding_notif_title">Receba notificações</string>
+    <string name="onboarding_notif_subtitle">Avisamos quando amigos te seguirem, comentarem, te mencionarem ou reproduzirem seus posts.</string>
+    <string name="onboarding_notif_allow">PERMITIR NOTIFICAÇÕES</string>
+    <string name="onboarding_notif_not_now">Pular</string>
     <string name="taste_card_similar_taste">gosto parecido</string>
     <plurals name="onboarding_taste_pick_more">
         <item quantity="one">Escolha mais %1$d para desbloquear suas combinações</item>
@@ -1352,6 +1361,11 @@
     <string name="playback_mode_prompt_previews">Prévias de 30 segundos</string>
     <string name="playback_mode_prompt_settings_footnote">Você pode mudar isso a qualquer momento em Ajustes.</string>
     <string name="playback_mode_prompt_title">Como você quer ouvir?</string>
+    <string name="playback_mode_prompt_title_link">Reproduzir músicas completas no Spotify?</string>
+    <string name="playback_mode_prompt_body_spotify_link">Abra o Spotify para autorizar a reprodução de músicas completas. Requer Spotify Premium.</string>
+    <string name="playback_mode_prompt_link_spotify">Vincular Spotify</string>
+    <string name="playback_mode_prompt_not_now">Agora não</string>
+    <string name="playback_mode_prompt_link_footnote">Você pode voltar para as prévias de 30 segundos a qualquer momento.</string>
     <string name="playlist_first_time_title">Experimente gerar playlist grátis</string>
     <string name="playlist_trial_consumed_feed">Playlist criada! Esse foi seu teste grátis no feed. Entre no Club para gerar a qualquer momento.</string>
     <string name="playlist_trial_consumed_hashtag">Playlist criada! Esse foi seu teste grátis nesta hashtag. Entre no Club para gerar a qualquer momento.</string>

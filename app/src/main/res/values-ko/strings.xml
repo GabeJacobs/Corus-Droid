@@ -65,6 +65,11 @@
     <string name="settings_section_notifications_messaging">알림 및 메시지</string>
     <string name="settings_row_notifications">알림</string>
     <string name="settings_row_notifications_subtitle">푸시 알림 설정 관리</string>
+    <string name="settings_push_notifications">푸시 알림</string>
+    <string name="settings_push_off">꺼짐</string>
+    <string name="settings_push_open_settings">설정에서 켜기</string>
+    <string name="notif_disabled_banner_title">알림 꺼짐</string>
+    <string name="notif_disabled_banner_body">친구가 팔로우하거나, 댓글을 달거나, 언급하거나, 내 포스트를 재생하면 알려드릴게요.</string>
     <string name="settings_row_who_can_message">메시지를 보낼 수 있는 사람</string>
     <string name="settings_message_everyone">모두</string>
     <string name="settings_message_my_followers">내 팔로워</string>
@@ -710,7 +715,7 @@
     <string name="social_setup_sync_explainer">연락처를 동기화해 Corus에 있을지도 모르는\n친구를 찾아보세요.</string>
     <string name="social_setup_sync_button">연락처 동기화</string>
     <string name="social_setup_sync_later">나중에 동기화</string>
-    <string name="social_setup_curate_title">피드 꾸미기</string>
+    <string name="social_setup_curate_title">피드 만들기</string>
     <string name="social_setup_curate_subtitle">사람을 팔로우해서 피드를 만드세요</string>
     <string name="social_setup_section_friends">👥 Corus의 친구</string>
     <string name="social_setup_section_popular">🔥 Corus 인기</string>
@@ -1197,6 +1202,10 @@
     <string name="onboarding_headstart_subtitle">당신의 선택을 포스트해서 사람들이 당신을 찾을 수 있게 할게요.</string>
     <string name="onboarding_headstart_start_fresh">포스트 없이 시작</string>
     <string name="onboarding_headstart_cd_dont_post">%1$s 포스트하지 않기</string>
+    <string name="onboarding_notif_title">알림 받기</string>
+    <string name="onboarding_notif_subtitle">친구가 팔로우하거나, 댓글을 달거나, 언급하거나, 내 포스트를 재생하면 알려드릴게요.</string>
+    <string name="onboarding_notif_allow">알림 허용</string>
+    <string name="onboarding_notif_not_now">건너뛰기</string>
     <string name="taste_card_similar_taste">비슷한 취향</string>
     <plurals name="onboarding_taste_pick_more">
         <item quantity="other">%1$d개 더 고르면 매치를 볼 수 있어요</item>
@@ -1345,6 +1354,11 @@
     <string name="playback_mode_prompt_previews">30초 미리듣기</string>
     <string name="playback_mode_prompt_settings_footnote">설정에서 언제든지 변경할 수 있어요.</string>
     <string name="playback_mode_prompt_title">어떻게 들을까요?</string>
+    <string name="playback_mode_prompt_title_link">Spotify로 전체 곡을 재생할까요?</string>
+    <string name="playback_mode_prompt_body_spotify_link">전체 곡 재생을 허용하려면 Spotify를 여세요. Spotify Premium이 필요합니다.</string>
+    <string name="playback_mode_prompt_link_spotify">Spotify 연결</string>
+    <string name="playback_mode_prompt_not_now">나중에</string>
+    <string name="playback_mode_prompt_link_footnote">언제든지 30초 미리듣기로 다시 전환할 수 있습니다.</string>
     <string name="playlist_first_time_title">플레이리스트 생성을 무료로 사용해 보세요</string>
     <string name="playlist_trial_consumed_feed">플레이리스트가 만들어졌어요! 피드에서의 무료 체험은 여기까지예요. Club에 가입하면 언제든 생성할 수 있어요.</string>
     <string name="playlist_trial_consumed_hashtag">플레이리스트가 만들어졌어요! 이 해시태그에서의 무료 체험은 여기까지예요. Club에 가입하면 언제든 생성할 수 있어요.</string>

@@ -27,6 +27,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
@@ -337,9 +338,14 @@ class NotificationsViewModelTest {
                 postId = any(),
                 userId = any(),
                 text = any(),
-                parentCommentId = any(),
-                replyToUserId = any(),
-                gifURL = any(),
+                parentCommentId = anyOrNull(),
+                replyToUserId = anyOrNull(),
+                gifURL = anyOrNull(),
+                attachedSong = anyOrNull(),
+                attachedFilm = anyOrNull(),
+                attachedArtist = anyOrNull(),
+                attachedAlbum = anyOrNull(),
+                attachedDirector = anyOrNull(),
             )
         ).thenReturn("newId")
 
@@ -354,6 +360,11 @@ class NotificationsViewModelTest {
             parentCommentId = eq("c1"),
             replyToUserId = eq("u2"),
             gifURL = eq(null),
+            attachedSong = eq(null),
+            attachedFilm = eq(null),
+            attachedArtist = eq(null),
+            attachedAlbum = eq(null),
+            attachedDirector = eq(null),
         )
         verify(engagementManager).incrementCommentCount(eq("p1"))
         assertEquals(null, viewModel.replyingToNotification.value)
@@ -368,8 +379,17 @@ class NotificationsViewModelTest {
         advanceUntilIdle()
 
         verify(postRepository, never()).addComment(
-            postId = any(), userId = any(), text = any(),
-            parentCommentId = any(), replyToUserId = any(), gifURL = any(),
+            postId = any(),
+            userId = any(),
+            text = any(),
+            parentCommentId = anyOrNull(),
+            replyToUserId = anyOrNull(),
+            gifURL = anyOrNull(),
+            attachedSong = anyOrNull(),
+            attachedFilm = anyOrNull(),
+            attachedArtist = anyOrNull(),
+            attachedAlbum = anyOrNull(),
+            attachedDirector = anyOrNull(),
         )
     }
 }

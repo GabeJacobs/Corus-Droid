@@ -65,6 +65,11 @@
     <string name="settings_section_notifications_messaging">通知和私信</string>
     <string name="settings_row_notifications">通知</string>
     <string name="settings_row_notifications_subtitle">管理推送通知偏好</string>
+    <string name="settings_push_notifications">推送通知</string>
+    <string name="settings_push_off">已关闭</string>
+    <string name="settings_push_open_settings">在设置中开启</string>
+    <string name="notif_disabled_banner_title">通知已关闭</string>
+    <string name="notif_disabled_banner_body">好友关注你、评论、提到你或播放你的帖子时，我们会通知你。</string>
     <string name="settings_row_who_can_message">谁可以给我发私信</string>
     <string name="settings_message_everyone">所有人</string>
     <string name="settings_message_my_followers">我的粉丝</string>
@@ -1196,6 +1201,10 @@
     <string name="onboarding_headstart_subtitle">我们会发布你的选择，让大家能找到你。</string>
     <string name="onboarding_headstart_start_fresh">从零开始</string>
     <string name="onboarding_headstart_cd_dont_post">不发布%1$s</string>
+    <string name="onboarding_notif_title">接收通知</string>
+    <string name="onboarding_notif_subtitle">好友关注你、评论、提到你或播放你的帖子时，我们会通知你。</string>
+    <string name="onboarding_notif_allow">允许通知</string>
+    <string name="onboarding_notif_not_now">跳过</string>
     <string name="taste_card_similar_taste">品味相近</string>
     <plurals name="onboarding_taste_pick_more">
         <item quantity="other">再选 %1$d 个即可解锁你的匹配</item>
@@ -1345,6 +1354,11 @@
     <string name="playback_mode_prompt_previews">30 秒试听</string>
     <string name="playback_mode_prompt_settings_footnote">你可以随时在设置中更改。</string>
     <string name="playback_mode_prompt_title">你想怎么听？</string>
+    <string name="playback_mode_prompt_title_link">要用 Spotify 播放完整歌曲吗？</string>
+    <string name="playback_mode_prompt_body_spotify_link">打开 Spotify 以授权完整歌曲播放。需要 Spotify Premium。</string>
+    <string name="playback_mode_prompt_link_spotify">关联 Spotify</string>
+    <string name="playback_mode_prompt_not_now">暂不</string>
+    <string name="playback_mode_prompt_link_footnote">你可以随时切换回 30 秒预览。</string>
     <string name="playlist_first_time_title">免费试用播放列表生成</string>
     <string name="playlist_trial_consumed_feed">播放列表已创建！这是你在动态上的免费试用。加入 Club 即可随时生成。</string>
     <string name="playlist_trial_consumed_hashtag">播放列表已创建！这是你在此话题标签上的免费试用。加入 Club 即可随时生成。</string>

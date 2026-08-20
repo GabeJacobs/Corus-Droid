@@ -66,10 +66,12 @@ import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.ui.components.CommentAttachmentCard
 import fm.corus.android.ui.components.CommentAttachmentSurface
+import fm.corus.android.ui.components.LikedBySection
 import fm.corus.android.ui.components.TappableMentionText
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.VennDiagramIcon
@@ -111,6 +113,7 @@ fun FullPlayerSocialSection(
     onNavigateToAlbum: ((CommentAttachedAlbum) -> Unit)? = null,
     onNavigateToDirector: ((CommentAttachedDirector) -> Unit)? = null,
     onLikeLongPress: ((String) -> Unit)? = null,
+    onOpenLikes: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val sourcePost by viewModel.sourcePost.collectAsState()
@@ -127,6 +130,7 @@ fun FullPlayerSocialSection(
     val catalogPostsError by viewModel.catalogPostsError.collectAsState()
     val catalogHasMorePages by viewModel.catalogHasMorePages.collectAsState()
     val catalogUniquePosterCount by viewModel.catalogUniquePosterCount.collectAsState()
+    val currentUser by viewModel.currentUserProfile.collectAsState()
     val engagementStates = engagementManager?.states?.collectAsState()?.value ?: emptyMap()
 
     LaunchedEffect(sourcePostId, trackId) {
@@ -173,6 +177,9 @@ fun FullPlayerSocialSection(
                     onMentionTap = onMentionTap,
                     onHashtagTap = onHashtagTap,
                     onLikeLongPress = onLikeLongPress?.let { { it(post.id) } },
+                    currentUser = currentUser,
+                    onLikerTap = { onOpenUser(it.id) },
+                    onLikesTap = { onOpenLikes(post.id) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
@@ -285,6 +292,9 @@ private fun FullPlayerSourcePostCard(
     onMentionTap: (String) -> Unit,
     onHashtagTap: (String) -> Unit,
     onLikeLongPress: (() -> Unit)?,
+    currentUser: CymbalUser?,
+    onLikerTap: (CymbalUser) -> Unit,
+    onLikesTap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -487,6 +497,20 @@ private fun FullPlayerSourcePostCard(
                     tint = CorusColors.Text.copy(alpha = 0.85f),
                 )
             }
+        }
+
+        if (likeCount > 0 || isLiked) {
+            LikedBySection(
+                likers = post.likers,
+                likeCount = likeCount,
+                onLikesTap = onLikesTap,
+                onLikerTap = onLikerTap,
+                currentUser = currentUser,
+                isLiked = isLiked,
+                embedded = true,
+                enabled = interactive,
+                textColor = CorusColors.Text,
+            )
         }
     }
 }

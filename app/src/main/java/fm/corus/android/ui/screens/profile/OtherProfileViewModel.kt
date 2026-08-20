@@ -10,6 +10,7 @@ import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
+import fm.corus.android.data.model.LinkedArtist
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.model.MusicMatchData
 import fm.corus.android.data.remote.CloudFunctionsDataSource
@@ -322,6 +323,18 @@ class OtherProfileViewModel @Inject constructor(
     private val _matchData = MutableStateFlow<MusicMatchData?>(null)
     val matchData: StateFlow<MusicMatchData?> = _matchData.asStateFlow()
 
+    // Catalog artist linked via artistLinks. Arrives with getProfileData so the
+    // card paints with the rest of the header (no follow-up callable).
+    private val _linkedArtist = MutableStateFlow<LinkedArtist?>(null)
+    val linkedArtist: StateFlow<LinkedArtist?> = _linkedArtist.asStateFlow()
+
+    val isProfileArtistLinkEnabled: Boolean
+        get() = remoteConfig.isProfileArtistLinkEnabled(authRepository.userProfile.value?.username)
+
+    fun logProfileArtistLinkTapped(artistId: String, profileUserId: String) {
+        analyticsService.logProfileArtistLinkTapped(artistId, profileUserId)
+    }
+
     val currentUserId: String? get() = authRepository.currentUserId
 
     val engagementStates = engagementManager.states
@@ -364,6 +377,7 @@ class OtherProfileViewModel @Inject constructor(
         // profile navigation) never carries the previous owner's fetched flag.
         _hasFetchedSongPage.value = false
         _isLoadingSongs.value = false
+        _linkedArtist.value = null
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -391,6 +405,7 @@ class OtherProfileViewModel @Inject constructor(
                     if (data.user != null) {
                         _profile.value = data.user
                         _matchData.value = data.match
+                        _linkedArtist.value = data.linkedArtist
                         data.posts
                     } else {
                         _profile.value = userRepository.fetchUserProfile(userId)
@@ -485,8 +500,10 @@ class OtherProfileViewModel @Inject constructor(
                 // while the profile is open bounces on pull-to-refresh too, instead
                 // of re-showing the now-hidden account via a direct read.
                 val user = try {
-                    postRepository.getProfileData(userId = userId, pageSize = 1).user
-                        ?: userRepository.fetchUserProfile(userId)
+                    val data = postRepository.getProfileData(userId = userId, pageSize = 1)
+                    _matchData.value = data.match
+                    _linkedArtist.value = data.linkedArtist
+                    data.user ?: userRepository.fetchUserProfile(userId)
                 } catch (e: Exception) {
                     if (e is com.google.firebase.functions.FirebaseFunctionsException &&
                         e.code == com.google.firebase.functions.FirebaseFunctionsException.Code.NOT_FOUND

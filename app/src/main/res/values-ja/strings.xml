@@ -59,6 +59,11 @@
     <string name="settings_section_notifications_messaging">通知とメッセージ</string>
     <string name="settings_row_notifications">通知</string>
     <string name="settings_row_notifications_subtitle">プッシュ通知の設定を管理</string>
+    <string name="settings_push_notifications">プッシュ通知</string>
+    <string name="settings_push_off">オフ</string>
+    <string name="settings_push_open_settings">設定でオンにする</string>
+    <string name="notif_disabled_banner_title">通知がオフです</string>
+    <string name="notif_disabled_banner_body">友だちがフォローしたり、コメントしたり、あなたをメンションしたり、投稿を再生したときにお知らせします。</string>
     <string name="settings_row_who_can_message">メッセージを送れる人</string>
     <string name="settings_message_everyone">全員</string>
     <string name="settings_message_my_followers">自分のフォロワー</string>
@@ -639,7 +644,7 @@
     <string name="social_setup_sync_explainer">連絡先を同期して、\nCorus にいるかもしれない友だちを見つけましょう。</string>
     <string name="social_setup_sync_button">連絡先を同期</string>
     <string name="social_setup_sync_later">あとで同期</string>
-    <string name="social_setup_curate_title">フィードを整えよう</string>
+    <string name="social_setup_curate_title">フィードを作ろう</string>
     <string name="social_setup_curate_subtitle">ユーザーをフォローしてフィードを作りましょう</string>
     <string name="social_setup_section_friends">👥 Corus の友だち</string>
     <string name="social_setup_section_popular">🔥 Corus で人気</string>
@@ -1070,6 +1075,10 @@
     <string name="onboarding_headstart_subtitle">選んだ作品を投稿して、あなたを見つけてもらいましょう。</string>
     <string name="onboarding_headstart_start_fresh">投稿せずに始める</string>
     <string name="onboarding_headstart_cd_dont_post">%1$sを投稿しない</string>
+    <string name="onboarding_notif_title">通知を受け取る</string>
+    <string name="onboarding_notif_subtitle">友だちがフォローしたり、コメントしたり、あなたをメンションしたり、投稿を再生したときにお知らせします。</string>
+    <string name="onboarding_notif_allow">通知を許可</string>
+    <string name="onboarding_notif_not_now">スキップ</string>
     <string name="taste_card_similar_taste">好みが近い</string>
     <plurals name="onboarding_taste_pick_more">
         <item quantity="other">あと%1$dつ選ぶと一致が見られます</item>
@@ -1218,6 +1227,11 @@
     <string name="playback_mode_prompt_previews">30秒プレビュー</string>
     <string name="playback_mode_prompt_settings_footnote">設定からいつでも変更できます。</string>
     <string name="playback_mode_prompt_title">どう再生しますか？</string>
+    <string name="playback_mode_prompt_title_link">Spotifyでフル再生しますか？</string>
+    <string name="playback_mode_prompt_body_spotify_link">フル再生を許可するにはSpotifyを開いてください。Spotify Premiumが必要です。</string>
+    <string name="playback_mode_prompt_link_spotify">Spotifyを連携</string>
+    <string name="playback_mode_prompt_not_now">今はしない</string>
+    <string name="playback_mode_prompt_link_footnote">いつでも30秒プレビューに戻せます。</string>
     <string name="playlist_first_time_title">プレイリスト生成を無料で試す</string>
     <string name="playlist_trial_consumed_feed">プレイリストを作成しました！フィードでの無料トライアルはこれで終わりです。Club に参加するといつでも生成できます。</string>
     <string name="playlist_trial_consumed_hashtag">プレイリストを作成しました！このハッシュタグでの無料トライアルはこれで終わりです。Club に参加するといつでも生成できます。</string>

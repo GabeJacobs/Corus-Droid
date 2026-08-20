@@ -72,6 +72,8 @@ class AnalyticsService @Inject constructor(
             "following_count",
             "is_bot",
             "spotify_full_playback_connected",
+            "spotify_ftue_variant",
+            "music_service",
         ).forEach { analytics.setUserProperty(it, null) }
     }
 
@@ -125,6 +127,13 @@ class AnalyticsService @Inject constructor(
     fun logOnboardingProfileSubmitted() = logEvent("onboarding_profile_submitted")
     fun logOnboardingAvatarNudge(action: String) = logEvent("onboarding_avatar_nudge", mapOf("action" to action))
     fun logNotificationPermissionResult(granted: Boolean) = logEvent("notification_permission_result", mapOf("granted" to granted))
+    fun logNotificationPermissionPrimerShown() = logEvent("notification_permission_primer_shown")
+    fun logNotificationPermissionPrimerTapped(action: String) =
+        logEvent("notification_permission_primer_tapped", mapOf("action" to action))
+    fun logNotificationPermissionReaskShown(source: String) =
+        logEvent("notification_permission_reask_shown", mapOf("source" to source))
+    fun logNotificationPermissionReaskTapped(source: String, action: String) =
+        logEvent("notification_permission_reask_tapped", mapOf("source" to source, "action" to action))
     fun logBotPreviewPlayed(botUserId: String) = logEvent("bot_preview_played", mapOf("bot_user_id" to botUserId))
 
     // ── Taste-match onboarding (the flag-on flow) ──
@@ -290,9 +299,11 @@ class AnalyticsService @Inject constructor(
     fun logSongPreviewPlayed(trackId: String) =
         logEvent("song_preview_played", mapOf("track_id" to trackId))
 
-    fun logSpotifyAuthConnected() = logEvent("spotify_auth_connected")
+    fun logSpotifyAuthConnected(method: String) =
+        logEvent("spotify_auth_connected", mapOf("method" to method))
     fun logSpotifyAuthConnectFailed(reason: String) =
         logEvent("spotify_auth_connect_failed", mapOf("reason" to reason.take(100)))
+    fun logSpotifyAuthConnectCancelled() = logEvent("spotify_auth_connect_cancelled")
     fun logSpotifyAuthDisconnected() = logEvent("spotify_auth_disconnected")
 
     fun logSpotifyFullSongPlayStarted(trackId: String, trackSource: String) =
@@ -313,6 +324,29 @@ class AnalyticsService @Inject constructor(
             if (connected) "true" else "false",
         )
     }
+
+    fun setSpotifyFtueUserProperties(variant: String, musicService: String) {
+        analytics.setUserProperty("spotify_ftue_variant", variant)
+        analytics.setUserProperty("music_service", musicService)
+    }
+
+    fun logSpotifyAuthConnectPromptShown(trackId: String, variant: String, surface: String) =
+        logEvent(
+            "spotify_auth_connect_prompt_shown",
+            mapOf("track_id" to trackId, "variant" to variant, "surface" to surface),
+        )
+
+    fun logSpotifyFtueAssigned(variant: String, spotifyInstalled: Boolean) =
+        logEvent(
+            "spotify_ftue_assigned",
+            mapOf("variant" to variant, "spotify_installed" to spotifyInstalled),
+        )
+
+    fun logSpotifyFtuePromptChosen(variant: String, surface: String, choice: String) =
+        logEvent(
+            "spotify_ftue_prompt_chosen",
+            mapOf("variant" to variant, "surface" to surface, "choice" to choice),
+        )
 
     // MARK: - Comment Events
 
@@ -424,6 +458,11 @@ class AnalyticsService @Inject constructor(
 
     fun logArtistPageViewed(artistId: String) =
         logEvent("artist_page_viewed", mapOf("artist_id" to artistId))
+    fun logProfileArtistLinkTapped(artistId: String, profileUserId: String) =
+        logEvent(
+            "profile_artist_link_tapped",
+            mapOf("artist_id" to artistId, "profile_user_id" to profileUserId),
+        )
     fun logAlbumPageViewed(albumId: String) =
         logEvent("album_page_viewed", mapOf("album_id" to albumId))
     fun logDirectorPageViewed(directorId: String) =

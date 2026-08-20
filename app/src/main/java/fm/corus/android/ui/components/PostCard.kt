@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.scale
@@ -482,6 +483,7 @@ fun PostCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(aspectRatio)
+                .clipToBounds()
                 .then(
                     if (needsFlipLayer) {
                         Modifier.graphicsLayer {
@@ -577,7 +579,9 @@ fun PostCard(
                             .size(if (post.isMovie) Size(780, 1170) else Size(640, 640))
                             .build(),
                         contentDescription = post.displayTitle,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(if (post.isTrack) Modifier.albumArtPinchZoom() else Modifier),
                         contentScale = ContentScale.Crop,
                         colorFilter = if (isUnavailable) {
                             androidx.compose.ui.graphics.ColorFilter.colorMatrix(
@@ -849,7 +853,9 @@ fun PostCard(
                             .size(Size(640, 640))
                             .build(),
                         contentDescription = stringResource(R.string.post_card_cd_album_back_cover),
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .albumArtPinchZoom(),
                         contentScale = ContentScale.Crop,
                     )
                 }

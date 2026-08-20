@@ -236,22 +236,25 @@ class NotificationsViewModel @Inject constructor(
                     loadFollowingStatuses(userId)
                 }
             } catch (_: Exception) {
-                // Fallback to one-shot fetch
+                // Fallback to one-shot fetch. Don't write a null list if the
+                // repository call fails or returns null.
                 var fellBackOk = false
                 try {
                     val fetched = notificationRepository.getNotifications(userId, limit = pageSize)
-                    computeNewIdsOnce(fetched)
-                    _notifications.value = fetched
-                    _hasMoreNotifications.value = fetched.size >= pageSize
-                    loadCommentLikeStatuses(userId)
-                    loadFollowsMeStatuses(userId)
-                    loadFollowingStatuses(userId)
-                    fellBackOk = true
+                    if (fetched != null) {
+                        computeNewIdsOnce(fetched)
+                        _notifications.value = fetched
+                        _hasMoreNotifications.value = fetched.size >= pageSize
+                        loadCommentLikeStatuses(userId)
+                        loadFollowsMeStatuses(userId)
+                        loadFollowingStatuses(userId)
+                        fellBackOk = true
+                    }
                 } catch (_: Exception) { }
                 _isLoading.value = false
                 if (fellBackOk) {
                     _hasLoadError.value = false
-                } else if (_notifications.value.isEmpty()) {
+                } else if (_notifications.value.isNullOrEmpty()) {
                     _hasLoadError.value = true
                 }
             }

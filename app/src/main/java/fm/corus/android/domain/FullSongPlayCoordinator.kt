@@ -135,8 +135,16 @@ object FullSongPlayCoordinator {
     ) {
         when (outcome) {
             PlayTapOutcome.NeedsPlaybackModeChoice -> {
+                val kind = playbackModePromptManager.catalogPromptKind()
+                    ?: SpotifyFtuePromptKind.CHOOSE_LISTEN
                 playbackModePromptManager.present(
                     PendingPlaybackModeChoice(
+                        kind = kind,
+                        surface = if (kind == SpotifyFtuePromptKind.LINK_SPOTIFY) {
+                            SpotifyFtuePromptSurface.SETTINGS_ALWAYS_FULL
+                        } else {
+                            SpotifyFtuePromptSurface.FIRST_PLAY
+                        },
                         track = track,
                         sourcePostId = sourcePostId,
                         queue = queue,

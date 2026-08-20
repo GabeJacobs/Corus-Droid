@@ -6,13 +6,16 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -38,6 +41,7 @@ class NotificationSettingsViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val analyticsService: AnalyticsService,
     private val remoteConfigService: RemoteConfigService,
+    private val preferencesDataStore: PreferencesDataStore,
 ) : ViewModel() {
 
     private val _settings = MutableStateFlow(NotificationSettings())
@@ -131,6 +135,21 @@ class NotificationSettingsViewModel @Inject constructor(
                 analyticsService.logSettingToggled("read_receipts_enabled", enabled)
             } catch (_: Exception) { }
         }
+    }
+
+    val hasRequestedPushPermission: StateFlow<Boolean> =
+        preferencesDataStore.hasRequestedPushPermission.stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            false,
+        )
+
+    fun markPushPermissionRequested() {
+        viewModelScope.launch { preferencesDataStore.setHasRequestedPushPermission() }
+    }
+
+    fun logPushNotificationsRow(action: String) {
+        analyticsService.logNotificationPermissionReaskTapped("settings", action)
     }
 
     private fun updateNotif(key: String, enabled: Boolean, optimistic: () -> Unit) {

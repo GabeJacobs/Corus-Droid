@@ -78,9 +78,14 @@
     <string name="post_card_cd_play_full_song">Play full song</string>
     <string name="post_card_cd_pause_full_song">Pause full song</string>
     <string name="playback_mode_prompt_title">How do you want to listen?</string>
+    <string name="playback_mode_prompt_title_link">Play full songs with Spotify?</string>
     <string name="playback_mode_prompt_body_spotify">Full songs require Spotify Premium and the Spotify app installed.</string>
+    <string name="playback_mode_prompt_body_spotify_link">Open Spotify to authorize full playback of songs. Requires Spotify Premium.</string>
+    <string name="playback_mode_prompt_link_spotify">Link Spotify</string>
+    <string name="playback_mode_prompt_not_now">Not Now</string>
+    <string name="playback_mode_prompt_link_footnote">You can switch back to 30-second previews anytime.</string>
     <string name="playback_mode_prompt_body_apple_music">Full songs require an Apple Music subscription and the Apple Music app installed.</string>
-    <string name="playback_mode_prompt_previews">30-Second Previews</string>
+    <string name="playback_mode_prompt_previews">30-second previews</string>
     <string name="playback_mode_prompt_full_songs">Full Songs</string>
     <string name="playback_mode_prompt_settings_footnote">You can change this anytime in Settings.</string>
     <string name="settings_row_spotify_library_save_title">Add Saved Songs to Library</string>
@@ -94,6 +99,11 @@
     <string name="settings_section_notifications_messaging">NOTIFICATIONS &amp; MESSAGING</string>
     <string name="settings_row_notifications">Notifications</string>
     <string name="settings_row_notifications_subtitle">Manage push notification preferences</string>
+    <string name="settings_push_notifications">Push Notifications</string>
+    <string name="settings_push_off">Off</string>
+    <string name="settings_push_open_settings">Turn on in Settings</string>
+    <string name="notif_disabled_banner_title">Notifications Disabled</string>
+    <string name="notif_disabled_banner_body">We\'ll let you know when friends follow you, comment, mention you, or play your posts.</string>
     <string name="settings_row_who_can_message">Who Can Message Me</string>
     <string name="settings_message_everyone">Everyone</string>
     <string name="settings_message_my_followers">My Followers</string>
@@ -418,6 +428,9 @@
     <string name="profile_stat_coruses">coruses</string>
     <string name="profile_stat_followers">followers</string>
     <string name="profile_stat_following">following</string>
+    <string name="profile_view_artist_page">View artist page</string>
+    <string name="profile_artist_fallback">Artist</string>
+    <string name="profile_view_artist_page_a11y">View artist page, %1$s</string>
     <string name="profile_tab_music">MUSIC</string>
     <string name="profile_tab_film">FILM</string>
     <string name="profile_tab_likes">LIKES</string>
@@ -778,7 +791,7 @@
     <string name="social_setup_sync_explainer">Sync your contacts to discover\nfriends who might be on Corus.</string>
     <string name="social_setup_sync_button">SYNC CONTACTS</string>
     <string name="social_setup_sync_later">sync later</string>
-    <string name="social_setup_curate_title">Curate Your Feed</string>
+    <string name="social_setup_curate_title">Build Your Feed</string>
     <string name="social_setup_curate_subtitle">follow users to build your feed</string>
     <string name="social_setup_section_friends">👥 Friends on Corus</string>
     <string name="social_setup_section_popular">🔥 Popular on Corus</string>
@@ -1320,6 +1333,10 @@
     <!-- Taste-match onboarding (onboarding_taste_match_enabled) - strings mirror the web locale files -->
     <string name="onboarding_sync_contacts_title">Sync Your Contacts</string>
     <string name="onboarding_cta_continue">CONTINUE</string>
+    <string name="onboarding_notif_title">Get Notified</string>
+    <string name="onboarding_notif_subtitle">We\'ll let you know when friends follow you, comment, mention you, or play your posts.</string>
+    <string name="onboarding_notif_allow">ALLOW NOTIFICATIONS</string>
+    <string name="onboarding_notif_not_now">Skip</string>
     <string name="onboarding_taste_intro_title">Find Your Taste Matches</string>
     <string name="onboarding_taste_intro_body">Corus is full of people with great taste. Let\'s find the ones who share yours.</string>
     <string name="onboarding_taste_intro_duration">Takes about 30 seconds.</string>

@@ -725,10 +725,7 @@ internal fun MiniPlayerPlaybackModeToggle(
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = {
-                    displayedFull = !displayedFull
-                    onSelect(displayedFull)
-                },
+                onClick = { onSelect(!displayedFull) },
             )
             .padding(2.dp)
             .semantics {

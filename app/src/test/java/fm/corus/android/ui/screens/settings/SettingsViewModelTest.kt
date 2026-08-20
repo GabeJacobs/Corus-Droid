@@ -60,6 +60,7 @@ class SettingsViewModelTest {
         remoteConfig,
         analyticsService,
         nowPlayingManager,
+        mock(),
     )
 
     @Before
@@ -186,6 +187,7 @@ class SettingsViewModelTest {
             remoteConfig,
             analyticsService,
             nowPlayingManager,
+            mock(),
         )
 
         vm.onSpotifyLibrarySaveToggled(true)

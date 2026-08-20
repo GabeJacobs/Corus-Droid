@@ -56,6 +56,7 @@ import javax.inject.Singleton
 class SpotifyLibraryAuthService @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val httpClient: HttpClient,
+    private val analyticsService: fm.corus.android.service.AnalyticsService,
 ) {
     private val prefs by lazy {
         val masterKey = MasterKey.Builder(appContext)
@@ -131,7 +132,13 @@ class SpotifyLibraryAuthService @Inject constructor(
         pendingLogin = null
         pendingCodeVerifier = null
 
-        if (uri.getQueryParameter("error") != null) {
+        val error = uri.getQueryParameter("error")
+        if (error != null) {
+            if (error.equals("access_denied", ignoreCase = true)) {
+                analyticsService.logSpotifyAuthConnectCancelled()
+            } else {
+                analyticsService.logSpotifyAuthConnectFailed(error)
+            }
             deferred?.complete(false)
             return false
         }
@@ -142,7 +149,15 @@ class SpotifyLibraryAuthService @Inject constructor(
             return false
         }
 
-        val ok = runCatching { exchangeCode(code, verifier) }.getOrDefault(false)
+        val result = runCatching { exchangeCode(code, verifier) }
+        val ok = result.getOrNull() == true
+        if (ok) {
+            analyticsService.logSpotifyAuthConnected("oauth")
+        } else {
+            analyticsService.logSpotifyAuthConnectFailed(
+                result.exceptionOrNull()?.message ?: "token_exchange_failed",
+            )
+        }
         deferred?.complete(ok)
         return ok
     }
@@ -168,6 +183,7 @@ class SpotifyLibraryAuthService @Inject constructor(
             .remove(TOKEN_EXPIRY_KEY)
             .remove(REFRESH_TOKEN_KEY)
             .apply()
+        analyticsService.logSpotifyAuthDisconnected()
     }
 
     // ── Token exchange ─────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.data.remote.CloudFunctionsDataSource
+import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.domain.HapticManager
@@ -197,6 +198,27 @@ class FullPlayerViewModelTest {
 
         assertTrue(viewModel.catalogPosts.value.isEmpty())
         assertEquals("p9", viewModel.sourcePost.value?.id)
+    }
+
+    @Test
+    fun loadSourcePostFetchesRecentLikersWhenPreviewEmpty() = runTest {
+        val p = post("p1").copy(likeCount = 4)
+        whenever(postRepo.getPostDetail("p1", "me")).doReturn(p)
+        whenever(postRepo.getComments("p1")).doReturn(emptyList())
+        whenever(postRepo.checkCommentLikesBatch(eq("me"), eq("p1"), any())).doReturn(emptySet())
+        whenever(postRepo.fetchPostLikers(eq("p1"), eq(3), anyOrNull())).doReturn(
+            FirestoreDataSource.LikersPage(
+                users = listOf(user("a"), user("b")),
+                lastTimestamp = null,
+                hasMore = true,
+            ),
+        )
+
+        val viewModel = vm()
+        viewModel.loadSourcePost("p1")
+        advanceUntilIdle()
+
+        assertEquals(listOf("a", "b"), viewModel.sourcePost.value?.likers?.map { it.id })
     }
 
     @Test

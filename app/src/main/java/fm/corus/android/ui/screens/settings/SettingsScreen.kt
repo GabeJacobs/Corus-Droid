@@ -14,7 +14,9 @@ import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.PersonAdd
@@ -59,6 +61,10 @@ import fm.corus.android.ui.screens.subscription.PaywallSource
 import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import fm.corus.android.ui.util.PushNotificationPermission
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -84,6 +90,7 @@ fun SettingsScreen(
     authViewModel: AuthViewModel = hiltViewModel(),
     appearanceViewModel: AppearanceSettingsViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel = hiltViewModel(),
+    notificationSettingsViewModel: NotificationSettingsViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
@@ -192,6 +199,29 @@ fun SettingsScreen(
     val settingsScope = rememberCoroutineScope()
     val feedFollowsNowPlaying by settingsViewModel.feedFollowsNowPlaying.collectAsState()
     val alwaysPlayFullSongs by settingsViewModel.alwaysPlayFullSongs.collectAsState()
+
+    val notificationSettings by notificationSettingsViewModel.settings.collectAsState()
+    val hasRequestedPush by notificationSettingsViewModel.hasRequestedPushPermission.collectAsState()
+    LaunchedEffect(Unit) { notificationSettingsViewModel.load() }
+
+    var pushOn by remember {
+        mutableStateOf(PushNotificationPermission.areNotificationsEnabled(context))
+    }
+    val pushPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) {
+        pushOn = PushNotificationPermission.areNotificationsEnabled(context)
+    }
+    val settingsLifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(settingsLifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                pushOn = PushNotificationPermission.areNotificationsEnabled(context)
+            }
+        }
+        settingsLifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { settingsLifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     // Messaging
     var whoCanMessageMe by remember { mutableStateOf("Everyone") }
@@ -427,6 +457,31 @@ fun SettingsScreen(
             // ── Section: Notifications & Messaging ──
             SectionHeader(stringResource(R.string.settings_section_notifications_messaging))
 
+            if (!pushOn) {
+                val openSystemSettings = PushNotificationPermission.shouldOpenSystemSettings(
+                    context,
+                    hasRequestedPush,
+                )
+                SettingsNavRow(
+                    icon = Icons.Filled.NotificationsOff,
+                    title = stringResource(R.string.settings_push_notifications),
+                    subtitle = stringResource(
+                        if (openSystemSettings) R.string.settings_push_open_settings
+                        else R.string.settings_push_off,
+                    ),
+                    onClick = {
+                        if (openSystemSettings) {
+                            notificationSettingsViewModel.logPushNotificationsRow("open_settings")
+                            PushNotificationPermission.openSystemNotificationSettings(context)
+                        } else {
+                            notificationSettingsViewModel.logPushNotificationsRow("allow")
+                            notificationSettingsViewModel.markPushPermissionRequested()
+                            pushPermissionLauncher.launch(PushNotificationPermission.permission)
+                        }
+                    },
+                )
+            }
+
             SettingsNavRow(
                 icon = Icons.Filled.Notifications,
                 title = stringResource(R.string.settings_row_notifications),
@@ -442,6 +497,13 @@ fun SettingsScreen(
                 options = listOf("Everyone", "My Followers", "People I Follow", "Nobody"),
                 labelFor = { messageOptionLabels[it] ?: it },
                 onSelect = { whoCanMessageMe = it },
+            )
+
+            SettingsToggleRow(
+                icon = Icons.Filled.DoneAll,
+                title = stringResource(R.string.notifications_row_read_receipts),
+                checked = notificationSettings.readReceipts,
+                onCheckedChange = notificationSettingsViewModel::setReadReceipts,
             )
 
             // ── Section: Account ──
@@ -556,6 +618,7 @@ fun SettingsScreen(
                 icon = Icons.Filled.Delete,
                 title = stringResource(R.string.settings_row_delete_account),
                 color = CorusColors.Error,
+                iconTint = CorusColors.Error,
                 onClick = { showDeleteConfirm = true },
             )
 
@@ -932,6 +995,7 @@ private fun SettingsActionRow(
     icon: ImageVector,
     title: String,
     color: androidx.compose.ui.graphics.Color = CorusColors.Text,
+    iconTint: androidx.compose.ui.graphics.Color = CorusColors.Secondary,
     onClick: () -> Unit,
 ) {
     Row(
@@ -944,7 +1008,7 @@ private fun SettingsActionRow(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = color,
+            tint = iconTint,
             modifier = Modifier.size(20.dp),
         )
         Spacer(modifier = Modifier.width(CorusSpacing.md))

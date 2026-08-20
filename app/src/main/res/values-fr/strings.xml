@@ -65,6 +65,11 @@
     <string name="settings_section_notifications_messaging">NOTIFICATIONS ET MESSAGERIE</string>
     <string name="settings_row_notifications">Notifications</string>
     <string name="settings_row_notifications_subtitle">Gère les préférences de notifications push</string>
+    <string name="settings_push_notifications">Notifications push</string>
+    <string name="settings_push_off">Désactivé</string>
+    <string name="settings_push_open_settings">Activer dans Réglages</string>
+    <string name="notif_disabled_banner_title">Notifications désactivées</string>
+    <string name="notif_disabled_banner_body">On te prévient quand tes amis te suivent, commentent, te mentionnent ou lancent tes posts.</string>
     <string name="settings_row_who_can_message">Qui peut m\'envoyer des messages</string>
     <string name="settings_message_everyone">Tout le monde</string>
     <string name="settings_message_my_followers">Mes abonnés</string>
@@ -710,7 +715,7 @@
     <string name="social_setup_sync_explainer">Synchronise tes contacts pour découvrir\ndes amis qui sont peut-être sur Corus.</string>
     <string name="social_setup_sync_button">SYNCHRONISER LES CONTACTS</string>
     <string name="social_setup_sync_later">synchroniser plus tard</string>
-    <string name="social_setup_curate_title">Compose ton Feed</string>
+    <string name="social_setup_curate_title">Construis ton Feed</string>
     <string name="social_setup_curate_subtitle">suis des utilisateurs pour composer ton Feed</string>
     <string name="social_setup_section_friends">👥 Amis sur Corus</string>
     <string name="social_setup_section_popular">🔥 Populaire sur Corus</string>
@@ -1199,6 +1204,10 @@
     <string name="onboarding_headstart_subtitle">On publiera tes choix pour que les gens puissent te trouver.</string>
     <string name="onboarding_headstart_start_fresh">Partir de zéro</string>
     <string name="onboarding_headstart_cd_dont_post">Ne pas publier %1$s</string>
+    <string name="onboarding_notif_title">Reçois des notifications</string>
+    <string name="onboarding_notif_subtitle">On te prévient quand tes amis te suivent, commentent, te mentionnent ou lancent tes posts.</string>
+    <string name="onboarding_notif_allow">AUTORISER LES NOTIFICATIONS</string>
+    <string name="onboarding_notif_not_now">Passer</string>
     <string name="taste_card_similar_taste">goûts similaires</string>
     <plurals name="onboarding_taste_pick_more">
         <item quantity="one">Choisis-en %1$d de plus pour débloquer tes affinités</item>
@@ -1354,6 +1363,11 @@
     <string name="playback_mode_prompt_previews">Extraits de 30 secondes</string>
     <string name="playback_mode_prompt_settings_footnote">Tu peux changer ça à tout moment dans Réglages.</string>
     <string name="playback_mode_prompt_title">Comment veux-tu écouter ?</string>
+    <string name="playback_mode_prompt_title_link">Écouter les titres complets avec Spotify ?</string>
+    <string name="playback_mode_prompt_body_spotify_link">Ouvre Spotify pour autoriser la lecture des titres complets. Nécessite Spotify Premium.</string>
+    <string name="playback_mode_prompt_link_spotify">Lier Spotify</string>
+    <string name="playback_mode_prompt_not_now">Plus tard</string>
+    <string name="playback_mode_prompt_link_footnote">Tu peux revenir aux extraits de 30 secondes à tout moment.</string>
     <string name="playlist_first_time_title">Essaie la génération de playlist gratuitement</string>
     <string name="playlist_trial_consumed_feed">Playlist créée ! C’était ton essai gratuit sur le fil. Rejoins Club pour générer à tout moment.</string>
     <string name="playlist_trial_consumed_hashtag">Playlist créée ! C’était ton essai gratuit sur ce hashtag. Rejoins Club pour générer à tout moment.</string>

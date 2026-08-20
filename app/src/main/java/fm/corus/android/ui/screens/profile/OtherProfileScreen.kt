@@ -91,8 +91,10 @@ import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.ui.components.SkeletonProfileGrid
 import fm.corus.android.ui.components.SkeletonProfileView
 import fm.corus.android.ui.components.SkeletonProfileWithAvatar
+import fm.corus.android.ui.components.ProfileArtistLinkCard
 import fm.corus.android.ui.components.TasteMatchSheet
 import fm.corus.android.ui.components.TasteMatchTeaser
+import fm.corus.android.ui.navigation.ArtistPageRoute
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
@@ -124,6 +126,7 @@ fun OtherProfileScreen(
     onNavigateToFollowList: (String, Boolean, String, Int, Int) -> Unit = { _, _, _, _, _ -> },
     onNavigateToMessages: (String, String) -> Unit = { _, _ -> },
     onNavigateToPost: (postId: String) -> Unit = {},
+    onNavigateToArtist: ((ArtistPageRoute) -> Unit)? = null,
 ) {
     // Responsive header spacing: wider phones (~Pixel 9 Pro) get a more generous
     // inset; narrower phones (~Galaxy S) keep the original tighter layout so the
@@ -160,6 +163,7 @@ fun OtherProfileScreen(
     val isSubscribedToNotifications by viewModel.isSubscribedToNotifications.collectAsState()
     val isFavorite by viewModel.isFavorite.collectAsState()
     val matchData by viewModel.matchData.collectAsState()
+    val linkedArtist by viewModel.linkedArtist.collectAsState()
     var showMatchSheet by remember { mutableStateOf(false) }
     val isOwnProfile = viewModel.currentUserId == userId
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
@@ -1013,11 +1017,29 @@ fun OtherProfileScreen(
                         }
                     }
 
-                    val match = matchData
-                    if (!isOwnProfile && match != null) {
+                    val tasteMatch = matchData?.takeIf { !isOwnProfile && it.hasDisplayableTiles }
+                    val artist = linkedArtist
+                    if (viewModel.isProfileArtistLinkEnabled && artist != null) {
+                        Spacer(modifier = Modifier.height(CorusSpacing.md))
+                        ProfileArtistLinkCard(
+                            artist = artist,
+                            match = tasteMatch,
+                            onArtistTap = {
+                                viewModel.logProfileArtistLinkTapped(artist.id, userId)
+                                onNavigateToArtist?.invoke(
+                                    ArtistPageRoute(
+                                        artistId = artist.id,
+                                        name = artist.name.ifBlank { null },
+                                        imageUrl = artist.imageUrl,
+                                    ),
+                                )
+                            },
+                            onMatchTap = tasteMatch?.let { { showMatchSheet = true } },
+                        )
+                    } else if (tasteMatch != null) {
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
                         TasteMatchTeaser(
-                            match = match,
+                            match = tasteMatch,
                             onClick = { showMatchSheet = true },
                             modifier = Modifier.padding(horizontal = pillHPad),
                         )

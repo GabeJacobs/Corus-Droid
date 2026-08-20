@@ -11,6 +11,7 @@ import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UnreadCountsRepository
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.SpotifyFtueExperiment
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +41,7 @@ class MainTabViewModel @Inject constructor(
     val feedScrollRouter: fm.corus.android.domain.FeedScrollRouter,
     val remoteConfigService: fm.corus.android.service.RemoteConfigService,
     val playbackModePromptManager: fm.corus.android.domain.PlaybackModePromptManager,
+    val notificationReaskController: fm.corus.android.ui.util.NotificationPermissionReaskController,
 ) : ViewModel() {
 
     val playFullSongs = preferencesDataStore.playFullSongs
@@ -49,25 +51,42 @@ class MainTabViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
     fun setPlayFullSongs(enabled: Boolean) {
-        viewModelScope.launch {
-            preferencesDataStore.setPlayFullSongs(enabled)
-            nowPlayingManager.applyPlaybackModeToggle(toFull = enabled)
-            analyticsService.logFullPlayerPlaybackModeToggled(
-                toFull = enabled,
-                trackId = nowPlayingManager.state.value.trackId,
+        if (enabled && playbackModePromptManager.interceptEnableFull(
+                surface = fm.corus.android.domain.SpotifyFtuePromptSurface.MINIPLAYER_FULL,
+                nowPlaying = nowPlayingManager,
+                remoteConfig = remoteConfigService,
+                musicService = musicServicePreference.current.value,
+                scope = viewModelScope,
+                onEnableFull = { commitPlayFullSongs(true) },
             )
+        ) {
+            return
         }
+        viewModelScope.launch { commitPlayFullSongs(enabled) }
     }
 
     fun setAlwaysPlayFullSongs(enabled: Boolean) {
-        viewModelScope.launch {
-            preferencesDataStore.setAlwaysPlayFullSongs(enabled)
-            nowPlayingManager.applyPlaybackModeToggle(toFull = enabled)
-            analyticsService.logFullPlayerPlaybackModeToggled(
-                toFull = enabled,
-                trackId = nowPlayingManager.state.value.trackId,
-            )
+        viewModelScope.launch { commitAlwaysPlayFullSongs(enabled) }
+    }
+
+    private suspend fun commitPlayFullSongs(enabled: Boolean) {
+        preferencesDataStore.setPlayFullSongs(enabled)
+        nowPlayingManager.applyPlaybackModeToggle(toFull = enabled)
+        analyticsService.logFullPlayerPlaybackModeToggled(
+            toFull = enabled,
+            trackId = nowPlayingManager.state.value.trackId,
+        )
+    }
+
+    private suspend fun commitAlwaysPlayFullSongs(enabled: Boolean) {
+        preferencesDataStore.setAlwaysPlayFullSongs(enabled)
+        if (!enabled) {
+            nowPlayingManager.applyPlaybackModeToggle(toFull = false)
         }
+        analyticsService.logFullPlayerPlaybackModeToggled(
+            toFull = enabled,
+            trackId = nowPlayingManager.state.value.trackId,
+        )
     }
 
     /** Whether the immersive header is on — the profile feed only paints its own
@@ -76,6 +95,11 @@ class MainTabViewModel @Inject constructor(
         get() = remoteConfigService.immersiveArtistHeaderEnabled
 
     init {
+        SpotifyFtueExperiment.restoreUserProperties(
+            preferences = preferencesDataStore,
+            musicService = musicServicePreference.current.value.value,
+            analytics = analyticsService,
+        )
         // Advertise group-chat support once per signed-in session so the backend
         // can gate who's addable to a group (capability gate). Fire-and-forget.
         authRepository.currentUserId?.let { uid ->

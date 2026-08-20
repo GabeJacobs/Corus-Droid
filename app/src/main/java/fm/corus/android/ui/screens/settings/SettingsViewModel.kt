@@ -32,6 +32,7 @@ class SettingsViewModel @Inject constructor(
     private val remoteConfigService: RemoteConfigService,
     private val analyticsService: AnalyticsService,
     private val nowPlayingManager: NowPlayingManager,
+    private val playbackModePromptManager: fm.corus.android.domain.PlaybackModePromptManager,
 ) : ViewModel() {
 
     val isClubMember: StateFlow<Boolean> = subscriptionRepository.isClubMember
@@ -55,7 +56,8 @@ class SettingsViewModel @Inject constructor(
     fun setAlwaysPlayFullSongs(value: Boolean) {
         viewModelScope.launch {
             preferencesDataStore.setAlwaysPlayFullSongs(value)
-            nowPlayingManager.applyPlaybackModeToggle(toFull = value)
+            if (value) return@launch
+            nowPlayingManager.applyPlaybackModeToggle(toFull = false)
         }
     }
 

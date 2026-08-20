@@ -19,8 +19,10 @@ import javax.inject.Singleton
  * Owns the one-time "feed switch hint" discovery coachmark — the bubble under
  * the top-of-feed Corus logo teaching users that the logo switches feed modes.
  * Shown on the first eligible feed visit (minSession default 1) so new users
- * learn the switcher exists — including zero-follow users auto-landed on
- * Trending after onboarding.
+ * learn the switcher exists. Zero-follow users auto-landed on Trending wait
+ * until they follow someone — then the hint teaches them how to switch back.
+ * Users who followed during onboarding see it immediately so they can find
+ * Trending.
  *
  * Device-local by design: all state lives in a private SharedPreferences file
  * (mirrors the web feature's localStorage and iOS's UserDefaults). Gating
@@ -62,6 +64,9 @@ class FeedSwitchHintManager @Inject constructor(
     private var wasAutoDefaultedToTrending: Boolean
         get() = prefs.getBoolean(KEY_AUTO_DEFAULTED, false)
         set(v) = prefs.edit { putBoolean(KEY_AUTO_DEFAULTED, v) }
+    private var hasFollowedSomeone: Boolean
+        get() = prefs.getBoolean(KEY_HAS_FOLLOWED, false)
+        set(v) = prefs.edit { putBoolean(KEY_HAS_FOLLOWED, v) }
 
     /** Count this app launch as one session, once per process. */
     fun recordSession() {
@@ -94,16 +99,29 @@ class FeedSwitchHintManager @Inject constructor(
 
     /**
      * After onboarding: land zero-follow users on Trending without treating that
-     * as "explored other feeds" (so the switcher coachmark can still show).
-     * No-op when they followed anyone, or when Trending's RC gate is off.
+     * as "explored other feeds", and withhold the switcher coachmark until they
+     * follow someone. When they already followed during onboarding, mark that
+     * so the hint can show immediately (they need it to find Trending).
      * Writes feed mode silently — does NOT call [noteSwitcherUsed]. The sync
      * seed is updated immediately so the feed's first frame resolves to Trending.
      */
     fun applyPostOnboardingFeedDefault(followedCount: Int) {
-        if (followedCount > 0) return
+        if (followedCount > 0) {
+            hasFollowedSomeone = true
+            return
+        }
         if (!remoteConfigService.trendingFeedEnabled) return
         wasAutoDefaultedToTrending = true
         preferencesDataStore.setFeedModeImmediate("trending", scope)
+    }
+
+    /**
+     * The user followed someone. Unblocks the hint for zero-follow users who
+     * were auto-landed on Trending, and re-evaluates so it can appear now.
+     */
+    fun noteFollowedSomeone() {
+        if (!hasFollowedSomeone) hasFollowedSomeone = true
+        evaluate()
     }
 
     /**
@@ -132,9 +150,10 @@ class FeedSwitchHintManager @Inject constructor(
         analyticsService.logFeedSwitchHintDismissed()
     }
 
-    /** Clears the post-onboarding auto-default flag (e.g. on sign-out). */
+    /** Clears the post-onboarding auto-default / first-follow flags (e.g. on sign-out). */
     fun clearAutoDefaultedToTrending() {
         wasAutoDefaultedToTrending = false
+        hasFollowedSomeone = false
     }
 
     private fun retire() {
@@ -158,6 +177,8 @@ class FeedSwitchHintManager @Inject constructor(
         hasExploredOtherFeed = !wasAutoDefaultedToTrending &&
             preferencesDataStore.feedModeSyncSeed()
                 .let { it.isNotEmpty() && it != "following" },
+        wasAutoDefaultedToTrending = wasAutoDefaultedToTrending,
+        hasFollowedSomeone = hasFollowedSomeone,
     )
 
     companion object {
@@ -166,6 +187,7 @@ class FeedSwitchHintManager @Inject constructor(
         private const val KEY_SHOWN_COUNT = "shown_count"
         private const val KEY_SESSION_COUNT = "session_count"
         private const val KEY_AUTO_DEFAULTED = "auto_defaulted_to_trending"
+        private const val KEY_HAS_FOLLOWED = "has_followed_someone"
         private const val REVEAL_DELAY_MS = 600L
 
         /** Pure gate — mirrors web `shouldShowHint`. Extracted for testing. */
@@ -179,6 +201,8 @@ class FeedSwitchHintManager @Inject constructor(
             sessionCount: Int,
             shownCount: Int,
             hasExploredOtherFeed: Boolean = false,
+            wasAutoDefaultedToTrending: Boolean = false,
+            hasFollowedSomeone: Boolean = true,
         ): Boolean {
             if (!enabled) return false
             if (hasOpened || hasDismissed) return false
@@ -186,6 +210,9 @@ class FeedSwitchHintManager @Inject constructor(
             // switcher and explored other feeds (even before this hint shipped).
             // Callers pass false when the mode was set by post-onboarding default.
             if (hasExploredOtherFeed) return false
+            // Auto-landed on Trending with nobody followed: wait until they
+            // follow someone, then teach them how to switch feeds.
+            if (wasAutoDefaultedToTrending && !hasFollowedSomeone) return false
             if (shownThisSession) return false
             if (sessionCount < minSession) return false
             if (shownCount >= maxImpressions) return false

@@ -28,6 +28,7 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.MusicServicePreference
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
+import fm.corus.android.domain.SpotifyFtueExperiment
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.FeedSwitchHintManager
 import fm.corus.android.service.NetworkMonitor
@@ -213,6 +214,11 @@ class AuthViewModel @Inject constructor(
                     )
                 ) {
                     analyticsService.setUserId(user.uid)
+                    SpotifyFtueExperiment.restoreUserProperties(
+                        preferences = preferencesDataStore,
+                        musicService = musicServicePreference.current.value.value,
+                        analytics = analyticsService,
+                    )
                     unreadCountsRepository.start(user.uid)
                     _authState.value = AuthState.SignedIn
                     launch { revalidateInBackground(user) }
@@ -267,18 +273,7 @@ class AuthViewModel @Inject constructor(
                         // launch. One slow launch, then fast forever.
                         onboardingLocalStore.markCompletedOnboarding(user.uid)
 
-                        // Prefetch in parallel
-                        launch { userRepository.prefetchFollowingSet(user.uid) }
-                        launch { userRepository.prefetchBlockedSet(user.uid) }
-                        launch { userRepository.prefetchMutedSet(user.uid) }
-                        userRepository.startBannedUsersListener()
-                        launch { userRepository.prefetchSuggestedMatches(user.uid) }
-                        launch { authRepository.registerFCMToken() }
-                        launch { remoteConfigService.fetchAndActivate() }
-                        launch { subscriptionRepository.refreshPostLimit() }
-                        launch { musicServicePreference.syncFromFirestore() }
-                        analyticsService.setUserId(user.uid)
-                        unreadCountsRepository.start(user.uid)
+                        warmSignedInSession(user.uid)
                         _authState.value = AuthState.SignedIn
                     }
                 } catch (e: Exception) {
@@ -293,6 +288,7 @@ class AuthViewModel @Inject constructor(
                         // recovers.
                         Log.w("AuthViewModel", "Transient auth-state error; staying signed in", e)
                         needsRefreshAfterReconnect = true
+                        warmSignedInSession(user.uid)
                         _authState.value = AuthState.SignedIn
                     }
                 }
@@ -550,7 +546,36 @@ class AuthViewModel @Inject constructor(
     }
 
     fun finishSocialSetup() {
+        // Auth never re-fires here — the user is already signed in from
+        // onboarding — so the Activity badge listener must start now.
+        // Skipping push permission does not affect this; the red bubble
+        // is a Firestore unread count, not an OS notification.
+        authRepository.currentUserId?.let { warmSignedInSession(it) }
         _authState.value = AuthState.SignedIn
+    }
+
+    /**
+     * Session warmups that run once the user can see the feed. Shared by
+     * returning-user sign-in and [finishSocialSetup] so the first session
+     * after onboarding still gets unread-count badges and caches.
+     */
+    private fun warmSignedInSession(uid: String) {
+        analyticsService.setUserId(uid)
+        SpotifyFtueExperiment.restoreUserProperties(
+            preferences = preferencesDataStore,
+            musicService = musicServicePreference.current.value.value,
+            analytics = analyticsService,
+        )
+        unreadCountsRepository.start(uid)
+        viewModelScope.launch { userRepository.prefetchFollowingSet(uid) }
+        viewModelScope.launch { userRepository.prefetchBlockedSet(uid) }
+        viewModelScope.launch { userRepository.prefetchMutedSet(uid) }
+        userRepository.startBannedUsersListener()
+        viewModelScope.launch { userRepository.prefetchSuggestedMatches(uid) }
+        viewModelScope.launch { authRepository.registerFCMToken() }
+        viewModelScope.launch { remoteConfigService.fetchAndActivate() }
+        viewModelScope.launch { subscriptionRepository.refreshPostLimit() }
+        viewModelScope.launch { musicServicePreference.syncFromFirestore() }
     }
 
     fun resetVerification() {

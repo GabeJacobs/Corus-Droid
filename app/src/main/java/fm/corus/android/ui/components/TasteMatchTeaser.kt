@@ -69,19 +69,26 @@ fun TasteMatchTeaser(
     match: MusicMatchData,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    showsCapsule: Boolean = true,
 ) {
     val thumbs = remember(match) { thumbnailURLs(match).take(3) }
     val names = remember(match) { sharedNames(match) }
     val totalSheetItems = remember(match) { totalSheetItems(match) }
     val measurer = rememberTextMeasurer()
     val labelStyle = CorusFont.button
+    val capsule = if (showsCapsule) {
+        Modifier
+            .clip(RoundedCornerShape(100))
+            .border(1.dp, CorusColors.Divider, RoundedCornerShape(100))
+            .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm)
+    } else {
+        Modifier
+    }
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(100))
-            .border(1.dp, CorusColors.Divider, RoundedCornerShape(100))
-            .clickable(onClick = onClick)
-            .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+            .then(capsule)
+            .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
     ) {

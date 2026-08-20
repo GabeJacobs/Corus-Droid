@@ -1,7 +1,5 @@
 package fm.corus.android.ui.screens.auth
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -121,7 +119,7 @@ import kotlinx.coroutines.launch
  * motion lives inside the screens (venn collision, slot springs), not between
  * them.
  */
-private enum class TasteStep { MUSIC_SERVICE, SYNC_CONTACTS, TASTE_INTRO, QUIZ, SUGGESTIONS, HEADSTART }
+private enum class TasteStep { MUSIC_SERVICE, SYNC_CONTACTS, TASTE_INTRO, QUIZ, SUGGESTIONS, HEADSTART, NOTIFICATIONS }
 
 /** Every onboarding step pins its PRIMARY CTA's bottom edge to the same
  *  baseline: 56dp above the nav bar. Steps with a secondary text link under
@@ -159,21 +157,14 @@ internal fun TasteOnboardingFlow(
         }
     }
 
-    // The push-permission prompt fires at the flow's REAL finish (the legacy
-    // flow fired it on the music-service step, which is now step #2).
+    // The notification primer is the flow's REAL finish (the legacy flow
+    // fired the system dialog on the music-service step, which is now #2).
     val context = LocalContext.current
-    val pushPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        viewModel.analyticsService.logNotificationPermissionResult(granted)
-        viewModel.markPushPermissionRequested()
-        onFinished()
-    }
     val finishFlow: () -> Unit = {
         viewModel.logFollowFriendsOnboardingCompleted()
         viewModel.applyPostOnboardingFeedDefault()
         if (PushNotificationPermission.shouldRequestPushPermission(context)) {
-            pushPermissionLauncher.launch(PushNotificationPermission.permission)
+            step = TasteStep.NOTIFICATIONS
         } else {
             viewModel.markPushPermissionRequested()
             onFinished()
@@ -190,7 +181,6 @@ internal fun TasteOnboardingFlow(
             // contacts step untouched.
             onFinished = { step = TasteStep.TASTE_INTRO },
             ctaLabelRes = R.string.onboarding_cta_continue,
-            promptPushOnFinish = false,
         )
         // Quiz skippers gave no taste signal — grab the contacts signal
         // instead (product decision 07-16). All outcomes advance to
@@ -244,6 +234,10 @@ internal fun TasteOnboardingFlow(
         TasteStep.HEADSTART -> HeadstartScreen(
             viewModel = viewModel,
             onDone = finishFlow,
+        )
+        TasteStep.NOTIFICATIONS -> NotificationPermissionScreen(
+            viewModel = viewModel,
+            onFinished = onFinished,
         )
     }
 

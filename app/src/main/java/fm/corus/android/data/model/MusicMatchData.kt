@@ -62,6 +62,10 @@ data class MusicMatchData(
     val totalSharedMovies: Int get() = sharedPostedMovies + sharedLikedMovies
     val isHighMatch: Boolean get() = similarityScore >= 0.15
 
+    /** Teaser/sheet only render when there is at least one artwork tile. */
+    val hasDisplayableTiles: Boolean
+        get() = sharedTrackPreviews.isNotEmpty() || sharedMoviePreviews.isNotEmpty()
+
     companion object {
         @Suppress("UNCHECKED_CAST")
         fun fromMap(data: Map<String, Any?>): MusicMatchData {

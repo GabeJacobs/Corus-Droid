@@ -318,6 +318,8 @@ fun NotificationsNavGraph(
     ) {
         composable<NotificationsTabRoute> {
             val unreadMessageCount by mainTabViewModel.unreadMessageCount.collectAsState()
+            val bannerDismissed by mainTabViewModel.notificationReaskController.dismissedBanner.collectAsState()
+            val hasRequestedPush by mainTabViewModel.notificationReaskController.hasRequestedPushPermission.collectAsState()
             NotificationsScreen(
                 scrollToTopTrigger = scrollToTopTrigger,
                 tabActivationTrigger = tabActivationTrigger,
@@ -325,6 +327,17 @@ fun NotificationsNavGraph(
                 onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
                 onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
                 onNavigateToMessages = { navController.navigate(ThreadListRoute) },
+                hasRequestedPushPermission = hasRequestedPush,
+                onMarkPushPermissionRequested = {
+                    mainTabViewModel.notificationReaskController.markPushPermissionRequested()
+                },
+                onLogBannerEnable = { openedSettings ->
+                    mainTabViewModel.notificationReaskController.logBannerEnable(openedSettings)
+                },
+                disabledBannerDismissed = bannerDismissed,
+                onDismissDisabledBanner = {
+                    mainTabViewModel.notificationReaskController.dismissBanner()
+                },
                 onNavigateToPostComments = { postId, commentId ->
                     navController.navigate(SinglePostCommentsRoute(postId, commentId))
                 },
@@ -539,6 +552,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
                 navController.navigate(MessageThreadRoute(threadId, otherUserId))
             },
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
+            onNavigateToArtist = { route -> navController.navigate(route) },
         )
     }
 
@@ -570,6 +584,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
                     navController.navigate(MessageThreadRoute(threadId, otherUserId))
                 },
                 onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
+                onNavigateToArtist = { route -> navController.navigate(route) },
             )
         }
     }

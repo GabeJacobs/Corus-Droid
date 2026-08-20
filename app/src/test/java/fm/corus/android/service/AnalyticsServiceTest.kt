@@ -58,6 +58,24 @@ class AnalyticsServiceTest {
     }
 
     @Test
+    fun `logNotificationPermissionPrimerShown emits notification_permission_primer_shown`() {
+        service.logNotificationPermissionPrimerShown()
+        verify(firebase).logEvent(eq("notification_permission_primer_shown"), any<Bundle>())
+    }
+
+    @Test
+    fun `logNotificationPermissionPrimerTapped emits notification_permission_primer_tapped`() {
+        service.logNotificationPermissionPrimerTapped("allow")
+        verify(firebase).logEvent(eq("notification_permission_primer_tapped"), any<Bundle>())
+    }
+
+    @Test
+    fun `logNotificationPermissionReaskShown emits notification_permission_reask_shown`() {
+        service.logNotificationPermissionReaskShown("first_comment")
+        verify(firebase).logEvent(eq("notification_permission_reask_shown"), any<Bundle>())
+    }
+
+    @Test
     fun `logLikesListViewed emits likes_list_viewed`() {
         service.logLikesListViewed("post123")
         verify(firebase).logEvent(eq("likes_list_viewed"), any<Bundle>())
@@ -184,6 +202,28 @@ class AnalyticsServiceTest {
     fun `logFeedSwitchHintDismissed emits feed_switch_hint_dismissed`() {
         service.logFeedSwitchHintDismissed()
         verify(firebase).logEvent(eq("feed_switch_hint_dismissed"), any<Bundle>())
+    }
+
+    @Test
+    fun `spotify FTUE events match iOS names`() {
+        service.logSpotifyFtueAssigned("a", true)
+        verify(firebase).logEvent(eq("spotify_ftue_assigned"), any<Bundle>())
+        service.logSpotifyAuthConnectPromptShown("track1", "b", "first_play")
+        verify(firebase).logEvent(eq("spotify_auth_connect_prompt_shown"), any<Bundle>())
+        service.logSpotifyFtuePromptChosen("b", "first_play", "link")
+        verify(firebase).logEvent(eq("spotify_ftue_prompt_chosen"), any<Bundle>())
+        service.logSpotifyAuthConnected("app_remote")
+        verify(firebase).logEvent(eq("spotify_auth_connected"), any<Bundle>())
+        service.logSpotifyAuthConnectFailed("denied")
+        verify(firebase).logEvent(eq("spotify_auth_connect_failed"), any<Bundle>())
+        service.logSpotifyAuthConnectCancelled()
+        verify(firebase).logEvent(eq("spotify_auth_connect_cancelled"), any<Bundle>())
+        service.logSpotifyAuthDisconnected()
+        verify(firebase).logEvent(eq("spotify_auth_disconnected"), any<Bundle>())
+        service.logSpotifyFullSongPlayStarted("track1", "spotify")
+        verify(firebase).logEvent(eq("spotify_full_song_play_started"), any<Bundle>())
+        service.logSpotifyFullSongPlayFailed("track1", "timeout")
+        verify(firebase).logEvent(eq("spotify_full_song_play_failed"), any<Bundle>())
     }
 
     @Test

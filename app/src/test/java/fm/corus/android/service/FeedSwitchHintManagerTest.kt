@@ -21,6 +21,8 @@ class FeedSwitchHintManagerTest {
         sessionCount: Int = 1,
         shownCount: Int = 0,
         hasExploredOtherFeed: Boolean = false,
+        wasAutoDefaultedToTrending: Boolean = false,
+        hasFollowedSomeone: Boolean = true,
     ) = FeedSwitchHintManager.computeShouldShow(
         enabled = enabled,
         minSession = minSession,
@@ -31,6 +33,8 @@ class FeedSwitchHintManagerTest {
         sessionCount = sessionCount,
         shownCount = shownCount,
         hasExploredOtherFeed = hasExploredOtherFeed,
+        wasAutoDefaultedToTrending = wasAutoDefaultedToTrending,
+        hasFollowedSomeone = hasFollowedSomeone,
     )
 
     @Test fun `shows on the happy path`() = assertTrue(show())
@@ -54,7 +58,35 @@ class FeedSwitchHintManagerTest {
 
     @Test fun `shows when trending was only auto-defaulted after onboarding`() =
         // Callers pass hasExploredOtherFeed=false when wasAutoDefaultedToTrending.
-        assertTrue(show(hasExploredOtherFeed = false, sessionCount = 1))
+        // They still need a first follow before the hint is useful.
+        assertTrue(
+            show(
+                hasExploredOtherFeed = false,
+                sessionCount = 1,
+                wasAutoDefaultedToTrending = true,
+                hasFollowedSomeone = true,
+            )
+        )
+
+    @Test fun `hidden on auto-defaulted trending until the first follow`() =
+        assertFalse(
+            show(
+                hasExploredOtherFeed = false,
+                sessionCount = 1,
+                wasAutoDefaultedToTrending = true,
+                hasFollowedSomeone = false,
+            )
+        )
+
+    @Test fun `shows immediately when they followed during onboarding`() =
+        assertTrue(
+            show(
+                hasExploredOtherFeed = false,
+                sessionCount = 1,
+                wasAutoDefaultedToTrending = false,
+                hasFollowedSomeone = true,
+            )
+        )
 
     @Test fun `hidden after it already showed this session`() =
         assertFalse(show(shownThisSession = true))

@@ -31,6 +31,7 @@ import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.MusicServicePreference
+import fm.corus.android.domain.SpotifyFtueExperiment
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.NowPlayingState
 import fm.corus.android.service.AnalyticsService
@@ -221,10 +222,21 @@ class SocialSetupViewModel @Inject constructor(
         }
     }
 
-    fun saveMusicService(service: MusicService) {
+    fun saveMusicService(service: MusicService, spotifyInstalled: Boolean) {
         analyticsService.logMusicServiceSelected(service.value)
         viewModelScope.launch {
             musicServicePreference.syncToFirestore(service)
+            // Experiment value is delivered on fetch. Stamp only after that
+            // so a fast onboarding tap does not stick `off` forever.
+            remoteConfigService.awaitInitialFetch()
+            SpotifyFtueExperiment.applyOnboardingDefaults(
+                uid = authRepository.currentUserId,
+                service = service,
+                spotifyInstalled = spotifyInstalled,
+                rcVariant = remoteConfigService.spotifyFtueVariant,
+                preferences = preferencesDataStore,
+                analytics = analyticsService,
+            )
         }
     }
 
@@ -295,8 +307,8 @@ class SocialSetupViewModel @Inject constructor(
         private val VENN_AVATAR_EXCLUDE = setOf("arielle", "jakeport461")
     }
 
-    /** Remembers that we've shown the push-permission prompt so the MainTab fallback
-     * doesn't re-prompt in the same session. */
+    /** Remembers that the primer finished (Allow or Not now) so the MainTab
+     * fallback doesn't fire the system dialog on feed entry. */
     fun markPushPermissionRequested() {
         viewModelScope.launch {
             preferencesDataStore.setHasRequestedPushPermission()

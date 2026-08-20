@@ -11,37 +11,50 @@ import androidx.compose.ui.res.stringResource
 import fm.corus.android.R
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.domain.MusicServiceLinkOut
+import fm.corus.android.domain.SpotifyFtuePromptKind
 
 @Composable
 fun PlaybackModePromptOverlay(
-    musicService: MusicService,
-    onChoosePreviews: () -> Unit,
-    onChooseFullSongs: () -> Unit,
+    kind: SpotifyFtuePromptKind,
+    onSecondary: () -> Unit,
+    onLinkSpotify: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
 
-    val bodyRes = when (musicService) {
-        MusicService.APPLE_MUSIC -> R.string.playback_mode_prompt_body_apple_music
-        else -> R.string.playback_mode_prompt_body_spotify
+    val title = when (kind) {
+        SpotifyFtuePromptKind.LINK_SPOTIFY ->
+            stringResource(R.string.playback_mode_prompt_title_link)
+        SpotifyFtuePromptKind.CHOOSE_LISTEN ->
+            stringResource(R.string.playback_mode_prompt_title)
+    }
+    val secondary = when (kind) {
+        SpotifyFtuePromptKind.LINK_SPOTIFY ->
+            stringResource(R.string.playback_mode_prompt_not_now)
+        SpotifyFtuePromptKind.CHOOSE_LISTEN ->
+            stringResource(R.string.playback_mode_prompt_previews)
     }
 
     CorusPromptOverlay(
         visible = visible,
-        title = stringResource(R.string.playback_mode_prompt_title),
-        message = stringResource(bodyRes),
-        footnote = stringResource(R.string.playback_mode_prompt_settings_footnote),
-        iconRes = MusicServiceLinkOut.logoRes(musicService),
+        title = title,
+        message = stringResource(R.string.playback_mode_prompt_body_spotify_link),
+        footnote = if (kind == SpotifyFtuePromptKind.LINK_SPOTIFY) {
+            stringResource(R.string.playback_mode_prompt_link_footnote)
+        } else {
+            null
+        },
+        iconRes = MusicServiceLinkOut.logoRes(MusicService.SPOTIFY),
         buttons = listOf(
             CorusPromptButton(
-                label = stringResource(R.string.playback_mode_prompt_previews),
-                onClick = onChoosePreviews,
+                label = secondary,
+                onClick = onSecondary,
             ),
             CorusPromptButton(
-                label = stringResource(R.string.playback_mode_prompt_full_songs),
+                label = stringResource(R.string.playback_mode_prompt_link_spotify),
                 emphasized = true,
-                onClick = onChooseFullSongs,
+                onClick = onLinkSpotify,
             ),
         ),
         modifier = modifier,

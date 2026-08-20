@@ -145,6 +145,7 @@ fun FullPlayerScreen(
     onMentionTap: (String) -> Unit = {},
     onHashtagTap: (String) -> Unit = {},
     onLikeLongPress: ((String) -> Unit)? = null,
+    onOpenLikes: (String) -> Unit = {},
     commentsRefreshSignal: Int = 0,
     modifier: Modifier = Modifier,
     fullPlayerViewModel: FullPlayerViewModel = hiltViewModel(),
@@ -491,6 +492,7 @@ fun FullPlayerScreen(
                 onMentionTap = onMentionTap,
                 onHashtagTap = onHashtagTap,
                 onLikeLongPress = onLikeLongPress,
+                onOpenLikes = onOpenLikes,
                 modifier = Modifier.fillMaxWidth(),
             )
 

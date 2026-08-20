@@ -1712,15 +1712,7 @@ private fun LazyListScope.compactTrendingFilmsSection(
                         modifier = Modifier
                             .width(90.dp)
                             .clickable {
-                                onFilmTap(FilmDetailRoute(
-                                    movieId = movie.movieId,
-                                    movieTitle = movie.movieTitle,
-                                    directorName = movie.directorName.ifBlank { null },
-                                    releaseYear = movie.releaseYear.ifBlank { null },
-                                    posterURL = movie.posterURL,
-                                    posterLargeURL = movie.posterLargeURL,
-                                    trailerURL = movie.trailerURL,
-                                ))
+                                onFilmTap(movie.asCymbalMovie().toFilmDetailRoute())
                             },
                     ) {
                         // Large poster first — same upscaling reasoning as
@@ -2189,15 +2181,7 @@ private fun UnifiedAllResults(
                     // Director rows are omitted in the blended view (web
                     // parity) — the Film chip has them.
                     FilmSearchResultRow(movie = movie, onClick = {
-                        onNavigateToFilm(FilmDetailRoute(
-                            movieId = movie.id,
-                            movieTitle = movie.title,
-                            directorName = movie.directorName.ifBlank { null },
-                            releaseYear = movie.year.ifBlank { null },
-                            posterURL = movie.posterURL,
-                            posterLargeURL = movie.posterLargeURL,
-                            trailerURL = movie.trailerURL,
-                        ))
+                        onNavigateToFilm(movie.toFilmDetailRoute())
                     })
                     if (index < visibleMovies.lastIndex) {
                         HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = CorusColors.Divider, thickness = 0.5.dp)
@@ -3325,15 +3309,7 @@ private fun FilmSearchResultsList(
             }
             itemsIndexed(movies) { index, movie ->
                 FilmSearchResultRow(movie = movie, onClick = {
-                    onFilmTap(FilmDetailRoute(
-                        movieId = movie.id,
-                        movieTitle = movie.title,
-                        directorName = movie.directorName.ifBlank { null },
-                        releaseYear = movie.year.ifBlank { null },
-                        posterURL = movie.posterURL,
-                        posterLargeURL = movie.posterLargeURL,
-                        trailerURL = movie.trailerURL,
-                    ))
+                    onFilmTap(movie.toFilmDetailRoute())
                 })
                 if (index < movies.lastIndex) {
                     HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = CorusColors.Divider, thickness = 0.5.dp)
