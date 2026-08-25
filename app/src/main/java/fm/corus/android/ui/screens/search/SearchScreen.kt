@@ -86,12 +86,14 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.RecentSearchItem
 import fm.corus.android.data.model.SuggestedUserMatch
+import fm.corus.android.data.model.TrendingArtist
 import fm.corus.android.data.model.TrendingHashtag
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.data.model.TrendingWindow
 import fm.corus.android.domain.HapticManager
+import kotlinx.coroutines.launch
 import fm.corus.android.domain.QueuedTrack
 import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.service.AnalyticsService
@@ -187,11 +189,17 @@ fun SearchScreen(
     val clubMembers by viewModel.clubMembers.collectAsState()
     val artistsOnCorus by viewModel.artistsOnCorus.collectAsState()
     val artistsOnCorusSectionEnabled = viewModel.artistsOnCorusSectionEnabled
+    val trendingArtistsSectionEnabled = viewModel.trendingArtistsSectionEnabled
     val hashtagSearchResults by viewModel.hashtagSearchResults.collectAsState()
     val trendingHashtags by viewModel.trendingHashtags.collectAsState()
     val isTrendingHashtagsLoading by viewModel.isTrendingHashtagsLoading.collectAsState()
     val trendingHashtagsWindow by viewModel.trendingHashtagsWindow.collectAsState()
+    val trendingArtists by viewModel.trendingArtists.collectAsState()
+    val isTrendingArtistsLoading by viewModel.isTrendingArtistsLoading.collectAsState()
+    val isResolvingArtist by viewModel.isResolvingArtist.collectAsState()
     val followedHashtagNames by viewModel.followedHashtagNames.collectAsState()
+    val searchScope = rememberCoroutineScope()
+    val searchContext = LocalContext.current
 
     val activeTabIndex by viewModel.activeTab.collectAsState()
     val activeTab = SearchTab.entries[activeTabIndex]
@@ -552,6 +560,9 @@ fun SearchScreen(
                             isTrendingMoviesLoading = isTrendingMoviesLoading,
                             trendingHashtags = trendingHashtags,
                             isTrendingHashtagsLoading = isTrendingHashtagsLoading,
+                            trendingArtists = trendingArtists,
+                            isTrendingArtistsLoading = isTrendingArtistsLoading,
+                            trendingArtistsSectionEnabled = trendingArtistsSectionEnabled,
                             followedHashtagNames = followedHashtagNames,
                             viewModel = viewModel,
                             onNavigateToUser = onNavigateToUser,
@@ -560,6 +571,17 @@ fun SearchScreen(
                             onNavigateToSong = onNavigateToSong,
                             onNavigateToFilm = onNavigateToFilm,
                             onNavigateToHashtag = onNavigateToHashtag,
+                            onNavigateToArtist = { artist ->
+                                searchScope.launch {
+                                    val route = viewModel.resolveTrendingArtist(artist)
+                                    if (route != null) onNavigateToArtist(route)
+                                    else android.widget.Toast.makeText(
+                                        searchContext,
+                                        searchContext.getString(fm.corus.android.R.string.song_detail_artist_not_found),
+                                        android.widget.Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
+                            },
                             onNavigateToTrending = onNavigateToTrending,
                         )
                     }
@@ -705,6 +727,16 @@ fun SearchScreen(
                     onRemove = { dedupeKey -> viewModel.removeRecentSearch(dedupeKey) },
                     onClearAll = { viewModel.clearRecentSearches() },
                 )
+            }
+            if (isResolvingArtist) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(color = CorusColors.Accent)
+                }
             }
         }
     }
@@ -1839,12 +1871,84 @@ private fun LazyListScope.compactTrendingHashtagsSection(
     item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
 }
 
+/** Compact trending-artists strip: header + square art tiles + See all. */
+private fun LazyListScope.compactTrendingArtistsSection(
+    artists: List<TrendingArtist>,
+    isLoading: Boolean,
+    viewModel: SearchViewModel,
+    onArtistTap: (TrendingArtist) -> Unit,
+    onSeeAll: () -> Unit,
+) {
+    if (!isLoading && artists.isEmpty()) return
+    item {
+        SectionHeader(
+            icon = "mic",
+            title = stringResource(fm.corus.android.R.string.search_trending_artists_title).uppercase(),
+            showSeeAll = true,
+            onSeeAll = {
+                viewModel.logSearchSectionSeeAllTapped(SearchSection.TrendingArtists)
+                onSeeAll()
+            },
+        )
+    }
+    item {
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+        ) {
+            if (isLoading) {
+                items(4) {
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(CorusColors.CardBackground),
+                    )
+                }
+            } else {
+                items(artists, key = { "ta-${it.id}" }) { artist ->
+                    Column(
+                        modifier = Modifier
+                            .width(120.dp)
+                            .clickable { onArtistTap(artist) },
+                    ) {
+                        Box {
+                            ShimmerAsyncImage(
+                                model = artist.albumArtLargeURL ?: artist.albumArtURL,
+                                contentDescription = "${artist.rank}. ${artist.artistName}",
+                                modifier = Modifier.size(120.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                contentScale = ContentScale.Crop,
+                            )
+                            TrendingTileRankBadge(
+                                rank = artist.rank,
+                                modifier = Modifier.align(Alignment.TopStart),
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                        Text(
+                            artist.artistName,
+                            style = CorusFont.captionMedium,
+                            color = CorusColors.Text,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        }
+    }
+    item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
+}
+
 /**
  * The unified blended zero state: every discovery section on one scroll in
  * web's order — contacts, taste matches, trending songs, trending films,
- * popular, trending hashtags, mutual connections, club members, new on
- * Corus, invite friends. People sections keep their existing rails; trending
- * verticals appear as compact strips whose See-all opens the full list.
+ * popular, trending hashtags, trending artists, mutual connections, club
+ * members, new on Corus, invite friends. People sections keep their existing
+ * rails; trending verticals appear as compact strips whose See-all opens
+ * the full list.
  */
 @Composable
 private fun UnifiedZeroStateContent(
@@ -1877,6 +1981,9 @@ private fun UnifiedZeroStateContent(
     isTrendingMoviesLoading: Boolean,
     trendingHashtags: List<TrendingHashtag>,
     isTrendingHashtagsLoading: Boolean,
+    trendingArtists: List<TrendingArtist>,
+    isTrendingArtistsLoading: Boolean,
+    trendingArtistsSectionEnabled: Boolean,
     followedHashtagNames: Set<String>,
     viewModel: SearchViewModel,
     onNavigateToUser: (String) -> Unit,
@@ -1885,6 +1992,7 @@ private fun UnifiedZeroStateContent(
     onNavigateToSong: (CymbalTrack) -> Unit,
     onNavigateToFilm: (FilmDetailRoute) -> Unit,
     onNavigateToHashtag: (String) -> Unit,
+    onNavigateToArtist: (TrendingArtist) -> Unit,
     onNavigateToTrending: (String) -> Unit,
 ) {
     val context = LocalContext.current
@@ -1974,6 +2082,15 @@ private fun UnifiedZeroStateContent(
             onToggleFollow = { tag -> viewModel.toggleHashtagFollowByName(tag.name) },
             onSeeAll = { onNavigateToTrending("hashtags") },
         )
+        if (trendingArtistsSectionEnabled) {
+            compactTrendingArtistsSection(
+                artists = trendingArtists,
+                isLoading = isTrendingArtistsLoading,
+                viewModel = viewModel,
+                onArtistTap = onNavigateToArtist,
+                onSeeAll = { onNavigateToTrending("artists") },
+            )
+        }
         // Mutual connections stay above club members (classic Android has
         // them flipped; unified follows web).
         mutualConnectionsSection(
@@ -2419,6 +2536,7 @@ internal fun SectionHeader(
             "fire" -> Icons.Filled.LocalFireDepartment
             "music" -> Icons.Filled.MusicNote
             "film" -> Icons.Filled.Movie
+            "mic" -> Icons.Filled.Mic
             else -> null
         }
         if (iconVector != null) {
@@ -2725,6 +2843,100 @@ private fun TrendingSongRow(
 }
 
 @Composable
+internal fun TrendingArtistsContent(
+    listState: LazyListState = rememberLazyListState(),
+    artists: List<TrendingArtist>,
+    isLoading: Boolean,
+    window: TrendingWindow,
+    onWindowChange: (TrendingWindow) -> Unit,
+    onArtistTap: (TrendingArtist) -> Unit,
+) {
+    val header: @Composable () -> Unit = {
+        TrendingHeader(
+            iconName = "mic",
+            window = window,
+            onWindowChange = onWindowChange,
+        )
+    }
+    if (isLoading) {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
+            item { header() }
+            items(5) { SkeletonTrendingSongRow() }
+        }
+        return
+    }
+    if (artists.isEmpty()) {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
+            item { header() }
+            item {
+                Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Filled.Mic,
+                            contentDescription = null,
+                            tint = CorusColors.Tertiary,
+                            modifier = Modifier.size(36.dp).padding(bottom = CorusSpacing.sm),
+                        )
+                        Text(stringResource(fm.corus.android.R.string.search_nothing_trending), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                    }
+                }
+            }
+        }
+    } else {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
+            item { header() }
+            itemsIndexed(artists) { index, artist ->
+                TrendingArtistRow(artist = artist, onClick = { onArtistTap(artist) })
+                if (index < artists.lastIndex) {
+                    HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = CorusColors.Divider, thickness = 0.5.dp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrendingArtistRow(
+    artist: TrendingArtist,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "${artist.rank}",
+            style = CorusFont.bodyMedium,
+            color = CorusColors.Tertiary,
+            modifier = Modifier.width(24.dp),
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
+        ShimmerAsyncImage(
+            model = artist.albumArtLargeURL ?: artist.albumArtURL,
+            contentDescription = artist.artistName,
+            modifier = Modifier.size(44.dp),
+            shape = RoundedCornerShape(4.dp),
+            contentScale = ContentScale.Crop,
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
+        Text(
+            artist.artistName,
+            style = CorusFont.bodyMedium,
+            color = CorusColors.Text,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (artist.cymbalCount > 0) {
+            Text("${artist.cymbalCount}", style = CorusFont.caption, color = CorusColors.Tertiary)
+        }
+    }
+}
+
+@Composable
 internal fun TrendingFilmsContent(
     listState: LazyListState = rememberLazyListState(),
     movies: List<TrendingMovie>,
@@ -2801,6 +3013,7 @@ private fun TrendingHeader(
         "music" -> Icons.Filled.MusicNote
         "film" -> Icons.Filled.Movie
         "hashtag" -> Icons.Filled.Tag
+        "mic" -> Icons.Filled.Mic
         else -> null
     }
     val windowLabelRes = when (window) {

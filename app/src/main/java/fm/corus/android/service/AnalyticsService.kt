@@ -24,6 +24,7 @@ enum class SearchSection(val value: String) {
     TrendingSongs("trending_songs"),
     TrendingFilms("trending_films"),
     TrendingHashtags("trending_hashtags"),
+    TrendingArtists("trending_artists"),
     ArtistsOnCorus("artists_on_corus"),
 }
 

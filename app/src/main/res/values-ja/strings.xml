@@ -440,6 +440,7 @@
     <string name="search_trending_songs_title">トレンドの曲</string>
     <string name="search_trending_films_title">トレンドの映画</string>
     <string name="search_trending_hashtags_title">トレンドのハッシュタグ</string>
+    <string name="search_trending_artists_title">トレンドのアーティスト</string>
     <string name="search_tab_users">ユーザー</string>
     <string name="search_tab_songs">曲</string>
     <string name="search_tab_films">映画</string>

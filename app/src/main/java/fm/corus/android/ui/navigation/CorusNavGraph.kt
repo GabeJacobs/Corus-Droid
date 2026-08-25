@@ -417,6 +417,7 @@ fun ProfileNavGraph(
                 },
                 onNavigateToClub = { navController.navigate(CymbalClubOfferRoute()) },
                 onOpenCompose = onOpenCompose,
+                onNavigateToArtist = if (artistPagesEnabled) { { route -> navController.navigate(route) } } else null,
             )
         }
         sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowPhoto = onShowPhoto, onShowLikes = { likesPostId = it }, onShowReposters = { repostersPostId = it }, isContainingTabSelected = isContainingTabSelected, artistPagesEnabled = artistPagesEnabled)
@@ -971,6 +972,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
             onNavigateToFilm = { filmRoute -> navController.navigate(filmRoute) },
             onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
+            onNavigateToArtist = { route -> navController.navigate(route) },
         )
     }
 

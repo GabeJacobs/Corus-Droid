@@ -84,6 +84,7 @@ class SearchViewModelHashtagTest {
             on { trendingSongsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()
             on { trendingFilmsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()
             on { trendingHashtagsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()
+            on { trendingArtistsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()
         }
         remoteConfigService = mock()
         analyticsService = mock()
@@ -123,12 +124,15 @@ class SearchViewModelHashtagTest {
                 .thenReturn(kotlinx.coroutines.flow.emptyFlow())
             whenever(preferencesDataStore.trendingFilmsWindow)
                 .thenReturn(kotlinx.coroutines.flow.emptyFlow())
+            whenever(preferencesDataStore.trendingArtistsWindow)
+                .thenReturn(kotlinx.coroutines.flow.emptyFlow())
 
             val vm = createViewModel()
             advanceUntilIdle()
 
             assertEquals(TrendingWindow.WEEK, vm.trendingHashtagsWindow.value)
             assertEquals(TrendingWindow.WEEK, vm.trendingSongsWindow.value)
+            assertEquals(TrendingWindow.WEEK, vm.trendingArtistsWindow.value)
             assertEquals(TrendingWindow.WEEK, vm.trendingFilmsWindow.value)
         }
 

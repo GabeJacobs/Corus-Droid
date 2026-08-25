@@ -1170,12 +1170,17 @@ class FirestoreDataSource @Inject constructor(
     }
 
     /** Same shape as `fetchTrendingSongsByWindow` but for artists
-     *  (trending_cache/artists — only month/year windows exist server-side). */
+     *  (trending_cache/artists — week/month/year). A missing week bucket
+     *  stays empty rather than falling back to the legacy month `items`. */
     suspend fun fetchTrendingArtistsByWindow(limit: Int = 20): Map<TrendingWindow, List<TrendingArtist>> {
         val doc = firestore.collection("trending_cache").document("artists").get().await()
         val data = doc.data ?: return emptyMap()
         return TrendingWindow.values().associateWith { window ->
-            pickWindowItems(data, window).take(limit).mapNotNull { parseTrendingArtist(it) }
+            if (window == TrendingWindow.WEEK && data["week"] == null) {
+                emptyList()
+            } else {
+                pickWindowItems(data, window).take(limit).mapNotNull { parseTrendingArtist(it) }
+            }
         }
     }
 

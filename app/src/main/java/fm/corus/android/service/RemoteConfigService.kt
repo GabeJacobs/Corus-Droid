@@ -311,6 +311,11 @@ class RemoteConfigService @Inject constructor(
     val artistsOnCorusSectionEnabled: Boolean
         get() = feedFlag("artists_on_corus_section_enabled")
 
+    /// Search zero-state rail: trending artists (below hashtags). Shares
+    /// `trending_artists_section_enabled` with iOS/web.
+    val trendingArtistsSectionEnabled: Boolean
+        get() = feedFlag("trending_artists_section_enabled")
+
     /// Profile → artist-page card ("View artist page" + optional taste-match
     /// row). Default OFF. @gabe is hardcoded on in [isProfileArtistLinkEnabled]
     /// so the owner can evaluate without an RC condition. Shares
@@ -560,6 +565,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("profile_share_enabled", remoteConfig.getBoolean("profile_share_enabled"))
             .putBoolean("unified_search_enabled", remoteConfig.getBoolean("unified_search_enabled"))
             .putBoolean("artists_on_corus_section_enabled", remoteConfig.getBoolean("artists_on_corus_section_enabled"))
+            .putBoolean("trending_artists_section_enabled", remoteConfig.getBoolean("trending_artists_section_enabled"))
             .putBoolean("profile_artist_link_enabled", remoteConfig.getBoolean("profile_artist_link_enabled"))
             .putBoolean("compose_unified_search_enabled", remoteConfig.getBoolean("compose_unified_search_enabled"))
             .putBoolean("feed_switch_hint_enabled", remoteConfig.getBoolean("feed_switch_hint_enabled"))
@@ -660,6 +666,7 @@ class RemoteConfigService @Inject constructor(
             "profile_share_enabled" to false,
             "unified_search_enabled" to false,
             "artists_on_corus_section_enabled" to false,
+            "trending_artists_section_enabled" to false,
             "profile_artist_link_enabled" to false,
             "compose_unified_search_enabled" to false,
             "feed_switch_hint_enabled" to false,

@@ -8,6 +8,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.LinkedArtist
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
@@ -239,6 +240,18 @@ class ProfileViewModel @Inject constructor(
     private val _profile = MutableStateFlow<CymbalUser?>(null)
     val profile: StateFlow<CymbalUser?> = _profile.asStateFlow()
 
+    // Catalog artist linked via artistLinks. Own-profile loads posts separately
+    // from getProfileData, so this is fetched via getLinkedArtistForUser.
+    private val _linkedArtist = MutableStateFlow<LinkedArtist?>(null)
+    val linkedArtist: StateFlow<LinkedArtist?> = _linkedArtist.asStateFlow()
+
+    val isProfileArtistLinkEnabled: Boolean
+        get() = remoteConfigService.isProfileArtistLinkEnabled(authRepository.userProfile.value?.username)
+
+    fun logProfileArtistLinkTapped(artistId: String, profileUserId: String) {
+        analyticsService.logProfileArtistLinkTapped(artistId, profileUserId)
+    }
+
     // Optimistic avatar preview: set at the start of uploadAvatar and cleared
     // once the server round-trip completes, so the new avatar appears immediately
     // without waiting for Firestore + Storage + cache-busted URL reload.
@@ -467,6 +480,7 @@ class ProfileViewModel @Inject constructor(
                 authRepository.refreshUserProfile()
                 _profile.value = authRepository.userProfile.value
                 _profile.value?.let { profile ->
+                    subscriptionRepository.updateVerifiedStatus(profile.isVerified)
                     analyticsService.setUserProperties(
                         userId = profile.id,
                         username = profile.username,
@@ -507,6 +521,7 @@ class ProfileViewModel @Inject constructor(
                 // MUSIC tab shows skeleton → songs instead of flashing "No
                 // songs yet". Symmetric to the FILM tab's loadFilmPageIfNeeded.
                 if (page.none { it.mediaType == MediaType.TRACK }) loadSongPageIfNeeded()
+                loadLinkedArtist(userId)
             } catch (e: Exception) {
                 android.util.Log.e("ProfileViewModel", "loadProfile failed", e)
                 if (_profile.value == null) {
@@ -514,6 +529,13 @@ class ProfileViewModel @Inject constructor(
                 }
             }
             _isLoading.value = false
+        }
+    }
+
+    private fun loadLinkedArtist(userId: String) {
+        if (!isProfileArtistLinkEnabled) return
+        viewModelScope.launch {
+            _linkedArtist.value = runCatching { cloudFunctions.getLinkedArtistForUser(userId) }.getOrNull()
         }
     }
 
@@ -597,6 +619,7 @@ class ProfileViewModel @Inject constructor(
                 // the MUSIC tab never settles on "No songs yet" for a film-heavy
                 // poster whose songs live deeper in history.
                 if (merged.none { it.mediaType == MediaType.TRACK }) loadSongPageIfNeeded()
+                loadLinkedArtist(userId)
                 // Reset lazy-loaded segments so they reload on next visit
                 likedLoaded = false
                 savedLoaded = false

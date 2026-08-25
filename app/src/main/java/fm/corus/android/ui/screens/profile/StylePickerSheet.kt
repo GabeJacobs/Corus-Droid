@@ -1,6 +1,9 @@
 package fm.corus.android.ui.screens.profile
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,10 +24,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.unit.IntSize
@@ -32,11 +42,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.DiscoEffectGate
 import fm.corus.android.data.model.DiscoIntensity
 import fm.corus.android.data.model.FlairStyle
 import fm.corus.android.data.model.FrameStyle
@@ -128,17 +140,27 @@ fun StylePickerSheet(
     onSave: (StyleSelections) -> Unit,
     onNavigateToClub: () -> Unit,
     onDismiss: () -> Unit,
+    onPageChange: (Int) -> Unit = {},
 ) {
     var draft by remember { mutableStateOf(currentSelections) }
 
-    val pages = remember(hasTrackPosts, hasMoviePosts) {
+    val pages = remember(
+        hasTrackPosts,
+        hasMoviePosts,
+        stylePack1Enabled,
+        currentSelections.discoEffect,
+    ) {
         buildList {
             if (hasTrackPosts) add(StylePage.VINYL)
-            // DISCO hidden — disco effect is still WIP
             if (hasMoviePosts) add(StylePage.FRAME)
             add(StylePage.FLAIR)
-            if (hasTrackPosts) add(StylePage.RAIN)
-            if (hasTrackPosts) add(StylePage.SNOW)
+            if (hasTrackPosts) {
+                add(StylePage.RAIN)
+                add(StylePage.SNOW)
+                if (DiscoEffectGate.isPageVisible(stylePack1Enabled, currentSelections.discoEffect)) {
+                    add(StylePage.DISCO)
+                }
+            }
         }
     }
 
@@ -147,10 +169,20 @@ fun StylePickerSheet(
         pageCount = { pages.size },
     )
 
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage }.collect { onPageChange(it) }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight(0.92f),
+            .fillMaxHeight(0.92f)
+            // ModalBottomSheet treats leftover vertical nested-scroll as
+            // "drag the sheet." A slightly downward page-swipe then slides
+            // the whole picker instead of changing pages. Eat that leftover
+            // here so the pager and option lists keep the gesture. Dismiss
+            // stays on the close button and the scrim.
+            .nestedScroll(ConsumeSheetDragAfterChildScroll),
     ) {
         // Top bar with close button
         Row(
@@ -195,6 +227,7 @@ fun StylePickerSheet(
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.weight(1f),
+            beyondViewportPageCount = 1,
         ) { pageIndex ->
             when (pages[pageIndex]) {
                 StylePage.VINYL -> VinylColorPickerPage(
@@ -223,7 +256,11 @@ fun StylePickerSheet(
                     selected = draft.rainEffect,
                     onSelect = { newValue ->
                         draft = if (newValue != RainIntensity.OFF) {
-                            draft.copy(rainEffect = newValue, snowEffect = SnowIntensity.OFF)
+                            draft.copy(
+                                rainEffect = newValue,
+                                snowEffect = SnowIntensity.OFF,
+                                discoEffect = DiscoIntensity.OFF,
+                            )
                         } else {
                             draft.copy(rainEffect = newValue)
                         }
@@ -243,7 +280,11 @@ fun StylePickerSheet(
                     selected = draft.snowEffect,
                     onSelect = { newValue ->
                         draft = if (newValue != SnowIntensity.OFF) {
-                            draft.copy(snowEffect = newValue, rainEffect = RainIntensity.OFF)
+                            draft.copy(
+                                snowEffect = newValue,
+                                rainEffect = RainIntensity.OFF,
+                                discoEffect = DiscoIntensity.OFF,
+                            )
                         } else {
                             draft.copy(snowEffect = newValue)
                         }
@@ -261,7 +302,17 @@ fun StylePickerSheet(
                     title = stringResource(R.string.style_picker_disco_effect),
                     entries = DiscoIntensity.entries,
                     selected = draft.discoEffect,
-                    onSelect = { draft = draft.copy(discoEffect = it) },
+                    onSelect = { newValue ->
+                        draft = if (newValue != DiscoIntensity.OFF) {
+                            draft.copy(
+                                discoEffect = newValue,
+                                rainEffect = RainIntensity.OFF,
+                                snowEffect = SnowIntensity.OFF,
+                            )
+                        } else {
+                            draft.copy(discoEffect = newValue)
+                        }
+                    },
                     labelOf = { it.displayName },
                     vinylStyle = draft.vinylColor,
                     latestTrackPost = latestTrackPost,
@@ -313,6 +364,35 @@ fun StylePickerSheet(
 }
 
 // ── Vinyl Color Picker Page ──
+// Picker preview stays on the pack-1 canvas so the big cover never jumps
+// when switching vinyls. The hole still follows each style.
+/**
+ * ModalBottomSheet's nested-scroll connection applies any leftover UserInput
+ * delta to the sheet. HorizontalPager does not consume Y, so a normal
+ * page-swipe (never perfectly level) becomes a sheet drag.
+ */
+private val ConsumeSheetDragAfterChildScroll = object : NestedScrollConnection {
+    override fun onPostScroll(
+        consumed: Offset,
+        available: Offset,
+        source: NestedScrollSource,
+    ): Offset {
+        return if (source == NestedScrollSource.UserInput) {
+            Offset(0f, available.y)
+        } else {
+            Offset.Zero
+        }
+    }
+
+    override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+        return Velocity(0f, available.y)
+    }
+}
+
+private const val PICKER_CANVAS_RATIO = 440f / 582f
+private const val PICKER_ART_X_FRAC = 105f / 582f
+private const val PICKER_ART_Y_FRAC = 57f / 440f
+private const val PICKER_ART_SIZE_FRAC = 270f / 582f
 
 @Composable
 private fun VinylColorPickerPage(
@@ -327,32 +407,29 @@ private fun VinylColorPickerPage(
     val scrollState = rememberScrollState()
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState),
+        modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
             text = stringResource(R.string.style_picker_choose_vinyl),
             style = CorusFont.appTitle,
             color = CorusColors.Text,
-            modifier = Modifier.padding(top = CorusSpacing.xl),
+            modifier = Modifier.padding(top = CorusSpacing.xl, bottom = CorusSpacing.md),
         )
 
-        Spacer(modifier = Modifier.height(CorusSpacing.lg))
-
-        // Vinyl preview
         VinylPreview(
             style = selected,
             latestTrackPost = latestTrackPost,
             modifier = Modifier.padding(horizontal = CorusSpacing.xl),
         )
 
-        Spacer(modifier = Modifier.height(CorusSpacing.lg))
+        Spacer(modifier = Modifier.height(CorusSpacing.md))
 
-        // Color option cards
         Column(
-            modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(scrollState)
+                .padding(horizontal = CorusSpacing.xl),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         ) {
             visibleStyles.forEach { style ->
@@ -362,11 +439,16 @@ private fun VinylColorPickerPage(
                     label = style.displayName,
                     isSelected = selected == style,
                     onClick = { onSelect(style) },
+                    previewImageRes = vinylDrawableRes(style),
+                    previewCanvasW = style.canvasW,
+                    previewCanvasH = style.canvasH,
+                    previewCropX = style.swatchCropX,
+                    previewCropY = style.swatchCropY,
+                    previewCropS = style.swatchCropS,
                 )
             }
+            Spacer(modifier = Modifier.height(CorusSpacing.lg))
         }
-
-        Spacer(modifier = Modifier.height(CorusSpacing.lg))
     }
 }
 
@@ -375,29 +457,19 @@ private fun VinylPreview(
     style: VinylStyle,
     latestTrackPost: CymbalPost?,
     modifier: Modifier = Modifier,
+    effectOverlay: @Composable (Modifier) -> Unit = {},
 ) {
-    val vinylDrawable = remember(style) {
-        when (style) {
-            VinylStyle.BLACK -> R.drawable.vinyl_black
-            VinylStyle.CLEAR -> R.drawable.vinyl_clear
-            VinylStyle.RED_MATTE -> R.drawable.vinyl_red_matte
-            VinylStyle.PURPLE -> R.drawable.vinyl_purple
-            VinylStyle.WHITE -> R.drawable.vinyl_white
-            VinylStyle.GOLD -> R.drawable.vinyl_gold
-            VinylStyle.RED -> R.drawable.vinyl_red
-            VinylStyle.BLUE -> R.drawable.vinyl_blue
-            VinylStyle.GREEN -> R.drawable.vinyl_green
-        }
-    }
+    val vinylDrawable = remember(style) { vinylDrawableRes(style) }
 
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val w = maxWidth
-        val h = w * style.canvasRatio
+        val h = w * PICKER_CANVAS_RATIO
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(h),
+                .height(h)
+                .clipToBounds(),
         ) {
             // Shadow
             Image(
@@ -434,21 +506,18 @@ private fun VinylPreview(
                         contentScale = ContentScale.Crop,
                     )
 
-                    // Big album art overlay
-                    val bigArtXFrac = 106f / 585f
-                    val bigArtYFrac = 64f / 447f
-                    val bigArtSizeFrac = 270f / 585f
-
                     AsyncImage(
                         model = artUrl,
                         contentDescription = null,
                         modifier = Modifier
-                            .offset(x = w * bigArtXFrac, y = h * bigArtYFrac)
-                            .size(w * bigArtSizeFrac),
+                            .offset(x = w * PICKER_ART_X_FRAC, y = h * PICKER_ART_Y_FRAC)
+                            .size(w * PICKER_ART_SIZE_FRAC),
                         contentScale = ContentScale.Crop,
                     )
                 }
             }
+
+            effectOverlay(Modifier.matchParentSize())
         }
     }
 }
@@ -466,11 +535,15 @@ private fun FrameColorPickerPage(
         FrameStyle.entries.filter { !it.requiresStylePack1 || stylePack1Enabled }
     }
     val scrollState = rememberScrollState()
+    val isDark = LocalCorusDarkTheme.current
 
+    // Pin the preview like the vinyl page. A full-page verticalScroll here
+    // steals the HorizontalPager swipe (sheet + list both want the drag),
+    // which is what made film → vinyl feel delayed.
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(scrollState),
+            .background(CorusColors.Background),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
@@ -482,7 +555,6 @@ private fun FrameColorPickerPage(
 
         Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
-        // Frame preview
         FramePreview(
             style = selected,
             latestMoviePost = latestMoviePost,
@@ -491,9 +563,11 @@ private fun FrameColorPickerPage(
 
         Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
-        // Color option cards
         Column(
-            modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(scrollState)
+                .padding(horizontal = CorusSpacing.xl),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         ) {
             visibleStyles.forEach { style ->
@@ -503,11 +577,11 @@ private fun FrameColorPickerPage(
                     label = style.displayName,
                     isSelected = selected == style,
                     onClick = { onSelect(style) },
+                    previewMarqueePattern = style.usesTextureSwatch,
                 )
             }
+            Spacer(modifier = Modifier.height(CorusSpacing.lg))
         }
-
-        Spacer(modifier = Modifier.height(CorusSpacing.lg))
     }
 }
 
@@ -525,16 +599,21 @@ private fun FramePreview(
             FrameStyle.RED -> if (isDark) R.drawable.frame_red_dark else R.drawable.frame_red
             FrameStyle.BLUE -> if (isDark) R.drawable.frame_blue_dark else R.drawable.frame_blue
             FrameStyle.GREEN -> if (isDark) R.drawable.frame_green_dark else R.drawable.frame_green
+            FrameStyle.THEATER -> if (isDark) R.drawable.frame_theater_dark else R.drawable.frame_theater
         }
     }
 
     val sectionAspect = 585f / 482f
-    val posterXRatio = 207.28f / 585f
-    val posterYRatio = 84.85f / 482f
-    val posterWRatio = 184.98f / 585f
-    val posterHRatio = 269.33f / 482f
+    val posterXRatio = style.posterXFrac
+    val posterYRatio = style.posterYFrac
+    val posterWRatio = style.posterWFrac
+    val posterHRatio = style.posterHFrac
 
-    val glassOverlay = ImageBitmap.imageResource(R.drawable.frame_glass_overlay)
+    val glassOverlay = if (style.usesGlassOverlay) {
+        ImageBitmap.imageResource(R.drawable.frame_glass_overlay)
+    } else {
+        null
+    }
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val w = maxWidth
         val h = w / sectionAspect
@@ -542,13 +621,50 @@ private fun FramePreview(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(h),
+                .height(h)
+                // Screen-blend glass composites against the destination. During
+                // scroll the pager promotes this to an offscreen layer whose
+                // default is black — the dark rectangle behind the frame.
+                // Paint the sheet color first so the blend stays on white.
+                .background(CorusColors.Background)
+                .clipToBounds(),
         ) {
             // Frame
             Image(
                 painter = painterResource(frameDrawable),
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (style.usesStandingShadow) {
+                            Modifier.drawBehind {
+                                drawOval(
+                                    color = Color.Black.copy(alpha = 0.22f),
+                                    topLeft = androidx.compose.ui.geometry.Offset(
+                                        size.width * 0.24f,
+                                        size.height * 0.74f,
+                                    ),
+                                    size = androidx.compose.ui.geometry.Size(
+                                        size.width * 0.52f,
+                                        size.height * 0.16f,
+                                    ),
+                                )
+                                drawOval(
+                                    color = Color.Black.copy(alpha = 0.32f),
+                                    topLeft = androidx.compose.ui.geometry.Offset(
+                                        size.width * 0.30f,
+                                        size.height * 0.70f,
+                                    ),
+                                    size = androidx.compose.ui.geometry.Size(
+                                        size.width * 0.40f,
+                                        size.height * 0.12f,
+                                    ),
+                                )
+                            }
+                        } else {
+                            Modifier
+                        },
+                    ),
                 contentScale = ContentScale.FillBounds,
             )
 
@@ -567,18 +683,19 @@ private fun FramePreview(
                 }
             }
 
-            // Glass overlay (screen blend — matches iOS .blendMode(.screen))
-            Spacer(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .drawBehind {
-                        drawImage(
-                            image = glassOverlay,
-                            dstSize = IntSize(size.width.toInt(), size.height.toInt()),
-                            blendMode = BlendMode.Screen,
-                        )
-                    },
-            )
+            if (glassOverlay != null) {
+                Spacer(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .drawBehind {
+                            drawImage(
+                                image = glassOverlay,
+                                dstSize = IntSize(size.width.toInt(), size.height.toInt()),
+                                blendMode = BlendMode.Screen,
+                            )
+                        },
+                )
+            }
         }
     }
 }
@@ -608,9 +725,7 @@ private fun FlairPickerPage(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState),
+        modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
@@ -622,7 +737,6 @@ private fun FlairPickerPage(
 
         Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
-        // Flair preview
         FlairPreview(
             selected = selected,
             username = username,
@@ -631,9 +745,11 @@ private fun FlairPickerPage(
 
         Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
-        // Flair option cards
         Column(
-            modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(scrollState)
+                .padding(horizontal = CorusSpacing.xl),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         ) {
             visibleFlairs.forEach { style ->
@@ -643,9 +759,8 @@ private fun FlairPickerPage(
                     onClick = { onSelect(style) },
                 )
             }
+            Spacer(modifier = Modifier.height(CorusSpacing.lg))
         }
-
-        Spacer(modifier = Modifier.height(CorusSpacing.lg))
     }
 }
 
@@ -773,6 +888,13 @@ private fun StyleOptionCard(
     label: String,
     isSelected: Boolean,
     onClick: () -> Unit,
+    previewImageRes: Int? = null,
+    previewCanvasW: Float = 582f,
+    previewCanvasH: Float = 440f,
+    previewCropX: Float = 422f,
+    previewCropY: Float = 145f,
+    previewCropS: Float = 70f,
+    previewMarqueePattern: Boolean = false,
 ) {
     val borderColor = if (isSelected) CorusColors.Accent else CorusColors.Secondary.copy(alpha = 0.2f)
     val borderWidth = if (isSelected) 2.dp else 1.dp
@@ -788,14 +910,28 @@ private fun StyleOptionCard(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
     ) {
-        // Color swatch
+        // Color swatch. Vinyls crop the disc face (right of the inner circle)
+        // instead of a flat hex, so grooves and finish show.
         Box(
             modifier = Modifier
                 .size(32.dp)
                 .clip(previewShape)
                 .background(previewColor)
                 .border(1.dp, CorusColors.Divider, previewShape),
-        )
+        ) {
+            if (previewMarqueePattern) {
+                MarqueePatternSwatch()
+            } else if (previewImageRes != null) {
+                VinylSwatchImage(
+                    resId = previewImageRes,
+                    canvasW = previewCanvasW,
+                    canvasH = previewCanvasH,
+                    cropX = previewCropX,
+                    cropY = previewCropY,
+                    cropS = previewCropS,
+                )
+            }
+        }
 
         Text(
             text = label,
@@ -811,6 +947,100 @@ private fun StyleOptionCard(
             modifier = Modifier.size(22.dp),
         )
     }
+}
+
+@Composable
+private fun MarqueePatternSwatch() {
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val center = Offset(size.width * 0.5f, size.height * 0.5f)
+        fun orb(radius: Float, stops: Array<Pair<Float, Color>>) {
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colorStops = stops,
+                    center = center,
+                    radius = radius,
+                ),
+                radius = radius,
+                center = center,
+            )
+        }
+        drawRect(color = Color.Black)
+        orb(
+            size.minDimension * 0.48f,
+            arrayOf(
+                0f to Color(1.0f, 0.45f, 0.06f).copy(alpha = 0.28f),
+                1f to Color.Transparent,
+            ),
+        )
+        orb(
+            size.minDimension * 0.30f,
+            arrayOf(
+                0f to Color(1.0f, 0.78f, 0.28f),
+                0.52f to Color(1.0f, 0.46f, 0.06f),
+                1f to Color(0.45f, 0.12f, 0.0f, 0f),
+            ),
+        )
+        orb(
+            size.minDimension * 0.13f,
+            arrayOf(
+                0f to Color.White,
+                0.4f to Color(1.0f, 0.96f, 0.72f),
+                1f to Color.Transparent,
+            ),
+        )
+    }
+}
+
+/** Disc-face crop, decoded once at ~256px so pager swipes don't redraw 2k vinyls. */
+@Composable
+private fun VinylSwatchImage(
+    resId: Int,
+    canvasW: Float,
+    canvasH: Float,
+    cropX: Float,
+    cropY: Float,
+    cropS: Float,
+) {
+    val resources = LocalContext.current.resources
+    val bitmap = remember(resId, canvasW, canvasH, cropX, cropY, cropS) {
+        cropVinylSwatch(resources, resId, canvasW, canvasH, cropX, cropY, cropS)
+    }
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap.asImageBitmap(),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
+    }
+}
+
+private fun cropVinylSwatch(
+    resources: android.content.res.Resources,
+    resId: Int,
+    canvasW: Float,
+    canvasH: Float,
+    cropX: Float,
+    cropY: Float,
+    cropS: Float,
+): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeResource(resources, resId, bounds)
+    val srcW = bounds.outWidth.coerceAtLeast(1)
+    val sample = (srcW / 256).coerceAtLeast(1)
+    val decoded = BitmapFactory.decodeResource(
+        resources,
+        resId,
+        BitmapFactory.Options().apply { inSampleSize = sample },
+    ) ?: return null
+    val x = ((cropX / canvasW) * decoded.width).toInt().coerceIn(0, decoded.width - 1)
+    val y = ((cropY / canvasH) * decoded.height).toInt().coerceIn(0, decoded.height - 1)
+    val side = ((cropS / canvasW) * decoded.width).toInt()
+        .coerceAtLeast(1)
+        .coerceAtMost(minOf(decoded.width - x, decoded.height - y))
+    val cropped = Bitmap.createBitmap(decoded, x, y, side, side)
+    if (cropped != decoded) decoded.recycle()
+    return cropped
 }
 
 // ── Effect Toggle Page (generic for Rain/Snow/Disco) ──
@@ -829,9 +1059,7 @@ private fun <T : Enum<T>> EffectTogglePage(
     val scrollState = rememberScrollState()
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState),
+        modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
@@ -843,9 +1071,8 @@ private fun <T : Enum<T>> EffectTogglePage(
 
         Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
-        // Vinyl preview with effect overlay
-        EffectVinylPreview(
-            vinylStyle = vinylStyle,
+        VinylPreview(
+            style = vinylStyle,
             latestTrackPost = latestTrackPost,
             modifier = Modifier.padding(horizontal = CorusSpacing.xl),
             effectOverlay = { mod -> effectOverlay(selected, mod) },
@@ -853,9 +1080,11 @@ private fun <T : Enum<T>> EffectTogglePage(
 
         Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
-        // Intensity option cards
         Column(
-            modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(scrollState)
+                .padding(horizontal = CorusSpacing.xl),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         ) {
             entries.forEach { level ->
@@ -889,84 +1118,31 @@ private fun <T : Enum<T>> EffectTogglePage(
                     )
                 }
             }
+            Spacer(modifier = Modifier.height(CorusSpacing.lg))
         }
-
-        Spacer(modifier = Modifier.height(CorusSpacing.lg))
     }
 }
 
-@Composable
-private fun EffectVinylPreview(
-    vinylStyle: VinylStyle,
-    latestTrackPost: CymbalPost?,
-    modifier: Modifier = Modifier,
-    effectOverlay: @Composable (Modifier) -> Unit,
-) {
-    val vinylDrawable = remember(vinylStyle) {
-        when (vinylStyle) {
-            VinylStyle.BLACK -> R.drawable.vinyl_black
-            VinylStyle.CLEAR -> R.drawable.vinyl_clear
-            VinylStyle.RED_MATTE -> R.drawable.vinyl_red_matte
-            VinylStyle.PURPLE -> R.drawable.vinyl_purple
-            VinylStyle.WHITE -> R.drawable.vinyl_white
-            VinylStyle.GOLD -> R.drawable.vinyl_gold
-            VinylStyle.RED -> R.drawable.vinyl_red
-            VinylStyle.BLUE -> R.drawable.vinyl_blue
-            VinylStyle.GREEN -> R.drawable.vinyl_green
-        }
-    }
-
-    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        val w = maxWidth
-        val h = w * vinylStyle.canvasRatio
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(h)
-                .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium)),
-        ) {
-            Image(
-                painter = painterResource(R.drawable.featured_shadow),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillBounds,
-            )
-            Image(
-                painter = painterResource(vinylDrawable),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillBounds,
-            )
-
-            if (latestTrackPost != null) {
-                val artUrl = latestTrackPost.displayImageLargeURL ?: latestTrackPost.displayImageURL
-                if (artUrl != null) {
-                    AsyncImage(
-                        model = artUrl,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .offset(x = w * vinylStyle.labelXFrac, y = h * vinylStyle.labelYFrac)
-                            .size(width = w * vinylStyle.labelWFrac, height = h * vinylStyle.labelHFrac)
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop,
-                    )
-
-                    val bigArtXFrac = 106f / 585f
-                    val bigArtYFrac = 64f / 447f
-                    val bigArtSizeFrac = 270f / 585f
-                    AsyncImage(
-                        model = artUrl,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .offset(x = w * bigArtXFrac, y = h * bigArtYFrac)
-                            .size(w * bigArtSizeFrac),
-                        contentScale = ContentScale.Crop,
-                    )
-                }
-            }
-
-            effectOverlay(Modifier.matchParentSize())
-        }
-    }
+private fun vinylDrawableRes(style: VinylStyle): Int = when (style) {
+    VinylStyle.BLACK -> R.drawable.vinyl_black
+    VinylStyle.CLEAR -> R.drawable.vinyl_clear
+    VinylStyle.RED_MATTE -> R.drawable.vinyl_red_matte
+    VinylStyle.PURPLE -> R.drawable.vinyl_purple
+    VinylStyle.WHITE -> R.drawable.vinyl_white
+    VinylStyle.GOLD -> R.drawable.vinyl_gold
+    VinylStyle.BLUE -> R.drawable.vinyl_blue
+    VinylStyle.GREEN -> R.drawable.vinyl_green
+    VinylStyle.PINK -> R.drawable.vinyl_pink
+    VinylStyle.ORANGE -> R.drawable.vinyl_orange
+    VinylStyle.YELLOW -> R.drawable.vinyl_yellow
+    VinylStyle.PINK_MATTE -> R.drawable.vinyl_pink_matte
+    VinylStyle.LIME -> R.drawable.vinyl_lime
+    VinylStyle.PURPLE_TIE_DYE -> R.drawable.vinyl_purple_tie_dye
+    VinylStyle.BLUE_TIE_DYE -> R.drawable.vinyl_blue_tie_dye
+    VinylStyle.ORANGE_TIE_DYE -> R.drawable.vinyl_orange_tie_dye
+    VinylStyle.ICY_BLUE -> R.drawable.vinyl_icy_blue
+    VinylStyle.GALAXY -> R.drawable.vinyl_galaxy
+    VinylStyle.PEACH -> R.drawable.vinyl_peach
+    VinylStyle.LAVENDER -> R.drawable.vinyl_lavender
+    VinylStyle.BLOOD_RED -> R.drawable.vinyl_blood_red
 }

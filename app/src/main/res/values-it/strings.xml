@@ -492,6 +492,7 @@
     <string name="search_trending_songs_title">Canzoni di tendenza</string>
     <string name="search_trending_films_title">Film di tendenza</string>
     <string name="search_trending_hashtags_title">Hashtag di tendenza</string>
+    <string name="search_trending_artists_title">Artisti di tendenza</string>
     <string name="search_tab_users">Persone</string>
     <string name="search_tab_songs">Brani</string>
     <string name="search_tab_films">Film</string>

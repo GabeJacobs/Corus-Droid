@@ -47,21 +47,47 @@ class StylePack1GatingTest {
     // No existing colors should require the flag; all currently-shipped
     // colors must remain visible regardless of `style_pack_1_enabled`.
 
-    @Test fun `no existing vinyl color requires style_pack_1`() {
+    private val pack1Vinyls = setOf(
+        VinylStyle.PINK,
+        VinylStyle.ORANGE,
+        VinylStyle.YELLOW,
+        VinylStyle.PINK_MATTE,
+        VinylStyle.LIME,
+        VinylStyle.PURPLE_TIE_DYE,
+        VinylStyle.BLUE_TIE_DYE,
+        VinylStyle.ORANGE_TIE_DYE,
+        VinylStyle.ICY_BLUE,
+        VinylStyle.GALAXY,
+        VinylStyle.PEACH,
+        VinylStyle.LAVENDER,
+        VinylStyle.BLOOD_RED,
+    )
+
+    @Test fun `only pack 1 vinyls require style_pack_1`() {
         VinylStyle.entries.forEach { style ->
-            assertFalse(
-                "Existing vinyl ${style.value} must not require style_pack_1",
-                style.requiresStylePack1,
-            )
+            if (style in pack1Vinyls) {
+                assertTrue(style.requiresStylePack1)
+            } else {
+                assertFalse(
+                    "Existing vinyl ${style.value} must not require style_pack_1",
+                    style.requiresStylePack1,
+                )
+            }
         }
     }
 
-    @Test fun `no existing frame color requires style_pack_1`() {
+    private val pack1Frames = setOf(FrameStyle.THEATER)
+
+    @Test fun `only pack 1 frames require style_pack_1`() {
         FrameStyle.entries.forEach { style ->
-            assertFalse(
-                "Existing frame ${style.value} must not require style_pack_1",
-                style.requiresStylePack1,
-            )
+            if (style in pack1Frames) {
+                assertTrue(style.requiresStylePack1)
+            } else {
+                assertFalse(
+                    "Existing frame ${style.value} must not require style_pack_1",
+                    style.requiresStylePack1,
+                )
+            }
         }
     }
 
@@ -76,21 +102,39 @@ class StylePack1GatingTest {
 
     // ── Picker filter logic (mirrors StylePickerSheet's visible-styles filter) ──
 
-    @Test fun `vinyl filter returns all entries when flag off (no pack 1 colors yet)`() {
+    @Test fun `vinyl filter hides pack 1 when flag off`() {
         val pack1On = false
         val visible = VinylStyle.entries.filter { !it.requiresStylePack1 || pack1On }
-        assertEquals(VinylStyle.entries.size, visible.size)
+        pack1Vinyls.forEach { style ->
+            assertFalse(visible.contains(style))
+        }
+        assertEquals(VinylStyle.entries.size - pack1Vinyls.size, visible.size)
     }
 
-    @Test fun `vinyl filter returns all entries when flag on`() {
+    @Test fun `vinyl filter shows pack 1 when flag on`() {
         val pack1On = true
         val visible = VinylStyle.entries.filter { !it.requiresStylePack1 || pack1On }
+        pack1Vinyls.forEach { style ->
+            assertTrue(visible.contains(style))
+        }
         assertEquals(VinylStyle.entries.size, visible.size)
     }
 
-    @Test fun `frame filter returns all entries when flag off (no pack 1 frames yet)`() {
+    @Test fun `frame filter hides pack 1 when flag off`() {
         val pack1On = false
         val visible = FrameStyle.entries.filter { !it.requiresStylePack1 || pack1On }
+        pack1Frames.forEach { style ->
+            assertFalse(visible.contains(style))
+        }
+        assertEquals(FrameStyle.entries.size - pack1Frames.size, visible.size)
+    }
+
+    @Test fun `frame filter shows pack 1 when flag on`() {
+        val pack1On = true
+        val visible = FrameStyle.entries.filter { !it.requiresStylePack1 || pack1On }
+        pack1Frames.forEach { style ->
+            assertTrue(visible.contains(style))
+        }
         assertEquals(FrameStyle.entries.size, visible.size)
     }
 

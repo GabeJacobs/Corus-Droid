@@ -3,8 +3,10 @@ package fm.corus.android.ui.screens.profile
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.LinkedArtist
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.remote.CloudFunctionsDataSource
+import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
@@ -30,6 +32,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.doSuspendableAnswer
 import org.mockito.kotlin.eq
@@ -85,7 +88,9 @@ class ProfileViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun createViewModel(): ProfileViewModel = ProfileViewModel(
+    private fun createViewModel(
+        remoteConfigService: RemoteConfigService = mock(),
+    ): ProfileViewModel = ProfileViewModel(
         context = mock(),
         authRepository = authRepository,
         cloudFunctions = cloudFunctions,
@@ -101,7 +106,7 @@ class ProfileViewModelTest {
         saveChangedEvent = fm.corus.android.domain.SaveChangedEvent(),
         analyticsService = analyticsService,
         musicServicePreference = mock(),
-        remoteConfigService = mock(),
+        remoteConfigService = remoteConfigService,
         networkMonitor = mock { on { isConnected } doReturn kotlinx.coroutines.flow.MutableStateFlow(true) },
     )
 
@@ -412,6 +417,26 @@ class ProfileViewModelTest {
 
         advanceUntilIdle()
         assertNull(viewModel.pendingAvatarBytes.value)
+    }
+
+    @Test
+    fun `loadProfile applies linkedArtist when the profile artist-link flag is on`() = runTest {
+        val artist = LinkedArtist(id = "spotify-id", name = "Daedelus", imageUrl = "https://img")
+        val remoteConfig = mock<RemoteConfigService> {
+            on { isProfileArtistLinkEnabled(anyOrNull()) } doReturn true
+        }
+        whenever(
+            cloudFunctions.getProfilePosts(
+                eq("user1"), eq("user1"), any(), eq(null), eq(null),
+            )
+        ).thenReturn(emptyList())
+        whenever(cloudFunctions.getLinkedArtistForUser("user1")).thenReturn(artist)
+
+        val viewModel = createViewModel(remoteConfigService = remoteConfig)
+        viewModel.loadProfile()
+        advanceUntilIdle()
+
+        assertEquals(artist, viewModel.linkedArtist.value)
     }
 
 }

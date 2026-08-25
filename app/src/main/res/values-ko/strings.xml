@@ -492,6 +492,7 @@
     <string name="search_trending_songs_title">인기 곡</string>
     <string name="search_trending_films_title">인기 영화</string>
     <string name="search_trending_hashtags_title">인기 해시태그</string>
+    <string name="search_trending_artists_title">인기 아티스트</string>
     <string name="search_tab_users">사용자</string>
     <string name="search_tab_songs">곡</string>
     <string name="search_tab_films">영화</string>

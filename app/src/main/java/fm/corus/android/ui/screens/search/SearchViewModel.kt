@@ -14,6 +14,7 @@ import fm.corus.android.data.model.RecentSearchItem
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.model.SuggestionReason
+import fm.corus.android.data.model.TrendingArtist
 import fm.corus.android.data.model.TrendingHashtag
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
@@ -155,6 +156,7 @@ class SearchViewModel @Inject constructor(
     val unifiedSearchEnabled: Boolean get() = remoteConfigService.unifiedSearchEnabled
 
     val artistsOnCorusSectionEnabled: Boolean get() = remoteConfigService.artistsOnCorusSectionEnabled
+    val trendingArtistsSectionEnabled: Boolean get() = remoteConfigService.trendingArtistsSectionEnabled
 
     // ── Unified search state ──
 
@@ -327,6 +329,22 @@ class SearchViewModel @Inject constructor(
             .map { TrendingWindow.fromKey(it) }
             .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
 
+    val trendingArtistsWindow: StateFlow<TrendingWindow> =
+        preferencesDataStore.trendingArtistsWindow
+            .map { TrendingWindow.fromKey(it) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+
+    private val _trendingArtists = MutableStateFlow<List<TrendingArtist>>(emptyList())
+    val trendingArtists: StateFlow<List<TrendingArtist>> = _trendingArtists.asStateFlow()
+
+    private val _isTrendingArtistsLoading = MutableStateFlow(true)
+    val isTrendingArtistsLoading: StateFlow<Boolean> = _isTrendingArtistsLoading.asStateFlow()
+
+    private var hasLoadedTrendingArtists = false
+
+    private val _isResolvingArtist = MutableStateFlow(false)
+    val isResolvingArtist: StateFlow<Boolean> = _isResolvingArtist.asStateFlow()
+
     fun setTrendingSongsWindow(window: TrendingWindow) {
         viewModelScope.launch {
             preferencesDataStore.setTrendingSongsWindow(window.key)
@@ -392,6 +410,43 @@ class SearchViewModel @Inject constructor(
             }
             _trendingHashtags.value = fetched
             _isTrendingHashtagsLoading.value = false
+        }
+    }
+
+    fun setTrendingArtistsWindow(window: TrendingWindow) {
+        viewModelScope.launch {
+            preferencesDataStore.setTrendingArtistsWindow(window.key)
+            _isTrendingArtistsLoading.value = true
+            _trendingArtists.value = emptyList()
+            val start = System.currentTimeMillis()
+            val fetched = try {
+                exploreRepository.fetchTrendingArtists(window)
+            } catch (e: Exception) {
+                Log.e("SearchVM", "Failed to switch trending artists window", e)
+                emptyList()
+            }
+            val elapsed = System.currentTimeMillis() - start
+            if (elapsed < TRENDING_WINDOW_MIN_DISPLAY_MS) {
+                kotlinx.coroutines.delay(TRENDING_WINDOW_MIN_DISPLAY_MS - elapsed)
+            }
+            _trendingArtists.value = fetched
+            _isTrendingArtistsLoading.value = false
+        }
+    }
+
+    suspend fun resolveTrendingArtist(artist: TrendingArtist): fm.corus.android.ui.navigation.ArtistPageRoute? {
+        if (_isResolvingArtist.value) return null
+        _isResolvingArtist.value = true
+        return try {
+            val id = cloudFunctions.resolveArtistIdByName(artist.artistName)?.takeIf { it.isNotBlank() }
+                ?: return null
+            fm.corus.android.ui.navigation.ArtistPageRoute(
+                artistId = id,
+                name = artist.artistName,
+                imageUrl = artist.albumArtLargeURL ?: artist.albumArtURL,
+            )
+        } finally {
+            _isResolvingArtist.value = false
         }
     }
 
@@ -667,6 +722,10 @@ class SearchViewModel @Inject constructor(
         if (unifiedSearchEnabled) {
             if (forceRefresh) hasLoadedTrendingHashtags = false
             loadTrendingHashtagsIfNeeded()
+        }
+        if (trendingArtistsSectionEnabled) {
+            if (forceRefresh) hasLoadedTrendingArtists = false
+            loadTrendingArtistsIfNeeded()
         }
     }
 
@@ -1076,6 +1135,21 @@ class SearchViewModel @Inject constructor(
                 hasLoadedTrendingHashtags = false
             }
             _isTrendingHashtagsLoading.value = false
+        }
+    }
+
+    private fun loadTrendingArtistsIfNeeded() {
+        if (hasLoadedTrendingArtists) return
+        hasLoadedTrendingArtists = true
+        viewModelScope.launch {
+            try {
+                val window = trendingArtistsWindow.value
+                _trendingArtists.value = exploreRepository.fetchTrendingArtists(window)
+            } catch (e: Exception) {
+                Log.e("SearchVM", "Failed to load trending artists", e)
+                hasLoadedTrendingArtists = false
+            }
+            _isTrendingArtistsLoading.value = false
         }
     }
 

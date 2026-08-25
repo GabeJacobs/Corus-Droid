@@ -546,7 +546,7 @@
     <string name="style_picker_username_placeholder">username</string>
     <string name="style_picker_rain_effect">Rain Effect</string>
     <string name="style_picker_snow_effect">Snow Effect</string>
-    <string name="style_picker_disco_effect">Disco Effect</string>
+    <string name="style_picker_disco_effect">Lights</string>
 
     <!-- Search -->
     <string name="search_screen_title">Search</string>
@@ -565,6 +565,7 @@
     <string name="search_trending_songs_title">Trending songs</string>
     <string name="search_trending_films_title">Trending films</string>
     <string name="search_trending_hashtags_title">Trending hashtags</string>
+    <string name="search_trending_artists_title">Trending artists</string>
     <string name="search_tab_users">Users</string>
     <string name="search_tab_songs">Songs</string>
     <string name="search_tab_films">Films</string>

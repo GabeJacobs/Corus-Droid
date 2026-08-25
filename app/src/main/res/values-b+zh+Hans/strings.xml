@@ -492,6 +492,7 @@
     <string name="search_trending_songs_title">热门歌曲</string>
     <string name="search_trending_films_title">热门电影</string>
     <string name="search_trending_hashtags_title">热门话题标签</string>
+    <string name="search_trending_artists_title">热门艺人</string>
     <string name="search_tab_users">用户</string>
     <string name="search_tab_songs">歌曲</string>
     <string name="search_tab_films">电影</string>

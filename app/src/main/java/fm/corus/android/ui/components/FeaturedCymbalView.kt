@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -97,16 +98,27 @@ fun FeaturedCymbalView(
             VinylStyle.PURPLE -> R.drawable.vinyl_purple
             VinylStyle.WHITE -> R.drawable.vinyl_white
             VinylStyle.GOLD -> R.drawable.vinyl_gold
-            VinylStyle.RED -> R.drawable.vinyl_red
             VinylStyle.BLUE -> R.drawable.vinyl_blue
             VinylStyle.GREEN -> R.drawable.vinyl_green
+            VinylStyle.PINK -> R.drawable.vinyl_pink
+            VinylStyle.ORANGE -> R.drawable.vinyl_orange
+            VinylStyle.YELLOW -> R.drawable.vinyl_yellow
+            VinylStyle.PINK_MATTE -> R.drawable.vinyl_pink_matte
+            VinylStyle.LIME -> R.drawable.vinyl_lime
+            VinylStyle.PURPLE_TIE_DYE -> R.drawable.vinyl_purple_tie_dye
+            VinylStyle.BLUE_TIE_DYE -> R.drawable.vinyl_blue_tie_dye
+            VinylStyle.ORANGE_TIE_DYE -> R.drawable.vinyl_orange_tie_dye
+            VinylStyle.ICY_BLUE -> R.drawable.vinyl_icy_blue
+            VinylStyle.GALAXY -> R.drawable.vinyl_galaxy
+            VinylStyle.PEACH -> R.drawable.vinyl_peach
+            VinylStyle.LAVENDER -> R.drawable.vinyl_lavender
+            VinylStyle.BLOOD_RED -> R.drawable.vinyl_blood_red
         }
     }
 
-    // Big album art position fractions (same across all vinyls)
-    val artXFrac = 106f / 585f
-    val artYFrac = 64f / 447f
-    val artSizeFrac = 270f / 585f
+    val artXFrac = vinylStyle.artXFrac
+    val artYFrac = vinylStyle.artYFrac
+    val artSizeFrac = vinylStyle.artSizeFrac
 
     // Gradient wraps entire featured area (vinyl + title row), matching iOS .background(LinearGradient)
     BoxWithConstraints(
@@ -147,7 +159,8 @@ fun FeaturedCymbalView(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(h),
+                .height(h)
+                .clipToBounds(),
         ) {
             // Shadow
             Image(
@@ -223,6 +236,7 @@ fun FeaturedCymbalView(
                 SnowEffectView(intensity = snowIntensity, modifier = Modifier.matchParentSize())
             }
             if (discoIntensity != DiscoIntensity.OFF) {
+                DiscoScrim(intensity = discoIntensity, modifier = Modifier.matchParentSize())
                 DiscoEffectView(intensity = discoIntensity, modifier = Modifier.matchParentSize())
             }
 

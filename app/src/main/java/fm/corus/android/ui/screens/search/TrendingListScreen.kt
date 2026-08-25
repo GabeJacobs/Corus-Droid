@@ -1,6 +1,7 @@
 package fm.corus.android.ui.screens.search
 
 import android.util.Log
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -17,7 +19,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -25,10 +31,12 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.TrendingArtist
 import fm.corus.android.data.model.TrendingHashtag
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.data.model.TrendingWindow
+import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.ExploreRepository
@@ -62,6 +70,7 @@ import javax.inject.Inject
 class TrendingListViewModel @Inject constructor(
     private val exploreRepository: ExploreRepository,
     private val firestoreDataSource: FirestoreDataSource,
+    private val cloudFunctions: CloudFunctionsDataSource,
     private val preferencesDataStore: PreferencesDataStore,
     private val authRepository: AuthRepository,
     val nowPlayingManager: NowPlayingManager,
@@ -106,6 +115,20 @@ class TrendingListViewModel @Inject constructor(
             .map { TrendingWindow.fromKey(it) }
             .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
 
+    val trendingArtistsWindow: StateFlow<TrendingWindow> =
+        preferencesDataStore.trendingArtistsWindow
+            .map { TrendingWindow.fromKey(it) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+
+    private val _trendingArtists = MutableStateFlow<List<TrendingArtist>>(emptyList())
+    val trendingArtists: StateFlow<List<TrendingArtist>> = _trendingArtists.asStateFlow()
+
+    private val _isArtistsLoading = MutableStateFlow(true)
+    val isArtistsLoading: StateFlow<Boolean> = _isArtistsLoading.asStateFlow()
+
+    private val _isResolvingArtist = MutableStateFlow(false)
+    val isResolvingArtist: StateFlow<Boolean> = _isResolvingArtist.asStateFlow()
+
     // The setters only persist; the screen collects the window StateFlow and
     // refetches on every emission, so persistence IS the refetch trigger.
 
@@ -119,6 +142,10 @@ class TrendingListViewModel @Inject constructor(
 
     fun setTrendingHashtagsWindow(window: TrendingWindow) {
         viewModelScope.launch { preferencesDataStore.setTrendingHashtagsWindow(window.key) }
+    }
+
+    fun setTrendingArtistsWindow(window: TrendingWindow) {
+        viewModelScope.launch { preferencesDataStore.setTrendingArtistsWindow(window.key) }
     }
 
     suspend fun loadSongs(window: TrendingWindow) {
@@ -152,6 +179,33 @@ class TrendingListViewModel @Inject constructor(
             emptyList()
         }
         _isHashtagsLoading.value = false
+    }
+
+    suspend fun loadArtists(window: TrendingWindow) {
+        _isArtistsLoading.value = true
+        _trendingArtists.value = try {
+            exploreRepository.fetchTrendingArtists(window)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load trending artists", e)
+            emptyList()
+        }
+        _isArtistsLoading.value = false
+    }
+
+    suspend fun resolveTrendingArtist(artist: TrendingArtist): fm.corus.android.ui.navigation.ArtistPageRoute? {
+        if (_isResolvingArtist.value) return null
+        _isResolvingArtist.value = true
+        return try {
+            val id = cloudFunctions.resolveArtistIdByName(artist.artistName)?.takeIf { it.isNotBlank() }
+                ?: return null
+            fm.corus.android.ui.navigation.ArtistPageRoute(
+                artistId = id,
+                name = artist.artistName,
+                imageUrl = artist.albumArtLargeURL ?: artist.albumArtURL,
+            )
+        } finally {
+            _isResolvingArtist.value = false
+        }
     }
 
     /** Mirrors SearchViewModel.refreshFollowedHashtags. */
@@ -199,8 +253,9 @@ class TrendingListViewModel @Inject constructor(
 
 /**
  * Full-screen trending list — songs, films, or hashtags depending on [kind]
- * ("songs" | "films" | "hashtags"). Reuses SearchScreen's trending content
- * composables so rows/headers/skeletons render identically to the search tab.
+ * ("songs" | "films" | "hashtags" | "artists"). Reuses SearchScreen's
+ * trending content composables so rows/headers/skeletons render identically
+ * to the search tab.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -211,18 +266,25 @@ fun TrendingListScreen(
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (FilmDetailRoute) -> Unit = {},
     onNavigateToHashtag: (String) -> Unit = {},
+    onNavigateToArtist: (fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit = {},
 ) {
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     val trendingSongs by viewModel.trendingSongs.collectAsState()
     val trendingMovies by viewModel.trendingMovies.collectAsState()
     val trendingHashtags by viewModel.trendingHashtags.collectAsState()
+    val trendingArtists by viewModel.trendingArtists.collectAsState()
     val isSongsLoading by viewModel.isSongsLoading.collectAsState()
     val isMoviesLoading by viewModel.isMoviesLoading.collectAsState()
     val isHashtagsLoading by viewModel.isHashtagsLoading.collectAsState()
+    val isArtistsLoading by viewModel.isArtistsLoading.collectAsState()
+    val isResolvingArtist by viewModel.isResolvingArtist.collectAsState()
     val songsWindow by viewModel.trendingSongsWindow.collectAsState()
     val filmsWindow by viewModel.trendingFilmsWindow.collectAsState()
     val hashtagsWindow by viewModel.trendingHashtagsWindow.collectAsState()
+    val artistsWindow by viewModel.trendingArtistsWindow.collectAsState()
     val followedHashtagNames by viewModel.followedHashtagNames.collectAsState()
 
     // Only fetch the kind being shown. The window StateFlows are DataStore
@@ -236,6 +298,7 @@ fun TrendingListScreen(
                 viewModel.refreshFollowedHashtags()
                 viewModel.trendingHashtagsWindow.collect { viewModel.loadHashtags(it) }
             }
+            KIND_ARTISTS -> viewModel.trendingArtistsWindow.collect { viewModel.loadArtists(it) }
         }
     }
 
@@ -248,6 +311,7 @@ fun TrendingListScreen(
                             when (kind) {
                                 KIND_FILMS -> fm.corus.android.R.string.search_trending_films_title
                                 KIND_HASHTAGS -> fm.corus.android.R.string.search_trending_hashtags_title
+                                KIND_ARTISTS -> fm.corus.android.R.string.search_trending_artists_title
                                 else -> fm.corus.android.R.string.search_trending_songs_title
                             },
                         ),
@@ -287,6 +351,24 @@ fun TrendingListScreen(
                     onHashtagTap = { tag -> onNavigateToHashtag(tag.name) },
                     onToggleFollow = { tag -> viewModel.toggleHashtagFollowByName(tag.name) },
                 )
+                KIND_ARTISTS -> TrendingArtistsContent(
+                    listState = listState,
+                    artists = trendingArtists,
+                    isLoading = isArtistsLoading,
+                    window = artistsWindow,
+                    onWindowChange = viewModel::setTrendingArtistsWindow,
+                    onArtistTap = { artist ->
+                        scope.launch {
+                            val route = viewModel.resolveTrendingArtist(artist)
+                            if (route != null) onNavigateToArtist(route)
+                            else android.widget.Toast.makeText(
+                                context,
+                                context.getString(fm.corus.android.R.string.song_detail_artist_not_found),
+                                android.widget.Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    },
+                )
                 else -> TrendingSongsContent(
                     listState = listState,
                     songs = trendingSongs,
@@ -297,6 +379,16 @@ fun TrendingListScreen(
                     nowPlaying = viewModel.nowPlayingManager,
                 )
             }
+            if (isResolvingArtist) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(color = CorusColors.Accent)
+                }
+            }
         }
     }
 }
@@ -304,3 +396,4 @@ fun TrendingListScreen(
 private const val KIND_SONGS = "songs"
 private const val KIND_FILMS = "films"
 private const val KIND_HASHTAGS = "hashtags"
+private const val KIND_ARTISTS = "artists"

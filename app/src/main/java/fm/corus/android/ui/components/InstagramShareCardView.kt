@@ -352,9 +352,9 @@ private fun drawVinylComposite(
     label.recycle()
 
     // Big album art (rounded square) on top, with a soft drop shadow.
-    val artSize = compWidth * 270f / 585f
-    val artX = compLeft + compWidth * 106f / 585f
-    val artY = compTop + compHeight * 64f / 448f
+    val artSize = compWidth * style.artSizeFrac
+    val artX = compLeft + compWidth * style.artXFrac
+    val artY = compTop + compHeight * style.artYFrac
     val side = minOf(art.width, art.height)
     val sq = Bitmap.createBitmap(art, (art.width - side) / 2, (art.height - side) / 2, side, side)
     val scaled = Bitmap.createScaledBitmap(sq, artSize.toInt(), artSize.toInt(), true)
@@ -378,9 +378,21 @@ private fun vinylDrawableRes(style: VinylStyle): Int = when (style) {
     VinylStyle.PURPLE -> R.drawable.vinyl_purple
     VinylStyle.WHITE -> R.drawable.vinyl_white
     VinylStyle.GOLD -> R.drawable.vinyl_gold
-    VinylStyle.RED -> R.drawable.vinyl_red
     VinylStyle.BLUE -> R.drawable.vinyl_blue
     VinylStyle.GREEN -> R.drawable.vinyl_green
+    VinylStyle.PINK -> R.drawable.vinyl_pink
+    VinylStyle.ORANGE -> R.drawable.vinyl_orange
+    VinylStyle.YELLOW -> R.drawable.vinyl_yellow
+    VinylStyle.PINK_MATTE -> R.drawable.vinyl_pink_matte
+    VinylStyle.LIME -> R.drawable.vinyl_lime
+    VinylStyle.PURPLE_TIE_DYE -> R.drawable.vinyl_purple_tie_dye
+    VinylStyle.BLUE_TIE_DYE -> R.drawable.vinyl_blue_tie_dye
+    VinylStyle.ORANGE_TIE_DYE -> R.drawable.vinyl_orange_tie_dye
+    VinylStyle.ICY_BLUE -> R.drawable.vinyl_icy_blue
+    VinylStyle.GALAXY -> R.drawable.vinyl_galaxy
+    VinylStyle.PEACH -> R.drawable.vinyl_peach
+    VinylStyle.LAVENDER -> R.drawable.vinyl_lavender
+    VinylStyle.BLOOD_RED -> R.drawable.vinyl_blood_red
 }
 
 private fun decodeDrawable(context: Context, resId: Int): Bitmap? = try {

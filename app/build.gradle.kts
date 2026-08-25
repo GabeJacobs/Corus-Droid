@@ -59,7 +59,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = resolvedVersionCode
-        versionName = "1.4.7"
+        versionName = "1.4.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -132,7 +132,6 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.compose)
     implementation("androidx.lifecycle:lifecycle-process:2.8.7")
     implementation(libs.datastore.preferences)
-    implementation(libs.work.runtime)
     implementation(libs.appcompat)
 
     // Hilt

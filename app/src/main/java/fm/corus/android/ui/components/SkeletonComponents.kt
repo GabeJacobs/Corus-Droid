@@ -1582,12 +1582,12 @@ private fun SkeletonInfoRow(labelWidth: Dp, valueWidth: Dp) {
 // fade-in).
 @Composable
 fun SkeletonFeaturedMoviePoster(frameStyle: fm.corus.android.data.model.FrameStyle = fm.corus.android.data.model.FrameStyle.BLACK) {
-    // Match FeaturedMoviePosterView section proportions (585 × 482)
-    val sectionAspect = 585f / 482f
-    val posterXRatio = 207.28f / 585f
-    val posterYRatio = 84.85f / 482f
-    val posterWRatio = 184.98f / 585f
-    val posterHRatio = 269.33f / 482f
+    // Match FeaturedMoviePosterView section proportions, including any
+    // extra title clearance below Marquee.
+    val posterXRatio = frameStyle.posterXFrac
+    val posterYRatio = frameStyle.posterYFrac
+    val posterWRatio = frameStyle.posterWFrac
+    val posterHRatio = frameStyle.posterHFrac
 
     val frameDrawable = frameDrawableRes(frameStyle)
 
@@ -1606,16 +1606,20 @@ fun SkeletonFeaturedMoviePoster(frameStyle: fm.corus.android.data.model.FrameSty
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(sectionAspect),
+                .aspectRatio(frameStyle.featuredSectionAspect),
         ) {
             val w = maxWidth
-            val h = maxHeight
+            val frameH = w * fm.corus.android.data.model.FrameStyle.CANVAS_HEIGHT /
+                fm.corus.android.data.model.FrameStyle.CANVAS_WIDTH
 
             // 1) Frame asset (drawn first, behind the shimmer).
             androidx.compose.foundation.Image(
                 painter = androidx.compose.ui.res.painterResource(frameDrawable),
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(frameH)
+                    .align(Alignment.TopCenter),
                 contentScale = ContentScale.FillBounds,
             )
 
@@ -1624,36 +1628,38 @@ fun SkeletonFeaturedMoviePoster(frameStyle: fm.corus.android.data.model.FrameSty
             //    bright white mat (CorusColors.Skeleton washes out there).
             Box(
                 modifier = Modifier
-                    .offset(x = w * posterXRatio, y = h * posterYRatio)
-                    .size(width = w * posterWRatio, height = h * posterHRatio)
+                    .offset(x = w * posterXRatio, y = frameH * posterYRatio)
+                    .size(width = w * posterWRatio, height = frameH * posterHRatio)
                     .shimmer()
                     .background(Color.Black.copy(alpha = 0.12f)),
             )
-        }
-        // Title + subtitle bars below, matching SkeletonFeaturedCymbal layout
-        Column(
-            modifier = Modifier
-                .padding(
-                    horizontal = CorusSpacing.lg,
-                    vertical = CorusSpacing.md,
+
+            // Title shimmer overlaid at the bottom, matching FeaturedMoviePosterView.
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(
+                        horizontal = CorusSpacing.lg,
+                        vertical = CorusSpacing.md,
+                    )
+                    .shimmer(),
+                verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(130.dp)
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(CorusColors.Skeleton)
                 )
-                .shimmer(),
-            verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxs),
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(130.dp)
-                    .height(14.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.Skeleton)
-            )
-            Box(
-                modifier = Modifier
-                    .width(90.dp)
-                    .height(11.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.Skeleton)
-            )
+                Box(
+                    modifier = Modifier
+                        .width(90.dp)
+                        .height(11.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(CorusColors.Skeleton)
+                )
+            }
         }
     }
 }

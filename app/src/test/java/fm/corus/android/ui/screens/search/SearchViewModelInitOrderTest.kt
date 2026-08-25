@@ -94,6 +94,7 @@ class SearchViewModelInitOrderTest {
             on { trendingSongsWindow } doReturn flowOf("week")
             on { trendingFilmsWindow } doReturn flowOf("week")
             on { trendingHashtagsWindow } doReturn flowOf("month")
+            on { trendingArtistsWindow } doReturn flowOf("week")
         }
         remoteConfigService = mock()
         analyticsService = mock()

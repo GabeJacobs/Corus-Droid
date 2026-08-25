@@ -1006,6 +1006,7 @@
     <string name="search_trending_songs_title">Músicas em alta</string>
     <string name="search_trending_films_title">Filmes em alta</string>
     <string name="search_trending_hashtags_title">Hashtags em alta</string>
+    <string name="search_trending_artists_title">Artistas em alta</string>
     <string name="search_tab_hashtags">Hashtags</string>
     <string name="search_section_trending_hashtags">HASHTAGS EM ALTA</string>
     <string name="search_no_trending_hashtags">Nenhuma hashtag em alta ainda</string>

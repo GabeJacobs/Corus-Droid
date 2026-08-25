@@ -239,6 +239,7 @@ class PreferencesDataStore @Inject constructor(
         val TRENDING_SONGS_WINDOW = stringPreferencesKey("trending_songs_window")
         val TRENDING_FILMS_WINDOW = stringPreferencesKey("trending_films_window")
         val TRENDING_HASHTAGS_WINDOW = stringPreferencesKey("trending_hashtags_window")
+        val TRENDING_ARTISTS_WINDOW = stringPreferencesKey("trending_artists_window")
         // For You feed mode + seen-IDs ring buffer (cap 500, JSON-encoded).
         val FEED_MODE = stringPreferencesKey("feed_mode")
         // Synchronous mirror of FEED_MODE's raw value, in the same launch-critical
@@ -288,6 +289,14 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setTrendingHashtagsWindow(value: String) {
         dataStore.edit { it[TRENDING_HASHTAGS_WINDOW] = value }
+    }
+
+    val trendingArtistsWindow: Flow<String> = dataStore.data.map { prefs ->
+        prefs[TRENDING_ARTISTS_WINDOW] ?: "week"
+    }
+
+    suspend fun setTrendingArtistsWindow(value: String) {
+        dataStore.edit { it[TRENDING_ARTISTS_WINDOW] = value }
     }
 
     val autoplayNextSong: Flow<Boolean> = dataStore.data.map { prefs ->

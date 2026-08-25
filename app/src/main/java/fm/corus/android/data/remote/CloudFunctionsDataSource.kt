@@ -605,6 +605,16 @@ class CloudFunctionsDataSource @Inject constructor(
         return ProfileData(user, posts, match, linkedArtist)
     }
 
+    /** Fallback for the rare path where `getProfileData` is unavailable. */
+    @Suppress("UNCHECKED_CAST")
+    suspend fun getLinkedArtistForUser(userId: String): LinkedArtist? {
+        val result = functions.getHttpsCallable("getLinkedArtistForUser")
+            .call(mapOf("userId" to userId))
+            .await()
+        val data = result.getData() as? Map<String, Any?> ?: return null
+        return LinkedArtist.fromMap(data["linkedArtist"] as? Map<String, Any?>)
+    }
+
     @Suppress("UNCHECKED_CAST")
     suspend fun getProfilePosts(
         userId: String,

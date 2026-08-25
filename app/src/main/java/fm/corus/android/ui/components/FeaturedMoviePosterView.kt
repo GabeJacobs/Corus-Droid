@@ -19,11 +19,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.imageResource
@@ -61,6 +65,7 @@ internal fun frameDrawableRes(frameStyle: FrameStyle): Int {
             FrameStyle.RED -> if (isDark) R.drawable.frame_red_dark else R.drawable.frame_red
             FrameStyle.BLUE -> if (isDark) R.drawable.frame_blue_dark else R.drawable.frame_blue
             FrameStyle.GREEN -> if (isDark) R.drawable.frame_green_dark else R.drawable.frame_green
+            FrameStyle.THEATER -> if (isDark) R.drawable.frame_theater_dark else R.drawable.frame_theater
         }
     }
 }
@@ -95,12 +100,13 @@ fun FeaturedMoviePosterView(
     val isDark = LocalCorusDarkTheme.current
     val frameDrawable = frameDrawableRes(frameStyle)
 
-    // Frame dimensions from Figma (585x482 canvas)
-    val sectionAspect = 585f / 482f
-    val posterXRatio = 207.28f / 585f
-    val posterYRatio = 84.85f / 482f
-    val posterWRatio = 184.98f / 585f
-    val posterHRatio = 269.33f / 482f
+    // Frame dimensions from Figma (585x482 canvas). Poster slot is per-style.
+    // Marquee adds extra height below the PNG so the title clearance matches
+    // the stock frames.
+    val posterXRatio = frameStyle.posterXFrac
+    val posterYRatio = frameStyle.posterYFrac
+    val posterWRatio = frameStyle.posterWFrac
+    val posterHRatio = frameStyle.posterHFrac
 
     // Double-tap-to-like heart animation state (matches PostCard & iOS FeaturedMoviePosterView)
     val scope = rememberCoroutineScope()
@@ -140,20 +146,57 @@ fun FeaturedMoviePosterView(
             },
     ) {
         val w = maxWidth
-        val h = w / sectionAspect
+        val frameH = w * FrameStyle.CANVAS_HEIGHT / FrameStyle.CANVAS_WIDTH
+        val totalH = w / frameStyle.featuredSectionAspect
 
-        // Frame + poster composite
+        // Frame + poster composite. Extra title clearance (if any) hangs
+        // below the 585×482 PNG so the metadata row isn't tight on the bulbs.
         val glassOverlay = ImageBitmap.imageResource(R.drawable.frame_glass_overlay)
+        val frameBitmap = ImageBitmap.imageResource(frameDrawable)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(h),
+                .height(totalH)
+                .clipToBounds(),
         ) {
             // Frame
             Image(
                 painter = painterResource(frameDrawable),
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(frameH)
+                    .align(Alignment.TopCenter)
+                    .then(
+                        if (frameStyle.usesStandingShadow) {
+                            Modifier.drawBehind {
+                                drawOval(
+                                    color = Color.Black.copy(alpha = 0.22f),
+                                    topLeft = androidx.compose.ui.geometry.Offset(
+                                        size.width * 0.24f,
+                                        size.height * 0.74f,
+                                    ),
+                                    size = androidx.compose.ui.geometry.Size(
+                                        size.width * 0.52f,
+                                        size.height * 0.16f,
+                                    ),
+                                )
+                                drawOval(
+                                    color = Color.Black.copy(alpha = 0.32f),
+                                    topLeft = androidx.compose.ui.geometry.Offset(
+                                        size.width * 0.30f,
+                                        size.height * 0.70f,
+                                    ),
+                                    size = androidx.compose.ui.geometry.Size(
+                                        size.width * 0.40f,
+                                        size.height * 0.12f,
+                                    ),
+                                )
+                            }
+                        } else {
+                            Modifier
+                        },
+                    ),
                 contentScale = ContentScale.FillBounds,
             )
 
@@ -163,8 +206,8 @@ fun FeaturedMoviePosterView(
             val posterUrl = post?.displayImageLargeURL ?: post?.displayImageURL
             Box(
                 modifier = Modifier
-                    .offset(x = w * posterXRatio, y = h * posterYRatio)
-                    .size(width = w * posterWRatio, height = h * posterHRatio),
+                    .offset(x = w * posterXRatio, y = frameH * posterYRatio)
+                    .size(width = w * posterWRatio, height = frameH * posterHRatio),
             ) {
                 Box(
                     modifier = Modifier
@@ -206,7 +249,7 @@ fun FeaturedMoviePosterView(
             // Glass overlay (screen blend — matches iOS .blendMode(.screen)).
             // Skipped in dark mode where .Screen blend overexposes against the near-black
             // backdrop and reads as harsh sparkles.
-            if (!isDark) {
+            if (!isDark && frameStyle.usesGlassOverlay) {
                 Spacer(
                     modifier = Modifier
                         .fillMaxSize()
@@ -235,7 +278,27 @@ fun FeaturedMoviePosterView(
                     SnowEffectView(intensity = snowIntensity, modifier = Modifier.matchParentSize())
                 }
                 if (discoIntensity != DiscoIntensity.OFF) {
-                    DiscoEffectView(intensity = discoIntensity, modifier = Modifier.matchParentSize())
+                    DiscoScrim(intensity = discoIntensity, modifier = Modifier.matchParentSize())
+                    DiscoEffectView(
+                        intensity = discoIntensity,
+                        modifier = Modifier
+                            .matchParentSize()
+                            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                            .drawWithContent {
+                                drawContent()
+                                // Punch frame chrome so additive dots don't
+                                // sit on the rails as grey spots. The opening
+                                // and surround are transparent in the PNG.
+                                drawImage(
+                                    image = frameBitmap,
+                                    dstSize = IntSize(
+                                        size.width.toInt(),
+                                        frameH.toPx().toInt(),
+                                    ),
+                                    blendMode = BlendMode.DstOut,
+                                )
+                            },
+                    )
                 }
             }
 

@@ -1,48 +1,27 @@
 package fm.corus.android.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import fm.corus.android.data.model.DiscoIntensity
-import kotlinx.coroutines.delay
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.random.Random
-
-private val DISCO_COLORS = listOf(
-    Color(0xFFFF69B4), // pink
-    Color(0xFF6495ED), // blue
-    Color(0xFF9B59B6), // purple
-    Color(0xFF2ED573), // green
-    Color(0xFFFFD700), // gold
-)
-
-private data class DiscoBeam(
-    val baseAngle: Float,
-    val sweepRange: Float,
-    val sweepSpeed: Float,
-    val sweepPhase: Float,
-    val width: Float,
-    val pulseSpeed: Float,
-    val pulsePhase: Float,
-    val color: Color,
-)
-
-private data class MirrorPatch(
-    val orbitRadiusX: Float,
-    val orbitRadiusY: Float,
-    val orbitSpeed: Float,
-    val orbitPhase: Float,
-    val size: Float,
-    val twinkleSpeed: Float,
-    val twinklePhase: Float,
-    val color: Color,
-)
+import fm.corus.android.ui.theme.LocalCorusDarkTheme
 
 @Composable
 fun DiscoEffectView(
@@ -51,95 +30,87 @@ fun DiscoEffectView(
 ) {
     if (intensity == DiscoIntensity.OFF) return
 
-    val isHeavy = intensity == DiscoIntensity.HEAVY
-    val beamCount = intensity.beamCount
-    val lightCount = intensity.lightCount
+    val renderer = remember(intensity) { DiscoBallRenderer(intensity) }
+    val appearanceGain = if (LocalCorusDarkTheme.current) 1f else DiscoBallRenderer.LIGHT_MODE_GAIN
 
-    val beams = remember(intensity) {
-        List(beamCount) {
-            DiscoBeam(
-                baseAngle = Random.nextFloat() * 360f,
-                sweepRange = Random.nextFloat() * 30f + 15f,
-                sweepSpeed = (Random.nextFloat() * 0.5f + 0.3f) * if (isHeavy) 1.5f else 1f,
-                sweepPhase = Random.nextFloat() * 6.28f,
-                width = Random.nextFloat() * 8f + 4f,
-                pulseSpeed = Random.nextFloat() * 2f + 1f,
-                pulsePhase = Random.nextFloat() * 6.28f,
-                color = if (isHeavy) DISCO_COLORS[Random.nextInt(DISCO_COLORS.size)] else Color.White,
-            )
-        }
-    }
-
-    val patches = remember(intensity) {
-        List(lightCount) {
-            MirrorPatch(
-                orbitRadiusX = Random.nextFloat() * 0.4f + 0.1f,
-                orbitRadiusY = Random.nextFloat() * 0.4f + 0.1f,
-                orbitSpeed = (Random.nextFloat() * 1f + 0.5f) * if (isHeavy) 1.3f else 1f,
-                orbitPhase = Random.nextFloat() * 6.28f,
-                size = Random.nextFloat() * 4f + 2f,
-                twinkleSpeed = Random.nextFloat() * 3f + 1f,
-                twinklePhase = Random.nextFloat() * 6.28f,
-                color = if (isHeavy) DISCO_COLORS[Random.nextInt(DISCO_COLORS.size)] else Color.White,
-            )
-        }
-    }
-
-    var time by remember { mutableFloatStateOf(0f) }
-
+    var time by remember { mutableDoubleStateOf(0.0) }
     LaunchedEffect(intensity) {
+        val start = withFrameNanos { it }
         while (true) {
-            delay(16)
-            time += 0.016f
+            val now = withFrameNanos { it }
+            time = (now - start) / 1_000_000_000.0
         }
     }
 
-    Canvas(modifier = modifier.fillMaxSize()) {
+    val density = LocalDensity.current
+    val topFadePx = with(density) {
+        when (intensity) {
+            DiscoIntensity.DISCO_BALL -> 3
+            DiscoIntensity.DANCE_PARTY -> 16
+            else -> 56
+        }.dp.toPx()
+    }
+    val edgeFadePx = with(density) { 16.dp.toPx() }
+
+    Canvas(
+        modifier = modifier
+            .fillMaxSize()
+            .clipToBounds()
+            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
+    ) {
+        renderer.draw(this, time, appearanceGain)
         val w = size.width
         val h = size.height
-        val ballCenter = Offset(w / 2f, -h * 0.15f)
-
-        // Draw beams
-        beams.forEach { beam ->
-            val angle = beam.baseAngle + sin((time * beam.sweepSpeed + beam.sweepPhase).toDouble()).toFloat() * beam.sweepRange
-            val pulse = (sin((time * beam.pulseSpeed + beam.pulsePhase).toDouble()).toFloat() + 1f) / 2f
-            val alpha = 0.05f + pulse * 0.1f
-
-            val length = maxOf(w, h) * 1.5f
-            val rad = Math.toRadians(angle.toDouble())
-            val endX = ballCenter.x + cos(rad).toFloat() * length
-            val endY = ballCenter.y + sin(rad).toFloat() * length
-
-            drawLine(
-                brush = Brush.linearGradient(
-                    colors = listOf(beam.color.copy(alpha = alpha), beam.color.copy(alpha = 0f)),
-                    start = ballCenter,
-                    end = Offset(endX, endY),
+        if (w <= 0f || h <= 0f) return@Canvas
+        val topT = (topFadePx / h).coerceIn(
+            if (intensity == DiscoIntensity.DISCO_BALL) 0.005f else 0.02f,
+            0.4f,
+        )
+        val bottomT = (edgeFadePx / h).coerceIn(0.01f, 0.2f)
+        val sideT = (edgeFadePx / w).coerceIn(0.01f, 0.2f)
+        drawRect(
+            brush = Brush.verticalGradient(
+                colorStops = arrayOf(
+                    0f to Color.Transparent,
+                    topT to Color.White,
+                    1f - bottomT to Color.White,
+                    1f to Color.Transparent,
                 ),
-                start = ballCenter,
-                end = Offset(endX, endY),
-                strokeWidth = beam.width,
-            )
-        }
+            ),
+            blendMode = BlendMode.DstIn,
+        )
+        drawRect(
+            brush = Brush.horizontalGradient(
+                colorStops = arrayOf(
+                    0f to Color.Transparent,
+                    sideT to Color.White,
+                    1f - sideT to Color.White,
+                    1f to Color.Transparent,
+                ),
+            ),
+            blendMode = BlendMode.DstIn,
+        )
+    }
+}
 
-        // Draw mirror patches
-        patches.forEach { patch ->
-            val cx = w / 2f + cos((time * patch.orbitSpeed + patch.orbitPhase).toDouble()).toFloat() * w * patch.orbitRadiusX
-            val cy = h / 2f + sin((time * patch.orbitSpeed + patch.orbitPhase).toDouble()).toFloat() * h * patch.orbitRadiusY
-            val twinkle = (sin((time * patch.twinkleSpeed + patch.twinklePhase).toDouble()).toFloat() + 1f) / 2f
-            val alpha = 0.15f + twinkle * 0.4f
-
-            drawCircle(
-                color = patch.color.copy(alpha = alpha),
-                radius = patch.size,
-                center = Offset(cx, cy),
-            )
-            // Glow
-            drawCircle(
-                color = patch.color.copy(alpha = alpha * 0.3f),
-                radius = patch.size * 2.5f,
-                center = Offset(cx, cy),
-            )
+@Composable
+fun DiscoScrim(
+    intensity: DiscoIntensity,
+    modifier: Modifier = Modifier,
+) {
+    if (intensity == DiscoIntensity.OFF) return
+    var time by remember { mutableDoubleStateOf(0.0) }
+    LaunchedEffect(intensity) {
+        if (intensity != DiscoIntensity.DANCE_PARTY) return@LaunchedEffect
+        val start = withFrameNanos { it }
+        while (true) {
+            val now = withFrameNanos { it }
+            time = (now - start) / 1_000_000_000.0
         }
     }
+    Box(
+        modifier = modifier.background(
+            intensity.scrimColor(time).copy(alpha = intensity.scrimOpacity),
+        ),
+    )
 }

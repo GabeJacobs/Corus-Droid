@@ -94,8 +94,10 @@ import fm.corus.android.ui.components.ShareMediaSubject
 import fm.corus.android.ui.components.ShareProfileSubject
 import fm.corus.android.ui.components.shareCardPreviewUrl
 import fm.corus.android.ui.components.ToastManager
+import fm.corus.android.ui.components.ProfileArtistLinkCard
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
+import fm.corus.android.ui.navigation.ArtistPageRoute
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -151,6 +153,7 @@ fun ProfileScreen(
     onNavigateToProfileFeed: (userId: String, username: String, postId: String, segment: Int) -> Unit = { _, _, _, _ -> },
     onNavigateToClub: () -> Unit = {},
     onOpenCompose: (String) -> Unit = {},
+    onNavigateToArtist: ((ArtistPageRoute) -> Unit)? = null,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -166,6 +169,7 @@ fun ProfileScreen(
     val usernameEndPad = avatarHPad
 
     val profile by viewModel.profile.collectAsState()
+    val linkedArtist by viewModel.linkedArtist.collectAsState()
     val pendingAvatarBytes by viewModel.pendingAvatarBytes.collectAsState()
     val posts by viewModel.posts.collectAsState()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
@@ -209,6 +213,8 @@ fun ProfileScreen(
     var isFeaturedArtReady by rememberSaveable { mutableStateOf(false) }
     var didRevealFromSkeleton by remember { mutableStateOf(false) }
     var showStylePicker by remember { mutableStateOf(false) }
+    // Mirrors iOS ProfileView.lastStylePage — reopen on the page they left.
+    var lastStylePage by rememberSaveable { mutableStateOf<Int?>(null) }
     var showClubOffer by remember { mutableStateOf(false) }
     var clubOfferSource by remember { mutableStateOf(fm.corus.android.ui.screens.subscription.PaywallSource.DEFAULT) }
     var clubPlaylistTrialContext by remember {
@@ -835,6 +841,25 @@ fun ProfileScreen(
             }
         }
 
+        val artist = linkedArtist
+        if (viewModel.isProfileArtistLinkEnabled && artist != null) {
+            item(span = { GridItemSpan(3) }, key = "artist_link") {
+                ProfileArtistLinkCard(
+                    artist = artist,
+                    onArtistTap = {
+                        viewModel.logProfileArtistLinkTapped(artist.id, currentProfile.id)
+                        onNavigateToArtist?.invoke(
+                            ArtistPageRoute(
+                                artistId = artist.id,
+                                name = artist.name.ifBlank { null },
+                                imageUrl = artist.imageUrl,
+                            ),
+                        )
+                    },
+                )
+            }
+        }
+
         item(span = { GridItemSpan(3) }, key = "tabs") {
             Column {
                 // ── Segment Control ──
@@ -1251,13 +1276,11 @@ fun ProfileScreen(
             dragHandle = null,
         ) {
             CorusSystemBars()
-            // When on the FILM tab, open directly to the frame color page
-            val styleInitialPage = if (selectedSegment == 1 && trackPosts.isNotEmpty() && moviePosts.isNotEmpty()) {
-                1 // FRAME is at index 1 when both track and movie posts exist (VINYL=0, FRAME=1)
-            } else if (selectedSegment == 1 && moviePosts.isNotEmpty()) {
-                0 // FRAME is at index 0 when only movie posts exist
-            } else {
-                0
+            // Remember the last page (iOS lastStylePage). First open from the
+            // Film tab still lands on Frame when we have nothing stored yet.
+            val styleInitialPage = lastStylePage ?: when {
+                selectedSegment == 1 && trackPosts.isNotEmpty() && moviePosts.isNotEmpty() -> 1
+                else -> 0
             }
 
             StylePickerSheet(
@@ -1274,12 +1297,13 @@ fun ProfileScreen(
                 latestMoviePost = moviePosts.firstOrNull(),
                 hasTrackPosts = trackPosts.isNotEmpty(),
                 hasMoviePosts = moviePosts.isNotEmpty(),
-                isClubMember = hasFullAccess,
+                isClubMember = hasFullAccess || currentProfile.hasClubAccess,
                 stylePack1Enabled = viewModel.stylePack1Enabled,
                 isStaff = currentProfile.isStaff,
                 corusFlairOpen = viewModel.corusFlairOpen,
                 isSaving = isSavingStyle,
                 initialPage = styleInitialPage,
+                onPageChange = { lastStylePage = it },
                 onSave = { selections ->
                     val current = StyleSelections(
                         vinylColor = currentProfile.vinylStyle,
