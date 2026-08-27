@@ -311,7 +311,7 @@ class RemoteConfigService @Inject constructor(
     val artistsOnCorusSectionEnabled: Boolean
         get() = feedFlag("artists_on_corus_section_enabled")
 
-    /// Search zero-state rail: trending artists (below hashtags). Shares
+    /// Search zero-state rail: trending artists (below Artists and Labels). Shares
     /// `trending_artists_section_enabled` with iOS/web.
     val trendingArtistsSectionEnabled: Boolean
         get() = feedFlag("trending_artists_section_enabled")
@@ -339,6 +339,29 @@ class RemoteConfigService @Inject constructor(
     /// layout must be right on its very first frame after a cold launch.
     val composeUnifiedSearchEnabled: Boolean
         get() = feedFlag("compose_unified_search_enabled")
+
+    /// Instagram-style Activity filter chips. Launched ON; RC false hides
+    /// them with no app update. Off = today's unfiltered list.
+    val notificationFiltersEnabled: Boolean
+        get() = feedFlag("notification_filters_enabled")
+
+    /// Master gate for Books as a third medium. Shares `books_enabled` with iOS.
+    val booksEnabled: Boolean
+        get() = feedFlag("books_enabled")
+
+    /// Volume gate for showing the chips (paired with minTypes). Default 8.
+    val notificationFiltersMinCount: Int
+        get() {
+            val v = remoteConfig.getLong("notification_filters_min_count").toInt()
+            return if (v > 0) v else 8
+        }
+
+    /// Distinct-type gate for showing the chips (paired with minCount). Default 3.
+    val notificationFiltersMinTypes: Int
+        get() {
+            val v = remoteConfig.getLong("notification_filters_min_types").toInt()
+            return if (v > 0) v else 3
+        }
 
     /// Gate for the taste-match onboarding flow (music-service step second,
     /// taste quiz → venn interstitial → taste-matched suggestions → head-start
@@ -568,6 +591,8 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("trending_artists_section_enabled", remoteConfig.getBoolean("trending_artists_section_enabled"))
             .putBoolean("profile_artist_link_enabled", remoteConfig.getBoolean("profile_artist_link_enabled"))
             .putBoolean("compose_unified_search_enabled", remoteConfig.getBoolean("compose_unified_search_enabled"))
+            .putBoolean("notification_filters_enabled", remoteConfig.getBoolean("notification_filters_enabled"))
+            .putBoolean("books_enabled", remoteConfig.getBoolean("books_enabled"))
             .putBoolean("feed_switch_hint_enabled", remoteConfig.getBoolean("feed_switch_hint_enabled"))
             .putBoolean("onboarding_taste_match_enabled", remoteConfig.getBoolean("onboarding_taste_match_enabled"))
             .putBoolean("taste_matches_enabled", remoteConfig.getBoolean("taste_matches_enabled"))
@@ -647,7 +672,7 @@ class RemoteConfigService @Inject constructor(
             "following_denorm_reads_enabled" to true,
             "comment_controls_on_posts" to true,
             "new_release_filter_club_only" to false,
-            "style_pack_1_enabled" to false,
+            "style_pack_1_enabled" to true,
             "corus_flair_open" to false,
             "trending_feed_enabled" to true,
             "favorites_enabled" to true,
@@ -669,6 +694,10 @@ class RemoteConfigService @Inject constructor(
             "trending_artists_section_enabled" to false,
             "profile_artist_link_enabled" to false,
             "compose_unified_search_enabled" to false,
+            "notification_filters_enabled" to true,
+            "books_enabled" to false,
+            "notification_filters_min_count" to 8L,
+            "notification_filters_min_types" to 3L,
             "feed_switch_hint_enabled" to false,
             // Default FALSE in code — the server-side param defaults true (web
             // is live) with an Android app-id condition forcing false; the

@@ -217,17 +217,27 @@ internal fun feedModeUsesRankedSession(feedMode: String): Boolean =
  * unit-tested without mocking FirebaseFunctions (mirrors the destination-page
  * parsers below).
  */
-internal fun parseArtistIdByNameResponse(data: Map<String, Any?>?, name: String): String? {
+data class ResolvedArtistByName(val id: String, val name: String, val imageUrl: String?)
+
+internal fun parseResolvedArtistByNameResponse(
+    data: Map<String, Any?>?,
+    name: String,
+): ResolvedArtistByName? {
     val artists = data?.get("artists") as? List<*> ?: return null
     val want = name.trim().lowercase()
     for (entry in artists) {
         val artist = entry as? Map<*, *> ?: continue
         val id = (artist["id"] as? String)?.takeIf { it.isNotEmpty() } ?: continue
-        val candidate = (artist["name"] as? String)?.trim()?.lowercase() ?: continue
-        if (candidate == want) return id
+        val candidate = (artist["name"] as? String)?.trim() ?: continue
+        if (candidate.lowercase() != want) continue
+        val imageUrl = (artist["imageUrl"] as? String)?.takeIf { it.isNotEmpty() }
+        return ResolvedArtistByName(id = id, name = candidate, imageUrl = imageUrl)
     }
     return null
 }
+
+internal fun parseArtistIdByNameResponse(data: Map<String, Any?>?, name: String): String? =
+    parseResolvedArtistByNameResponse(data, name)?.id
 
 // ── Artist / Album / Director destination-page parsers ───────────────────────
 // Pure map→model parsers for the six destination callables, kept top-level so
@@ -957,9 +967,19 @@ class CloudFunctionsDataSource @Inject constructor(
     // ── Notifications ──
 
     @Suppress("UNCHECKED_CAST")
-    suspend fun getNotifications(userId: String, limit: Int = 15, lastTimestamp: Long? = null): List<CymbalNotification> {
+    suspend fun getNotifications(
+        userId: String,
+        limit: Int = 15,
+        lastTimestamp: Long? = null,
+        types: List<String>? = null,
+        peopleYouFollow: Boolean = false,
+    ): List<CymbalNotification> {
         val params = mutableMapOf<String, Any>("userId" to userId, "limit" to limit)
         lastTimestamp?.let { params["startAfter"] = it }
+        // Additive: older function revisions ignore unknown fields; omitting
+        // `types` / `peopleYouFollow` keeps the historical unfiltered query.
+        if (!types.isNullOrEmpty()) params["types"] = types
+        if (peopleYouFollow) params["peopleYouFollow"] = true
         val result = functions.getHttpsCallable("getNotifications").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: return emptyList()
         val notifications = data["notifications"] as? List<Map<String, Any?>> ?: return emptyList()
@@ -1359,18 +1379,18 @@ class CloudFunctionsDataSource @Inject constructor(
     }
 
     /**
-     * Resolve a Spotify artist id by *exact* (trimmed, case-insensitive) name
-     * match via `searchSongs`' includeArtists extension. Backs the song page's
-     * artist-line fallback for tracks with no artist ids anywhere
-     * (Apple-sourced tracks, legacy posts) so the line is still tappable when
-     * artist_pages_enabled is on. Null on no exact match / error — the caller
-     * degrades to plain text rather than guessing. Mirrors iOS
-     * `DestinationPagesService.resolveArtistIdByName`.
+     * Resolve a Spotify artist by *exact* (trimmed, case-insensitive) name
+     * match via `searchSongs`' includeArtists extension. Carries the catalog
+     * headshot so Search trending rows don't have to pass album art as the
+     * artist-page hero (that flashes when getArtistDetail lands). Cached per
+     * name so a later tap is instant. Null on no exact match / error.
      */
     @Suppress("UNCHECKED_CAST")
-    suspend fun resolveArtistIdByName(name: String): String? {
+    suspend fun resolveArtistByName(name: String): ResolvedArtistByName? {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return null
+        val key = trimmed.lowercase()
+        artistByNameCache[key]?.let { return it }
         return try {
             val result = functions.getHttpsCallable("searchSongs").call(
                 mapOf(
@@ -1380,9 +1400,26 @@ class CloudFunctionsDataSource @Inject constructor(
                     "includeArtists" to true,
                 )
             ).await()
-            parseArtistIdByNameResponse(result.getData() as? Map<String, Any?>, trimmed)
+            parseResolvedArtistByNameResponse(result.getData() as? Map<String, Any?>, trimmed)
+                ?.also { artistByNameCache[key] = it }
         } catch (_: Exception) {
             null
+        }
+    }
+
+    fun cachedResolvedArtist(name: String): ResolvedArtistByName? {
+        val key = name.trim().lowercase()
+        return if (key.isEmpty()) null else artistByNameCache[key]
+    }
+
+    suspend fun resolveArtistIdByName(name: String): String? = resolveArtistByName(name)?.id
+
+    /** Warm name→id and getArtistDetail so a later tap can open the page
+     *  already painted with the real headshot. */
+    suspend fun prefetchArtistDestinations(names: List<String>) {
+        for (name in names) {
+            val resolved = resolveArtistByName(name) ?: continue
+            runCatching { fetchArtistDetail(resolved.id, resolved.name) }
         }
     }
 
@@ -1471,6 +1508,7 @@ class CloudFunctionsDataSource @Inject constructor(
     )
 
     private val artistDetailCache = ConcurrentHashMap<String, Pair<Long, ArtistDetail>>()
+    private val artistByNameCache = ConcurrentHashMap<String, ResolvedArtistByName>()
     private val albumCatalogCache = ConcurrentHashMap<String, Pair<Long, AlbumCatalog>>()
     private val directorDetailCache = ConcurrentHashMap<String, Pair<Long, DirectorDetail>>()
 

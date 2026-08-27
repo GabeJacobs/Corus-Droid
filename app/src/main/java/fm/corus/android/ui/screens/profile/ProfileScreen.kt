@@ -102,6 +102,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.CorusSystemBars
+import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import fm.corus.android.ui.util.formattedCount
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -203,9 +204,13 @@ fun ProfileScreen(
     var userSelectedSegment by rememberSaveable { mutableStateOf<Int?>(null) }
     val rawHasMore by viewModel.hasMore.collectAsState()
     val hasMoreMixedPosts = rawHasMore[0] ?: true
-    val selectedSegment = userSelectedSegment
+    val mediaTabs = profile?.visibleMediaTabIndices() ?: listOf(0, 1)
+    val visibleLogicalTabs = mediaTabs + listOf(2, 3)
+    val selectedSegment = (userSelectedSegment
         ?: profile?.preferredProfileSegmentFromPosts(posts, hasMoreMixedPosts)
-        ?: 0
+        ?: 0).let { current ->
+        if (current in visibleLogicalTabs) current else visibleLogicalTabs.first()
+    }
     // Render full 2:3 posters (not square crops) when the grid is films-only:
     // the Film tab, or a Likes/Saves grid filtered to Film.
     val showPosterGrid = selectedSegment == 1 ||
@@ -873,8 +878,8 @@ fun ProfileScreen(
                 val filmLabel = stringResource(fm.corus.android.R.string.profile_tab_film)
                 val likesLabel = stringResource(fm.corus.android.R.string.profile_tab_likes)
                 val savesLabel = stringResource(fm.corus.android.R.string.profile_tab_saves)
-                val isFilmFirst = profile?.featuredTab == "film"
-                val tabsOrder = if (isFilmFirst) listOf(1, 0, 2, 3) else listOf(0, 1, 2, 3)
+                val mediaTabs = profile?.visibleMediaTabIndices() ?: listOf(0, 1)
+                val tabsOrder = mediaTabs + listOf(2, 3)
                 val tabs = tabsOrder.map { logical ->
                     when (logical) {
                         0 -> musicLabel
@@ -1011,7 +1016,7 @@ fun ProfileScreen(
                         frameStyle = currentProfile.frameStyle,
                         rainIntensity = if (filmFeaturedPost == null) fm.corus.android.data.model.RainIntensity.OFF else currentProfile.rainIntensity,
                         snowIntensity = if (filmFeaturedPost == null) fm.corus.android.data.model.SnowIntensity.OFF else currentProfile.snowIntensity,
-                        discoIntensity = if (filmFeaturedPost == null) fm.corus.android.data.model.DiscoIntensity.OFF else currentProfile.discoIntensityLevel,
+                        discoIntensity = if (filmFeaturedPost == null) fm.corus.android.data.model.DiscoIntensity.OFF else currentProfile.visibleDiscoIntensity(LocalCorusDarkTheme.current),
                         likeCount = featuredEngagement?.likeCount ?: (filmFeaturedPost?.likeCount ?: 0),
                         isLiked = featuredEngagement?.isLiked ?: (filmFeaturedPost?.isLiked ?: false),
                         onLikeTap = { filmFeaturedPost?.let { viewModel.toggleLike(it.id) } },
@@ -1048,7 +1053,7 @@ fun ProfileScreen(
                             musicService = musicService,
                             rainIntensity = currentProfile.rainIntensity,
                             snowIntensity = currentProfile.snowIntensity,
-                            discoIntensity = currentProfile.discoIntensityLevel,
+                            discoIntensity = currentProfile.visibleDiscoIntensity(LocalCorusDarkTheme.current),
                             likeCount = featuredEngagement?.likeCount ?: featuredPost.likeCount,
                             isLiked = featuredEngagement?.isLiked ?: featuredPost.isLiked,
                             onLikeTap = { viewModel.toggleLike(featuredPost.id) },
@@ -1291,6 +1296,7 @@ fun ProfileScreen(
                     rainEffect = currentProfile.rainIntensity,
                     snowEffect = currentProfile.snowIntensity,
                     discoEffect = currentProfile.discoIntensityLevel,
+                    discoDarkModeOnly = currentProfile.discoDarkModeOnly,
                 ),
                 username = currentProfile.username,
                 latestTrackPost = trackPosts.firstOrNull(),
@@ -1312,13 +1318,21 @@ fun ProfileScreen(
                         rainEffect = currentProfile.rainIntensity,
                         snowEffect = currentProfile.snowIntensity,
                         discoEffect = currentProfile.discoIntensityLevel,
+                        discoDarkModeOnly = currentProfile.discoDarkModeOnly,
                     )
                     val fields = selections.changedFields(current)
-                    if (fields.isNotEmpty()) {
-                        viewModel.saveStyleSelections(fields)
-                        ToastManager.show(context.getString(fm.corus.android.R.string.profile_toast_style_updated))
+                    if (fields.isEmpty()) {
+                        showStylePicker = false
+                        return@StylePickerSheet
                     }
-                    showStylePicker = false
+                    viewModel.saveStyleSelections(fields) { ok ->
+                        if (ok) {
+                            ToastManager.show(context.getString(fm.corus.android.R.string.profile_toast_style_updated))
+                            showStylePicker = false
+                        } else {
+                            ToastManager.show(context.getString(fm.corus.android.R.string.edit_profile_save_style_error))
+                        }
+                    }
                 },
                 onNavigateToClub = {
                     showStylePicker = false

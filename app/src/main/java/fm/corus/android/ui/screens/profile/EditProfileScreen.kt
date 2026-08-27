@@ -16,6 +16,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,6 +36,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
+import fm.corus.android.data.model.ProfileMediaTab
 import fm.corus.android.ui.theme.CorusSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,7 +52,7 @@ fun EditProfileScreen(
     val username by viewModel.username.collectAsState()
     val bio by viewModel.bio.collectAsState()
     val website by viewModel.website.collectAsState()
-    val featuredTab by viewModel.featuredTab.collectAsState()
+    val tabPreferences by viewModel.tabPreferences.collectAsState()
     val usernameState by viewModel.usernameState.collectAsState()
     val usernameInvalidReason by viewModel.usernameInvalidReason.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
@@ -58,13 +61,20 @@ fun EditProfileScreen(
     val profile by viewModel.profile.collectAsState()
 
     // Derive canSave reactively from collected states so Compose can observe changes
-    val canSave = remember(displayName, username, bio, website, featuredTab, profile, usernameState, isSaving) {
+    val canSave = remember(displayName, username, bio, website, tabPreferences, profile, usernameState, isSaving) {
         val p = profile ?: return@remember false
+        val booksEnabled = viewModel.booksEnabled
+        val original = p.tabPreferences(booksEnabled)
+        val originalEditor = original.editorTabs(booksEnabled)
+        val currentEditor = tabPreferences.editorTabs(booksEnabled)
+        val tabsChanged = originalEditor != currentEditor ||
+            original.hidden.intersect(originalEditor.toSet()) !=
+            tabPreferences.hidden.intersect(currentEditor.toSet())
         val hasChanges = displayName != p.displayName ||
                 username != p.username ||
                 bio != p.bio ||
                 website != (p.website ?: "") ||
-                featuredTab != p.featuredTab
+                tabsChanged
         if (!hasChanges) return@remember false
         if (displayName.isBlank()) return@remember false
         if (username != p.username && usernameState != EditProfileViewModel.UsernameState.AVAILABLE) return@remember false
@@ -297,35 +307,94 @@ fun EditProfileScreen(
                 capitalization = KeyboardCapitalization.None,
             )
 
-            // Featured Tab picker — controls whether this user's profile leads
-            // with Music or Film when viewed by anyone (including themselves).
+            // Profile tabs — reorder and hide media tabs. At least one must stay visible.
             Column {
                 Text(
-                    stringResource(R.string.edit_profile_field_featured_tab),
+                    stringResource(R.string.edit_profile_field_profile_tabs),
                     style = CorusFont.sectionHeader,
                     color = CorusColors.Secondary,
                 )
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    val options = listOf("music" to R.string.profile_tab_music, "film" to R.string.profile_tab_film)
-                    options.forEachIndexed { index, (value, labelRes) ->
-                        SegmentedButton(
-                            selected = featuredTab == value,
-                            onClick = { viewModel.updateFeaturedTab(value) },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
-                            colors = SegmentedButtonDefaults.colors(
-                                activeContainerColor = CorusColors.Accent.copy(alpha = 0.15f),
-                                activeContentColor = CorusColors.Accent,
-                                activeBorderColor = CorusColors.Accent,
-                                inactiveContainerColor = CorusColors.CardBackground,
-                                inactiveContentColor = CorusColors.Text,
-                                inactiveBorderColor = CorusColors.Divider,
-                            ),
+                val booksEnabled = viewModel.booksEnabled
+                val editorTabs = tabPreferences.editorTabs(booksEnabled = booksEnabled)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, CorusColors.Divider, RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
+                ) {
+                    editorTabs.forEachIndexed { index, tab ->
+                        val isHidden = tab in tabPreferences.hidden
+                        val canHide = tabPreferences.canHide(tab, booksEnabled)
+                        val labelRes = when (tab) {
+                            ProfileMediaTab.MUSIC -> R.string.profile_tab_music
+                            ProfileMediaTab.FILM -> R.string.profile_tab_film
+                            ProfileMediaTab.BOOKS -> R.string.profile_tab_books
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(stringResource(labelRes))
+                            Column {
+                                IconButton(
+                                    onClick = {
+                                        if (index > 0) viewModel.moveTab(tab, editorTabs[index - 1])
+                                    },
+                                    enabled = index > 0,
+                                    modifier = Modifier.size(28.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Default.KeyboardArrowUp,
+                                        contentDescription = stringResource(R.string.edit_profile_tab_move_up),
+                                        tint = if (index > 0) CorusColors.Text else CorusColors.Tertiary,
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        if (index < editorTabs.lastIndex) viewModel.moveTab(tab, editorTabs[index + 1])
+                                    },
+                                    enabled = index < editorTabs.lastIndex,
+                                    modifier = Modifier.size(28.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Default.KeyboardArrowDown,
+                                        contentDescription = stringResource(R.string.edit_profile_tab_move_down),
+                                        tint = if (index < editorTabs.lastIndex) CorusColors.Text else CorusColors.Tertiary,
+                                    )
+                                }
+                            }
+                            Text(
+                                text = stringResource(labelRes),
+                                style = CorusFont.body,
+                                color = if (isHidden) CorusColors.Tertiary else CorusColors.Text,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = CorusSpacing.sm),
+                            )
+                            TextButton(
+                                onClick = { viewModel.toggleHiddenTab(tab) },
+                                enabled = canHide || isHidden,
+                            ) {
+                                Text(
+                                    text = stringResource(
+                                        if (isHidden) R.string.edit_profile_tab_show else R.string.edit_profile_tab_hide
+                                    ),
+                                    color = if (canHide || isHidden) CorusColors.Accent else CorusColors.Tertiary,
+                                )
+                            }
+                        }
+                        if (index < editorTabs.lastIndex) {
+                            HorizontalDivider(color = CorusColors.Divider)
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                Text(
+                    stringResource(R.string.edit_profile_tabs_hint),
+                    style = CorusFont.caption,
+                    color = CorusColors.Tertiary,
+                )
             }
 
             // Divider before action rows

@@ -74,7 +74,8 @@ enum class FrameStyle(val value: String) {
     /// Marquee uses a single sharp bulb on black in the picker instead of a flat color.
     val usesTextureSwatch: Boolean get() = this == THEATER
 
-    /// Soft ground shadow so Marquee reads as standing on the featured card.
+    /// Soft standing shadow under the frame silhouette. Stock frames already
+    /// carry a baked glow; Marquee sits flat without one.
     val usesStandingShadow: Boolean get() = this == THEATER
 
     /// Extra canvas points below the PNG so the overlaid title row matches

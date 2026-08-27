@@ -28,6 +28,15 @@ class DiscoEffectTest {
     }
 
     @Test
+    fun darkModeOnlyHidesLightsInLightAppearance() {
+        assertEquals(DiscoIntensity.DISCO_BALL, DiscoIntensity.DISCO_BALL.visible(false, false))
+        assertEquals(DiscoIntensity.DISCO_BALL, DiscoIntensity.DISCO_BALL.visible(false, true))
+        assertEquals(DiscoIntensity.DISCO_BALL, DiscoIntensity.DISCO_BALL.visible(true, true))
+        assertEquals(DiscoIntensity.OFF, DiscoIntensity.DISCO_BALL.visible(true, false))
+        assertEquals(DiscoIntensity.OFF, DiscoIntensity.OFF.visible(true, false))
+    }
+
+    @Test
     fun pageStaysReachableForExistingSelectionWhenPackOff() {
         for (saved in DiscoIntensity.entries) {
             if (saved == DiscoIntensity.OFF) continue
@@ -63,7 +72,7 @@ class DiscoEffectTest {
     @Test
     fun pickerOrderAndLabels() {
         assertEquals(
-            listOf("Off", "Slow Dance", "Disco Ball", "Dance Party", "Spotiflight"),
+            listOf("Off", "Slow Dance", "Disco Ball", "Dance Party", "Spotlight"),
             DiscoIntensity.entries.map { it.displayName },
         )
     }

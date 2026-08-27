@@ -14,8 +14,16 @@ class NotificationRepository @Inject constructor(
     private val firestoreDataSource: FirestoreDataSource,
     private val userRepository: UserRepository,
 ) {
-    suspend fun getNotifications(userId: String, limit: Int = 15, lastTimestamp: Long? = null): List<CymbalNotification> {
-        return cloudFunctions.getNotifications(userId, limit, lastTimestamp)
+    suspend fun getNotifications(
+        userId: String,
+        limit: Int = 15,
+        lastTimestamp: Long? = null,
+        types: List<String>? = null,
+        peopleYouFollow: Boolean = false,
+    ): List<CymbalNotification> {
+        return cloudFunctions.getNotifications(
+            userId, limit, lastTimestamp, types, peopleYouFollow,
+        )
     }
 
     // Firestore notification docs store only `fromUserId`, so the listener

@@ -8,13 +8,18 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -23,13 +28,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -58,6 +68,7 @@ import fm.corus.android.data.model.VinylStyle
 import fm.corus.android.ui.components.DiscoEffectView
 import fm.corus.android.ui.components.RainEffectView
 import fm.corus.android.ui.components.SnowEffectView
+import fm.corus.android.ui.components.StandingFrameShadow
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -70,6 +81,7 @@ data class StyleSelections(
     val rainEffect: RainIntensity = RainIntensity.OFF,
     val snowEffect: SnowIntensity = SnowIntensity.OFF,
     val discoEffect: DiscoIntensity = DiscoIntensity.OFF,
+    val discoDarkModeOnly: Boolean = false,
 ) {
     fun hasChanges(from: StyleSelections): Boolean =
         vinylColor != from.vinylColor ||
@@ -77,7 +89,8 @@ data class StyleSelections(
                 profileFlair != from.profileFlair ||
                 rainEffect != from.rainEffect ||
                 snowEffect != from.snowEffect ||
-                discoEffect != from.discoEffect
+                discoEffect != from.discoEffect ||
+                discoDarkModeOnly != from.discoDarkModeOnly
 
     fun changedFields(from: StyleSelections): Map<String, Any> {
         val fields = mutableMapOf<String, Any>()
@@ -87,6 +100,7 @@ data class StyleSelections(
         if (rainEffect != from.rainEffect) fields["rainEffect"] = rainEffect.value
         if (snowEffect != from.snowEffect) fields["snowEffect"] = snowEffect.value
         if (discoEffect != from.discoEffect) fields["discoEffect"] = discoEffect.value
+        if (discoDarkModeOnly != from.discoDarkModeOnly) fields["discoDarkModeOnly"] = discoDarkModeOnly
         return fields
     }
 
@@ -178,10 +192,8 @@ fun StylePickerSheet(
             .fillMaxWidth()
             .fillMaxHeight(0.92f)
             // ModalBottomSheet treats leftover vertical nested-scroll as
-            // "drag the sheet." A slightly downward page-swipe then slides
-            // the whole picker instead of changing pages. Eat that leftover
-            // here so the pager and option lists keep the gesture. Dismiss
-            // stays on the close button and the scrim.
+            // "drag the sheet." Eat that leftover so page-swipes and list
+            // flings do not slide the picker. Dismiss stays on X / scrim.
             .nestedScroll(ConsumeSheetDragAfterChildScroll),
     ) {
         // Top bar with close button
@@ -228,6 +240,11 @@ fun StylePickerSheet(
             state = pagerState,
             modifier = Modifier.weight(1f),
             beyondViewportPageCount = 1,
+            // Default pager nested-scroll consumes leftover deltas and, while
+            // the page is even slightly off-center after a list drag, the
+            // next tap is used to settle the pager instead of selecting a
+            // color. Page swipes still work via the pager's own drag.
+            pageNestedScrollConnection = remember { object : NestedScrollConnection {} },
         ) { pageIndex ->
             when (pages[pageIndex]) {
                 StylePage.VINYL -> VinylColorPickerPage(
@@ -313,12 +330,22 @@ fun StylePickerSheet(
                             draft.copy(discoEffect = newValue)
                         }
                     },
-                    labelOf = { it.displayName },
+                    labelOf = { it.localizedLabel() },
                     vinylStyle = draft.vinylColor,
                     latestTrackPost = latestTrackPost,
+                    aboveOptions = {
+                        DiscoDarkModeOnlyToggle(
+                            checked = draft.discoDarkModeOnly,
+                            onCheckedChange = { draft = draft.copy(discoDarkModeOnly = it) },
+                        )
+                    },
                     effectOverlay = { intensity, modifier ->
-                        if (intensity != DiscoIntensity.OFF) {
-                            DiscoEffectView(intensity = intensity, modifier = modifier)
+                        val shown = intensity.visible(
+                            draft.discoDarkModeOnly,
+                            LocalCorusDarkTheme.current,
+                        )
+                        if (shown != DiscoIntensity.OFF) {
+                            DiscoEffectView(intensity = shown, modifier = modifier)
                         }
                     },
                 )
@@ -367,9 +394,10 @@ fun StylePickerSheet(
 // Picker preview stays on the pack-1 canvas so the big cover never jumps
 // when switching vinyls. The hole still follows each style.
 /**
- * ModalBottomSheet's nested-scroll connection applies any leftover UserInput
- * delta to the sheet. HorizontalPager does not consume Y, so a normal
- * page-swipe (never perfectly level) becomes a sheet drag.
+ * ModalBottomSheet's nested-scroll connection applies leftover UserInput Y
+ * to the sheet. Eat that leftover so a page-swipe or list fling never
+ * starts a sheet drag. Option rows use [selectOnTap], which still fires
+ * after this consumption.
  */
 private val ConsumeSheetDragAfterChildScroll = object : NestedScrollConnection {
     override fun onPostScroll(
@@ -377,16 +405,65 @@ private val ConsumeSheetDragAfterChildScroll = object : NestedScrollConnection {
         available: Offset,
         source: NestedScrollSource,
     ): Offset {
-        return if (source == NestedScrollSource.UserInput) {
-            Offset(0f, available.y)
-        } else {
-            Offset.Zero
-        }
+        if (source != NestedScrollSource.UserInput) return Offset.Zero
+        return Offset(0f, available.y)
     }
 
     override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
         return Velocity(0f, available.y)
     }
+}
+
+/**
+ * Select on finger-up if the press did not travel past touch slop.
+ * Unlike [Modifier.clickable], this still fires when a parent (sheet,
+ * pager, or a list that just stopped a fling) already consumed the
+ * pointer — the usual reason a quick tap after a scroll does nothing.
+ */
+private fun Modifier.selectOnTap(onClick: () -> Unit): Modifier = composed {
+    val interactionSource = remember { MutableInteractionSource() }
+    indication(interactionSource, ripple())
+        .pointerInput(onClick) {
+            val slop = viewConfiguration.touchSlop
+            awaitEachGesture {
+                val down = awaitFirstDown(
+                    requireUnconsumed = false,
+                    pass = PointerEventPass.Initial,
+                )
+                val press = PressInteraction.Press(down.position)
+                interactionSource.tryEmit(press)
+                var dragged = false
+                var settled = false
+                try {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Main)
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: continue
+                        if ((change.position - down.position).getDistance() > slop) {
+                            dragged = true
+                        }
+                        if (change.changedToUpIgnoreConsumed()) {
+                            if (dragged) {
+                                interactionSource.tryEmit(PressInteraction.Cancel(press))
+                            } else {
+                                interactionSource.tryEmit(PressInteraction.Release(press))
+                                onClick()
+                            }
+                            settled = true
+                            break
+                        }
+                        if (!change.pressed) {
+                            interactionSource.tryEmit(PressInteraction.Cancel(press))
+                            settled = true
+                            break
+                        }
+                    }
+                } finally {
+                    if (!settled) {
+                        interactionSource.tryEmit(PressInteraction.Cancel(press))
+                    }
+                }
+            }
+        }
 }
 
 private const val PICKER_CANVAS_RATIO = 440f / 582f
@@ -404,7 +481,6 @@ private fun VinylColorPickerPage(
     val visibleStyles = remember(stylePack1Enabled) {
         VinylStyle.entries.filter { !it.requiresStylePack1 || stylePack1Enabled }
     }
-    val scrollState = rememberScrollState()
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -425,18 +501,17 @@ private fun VinylColorPickerPage(
 
         Spacer(modifier = Modifier.height(CorusSpacing.md))
 
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .weight(1f)
-                .verticalScroll(scrollState)
                 .padding(horizontal = CorusSpacing.xl),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         ) {
-            visibleStyles.forEach { style ->
+            items(visibleStyles, key = { it }) { style ->
                 StyleOptionCard(
                     previewColor = style.previewColor,
                     previewShape = CircleShape,
-                    label = style.displayName,
+                    label = style.localizedLabel(),
                     isSelected = selected == style,
                     onClick = { onSelect(style) },
                     previewImageRes = vinylDrawableRes(style),
@@ -447,7 +522,7 @@ private fun VinylColorPickerPage(
                     previewCropS = style.swatchCropS,
                 )
             }
-            Spacer(modifier = Modifier.height(CorusSpacing.lg))
+            item { Spacer(modifier = Modifier.height(CorusSpacing.lg)) }
         }
     }
 }
@@ -534,12 +609,9 @@ private fun FrameColorPickerPage(
     val visibleStyles = remember(stylePack1Enabled) {
         FrameStyle.entries.filter { !it.requiresStylePack1 || stylePack1Enabled }
     }
-    val scrollState = rememberScrollState()
-    val isDark = LocalCorusDarkTheme.current
 
-    // Pin the preview like the vinyl page. A full-page verticalScroll here
-    // steals the HorizontalPager swipe (sheet + list both want the drag),
-    // which is what made film → vinyl feel delayed.
+    // Pin the preview like the vinyl page so the list scroll does not
+    // steal the HorizontalPager swipe.
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -563,24 +635,23 @@ private fun FrameColorPickerPage(
 
         Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .weight(1f)
-                .verticalScroll(scrollState)
                 .padding(horizontal = CorusSpacing.xl),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         ) {
-            visibleStyles.forEach { style ->
+            items(visibleStyles, key = { it }) { style ->
                 StyleOptionCard(
                     previewColor = style.previewColor,
                     previewShape = RoundedCornerShape(4.dp),
-                    label = style.displayName,
+                    label = style.localizedLabel(),
                     isSelected = selected == style,
                     onClick = { onSelect(style) },
                     previewMarqueePattern = style.usesTextureSwatch,
                 )
             }
-            Spacer(modifier = Modifier.height(CorusSpacing.lg))
+            item { Spacer(modifier = Modifier.height(CorusSpacing.lg)) }
         }
     }
 }
@@ -627,44 +698,22 @@ private fun FramePreview(
                 // default is black — the dark rectangle behind the frame.
                 // Paint the sheet color first so the blend stays on white.
                 .background(CorusColors.Background)
-                .clipToBounds(),
+                // Marquee's standing shadow is a blurred silhouette that
+                // needs to spill below the canvas, same as iOS.
+                .then(if (style.usesStandingShadow) Modifier else Modifier.clipToBounds()),
         ) {
+            if (style.usesStandingShadow) {
+                StandingFrameShadow(
+                    frameDrawable = frameDrawable,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+
             // Frame
             Image(
                 painter = painterResource(frameDrawable),
                 contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(
-                        if (style.usesStandingShadow) {
-                            Modifier.drawBehind {
-                                drawOval(
-                                    color = Color.Black.copy(alpha = 0.22f),
-                                    topLeft = androidx.compose.ui.geometry.Offset(
-                                        size.width * 0.24f,
-                                        size.height * 0.74f,
-                                    ),
-                                    size = androidx.compose.ui.geometry.Size(
-                                        size.width * 0.52f,
-                                        size.height * 0.16f,
-                                    ),
-                                )
-                                drawOval(
-                                    color = Color.Black.copy(alpha = 0.32f),
-                                    topLeft = androidx.compose.ui.geometry.Offset(
-                                        size.width * 0.30f,
-                                        size.height * 0.70f,
-                                    ),
-                                    size = androidx.compose.ui.geometry.Size(
-                                        size.width * 0.40f,
-                                        size.height * 0.12f,
-                                    ),
-                                )
-                            }
-                        } else {
-                            Modifier
-                        },
-                    ),
+                modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.FillBounds,
             )
 
@@ -711,8 +760,6 @@ private fun FlairPickerPage(
     corusFlairOpen: Boolean,
     stylePack1Enabled: Boolean,
 ) {
-    val scrollState = rememberScrollState()
-
     // Restrict the staff-only "Corus" flair (see shouldShowCorusFlairOption).
     // Recomputed on selection change so an existing holder who switches away
     // can't switch back once the option is otherwise gated off.
@@ -745,21 +792,20 @@ private fun FlairPickerPage(
 
         Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .weight(1f)
-                .verticalScroll(scrollState)
                 .padding(horizontal = CorusSpacing.xl),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         ) {
-            visibleFlairs.forEach { style ->
+            items(visibleFlairs, key = { it }) { style ->
                 FlairOptionCard(
                     style = style,
                     isSelected = selected == style,
                     onClick = { onSelect(style) },
                 )
             }
-            Spacer(modifier = Modifier.height(CorusSpacing.lg))
+            item { Spacer(modifier = Modifier.height(CorusSpacing.lg)) }
         }
     }
 }
@@ -825,7 +871,7 @@ private fun FlairOptionCard(
             .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
             .background(CorusColors.Background)
             .border(borderWidth, borderColor, RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
-            .clickable(onClick = onClick)
+            .selectOnTap(onClick)
             .padding(CorusSpacing.md),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
@@ -905,7 +951,7 @@ private fun StyleOptionCard(
             .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
             .background(CorusColors.Background)
             .border(borderWidth, borderColor, RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
-            .clickable(onClick = onClick)
+            .selectOnTap(onClick)
             .padding(CorusSpacing.md),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
@@ -1051,13 +1097,12 @@ private fun <T : Enum<T>> EffectTogglePage(
     entries: List<T>,
     selected: T,
     onSelect: (T) -> Unit,
-    labelOf: (T) -> String,
+    labelOf: @Composable (T) -> String,
     vinylStyle: VinylStyle,
     latestTrackPost: CymbalPost?,
+    aboveOptions: @Composable (() -> Unit)? = null,
     effectOverlay: @Composable (T, Modifier) -> Unit,
 ) {
-    val scrollState = rememberScrollState()
-
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1080,14 +1125,20 @@ private fun <T : Enum<T>> EffectTogglePage(
 
         Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
-        Column(
+        if (aboveOptions != null) {
+            Box(modifier = Modifier.padding(horizontal = CorusSpacing.xl)) {
+                aboveOptions()
+            }
+            Spacer(modifier = Modifier.height(CorusSpacing.md))
+        }
+
+        LazyColumn(
             modifier = Modifier
                 .weight(1f)
-                .verticalScroll(scrollState)
                 .padding(horizontal = CorusSpacing.xl),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         ) {
-            entries.forEach { level ->
+            items(entries, key = { it }) { level ->
                 val isLevelSelected = selected == level
                 Row(
                     modifier = Modifier
@@ -1099,7 +1150,7 @@ private fun <T : Enum<T>> EffectTogglePage(
                             if (isLevelSelected) CorusColors.Accent else CorusColors.Secondary.copy(alpha = 0.2f),
                             RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
                         )
-                        .clickable { onSelect(level) }
+                        .selectOnTap { onSelect(level) }
                         .padding(CorusSpacing.md),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
@@ -1118,9 +1169,83 @@ private fun <T : Enum<T>> EffectTogglePage(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(CorusSpacing.lg))
+            item { Spacer(modifier = Modifier.height(CorusSpacing.lg)) }
         }
     }
+}
+
+@Composable
+private fun DiscoDarkModeOnlyToggle(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+    ) {
+        Text(
+            text = stringResource(R.string.style_picker_disco_dark_mode_only),
+            style = CorusFont.caption,
+            color = CorusColors.Secondary,
+            modifier = Modifier.weight(1f),
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = null,
+            modifier = Modifier.scale(0.8f),
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = CorusColors.Background,
+                checkedTrackColor = CorusColors.Accent.copy(alpha = 0.7f),
+                uncheckedThumbColor = CorusColors.Background,
+                uncheckedTrackColor = CorusColors.Tertiary,
+                uncheckedBorderColor = CorusColors.Tertiary,
+            ),
+        )
+    }
+}
+
+@Composable
+private fun VinylStyle.localizedLabel(): String {
+    val res = when (this) {
+        VinylStyle.PINK -> R.string.style_vinyl_cotton_candy
+        VinylStyle.ORANGE -> R.string.style_vinyl_channel_orange
+        VinylStyle.YELLOW -> R.string.style_vinyl_yellow
+        VinylStyle.PINK_MATTE -> R.string.style_vinyl_pink
+        VinylStyle.LIME -> R.string.style_vinyl_brat_green
+        VinylStyle.PURPLE_TIE_DYE -> R.string.style_vinyl_purple_tie_dye
+        VinylStyle.BLUE_TIE_DYE -> R.string.style_vinyl_blue_tie_dye
+        VinylStyle.ORANGE_TIE_DYE -> R.string.style_vinyl_orange_tie_dye
+        VinylStyle.ICY_BLUE -> R.string.style_vinyl_icy_blue
+        VinylStyle.GALAXY -> R.string.style_vinyl_galaxy
+        VinylStyle.PEACH -> R.string.style_vinyl_peach
+        VinylStyle.LAVENDER -> R.string.style_vinyl_lavender
+        VinylStyle.BLOOD_RED -> R.string.style_vinyl_depression_cherry
+        else -> null
+    }
+    return if (res != null) stringResource(res) else displayName
+}
+
+@Composable
+private fun FrameStyle.localizedLabel(): String =
+    if (this == FrameStyle.THEATER) {
+        stringResource(R.string.style_frame_marquee)
+    } else {
+        displayName
+    }
+
+@Composable
+private fun DiscoIntensity.localizedLabel(): String {
+    val res = when (this) {
+        DiscoIntensity.LIGHT -> R.string.style_disco_slow_dance
+        DiscoIntensity.DISCO_BALL -> R.string.style_disco_disco_ball
+        DiscoIntensity.DANCE_PARTY -> R.string.style_disco_dance_party
+        DiscoIntensity.SPOTIFLIGHT -> R.string.style_disco_spotiflight
+        else -> null
+    }
+    return if (res != null) stringResource(res) else displayName
 }
 
 private fun vinylDrawableRes(style: VinylStyle): Int = when (style) {

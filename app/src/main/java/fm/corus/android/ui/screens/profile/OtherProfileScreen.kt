@@ -102,6 +102,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.CorusSystemBars
+import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import fm.corus.android.ui.util.formattedCount
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -186,9 +187,16 @@ fun OtherProfileScreen(
     // is exhausted (the user doc's counters are often unpopulated since
     // Android doesn't go through the count() cloud function like iOS does).
     var userSelectedSegment by rememberSaveable { mutableStateOf<Int?>(null) }
-    val selectedSegment = userSelectedSegment
+    val otherVisibleTabs = when {
+        profile?.isMusicBot == true || profile?.isFilmBot == true -> listOf(0)
+        profile != null -> profile.visibleMediaTabIndices() + listOf(2)
+        else -> listOf(0, 1, 2)
+    }
+    val selectedSegment = (userSelectedSegment
         ?: profile?.preferredProfileSegmentFromPosts(posts, hasMore)
-        ?: 0
+        ?: 0).let { current ->
+        if (current in otherVisibleTabs) current else otherVisibleTabs.first()
+    }
     // Other-profile views show MUSIC/FILM/LIKES (no Saves). Bots only show
     // their single tab and always map to posts. Segment 2 == LIKES.
     val playlistSource: CloudFunctionsDataSource.ProfilePlaylistSource = when {
@@ -1051,22 +1059,31 @@ fun OtherProfileScreen(
                     val tabMusic = stringResource(fm.corus.android.R.string.profile_tab_music)
                     val tabFilm = stringResource(fm.corus.android.R.string.profile_tab_film)
                     val tabLikes = stringResource(fm.corus.android.R.string.other_profile_tab_likes)
-                    val tabs = when {
-                        currentProfile.isMusicBot -> listOf(tabMusic)
-                        currentProfile.isFilmBot -> listOf(tabFilm)
-                        else -> listOf(tabMusic, tabFilm, tabLikes)
+                    val otherTabsOrder = when {
+                        currentProfile.isMusicBot -> listOf(0)
+                        currentProfile.isFilmBot -> listOf(0)
+                        else -> currentProfile.visibleMediaTabIndices() + listOf(2)
+                    }
+                    val tabs = otherTabsOrder.map { logical ->
+                        when {
+                            currentProfile.isFilmBot -> tabFilm
+                            logical == 0 -> tabMusic
+                            logical == 1 -> tabFilm
+                            else -> tabLikes
+                        }
                     }
                     if (!currentProfile.isBot) {
                         val tabSelectedColor = CorusColors.Text
                         val tabUnselectedColor = CorusColors.Divider
                         Row(modifier = Modifier.fillMaxWidth()) {
                             tabs.forEachIndexed { index, title ->
-                                val isSelected = selectedSegment == index
+                                val logicalSegment = otherTabsOrder[index]
+                                val isSelected = selectedSegment == logicalSegment
                                 Column(
                                     modifier = Modifier
                                         .weight(1f)
                                         .clickable {
-                                            userSelectedSegment = index
+                                            userSelectedSegment = logicalSegment
                                             isFeaturedArtReady = false
                                         }
                                         .drawBehind {
@@ -1139,7 +1156,7 @@ fun OtherProfileScreen(
                             frameStyle = userProfile?.frameStyle ?: fm.corus.android.data.model.FrameStyle.BLACK,
                             rainIntensity = if (filmFeaturedPost == null || userProfile == null) fm.corus.android.data.model.RainIntensity.OFF else userProfile.rainIntensity,
                             snowIntensity = if (filmFeaturedPost == null || userProfile == null) fm.corus.android.data.model.SnowIntensity.OFF else userProfile.snowIntensity,
-                            discoIntensity = if (filmFeaturedPost == null || userProfile == null) fm.corus.android.data.model.DiscoIntensity.OFF else userProfile.discoIntensityLevel,
+                            discoIntensity = if (filmFeaturedPost == null || userProfile == null) fm.corus.android.data.model.DiscoIntensity.OFF else userProfile.visibleDiscoIntensity(LocalCorusDarkTheme.current),
                             likeCount = featuredEngagement?.likeCount ?: (filmFeaturedPost?.likeCount ?: 0),
                             isLiked = featuredEngagement?.isLiked ?: (filmFeaturedPost?.isLiked ?: false),
                             onLikeTap = { filmFeaturedPost?.let { viewModel.toggleLike(it.id) } },
@@ -1176,7 +1193,7 @@ fun OtherProfileScreen(
                                 musicService = musicService,
                                 rainIntensity = userProfile.rainIntensity,
                                 snowIntensity = userProfile.snowIntensity,
-                                discoIntensity = userProfile.discoIntensityLevel,
+                                discoIntensity = userProfile.visibleDiscoIntensity(LocalCorusDarkTheme.current),
                                 likeCount = featuredEngagement?.likeCount ?: featured.likeCount,
                                 isLiked = featuredEngagement?.isLiked ?: featured.isLiked,
                                 onLikeTap = { viewModel.toggleLike(featured.id) },

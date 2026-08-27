@@ -431,19 +431,31 @@ class SearchViewModel @Inject constructor(
             }
             _trendingArtists.value = fetched
             _isTrendingArtistsLoading.value = false
+            viewModelScope.launch {
+                cloudFunctions.prefetchArtistDestinations(fetched.map { it.artistName })
+            }
         }
     }
 
     suspend fun resolveTrendingArtist(artist: TrendingArtist): fm.corus.android.ui.navigation.ArtistPageRoute? {
+        cloudFunctions.cachedResolvedArtist(artist.artistName)?.let { cached ->
+            return fm.corus.android.ui.navigation.ArtistPageRoute(
+                artistId = cached.id,
+                name = cached.name,
+                imageUrl = cached.imageUrl,
+            )
+        }
         if (_isResolvingArtist.value) return null
         _isResolvingArtist.value = true
         return try {
-            val id = cloudFunctions.resolveArtistIdByName(artist.artistName)?.takeIf { it.isNotBlank() }
-                ?: return null
+            val resolved = cloudFunctions.resolveArtistByName(artist.artistName) ?: return null
+            viewModelScope.launch {
+                runCatching { cloudFunctions.fetchArtistDetail(resolved.id, resolved.name) }
+            }
             fm.corus.android.ui.navigation.ArtistPageRoute(
-                artistId = id,
-                name = artist.artistName,
-                imageUrl = artist.albumArtLargeURL ?: artist.albumArtURL,
+                artistId = resolved.id,
+                name = resolved.name,
+                imageUrl = resolved.imageUrl,
             )
         } finally {
             _isResolvingArtist.value = false
@@ -1144,7 +1156,11 @@ class SearchViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val window = trendingArtistsWindow.value
-                _trendingArtists.value = exploreRepository.fetchTrendingArtists(window)
+                val loaded = exploreRepository.fetchTrendingArtists(window)
+                _trendingArtists.value = loaded
+                viewModelScope.launch {
+                    cloudFunctions.prefetchArtistDestinations(loaded.map { it.artistName })
+                }
             } catch (e: Exception) {
                 Log.e("SearchVM", "Failed to load trending artists", e)
                 hasLoadedTrendingArtists = false

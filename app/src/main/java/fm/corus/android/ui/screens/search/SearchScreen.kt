@@ -1796,7 +1796,7 @@ private fun TrendingTileRankBadge(rank: Int, modifier: Modifier = Modifier) {
                     .background(
                         Brush.radialGradient(
                             colors = listOf(
-                                Color.Black.copy(alpha = 0.45f),
+                                Color.Black.copy(alpha = 0.32f),
                                 Color.Transparent,
                             ),
                         ),
@@ -1807,9 +1807,9 @@ private fun TrendingTileRankBadge(rank: Int, modifier: Modifier = Modifier) {
             text = rank.toString(),
             style = CorusFont.stat.copy(
                 shadow = Shadow(
-                    color = Color.Black.copy(alpha = 0.85f),
+                    color = Color.Black.copy(alpha = 0.35f),
                     offset = Offset(0f, 1f),
-                    blurRadius = 4f,
+                    blurRadius = 3.25f,
                 ),
             ),
             color = Color.White,
@@ -2073,15 +2073,6 @@ private fun UnifiedZeroStateContent(
                 onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
             )
         }
-        compactTrendingHashtagsSection(
-            hashtags = trendingHashtags,
-            isLoading = isTrendingHashtagsLoading,
-            followedHashtagNames = followedHashtagNames,
-            viewModel = viewModel,
-            onHashtagTap = { tag -> onNavigateToHashtag(tag.name) },
-            onToggleFollow = { tag -> viewModel.toggleHashtagFollowByName(tag.name) },
-            onSeeAll = { onNavigateToTrending("hashtags") },
-        )
         if (trendingArtistsSectionEnabled) {
             compactTrendingArtistsSection(
                 artists = trendingArtists,
@@ -2091,6 +2082,15 @@ private fun UnifiedZeroStateContent(
                 onSeeAll = { onNavigateToTrending("artists") },
             )
         }
+        compactTrendingHashtagsSection(
+            hashtags = trendingHashtags,
+            isLoading = isTrendingHashtagsLoading,
+            followedHashtagNames = followedHashtagNames,
+            viewModel = viewModel,
+            onHashtagTap = { tag -> onNavigateToHashtag(tag.name) },
+            onToggleFollow = { tag -> viewModel.toggleHashtagFollowByName(tag.name) },
+            onSeeAll = { onNavigateToTrending("hashtags") },
+        )
         // Mutual connections stay above club members (classic Android has
         // them flipped; unified follows web).
         mutualConnectionsSection(

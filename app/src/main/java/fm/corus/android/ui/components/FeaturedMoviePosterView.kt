@@ -1,5 +1,6 @@
 package fm.corus.android.ui.components
 
+import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -19,12 +20,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -68,6 +71,30 @@ internal fun frameDrawableRes(frameStyle: FrameStyle): Int {
             FrameStyle.THEATER -> if (isDark) R.drawable.frame_theater_dark else R.drawable.frame_theater
         }
     }
+}
+
+// Matches iOS FeaturedMoviePosterView / StylePickerSheet: template-tint the
+// frame PNG, blur it, and shift it down. RenderEffect blur needs API 31+;
+// older devices skip the shadow instead of drawing a hard duplicate.
+private val StandingFrameShadowOffsetY = 12.dp
+private val StandingFrameShadowBlur = 16.dp
+private const val StandingFrameShadowAlpha = 0.45f
+
+@Composable
+internal fun StandingFrameShadow(
+    frameDrawable: Int,
+    modifier: Modifier = Modifier,
+) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+    Image(
+        painter = painterResource(frameDrawable),
+        contentDescription = null,
+        modifier = modifier
+            .offset(y = StandingFrameShadowOffsetY)
+            .blur(StandingFrameShadowBlur),
+        colorFilter = ColorFilter.tint(Color.Black.copy(alpha = StandingFrameShadowAlpha)),
+        contentScale = ContentScale.FillBounds,
+    )
 }
 
 /**
@@ -159,6 +186,16 @@ fun FeaturedMoviePosterView(
                 .height(totalH)
                 .clipToBounds(),
         ) {
+            if (frameStyle.usesStandingShadow) {
+                StandingFrameShadow(
+                    frameDrawable = frameDrawable,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(frameH)
+                        .align(Alignment.TopCenter),
+                )
+            }
+
             // Frame
             Image(
                 painter = painterResource(frameDrawable),
@@ -166,37 +203,7 @@ fun FeaturedMoviePosterView(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(frameH)
-                    .align(Alignment.TopCenter)
-                    .then(
-                        if (frameStyle.usesStandingShadow) {
-                            Modifier.drawBehind {
-                                drawOval(
-                                    color = Color.Black.copy(alpha = 0.22f),
-                                    topLeft = androidx.compose.ui.geometry.Offset(
-                                        size.width * 0.24f,
-                                        size.height * 0.74f,
-                                    ),
-                                    size = androidx.compose.ui.geometry.Size(
-                                        size.width * 0.52f,
-                                        size.height * 0.16f,
-                                    ),
-                                )
-                                drawOval(
-                                    color = Color.Black.copy(alpha = 0.32f),
-                                    topLeft = androidx.compose.ui.geometry.Offset(
-                                        size.width * 0.30f,
-                                        size.height * 0.70f,
-                                    ),
-                                    size = androidx.compose.ui.geometry.Size(
-                                        size.width * 0.40f,
-                                        size.height * 0.12f,
-                                    ),
-                                )
-                            }
-                        } else {
-                            Modifier
-                        },
-                    ),
+                    .align(Alignment.TopCenter),
                 contentScale = ContentScale.FillBounds,
             )
 

@@ -35,7 +35,10 @@ data class CymbalUser(
     val rainEffect: String = "off",
     val snowEffect: String = "off",
     val discoEffect: String = "off",
+    val discoDarkModeOnly: Boolean = false,
     val featuredTab: String = "music",
+    val profileTabOrder: List<String> = emptyList(),
+    val hiddenProfileTabs: List<String> = emptyList(),
     val artistsInCommonCount: Int? = null,
     val deletionStatus: String? = null,
     val lastPostedAt: Date? = null,
@@ -75,6 +78,9 @@ data class CymbalUser(
     val rainIntensity: RainIntensity get() = if (hasClubAccess) rawRainIntensity else RainIntensity.OFF
     val snowIntensity: SnowIntensity get() = if (hasClubAccess) rawSnowIntensity else SnowIntensity.OFF
     val discoIntensityLevel: DiscoIntensity get() = if (hasClubAccess) rawDiscoIntensityLevel else DiscoIntensity.OFF
+
+    fun visibleDiscoIntensity(isDark: Boolean): DiscoIntensity =
+        discoIntensityLevel.visible(discoDarkModeOnly, isDark)
     val isMusicBot: Boolean get() = isBot && botType == "music"
     val isFilmBot: Boolean get() = isBot && botType == "film"
 
@@ -84,20 +90,30 @@ data class CymbalUser(
      * callers should fall back to deriving from loaded posts (see
      * [preferredProfileSegmentFromPosts]). Bots always default to 0.
      */
+    fun tabPreferences(booksEnabled: Boolean = false): ProfileTabPreferences =
+        ProfileTabPreferences.resolve(
+            featuredTab = featuredTab,
+            tabOrder = profileTabOrder,
+            hiddenTabs = hiddenProfileTabs,
+            booksEnabled = booksEnabled,
+        )
+
+    fun visibleMediaTabIndices(booksEnabled: Boolean = false): List<Int> =
+        tabPreferences(booksEnabled).visibleLogicalIndices(booksEnabled)
+
+    /**
+     * Logical media-tab index to land on (0 music / 1 film). Hidden tabs are
+     * skipped. The first visible tab with posts wins.
+     */
     val preferredProfileSegment: Int?
         get() {
             if (isBot) return 0
-            val tracks = trackCount ?: return null
-            val movies = movieCount ?: return null
-            // Index is into the *displayed* tab order: slot 0 is the user's
-            // featured side, slot 1 is the other primary side. Edge-case
-            // fallback flips to slot 1 when the featured side has no posts
-            // but the other side does.
-            return if (featuredTab == "film") {
-                if (movies == 0 && tracks > 0) 1 else 0
-            } else {
-                if (tracks == 0 && movies > 0) 1 else 0
-            }
+            return tabPreferences().preferredLogicalSegment(
+                trackCount = trackCount,
+                movieCount = movieCount,
+                bookCount = null,
+                booksEnabled = false,
+            )
         }
 
     /**
@@ -124,11 +140,12 @@ data class CymbalUser(
         if (!sawEverything) return null
         val hasTrack = loadedPosts.any { it.mediaType == MediaType.TRACK }
         val hasMovie = loadedPosts.any { it.mediaType == MediaType.MOVIE }
-        return if (featuredTab == "film") {
-            if (!hasMovie && hasTrack) 1 else 0
-        } else {
-            if (!hasTrack && hasMovie) 1 else 0
-        }
+        return tabPreferences().preferredLogicalSegment(
+            hasTrack = hasTrack,
+            hasMovie = hasMovie,
+            hasBook = false,
+            booksEnabled = false,
+        )
     }
 
     fun withArtistsInCommonCount(count: Int?): CymbalUser =
@@ -194,7 +211,10 @@ data class CymbalUser(
             rainEffect = data["rainEffect"] as? String ?: "off",
             snowEffect = data["snowEffect"] as? String ?: "off",
             discoEffect = data["discoEffect"] as? String ?: "off",
-            featuredTab = (data["featuredTab"] as? String)?.takeIf { it == "film" || it == "music" } ?: "music",
+            discoDarkModeOnly = data["discoDarkModeOnly"] as? Boolean ?: false,
+            featuredTab = ProfileMediaTab.featuredFromRaw(data["featuredTab"] as? String).raw,
+            profileTabOrder = ProfileTabPreferences.parseStringList(data["profileTabOrder"]),
+            hiddenProfileTabs = ProfileTabPreferences.parseStringList(data["hiddenProfileTabs"]),
             artistsInCommonCount = (data["artistsInCommonCount"] as? Number)?.toInt(),
             deletionStatus = data["deletionStatus"] as? String,
             lastPostedAt = (data["lastPostedAt"] as? com.google.firebase.Timestamp)?.toDate(),

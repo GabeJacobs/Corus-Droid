@@ -6,6 +6,7 @@ import fm.corus.android.data.remote.parseAlbumCatalogResponse
 import fm.corus.android.data.remote.parseAlbumPostsResponse
 import fm.corus.android.data.remote.parseArtistDetailResponse
 import fm.corus.android.data.remote.parseArtistIdByNameResponse
+import fm.corus.android.data.remote.parseResolvedArtistByNameResponse
 import fm.corus.android.data.remote.parseDestinationPostsResponse
 import fm.corus.android.data.remote.parseDirectorDetailResponse
 import fm.corus.android.data.repository.filterDirectorSearchResults
@@ -236,6 +237,15 @@ class DestinationParsingTest {
         assertEquals("a1", parseArtistIdByNameResponse(response, "Joanna Newsom"))
         // A near-miss must never resolve — no guessing.
         assertNull(parseArtistIdByNameResponse(response, "Joanna Newsom Band"))
+        val withImage = parseResolvedArtistByNameResponse(
+            mapOf(
+                "artists" to listOf(
+                    mapOf("id" to "a1", "name" to "Joanna Newsom", "imageUrl" to "https://img/a.jpg"),
+                ),
+            ),
+            "Joanna Newsom",
+        )
+        assertEquals("https://img/a.jpg", withImage?.imageUrl)
     }
 
     @Test

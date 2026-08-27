@@ -473,7 +473,26 @@
     <string name="style_picker_username_placeholder">用户名</string>
     <string name="style_picker_rain_effect">下雨效果</string>
     <string name="style_picker_snow_effect">下雪效果</string>
-    <string name="style_picker_disco_effect">迪斯科效果</string>
+    <string name="style_picker_disco_effect">灯光</string>
+    <string name="style_picker_disco_dark_mode_only">仅在深色模式显示</string>
+    <string name="style_disco_slow_dance">慢舞</string>
+    <string name="style_disco_disco_ball">迪斯科球</string>
+    <string name="style_disco_dance_party">舞会</string>
+    <string name="style_disco_spotiflight">聚光灯</string>
+    <string name="style_frame_marquee">招牌</string>
+    <string name="style_vinyl_cotton_candy">棉花糖</string>
+    <string name="style_vinyl_channel_orange">Channel Orange</string>
+    <string name="style_vinyl_yellow">黄</string>
+    <string name="style_vinyl_pink">粉</string>
+    <string name="style_vinyl_brat_green">Brat绿</string>
+    <string name="style_vinyl_purple_tie_dye">紫色扎染</string>
+    <string name="style_vinyl_blue_tie_dye">蓝色扎染</string>
+    <string name="style_vinyl_orange_tie_dye">橙色扎染</string>
+    <string name="style_vinyl_icy_blue">冰蓝</string>
+    <string name="style_vinyl_galaxy">银河</string>
+    <string name="style_vinyl_peach">桃粉</string>
+    <string name="style_vinyl_lavender">薰衣草</string>
+    <string name="style_vinyl_depression_cherry">Depression Cherry</string>
 
     <!-- Search -->
     <string name="search_screen_title">搜索</string>
@@ -764,6 +783,13 @@
     <string name="notifications_cd_like">赞</string>
     <string name="notifications_empty_title">还没有动态</string>
     <string name="notifications_empty_subtitle">当有人赞、评论或收藏你的 coruses 时，会显示在这里</string>
+    <string name="notifications_filter_all">全部</string>
+    <string name="notifications_filter_people_you_follow">你关注的人</string>
+    <string name="notifications_filter_comments">评论</string>
+    <string name="notifications_filter_follows">关注</string>
+    <string name="notifications_filter_tags_mentions">标签和提及</string>
+    <string name="notifications_filter_empty_title">暂无动态</string>
+    <string name="notifications_filter_empty_subtitle">此筛选下还没有内容。</string>
     <string name="notifications_replying_to_format">正在回复 %1$s</string>
     <string name="notifications_reply_placeholder">回复…</string>
     <string name="notifications_cd_send_reply">发送回复</string>

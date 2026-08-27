@@ -102,7 +102,7 @@ enum class DiscoIntensity(val value: String) {
                 dotScale = 0.34, mark = DiscoMark.TILE, extras = 0, palette = DiscoPalette.WARM,
             )
             SPOTIFLIGHT -> Recipe(
-                name = "Spotiflight",
+                name = "Spotlight",
                 rotation = 0.05, rows = 6, equator = 6,
                 scrim = 0.12f, spill = 0.03, beamShare = 0.0, pulse = 0.0,
                 dotScale = 0.0, mark = DiscoMark.NONE, extras = SEARCHLIGHT, palette = DiscoPalette.SILVER,
@@ -159,6 +159,10 @@ enum class DiscoIntensity(val value: String) {
             }
         }
     }
+
+    /** When [darkModeOnly] is on, lights stay off in light appearance. */
+    fun visible(darkModeOnly: Boolean, isDark: Boolean): DiscoIntensity =
+        if (darkModeOnly && !isDark) OFF else this
 }
 
 object DiscoEffectGate {

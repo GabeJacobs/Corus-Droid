@@ -23,11 +23,16 @@ import fm.corus.android.service.NetworkMonitor
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.Channel
+import fm.corus.android.domain.NotificationFilter
+import fm.corus.android.domain.NotificationFilterVisibility
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import android.util.Log
 import javax.inject.Inject
@@ -76,9 +81,70 @@ class NotificationsViewModel @Inject constructor(
     private val _hasLoadError = MutableStateFlow(false)
     val hasLoadError: StateFlow<Boolean> = _hasLoadError.asStateFlow()
 
+    private val _selectedFilter = MutableStateFlow(NotificationFilter.ALL)
+    val selectedFilter: StateFlow<NotificationFilter> = _selectedFilter.asStateFlow()
+
+    private val chipCache = mutableMapOf<NotificationFilter, List<CymbalNotification>>()
+    private val chipHasMoreMap = mutableMapOf<NotificationFilter, Boolean>()
+    private val chipsLoaded = mutableSetOf<NotificationFilter>()
+    private val _filteredNotifications = MutableStateFlow<List<CymbalNotification>>(emptyList())
+    private val _chipReady = MutableStateFlow(false)
+    private val _isFilterLoading = MutableStateFlow(false)
+    val isFilterLoading: StateFlow<Boolean> = _isFilterLoading.asStateFlow()
+    private val _hasMoreFiltered = MutableStateFlow(false)
+    private val _filtersUnlocked = MutableStateFlow(false)
+
+    private data class ChipDisplay(
+        val all: List<CymbalNotification>,
+        val filtered: List<CymbalNotification>,
+        val filter: NotificationFilter,
+        val ready: Boolean,
+    )
+
+    val displayedNotifications: StateFlow<List<CymbalNotification>> = combine(
+        combine(_notifications, _filteredNotifications, _selectedFilter, _chipReady, ::ChipDisplay),
+        userRepository.followingIds,
+        userRepository.hiddenUserIds,
+    ) { chip, following, hidden ->
+        NotificationFilterVisibility.apply(
+            chip.filter, chip.all, chip.filtered, following, chip.ready,
+        ).filter { it.fromUser.id !in hidden }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val showFilterChips: StateFlow<Boolean> = combine(_notifications, _filtersUnlocked) { all, unlocked ->
+        NotificationFilterVisibility.shouldShow(
+            flagEnabled = remoteConfigService.notificationFiltersEnabled,
+            alreadyUnlocked = unlocked,
+            notifications = all,
+            minCount = remoteConfigService.notificationFiltersMinCount,
+            minTypes = remoteConfigService.notificationFiltersMinTypes,
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val hasMoreToLoad: StateFlow<Boolean> = combine(
+        _selectedFilter,
+        _hasMoreNotifications,
+        _hasMoreFiltered,
+        _chipReady,
+        _isFilterLoading,
+    ) { filter, allMore, filteredMore, ready, filterLoading ->
+        if (filter.isServerScoped) ready && !filterLoading && filteredMore else allMore
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     val isConnected: StateFlow<Boolean> = networkMonitor.isConnected
 
+    private val unlockPrefs by lazy {
+        runCatching {
+            context.getSharedPreferences("corus_notification_filters", Context.MODE_PRIVATE)
+        }.getOrNull()
+    }
+
+    private fun unlockKey(uid: String) = "notification_filters_unlocked_$uid"
+
     init {
+        authRepository.currentUserId?.let { uid ->
+            _filtersUnlocked.value = unlockPrefs?.getBoolean(unlockKey(uid), false) == true
+        }
         viewModelScope.launch {
             networkMonitor.isConnected.collect { connected ->
                 // Auto-retry the initial load when the network returns if the previous
@@ -189,8 +255,13 @@ class NotificationsViewModel @Inject constructor(
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
-                _notifications.value = notificationRepository.getNotifications(userId, limit = pageSize)
-                _hasMoreNotifications.value = _notifications.value.size >= pageSize
+                if (_selectedFilter.value.isServerScoped) {
+                    loadFilteredNotificationsSuspend(force = true)
+                } else {
+                    _notifications.value = notificationRepository.getNotifications(userId, limit = pageSize)
+                    _hasMoreNotifications.value = _notifications.value.size >= pageSize
+                    evaluateFilterUnlock()
+                }
                 loadCommentLikeStatuses(userId)
                 loadFollowsMeStatuses(userId)
                 loadFollowingStatuses(userId)
@@ -245,6 +316,7 @@ class NotificationsViewModel @Inject constructor(
                         computeNewIdsOnce(fetched)
                         _notifications.value = fetched
                         _hasMoreNotifications.value = fetched.size >= pageSize
+                        evaluateFilterUnlock()
                         loadCommentLikeStatuses(userId)
                         loadFollowsMeStatuses(userId)
                         loadFollowingStatuses(userId)
@@ -319,8 +391,13 @@ class NotificationsViewModel @Inject constructor(
         viewModelScope.launch {
             try { notificationRepository.markNotificationRead(notificationId) } catch (_: Exception) { }
         }
+        val n = (_notifications.value + _filteredNotifications.value)
+            .firstOrNull { it.id == notificationId } ?: return
+        analyticsService.logNotificationTapped(
+            type = n.type.value,
+            filter = _selectedFilter.value.value,
+        )
         // Taste-match-specific tap analytics (mirrors iOS).
-        val n = _notifications.value.firstOrNull { it.id == notificationId } ?: return
         if (n.type == fm.corus.android.data.model.NotificationType.TASTE_MATCH) {
             analyticsService.logTasteMatchFeedRowTapped(
                 subtype = n.subtype ?: "unknown",
@@ -352,9 +429,148 @@ class NotificationsViewModel @Inject constructor(
             Log.d("Notifications", "merge: incoming=${incoming.size}, total=${merged.list.size}")
         }
         _notifications.value = merged.list
+        evaluateFilterUnlock()
+    }
+
+    private fun evaluateFilterUnlock() {
+        val uid = authRepository.currentUserId ?: return
+        if (_filtersUnlocked.value) return
+        val should = NotificationFilterVisibility.shouldShow(
+            flagEnabled = remoteConfigService.notificationFiltersEnabled,
+            alreadyUnlocked = false,
+            notifications = _notifications.value,
+            minCount = remoteConfigService.notificationFiltersMinCount,
+            minTypes = remoteConfigService.notificationFiltersMinTypes,
+        )
+        if (!should) return
+        _filtersUnlocked.value = true
+        unlockPrefs?.edit()?.putBoolean(unlockKey(uid), true)?.apply()
+        val all = _notifications.value
+        analyticsService.logNotificationFiltersShown(
+            notificationCount = all.size,
+            typeCount = all.map { it.type }.toSet().size,
+        )
+    }
+
+    fun selectFilter(filter: NotificationFilter) {
+        if (_selectedFilter.value == filter) return
+        analyticsService.logNotificationFilterChanged(filter.value)
+        if (!filter.isServerScoped) {
+            _chipReady.value = false
+            _hasMoreFiltered.value = false
+            _isFilterLoading.value = false
+            _selectedFilter.value = filter
+            return
+        }
+        val cached = chipCache[filter]
+        if (cached != null) {
+            _filteredNotifications.value = cached
+            _hasMoreFiltered.value = chipHasMoreMap[filter] == true
+            _chipReady.value = true
+            _isFilterLoading.value = false
+            _selectedFilter.value = filter
+            return
+        }
+        _filteredNotifications.value = emptyList()
+        _chipReady.value = false
+        _hasMoreFiltered.value = false
+        _selectedFilter.value = filter
+        viewModelScope.launch { loadFilteredNotificationsSuspend() }
+    }
+
+    private suspend fun loadFilteredNotificationsSuspend(force: Boolean = false) {
+        val userId = authRepository.currentUserId ?: return
+        val filter = _selectedFilter.value
+        if (!filter.isServerScoped) return
+        if (!force && chipsLoaded.contains(filter)) return
+        _isFilterLoading.value = true
+        try {
+            val fetched = notificationRepository.getNotifications(
+                userId,
+                limit = pageSize,
+                types = filter.queryTypes?.map { it.value },
+                peopleYouFollow = filter == NotificationFilter.PEOPLE_YOU_FOLLOW,
+            )
+            val rows = guardedChipRows(fetched, filter)
+            chipCache[filter] = rows
+            chipHasMoreMap[filter] = fetched.size >= pageSize
+            chipsLoaded.add(filter)
+            if (_selectedFilter.value == filter) {
+                _filteredNotifications.value = rows
+                _hasMoreFiltered.value = fetched.size >= pageSize
+                _chipReady.value = true
+            }
+            loadCommentLikeStatuses(userId)
+            loadFollowsMeStatuses(userId)
+            loadFollowingStatuses(userId)
+        } catch (_: Exception) {
+            if (_selectedFilter.value == filter) {
+                _hasMoreFiltered.value = false
+            }
+        }
+        _isFilterLoading.value = false
+    }
+
+    private fun loadMoreFilteredNotifications() {
+        val userId = authRepository.currentUserId ?: return
+        val filter = _selectedFilter.value
+        if (!filter.isServerScoped) return
+        if (_isLoadingMore.value || !_hasMoreFiltered.value || !_chipReady.value) return
+        val lastTimestamp = _filteredNotifications.value.lastOrNull()?.timestamp?.time ?: return
+        viewModelScope.launch {
+            _isLoadingMore.value = true
+            try {
+                val fetched = notificationRepository.getNotifications(
+                    userId,
+                    limit = pageSize,
+                    lastTimestamp = lastTimestamp,
+                    types = filter.queryTypes?.map { it.value },
+                    peopleYouFollow = filter == NotificationFilter.PEOPLE_YOU_FOLLOW,
+                )
+                val existingIds = _filteredNotifications.value.map { it.id }.toSet()
+                val newItems = guardedChipRows(fetched, filter).filter { it.id !in existingIds }
+                val next = _filteredNotifications.value + newItems
+                chipCache[filter] = next
+                val more = fetched.size >= pageSize && newItems.isNotEmpty()
+                chipHasMoreMap[filter] = more
+                if (_selectedFilter.value == filter) {
+                    _filteredNotifications.value = next
+                    _hasMoreFiltered.value = more
+                }
+                loadCommentLikeStatuses(userId)
+                loadFollowsMeStatuses(userId)
+            } catch (_: Exception) {
+                _hasMoreFiltered.value = false
+            }
+            _isLoadingMore.value = false
+        }
+    }
+
+    private fun guardedChipRows(
+        fetched: List<CymbalNotification>,
+        filter: NotificationFilter,
+    ): List<CymbalNotification> {
+        val following = userRepository.followingIds.value
+        val typeSet = filter.queryTypes?.map { it.value }?.toSet()
+        return fetched.filter { row ->
+            if (filter == NotificationFilter.PEOPLE_YOU_FOLLOW) {
+                if (following.isEmpty()) row.fromUser.id.isNotEmpty()
+                else following.contains(row.fromUser.id)
+            } else {
+                typeSet == null || row.type.value in typeSet
+            }
+        }
     }
 
     fun loadMoreNotifications() {
+        if (_selectedFilter.value.isServerScoped) {
+            loadMoreFilteredNotifications()
+            return
+        }
+        viewModelScope.launch { loadMoreAllPage() }
+    }
+
+    private suspend fun loadMoreAllPage() {
         val userId = authRepository.currentUserId ?: return
         Log.d("Notifications", "loadMore called: isLoadingMore=${_isLoadingMore.value}, hasMore=${_hasMoreNotifications.value}, count=${_notifications.value.size}")
         if (_isLoadingMore.value || !_hasMoreNotifications.value) return
@@ -365,27 +581,25 @@ class NotificationsViewModel @Inject constructor(
         }
         Log.d("Notifications", "loadMore: fetching with lastTimestamp=$lastTimestamp")
 
-        viewModelScope.launch {
-            _isLoadingMore.value = true
-            try {
-                val fetched = notificationRepository.getNotifications(
-                    userId, limit = pageSize, lastTimestamp = lastTimestamp,
-                )
-                Log.d("Notifications", "loadMore: fetched ${fetched.size} items")
-                val existingIds = _notifications.value.map { it.id }.toSet()
-                val newItems = fetched.filter { it.id !in existingIds }
-                Log.d("Notifications", "loadMore: ${newItems.size} new items after dedup")
-                _notifications.value = _notifications.value + newItems
-                _hasMoreNotifications.value = fetched.size >= pageSize && newItems.isNotEmpty()
-                Log.d("Notifications", "loadMore: hasMore=${_hasMoreNotifications.value}, total=${_notifications.value.size}")
-                loadCommentLikeStatuses(userId)
-                loadFollowsMeStatuses(userId)
-            } catch (e: Exception) {
-                Log.e("Notifications", "loadMore failed", e)
-                _hasMoreNotifications.value = false
-            }
-            _isLoadingMore.value = false
+        _isLoadingMore.value = true
+        try {
+            val fetched = notificationRepository.getNotifications(
+                userId, limit = pageSize, lastTimestamp = lastTimestamp,
+            )
+            Log.d("Notifications", "loadMore: fetched ${fetched.size} items")
+            val existingIds = _notifications.value.map { it.id }.toSet()
+            val newItems = fetched.filter { it.id !in existingIds }
+            Log.d("Notifications", "loadMore: ${newItems.size} new items after dedup")
+            _notifications.value = _notifications.value + newItems
+            _hasMoreNotifications.value = fetched.size >= pageSize && newItems.isNotEmpty()
+            Log.d("Notifications", "loadMore: hasMore=${_hasMoreNotifications.value}, total=${_notifications.value.size}")
+            loadCommentLikeStatuses(userId)
+            loadFollowsMeStatuses(userId)
+        } catch (e: Exception) {
+            Log.e("Notifications", "loadMore failed", e)
+            _hasMoreNotifications.value = false
         }
+        _isLoadingMore.value = false
     }
 
     fun toggleFollow(targetUserId: String) {
@@ -426,6 +640,8 @@ class NotificationsViewModel @Inject constructor(
      */
     fun markActivityViewed() {
         val userId = authRepository.currentUserId ?: return
+        // Keep the chip for this process. Activity is a tab — resetting on
+        // every visit dropped Comments after a Feed bounce. Cold start is All.
         viewModelScope.launch {
             try { notificationRepository.updateLastSeenNotificationsAt(userId) } catch (_: Exception) { }
         }
@@ -441,7 +657,7 @@ class NotificationsViewModel @Inject constructor(
      * we query the subcollection per (postId, commentId).
      */
     private fun loadCommentLikeStatuses(userId: String) {
-        val pending = _notifications.value
+        val pending = (_notifications.value + _filteredNotifications.value)
             .filter { it.supportsCommentActions }
             .mapNotNull { notif ->
                 val pid = notif.postId
@@ -471,7 +687,7 @@ class NotificationsViewModel @Inject constructor(
      * need this: the relationship is implied by the notification type.
      */
     private fun loadFollowsMeStatuses(userId: String) {
-        val candidateIds = _notifications.value
+        val candidateIds = (_notifications.value + _filteredNotifications.value)
             .filter { it.type == fm.corus.android.data.model.NotificationType.CONTACT_JOINED }
             .map { it.fromUser.id }
             .filter { it != userId && it !in _followsMeIds.value }
@@ -497,7 +713,7 @@ class NotificationsViewModel @Inject constructor(
      * "Following", and the corrected value sticks across visits.
      */
     private fun loadFollowingStatuses(userId: String) {
-        val candidateIds = _notifications.value
+        val candidateIds = (_notifications.value + _filteredNotifications.value)
             .filter { it.type == fm.corus.android.data.model.NotificationType.FOLLOW }
             .map { it.fromUser.id }
             .filter { it != userId }

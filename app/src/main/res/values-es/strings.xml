@@ -473,7 +473,26 @@
     <string name="style_picker_username_placeholder">nombredeusuario</string>
     <string name="style_picker_rain_effect">Efecto lluvia</string>
     <string name="style_picker_snow_effect">Efecto nieve</string>
-    <string name="style_picker_disco_effect">Efecto disco</string>
+    <string name="style_picker_disco_effect">Luces</string>
+    <string name="style_picker_disco_dark_mode_only">Solo mostrar en modo oscuro</string>
+    <string name="style_disco_slow_dance">Baile lento</string>
+    <string name="style_disco_disco_ball">Bola disco</string>
+    <string name="style_disco_dance_party">Fiesta</string>
+    <string name="style_disco_spotiflight">Foco</string>
+    <string name="style_frame_marquee">Marquesina</string>
+    <string name="style_vinyl_cotton_candy">Algodón de azúcar</string>
+    <string name="style_vinyl_channel_orange">Channel Orange</string>
+    <string name="style_vinyl_yellow">Amarillo</string>
+    <string name="style_vinyl_pink">Rosa</string>
+    <string name="style_vinyl_brat_green">Verde brat</string>
+    <string name="style_vinyl_purple_tie_dye">Tie-dye morado</string>
+    <string name="style_vinyl_blue_tie_dye">Tie-dye azul</string>
+    <string name="style_vinyl_orange_tie_dye">Tie-dye naranja</string>
+    <string name="style_vinyl_icy_blue">Azul hielo</string>
+    <string name="style_vinyl_galaxy">Galaxia</string>
+    <string name="style_vinyl_peach">Melocotón</string>
+    <string name="style_vinyl_lavender">Lavanda</string>
+    <string name="style_vinyl_depression_cherry">Depression Cherry</string>
 
     <!-- Search -->
     <string name="search_screen_title">Buscar</string>
@@ -765,6 +784,13 @@
     <string name="notifications_cd_like">Me gusta</string>
     <string name="notifications_empty_title">Aún no hay actividad</string>
     <string name="notifications_empty_subtitle">Cuando alguien indique que le gusta, comente o guarde tus coruses, lo verás aquí</string>
+    <string name="notifications_filter_all">Todos</string>
+    <string name="notifications_filter_people_you_follow">Personas que sigues</string>
+    <string name="notifications_filter_comments">Comentarios</string>
+    <string name="notifications_filter_follows">Seguidores</string>
+    <string name="notifications_filter_tags_mentions">Etiquetas y menciones</string>
+    <string name="notifications_filter_empty_title">Sin actividad</string>
+    <string name="notifications_filter_empty_subtitle">Aún no hay nada en este filtro.</string>
     <string name="notifications_replying_to_format">Respondiendo a %1$s</string>
     <string name="notifications_reply_placeholder">Responder…</string>
     <string name="notifications_cd_send_reply">Enviar respuesta</string>

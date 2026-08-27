@@ -433,6 +433,7 @@
     <string name="profile_view_artist_page_a11y">View artist page, %1$s</string>
     <string name="profile_tab_music">MUSIC</string>
     <string name="profile_tab_film">FILM</string>
+    <string name="profile_tab_books">BOOKS</string>
     <string name="profile_tab_likes">LIKES</string>
     <string name="profile_tab_saves">SAVES</string>
     <string name="profile_empty_music_title">What are you listening to?</string>
@@ -506,6 +507,12 @@
     <string name="edit_profile_field_bio">BIO</string>
     <string name="edit_profile_field_website">WEBSITE</string>
     <string name="edit_profile_field_featured_tab">FEATURED TAB</string>
+    <string name="edit_profile_field_profile_tabs">PROFILE TABS</string>
+    <string name="edit_profile_tabs_hint">Use the arrows to reorder. At least one tab must stay visible.</string>
+    <string name="edit_profile_tab_hide">Hide</string>
+    <string name="edit_profile_tab_show">Show</string>
+    <string name="edit_profile_tab_move_up">Move up</string>
+    <string name="edit_profile_tab_move_down">Move down</string>
     <string name="edit_profile_username_taken">Username is taken</string>
     <string name="edit_profile_username_invalid">Letters, numbers, underscores, periods only</string>
     <string name="edit_profile_cd_available">Available</string>
@@ -547,6 +554,25 @@
     <string name="style_picker_rain_effect">Rain Effect</string>
     <string name="style_picker_snow_effect">Snow Effect</string>
     <string name="style_picker_disco_effect">Lights</string>
+    <string name="style_picker_disco_dark_mode_only">Only show in dark mode</string>
+    <string name="style_disco_slow_dance">Slow Dance</string>
+    <string name="style_disco_disco_ball">Disco Ball</string>
+    <string name="style_disco_dance_party">Dance Party</string>
+    <string name="style_disco_spotiflight">Spotlight</string>
+    <string name="style_frame_marquee">Marquee</string>
+    <string name="style_vinyl_cotton_candy">Cotton Candy</string>
+    <string name="style_vinyl_channel_orange">Channel Orange</string>
+    <string name="style_vinyl_yellow">Yellow</string>
+    <string name="style_vinyl_pink">Pink</string>
+    <string name="style_vinyl_brat_green">Brat Green</string>
+    <string name="style_vinyl_purple_tie_dye">Purple Tie-Dye</string>
+    <string name="style_vinyl_blue_tie_dye">Blue Tie-Dye</string>
+    <string name="style_vinyl_orange_tie_dye">Orange Tie-Dye</string>
+    <string name="style_vinyl_icy_blue">Icy Blue</string>
+    <string name="style_vinyl_galaxy">Galaxy</string>
+    <string name="style_vinyl_peach">Peach</string>
+    <string name="style_vinyl_lavender">Lavender</string>
+    <string name="style_vinyl_depression_cherry">Depression Cherry</string>
 
     <!-- Search -->
     <string name="search_screen_title">Search</string>
@@ -873,6 +899,13 @@
     <string name="notifications_cd_like">Like</string>
     <string name="notifications_empty_title">No activity yet</string>
     <string name="notifications_empty_subtitle">When people like, comment, or save your cymbals, you’ll see it here</string>
+    <string name="notifications_filter_all">All</string>
+    <string name="notifications_filter_people_you_follow">People you follow</string>
+    <string name="notifications_filter_comments">Comments</string>
+    <string name="notifications_filter_follows">Follows</string>
+    <string name="notifications_filter_tags_mentions">Tags and Mentions</string>
+    <string name="notifications_filter_empty_title">No activity</string>
+    <string name="notifications_filter_empty_subtitle">Nothing in this filter yet.</string>
     <string name="notifications_replying_to_format">Replying to %1$s</string>
     <string name="notifications_reply_placeholder">Reply…</string>
     <string name="notifications_cd_send_reply">Send reply</string>

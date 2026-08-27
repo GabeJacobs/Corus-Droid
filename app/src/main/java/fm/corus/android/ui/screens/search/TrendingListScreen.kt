@@ -190,18 +190,30 @@ class TrendingListViewModel @Inject constructor(
             emptyList()
         }
         _isArtistsLoading.value = false
+        val names = _trendingArtists.value.map { it.artistName }
+        if (names.isNotEmpty()) {
+            viewModelScope.launch {
+                cloudFunctions.prefetchArtistDestinations(names)
+            }
+        }
     }
 
     suspend fun resolveTrendingArtist(artist: TrendingArtist): fm.corus.android.ui.navigation.ArtistPageRoute? {
+        cloudFunctions.cachedResolvedArtist(artist.artistName)?.let { cached ->
+            return fm.corus.android.ui.navigation.ArtistPageRoute(
+                artistId = cached.id,
+                name = cached.name,
+                imageUrl = cached.imageUrl,
+            )
+        }
         if (_isResolvingArtist.value) return null
         _isResolvingArtist.value = true
         return try {
-            val id = cloudFunctions.resolveArtistIdByName(artist.artistName)?.takeIf { it.isNotBlank() }
-                ?: return null
+            val resolved = cloudFunctions.resolveArtistByName(artist.artistName) ?: return null
             fm.corus.android.ui.navigation.ArtistPageRoute(
-                artistId = id,
-                name = artist.artistName,
-                imageUrl = artist.albumArtLargeURL ?: artist.albumArtURL,
+                artistId = resolved.id,
+                name = resolved.name,
+                imageUrl = resolved.imageUrl,
             )
         } finally {
             _isResolvingArtist.value = false

@@ -76,6 +76,16 @@ class AnalyticsServiceTest {
     }
 
     @Test
+    fun `notification filter events match iOS names`() {
+        service.logNotificationFilterChanged("comments")
+        verify(firebase).logEvent(eq("notification_filter_changed"), any<Bundle>())
+        service.logNotificationFiltersShown(12, 4)
+        verify(firebase).logEvent(eq("notification_filters_shown"), any<Bundle>())
+        service.logNotificationTapped("like", "all")
+        verify(firebase).logEvent(eq("notification_tapped"), any<Bundle>())
+    }
+
+    @Test
     fun `logLikesListViewed emits likes_list_viewed`() {
         service.logLikesListViewed("post123")
         verify(firebase).logEvent(eq("likes_list_viewed"), any<Bundle>())

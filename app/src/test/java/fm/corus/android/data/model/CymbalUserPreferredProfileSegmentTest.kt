@@ -102,18 +102,18 @@ class CymbalUserPreferredProfileSegmentTest {
         assertEquals(0, u.preferredProfileSegmentFromPosts(emptyList(), hasMore = true))
     }
 
-    // ── featuredTab=film: leads with Film, falls back to Music when empty ──
+    // ── featuredTab=film: returns the logical Film index, falls back to Music ──
 
     @Test
-    fun `featuredTab film puts Film at slot 0 when films exist`() {
-        assertEquals(0, user(trackCount = 5, movieCount = 1, featuredTab = "film").preferredProfileSegment)
-        assertEquals(0, user(trackCount = 0, movieCount = 1, featuredTab = "film").preferredProfileSegment)
-        assertEquals(0, user(trackCount = 0, movieCount = 0, featuredTab = "film").preferredProfileSegment)
+    fun `featuredTab film selects Film when films exist`() {
+        assertEquals(1, user(trackCount = 5, movieCount = 1, featuredTab = "film").preferredProfileSegment)
+        assertEquals(1, user(trackCount = 0, movieCount = 1, featuredTab = "film").preferredProfileSegment)
+        assertEquals(1, user(trackCount = 0, movieCount = 0, featuredTab = "film").preferredProfileSegment)
     }
 
     @Test
-    fun `featuredTab film falls back to slot 1 (Music) when no films but tracks exist`() {
-        assertEquals(1, user(trackCount = 3, movieCount = 0, featuredTab = "film").preferredProfileSegment)
+    fun `featuredTab film falls back to Music when no films but tracks exist`() {
+        assertEquals(0, user(trackCount = 3, movieCount = 0, featuredTab = "film").preferredProfileSegment)
     }
 
     @Test
@@ -126,17 +126,26 @@ class CymbalUserPreferredProfileSegmentTest {
     }
 
     @Test
-    fun `derived path with featuredTab film flips to slot 1 when only tracks loaded`() {
+    fun `derived path with featuredTab film selects Music when only tracks loaded`() {
         val u = user(trackCount = null, movieCount = null, featuredTab = "film").copy(cymbalCount = 1)
         val posts = listOf(post(MediaType.TRACK))
+        assertEquals(0, u.preferredProfileSegmentFromPosts(posts, hasMore = false))
+    }
+
+    @Test
+    fun `derived path with featuredTab film selects Film when films are present`() {
+        val u = user(trackCount = null, movieCount = null, featuredTab = "film").copy(cymbalCount = 2)
+        val posts = listOf(post(MediaType.TRACK, "p1"), post(MediaType.MOVIE, "p2"))
         assertEquals(1, u.preferredProfileSegmentFromPosts(posts, hasMore = false))
     }
 
     @Test
-    fun `derived path with featuredTab film keeps slot 0 when films are present`() {
-        val u = user(trackCount = null, movieCount = null, featuredTab = "film").copy(cymbalCount = 2)
-        val posts = listOf(post(MediaType.TRACK, "p1"), post(MediaType.MOVIE, "p2"))
-        assertEquals(0, u.preferredProfileSegmentFromPosts(posts, hasMore = false))
+    fun `hidden Film is skipped even when it is featured`() {
+        val u = user(trackCount = 4, movieCount = 2, featuredTab = "film").copy(
+            hiddenProfileTabs = listOf("film"),
+        )
+        assertEquals(0, u.preferredProfileSegment)
+        assertEquals(listOf(0), u.visibleMediaTabIndices())
     }
 
     // ── fromMap defaulting ──
@@ -153,5 +162,22 @@ class CymbalUserPreferredProfileSegmentTest {
         assertEquals("film", film.featuredTab)
         val junk = CymbalUser.fromMap("u1", mapOf("username" to "a", "displayName" to "A", "featuredTab" to "wat"))
         assertEquals("music", junk.featuredTab)
+    }
+
+    @Test
+    fun `fromMap reads tab order and hidden tabs`() {
+        val u = CymbalUser.fromMap(
+            "u1",
+            mapOf(
+                "username" to "a",
+                "displayName" to "A",
+                "featuredTab" to "film",
+                "profileTabOrder" to listOf("film", "music", "wat"),
+                "hiddenProfileTabs" to listOf("music"),
+            ),
+        )
+        assertEquals(listOf("film", "music", "wat"), u.profileTabOrder)
+        assertEquals(listOf("music"), u.hiddenProfileTabs)
+        assertEquals(listOf(1), u.visibleMediaTabIndices())
     }
 }

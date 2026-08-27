@@ -485,7 +485,15 @@ class AnalyticsService @Inject constructor(
 
     // MARK: - Notification / Message Events
 
-    fun logNotificationTapped(type: String) = logEvent("notification_tapped", mapOf("notification_type" to type))
+    fun logNotificationTapped(type: String, filter: String = "all") =
+        logEvent("notification_tapped", mapOf("notification_type" to type, "filter" to filter))
+    fun logNotificationFilterChanged(filter: String) =
+        logEvent("notification_filter_changed", mapOf("filter" to filter))
+    fun logNotificationFiltersShown(notificationCount: Int, typeCount: Int) =
+        logEvent(
+            "notification_filters_shown",
+            mapOf("notification_count" to notificationCount, "type_count" to typeCount),
+        )
     fun logTasteMatchPushOpened(subtype: String, fromUserId: String, appState: String) =
         logEvent("taste_match_push_opened", mapOf("subtype" to subtype, "from_user_id" to fromUserId, "app_state" to appState))
     fun logTasteMatchFeedRowViewed(subtype: String, fromUserId: String) =

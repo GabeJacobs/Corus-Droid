@@ -687,18 +687,21 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    fun saveStyleSelections(fields: Map<String, Any>) {
+    fun saveStyleSelections(fields: Map<String, Any>, onResult: (Boolean) -> Unit = {}) {
         val uid = authRepository.currentUserId ?: return
         _isSavingStyle.value = true
         viewModelScope.launch {
-            try {
+            val ok = try {
                 userRepository.updateUserProfile(uid, fields)
                 authRepository.refreshUserProfile()
                 _profile.value = authRepository.userProfile.value
+                true
             } catch (e: Exception) {
                 android.util.Log.e("ProfileViewModel", "saveStyleSelections failed", e)
+                false
             }
             _isSavingStyle.value = false
+            onResult(ok)
         }
     }
 

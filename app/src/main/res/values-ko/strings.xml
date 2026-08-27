@@ -473,7 +473,26 @@
     <string name="style_picker_username_placeholder">사용자이름</string>
     <string name="style_picker_rain_effect">비 효과</string>
     <string name="style_picker_snow_effect">눈 효과</string>
-    <string name="style_picker_disco_effect">디스코 효과</string>
+    <string name="style_picker_disco_effect">라이트</string>
+    <string name="style_picker_disco_dark_mode_only">다크 모드에서만 표시</string>
+    <string name="style_disco_slow_dance">슬로우 댄스</string>
+    <string name="style_disco_disco_ball">디스코볼</string>
+    <string name="style_disco_dance_party">댄스 파티</string>
+    <string name="style_disco_spotiflight">스포트라이트</string>
+    <string name="style_frame_marquee">마키</string>
+    <string name="style_vinyl_cotton_candy">솜사탕</string>
+    <string name="style_vinyl_channel_orange">Channel Orange</string>
+    <string name="style_vinyl_yellow">옐로</string>
+    <string name="style_vinyl_pink">핑크</string>
+    <string name="style_vinyl_brat_green">브랫 그린</string>
+    <string name="style_vinyl_purple_tie_dye">퍼플 타이다이</string>
+    <string name="style_vinyl_blue_tie_dye">블루 타이다이</string>
+    <string name="style_vinyl_orange_tie_dye">오렌지 타이다이</string>
+    <string name="style_vinyl_icy_blue">아이시 블루</string>
+    <string name="style_vinyl_galaxy">갤럭시</string>
+    <string name="style_vinyl_peach">피치</string>
+    <string name="style_vinyl_lavender">라벤더</string>
+    <string name="style_vinyl_depression_cherry">Depression Cherry</string>
 
     <!-- Search -->
     <string name="search_screen_title">검색</string>
@@ -765,6 +784,13 @@
     <string name="notifications_cd_like">좋아요</string>
     <string name="notifications_empty_title">아직 활동이 없어요</string>
     <string name="notifications_empty_subtitle">다른 사람들이 회원님의 coruses에 좋아요, 댓글, 저장을 하면 여기에 표시돼요</string>
+    <string name="notifications_filter_all">전체</string>
+    <string name="notifications_filter_people_you_follow">팔로우한 사람</string>
+    <string name="notifications_filter_comments">댓글</string>
+    <string name="notifications_filter_follows">팔로우</string>
+    <string name="notifications_filter_tags_mentions">태그 및 멘션</string>
+    <string name="notifications_filter_empty_title">활동 없음</string>
+    <string name="notifications_filter_empty_subtitle">이 필터에는 아직 아무것도 없어요.</string>
     <string name="notifications_replying_to_format">%1$s님에게 답글</string>
     <string name="notifications_reply_placeholder">답글…</string>
     <string name="notifications_cd_send_reply">답글 보내기</string>

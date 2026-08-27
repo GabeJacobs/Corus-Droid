@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -69,6 +70,7 @@ import fm.corus.android.data.model.CommentAttachedSong
 import fm.corus.android.data.model.CymbalNotification
 import fm.corus.android.data.model.TasteMatchDiscoveryItem
 import fm.corus.android.data.model.NotificationType
+import fm.corus.android.domain.NotificationFilter
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.CommentAttachmentPendingChip
@@ -104,11 +106,15 @@ fun NotificationsScreen(
     onDismissDisabledBanner: () -> Unit = {},
 ) {
     val notifications by viewModel.notifications.collectAsState()
+    val displayedNotifications by viewModel.displayedNotifications.collectAsState()
+    val selectedFilter by viewModel.selectedFilter.collectAsState()
+    val showFilterChips by viewModel.showFilterChips.collectAsState()
+    val isFilterLoading by viewModel.isFilterLoading.collectAsState()
+    val hasMoreToLoad by viewModel.hasMoreToLoad.collectAsState()
     var showFavoriteInfo by remember { mutableStateOf(false) }
     val isLoading by viewModel.isLoading.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val hasLoadError by viewModel.hasLoadError.collectAsState()
-    val hasMoreNotifications by viewModel.hasMoreNotifications.collectAsState()
     val followingIds by viewModel.followingIds.collectAsState()
     val followsMeIds by viewModel.followsMeIds.collectAsState()
     val likedCommentIds by viewModel.likedCommentIds.collectAsState()
@@ -129,7 +135,7 @@ fun NotificationsScreen(
     // newer notification is prepended, which strands it above the fold —
     // the "I opened Activity and had to scroll up to see the new one" bug.
     var previousHeadId by remember { mutableStateOf<String?>(null) }
-    val headId = notifications.firstOrNull()?.id
+    val headId = displayedNotifications.firstOrNull()?.id
     LaunchedEffect(headId) {
         val prev = previousHeadId
         previousHeadId = headId
@@ -250,39 +256,47 @@ fun NotificationsScreen(
                 )
             },
         ) {
+            Column(modifier = Modifier.fillMaxSize().padding(top = contentTop)) {
+            if (showFilterChips) {
+                NotificationFilterChipRow(
+                    selected = selectedFilter,
+                    onSelect = { viewModel.selectFilter(it) },
+                )
+            }
             when {
-                isLoading && notifications.isEmpty() -> {
+                (isLoading && notifications.isEmpty()) || (isFilterLoading && displayedNotifications.isEmpty()) -> {
                     // Loading skeleton — 12 shimmer rows
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(top = contentTop),
+                        modifier = Modifier.weight(1f),
                     ) {
                         items(12) {
                             SkeletonNotificationRow()
                         }
                     }
                 }
-                notifications.isEmpty() && !isLoading && hasLoadError -> {
+                displayedNotifications.isEmpty() && !isLoading && hasLoadError && selectedFilter == NotificationFilter.ALL -> {
                     OfflineRetryState(onRetry = { viewModel.retryLoad() })
                 }
-                notifications.isEmpty() && !isLoading -> {
-                    Column(modifier = Modifier.fillMaxSize().padding(top = contentTop)) {
+                displayedNotifications.isEmpty() && !isLoading -> {
+                    Column(modifier = Modifier.weight(1f)) {
                         if (showDisabledBanner) {
                             NotificationDisabledBanner(
                                 onEnable = enablePushFromBanner,
                                 onDismiss = onDismissDisabledBanner,
                             )
                         }
-                        NotificationsEmptyState(modifier = Modifier.weight(1f))
+                        NotificationsEmptyState(
+                            isFilterEmpty = selectedFilter != NotificationFilter.ALL,
+                            modifier = Modifier.weight(1f),
+                        )
                     }
                 }
                 else -> {
                     LazyColumn(
                         state = listState,
                         modifier = Modifier
-                            .fillMaxSize()
+                            .weight(1f)
                             .nestedScroll(dismissKeyboardOnScroll),
-                        contentPadding = PaddingValues(top = contentTop),
                     ) {
                         if (showDisabledBanner) {
                             item(key = "notif-disabled-banner") {
@@ -292,7 +306,7 @@ fun NotificationsScreen(
                                 )
                             }
                         }
-                        items(notifications, key = { it.id }) { notification ->
+                        items(displayedNotifications, key = { it.id }) { notification ->
                             NotificationRow(
                                 notification = notification,
                                 isFollowing = followingIds.contains(notification.fromUser.id),
@@ -352,7 +366,7 @@ fun NotificationsScreen(
                             )
                         }
 
-                        if (hasMoreNotifications) {
+                        if (hasMoreToLoad) {
                             item {
                                 CircularProgressIndicator(
                                     modifier = Modifier
@@ -362,13 +376,14 @@ fun NotificationsScreen(
                                     color = CorusColors.Secondary,
                                     strokeWidth = 2.dp,
                                 )
-                                LaunchedEffect(notifications.size) {
+                                LaunchedEffect(displayedNotifications.size) {
                                     viewModel.loadMoreNotifications()
                                 }
                             }
                         }
                     }
                 }
+            }
             }
         }
 
@@ -522,6 +537,44 @@ private fun NotificationsHeader(
                         ),
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NotificationFilterChipRow(
+    selected: NotificationFilter,
+    onSelect: (NotificationFilter) -> Unit,
+) {
+    LazyRow(
+        modifier = Modifier.fillMaxWidth().padding(top = CorusSpacing.sm, bottom = CorusSpacing.md),
+        contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+    ) {
+        items(NotificationFilter.entries, key = { it.value }) { filter ->
+            val isActive = filter == selected
+            val label = stringResource(
+                when (filter) {
+                    NotificationFilter.ALL -> R.string.notifications_filter_all
+                    NotificationFilter.PEOPLE_YOU_FOLLOW -> R.string.notifications_filter_people_you_follow
+                    NotificationFilter.COMMENTS -> R.string.notifications_filter_comments
+                    NotificationFilter.FOLLOWS -> R.string.notifications_filter_follows
+                    NotificationFilter.TAGS_AND_MENTIONS -> R.string.notifications_filter_tags_mentions
+                },
+            )
+            Button(
+                onClick = { if (!isActive) onSelect(filter) },
+                shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isActive) CorusColors.Accent else CorusColors.Background,
+                    contentColor = if (isActive) Color.White else CorusColors.Secondary,
+                ),
+                border = if (isActive) null else androidx.compose.foundation.BorderStroke(1.dp, CorusColors.Divider),
+                contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
+                modifier = Modifier.height(32.dp),
+            ) {
+                Text(label, style = CorusFont.buttonSmall)
             }
         }
     }
@@ -1005,6 +1058,7 @@ private fun NotificationDisabledBanner(
 
 @Composable
 private fun NotificationsEmptyState(
+    isFilterEmpty: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -1024,7 +1078,10 @@ private fun NotificationsEmptyState(
             Spacer(modifier = Modifier.height(CorusSpacing.md))
 
             Text(
-                text = stringResource(id = R.string.notifications_empty_title),
+                text = stringResource(
+                    id = if (isFilterEmpty) R.string.notifications_filter_empty_title
+                    else R.string.notifications_empty_title,
+                ),
                 style = CorusFont.bodyMedium,
                 color = CorusColors.Secondary,
             )
@@ -1032,7 +1089,10 @@ private fun NotificationsEmptyState(
             Spacer(modifier = Modifier.height(CorusSpacing.xs))
 
             Text(
-                text = stringResource(id = R.string.notifications_empty_subtitle),
+                text = stringResource(
+                    id = if (isFilterEmpty) R.string.notifications_filter_empty_subtitle
+                    else R.string.notifications_empty_subtitle,
+                ),
                 style = CorusFont.body,
                 color = CorusColors.Tertiary,
                 textAlign = TextAlign.Center,

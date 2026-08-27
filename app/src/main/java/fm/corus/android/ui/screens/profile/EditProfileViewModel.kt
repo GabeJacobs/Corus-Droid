@@ -8,6 +8,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.ProfileMediaTab
+import fm.corus.android.data.model.ProfileTabPreferences
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.SubscriptionRepository
@@ -15,6 +17,7 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.DisplayNameValidator
 import fm.corus.android.domain.UsernameValidator
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,7 +34,11 @@ class EditProfileViewModel @Inject constructor(
     private val postRepository: PostRepository,
     val subscriptionRepository: SubscriptionRepository,
     private val analyticsService: AnalyticsService,
+    private val remoteConfigService: RemoteConfigService,
 ) : ViewModel() {
+
+    val booksEnabled: Boolean
+        get() = remoteConfigService.booksEnabled
 
     private val _profile = MutableStateFlow<CymbalUser?>(null)
     val profile: StateFlow<CymbalUser?> = _profile.asStateFlow()
@@ -48,8 +55,15 @@ class EditProfileViewModel @Inject constructor(
     private val _website = MutableStateFlow("")
     val website: StateFlow<String> = _website.asStateFlow()
 
-    private val _featuredTab = MutableStateFlow("music")
-    val featuredTab: StateFlow<String> = _featuredTab.asStateFlow()
+    private val _tabPreferences = MutableStateFlow(
+        ProfileTabPreferences.resolve(
+            featuredTab = "music",
+            tabOrder = emptyList(),
+            hiddenTabs = emptyList(),
+            booksEnabled = false,
+        )
+    )
+    val tabPreferences: StateFlow<ProfileTabPreferences> = _tabPreferences.asStateFlow()
 
     private val _usernameState = MutableStateFlow(UsernameState.IDLE)
     val usernameState: StateFlow<UsernameState> = _usernameState.asStateFlow()
@@ -87,7 +101,6 @@ class EditProfileViewModel @Inject constructor(
     private var originalDisplayName = ""
     private var originalBio = ""
     private var originalWebsite = ""
-    private var originalFeaturedTab = "music"
     private var usernameCheckJob: Job? = null
 
     enum class UsernameState {
@@ -122,12 +135,11 @@ class EditProfileViewModel @Inject constructor(
                     _username.value = user.username
                     _bio.value = user.bio
                     _website.value = user.website ?: ""
-                    _featuredTab.value = if (user.featuredTab == "film") "film" else "music"
+                    _tabPreferences.value = user.tabPreferences(booksEnabled)
                     originalDisplayName = user.displayName
                     originalUsername = user.username
                     originalBio = user.bio
                     originalWebsite = user.website ?: ""
-                    originalFeaturedTab = _featuredTab.value
 
                     // Load style selections from user profile
                     _styleSelections.value = StyleSelections(
@@ -137,6 +149,7 @@ class EditProfileViewModel @Inject constructor(
                         rainEffect = user.rainIntensity,
                         snowEffect = user.snowIntensity,
                         discoEffect = user.discoIntensityLevel,
+                        discoDarkModeOnly = user.discoDarkModeOnly,
                     )
                 }
             } catch (_: Exception) { }
@@ -218,9 +231,28 @@ class EditProfileViewModel @Inject constructor(
         _website.value = value
     }
 
-    fun updateFeaturedTab(value: String) {
-        _featuredTab.value = if (value == "film") "film" else "music"
+    fun toggleHiddenTab(tab: ProfileMediaTab) {
+        _tabPreferences.value = _tabPreferences.value.toggleHidden(tab, booksEnabled)
     }
+
+    fun moveTab(from: ProfileMediaTab, to: ProfileMediaTab) {
+        _tabPreferences.value = _tabPreferences.value.move(from, to)
+    }
+
+    private fun persistedTabs(user: CymbalUser? = _profile.value): ProfileTabPreferences.PersistedProfileTabs {
+        val source = user ?: return emptyPersisted()
+        return _tabPreferences.value.persisted(
+            existingOrder = source.profileTabOrder,
+            existingHidden = source.hiddenProfileTabs,
+            booksEnabled = booksEnabled,
+        )
+    }
+
+    private fun emptyPersisted() = ProfileTabPreferences.PersistedProfileTabs(
+        order = emptyList(),
+        hidden = emptyList(),
+        featuredTab = "music",
+    )
 
     val hasChanges: Boolean
         get() {
@@ -229,18 +261,29 @@ class EditProfileViewModel @Inject constructor(
                     _username.value != p.username ||
                     _bio.value != p.bio ||
                     _website.value != (p.website ?: "") ||
-                    _featuredTab.value != p.featuredTab
+                    tabsDiffer(p)
         }
 
     val hasUnsavedChanges: Boolean
         get() {
             if (_profile.value == null) return false
+            val user = _profile.value ?: return false
             return _displayName.value != originalDisplayName ||
                     _username.value != originalUsername ||
                     _bio.value != originalBio ||
                     _website.value != originalWebsite ||
-                    _featuredTab.value != originalFeaturedTab
+                    tabsDiffer(user)
         }
+
+    private fun tabsDiffer(user: CymbalUser): Boolean {
+        val original = user.tabPreferences(booksEnabled)
+        val current = _tabPreferences.value
+        val originalEditor = original.editorTabs(booksEnabled)
+        val currentEditor = current.editorTabs(booksEnabled)
+        return originalEditor != currentEditor ||
+            original.hidden.intersect(originalEditor.toSet()) !=
+            current.hidden.intersect(currentEditor.toSet())
+    }
 
     fun clearSaveError() {
         _saveError.value = null
@@ -273,7 +316,12 @@ class EditProfileViewModel @Inject constructor(
                 // regenerateSearchTokensOnUserWrite within ~1s of this update.
                 if (_bio.value != p.bio) fields["bio"] = _bio.value
                 if (_website.value != (p.website ?: "")) fields["website"] = _website.value
-                if (_featuredTab.value != p.featuredTab) fields["featuredTab"] = _featuredTab.value
+                if (tabsDiffer(p)) {
+                    val persisted = persistedTabs(p)
+                    fields["featuredTab"] = persisted.featuredTab
+                    fields["profileTabOrder"] = persisted.order
+                    fields["hiddenProfileTabs"] = persisted.hidden
+                }
 
                 userRepository.updateUserProfile(userId, fields)
                 authRepository.refreshUserProfile()
