@@ -59,6 +59,7 @@ class NotificationsViewModelTest {
         }
         userRepository = mock {
             on { followingIds } doReturn MutableStateFlow<Set<String>>(emptySet())
+            on { hiddenUserIds } doReturn MutableStateFlow<Set<String>>(emptySet())
         }
         postRepository = mock()
         engagementManager = mock()

@@ -255,8 +255,19 @@ class FeedViewModel @Inject constructor(
     // For the new-releases filter we additionally apply a client-side
     // defense-in-depth check using `isNewRelease()` so the user never sees a
     // post that crossed the threshold mid-flight.
-    val filteredPosts: StateFlow<List<CymbalPost>> = combine(_posts, _feedFilter) { posts, filter ->
-        if (filter.newReleasesOnly) posts.filter { it.isNewRelease() } else posts
+    val filteredPosts: StateFlow<List<CymbalPost>> = combine(_posts, _feedFilter, userRepository.hiddenUserIds) { posts, filter, hidden ->
+        val visible = posts
+            .filter { post ->
+                post.user.id !in hidden &&
+                    (post.repostedFromUserId.isNullOrEmpty() || post.repostedFromUserId !in hidden)
+            }
+            .map { post ->
+                post.copy(
+                    comments = post.comments.filter { it.user.id !in hidden },
+                    likers = post.likers.filter { it.id !in hidden },
+                )
+            }
+        if (filter.newReleasesOnly) visible.filter { it.isNewRelease() } else visible
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _newReleaseFilterPaywall = MutableStateFlow<PaywallSource?>(null)

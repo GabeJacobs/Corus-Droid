@@ -5,6 +5,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
+import fm.corus.android.R
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -69,12 +70,6 @@ import kotlinx.coroutines.launch
 
 @EntryPoint
 @InstallIn(SingletonComponent::class)
-interface UserRepositoryEntryPoint {
-    fun userRepository(): UserRepository
-}
-
-@EntryPoint
-@InstallIn(SingletonComponent::class)
 interface RemoteConfigServiceEntryPoint {
     fun remoteConfigService(): fm.corus.android.service.RemoteConfigService
 }
@@ -111,9 +106,14 @@ private fun rememberNavigateToUserByUsername(navController: NavHostController): 
             UserRepositoryEntryPoint::class.java,
         ).userRepository()
     }
+    val unavailable = stringResource(R.string.other_profile_unavailable_title)
     return { username ->
         scope.launch {
-            val user = userRepository.fetchUserByUsername(username) ?: return@launch
+            val user = userRepository.fetchUserByUsername(username)
+            if (user == null) {
+                ToastManager.show(unavailable)
+                return@launch
+            }
             navController.navigate(OtherProfileRoute(user.id))
         }
     }

@@ -74,9 +74,21 @@ class UserRepository @Inject constructor(
     private val _unfollowEvents = MutableSharedFlow<String>(extraBufferCapacity = 16)
     val unfollowEvents: SharedFlow<String> = _unfollowEvents.asSharedFlow()
 
-    // Cached blocked set
+    // Cached blocked set (people I blocked). Settings / Unblock uses this.
     private val _blockedIds = MutableStateFlow<Set<String>>(emptySet())
     val blockedIds: StateFlow<Set<String>> = _blockedIds.asStateFlow()
+
+    // People who blocked me. Combined with blockedIds for content hiding.
+    private val _blockedByIds = MutableStateFlow<Set<String>>(emptySet())
+    private val _hiddenUserIds = MutableStateFlow<Set<String>>(emptySet())
+    val hiddenUserIds: StateFlow<Set<String>> = _hiddenUserIds.asStateFlow()
+
+    fun isUserHidden(userId: String): Boolean =
+        userId in _blockedIds.value || userId in _blockedByIds.value
+
+    private fun publishHidden() {
+        _hiddenUserIds.value = _blockedIds.value + _blockedByIds.value
+    }
 
     // Cached muted set (two-layer: in-memory + persisted to DataStore)
     private val _mutedIds = MutableStateFlow<Set<String>>(emptySet())
@@ -115,7 +127,13 @@ class UserRepository @Inject constructor(
     }
 
     suspend fun prefetchBlockedSet(userId: String) {
-        _blockedIds.value = firestoreDataSource.fetchBlockedIds(userId)
+        coroutineScope {
+            val blocked = async { firestoreDataSource.fetchBlockedIds(userId) }
+            val blockedBy = async { firestoreDataSource.fetchBlockedByIds(userId) }
+            _blockedIds.value = blocked.await()
+            _blockedByIds.value = blockedBy.await()
+            publishHidden()
+        }
     }
 
     /**
@@ -392,11 +410,13 @@ class UserRepository @Inject constructor(
     suspend fun blockUser(userId: String, targetUserId: String) {
         cloudFunctions.blockUser(userId, targetUserId)
         _blockedIds.value = _blockedIds.value + targetUserId
+        publishHidden()
     }
 
     suspend fun unblockUser(userId: String, targetUserId: String) {
         cloudFunctions.unblockUser(userId, targetUserId)
         _blockedIds.value = _blockedIds.value - targetUserId
+        publishHidden()
     }
 
     // ── Mute (two-layer cache: in-memory + DataStore, matching iOS) ──
@@ -681,7 +701,7 @@ class UserRepository @Inject constructor(
             if (seenIds.add(user.id)) users.add(user)
         }
 
-        users.sortedWith(
+        users.filter { !isUserHidden(it.id) }.sortedWith(
             compareByDescending<CymbalUser> { followedIds.contains(it.id) }
                 .thenByDescending { it.username == usernamePrefix }
                 .thenByDescending { it.username.startsWith(usernamePrefix) }
@@ -695,10 +715,12 @@ class UserRepository @Inject constructor(
         // Two-level cache: username → uid, then uid → profile (matching iOS)
         usernameCache[lowerName]?.let { entry ->
             if (entry.isValid(USERNAME_TTL_MS)) {
+                if (isUserHidden(entry.value)) return null
                 return fetchUserProfile(entry.value)
             }
         }
         val user = firestoreDataSource.fetchUserByUsername(lowerName) ?: return null
+        if (isUserHidden(user.id)) return null
         usernameCache[lowerName] = CacheEntry(user.id)
         profileCache[user.id] = CacheEntry(user)
         return user
@@ -778,6 +800,8 @@ class UserRepository @Inject constructor(
         _followingIds.value = emptySet()
         _followingLoaded.value = false
         _blockedIds.value = emptySet()
+        _blockedByIds.value = emptySet()
+        _hiddenUserIds.value = emptySet()
         _mutedIds.value = emptySet()
         profileCache.clear()
         usernameCache.clear()

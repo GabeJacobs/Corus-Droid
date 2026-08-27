@@ -427,6 +427,7 @@ class CommentsViewModel @Inject constructor(
     private suspend fun fetchAndApplyComments(postId: String) {
         try {
             val allComments = postRepository.getComments(postId)
+                .filter { !userRepository.isUserHidden(it.user.id) }
             val topLevel = allComments.filter { it.parentCommentId == null }
             val replies = allComments.filter { it.parentCommentId != null }
                 .groupBy { it.parentCommentId!! }

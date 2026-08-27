@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import fm.corus.android.R
+import fm.corus.android.ui.rememberHiddenUserIds
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
@@ -205,6 +206,13 @@ fun PostCard(
     // name/avatar/flair/badge change reflected on the user's own feed and
     // detail screens immediately — the backend `backfillPostAuthorOnUserUpdate`
     // trigger propagates the same change to other viewers within a few seconds.
+    val hiddenUserIds = rememberHiddenUserIds()
+    val visiblePreviewComments = remember(post.comments, hiddenUserIds) {
+        post.comments.filter { it.user.id !in hiddenUserIds }
+    }
+    val visibleLikers = remember(post.likers, hiddenUserIds) {
+        post.likers.filter { it.id !in hiddenUserIds }
+    }
     val displayUser: CymbalUser = remember(currentUser, post.user) {
         if (currentUser != null && currentUser.id == post.user.id) currentUser
         else post.user
@@ -1227,7 +1235,7 @@ fun PostCard(
 
         // 5. LIKED BY
         LikedBySection(
-            likers = post.likers,
+            likers = visibleLikers,
             likeCount = likeCount,
             onLikesTap = onLikesTap,
             onLikerTap = onLikerTap,
@@ -1249,7 +1257,7 @@ fun PostCard(
         } else if (!post.caption.isNullOrBlank()) {
             // Drop the caption cap from 3 → 2 lines when a comment preview will
             // render, so the preview is never squeezed out by a long caption.
-            val willShowCommentPreview = !hideComments && post.comments.isNotEmpty()
+            val willShowCommentPreview = !hideComments && visiblePreviewComments.isNotEmpty()
             val captionMaxLines = if (willShowCommentPreview) 2 else 3
             ExpandableCaptionText(
                 username = displayUser.username,
@@ -1269,8 +1277,8 @@ fun PostCard(
         // 7. COMMENT PREVIEW — tap username → profile, tap elsewhere → open comments sheet
         // Match iOS: show up to 3 when no caption, fewer when caption is present
         val hasCaption = !post.caption.isNullOrBlank()
-        val maxVisibleComments = if (hasCaption) 2 else minOf(3, post.comments.size)
-        if (!hideComments && post.comments.isNotEmpty() && maxVisibleComments > 0) {
+        val maxVisibleComments = if (hasCaption) 2 else minOf(3, visiblePreviewComments.size)
+        if (!hideComments && visiblePreviewComments.isNotEmpty() && maxVisibleComments > 0) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1283,7 +1291,7 @@ fun PostCard(
                     .padding(bottom = CorusSpacing.xs),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                post.comments.take(maxVisibleComments).forEach { comment ->
+                visiblePreviewComments.take(maxVisibleComments).forEach { comment ->
                     val commentText = remember(comment.user.id, comment.user.username, comment.text) {
                         buildAnnotatedString {
                             pushStringAnnotation(tag = "commentUser", annotation = comment.user.id)

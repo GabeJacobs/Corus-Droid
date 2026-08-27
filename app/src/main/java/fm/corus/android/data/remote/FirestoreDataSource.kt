@@ -740,6 +740,12 @@ class FirestoreDataSource @Inject constructor(
         return snapshot.documents.map { it.id }.toSet()
     }
 
+    suspend fun fetchBlockedByIds(userId: String): Set<String> {
+        val snapshot = firestore.collection("users_v2").document(userId)
+            .collection("blockedBy").get().await()
+        return snapshot.documents.map { it.id }.toSet()
+    }
+
     // ── Muted Users ──
 
     suspend fun fetchMutedUserIds(userId: String): List<String> {

@@ -28,6 +28,7 @@ import androidx.compose.ui.zIndex
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.domain.reconcileRecentLikers
+import fm.corus.android.ui.rememberHiddenUserIds
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -54,8 +55,13 @@ fun LikedBySection(
 
     // Build a likers list that reflects the current user's known like state
     // so the heart's filled state and the "Liked by" subtitle never disagree.
-    val effectiveLikers = remember(likers, currentUser, isLiked) {
-        reconcileRecentLikers(likers, isLikedByCurrentUser = isLiked, currentUser = currentUser)
+    val hiddenUserIds = rememberHiddenUserIds()
+    val effectiveLikers = remember(likers, currentUser, isLiked, hiddenUserIds) {
+        reconcileRecentLikers(
+            likers.filter { it.id !in hiddenUserIds },
+            isLikedByCurrentUser = isLiked,
+            currentUser = currentUser,
+        )
     }
 
     if (effectiveLikers.isEmpty()) return

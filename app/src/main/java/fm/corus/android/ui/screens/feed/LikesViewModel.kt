@@ -81,12 +81,13 @@ class LikesViewModel @Inject constructor(
                 lastTimestamp = if (reset) null else lastTimestamp,
             )
 
+            val visibleUsers = page.users.filter { !userRepository.isUserHidden(it.id) }
             if (reset) {
-                _likers.value = page.users
+                _likers.value = visibleUsers
             } else {
                 // Merge unique
                 val existing = _likers.value.map { it.id }.toSet()
-                val newUsers = page.users.filter { it.id !in existing }
+                val newUsers = visibleUsers.filter { it.id !in existing }
                 _likers.value = _likers.value + newUsers
             }
 
