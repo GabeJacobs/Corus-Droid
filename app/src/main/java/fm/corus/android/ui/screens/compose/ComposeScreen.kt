@@ -67,6 +67,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalMovie
+import fm.corus.android.domain.PostSuccessOthersPayload
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.model.TrendingMovie
@@ -90,6 +91,8 @@ import fm.corus.android.ui.util.UnifiedSearchRanking
 @Composable
 fun ComposeScreen(
     onDismiss: () -> Unit = {},
+    onOpenProfile: (String) -> Unit = {},
+    onShowPostSuccessOthers: (PostSuccessOthersPayload) -> Unit = {},
     movieModeEnabled: Boolean = false,
     preSelectedTrackId: String? = null,
     preSelectedMovieId: String? = null,
@@ -109,6 +112,7 @@ fun ComposeScreen(
     val hashtagSuggestions by viewModel.hashtagSuggestions.collectAsState()
     val showTrophy by viewModel.showTrophy.collectAsState()
     val trophyPost by viewModel.trophyPost.collectAsState()
+    val postSuccessOthers by viewModel.postSuccessOthers.collectAsState()
     val showPostLimitPaywall by viewModel.showPostLimitPaywall.collectAsState()
     val showHardCapAlert by viewModel.showHardCapAlert.collectAsState()
     val showApproachingCapAlert by viewModel.showApproachingCapAlert.collectAsState()
@@ -304,6 +308,12 @@ fun ComposeScreen(
         if (postSuccess) {
             onDismiss()
         }
+    }
+
+    LaunchedEffect(postSuccessOthers) {
+        val payload = postSuccessOthers ?: return@LaunchedEffect
+        viewModel.consumePostSuccessOthersHandoff()
+        onShowPostSuccessOthers(payload)
     }
 
     // Hide the soft keyboard when the post-limit paywall opens so the sheet isn't

@@ -187,9 +187,10 @@ fun OtherProfileScreen(
     // is exhausted (the user doc's counters are often unpopulated since
     // Android doesn't go through the count() cloud function like iOS does).
     var userSelectedSegment by rememberSaveable { mutableStateOf<Int?>(null) }
+    val otherProfile = profile
     val otherVisibleTabs = when {
-        profile?.isMusicBot == true || profile?.isFilmBot == true -> listOf(0)
-        profile != null -> profile.visibleMediaTabIndices() + listOf(2)
+        otherProfile?.isMusicBot == true || otherProfile?.isFilmBot == true -> listOf(0)
+        otherProfile != null -> otherProfile.visibleMediaTabIndices() + listOf(2)
         else -> listOf(0, 1, 2)
     }
     val selectedSegment = (userSelectedSegment
@@ -1083,6 +1084,9 @@ fun OtherProfileScreen(
                                     modifier = Modifier
                                         .weight(1f)
                                         .clickable {
+                                            if (logicalSegment != selectedSegment) {
+                                                haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                                            }
                                             userSelectedSegment = logicalSegment
                                             isFeaturedArtReady = false
                                         }

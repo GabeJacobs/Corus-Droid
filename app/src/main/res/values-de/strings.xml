@@ -514,11 +514,7 @@
     <string name="search_trending_artists_title">Artists im Trend</string>
     <string name="search_new_release_albums_title">Neue Songs</string>
     <string name="search_new_release_albums_list_title">Neue Songs</string>
-    <string name="search_nothing_new_releases">Noch keine neuen Songs</string>
-    <string name="search_new_albums_title">Neue Alben</string>
-    <string name="search_new_albums_list_title">Neue Alben</string>
-    <string name="search_nothing_new_albums">Noch keine neuen Alben</string>
-    <string name="search_tab_users">Personen</string>
+    <string name="search_nothing_new_releases">Noch keine neuen Songs</string>    <string name="search_tab_users">Personen</string>
     <string name="search_tab_songs">Songs</string>
     <string name="search_tab_films">Filme</string>
     <string name="search_tab_hashtags">Hashtags</string>

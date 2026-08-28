@@ -343,7 +343,7 @@ fun PostCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.postHeaderVertical),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             UserAvatarView(
@@ -449,18 +449,23 @@ fun PostCard(
                 Spacer(modifier = Modifier.width(CorusSpacing.sm))
             }
 
-            Icon(
-                imageVector = Icons.Filled.MoreHoriz,
-                contentDescription = stringResource(R.string.post_card_cd_more_options),
+            Box(
                 modifier = Modifier
-                    .size(14.dp)
+                    .size(CorusSpacing.avatarSmall)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = onMenuTap,
                     ),
-                tint = CorusColors.Secondary,
-            )
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.MoreHoriz,
+                    contentDescription = stringResource(R.string.post_card_cd_more_options),
+                    modifier = Modifier.size(14.dp),
+                    tint = CorusColors.Secondary,
+                )
+            }
         }
         }
         RowThatFits(

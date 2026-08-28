@@ -23,6 +23,7 @@ class FeedSwitchHintManagerTest {
         hasExploredOtherFeed: Boolean = false,
         wasAutoDefaultedToTrending: Boolean = false,
         hasFollowedSomeone: Boolean = true,
+        feedModeTabsEnabled: Boolean = false,
     ) = FeedSwitchHintManager.computeShouldShow(
         enabled = enabled,
         minSession = minSession,
@@ -35,6 +36,7 @@ class FeedSwitchHintManagerTest {
         hasExploredOtherFeed = hasExploredOtherFeed,
         wasAutoDefaultedToTrending = wasAutoDefaultedToTrending,
         hasFollowedSomeone = hasFollowedSomeone,
+        feedModeTabsEnabled = feedModeTabsEnabled,
     )
 
     @Test fun `shows on the happy path`() = assertTrue(show())
@@ -96,4 +98,7 @@ class FeedSwitchHintManagerTest {
 
     @Test fun `shows below the impression cap`() =
         assertTrue(show(shownCount = 2, maxImpressions = 3))
+
+    @Test fun `hidden when feed mode tabs are on`() =
+        assertFalse(show(feedModeTabsEnabled = true))
 }

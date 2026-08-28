@@ -572,6 +572,14 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch { userRepository.prefetchMutedSet(uid) }
         userRepository.startBannedUsersListener()
         viewModelScope.launch { userRepository.prefetchSuggestedMatches(uid) }
+        viewModelScope.launch {
+            try {
+                exploreRepository.fetchTrendingSongs()
+                exploreRepository.fetchTrendingMovies()
+            } catch (e: Exception) {
+                Log.w("AuthVM", "Search trending warmup failed", e)
+            }
+        }
         viewModelScope.launch { authRepository.registerFCMToken() }
         viewModelScope.launch { remoteConfigService.fetchAndActivate() }
         viewModelScope.launch { subscriptionRepository.refreshPostLimit() }

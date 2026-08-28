@@ -2,7 +2,9 @@ package fm.corus.android.data.repository
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.service.ActiveThreadTracker
+import fm.corus.android.ui.screens.messaging.unreadContribution
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,6 +23,7 @@ import javax.inject.Singleton
 @Singleton
 class UnreadCountsRepository @Inject constructor(
     private val firestore: FirebaseFirestore,
+    private val firestoreDataSource: FirestoreDataSource,
 ) {
     private val _notificationCount = MutableStateFlow(0)
     val notificationCount: StateFlow<Int> = _notificationCount.asStateFlow()
@@ -55,9 +58,17 @@ class UnreadCountsRepository @Inject constructor(
                 // never contributes to the badge (the thread auto-marks-read, but
                 // excluding it here removes the brief tick between the message
                 // arriving and the read write landing).
-                _unreadMessageCount.value = snapshot.documents
-                    .filter { it.id != ActiveThreadTracker.activeThreadId }
-                    .sumOf { doc -> (doc.get("unreadCount") as? Number)?.toInt() ?: 0 }
+                _unreadMessageCount.value = snapshot.documents.sumOf { doc ->
+                    unreadContribution(
+                        threadId = doc.id,
+                        unreadCount = (doc.get("unreadCount") as? Number)?.toInt() ?: 0,
+                        isGroup = doc.getString("type") == "group",
+                        otherUserId = doc.getString("otherUserId").orEmpty(),
+                        blocked = doc.getBoolean("blocked") == true,
+                        activeThreadId = ActiveThreadTracker.activeThreadId,
+                        isHiddenPeer = firestoreDataSource::isUserBannedLocally,
+                    )
+                }
             }
     }
 

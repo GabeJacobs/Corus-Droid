@@ -6,11 +6,14 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
+import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UnreadCountsRepository
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PostSuccessOthersPayload
 import fm.corus.android.domain.SpotifyFtueExperiment
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -36,6 +39,7 @@ class MainTabViewModel @Inject constructor(
     private val unreadCountsRepository: UnreadCountsRepository,
     val postEngagementManager: fm.corus.android.domain.PostEngagementManager,
     private val authRepository: AuthRepository,
+    private val userRepository: UserRepository,
     private val messageRepository: MessageRepository,
     private val analyticsService: fm.corus.android.service.AnalyticsService,
     val feedScrollRouter: fm.corus.android.domain.FeedScrollRouter,
@@ -253,6 +257,51 @@ class MainTabViewModel @Inject constructor(
      * Called after a post is successfully created.
      * Checks if we should show a milestone paywall (1st post or 10th post).
      */
+    fun followFromPostSuccessOthers(user: CymbalUser) {
+        val uid = authRepository.currentUserId ?: return
+        analyticsService.logFollowUser(user.id)
+        analyticsService.logPostSuccessOthersFollowed(user.id)
+        viewModelScope.launch {
+            runCatching { userRepository.followUser(uid, user.id) }
+        }
+    }
+
+    fun likeFromPostSuccessOthers(postId: String, nowLiked: Boolean, mediaType: String) {
+        if (postId.isEmpty()) return
+        if (nowLiked) {
+            analyticsService.logPostLiked(postId, mediaType)
+            analyticsService.logPostSuccessOthersLiked(postId)
+        } else {
+            analyticsService.logPostUnliked(postId, mediaType)
+        }
+        viewModelScope.launch {
+            runCatching {
+                if (nowLiked) cloudFunctions.likePost(postId)
+                else cloudFunctions.unlikePost(postId)
+            }
+        }
+    }
+
+    fun logPostSuccessOthersShown(payload: PostSuccessOthersPayload) {
+        analyticsService.logPostSuccessOthersShown(
+            otherCount = payload.otherCount,
+            visibleCount = payload.people.size,
+            mediaType = payload.analyticsMediaType,
+        )
+    }
+
+    fun logPostSuccessOthersProfileTapped(userId: String, mediaType: String) {
+        analyticsService.logPostSuccessOthersProfileTapped(userId, mediaType)
+    }
+
+    fun logPostSuccessOthersSeeAllTapped(mediaType: String) {
+        analyticsService.logPostSuccessOthersSeeAllTapped(mediaType)
+    }
+
+    fun logPostSuccessOthersDismissed(method: String) {
+        analyticsService.logPostSuccessOthersDismissed(method)
+    }
+
     fun checkPostMilestonePaywall() {
         if (subscriptionRepository.hasFullAccess) return
 

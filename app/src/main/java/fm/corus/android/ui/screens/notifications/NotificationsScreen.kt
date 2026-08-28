@@ -260,7 +260,11 @@ fun NotificationsScreen(
             if (showFilterChips) {
                 NotificationFilterChipRow(
                     selected = selectedFilter,
-                    onSelect = { viewModel.selectFilter(it) },
+                    onSelect = {
+                        // Mirrors iOS NotificationsView.selectFilter haptic.
+                        haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                        viewModel.selectFilter(it)
+                    },
                 )
             }
             when {
@@ -353,11 +357,6 @@ fun NotificationsScreen(
                                     viewModel.setReplyingToNotification(notification)
                                 },
                             )
-                            if (notification.type == NotificationType.TASTE_MATCH) {
-                                LaunchedEffect(notification.id) {
-                                    viewModel.markTasteMatchRowViewed(notification)
-                                }
-                            }
                             HorizontalDivider(
                                 color = CorusColors.Divider,
                                 modifier = Modifier.padding(
@@ -548,7 +547,7 @@ private fun NotificationFilterChipRow(
     onSelect: (NotificationFilter) -> Unit,
 ) {
     LazyRow(
-        modifier = Modifier.fillMaxWidth().padding(top = CorusSpacing.sm, bottom = CorusSpacing.md),
+        modifier = Modifier.fillMaxWidth().padding(bottom = CorusSpacing.md),
         contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
     ) {

@@ -462,11 +462,7 @@
     <string name="search_trending_artists_title">トレンドのアーティスト</string>
     <string name="search_new_release_albums_title">新曲</string>
     <string name="search_new_release_albums_list_title">新曲</string>
-    <string name="search_nothing_new_releases">まだ新曲がありません</string>
-    <string name="search_new_albums_title">新しいアルバム</string>
-    <string name="search_new_albums_list_title">新しいアルバム</string>
-    <string name="search_nothing_new_albums">まだ新しいアルバムがありません</string>
-    <string name="search_tab_users">ユーザー</string>
+    <string name="search_nothing_new_releases">まだ新曲がありません</string>    <string name="search_tab_users">ユーザー</string>
     <string name="search_tab_songs">曲</string>
     <string name="search_tab_films">映画</string>
     <string name="search_tab_hashtags">ハッシュタグ</string>

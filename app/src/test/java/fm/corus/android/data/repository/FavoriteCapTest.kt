@@ -31,6 +31,7 @@ class FavoriteCapTest {
     fun setUp() {
         whenever(prefs.getBoolean("cached_isClubMember", false)).thenReturn(false)
         whenever(prefs.getBoolean("cached_isVerified", false)).thenReturn(false)
+        whenever(prefs.getBoolean("cached_favoritesTabUnlocked", false)).thenReturn(false)
         whenever(prefs.edit()).thenReturn(prefsEditor)
         whenever(prefsEditor.putBoolean(any(), any())).thenReturn(prefsEditor)
         whenever(remoteConfig.corusClubEnabled).thenReturn(true)

@@ -73,6 +73,8 @@ class FeedModeAvailabilityGuardTest {
         engagementManager = mock()
         userRepository = mock {
             on { followingIds } doReturn MutableStateFlow(emptySet())
+            on { hiddenUserIds } doReturn MutableStateFlow(emptySet())
+            on { followingLoaded } doReturn MutableStateFlow(true)
         }
         messageRepository = mock()
         cloudFunctions = mock()
@@ -89,7 +91,7 @@ class FeedModeAvailabilityGuardTest {
         Dispatchers.resetMain()
     }
 
-    private fun vm(storedMode: String): FeedViewModel {
+    private fun vm(storedMode: String, favoritePeopleCount: Int = 0): FeedViewModel {
         preferencesDataStore = mock {
             on { feedFollowsNowPlaying } doReturn MutableStateFlow(true)
             on { feedFilter } doReturn MutableStateFlow("ALL")
@@ -100,11 +102,18 @@ class FeedModeAvailabilityGuardTest {
             on { forYouSeenIdsJson } doReturn MutableStateFlow("[]")
             on { hasTappedAlbumArt } doReturn MutableStateFlow(false)
             on { hasConfirmedFeedPlaylist } doReturn MutableStateFlow(false)
+            on { playFullSongs } doReturn MutableStateFlow(false)
+            on { feedFilterSyncSeed() } doReturn "ALL"
+            on { feedDecadeSyncSeed() } doReturn ""
         }
         return FeedViewModel(
             postRepository = postRepository,
             authRepository = authRepository,
-            subscriptionRepository = mock(),
+            subscriptionRepository = mock {
+                on { favoritesCount } doReturn MutableStateFlow(favoritePeopleCount)
+                on { favoritesTabUnlocked } doReturn MutableStateFlow(favoritePeopleCount > 0)
+                on { hasFullAccessFlow } doReturn MutableStateFlow(false)
+            },
             engagementManager = engagementManager,
             userRepository = userRepository,
             messageRepository = messageRepository,
@@ -159,5 +168,23 @@ class FeedModeAvailabilityGuardTest {
         val viewModel = vm("")
         advanceUntilIdle()
         assertEquals("following", viewModel.feedMode.value)
+    }
+
+    @Test
+    fun `persisted favorites falls back to following when tabs on and count is 0`() = runTest(testDispatcher) {
+        whenever(remoteConfig.favoritesEnabled).doReturn(true)
+        whenever(remoteConfig.feedModeTabsEnabled).doReturn(true)
+        val viewModel = vm("favorites", favoritePeopleCount = 0)
+        advanceUntilIdle()
+        assertEquals("following", viewModel.feedMode.value)
+    }
+
+    @Test
+    fun `persisted favorites is honored when tabs on and count is positive`() = runTest(testDispatcher) {
+        whenever(remoteConfig.favoritesEnabled).doReturn(true)
+        whenever(remoteConfig.feedModeTabsEnabled).doReturn(true)
+        val viewModel = vm("favorites", favoritePeopleCount = 2)
+        advanceUntilIdle()
+        assertEquals("favorites", viewModel.feedMode.value)
     }
 }

@@ -33,6 +33,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.horizontalRailCardWidth
+import fm.corus.android.ui.util.deferToInnerHorizontalScroll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -141,7 +142,7 @@ fun HorizontalTasteMatchesRail(
         } else if (visibleMatches.isNotEmpty()) {
             LazyRow(
                 state = listState,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().deferToInnerHorizontalScroll(),
                 contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
             ) {
@@ -206,7 +207,7 @@ private fun FollowedAllState(onShowAll: () -> Unit) {
 @Composable
 private fun SkeletonRow(cardWidth: androidx.compose.ui.unit.Dp) {
     LazyRow(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().deferToInnerHorizontalScroll(),
         contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
     ) {

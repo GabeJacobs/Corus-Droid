@@ -102,8 +102,8 @@ data class TrendingArtist(
 )
 
 /** One row of trending_cache/albums — song counters re-merged by album
- *  server-side. New Releases also uses this shape; unreleased parents set
- *  [openAsSong] and open the posted track. */
+ *  server-side. New Songs also uses this shape: every row is a posted
+ *  track (`openAsSong`) and opens the song page. */
 data class TrendingAlbum(
     val id: String,
     val rank: Int,

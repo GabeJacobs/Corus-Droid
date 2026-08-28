@@ -406,15 +406,6 @@ class NotificationsViewModel @Inject constructor(
         }
     }
 
-    /** Fires once when a taste_match row appears in the activity feed. */
-    fun markTasteMatchRowViewed(notification: CymbalNotification) {
-        if (notification.type != fm.corus.android.data.model.NotificationType.TASTE_MATCH) return
-        analyticsService.logTasteMatchFeedRowViewed(
-            subtype = notification.subtype ?: "unknown",
-            fromUserId = notification.fromUser.id,
-        )
-    }
-
     /**
      * Merges incoming real-time listener results (first page) with existing
      * paginated items via [mergedNotificationList] — see its doc for the

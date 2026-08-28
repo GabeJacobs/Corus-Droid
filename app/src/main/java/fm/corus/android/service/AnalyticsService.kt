@@ -27,7 +27,6 @@ enum class SearchSection(val value: String) {
     TrendingArtists("trending_artists"),
     TrendingAlbums("trending_albums"),
     NewReleaseAlbums("new_release_albums"),
-    NewAlbums("new_albums"),
     ArtistsOnCorus("artists_on_corus"),
 }
 
@@ -195,6 +194,8 @@ class AnalyticsService @Inject constructor(
         )
     fun logPostSuccessOthersFollowed(targetUserId: String) =
         logEvent("post_success_others_followed", mapOf("target_user_id" to targetUserId))
+    fun logPostSuccessOthersLiked(postId: String) =
+        logEvent("post_success_others_liked", mapOf("post_id" to postId))
     fun logPostSuccessOthersProfileTapped(userId: String, mediaType: String) =
         logEvent("post_success_others_profile_tapped", mapOf("user_id" to userId, "media_type" to mediaType))
     fun logPostSuccessOthersSeeAllTapped(mediaType: String) =
@@ -230,6 +231,9 @@ class AnalyticsService @Inject constructor(
     fun logArtistShared(artistId: String, method: String) = logEvent("artist_shared", mapOf("artist_id" to artistId, "share_method" to method))
     fun logAlbumShared(albumId: String, method: String) = logEvent("album_shared", mapOf("album_id" to albumId, "share_method" to method))
     fun logDirectorShared(directorId: String, method: String) = logEvent("director_shared", mapOf("director_id" to directorId, "share_method" to method))
+    fun logFilmShared(filmId: String, method: String) = logEvent("film_shared", mapOf("film_id" to filmId, "share_method" to method))
+    fun logBookShared(bookId: String, method: String) = logEvent("book_shared", mapOf("book_id" to bookId, "share_method" to method))
+    fun logAuthorShared(authorSlug: String, method: String) = logEvent("author_shared", mapOf("author_slug" to authorSlug, "share_method" to method))
     fun logProfileShared(
         profileUserId: String,
         method: String,
@@ -407,6 +411,8 @@ class AnalyticsService @Inject constructor(
         logEvent("search_section_user_unfollowed", mapOf("section" to section.value, "target_user_id" to targetUserId))
     fun logSearchSectionSeeAllTapped(section: SearchSection) =
         logEvent("search_section_see_all_tapped", mapOf("section" to section.value))
+    fun logSearchSectionItemTapped(section: SearchSection, itemId: String) =
+        logEvent("search_section_item_tapped", mapOf("section" to section.value, "item_id" to itemId))
 
     // MARK: - Profile Events
 
@@ -489,6 +495,14 @@ class AnalyticsService @Inject constructor(
         logEvent("album_page_viewed", mapOf("album_id" to albumId))
     fun logDirectorPageViewed(directorId: String) =
         logEvent("director_page_viewed", mapOf("director_id" to directorId))
+    fun logAuthorPageViewed(authorSlug: String) =
+        logEvent("author_page_viewed", mapOf("author_slug" to authorSlug))
+    fun logBookPageViewed(bookId: String) =
+        logEvent("book_page_viewed", mapOf("book_id" to bookId))
+    fun logBookPreviewOpened(bookId: String, source: String) =
+        logEvent("book_preview_opened", mapOf("book_id" to bookId, "source" to source))
+    fun logAudiobookSamplePlayed(bookId: String) =
+        logEvent("audiobook_sample_played", mapOf("book_id" to bookId))
     fun logArtistSongPreviewed(artistId: String, trackId: String) =
         logEvent("artist_song_previewed", mapOf("artist_id" to artistId, "track_id" to trackId))
     fun logAlbumTrackPreviewed(albumId: String, trackId: String) =
@@ -517,8 +531,6 @@ class AnalyticsService @Inject constructor(
         )
     fun logTasteMatchPushOpened(subtype: String, fromUserId: String, appState: String) =
         logEvent("taste_match_push_opened", mapOf("subtype" to subtype, "from_user_id" to fromUserId, "app_state" to appState))
-    fun logTasteMatchFeedRowViewed(subtype: String, fromUserId: String) =
-        logEvent("taste_match_feed_row_viewed", mapOf("subtype" to subtype, "from_user_id" to fromUserId))
     fun logTasteMatchFeedRowTapped(subtype: String, fromUserId: String) =
         logEvent("taste_match_feed_row_tapped", mapOf("subtype" to subtype, "from_user_id" to fromUserId))
     fun logTasteMatchSettingsToggled(enabled: Boolean) =
@@ -566,6 +578,7 @@ class AnalyticsService @Inject constructor(
     // MARK: - Settings Events
 
     fun logSettingToggled(setting: String, enabled: Boolean) = logEvent("setting_toggled", mapOf("setting" to setting, "enabled" to enabled))
+    fun logStyleChanged(changes: Map<String, String>) = logEvent("style_changed", changes)
     fun logFeedbackSubmitted(type: String) = logEvent("feedback_submitted", mapOf("feedback_type" to type))
 
     // MARK: - Subscription / Paywall Events

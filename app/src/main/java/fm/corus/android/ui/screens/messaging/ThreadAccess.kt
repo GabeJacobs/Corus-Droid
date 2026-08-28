@@ -30,6 +30,25 @@ internal fun mayShowThread(
         (!thread.blocked && thread.otherUserId !in blockedIds && !isBanned(thread.otherUserId))
 
 /**
+ * Badge contribution of one inbox mirror row. Hidden 1:1 peers (banned,
+ * blocked, or a missing account the inbox already dropped) must not count —
+ * otherwise the envelope shows a number the user can never clear.
+ */
+internal fun unreadContribution(
+    threadId: String,
+    unreadCount: Int,
+    isGroup: Boolean,
+    otherUserId: String,
+    blocked: Boolean,
+    activeThreadId: String?,
+    isHiddenPeer: (String) -> Boolean,
+): Int {
+    if (threadId == activeThreadId) return 0
+    if (!isGroup && (blocked || (otherUserId.isNotEmpty() && isHiddenPeer(otherUserId)))) return 0
+    return unreadCount
+}
+
+/**
  * Whether the conversation behind [row] may be opened. Nothing is drawn until
  * the answer is known, so no entry point — a tapped push, a deep link, a tap in
  * the app — can put a refused conversation on screen even for a frame, and a

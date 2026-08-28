@@ -170,7 +170,7 @@ class UserRepository @Inject constructor(
             if (isCurrentUser || entry.isValid(PROFILE_TTL_MS)) {
                 if (isCurrentUser) {
                     subscriptionRepository.setSavesCount(entry.value.savesCount)
-                    subscriptionRepository.setFavoritesCount(entry.value.favoritesCount)
+                    subscriptionRepository.setFavoritesCount(entry.value.favoritesCount, allowZero = false)
                     subscriptionRepository.setPlaylistTrialUsed(entry.value.playlistTrialUsed)
                 }
                 return entry.value

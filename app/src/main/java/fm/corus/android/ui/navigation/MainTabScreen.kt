@@ -69,6 +69,7 @@ import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.ExpandedPhoto
 import fm.corus.android.ui.components.FullScreenPhotoViewer
+import fm.corus.android.ui.components.ChromeLoadingHud
 import fm.corus.android.ui.components.MiniPlayerBar
 import fm.corus.android.ui.components.LocalBottomBarHeight
 import fm.corus.android.ui.components.LocalContentHaze
@@ -81,8 +82,10 @@ import fm.corus.android.ui.player.FullPlayerQueueSheet
 import fm.corus.android.ui.player.FullPlayerScreen
 import fm.corus.android.ui.player.liveExpansion
 import fm.corus.android.ui.player.rememberPlayerExpansionState
+import fm.corus.android.domain.PostSuccessOthersPayload
 import fm.corus.android.ui.screens.compose.ComposeScreen
 import fm.corus.android.ui.screens.compose.ComposeViewModel
+import fm.corus.android.ui.screens.compose.PostSuccessOthersSheet
 import fm.corus.android.ui.screens.feed.CommentsBottomSheet
 import fm.corus.android.ui.screens.feed.LikesBottomSheet
 import fm.corus.android.data.model.MusicService
@@ -102,6 +105,7 @@ import androidx.compose.ui.zIndex
 import androidx.core.view.WindowInsetsControllerCompat
 import android.app.Activity
 import fm.corus.android.ui.util.PushNotificationPermission
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -118,6 +122,8 @@ fun MainTabScreen(
     var selectedTab by rememberSaveable { mutableStateOf(CorusTab.FEED) }
     var showCompose by rememberSaveable { mutableStateOf(false) }
     var composeMovieMode by rememberSaveable { mutableStateOf(false) }
+    var postSuccessOthers by remember { mutableStateOf<PostSuccessOthersPayload?>(null) }
+    var showPostSuccessOthers by remember { mutableStateOf(false) }
     val composeViewModel: ComposeViewModel = hiltViewModel()
     val showMilestonePaywall by viewModel.showMilestonePaywall.collectAsState()
     val milestonePaywallSource by viewModel.milestonePaywallSource.collectAsState()
@@ -154,6 +160,7 @@ fun MainTabScreen(
     val alwaysPlayFullSongs by viewModel.alwaysPlayFullSongs.collectAsState()
     val playbackModePending by viewModel.playbackModePromptManager.pending.collectAsState()
     val isResolvingLinkOut by fm.corus.android.domain.MusicServiceLinkOut.isResolving.collectAsState()
+    val isResolvingDestination by fm.corus.android.domain.DestinationResolvingOverlay.isResolving.collectAsState()
     val pushPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
     ) { _ ->
@@ -250,6 +257,17 @@ fun MainTabScreen(
     var playerSharePost by remember { mutableStateOf<fm.corus.android.data.model.CymbalPost?>(null) }
 
     var expandedPhoto by remember { mutableStateOf<ExpandedPhoto?>(null) }
+
+    LaunchedEffect(showCompose, postSuccessOthers) {
+        if (!showCompose && postSuccessOthers != null && !showPostSuccessOthers) {
+            delay(300)
+            showPostSuccessOthers = true
+            postSuccessOthers?.let { viewModel.logPostSuccessOthersShown(it) }
+            fm.corus.android.ui.components.ToastManager.show(
+                context.getString(R.string.post_success_others_kicker)
+            )
+        }
+    }
 
     // When a pre-selected media ID becomes non-null, open compose overlay.
     // Reset then immediately start the load so isLoadingPreSelection is true
@@ -871,12 +889,83 @@ fun MainTabScreen(
                 showCompose = false
                 composeMovieMode = false
                 viewModel.clearPreSelectedMedia()
-                viewModel.checkPostMilestonePaywall()
+                if (postSuccessOthers == null) {
+                    viewModel.checkPostMilestonePaywall()
+                }
+            },
+            onShowPostSuccessOthers = { payload ->
+                postSuccessOthers = payload
+                showCompose = false
+                composeMovieMode = false
+                viewModel.clearPreSelectedMedia()
+            },
+            onOpenProfile = { userId ->
+                navControllers[selectedTab]?.navigate(OtherProfileRoute(userId))
             },
             movieModeEnabled = preSelectedMovieId != null || composeMovieMode,
             preSelectedTrackId = preSelectedTrackId,
             preSelectedMovieId = preSelectedMovieId,
         )
+    }
+    if (showPostSuccessOthers) {
+        val others = postSuccessOthers
+        if (others != null) {
+            val othersSheetState = androidx.compose.material3.rememberModalBottomSheetState(
+                skipPartiallyExpanded = true,
+            )
+            androidx.compose.material3.ModalBottomSheet(
+                onDismissRequest = {
+                    viewModel.logPostSuccessOthersDismissed("swipe")
+                    showPostSuccessOthers = false
+                    postSuccessOthers = null
+                    viewModel.checkPostMilestonePaywall()
+                },
+                sheetState = othersSheetState,
+                containerColor = CorusColors.Background,
+                dragHandle = null,
+                contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
+            ) {
+                PostSuccessOthersSheet(
+                    payload = others,
+                    onDone = {
+                        viewModel.logPostSuccessOthersDismissed("done")
+                        showPostSuccessOthers = false
+                        postSuccessOthers = null
+                        viewModel.checkPostMilestonePaywall()
+                    },
+                    onOpenProfile = { user ->
+                        viewModel.logPostSuccessOthersProfileTapped(
+                            user.id,
+                            others.analyticsMediaType,
+                        )
+                        showPostSuccessOthers = false
+                        postSuccessOthers = null
+                        navControllers[selectedTab]?.navigate(OtherProfileRoute(user.id))
+                        viewModel.checkPostMilestonePaywall()
+                    },
+                    onFollow = { viewModel.followFromPostSuccessOthers(it) },
+                    onLike = { postId, nowLiked ->
+                        viewModel.likeFromPostSuccessOthers(
+                            postId = postId,
+                            nowLiked = nowLiked,
+                            mediaType = others.analyticsMediaType,
+                        )
+                    },
+                    onSeeAll = {
+                        val track = others.media.track
+                        val movie = others.media.movie
+                        viewModel.logPostSuccessOthersSeeAllTapped(others.analyticsMediaType)
+                        showPostSuccessOthers = false
+                        postSuccessOthers = null
+                        when {
+                            track != null -> navControllers[selectedTab]?.navigate(track.toSongDetailRoute())
+                            movie != null -> navControllers[selectedTab]?.navigate(movie.toFilmDetailRoute())
+                        }
+                        viewModel.checkPostMilestonePaywall()
+                    },
+                )
+            }
+        }
     }
     // ── Club Offer Sheet ──
     if (showClubOffer) {
@@ -905,26 +994,11 @@ fun MainTabScreen(
             .align(Alignment.TopCenter),
     )
 
-    // Global link-out loading overlay (parity with iOS MainTabView): a centered
-    // spinner while an Apple Music / TIDAL / Deezer URL resolves from ANY surface
-    // (feed, song page, mini-player). Cache hits / Spotify never trip it.
-    if (isResolvingLinkOut) {
-        androidx.compose.material3.Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.25f),
-        ) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                androidx.compose.material3.Surface(
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
-                    color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.85f),
-                ) {
-                    androidx.compose.material3.CircularProgressIndicator(
-                        color = androidx.compose.ui.graphics.Color.White,
-                        modifier = Modifier.padding(28.dp),
-                    )
-                }
-            }
-        }
+    // Chrome-level loading HUD — sits above the tabs + mini-player so the
+    // dim covers the whole window. Shared by music-service link-out and
+    // Search destination resolve (album / artist).
+    if (isResolvingLinkOut || isResolvingDestination) {
+        ChromeLoadingHud()
     }
 
     if (showPlayerQueue) {

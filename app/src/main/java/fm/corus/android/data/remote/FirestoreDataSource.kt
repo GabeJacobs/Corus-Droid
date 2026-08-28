@@ -1287,63 +1287,6 @@ class FirestoreDataSource @Inject constructor(
             }
     }
 
-    /**
-     * Group new-release posts into album candidates for the New Albums rail.
-     * Catalog qualification happens in [fm.corus.android.data.repository.ExploreRepository].
-     */
-    suspend fun fetchNewAlbumCandidates(pool: Int = 100): List<NewAlbumCandidate> {
-        val nowMs = System.currentTimeMillis()
-        val snap = firestore.collection("posts")
-            .whereEqualTo("mediaType", "track")
-            .whereGreaterThan("newReleaseExpiresAtMs", nowMs)
-            .orderBy("newReleaseExpiresAtMs", Query.Direction.DESCENDING)
-            .limit(pool.toLong())
-            .get()
-            .await()
-        val byAlbum = linkedMapOf<String, NewAlbumCandidate>()
-        for (doc in snap.documents) {
-            val data = doc.data ?: continue
-            @Suppress("UNCHECKED_CAST")
-            val author = data["author"] as? Map<String, Any?>
-            if (author?.get("isBot") == true) continue
-            val uid = data["userId"] as? String
-            if (uid != null && isUserBannedLocally(uid)) continue
-            val albumId = (data["albumId"] as? String)?.trim().orEmpty()
-            val albumName = (data["albumName"] as? String)?.trim().orEmpty()
-            val artistName = (data["artistName"] as? String)?.trim().orEmpty()
-            val trackName = (data["trackName"] as? String)?.trim().orEmpty()
-            if (albumId.isEmpty() && albumName.isEmpty()) continue
-            val key = if (albumId.isNotEmpty()) {
-                "id:${albumId.lowercase()}"
-            } else {
-                "name:${artistName.lowercase()}\u0000${albumName.lowercase()}"
-            }
-            val art = (data["albumArtLargeURL"] as? String)?.takeIf { it.isNotBlank() }
-                ?: (data["albumArtURL"] as? String)?.takeIf { it.isNotBlank() }
-            val existing = byAlbum[key]
-            if (existing != null) {
-                byAlbum[key] = existing.copy(
-                    count = existing.count + 1,
-                    albumId = existing.albumId.ifEmpty { albumId },
-                    albumName = existing.albumName.ifEmpty { albumName },
-                    artistName = existing.artistName.ifEmpty { artistName },
-                    albumArtURL = existing.albumArtURL ?: art,
-                    trackNames = if (trackName.isEmpty()) existing.trackNames else existing.trackNames + trackName,
-                )
-            } else {
-                byAlbum[key] = NewAlbumCandidate(
-                    albumId = albumId,
-                    albumName = albumName,
-                    artistName = artistName,
-                    albumArtURL = art,
-                    count = 1,
-                    trackNames = if (trackName.isEmpty()) emptySet() else setOf(trackName),
-                )
-            }
-        }
-        return byAlbum.values.toList()
-    }
-
     private fun parseNewReleaseSongFromPost(data: Map<String, Any?>): Pair<String, TrendingAlbum>? {
         val trackId = (data["trackId"] as? String)?.trim().orEmpty()
         val albumId = (data["albumId"] as? String)?.trim().orEmpty()
@@ -1354,7 +1297,7 @@ class FirestoreDataSource @Inject constructor(
         val releaseDate = (data["trackReleaseDate"] as? String)?.trim().orEmpty()
         val precision = (data["trackReleaseDatePrecision"] as? String)?.trim().orEmpty()
         val title = trackName.ifEmpty { albumName }
-        if (trackId.isEmpty() && title.isEmpty() && isrc.isEmpty()) return null
+        if (trackId.isEmpty()) return null
         val key = when {
             isrc.isNotEmpty() -> "isrc:${isrc.lowercase()}"
             trackId.isNotEmpty() -> "track:${trackId.lowercase()}"

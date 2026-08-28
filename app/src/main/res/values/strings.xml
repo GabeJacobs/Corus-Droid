@@ -600,11 +600,7 @@
     <string name="search_trending_albums_title">Trending albums</string>
     <string name="search_new_release_albums_title">New songs</string>
     <string name="search_new_release_albums_list_title">New songs</string>
-    <string name="search_nothing_new_releases">No new songs yet</string>
-    <string name="search_new_albums_title">New albums</string>
-    <string name="search_new_albums_list_title">New albums</string>
-    <string name="search_nothing_new_albums">No new albums yet</string>
-    <string name="search_tab_users">Users</string>
+    <string name="search_nothing_new_releases">No new songs yet</string>    <string name="search_tab_users">Users</string>
     <string name="search_tab_songs">Songs</string>
     <string name="search_tab_films">Films</string>
     <string name="search_tab_hashtags">Hashtags</string>
@@ -1213,7 +1209,7 @@
     <string name="club_feature_customization">Profile customization</string>
     <string name="club_feature_playlists">Export playlists</string>
     <string name="club_feature_support">Keep Corus ad-free</string>
-    <string name="club_feature_taste_matches">Unlimited Taste Matches feed</string>
+    <string name="club_feature_taste_matches">Taste Matches feed</string>
     <string name="club_disclaimer">Corus is proudly ad-free. Club members help keep Corus independent and sustainable.</string>
     <!-- Taste Matches cold-start (premium feed, not enough posts yet) -->
     <string name="feed_taste_matches_coldstart_title">What are 3 songs or films you love?</string>

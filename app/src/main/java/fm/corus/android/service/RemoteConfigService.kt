@@ -243,6 +243,11 @@ class RemoteConfigService @Inject constructor(
     val tasteMatchesFreeTrial: Boolean
         get() = feedFlag("taste_matches_free_trial")
 
+    /// Tab-row + swipe feed-mode switcher under the wordmark. Launched on;
+    /// console can still kill-switch. Shares `feed_mode_tabs_enabled` with iOS/web.
+    val feedModeTabsEnabled: Boolean
+        get() = feedFlag("feed_mode_tabs_enabled")
+
     /// Gate for the artist / album / director destination pages: search rows,
     /// tappable artist+director names, and the pages themselves. Shares the
     /// `artist_pages_enabled` RC key with iOS/web so one console flip reverts
@@ -306,6 +311,13 @@ class RemoteConfigService @Inject constructor(
     val unifiedSearchEnabled: Boolean
         get() = feedFlag("unified_search_enabled")
 
+    /// Segmented Search idle browse (Users / Music / Film / Hashtags tabs +
+    /// swipe). Typed query still uses unified All + filter chips. Launched
+    /// on; console can still kill-switch. Shares `segmented_search_enabled`
+    /// with iOS/web.
+    val segmentedSearchEnabled: Boolean
+        get() = feedFlag("segmented_search_enabled")
+
     /// Search zero-state rail of admin-curated artists who use Corus.
     /// Shares `artists_on_corus_section_enabled` with iOS/web.
     val artistsOnCorusSectionEnabled: Boolean
@@ -339,6 +351,13 @@ class RemoteConfigService @Inject constructor(
     /// layout must be right on its very first frame after a cold launch.
     val composeUnifiedSearchEnabled: Boolean
         get() = feedFlag("compose_unified_search_enabled")
+
+    /// Post-success sheet listing other people who already posted the same
+    /// song/film, with Follow. OFF = today's compose dismiss, byte-identical.
+    /// DEBUG builds force it ON so a fresh local signup can see the sheet
+    /// without an RC allowlist. Release reads the console key (default false).
+    val postSuccessOthersEnabled: Boolean
+        get() = BuildConfig.DEBUG || remoteConfig.getBoolean("post_success_others_enabled")
 
     /// Instagram-style Activity filter chips. Launched ON; RC false hides
     /// them with no app update. Off = today's unfiltered list.
@@ -587,6 +606,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("comment_entity_attachments_enabled", remoteConfig.getBoolean("comment_entity_attachments_enabled"))
             .putBoolean("profile_share_enabled", remoteConfig.getBoolean("profile_share_enabled"))
             .putBoolean("unified_search_enabled", remoteConfig.getBoolean("unified_search_enabled"))
+            .putBoolean("segmented_search_enabled", remoteConfig.getBoolean("segmented_search_enabled"))
             .putBoolean("artists_on_corus_section_enabled", remoteConfig.getBoolean("artists_on_corus_section_enabled"))
             .putBoolean("trending_artists_section_enabled", remoteConfig.getBoolean("trending_artists_section_enabled"))
             .putBoolean("profile_artist_link_enabled", remoteConfig.getBoolean("profile_artist_link_enabled"))
@@ -601,6 +621,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("feed_decade_filter_enabled", remoteConfig.getBoolean("feed_decade_filter_enabled"))
             .putBoolean("email_otp_auth_enabled", remoteConfig.getBoolean("email_otp_auth_enabled"))
             .putString("feed_mode_order", remoteConfig.getString("feed_mode_order"))
+            .putBoolean("feed_mode_tabs_enabled", remoteConfig.getBoolean("feed_mode_tabs_enabled"))
             .apply()
     }
 
@@ -628,6 +649,7 @@ class RemoteConfigService @Inject constructor(
                 "trending_feed_enabled=${remoteConfig.getBoolean("trending_feed_enabled")} " +
                 "favorites_enabled=${remoteConfig.getBoolean("favorites_enabled")} " +
                 "unified_search_enabled=$unifiedSearchEnabled " +
+                "segmented_search_enabled=$segmentedSearchEnabled " +
                 "compose_unified_search_enabled=$composeUnifiedSearchEnabled " +
                 "uid=${auth.currentUser?.uid}"
         )
@@ -690,10 +712,12 @@ class RemoteConfigService @Inject constructor(
             "comment_entity_attachments_enabled" to false,
             "profile_share_enabled" to false,
             "unified_search_enabled" to false,
+            "segmented_search_enabled" to true,
             "artists_on_corus_section_enabled" to false,
             "trending_artists_section_enabled" to false,
             "profile_artist_link_enabled" to false,
             "compose_unified_search_enabled" to false,
+            "post_success_others_enabled" to false,
             "notification_filters_enabled" to true,
             "books_enabled" to false,
             "notification_filters_min_count" to 8L,
@@ -711,6 +735,7 @@ class RemoteConfigService @Inject constructor(
             "spotify_library_save_enabled" to false,
             "spotify_ftue_variant" to "off",
             "feed_mode_order" to FeedModeOrder.DEFAULT_RAW,
+            "feed_mode_tabs_enabled" to true,
         )
     }
 }

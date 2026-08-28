@@ -34,13 +34,18 @@ import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.extractMentions
 import fm.corus.android.ui.components.parseHashtagQuery
 import fm.corus.android.ui.components.parseMentionQuery
+import fm.corus.android.domain.PostSuccessOthers
+import fm.corus.android.domain.PostSuccessOthersMediaInfo
+import fm.corus.android.domain.PostSuccessOthersPayload
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 data class SearchResultItem(
@@ -432,6 +437,9 @@ class ComposeViewModel @Inject constructor(
 
     private val _postSuccess = MutableStateFlow(false)
     val postSuccess: StateFlow<Boolean> = _postSuccess.asStateFlow()
+
+    private val _postSuccessOthers = MutableStateFlow<PostSuccessOthersPayload?>(null)
+    val postSuccessOthers: StateFlow<PostSuccessOthersPayload?> = _postSuccessOthers.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
@@ -872,6 +880,20 @@ class ComposeViewModel @Inject constructor(
         _error.value = null
 
         viewModelScope.launch {
+            // Flag-off never starts this, so today's toast/dismiss path stays
+            // unchanged. Flag-on overlaps the others fetch with createPost so
+            // the haptic can fire when dismiss + sheet are ready.
+            val othersPrefetch = if (remoteConfigService.postSuccessOthersEnabled) {
+                async {
+                    loadPostSuccessOthersPayload(
+                        mediaType,
+                        // +1: incrementPostCount hasn't run yet.
+                        totalPostCount = subscriptionRepository.totalPostCount.value + 1,
+                    )
+                }
+            } else {
+                null
+            }
             try {
                 // Build the callable payload. The server validates the rolling
                 // 24h limit atomically inside `createPost`, so no separate
@@ -1018,15 +1040,14 @@ class ComposeViewModel @Inject constructor(
                     _showApproachingCapAlert.value = true
                 }
 
-                // Mirrors iOS ComposeView post-created haptic (track & film branches).
-                hapticManager.notification(HapticManager.NotificationType.SUCCESS)
-
                 // Repost notification + tag notifications are created by the
                 // `onPostCreatedNotifyTagsAndRepost` Cloud Function trigger,
                 // not the client — they would double-fire if we also wrote
                 // them here. Same on iOS.
 
                 if (result.isFirstPoster) {
+                    othersPrefetch?.cancel()
+                    hapticManager.notification(HapticManager.NotificationType.SUCCESS)
                     val track = _selectedTrack.value
                     val movie = _selectedMovie.value
                     _trophyPost.value = CymbalPost(
@@ -1044,9 +1065,17 @@ class ComposeViewModel @Inject constructor(
                     )
                     _showTrophy.value = true
                 } else {
-                    _postSuccess.value = true
+                    val shown = maybeShowPostSuccessOthers(
+                        mediaType,
+                        prefetched = othersPrefetch?.await(),
+                    )
+                    hapticManager.notification(HapticManager.NotificationType.SUCCESS)
+                    if (!shown) {
+                        _postSuccess.value = true
+                    }
                 }
             } catch (e: CloudFunctionsDataSource.PostLimitReachedException) {
+                othersPrefetch?.cancel()
                 // Server hit. The callable returned recentCount + dailyLimit,
                 // but the SubscriptionRepository already tracks these via its
                 // own refresh; just open the paywall (or hard-cap dialog).
@@ -1056,12 +1085,16 @@ class ComposeViewModel @Inject constructor(
                     _showPostLimitPaywall.value = true
                 }
             } catch (e: CloudFunctionsDataSource.RepostOriginalMissingException) {
+                othersPrefetch?.cancel()
                 _error.value = "That post is no longer available."
             } catch (e: CloudFunctionsDataSource.PostingBannedException) {
+                othersPrefetch?.cancel()
                 _error.value = "Posting is blocked by your account permissions right now."
             } catch (e: CloudFunctionsDataSource.CaptionBlockedException) {
+                othersPrefetch?.cancel()
                 _error.value = "Your caption may go against our community guidelines. Please edit it and try again."
             } catch (e: Exception) {
+                othersPrefetch?.cancel()
                 Log.e("ComposeViewModel", "createPost failed", e)
                 _error.value = "Something went wrong. Please try again."
             }
@@ -1073,6 +1106,97 @@ class ComposeViewModel @Inject constructor(
         _showTrophy.value = false
         _trophyPost.value = null
         _postSuccess.value = true
+    }
+
+    /** Compose is about to slide away; MainTabScreen owns the sheet. */
+    fun consumePostSuccessOthersHandoff() {
+        _postSuccessOthers.value = null
+    }
+
+    /**
+     * Flag-off (or no eligible others / slow fetch) returns false so the
+     * caller keeps today's dismiss path. Flag-on with people stashes a
+     * payload so ComposeScreen can dismiss first; MainTabScreen presents
+     * the others sheet over the feed.
+     */
+    private suspend fun maybeShowPostSuccessOthers(
+        mediaType: MediaType,
+        prefetched: PostSuccessOthersPayload? = null,
+    ): Boolean {
+        val payload = prefetched ?: loadPostSuccessOthersPayload(mediaType) ?: return false
+        _postSuccessOthers.value = payload
+        return true
+    }
+
+    private suspend fun loadPostSuccessOthersPayload(
+        mediaType: MediaType,
+        totalPostCount: Int = subscriptionRepository.totalPostCount.value,
+    ): PostSuccessOthersPayload? {
+        if (!remoteConfigService.postSuccessOthersEnabled) return null
+        if (!PostSuccessOthers.shouldAttempt(
+                isFirstPoster = false,
+                totalPostCount = totalPostCount,
+            )
+        ) {
+            return null
+        }
+        val userId = authRepository.currentUserId ?: return null
+        val media = when (mediaType) {
+            MediaType.TRACK -> {
+                val track = _selectedTrack.value ?: return null
+                PostSuccessOthersMediaInfo(
+                    title = track.name,
+                    subtitle = track.artistName,
+                    artURL = track.albumArtURL ?: track.albumArtLargeURL,
+                    isPoster = false,
+                    track = track,
+                )
+            }
+            MediaType.MOVIE -> {
+                val movie = _selectedMovie.value ?: return null
+                PostSuccessOthersMediaInfo(
+                    title = movie.title,
+                    subtitle = movie.directorName,
+                    artURL = movie.posterURL ?: movie.posterLargeURL,
+                    isPoster = true,
+                    movie = movie,
+                )
+            }
+        }
+        val page = withTimeoutOrNull(PostSuccessOthers.FETCH_TIMEOUT_MS) {
+            when (mediaType) {
+                MediaType.TRACK -> {
+                    val track = _selectedTrack.value ?: return@withTimeoutOrNull null
+                    postRepository.fetchSongPostsFromCloud(
+                        trackId = track.id,
+                        spotifyURI = track.spotifyURI.ifBlank { null },
+                        isrc = track.isrc,
+                        trackName = track.name,
+                        artistName = track.artistName,
+                        pageSize = 15,
+                    ).let { it.posts to it.uniquePosterCount }
+                }
+                MediaType.MOVIE -> {
+                    val movie = _selectedMovie.value ?: return@withTimeoutOrNull null
+                    postRepository.fetchMoviePostsFromCloud(
+                        movieId = movie.id,
+                        movieTitle = movie.title,
+                        pageSize = 15,
+                    ).let { it.posts to it.uniquePosterCount }
+                }
+            }
+        } ?: return null
+        val people = PostSuccessOthers.pickEligible(
+            posts = page.first,
+            currentUserId = userId,
+            followingIds = userRepository.followingIds.value,
+        )
+        if (people.isEmpty()) return null
+        return PostSuccessOthersPayload(
+            people = people,
+            otherCount = PostSuccessOthers.otherCount(page.second, people.size),
+            media = media,
+        )
     }
 
     fun checkForMention(caption: String, caret: Int = caption.length) {

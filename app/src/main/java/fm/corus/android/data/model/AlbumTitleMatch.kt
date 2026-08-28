@@ -1,5 +1,7 @@
 package fm.corus.android.data.model
 
+import java.util.concurrent.ConcurrentHashMap
+
 /**
  * Folded name + art collapse used by New Releases / Trending album rails.
  * Mirrors web `album-title-match.ts` and iOS `DestinationModels.swift`.
@@ -35,9 +37,27 @@ fun albumReleaseCollapseKey(
     return "$name|$artist|$art"
 }
 
+/** Drop catalog edition tags so "Jolene" matches "Jolene (Expanded Edition)".
+ *  Remix / live / "when you don't call" parentheticals stay — those are
+ *  different releases, not the same LP remastered. */
+fun stripAlbumEditionQualifier(s: String): String =
+    s.replace(
+        Regex(
+            """\s*\((?:deluxe|remaster|expanded|anniversary|special|bonus|limited|standard|mono|stereo|explicit|clean|super deluxe|complete)[^)]*\)""",
+            RegexOption.IGNORE_CASE,
+        ),
+        "",
+    ).replace(
+        Regex(
+            """\s*\[(?:deluxe|remaster|expanded|anniversary|special|bonus|limited|standard|mono|stereo|explicit|clean|super deluxe|complete)[^\]]*\]""",
+            RegexOption.IGNORE_CASE,
+        ),
+        "",
+    ).trim()
+
 fun albumTitlesMatch(a: String, b: String): Boolean {
-    val na = foldEntityName(a)
-    val nb = foldEntityName(b)
+    val na = stripAlbumEditionQualifier(foldEntityName(a))
+    val nb = stripAlbumEditionQualifier(foldEntityName(b))
     if (na.isEmpty() || nb.isEmpty()) return false
     if (na == nb) return true
     if (na.startsWith(nb) || nb.startsWith(na)) {
@@ -50,6 +70,55 @@ fun trendingAlbumShouldResolveByName(displayedTitle: String, catalogTitle: Strin
     val catalog = catalogTitle?.trim().orEmpty()
     if (catalog.isEmpty()) return false
     return !albumTitlesMatch(displayedTitle, catalog)
+}
+
+/** Search "Trending albums" rail — not a New Songs track row. */
+fun isTrendingAlbumRailRow(album: TrendingAlbum): Boolean =
+    !album.openAsSong && album.trackId.trim().isEmpty()
+
+/**
+ * A trending-album tap must open an album page. Catalog / name-resolve can
+ * still pick a better id, but they must never toast: a stamped `albumId`
+ * is always a valid destination.
+ */
+fun guaranteeTrendingAlbumTap(
+    album: TrendingAlbum,
+    dest: TrendingAlbumOpen?,
+): TrendingAlbumOpen? {
+    if (!isTrendingAlbumRailRow(album)) return dest
+    if (dest is TrendingAlbumOpen.Album && dest.albumId.isNotEmpty()) return dest
+    val albumId = album.albumId.trim()
+    if (albumId.isEmpty()) return dest
+    return TrendingAlbumOpen.Album(
+        albumId = albumId,
+        title = album.displayTitle,
+        artist = album.artistName,
+        coverUrl = album.albumArtLargeURL ?: album.albumArtURL,
+    )
+}
+
+fun trendingAlbumDestinationCacheKey(album: TrendingAlbum): String {
+    val albumId = album.albumId.trim()
+    if (albumId.isNotEmpty()) return "id:$albumId"
+    return "name:${album.displayTitle.trim().lowercase()}|${album.artistName.trim().lowercase()}"
+}
+
+object TrendingAlbumDestinationCache {
+    private val dests = ConcurrentHashMap<String, TrendingAlbumOpen>()
+
+    fun peek(album: TrendingAlbum): TrendingAlbumOpen? {
+        if (album.openAsSong) return album.asSongTrack()?.let { TrendingAlbumOpen.Song(it) }
+        return dests[trendingAlbumDestinationCacheKey(album)]
+    }
+
+    fun remember(album: TrendingAlbum, dest: TrendingAlbumOpen?) {
+        if (dest == null) return
+        dests[trendingAlbumDestinationCacheKey(album)] = dest
+    }
+
+    fun clear() {
+        dests.clear()
+    }
 }
 
 fun newReleaseShouldOpenAsSong(parentAlbumUnreleased: Boolean): Boolean = parentAlbumUnreleased
@@ -78,42 +147,6 @@ fun albumCatalogIsNewRelease(
         now.groupValues[3].toInt(),
     ).toEpochDay()
     return todayMs - releaseMs >= 0 && todayMs - releaseMs < 30
-}
-
-/** A New Albums row: multi-track catalog that is already out and inside
- *  the 30-day window. Singles and unreleased LPs never qualify. */
-fun albumCatalogQualifiesAsNewFullAlbum(
-    isPreRelease: Boolean,
-    releaseDate: String?,
-    trackCount: Int,
-    today: String = catalogDateToday(),
-): Boolean {
-    if (trackCount < 2) return false
-    if (albumCatalogIsUnreleased(isPreRelease, releaseDate, today)) return false
-    return albumCatalogIsNewRelease(releaseDate, today)
-}
-
-data class NewAlbumCandidate(
-    val albumId: String,
-    val albumName: String,
-    val artistName: String,
-    val albumArtURL: String? = null,
-    val count: Int,
-    val trackNames: Set<String>,
-)
-
-/** One unique track whose title is the album title — a single, not an LP. */
-fun newReleaseGroupLooksLikeSingle(albumName: String, trackNames: Collection<String>): Boolean {
-    val unique = mutableListOf<String>()
-    val seen = mutableSetOf<String>()
-    for (name in trackNames) {
-        val folded = foldEntityName(name)
-        if (folded.isEmpty() || folded in seen) continue
-        seen.add(folded)
-        unique.add(name)
-    }
-    if (unique.size != 1) return false
-    return albumTitlesMatch(albumName, unique[0])
 }
 
 fun albumCatalogIsUnreleased(
@@ -241,7 +274,8 @@ fun collapseNewReleaseAlbumDrafts(drafts: List<NewReleaseAlbumDraft>): List<NewR
 /**
  * Destination for a New Releases / Trending album row.
  * Unreleased catalogs open as the posted song. A stamped id is used only
- * when that catalog matches the painted name.
+ * when that catalog matches the painted name. Rail rows always fall back
+ * to the stamped album id so the tap never toasts.
  */
 suspend fun resolveTrendingAlbumOpen(
     album: TrendingAlbum,
@@ -252,16 +286,35 @@ suspend fun resolveTrendingAlbumOpen(
     if (album.openAsSong) {
         return album.asSongTrack()?.let { TrendingAlbumOpen.Song(it) }
     }
+    TrendingAlbumDestinationCache.peek(album)?.let { return it }
+    val dest = guaranteeTrendingAlbumTap(
+        album,
+        resolveTrendingAlbumOpenRaw(album, fetchCatalog, resolveByName, today),
+    )
+    TrendingAlbumDestinationCache.remember(album, dest)
+    return dest
+}
+
+private suspend fun resolveTrendingAlbumOpenRaw(
+    album: TrendingAlbum,
+    fetchCatalog: suspend (albumId: String, albumName: String, artistName: String) -> AlbumCatalog?,
+    resolveByName: suspend (name: String, artist: String) -> AlbumSearchSummary?,
+    today: String,
+): TrendingAlbumOpen? {
     val title = album.displayTitle.trim()
     val artist = album.artistName.trim()
     if (album.albumId.isNotEmpty()) {
         try {
             val catalog = fetchCatalog(album.albumId, title, artist)
             if (catalog != null) {
-                if (albumCatalogIsUnreleased(catalog.isPreRelease, catalog.releaseDate, today)) {
-                    return album.asSongTrack()?.let { TrendingAlbumOpen.Song(it) }
-                }
-                if (!trendingAlbumShouldResolveByName(title, catalog.title)) {
+                val unreleased = albumCatalogIsUnreleased(
+                    catalog.isPreRelease,
+                    catalog.releaseDate,
+                    today,
+                )
+                if (unreleased) {
+                    album.asSongTrack()?.let { return TrendingAlbumOpen.Song(it) }
+                } else if (!trendingAlbumShouldResolveByName(title, catalog.title)) {
                     return TrendingAlbumOpen.Album(
                         albumId = catalog.id.ifEmpty { album.albumId },
                         title = catalog.title.ifEmpty { title },
@@ -283,12 +336,5 @@ suspend fun resolveTrendingAlbumOpen(
             coverUrl = resolved.coverUrl ?: album.albumArtLargeURL ?: album.albumArtURL,
         )
     }
-    album.asSongTrack()?.let { return TrendingAlbumOpen.Song(it) }
-    if (album.albumId.isEmpty()) return null
-    return TrendingAlbumOpen.Album(
-        albumId = album.albumId,
-        title = title,
-        artist = artist,
-        coverUrl = album.albumArtLargeURL ?: album.albumArtURL,
-    )
+    return album.asSongTrack()?.let { TrendingAlbumOpen.Song(it) }
 }

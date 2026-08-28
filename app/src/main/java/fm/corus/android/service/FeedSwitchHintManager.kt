@@ -82,6 +82,13 @@ class FeedSwitchHintManager @Inject constructor(
      * cold-launch frame, before the async fetch resolves).
      */
     fun evaluate() {
+        // Tabs-on: never reveal, and hide a bubble that was already up
+        // (e.g. the flag flipped mid-session).
+        if (remoteConfigService.feedModeTabsEnabled) {
+            revealScheduled = false
+            _shouldShow.value = false
+            return
+        }
         if (_shouldShow.value || revealScheduled) return
         if (!currentlyEligible()) return
         revealScheduled = true
@@ -162,7 +169,9 @@ class FeedSwitchHintManager @Inject constructor(
         _shouldShow.value = false
     }
 
-    private fun currentlyEligible(): Boolean = computeShouldShow(
+    private fun currentlyEligible(): Boolean {
+        if (remoteConfigService.feedModeTabsEnabled) return false
+        return computeShouldShow(
         enabled = remoteConfigService.feedSwitchHintEnabled,
         minSession = remoteConfigService.feedSwitchHintMinSession,
         maxImpressions = remoteConfigService.feedSwitchHintMaxImpressions,
@@ -177,9 +186,11 @@ class FeedSwitchHintManager @Inject constructor(
         hasExploredOtherFeed = !wasAutoDefaultedToTrending &&
             preferencesDataStore.feedModeSyncSeed()
                 .let { it.isNotEmpty() && it != "following" },
-        wasAutoDefaultedToTrending = wasAutoDefaultedToTrending,
-        hasFollowedSomeone = hasFollowedSomeone,
-    )
+            wasAutoDefaultedToTrending = wasAutoDefaultedToTrending,
+            hasFollowedSomeone = hasFollowedSomeone,
+            feedModeTabsEnabled = remoteConfigService.feedModeTabsEnabled,
+        )
+    }
 
     companion object {
         private const val KEY_OPENED = "opened"
@@ -203,7 +214,9 @@ class FeedSwitchHintManager @Inject constructor(
             hasExploredOtherFeed: Boolean = false,
             wasAutoDefaultedToTrending: Boolean = false,
             hasFollowedSomeone: Boolean = true,
+            feedModeTabsEnabled: Boolean = false,
         ): Boolean {
+            if (feedModeTabsEnabled) return false
             if (!enabled) return false
             if (hasOpened || hasDismissed) return false
             // Already on / last picked a non-Following feed → they discovered the

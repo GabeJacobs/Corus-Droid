@@ -914,6 +914,7 @@ fun ProfileScreen(
                                         filterMenuExpanded = true
                                     } else {
                                         filterMenuExpanded = false
+                                        haptics.impact(HapticManager.ImpactStyle.LIGHT)
                                         viewModel.resetLikesSavesLens()
                                         userSelectedSegment = logicalSegment
                                         isFeaturedArtReady = false

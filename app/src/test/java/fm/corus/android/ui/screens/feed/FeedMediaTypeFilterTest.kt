@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.feed
 
+import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.FeedFilter
 import fm.corus.android.data.model.MediaType
@@ -33,6 +35,7 @@ import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
@@ -62,6 +65,10 @@ class FeedMediaTypeFilterTest {
     private lateinit var preferencesDataStore: fm.corus.android.data.local.PreferencesDataStore
     private lateinit var savedFeedFilter: MutableStateFlow<String>
 
+    private fun user(id: String) = CymbalUser(id = id, username = id, displayName = id)
+    private fun track() = CymbalTrack(id = "t1", name = "n", artistName = "a", albumName = "al")
+    private fun post(id: String) = CymbalPost(id = id, user = user("poster"), track = track())
+
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
@@ -79,6 +86,9 @@ class FeedMediaTypeFilterTest {
             on { forYouSeenIdsJson } doReturn MutableStateFlow("[]")
             on { hasTappedAlbumArt } doReturn MutableStateFlow(false)
             on { hasConfirmedFeedPlaylist } doReturn MutableStateFlow(false)
+            on { playFullSongs } doReturn MutableStateFlow(false)
+            on { feedFilterSyncSeed() } doReturn "ALL"
+            on { feedDecadeSyncSeed() } doReturn ""
         }
         postRepository = mock()
         authRepository = mock {
@@ -89,6 +99,8 @@ class FeedMediaTypeFilterTest {
         engagementManager = mock()
         userRepository = mock {
             on { followingIds } doReturn MutableStateFlow(emptySet())
+            on { hiddenUserIds } doReturn MutableStateFlow(emptySet())
+            on { followingLoaded } doReturn MutableStateFlow(true)
         }
         messageRepository = mock()
         cloudFunctions = mock()
@@ -112,7 +124,11 @@ class FeedMediaTypeFilterTest {
     private fun vm(): FeedViewModel = FeedViewModel(
         postRepository = postRepository,
         authRepository = authRepository,
-        subscriptionRepository = mock(),
+        subscriptionRepository = mock {
+            on { favoritesCount } doReturn MutableStateFlow(0)
+            on { favoritesTabUnlocked } doReturn MutableStateFlow(false)
+            on { hasFullAccessFlow } doReturn MutableStateFlow(false)
+        },
         engagementManager = engagementManager,
         userRepository = userRepository,
         messageRepository = messageRepository,
@@ -324,6 +340,37 @@ class FeedMediaTypeFilterTest {
         advanceUntilIdle()
 
         verify(postRepository).getFeedPage(
+            userId = any(),
+            pageSize = any(),
+            lastTimestamp = anyOrNull(),
+            onePerFollower = any(),
+            mediaType = eq(null),
+            newReleasesOnly = eq(false),
+        )
+    }
+
+    @Test
+    fun `setFeedFilter restores a previously loaded page from cache`() = runTest(testDispatcher) {
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), eq(null), any()))
+            .doReturn(CloudFunctionsDataSource.FeedPage(listOf(post("all1")), false))
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), eq(MediaType.TRACK), any()))
+            .doReturn(CloudFunctionsDataSource.FeedPage(listOf(post("music1")), false))
+
+        val viewModel = vm()
+        viewModel.loadFeed(refresh = true)
+        advanceUntilIdle()
+        org.junit.Assert.assertEquals(listOf("all1"), viewModel.posts.value.map { it.id })
+
+        viewModel.setFeedFilter(FeedFilter.MUSIC)
+        advanceUntilIdle()
+        org.junit.Assert.assertEquals(listOf("music1"), viewModel.posts.value.map { it.id })
+
+        viewModel.setFeedFilter(FeedFilter.ALL)
+        // Cache restore is synchronous — ALL must reappear without a second
+        // fetch, and without flipping the refresh skeleton.
+        org.junit.Assert.assertEquals(listOf("all1"), viewModel.posts.value.map { it.id })
+        org.junit.Assert.assertFalse(viewModel.isRefreshing.value)
+        verify(postRepository, times(1)).getFeedPage(
             userId = any(),
             pageSize = any(),
             lastTimestamp = anyOrNull(),

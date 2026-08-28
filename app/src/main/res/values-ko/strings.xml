@@ -514,11 +514,7 @@
     <string name="search_trending_artists_title">인기 아티스트</string>
     <string name="search_new_release_albums_title">새 노래</string>
     <string name="search_new_release_albums_list_title">새 노래</string>
-    <string name="search_nothing_new_releases">아직 새 노래가 없어요</string>
-    <string name="search_new_albums_title">새 앨범</string>
-    <string name="search_new_albums_list_title">새 앨범</string>
-    <string name="search_nothing_new_albums">아직 새 앨범이 없어요</string>
-    <string name="search_tab_users">사용자</string>
+    <string name="search_nothing_new_releases">아직 새 노래가 없어요</string>    <string name="search_tab_users">사용자</string>
     <string name="search_tab_songs">곡</string>
     <string name="search_tab_films">영화</string>
     <string name="search_tab_hashtags">해시태그</string>

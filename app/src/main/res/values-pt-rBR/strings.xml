@@ -1035,11 +1035,7 @@
     <string name="search_trending_artists_title">Artistas em alta</string>
     <string name="search_new_release_albums_title">Músicas novas</string>
     <string name="search_new_release_albums_list_title">Músicas novas</string>
-    <string name="search_nothing_new_releases">Ainda não há músicas novas</string>
-    <string name="search_new_albums_title">Álbuns novos</string>
-    <string name="search_new_albums_list_title">Álbuns novos</string>
-    <string name="search_nothing_new_albums">Ainda não há álbuns novos</string>
-    <string name="search_tab_hashtags">Hashtags</string>
+    <string name="search_nothing_new_releases">Ainda não há músicas novas</string>    <string name="search_tab_hashtags">Hashtags</string>
     <string name="search_section_trending_hashtags">HASHTAGS EM ALTA</string>
     <string name="search_no_trending_hashtags">Nenhuma hashtag em alta ainda</string>
     <string name="search_no_hashtags_found">Nenhuma hashtag encontrada</string>

@@ -16,6 +16,7 @@ import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.model.SuggestionReason
 import fm.corus.android.data.model.AlbumSearchSummary
 import fm.corus.android.data.model.TrendingAlbum
+import fm.corus.android.data.model.TrendingAlbumDestinationCache
 import fm.corus.android.data.model.TrendingAlbumOpen
 import fm.corus.android.data.model.TrendingArtist
 import fm.corus.android.data.model.TrendingHashtag
@@ -31,6 +32,7 @@ import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.MusicSearchRepository
 import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.domain.DestinationResolvingOverlay
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.NetworkMonitor
@@ -160,6 +162,12 @@ class SearchViewModel @Inject constructor(
     /** Live flag read — unified search (blended zero state + filter chips). */
     val unifiedSearchEnabled: Boolean get() = remoteConfigService.unifiedSearchEnabled
 
+    /** Idle browse tabs + swipe. Typed query still uses unified chips. */
+    val segmentedSearchEnabled: Boolean get() = remoteConfigService.segmentedSearchEnabled
+
+    /** Typed query uses All + filter chips (unified OR segmented). */
+    val unifiedQueryMode: Boolean get() = unifiedSearchEnabled || segmentedSearchEnabled
+
     val artistsOnCorusSectionEnabled: Boolean get() = remoteConfigService.artistsOnCorusSectionEnabled
     val trendingArtistsSectionEnabled: Boolean get() = remoteConfigService.trendingArtistsSectionEnabled
 
@@ -238,7 +246,7 @@ class SearchViewModel @Inject constructor(
                 val query = _searchQuery.value
                 if (query.isBlank()) return@collect
                 val tab = _activeTab.value
-                val empty = if (unifiedSearchEnabled) {
+                val empty = if (unifiedQueryMode) {
                     // Unified: "empty" = nothing rendered by the active filter.
                     !verticalHasResults(_unifiedFilter.value)
                 } else {
@@ -251,7 +259,7 @@ class SearchViewModel @Inject constructor(
                     }
                 }
                 if (empty) {
-                    if (unifiedSearchEnabled) {
+                    if (unifiedQueryMode) {
                         // retrySearch (not search) so the unified served-query
                         // skip can't swallow the reconnect refetch.
                         retrySearch()
@@ -367,15 +375,8 @@ class SearchViewModel @Inject constructor(
     private val _isNewReleaseAlbumsLoading = MutableStateFlow(true)
     val isNewReleaseAlbumsLoading: StateFlow<Boolean> = _isNewReleaseAlbumsLoading.asStateFlow()
 
-    private val _newAlbums = MutableStateFlow<List<TrendingAlbum>>(emptyList())
-    val newAlbums: StateFlow<List<TrendingAlbum>> = _newAlbums.asStateFlow()
-
-    private val _isNewAlbumsLoading = MutableStateFlow(true)
-    val isNewAlbumsLoading: StateFlow<Boolean> = _isNewAlbumsLoading.asStateFlow()
-
     private var hasLoadedTrendingAlbums = false
     private var hasLoadedNewReleaseAlbums = false
-    private var hasLoadedNewAlbums = false
 
     private val _isResolvingAlbum = MutableStateFlow(false)
     val isResolvingAlbum: StateFlow<Boolean> = _isResolvingAlbum.asStateFlow()
@@ -482,6 +483,7 @@ class SearchViewModel @Inject constructor(
         }
         if (_isResolvingArtist.value) return null
         _isResolvingArtist.value = true
+        DestinationResolvingOverlay.setResolving(true)
         return try {
             val resolved = cloudFunctions.resolveArtistByName(artist.artistName) ?: return null
             viewModelScope.launch {
@@ -494,6 +496,7 @@ class SearchViewModel @Inject constructor(
             )
         } finally {
             _isResolvingArtist.value = false
+            DestinationResolvingOverlay.setResolving(_isResolvingArtist.value || _isResolvingAlbum.value)
         }
     }
 
@@ -519,8 +522,10 @@ class SearchViewModel @Inject constructor(
     }
 
     suspend fun resolveTrendingAlbum(album: TrendingAlbum): TrendingAlbumOpen? {
+        TrendingAlbumDestinationCache.peek(album)?.let { return it }
         if (_isResolvingAlbum.value) return null
         _isResolvingAlbum.value = true
+        DestinationResolvingOverlay.setResolving(true)
         return try {
             resolveTrendingAlbumOpen(
                 album = album,
@@ -532,6 +537,7 @@ class SearchViewModel @Inject constructor(
             )
         } finally {
             _isResolvingAlbum.value = false
+            DestinationResolvingOverlay.setResolving(_isResolvingArtist.value || _isResolvingAlbum.value)
         }
     }
 
@@ -822,22 +828,20 @@ class SearchViewModel @Inject constructor(
         // unified blended zero state renders them on the first screen, so load
         // now. Pull-to-refresh routes here with forceRefresh, which must
         // bypass the once-per-session guard.
-        if (unifiedSearchEnabled) {
+        if (unifiedSearchEnabled || segmentedSearchEnabled) {
             if (forceRefresh) hasLoadedTrendingHashtags = false
             loadTrendingHashtagsIfNeeded()
         }
-        if (trendingArtistsSectionEnabled) {
+        if (trendingArtistsSectionEnabled || segmentedSearchEnabled) {
             if (forceRefresh) hasLoadedTrendingArtists = false
             loadTrendingArtistsIfNeeded()
         }
         if (forceRefresh) {
             hasLoadedTrendingAlbums = false
             hasLoadedNewReleaseAlbums = false
-            hasLoadedNewAlbums = false
         }
         loadTrendingAlbumsIfNeeded()
         loadNewReleaseAlbumsIfNeeded()
-        loadNewAlbumsIfNeeded()
     }
 
     // Cold-start poll: if the initial fetch returned no taste matches, the
@@ -954,11 +958,6 @@ class SearchViewModel @Inject constructor(
             _newReleaseAlbums.value = newReleases
             _isNewReleaseAlbumsLoading.value = false
         }
-        val newAlbums = preferencesDataStore.loadSearchNewAlbums()
-        if (!newAlbums.isNullOrEmpty() && _newAlbums.value.isEmpty()) {
-            _newAlbums.value = newAlbums
-            _isNewAlbumsLoading.value = false
-        }
     }
 
     private fun loadNewUsers() {
@@ -1027,7 +1026,7 @@ class SearchViewModel @Inject constructor(
             return
         }
 
-        if (unifiedSearchEnabled) {
+        if (unifiedQueryMode) {
             searchUnified(query)
             return
         }
@@ -1337,22 +1336,6 @@ class SearchViewModel @Inject constructor(
                 hasLoadedNewReleaseAlbums = false
             }
             _isNewReleaseAlbumsLoading.value = false
-        }
-    }
-
-    private fun loadNewAlbumsIfNeeded() {
-        if (hasLoadedNewAlbums) return
-        hasLoadedNewAlbums = true
-        viewModelScope.launch {
-            try {
-                val loaded = exploreRepository.fetchNewAlbums()
-                _newAlbums.value = loaded
-                if (loaded.isNotEmpty()) preferencesDataStore.persistSearchNewAlbums(loaded)
-            } catch (e: Exception) {
-                Log.e("SearchVM", "Failed to load new albums", e)
-                hasLoadedNewAlbums = false
-            }
-            _isNewAlbumsLoading.value = false
         }
     }
 

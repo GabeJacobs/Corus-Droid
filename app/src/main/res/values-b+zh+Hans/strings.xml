@@ -514,11 +514,7 @@
     <string name="search_trending_artists_title">热门艺人</string>
     <string name="search_new_release_albums_title">新歌</string>
     <string name="search_new_release_albums_list_title">新歌</string>
-    <string name="search_nothing_new_releases">暂时没有新歌</string>
-    <string name="search_new_albums_title">新专辑</string>
-    <string name="search_new_albums_list_title">新专辑</string>
-    <string name="search_nothing_new_albums">暂时没有新专辑</string>
-    <string name="search_tab_users">用户</string>
+    <string name="search_nothing_new_releases">暂时没有新歌</string>    <string name="search_tab_users">用户</string>
     <string name="search_tab_songs">歌曲</string>
     <string name="search_tab_films">电影</string>
     <string name="search_tab_hashtags">话题标签</string>

@@ -424,10 +424,7 @@ fun ProfileFeedScreen(
                         onResolvingChange = { isResolvingSubtitle = it },
                     ),
                 )
-                HorizontalDivider(
-                    color = CorusColors.Divider,
-                    modifier = Modifier.padding(vertical = CorusSpacing.sm),
-                )
+                HorizontalDivider(color = CorusColors.Divider)
             }
 
             if (isLoadingMore) {

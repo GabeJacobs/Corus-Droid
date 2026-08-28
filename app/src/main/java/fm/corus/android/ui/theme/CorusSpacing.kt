@@ -19,6 +19,9 @@ object CorusSpacing {
     val avatarMedium = 36.dp
     val avatarLarge = 72.dp
 
+    /** Top/bottom pad on a post header. Matches iOS (14pt). */
+    val postHeaderVertical = 14.dp
+
     val albumArtThumbnail = 56.dp
     val albumArtSearch = 48.dp
 

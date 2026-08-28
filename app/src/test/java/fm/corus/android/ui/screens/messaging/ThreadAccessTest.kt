@@ -102,4 +102,36 @@ class ThreadAccessTest {
             resolveThreadAccess(row(null, fromCache = true), emptySet(), nobodyBanned),
         )
     }
+
+    @Test
+    fun `ordinary unread counts toward the badge`() {
+        assertEquals(
+            2,
+            unreadContribution("a", 2, isGroup = false, otherUserId = "ada", blocked = false, activeThreadId = null) { false },
+        )
+    }
+
+    @Test
+    fun `a hidden or blocked peer does not leave a stuck badge`() {
+        assertEquals(
+            0,
+            unreadContribution("gone", 1, isGroup = false, otherUserId = "spammer", blocked = false, activeThreadId = null) { it == "spammer" },
+        )
+        assertEquals(
+            0,
+            unreadContribution("blocked", 3, isGroup = false, otherUserId = "nemesis", blocked = true, activeThreadId = null) { false },
+        )
+    }
+
+    @Test
+    fun `the open thread and groups still behave`() {
+        assertEquals(
+            0,
+            unreadContribution("open", 4, isGroup = false, otherUserId = "ada", blocked = false, activeThreadId = "open") { false },
+        )
+        assertEquals(
+            2,
+            unreadContribution("g", 2, isGroup = true, otherUserId = "", blocked = false, activeThreadId = null) { it == "spammer" },
+        )
+    }
 }

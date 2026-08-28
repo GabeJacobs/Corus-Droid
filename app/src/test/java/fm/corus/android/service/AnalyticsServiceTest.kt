@@ -34,6 +34,22 @@ class AnalyticsServiceTest {
     }
 
     @Test
+    fun `post success others events keep cross-platform names`() {
+        service.logPostSuccessOthersShown(7, 3, "track")
+        verify(firebase).logEvent(eq("post_success_others_shown"), any<Bundle>())
+        service.logPostSuccessOthersFollowed("u1")
+        verify(firebase).logEvent(eq("post_success_others_followed"), any<Bundle>())
+        service.logPostSuccessOthersLiked("p1")
+        verify(firebase).logEvent(eq("post_success_others_liked"), any<Bundle>())
+        service.logPostSuccessOthersProfileTapped("u1", "track")
+        verify(firebase).logEvent(eq("post_success_others_profile_tapped"), any<Bundle>())
+        service.logPostSuccessOthersSeeAllTapped("track")
+        verify(firebase).logEvent(eq("post_success_others_see_all_tapped"), any<Bundle>())
+        service.logPostSuccessOthersDismissed("done")
+        verify(firebase).logEvent(eq("post_success_others_dismissed"), any<Bundle>())
+    }
+
+    @Test
     fun `logOnboardingSeeAllTapped emits onboarding_see_all_tapped`() {
         service.logOnboardingSeeAllTapped("friends")
         verify(firebase).logEvent(eq("onboarding_see_all_tapped"), any<Bundle>())
@@ -261,10 +277,9 @@ class AnalyticsServiceTest {
             "profile_playlist_tapped",
             "profile_update_error",
             "taste_match_push_opened",
-            "taste_match_feed_row_viewed",
             "taste_match_feed_row_tapped",
             "taste_match_settings_toggled",
         )
-        assertEquals(24, expected.size)
+        assertEquals(23, expected.size)
     }
 }

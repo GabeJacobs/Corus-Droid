@@ -80,6 +80,8 @@ class FeedModeResyncOnLateResolveTest {
         engagementManager = mock()
         userRepository = mock {
             on { followingIds } doReturn MutableStateFlow(emptySet())
+            on { hiddenUserIds } doReturn MutableStateFlow(emptySet())
+            on { followingLoaded } doReturn MutableStateFlow(true)
         }
         messageRepository = mock()
         cloudFunctions = mock()
@@ -100,6 +102,9 @@ class FeedModeResyncOnLateResolveTest {
             on { forYouSeenIdsJson } doReturn MutableStateFlow("[]")
             on { hasTappedAlbumArt } doReturn MutableStateFlow(false)
             on { hasConfirmedFeedPlaylist } doReturn MutableStateFlow(false)
+            on { playFullSongs } doReturn MutableStateFlow(false)
+            on { feedFilterSyncSeed() } doReturn "ALL"
+            on { feedDecadeSyncSeed() } doReturn ""
         }
     }
 
@@ -111,7 +116,11 @@ class FeedModeResyncOnLateResolveTest {
     private fun vm(): FeedViewModel = FeedViewModel(
         postRepository = postRepository,
         authRepository = authRepository,
-        subscriptionRepository = mock(),
+        subscriptionRepository = mock {
+            on { favoritesCount } doReturn MutableStateFlow(0)
+            on { favoritesTabUnlocked } doReturn MutableStateFlow(false)
+            on { hasFullAccessFlow } doReturn MutableStateFlow(false)
+        },
         engagementManager = engagementManager,
         userRepository = userRepository,
         messageRepository = messageRepository,

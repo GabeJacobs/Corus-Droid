@@ -76,6 +76,7 @@ class SubscriptionRepository @Inject constructor(
         const val POST_LIMIT_REFRESH_THROTTLE_MS = 5L * 60L * 1000L
         private const val PREF_IS_CLUB_MEMBER = "cached_isClubMember"
         private const val PREF_IS_VERIFIED = "cached_isVerified"
+        private const val PREF_FAVORITES_TAB_UNLOCKED = "cached_favoritesTabUnlocked"
         private const val PREF_DAILY_POST_LIMIT = "cached_dailyPostLimit"
         private const val PREF_LAST_APPROACHING_CAP_WARNING_AT = "lastApproachingCapWarningAt"
 
@@ -160,8 +161,26 @@ class SubscriptionRepository @Inject constructor(
     private val _favoritesCount = MutableStateFlow(0)
     val favoritesCount: StateFlow<Int> = _favoritesCount.asStateFlow()
 
-    fun setFavoritesCount(count: Int) {
-        _favoritesCount.value = count.coerceAtLeast(0)
+    private val _favoritesTabUnlocked =
+        MutableStateFlow(prefs.getBoolean(PREF_FAVORITES_TAB_UNLOCKED, false))
+    val favoritesTabUnlocked: StateFlow<Boolean> = _favoritesTabUnlocked.asStateFlow()
+
+    /**
+     * @param allowZero false for cache / missing-field hydration so a flicker
+     * to 0 cannot hide the Favorites tab once it has been unlocked.
+     */
+    fun setFavoritesCount(count: Int, allowZero: Boolean = true) {
+        val applied = fm.corus.android.domain.FavoritesTabGate.apply(
+            incoming = count,
+            current = _favoritesCount.value,
+            unlocked = _favoritesTabUnlocked.value,
+            allowZero = allowZero,
+        )
+        _favoritesCount.value = applied.first
+        if (applied.second != _favoritesTabUnlocked.value) {
+            _favoritesTabUnlocked.value = applied.second
+            prefs.edit().putBoolean(PREF_FAVORITES_TAB_UNLOCKED, applied.second).apply()
+        }
     }
 
     /** Local favorite-people cap pre-check. Mirrors backend `shouldRejectFavorite`. */
@@ -364,6 +383,9 @@ class SubscriptionRepository @Inject constructor(
         _totalPostCount.value = 0
         _postCountLoaded.value = false
         _playlistTrialUsed.value = PlaylistTrialUsed()
+        _favoritesTabUnlocked.value = false
+        _favoritesCount.value = 0
+        prefs.edit().putBoolean(PREF_FAVORITES_TAB_UNLOCKED, false).apply()
         lastPostLimitRefreshAt = 0L
         Purchases.sharedInstance.updatedCustomerInfoListener = null
         try { Purchases.sharedInstance.logOut() } catch (_: Exception) { }

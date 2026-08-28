@@ -16,7 +16,7 @@ import org.mockito.kotlin.whenever
 class ExploreRepositoryTest {
 
     private val dataSource = mock<FirestoreDataSource>()
-    private val repo = ExploreRepository(dataSource, mock(), mock())
+    private val repo = ExploreRepository(dataSource)
 
     // Regression for the "pull-to-refresh returned stale trending" bug: a user
     // saw a corrupted trending list, and pull-to-refresh kept returning the

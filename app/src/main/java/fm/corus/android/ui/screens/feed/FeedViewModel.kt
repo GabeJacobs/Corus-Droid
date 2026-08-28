@@ -72,6 +72,25 @@ internal fun isNewAlbumArtHintAccount(creationTimestampMs: Long?): Boolean {
 internal fun albumArtHintTargetPostId(posts: List<CymbalPost>): String? =
     posts.firstOrNull { it.isTrack && !it.track.unavailable }?.id
 
+/** In-memory page per mode/filter so tab switches don't wipe the list
+ *  and flash the skeleton. Restored on the way back in if it's still
+ *  fresh; after [FEED_PAGE_CACHE_TTL_MS] a switch is a cold load.
+ *  Pull-to-refresh always fetches. */
+data class FeedModePageSnapshot(
+    val posts: List<CymbalPost>,
+    val hasMore: Boolean,
+    val forYouSessionToken: String?,
+    val forYouPageIndex: Int,
+    val forYouLoadFailed: Boolean,
+    val lastLoadFailed: Boolean,
+    val lastTimestamp: Long?,
+    val tasteMatchesGate: FeedViewModel.TasteMatchesGate?,
+    val tasteMatchesTrial: TasteMatchesTrial?,
+    val cachedAt: Long,
+)
+
+private const val FEED_PAGE_CACHE_TTL_MS = 5 * 60 * 1000L
+
 /** Base backoff before a silent retry of a feed load that failed while the
  *  device is online. Long enough for a cold-start App Check / Play Integrity
  *  token to finish minting (the usual culprit), short enough that the first
@@ -337,6 +356,12 @@ class FeedViewModel @Inject constructor(
 
     private var lastTimestamp: Long? = null
 
+    /** Mirror of the viewer's starred-people count. Powers the Favorites tab
+     *  gate and the auto-switch back to Following when the last favorite is
+     *  removed. Declared before [feedMode] so resolve can read it on seed. */
+    val favoritesCount: StateFlow<Int> = subscriptionRepository.favoritesCount
+    val favoritesTabUnlocked: StateFlow<Boolean> = subscriptionRepository.favoritesTabUnlocked
+
     // ── Ranked feed state ──
     // Shared by the ranked modes (Trending + Taste Matches) that call
     // `getForYouFeed`. The `forYou*` field names below are historical (that
@@ -349,7 +374,11 @@ class FeedViewModel @Inject constructor(
     private val tasteMatchesAvailable: Boolean
         get() = remoteConfig.tasteMatchesEnabled || remoteConfig.tasteMatchesTester
 
-    private fun resolveFeedMode(stored: String): String {
+    private fun resolveFeedMode(
+        stored: String,
+        favoritesCount: Int = this.favoritesCount.value,
+        favoritesUnlocked: Boolean = this.favoritesTabUnlocked.value,
+    ): String {
         // First resolve the stored choice. Anything unrecognized — empty
         // ("never picked"), the retired "forYou" mode, or the never-shipped
         // "discovery" — opens on Following.
@@ -363,15 +392,30 @@ class FeedViewModel @Inject constructor(
         // flag is turned off. Returning a disabled mode leaves the menu with
         // nothing selected and loads a feed the user can't switch away from.
         // Following has no gate, so it's the safe fallback.
+        // When the tab switcher is on, Favorites is also withheld until the
+        // viewer has favorited someone (the tab itself is hidden) — same as iOS.
         return when (resolved) {
             "trending" -> if (remoteConfig.trendingFeedEnabled) "trending" else "following"
-            "favorites" -> if (remoteConfig.favoritesEnabled) "favorites" else "following"
+            "favorites" -> {
+                if (!remoteConfig.favoritesEnabled) "following"
+                else if (remoteConfig.feedModeTabsEnabled &&
+                    !fm.corus.android.domain.FavoritesTabGate.showsTab(
+                        featureEnabled = true,
+                        count = favoritesCount,
+                        unlocked = favoritesUnlocked,
+                    )
+                ) "following"
+                else "favorites"
+            }
             "tasteMatches" -> if (tasteMatchesAvailable) "tasteMatches" else "following"
             else -> "following"
         }
     }
-    val feedMode: StateFlow<String> = preferencesDataStore.feedMode
-        .map { resolveFeedMode(it) }
+    val feedMode: StateFlow<String> = combine(
+        preferencesDataStore.feedMode,
+        favoritesCount,
+        favoritesTabUnlocked,
+    ) { stored, count, unlocked -> resolveFeedMode(stored, count, unlocked) }
         // Seed from the synchronous mirror so the header icon is correct on the
         // first frame instead of flashing Following before DataStore resolves.
         // For an existing install that hasn't mirrored yet the seed reads ""
@@ -405,6 +449,103 @@ class FeedViewModel @Inject constructor(
     // selected while the posts are Following. Tracking what each load used lets
     // the init collector below re-sync when the resolved mode diverges.
     private var lastLoadedMode: String? = null
+
+    private val feedPageCache = mutableMapOf<String, FeedModePageSnapshot>()
+    private var appliedFeedSignature: String = ""
+    private val _pageCacheRevision = MutableStateFlow(0)
+    val pageCacheRevision: StateFlow<Int> = _pageCacheRevision.asStateFlow()
+
+    private fun feedRequestSignature(mode: String = feedMode.value): String {
+        val decade = decadeApplicableTo(mode, _feedDecade.value) ?: 0
+        return "$mode|${_feedFilter.value.name}|$decade"
+    }
+
+    private fun applyFeedSignatureChange(from: String, to: String) {
+        if (from == to && appliedFeedSignature == to) return
+        stashFeedPage(from)
+        if (restoreFeedPage(to)) {
+            appliedFeedSignature = to
+            lastLoadedMode = to.substringBefore('|')
+            return
+        }
+        lastTimestamp = null
+        _posts.value = emptyList()
+        forYouSessionToken = null
+        forYouPageIndex = 0
+        _forYouLoadFailed.value = false
+        _lastLoadFailed.value = false
+        _tasteMatchesGate.value = null
+        _tasteMatchesTrial.value = null
+        _isRefreshing.value = true
+        _hasMore.value = true
+        appliedFeedSignature = to
+        lastLoadedMode = to.substringBefore('|')
+        loadFeed(refresh = true)
+    }
+
+    private fun stashFeedPage(signature: String) {
+        if (signature.isEmpty()) return
+        // Only snapshot a page we actually applied. Otherwise the first
+        // filter/mode change (before loadFeed) would cache an empty ALL
+        // page, and switching back would restore that blank snapshot
+        // instead of fetching.
+        if (appliedFeedSignature != signature) return
+        // Don't snapshot a mid-flight first load — coming back should retry,
+        // not restore a blank "loaded" page.
+        if ((_isLoading.value || _isRefreshing.value) &&
+            _posts.value.isEmpty() &&
+            _tasteMatchesGate.value == null &&
+            !_lastLoadFailed.value
+        ) return
+        feedPageCache[signature] = FeedModePageSnapshot(
+            posts = _posts.value,
+            hasMore = _hasMore.value,
+            forYouSessionToken = forYouSessionToken,
+            forYouPageIndex = forYouPageIndex,
+            forYouLoadFailed = _forYouLoadFailed.value,
+            lastLoadFailed = _lastLoadFailed.value,
+            lastTimestamp = lastTimestamp,
+            tasteMatchesGate = _tasteMatchesGate.value,
+            tasteMatchesTrial = _tasteMatchesTrial.value,
+            cachedAt = System.currentTimeMillis(),
+        )
+        _pageCacheRevision.value += 1
+    }
+
+    private fun restoreFeedPage(signature: String): Boolean {
+        val snap = feedPageCache[signature] ?: return false
+        if (System.currentTimeMillis() - snap.cachedAt >= FEED_PAGE_CACHE_TTL_MS) {
+            feedPageCache.remove(signature)
+            return false
+        }
+        _posts.value = snap.posts
+        _hasMore.value = snap.hasMore
+        forYouSessionToken = snap.forYouSessionToken
+        forYouPageIndex = snap.forYouPageIndex
+        _forYouLoadFailed.value = snap.forYouLoadFailed
+        _lastLoadFailed.value = snap.lastLoadFailed
+        lastTimestamp = snap.lastTimestamp
+        _tasteMatchesGate.value = snap.tasteMatchesGate
+        _tasteMatchesTrial.value = snap.tasteMatchesTrial
+        _isLoading.value = false
+        _isRefreshing.value = false
+        _hasLoaded.value = true
+        _pageCacheRevision.value += 1
+        return true
+    }
+
+    /**
+     * Neighbor tabs always read their snapshot. The selected tab uses live
+     * posts once those posts belong to it; until restore runs, keep showing
+     * the snapshot the user was already dragging.
+     */
+    fun postsForTabPage(mode: String): List<CymbalPost> {
+        val cached = feedPageCache[feedRequestSignature(mode)]?.posts ?: emptyList()
+        if (mode != feedMode.value) return cached
+        if (cached.isEmpty()) return _posts.value
+        if (_posts.value.any { live -> cached.any { it.id == live.id } }) return _posts.value
+        return cached
+    }
 
     /** Fires `taste_matches_feed_viewed` once per session the first time the
      *  SERVED (non-gated) Taste Matches feed loads with posts. */
@@ -516,6 +657,7 @@ class FeedViewModel @Inject constructor(
             val savedDecade = FeedDecade.fromStored(
                 runCatching { preferencesDataStore.feedDecade.first() }.getOrNull()
             )
+            val oldSig = feedRequestSignature()
             val changed = saved != _feedFilter.value || savedDecade != _feedDecade.value
             _feedFilter.value = saved
             _feedDecade.value = savedDecade
@@ -525,10 +667,7 @@ class FeedViewModel @Inject constructor(
                 // filter. When the restore wins the race, the screen's initial
                 // load simply reads the already-correct filter and no refetch runs.
                 if (_hasLoaded.value || _isLoading.value || _isRefreshing.value) {
-                    lastTimestamp = null
-                    _posts.value = emptyList()
-                    _hasMore.value = true
-                    loadFeed(refresh = true)
+                    applyFeedSignatureChange(from = oldSig, to = feedRequestSignature())
                 }
             }
         }
@@ -546,13 +685,13 @@ class FeedViewModel @Inject constructor(
                 if (mode != lastLoadedMode &&
                     (_hasLoaded.value || _isLoading.value || _isRefreshing.value)
                 ) {
-                    lastTimestamp = null
-                    _posts.value = emptyList()
-                    _hasMore.value = true
-                    loadFeed(refresh = true)
+                    val oldSig = lastLoadedMode?.let { feedRequestSignature(it) } ?: ""
+                    applyFeedSignatureChange(from = oldSig, to = feedRequestSignature(mode))
                 }
             }
         }
+        // iOS keeps the Favorites tab once unlocked — a later 0 must not
+        // kick the user off the tab.
         // Restore For You seen-IDs ring buffer from DataStore on startup so
         // we suppress already-shown posts after an app restart.
         viewModelScope.launch {
@@ -887,6 +1026,7 @@ class FeedViewModel @Inject constructor(
             engagementManager.checkLikeStatuses(newPosts.map { it.id }, userId)
             engagementManager.checkSaveStatuses(newPosts.map { it.id }, userId)
             _lastLoadFailed.value = false
+            appliedFeedSignature = feedRequestSignature(mode)
         } catch (e: CancellationException) {
             // Coroutine cancellation is NOT a load failure. Swallowing it here
             // would paint a normal cancellation (the ViewModel scope tearing
@@ -934,6 +1074,7 @@ class FeedViewModel @Inject constructor(
             return
         }
         analyticsService.logFeedFilterChanged(filter.analyticsValue)
+        val oldSig = feedRequestSignature()
         _feedFilter.value = filter
         // Persist so the selection survives an app restart (mirrors iOS).
         viewModelScope.launch { preferencesDataStore.setFeedFilter(filter.name) }
@@ -941,13 +1082,14 @@ class FeedViewModel @Inject constructor(
             analyticsService.logFeedDecadeChanged(FeedDecade.analyticsValue(null))
             storeFeedDecade(null)
         }
-        restartFeedForNarrowingChange()
+        applyFeedSignatureChange(from = oldSig, to = feedRequestSignature())
     }
 
     fun setFeedDecade(decade: Int?) {
         val next = FeedDecade.normalize(decade)
         if (next == _feedDecade.value) return
         analyticsService.logFeedDecadeChanged(FeedDecade.analyticsValue(next))
+        val oldSig = feedRequestSignature()
         storeFeedDecade(next)
         val downgraded = when {
             next == null -> null
@@ -959,25 +1101,12 @@ class FeedViewModel @Inject constructor(
             _feedFilter.value = downgraded
             viewModelScope.launch { preferencesDataStore.setFeedFilter(downgraded.name) }
         }
-        restartFeedForNarrowingChange()
+        applyFeedSignatureChange(from = oldSig, to = feedRequestSignature())
     }
 
     private fun storeFeedDecade(decade: Int?) {
         _feedDecade.value = decade
         viewModelScope.launch { preferencesDataStore.setFeedDecade(FeedDecade.toStored(decade)) }
-    }
-
-    private fun restartFeedForNarrowingChange() {
-        // Server-side filter changed — reset the paginated feed and re-fetch
-        // so the returned page matches the new filter.
-        lastTimestamp = null
-        _posts.value = emptyList()
-        // Set the loading flag in the same frame we empty the list so the
-        // skeleton wins immediately — otherwise the empty state flashes for a
-        // frame before loadFeed's coroutine sets it (see setFeedMode).
-        _isRefreshing.value = true
-        _hasMore.value = true
-        loadFeed(refresh = true)
     }
 
     /**
@@ -1023,26 +1152,13 @@ class FeedViewModel @Inject constructor(
         }
         // Claim this mode now so the feedMode collector (init) treats the
         // upcoming DataStore emission as already-handled — this path persists
-        // and reloads directly, so we don't want the collector to fire a second
-        // redundant load.
+        // and applies the cache (or cold-loads) directly, so we don't want the
+        // collector to fire a second redundant load.
+        val oldSig = feedRequestSignature()
         lastLoadedMode = mode
         analyticsService.logFeedModeChanged(mode)
-        forYouSessionToken = null
-        forYouPageIndex = 0
-        _forYouLoadFailed.value = false
-        lastTimestamp = null
-        _posts.value = emptyList()
-        // Flip the loading flag synchronously, in the same frame we empty the
-        // list. loadFeedSuspending sets it too, but only after the coroutine
-        // starts — that gap let the feed render posts=[] + hasLoaded=true +
-        // !isLoading + !isRefreshing for a frame, flashing the empty state
-        // before the skeleton appeared. Reset in loadFeedSuspending's tail.
-        _isRefreshing.value = true
-        _hasMore.value = true
-        viewModelScope.launch {
-            preferencesDataStore.setFeedMode(mode)
-            loadFeedSuspending(refresh = true)
-        }
+        viewModelScope.launch { preferencesDataStore.setFeedMode(mode) }
+        applyFeedSignatureChange(from = oldSig, to = feedRequestSignature(mode))
     }
 
     /**

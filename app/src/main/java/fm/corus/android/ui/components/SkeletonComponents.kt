@@ -102,11 +102,11 @@ fun SkeletonPostCard() {
             .fillMaxWidth()
             .shimmer(),
     ) {
-        // Header: avatar circle + username bar
+        // Same row as PostCard: 28dp avatar, name, 28dp "..." slot.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.postHeaderVertical),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
@@ -118,11 +118,13 @@ fun SkeletonPostCard() {
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .width(96.dp)
                     .height(13.dp)
                     .clip(RoundedCornerShape(4.dp))
                     .background(CorusColors.Skeleton)
             )
+            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.size(CorusSpacing.avatarSmall))
         }
 
         // Full-bleed square album art placeholder

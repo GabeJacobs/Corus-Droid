@@ -124,7 +124,7 @@ const val CATALOG_SCROLL_TO_TRACK_KEY = "catalogScrollToTrack"
 @Serializable object SearchRoute
 /** Full-screen trending list ("See all" from the search page's trending
  *  strips). [kind] is "songs" | "films" | "hashtags" | "artists" | "albums" |
- *  "new_release_albums" | "new_albums". */
+ *  "new_release_albums". */
 @Serializable data class TrendingListRoute(val kind: String)
 @Serializable data class EditCaptionRoute(val postId: String, val initialCaption: String, val albumArtURL: String? = null)
 @Serializable object SettingsRoute

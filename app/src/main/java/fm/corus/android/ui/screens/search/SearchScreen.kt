@@ -8,6 +8,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideOutVertically
@@ -55,7 +58,13 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -89,6 +98,7 @@ import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.RecentSearchItem
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.model.TrendingAlbum
+import fm.corus.android.data.model.TrendingAlbumDestinationCache
 import fm.corus.android.data.model.TrendingAlbumOpen
 import fm.corus.android.data.model.TrendingArtist
 import fm.corus.android.data.model.TrendingHashtag
@@ -123,12 +133,15 @@ import fm.corus.android.ui.components.SkeletonUserRow
 // TasteMatchCard is now rendered inside HorizontalTasteMatchesRail, not here.
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
+import fm.corus.android.ui.screens.feed.FeedChromeCollapseMath
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.horizontalRailCardWidth
 import fm.corus.android.ui.util.DateUtils
 import fm.corus.android.ui.util.UnifiedSearchRanking
+import fm.corus.android.ui.util.deferToInnerHorizontalScroll
+import kotlin.math.roundToInt
 import androidx.compose.foundation.lazy.LazyRow
 
 enum class SearchTab(val labelRes: Int) {
@@ -168,6 +181,8 @@ fun SearchScreen(
     // Unified search: blended zero-state feed + filter chips instead of tabs.
     // Read once per composition, same as artistPagesEnabled.
     val unifiedSearchEnabled = viewModel.unifiedSearchEnabled
+    val segmentedSearchEnabled = viewModel.segmentedSearchEnabled
+    val unifiedQueryMode = viewModel.unifiedQueryMode
     // Per-vertical "has committed results for this query" — the blended view
     // needs Music AND Film both settled before it can order them.
     val lastFetchedQuery by viewModel.lastFetchedQuery.collectAsState()
@@ -175,6 +190,7 @@ fun SearchScreen(
     val isSearching by viewModel.isSearching.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val trendingSongs by viewModel.trendingSongs.collectAsState()
+    val trendingSongsWindow by viewModel.trendingSongsWindow.collectAsState()
     val trendingMovies by viewModel.trendingMovies.collectAsState()
     val isTrendingLoading by viewModel.isTrendingLoading.collectAsState()
     val isTrendingMoviesLoading by viewModel.isTrendingMoviesLoading.collectAsState()
@@ -200,53 +216,47 @@ fun SearchScreen(
     val trendingHashtagsWindow by viewModel.trendingHashtagsWindow.collectAsState()
     val trendingArtists by viewModel.trendingArtists.collectAsState()
     val isTrendingArtistsLoading by viewModel.isTrendingArtistsLoading.collectAsState()
-    val isResolvingArtist by viewModel.isResolvingArtist.collectAsState()
     val trendingAlbums by viewModel.trendingAlbums.collectAsState()
     val isTrendingAlbumsLoading by viewModel.isTrendingAlbumsLoading.collectAsState()
     val newReleaseAlbums by viewModel.newReleaseAlbums.collectAsState()
     val isNewReleaseAlbumsLoading by viewModel.isNewReleaseAlbumsLoading.collectAsState()
-    val newAlbums by viewModel.newAlbums.collectAsState()
-    val isNewAlbumsLoading by viewModel.isNewAlbumsLoading.collectAsState()
-    val isResolvingAlbum by viewModel.isResolvingAlbum.collectAsState()
     val followedHashtagNames by viewModel.followedHashtagNames.collectAsState()
     val searchScope = rememberCoroutineScope()
     val searchContext = LocalContext.current
     val openTrendingAlbum: (TrendingAlbum) -> Unit = { album ->
-        searchScope.launch {
-            when (val dest = viewModel.resolveTrendingAlbum(album)) {
+        val cached = TrendingAlbumDestinationCache.peek(album)
+        if (cached != null) {
+            when (cached) {
                 is TrendingAlbumOpen.Album -> onNavigateToAlbum(
                     AlbumPageRoute(
-                        albumId = dest.albumId,
-                        title = dest.title,
-                        artist = dest.artist,
-                        coverUrl = dest.coverUrl,
+                        albumId = cached.albumId,
+                        title = cached.title,
+                        artist = cached.artist,
+                        coverUrl = cached.coverUrl,
                     ),
                 )
-                is TrendingAlbumOpen.Song -> onNavigateToSong(dest.track)
-                null -> android.widget.Toast.makeText(
-                    searchContext,
-                    searchContext.getString(fm.corus.android.R.string.search_no_matches),
-                    android.widget.Toast.LENGTH_SHORT,
-                ).show()
+                is TrendingAlbumOpen.Song -> onNavigateToSong(cached.track)
             }
-        }
-    }
-    val openNewAlbum: (TrendingAlbum) -> Unit = { album ->
-        if (album.albumId.isEmpty()) {
-            android.widget.Toast.makeText(
-                searchContext,
-                searchContext.getString(fm.corus.android.R.string.search_no_matches),
-                android.widget.Toast.LENGTH_SHORT,
-            ).show()
         } else {
-            onNavigateToAlbum(
-                AlbumPageRoute(
-                    albumId = album.albumId,
-                    title = album.albumName,
-                    artist = album.artistName,
-                    coverUrl = album.albumArtLargeURL ?: album.albumArtURL,
-                ),
-            )
+            DestinationResolvingOverlay.arm()
+            searchScope.launch {
+                when (val dest = viewModel.resolveTrendingAlbum(album)) {
+                    is TrendingAlbumOpen.Album -> onNavigateToAlbum(
+                        AlbumPageRoute(
+                            albumId = dest.albumId,
+                            title = dest.title,
+                            artist = dest.artist,
+                            coverUrl = dest.coverUrl,
+                        ),
+                    )
+                    is TrendingAlbumOpen.Song -> onNavigateToSong(dest.track)
+                    null -> android.widget.Toast.makeText(
+                        searchContext,
+                        searchContext.getString(fm.corus.android.R.string.search_no_matches),
+                        android.widget.Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            }
         }
     }
 
@@ -255,7 +265,7 @@ fun SearchScreen(
     val hasSearchQuery = searchQuery.isNotBlank()
     val searchHasError by viewModel.searchHasError.collectAsState()
     val isConnected by viewModel.isConnected.collectAsState()
-    val currentTabIsEmpty = if (unifiedSearchEnabled) {
+    val currentTabIsEmpty = if (unifiedQueryMode) {
         // Unified: "empty" = nothing rendered by the active filter.
         when (unifiedFilter) {
             UnifiedSearchFilter.USERS -> userResults.isEmpty()
@@ -278,7 +288,13 @@ fun SearchScreen(
     val focusManager = LocalFocusManager.current
     // Unified search has no Users tab; recents overlay on focus everywhere.
     val showRecentOverlay = isSearchFocused && !hasSearchQuery &&
-        (unifiedSearchEnabled || activeTab == SearchTab.USERS)
+        (unifiedQueryMode || activeTab == SearchTab.USERS)
+    val showBrowseTabs = if (segmentedSearchEnabled) {
+        !hasSearchQuery && !showRecentOverlay
+    } else {
+        !unifiedSearchEnabled
+    }
+    val keepsBrowsePager = segmentedSearchEnabled || !unifiedSearchEnabled
 
     // Dismiss the recent-searches overlay on back press
     BackHandler(enabled = showRecentOverlay) {
@@ -329,11 +345,38 @@ fun SearchScreen(
     // separate lists, so scroll-to-top needs their own hoisted states.
     val unifiedZeroListState = rememberLazyListState()
     val unifiedAllListState = rememberLazyListState()
+    val browsePagerState = rememberPagerState(initialPage = activeTabIndex) {
+        SearchTab.entries.size
+    }
+    val searchHaptics = LocalHapticManager.current
+    LaunchedEffect(activeTabIndex) {
+        if (browsePagerState.currentPage != activeTabIndex && !browsePagerState.isScrollInProgress) {
+            browsePagerState.animateScrollToPage(activeTabIndex, animationSpec = tween(180))
+        }
+    }
+    LaunchedEffect(browsePagerState) {
+        snapshotFlow { browsePagerState.settledPage }.collect { page ->
+            if (page != activeTabIndex) viewModel.setActiveTab(page)
+        }
+    }
+    val browsePagerOffset = browsePagerState.currentPage + browsePagerState.currentPageOffsetFraction
+    var lastBrowseHapticPage by remember { mutableFloatStateOf(browsePagerOffset) }
+    LaunchedEffect(browsePagerState) {
+        snapshotFlow { browsePagerState.currentPage + browsePagerState.currentPageOffsetFraction }
+            .collect { page ->
+                if (browsePagerState.isScrollInProgress &&
+                    FeedChromeCollapseMath.crossedMidpoint(lastBrowseHapticPage, page)
+                ) {
+                    searchHaptics.impact(HapticManager.ImpactStyle.LIGHT)
+                }
+                lastBrowseHapticPage = page
+            }
+    }
 
     var lastScrollTrigger by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(scrollToTopTrigger) {
         if (scrollToTopTrigger > lastScrollTrigger) {
-            if (unifiedSearchEnabled) {
+            if (unifiedQueryMode) {
                 when {
                     !hasSearchQuery -> unifiedZeroListState.animateScrollToItem(0)
                     unifiedFilter == UnifiedSearchFilter.ALL -> unifiedAllListState.animateScrollToItem(0)
@@ -415,17 +458,6 @@ fun SearchScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background).nestedScroll(scrollDismissConnection)) {
-        // Header — same title-to-control gap as Activity's chip row (sm).
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = CorusSpacing.md, bottom = CorusSpacing.sm),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(stringResource(fm.corus.android.R.string.search_screen_title), style = CorusFont.displayName, color = CorusColors.Text)
-        }
-
-        // Search bar
         SearchBarSection(
             query = searchQuery,
             showClearButton = searchQuery.isNotBlank() || isSearchFocused,
@@ -437,7 +469,7 @@ fun SearchScreen(
                 isSearchFocused = false
             },
             onFocusChanged = { isSearchFocused = it },
-            placeholder = if (unifiedSearchEnabled) {
+            placeholder = if (unifiedQueryMode) {
                 // No pre-picked vertical: one placeholder names them all.
                 stringResource(fm.corus.android.R.string.search_placeholder_unified)
             } else when (activeTab) {
@@ -456,24 +488,36 @@ fun SearchScreen(
             },
         )
 
-        Spacer(modifier = Modifier.height(CorusSpacing.xs))
-
-        // Unified search has no pre-picked vertical: no tabs at all on the
-        // zero state, filter chips only once a query is typed.
-        if (unifiedSearchEnabled) {
-            if (hasSearchQuery) {
-                UnifiedFilterChipRow(
-                    selected = unifiedFilter,
-                    artistPagesEnabled = artistPagesEnabled,
-                    onSelect = { viewModel.setUnifiedFilter(it) },
-                )
-            }
-        } else {
-            // Tab bar
-            SearchTabBar(
-                selectedTab = activeTab,
-                onTabSelected = { viewModel.setActiveTab(it.ordinal) },
-                artistPagesEnabled = artistPagesEnabled,
+        if (unifiedQueryMode && hasSearchQuery) {
+            UnifiedFilterChipRow(
+                selected = unifiedFilter,
+                artistPagesEnabled = artistPagesEnabled || segmentedSearchEnabled,
+                onSelect = { viewModel.setUnifiedFilter(it) },
+            )
+        } else if (showBrowseTabs) {
+            SearchCategoryTabBar(
+                tabs = SearchTab.entries,
+                selected = activeTab,
+                pagerOffset = browsePagerOffset,
+                artistPagesEnabled = artistPagesEnabled || segmentedSearchEnabled,
+                onSelect = { tab ->
+                    if (tab == activeTab) {
+                        searchScope.launch {
+                            when (tab) {
+                                SearchTab.USERS -> usersListState.animateScrollToItem(0)
+                                SearchTab.SONGS -> songsListState.animateScrollToItem(0)
+                                SearchTab.FILMS -> filmsListState.animateScrollToItem(0)
+                                SearchTab.HASHTAGS -> hashtagsListState.animateScrollToItem(0)
+                            }
+                        }
+                    } else {
+                        searchHaptics.impact(HapticManager.ImpactStyle.LIGHT)
+                        viewModel.setActiveTab(tab.ordinal)
+                        searchScope.launch {
+                            browsePagerState.animateScrollToPage(tab.ordinal, animationSpec = tween(180))
+                        }
+                    }
+                },
             )
         }
 
@@ -510,7 +554,171 @@ fun SearchScreen(
                             stringResource(fm.corus.android.R.string.feed_offline_subtitle)
                         },
                     )
-                } else if (unifiedSearchEnabled) {
+                } else {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                    if (keepsBrowsePager) {
+                    HorizontalPager(
+                        state = browsePagerState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .alpha(if (showBrowseTabs) 1f else 0f),
+                        beyondViewportPageCount = 3,
+                        userScrollEnabled = showBrowseTabs,
+                    ) { page ->
+                    when (SearchTab.entries.getOrElse(page) { SearchTab.USERS }) {
+                    SearchTab.USERS -> {
+                        SuggestedUsersContent(
+                            listState = usersListState,
+                            musicMatchUsers = musicMatchUsers,
+                            seedTasteMatches = seedTasteMatches,
+                            filterUnfollowedMatches = filterUnfollowedMatches,
+                            onSetFilterUnfollowed = { filterUnfollowedMatches = it },
+                            popularRailFilterFollowedIds = popularRailFilterFollowedIds,
+                            showUnfollowedPopularToggle = showUnfollowedPopularToggle,
+                            filterUnfollowedPopular = filterUnfollowedPopular,
+                            onSetFilterUnfollowedPopular = onSetFilterUnfollowedPopular,
+                            mutualConnectionUsers = mutualConnectionUsers,
+                            contactMatches = contactMatches,
+                            contactsSyncStatus = contactsSyncStatus,
+                            isSyncingContacts = isSyncingContacts,
+                            showNoContactMatches = showNoContactMatches,
+                            newUsers = newUsers,
+                            clubMembers = clubMembers,
+                            artistsOnCorus = artistsOnCorus,
+                            artistsOnCorusSectionEnabled = artistsOnCorusSectionEnabled,
+                            allFollowedIds = allFollowedIds,
+                            isSuggestedLoading = isSuggestedLoading,
+                            isTasteMatchPolling = isTasteMatchPolling,
+                            tasteMatchLoadFailed = tasteMatchLoadFailed,
+                            belowTasteMatchThreshold = belowTasteMatchThreshold,
+                            viewModel = viewModel,
+                            onNavigateToUser = onNavigateToUser,
+                            onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
+                            onNavigateToContactFriends = onNavigateToContactFriends,
+                        )
+                    }
+                    SearchTab.SONGS -> {
+                        if (segmentedSearchEnabled) {
+                            LazyColumn(
+                                state = songsListState,
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(top = CorusSpacing.lg, bottom = CorusSpacing.xxxl),
+                            ) {
+                                compactTrendingSongsSection(
+                                    songs = trendingSongs,
+                                    isLoading = isTrendingLoading,
+                                    nowPlaying = viewModel.nowPlayingManager,
+                                    viewModel = viewModel,
+                                    onSongTap = onNavigateToSong,
+                                    onSeeAll = { onNavigateToTrending("songs") },
+                                )
+                                if (trendingArtistsSectionEnabled || segmentedSearchEnabled) {
+                                    compactTrendingArtistsSection(
+                                        artists = trendingArtists,
+                                        isLoading = isTrendingArtistsLoading,
+                                        viewModel = viewModel,
+                                        onArtistTap = { artist ->
+                                            searchScope.launch {
+                                                val route = viewModel.resolveTrendingArtist(artist)
+                                                if (route != null) onNavigateToArtist(route)
+                                                else android.widget.Toast.makeText(
+                                                    searchContext,
+                                                    searchContext.getString(fm.corus.android.R.string.song_detail_artist_not_found),
+                                                    android.widget.Toast.LENGTH_SHORT,
+                                                ).show()
+                                            }
+                                        },
+                                        onSeeAll = { onNavigateToTrending("artists") },
+                                    )
+                                }
+                                compactTrendingAlbumsSection(
+                                    albums = trendingAlbums,
+                                    isLoading = isTrendingAlbumsLoading,
+                                    showRank = true,
+                                    viewModel = viewModel,
+                                    section = SearchSection.TrendingAlbums,
+                                    titleRes = fm.corus.android.R.string.search_trending_albums_title,
+                                    icon = "album",
+                                    onAlbumTap = openTrendingAlbum,
+                                    onSeeAll = { onNavigateToTrending("albums") },
+                                )
+                                compactTrendingAlbumsSection(
+                                    albums = newReleaseAlbums,
+                                    isLoading = isNewReleaseAlbumsLoading,
+                                    showRank = false,
+                                    viewModel = viewModel,
+                                    section = SearchSection.NewReleaseAlbums,
+                                    titleRes = fm.corus.android.R.string.search_new_release_albums_title,
+                                    icon = "new_release",
+                                    onAlbumTap = { album ->
+                                        album.asSongTrack()?.let { onNavigateToSong(it) }
+                                    },
+                                    onSeeAll = { onNavigateToTrending("new_release_albums") },
+                                )
+                                if (artistsOnCorusSectionEnabled) {
+                                    artistsOnCorusSection(
+                                        artists = artistsOnCorus,
+                                        allFollowedIds = allFollowedIds,
+                                        viewModel = viewModel,
+                                        onNavigateToUser = onNavigateToUser,
+                                        onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
+                                    )
+                                }
+                            }
+                        } else {
+                            TrendingSongsContent(
+                                listState = songsListState,
+                                songs = trendingSongs,
+                                isLoading = isTrendingLoading,
+                                window = trendingSongsWindow,
+                                onWindowChange = { viewModel.setTrendingSongsWindow(it) },
+                                onSongTap = onNavigateToSong,
+                                nowPlaying = viewModel.nowPlayingManager,
+                            )
+                        }
+                    }
+                    SearchTab.FILMS -> {
+                        if (segmentedSearchEnabled) {
+                            LazyColumn(
+                                state = filmsListState,
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(top = CorusSpacing.lg, bottom = CorusSpacing.xxxl),
+                            ) {
+                                compactTrendingFilmsSection(
+                                    movies = trendingMovies,
+                                    isLoading = isTrendingMoviesLoading,
+                                    viewModel = viewModel,
+                                    onFilmTap = onNavigateToFilm,
+                                    onSeeAll = { onNavigateToTrending("films") },
+                                )
+                            }
+                        } else {
+                            TrendingFilmsContent(
+                                listState = filmsListState,
+                                movies = trendingMovies,
+                                isLoading = isTrendingMoviesLoading,
+                                window = trendingFilmsWindow,
+                                onWindowChange = { viewModel.setTrendingFilmsWindow(it) },
+                                onFilmTap = onNavigateToFilm,
+                            )
+                        }
+                    }
+                    SearchTab.HASHTAGS -> {
+                        TrendingHashtagsContent(
+                            listState = hashtagsListState,
+                            hashtags = trendingHashtags,
+                            isLoading = isTrendingHashtagsLoading,
+                            followedHashtagNames = followedHashtagNames,
+                            window = trendingHashtagsWindow,
+                            onWindowChange = { viewModel.setTrendingHashtagsWindow(it) },
+                            onHashtagTap = { tag -> onNavigateToHashtag(tag.name) },
+                            onToggleFollow = { tag -> viewModel.toggleHashtagFollowByName(tag.name) },
+                        )
+                    }
+                    }
+                    }
+                    }
+                    if (!showBrowseTabs && unifiedQueryMode) {
                     if (hasSearchQuery) {
                         when (unifiedFilter) {
                             UnifiedSearchFilter.ALL -> UnifiedAllResults(
@@ -578,7 +786,7 @@ fun SearchScreen(
                                 onToggleFollow = { tag -> viewModel.toggleHashtagFollow(tag) },
                             )
                         }
-                    } else {
+                    } else if (unifiedSearchEnabled) {
                         UnifiedZeroStateContent(
                             listState = unifiedZeroListState,
                             musicMatchUsers = musicMatchUsers,
@@ -636,196 +844,12 @@ fun SearchScreen(
                             isTrendingAlbumsLoading = isTrendingAlbumsLoading,
                             newReleaseAlbums = newReleaseAlbums,
                             isNewReleaseAlbumsLoading = isNewReleaseAlbumsLoading,
-                            newAlbums = newAlbums,
-                            isNewAlbumsLoading = isNewAlbumsLoading,
                             onNavigateToAlbumRow = openTrendingAlbum,
-                            onNavigateToNewAlbum = openNewAlbum,
                         )
                     }
-                } else when (activeTab) {
-                    SearchTab.USERS -> {
-                        if (hasSearchQuery) {
-                            UserSearchResults(
-                                listState = usersListState,
-                                results = userResults,
-                                isSearching = isSearching,
-                                viewModel = viewModel,
-                                onNavigateToUser = { userId ->
-                                    val user = userResults.find { it.id == userId }
-                                    if (user != null) viewModel.onUserSelected(user)
-                                    onNavigateToUser(userId)
-                                },
-                            )
-                        } else {
-                            SuggestedUsersContent(
-                                listState = usersListState,
-                                musicMatchUsers = musicMatchUsers,
-                                seedTasteMatches = seedTasteMatches,
-                                filterUnfollowedMatches = filterUnfollowedMatches,
-                                onSetFilterUnfollowed = { filterUnfollowedMatches = it },
-                                popularRailFilterFollowedIds = popularRailFilterFollowedIds,
-                                showUnfollowedPopularToggle = showUnfollowedPopularToggle,
-                                filterUnfollowedPopular = filterUnfollowedPopular,
-                                onSetFilterUnfollowedPopular = onSetFilterUnfollowedPopular,
-                                mutualConnectionUsers = mutualConnectionUsers,
-                                contactMatches = contactMatches,
-                                contactsSyncStatus = contactsSyncStatus,
-                                isSyncingContacts = isSyncingContacts,
-                                showNoContactMatches = showNoContactMatches,
-                                newUsers = newUsers,
-                                clubMembers = clubMembers,
-                                artistsOnCorus = artistsOnCorus,
-                                artistsOnCorusSectionEnabled = artistsOnCorusSectionEnabled,
-                                allFollowedIds = allFollowedIds,
-                                isSuggestedLoading = isSuggestedLoading,
-                                isTasteMatchPolling = isTasteMatchPolling,
-                                tasteMatchLoadFailed = tasteMatchLoadFailed,
-                                belowTasteMatchThreshold = belowTasteMatchThreshold,
-                                viewModel = viewModel,
-                                onNavigateToUser = onNavigateToUser,
-                                onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
-                                onNavigateToContactFriends = onNavigateToContactFriends,
-                            )
-                        }
                     }
-                    SearchTab.SONGS -> {
-                        if (hasSearchQuery) {
-                            SongSearchResultsList(
-                                listState = songsListState,
-                                tracks = songSearchResults,
-                                isSearching = isSearching,
-                                onSongTap = recordAndNavSong,
-                                artists = artistSearchResults,
-                                albums = albumSearchResults,
-                                songsFirst = songsFirst,
-                                onArtistTap = recordAndNavArtist,
-                                onAlbumTap = recordAndNavAlbum,
-                            )
-                        } else {
-                            LazyColumn(
-                                state = songsListState,
-                                modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(top = CorusSpacing.lg, bottom = CorusSpacing.xxxl),
-                            ) {
-                                compactTrendingSongsSection(
-                                    songs = trendingSongs,
-                                    isLoading = isTrendingLoading,
-                                    nowPlaying = viewModel.nowPlayingManager,
-                                    viewModel = viewModel,
-                                    onSongTap = onNavigateToSong,
-                                    onSeeAll = { onNavigateToTrending("songs") },
-                                )
-                                if (trendingArtistsSectionEnabled) {
-                                    compactTrendingArtistsSection(
-                                        artists = trendingArtists,
-                                        isLoading = isTrendingArtistsLoading,
-                                        viewModel = viewModel,
-                                        onArtistTap = { artist ->
-                                            searchScope.launch {
-                                                val route = viewModel.resolveTrendingArtist(artist)
-                                                if (route != null) onNavigateToArtist(route)
-                                                else android.widget.Toast.makeText(
-                                                    searchContext,
-                                                    searchContext.getString(fm.corus.android.R.string.song_detail_artist_not_found),
-                                                    android.widget.Toast.LENGTH_SHORT,
-                                                ).show()
-                                            }
-                                        },
-                                        onSeeAll = { onNavigateToTrending("artists") },
-                                    )
-                                }
-                                compactTrendingAlbumsSection(
-                                    albums = trendingAlbums,
-                                    isLoading = isTrendingAlbumsLoading,
-                                    showRank = true,
-                                    viewModel = viewModel,
-                                    section = SearchSection.TrendingAlbums,
-                                    titleRes = fm.corus.android.R.string.search_trending_albums_title,
-                                    icon = "album",
-                                    onAlbumTap = openTrendingAlbum,
-                                    onSeeAll = { onNavigateToTrending("albums") },
-                                )
-                                compactTrendingAlbumsSection(
-                                    albums = newReleaseAlbums,
-                                    isLoading = isNewReleaseAlbumsLoading,
-                                    showRank = false,
-                                    viewModel = viewModel,
-                                    section = SearchSection.NewReleaseAlbums,
-                                    titleRes = fm.corus.android.R.string.search_new_release_albums_title,
-                                    icon = "new_release",
-                                    onAlbumTap = { album ->
-                                        album.asSongTrack()?.let { onNavigateToSong(it) }
-                                    },
-                                    onSeeAll = { onNavigateToTrending("new_release_albums") },
-                                )
-                                compactTrendingAlbumsSection(
-                                    albums = newAlbums,
-                                    isLoading = isNewAlbumsLoading,
-                                    showRank = false,
-                                    viewModel = viewModel,
-                                    section = SearchSection.NewAlbums,
-                                    titleRes = fm.corus.android.R.string.search_new_albums_title,
-                                    icon = "album",
-                                    onAlbumTap = openNewAlbum,
-                                    onSeeAll = { onNavigateToTrending("new_albums") },
-                                )
-                                if (artistsOnCorusSectionEnabled) {
-                                    artistsOnCorusSection(
-                                        artists = artistsOnCorus,
-                                        allFollowedIds = allFollowedIds,
-                                        viewModel = viewModel,
-                                        onNavigateToUser = onNavigateToUser,
-                                        onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
-                                    )
-                                }
-                            }
-                        }
                     }
-                    SearchTab.FILMS -> {
-                        if (hasSearchQuery) {
-                            FilmSearchResultsList(
-                                listState = filmsListState,
-                                movies = filmSearchResults,
-                                isSearching = isSearching,
-                                onFilmTap = recordAndNavFilm,
-                                directors = directorSearchResults,
-                                onDirectorTap = recordAndNavDirector,
-                            )
-                        } else {
-                            TrendingFilmsContent(
-                                listState = filmsListState,
-                                movies = trendingMovies,
-                                isLoading = isTrendingMoviesLoading,
-                                window = trendingFilmsWindow,
-                                onWindowChange = { viewModel.setTrendingFilmsWindow(it) },
-                                onFilmTap = onNavigateToFilm,
-                            )
-                        }
-                    }
-                    SearchTab.HASHTAGS -> {
-                        if (hasSearchQuery) {
-                            HashtagSearchResultsList(
-                                listState = hashtagsListState,
-                                hashtags = hashtagSearchResults,
-                                isSearching = isSearching,
-                                followedHashtagNames = followedHashtagNames,
-                                onHashtagTap = { tag -> recordAndNavHashtag(tag.name) },
-                                onToggleFollow = { tag -> viewModel.toggleHashtagFollow(tag) },
-                            )
-                        } else {
-                            TrendingHashtagsContent(
-                                listState = hashtagsListState,
-                                hashtags = trendingHashtags,
-                                isLoading = isTrendingHashtagsLoading,
-                                followedHashtagNames = followedHashtagNames,
-                                window = trendingHashtagsWindow,
-                                onWindowChange = { viewModel.setTrendingHashtagsWindow(it) },
-                                onHashtagTap = { tag -> onNavigateToHashtag(tag.name) },
-                                onToggleFollow = { tag -> viewModel.toggleHashtagFollowByName(tag.name) },
-                            )
-                        }
-                    }
-                }
+            }
             }
 
             // Full-screen recent-searches overlay (matches iOS behaviour)
@@ -853,16 +877,6 @@ fun SearchScreen(
                     onClearAll = { viewModel.clearRecentSearches() },
                 )
             }
-            if (isResolvingArtist || isResolvingAlbum) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.3f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(color = CorusColors.Accent)
-                }
-            }
         }
     }
 }
@@ -884,6 +898,7 @@ private fun SearchBarSection(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = CorusSpacing.lg)
+            .padding(top = CorusSpacing.sm, bottom = CorusSpacing.xs)
             .onFocusChanged { onFocusChanged(it.isFocused) },
         placeholder = {
             Text(placeholder, style = CorusFont.body, color = CorusColors.Tertiary)
@@ -914,65 +929,117 @@ private fun SearchBarSection(
 }
 
 @Composable
-private fun SearchTabBar(
-    selectedTab: SearchTab,
-    onTabSelected: (SearchTab) -> Unit,
-    /** Artist pages on: "Songs"→"Music" and "Films"→"Film" — the tabs now
-     *  cover artists/albums and directors too. Label-only; the enum (and every
-     *  ordinal-based dispatch) is untouched. */
-    artistPagesEnabled: Boolean = false,
+private fun SearchCategoryTabBar(
+    tabs: List<SearchTab>,
+    selected: SearchTab,
+    pagerOffset: Float,
+    artistPagesEnabled: Boolean,
+    onSelect: (SearchTab) -> Unit,
 ) {
+    val frames = remember { mutableStateMapOf<Int, Rect>() }
+    var barBounds by remember { mutableStateOf(Rect.Zero) }
     val density = LocalDensity.current
-    var tabRowWidth by remember { mutableIntStateOf(0) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .onGloballyPositioned { tabRowWidth = it.size.width },
-    ) {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            SearchTab.entries.forEach { tab ->
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onTabSelected(tab) }
-                        .padding(vertical = CorusSpacing.sm),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    val textColor by animateColorAsState(
-                        targetValue = if (selectedTab == tab) CorusColors.Text else CorusColors.Tertiary,
-                        animationSpec = tween(200),
-                        label = "tabTextColor",
-                    )
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp)
+                .onGloballyPositioned { barBounds = it.boundsInWindow() },
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                tabs.forEachIndexed { index, tab ->
+                    if (index > 0) {
+                        Spacer(Modifier.widthIn(min = 8.dp).weight(1f))
+                    }
+                    val activation = FeedChromeCollapseMath.tabActivation(pagerOffset, index)
+                    val isSelected = selected == tab
                     val labelRes = when {
                         artistPagesEnabled && tab == SearchTab.SONGS -> fm.corus.android.R.string.search_tab_music
                         artistPagesEnabled && tab == SearchTab.FILMS -> fm.corus.android.R.string.search_tab_film
                         else -> tab.labelRes
                     }
-                    Text(text = stringResource(labelRes), style = CorusFont.bodyMedium, color = textColor)
+                    Column(
+                        modifier = Modifier
+                            .wrapContentWidth()
+                            .clickable(
+                                interactionSource = remember(tab) { MutableInteractionSource() },
+                                indication = null,
+                                role = Role.Tab,
+                                onClick = { onSelect(tab) },
+                            )
+                            .semantics { this.selected = isSelected }
+                            .padding(top = 6.dp, bottom = 2.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = stringResource(labelRes),
+                            style = CorusFont.custom(if (activation >= 0.5f) 800 else 500, 14),
+                            color = androidx.compose.ui.graphics.lerp(
+                                CorusColors.Secondary,
+                                CorusColors.Text,
+                                activation,
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Clip,
+                            softWrap = false,
+                        )
+                        Box(
+                            modifier = Modifier
+                                .height(2.dp)
+                                .fillMaxWidth()
+                                .onGloballyPositioned { coords ->
+                                    val window = coords.boundsInWindow()
+                                    frames[index] = Rect(
+                                        left = window.left - barBounds.left,
+                                        top = window.top - barBounds.top,
+                                        right = window.right - barBounds.left,
+                                        bottom = window.bottom - barBounds.top,
+                                    )
+                                },
+                        )
+                    }
                 }
             }
+
+            val placement = searchUnderlinePlacement(tabs.size, pagerOffset, frames)
+            if (placement != null) {
+                Box(
+                    modifier = Modifier
+                        .offset { IntOffset(placement.left.roundToInt(), placement.top.roundToInt()) }
+                        .width(with(density) { placement.width.toDp() })
+                        .height(2.dp)
+                        .clip(RoundedCornerShape(percent = 50))
+                        .background(CorusColors.Accent),
+                )
+            }
         }
-
-        val tabWidth = with(density) { (tabRowWidth / SearchTab.entries.size).toDp() }
-        val indicatorOffset by animateDpAsState(
-            targetValue = tabWidth * selectedTab.ordinal,
-            animationSpec = tween(200),
-            label = "indicatorOffset",
-        )
-
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Box(
-                modifier = Modifier
-                    .offset(x = indicatorOffset)
-                    .width(tabWidth)
-                    .height(2.dp)
-                    .background(CorusColors.Accent),
-            )
-        }
-
-        HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
+        HorizontalDivider(thickness = 1.dp, color = CorusColors.Divider)
     }
+}
+
+private fun searchUnderlinePlacement(
+    tabCount: Int,
+    pagerOffset: Float,
+    frames: Map<Int, Rect>,
+): Rect? {
+    if (tabCount <= 0) return null
+    val maxPage = (tabCount - 1).toFloat()
+    val page = pagerOffset.coerceIn(0f, maxPage)
+    val i0 = page.toInt().coerceIn(0, tabCount - 1)
+    val i1 = (i0 + 1).coerceAtMost(tabCount - 1)
+    val f0 = frames[i0] ?: return null
+    val f1 = frames[i1] ?: return null
+    val t = page - i0
+    return Rect(
+        left = f0.left + (f1.left - f0.left) * t,
+        top = f0.top,
+        right = f0.left + (f1.left - f0.left) * t + f0.width + (f1.width - f0.width) * t,
+        bottom = f0.top + f0.height,
+    )
 }
 
 @Composable
@@ -1462,7 +1529,7 @@ private fun LazyListScope.tasteMatchesSections(
         item {
             val cardWidth = horizontalRailCardWidth()
             LazyRow(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().deferToInnerHorizontalScroll(),
                 contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
             ) {
@@ -1486,7 +1553,7 @@ private fun LazyListScope.tasteMatchesSections(
         item {
             val cardWidth = horizontalRailCardWidth()
             LazyRow(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().deferToInnerHorizontalScroll(),
                 contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
             ) {
@@ -1794,7 +1861,7 @@ private fun LazyListScope.compactTrendingSongsSection(
     // on the See-all list.
     item {
         LazyRow(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().deferToInnerHorizontalScroll(),
             contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
             horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         ) {
@@ -1863,7 +1930,7 @@ private fun LazyListScope.compactTrendingFilmsSection(
     // Horizontal poster slider — same reasoning as the songs strip.
     item {
         LazyRow(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().deferToInnerHorizontalScroll(),
             contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
             horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         ) {
@@ -2061,7 +2128,7 @@ private fun CompactTrendingAlbumsRail(
             },
         )
         LazyRow(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().deferToInnerHorizontalScroll(),
             contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
             horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         ) {
@@ -2143,7 +2210,7 @@ private fun LazyListScope.compactTrendingArtistsSection(
     }
     item {
         LazyRow(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().deferToInnerHorizontalScroll(),
             contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
             horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         ) {
@@ -2248,10 +2315,7 @@ private fun UnifiedZeroStateContent(
     isTrendingAlbumsLoading: Boolean,
     newReleaseAlbums: List<TrendingAlbum>,
     isNewReleaseAlbumsLoading: Boolean,
-    newAlbums: List<TrendingAlbum>,
-    isNewAlbumsLoading: Boolean,
     onNavigateToAlbumRow: (TrendingAlbum) -> Unit,
-    onNavigateToNewAlbum: (TrendingAlbum) -> Unit,
 ) {
     val context = LocalContext.current
     val isNewUsersLoading by viewModel.isNewUsersLoading.collectAsState()
@@ -2329,17 +2393,6 @@ private fun UnifiedZeroStateContent(
                 album.asSongTrack()?.let { onNavigateToSong(it) }
             },
             onSeeAll = { onNavigateToTrending("new_release_albums") },
-        )
-        compactTrendingAlbumsSection(
-            albums = newAlbums,
-            isLoading = isNewAlbumsLoading,
-            showRank = false,
-            viewModel = viewModel,
-            section = SearchSection.NewAlbums,
-            titleRes = fm.corus.android.R.string.search_new_albums_title,
-            icon = "album",
-            onAlbumTap = onNavigateToNewAlbum,
-            onSeeAll = { onNavigateToTrending("new_albums") },
         )
         compactTrendingFilmsSection(
             movies = trendingMovies,
@@ -2424,7 +2477,9 @@ private fun UnifiedFilterChipRow(
     onSelect: (UnifiedSearchFilter) -> Unit,
 ) {
     LazyRow(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = CorusSpacing.sm),
         contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
     ) {

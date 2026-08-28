@@ -28,6 +28,7 @@ import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.horizontalRailCardWidth
+import fm.corus.android.ui.util.deferToInnerHorizontalScroll
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -85,7 +86,7 @@ fun ClubMembersCardRail(
 
     val cardWidth = horizontalRailCardWidth()
     LazyRow(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().deferToInnerHorizontalScroll(),
         contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
     ) {
