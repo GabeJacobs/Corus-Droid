@@ -31,11 +31,16 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.TrendingAlbum
+import fm.corus.android.data.model.TrendingAlbumOpen
 import fm.corus.android.data.model.TrendingArtist
 import fm.corus.android.data.model.TrendingHashtag
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.data.model.TrendingWindow
+import fm.corus.android.data.model.albumTitlesMatch
+import fm.corus.android.data.model.resolveTrendingAlbumOpen
+import fm.corus.android.data.repository.MusicSearchRepository
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.repository.AuthRepository
@@ -71,6 +76,7 @@ class TrendingListViewModel @Inject constructor(
     private val exploreRepository: ExploreRepository,
     private val firestoreDataSource: FirestoreDataSource,
     private val cloudFunctions: CloudFunctionsDataSource,
+    private val musicSearchRepository: MusicSearchRepository,
     private val preferencesDataStore: PreferencesDataStore,
     private val authRepository: AuthRepository,
     val nowPlayingManager: NowPlayingManager,
@@ -128,6 +134,36 @@ class TrendingListViewModel @Inject constructor(
 
     private val _isResolvingArtist = MutableStateFlow(false)
     val isResolvingArtist: StateFlow<Boolean> = _isResolvingArtist.asStateFlow()
+
+    val trendingAlbumsWindow: StateFlow<TrendingWindow> =
+        preferencesDataStore.trendingAlbumsWindow
+            .map { TrendingWindow.fromKey(it) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+
+    private val _trendingAlbums = MutableStateFlow<List<TrendingAlbum>>(emptyList())
+    val trendingAlbums: StateFlow<List<TrendingAlbum>> = _trendingAlbums.asStateFlow()
+
+    private val _newReleaseAlbums = MutableStateFlow<List<TrendingAlbum>>(emptyList())
+    val newReleaseAlbums: StateFlow<List<TrendingAlbum>> = _newReleaseAlbums.asStateFlow()
+
+    private val _isAlbumsLoading = MutableStateFlow(true)
+    val isAlbumsLoading: StateFlow<Boolean> = _isAlbumsLoading.asStateFlow()
+
+    private val _isNewReleaseAlbumsLoading = MutableStateFlow(true)
+    val isNewReleaseAlbumsLoading: StateFlow<Boolean> = _isNewReleaseAlbumsLoading.asStateFlow()
+
+    private val _newAlbums = MutableStateFlow<List<TrendingAlbum>>(emptyList())
+    val newAlbums: StateFlow<List<TrendingAlbum>> = _newAlbums.asStateFlow()
+
+    private val _isNewAlbumsLoading = MutableStateFlow(true)
+    val isNewAlbumsLoading: StateFlow<Boolean> = _isNewAlbumsLoading.asStateFlow()
+
+    private val _isResolvingAlbum = MutableStateFlow(false)
+    val isResolvingAlbum: StateFlow<Boolean> = _isResolvingAlbum.asStateFlow()
+
+    fun setTrendingAlbumsWindow(window: TrendingWindow) {
+        viewModelScope.launch { preferencesDataStore.setTrendingAlbumsWindow(window.key) }
+    }
 
     // The setters only persist; the screen collects the window StateFlow and
     // refetches on every emission, so persistence IS the refetch trigger.
@@ -220,6 +256,70 @@ class TrendingListViewModel @Inject constructor(
         }
     }
 
+    suspend fun loadAlbums(window: TrendingWindow) {
+        _isAlbumsLoading.value = true
+        _trendingAlbums.value = try {
+            exploreRepository.fetchTrendingAlbums(window)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load trending albums", e)
+            emptyList()
+        }
+        _isAlbumsLoading.value = false
+    }
+
+    suspend fun loadNewReleaseAlbums() {
+        _isNewReleaseAlbumsLoading.value = true
+        _newReleaseAlbums.value = try {
+            exploreRepository.fetchNewReleaseAlbums()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load new-release albums", e)
+            emptyList()
+        }
+        _isNewReleaseAlbumsLoading.value = false
+    }
+
+    suspend fun loadNewAlbums() {
+        _isNewAlbumsLoading.value = true
+        _newAlbums.value = try {
+            exploreRepository.fetchNewAlbums()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load new albums", e)
+            emptyList()
+        }
+        _isNewAlbumsLoading.value = false
+    }
+
+    suspend fun resolveTrendingAlbum(album: TrendingAlbum): TrendingAlbumOpen? {
+        if (_isResolvingAlbum.value) return null
+        _isResolvingAlbum.value = true
+        return try {
+            resolveTrendingAlbumOpen(
+                album = album,
+                fetchCatalog = { id, name, artist ->
+                    runCatching { cloudFunctions.fetchAlbumCatalog(id, name, artist) }.getOrNull()
+                },
+                resolveByName = { name, artist ->
+                    val query = listOf(name, artist).filter { it.isNotBlank() }.joinToString(" ")
+                    if (query.isBlank()) {
+                        null
+                    } else {
+                        val page = musicSearchRepository.search(
+                            query = query,
+                            limit = 5,
+                            includeAlbums = true,
+                            albumsMatchArtist = true,
+                        )
+                        page.albums.firstOrNull { albumTitlesMatch(it.title, name) }
+                            ?: page.albums.firstOrNull()
+                    }
+                },
+                today = java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString(),
+            )
+        } finally {
+            _isResolvingAlbum.value = false
+        }
+    }
+
     /** Mirrors SearchViewModel.refreshFollowedHashtags. */
     fun refreshFollowedHashtags() {
         val uid = authRepository.currentUserId ?: return
@@ -264,10 +364,9 @@ class TrendingListViewModel @Inject constructor(
 }
 
 /**
- * Full-screen trending list — songs, films, or hashtags depending on [kind]
- * ("songs" | "films" | "hashtags" | "artists"). Reuses SearchScreen's
- * trending content composables so rows/headers/skeletons render identically
- * to the search tab.
+ * Full-screen trending list — songs, films, hashtags, artists, albums, or
+ * new-release albums depending on [kind]. Reuses SearchScreen's trending
+ * content composables so rows/headers/skeletons match the search tab.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -279,6 +378,7 @@ fun TrendingListScreen(
     onNavigateToFilm: (FilmDetailRoute) -> Unit = {},
     onNavigateToHashtag: (String) -> Unit = {},
     onNavigateToArtist: (fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit = {},
+    onNavigateToAlbum: (fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit = {},
 ) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -293,6 +393,14 @@ fun TrendingListScreen(
     val isHashtagsLoading by viewModel.isHashtagsLoading.collectAsState()
     val isArtistsLoading by viewModel.isArtistsLoading.collectAsState()
     val isResolvingArtist by viewModel.isResolvingArtist.collectAsState()
+    val trendingAlbums by viewModel.trendingAlbums.collectAsState()
+    val newReleaseAlbums by viewModel.newReleaseAlbums.collectAsState()
+    val isAlbumsLoading by viewModel.isAlbumsLoading.collectAsState()
+    val isNewReleaseAlbumsLoading by viewModel.isNewReleaseAlbumsLoading.collectAsState()
+    val newAlbums by viewModel.newAlbums.collectAsState()
+    val isNewAlbumsLoading by viewModel.isNewAlbumsLoading.collectAsState()
+    val isResolvingAlbum by viewModel.isResolvingAlbum.collectAsState()
+    val albumsWindow by viewModel.trendingAlbumsWindow.collectAsState()
     val songsWindow by viewModel.trendingSongsWindow.collectAsState()
     val filmsWindow by viewModel.trendingFilmsWindow.collectAsState()
     val hashtagsWindow by viewModel.trendingHashtagsWindow.collectAsState()
@@ -311,6 +419,9 @@ fun TrendingListScreen(
                 viewModel.trendingHashtagsWindow.collect { viewModel.loadHashtags(it) }
             }
             KIND_ARTISTS -> viewModel.trendingArtistsWindow.collect { viewModel.loadArtists(it) }
+            KIND_ALBUMS -> viewModel.trendingAlbumsWindow.collect { viewModel.loadAlbums(it) }
+            KIND_NEW_RELEASE_ALBUMS -> viewModel.loadNewReleaseAlbums()
+            KIND_NEW_ALBUMS -> viewModel.loadNewAlbums()
         }
     }
 
@@ -324,6 +435,9 @@ fun TrendingListScreen(
                                 KIND_FILMS -> fm.corus.android.R.string.search_trending_films_title
                                 KIND_HASHTAGS -> fm.corus.android.R.string.search_trending_hashtags_title
                                 KIND_ARTISTS -> fm.corus.android.R.string.search_trending_artists_title
+                                KIND_ALBUMS -> fm.corus.android.R.string.search_trending_albums_title
+                                KIND_NEW_RELEASE_ALBUMS -> fm.corus.android.R.string.search_new_release_albums_list_title
+                                KIND_NEW_ALBUMS -> fm.corus.android.R.string.search_new_albums_list_title
                                 else -> fm.corus.android.R.string.search_trending_songs_title
                             },
                         ),
@@ -381,6 +495,55 @@ fun TrendingListScreen(
                         }
                     },
                 )
+                KIND_ALBUMS -> TrendingAlbumsContent(
+                    listState = listState,
+                    albums = trendingAlbums,
+                    isLoading = isAlbumsLoading,
+                    window = albumsWindow,
+                    onWindowChange = viewModel::setTrendingAlbumsWindow,
+                    onAlbumTap = { album ->
+                        scope.launch { openResolvedAlbum(viewModel, album, context, onNavigateToAlbum, onNavigateToSong) }
+                    },
+                )
+                KIND_NEW_RELEASE_ALBUMS -> TrendingAlbumsContent(
+                    listState = listState,
+                    albums = newReleaseAlbums,
+                    isLoading = isNewReleaseAlbumsLoading,
+                    showRank = false,
+                    staticHeaderIcon = "new_release",
+                    staticHeaderTitle = stringResource(fm.corus.android.R.string.search_new_release_albums_title),
+                    emptyMessage = stringResource(fm.corus.android.R.string.search_nothing_new_releases),
+                    onAlbumTap = { album ->
+                        album.asSongTrack()?.let { onNavigateToSong(it) }
+                    },
+                )
+                KIND_NEW_ALBUMS -> TrendingAlbumsContent(
+                    listState = listState,
+                    albums = newAlbums,
+                    isLoading = isNewAlbumsLoading,
+                    showRank = false,
+                    staticHeaderIcon = "album",
+                    staticHeaderTitle = stringResource(fm.corus.android.R.string.search_new_albums_title),
+                    emptyMessage = stringResource(fm.corus.android.R.string.search_nothing_new_albums),
+                    onAlbumTap = { album ->
+                        if (album.albumId.isEmpty()) {
+                            android.widget.Toast.makeText(
+                                context,
+                                context.getString(fm.corus.android.R.string.search_no_matches),
+                                android.widget.Toast.LENGTH_SHORT,
+                            ).show()
+                        } else {
+                            onNavigateToAlbum(
+                                fm.corus.android.ui.navigation.AlbumPageRoute(
+                                    albumId = album.albumId,
+                                    title = album.albumName,
+                                    artist = album.artistName,
+                                    coverUrl = album.albumArtLargeURL ?: album.albumArtURL,
+                                ),
+                            )
+                        }
+                    },
+                )
                 else -> TrendingSongsContent(
                     listState = listState,
                     songs = trendingSongs,
@@ -391,7 +554,7 @@ fun TrendingListScreen(
                     nowPlaying = viewModel.nowPlayingManager,
                 )
             }
-            if (isResolvingArtist) {
+            if (isResolvingArtist || isResolvingAlbum) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -409,3 +572,31 @@ private const val KIND_SONGS = "songs"
 private const val KIND_FILMS = "films"
 private const val KIND_HASHTAGS = "hashtags"
 private const val KIND_ARTISTS = "artists"
+private const val KIND_ALBUMS = "albums"
+private const val KIND_NEW_RELEASE_ALBUMS = "new_release_albums"
+private const val KIND_NEW_ALBUMS = "new_albums"
+
+private suspend fun openResolvedAlbum(
+    viewModel: TrendingListViewModel,
+    album: TrendingAlbum,
+    context: android.content.Context,
+    onNavigateToAlbum: (fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit,
+    onNavigateToSong: (CymbalTrack) -> Unit,
+) {
+    when (val dest = viewModel.resolveTrendingAlbum(album)) {
+        is TrendingAlbumOpen.Album -> onNavigateToAlbum(
+            fm.corus.android.ui.navigation.AlbumPageRoute(
+                albumId = dest.albumId,
+                title = dest.title,
+                artist = dest.artist,
+                coverUrl = dest.coverUrl,
+            ),
+        )
+        is TrendingAlbumOpen.Song -> onNavigateToSong(dest.track)
+        null -> android.widget.Toast.makeText(
+            context,
+            context.getString(fm.corus.android.R.string.search_no_matches),
+            android.widget.Toast.LENGTH_SHORT,
+        ).show()
+    }
+}

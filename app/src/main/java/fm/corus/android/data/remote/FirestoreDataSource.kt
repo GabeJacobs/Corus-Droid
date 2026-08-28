@@ -1202,6 +1202,181 @@ class FirestoreDataSource @Inject constructor(
         )
     }
 
+    /** Same shape as `fetchTrendingArtistsByWindow` but for albums
+     *  (trending_cache/albums). A missing week bucket stays empty. */
+    suspend fun fetchTrendingAlbumsByWindow(limit: Int = 20): Map<TrendingWindow, List<TrendingAlbum>> {
+        val doc = firestore.collection("trending_cache").document("albums").get().await()
+        val data = doc.data ?: return emptyMap()
+        return TrendingWindow.values().associateWith { window ->
+            if (window == TrendingWindow.WEEK && data["week"] == null) {
+                emptyList()
+            } else {
+                pickWindowItems(data, window).take(limit).mapNotNull { parseTrendingAlbum(it) }
+            }
+        }
+    }
+
+    private fun parseTrendingAlbum(item: Map<String, Any?>): TrendingAlbum? {
+        val name = item["albumName"] as? String ?: ""
+        val albumId = item["albumId"] as? String ?: ""
+        if (name.isEmpty() && albumId.isEmpty()) return null
+        val id = if (albumId.isEmpty()) name.lowercase() else albumId
+        return TrendingAlbum(
+            id = id,
+            rank = (item["rank"] as? Number)?.toInt() ?: 0,
+            albumId = albumId,
+            albumName = name,
+            artistName = item["artistName"] as? String ?: "",
+            albumArtURL = (item["albumArtURL"] as? String)?.takeIf { it.isNotBlank() },
+            albumArtLargeURL = (item["albumArtLargeURL"] as? String)?.takeIf { it.isNotBlank() },
+            cymbalCount = (item["cymbalCount"] as? Number)?.toInt() ?: 0,
+        )
+    }
+
+    /**
+     * Unique songs still inside the 30-day new-release window (New Songs).
+     * Grouped by ISRC, then track id, then artist + title. Every row opens
+     * the song page. Mirrors iOS `fetchNewReleaseAlbums`.
+     */
+    suspend fun fetchNewReleaseAlbums(limit: Int = 20): List<TrendingAlbum> {
+        val nowMs = System.currentTimeMillis()
+        val snap = firestore.collection("posts")
+            .whereEqualTo("mediaType", "track")
+            .whereGreaterThan("newReleaseExpiresAtMs", nowMs)
+            .orderBy("newReleaseExpiresAtMs", Query.Direction.DESCENDING)
+            .limit(100)
+            .get()
+            .await()
+        val bySong = linkedMapOf<String, Pair<TrendingAlbum, String>>()
+        for (doc in snap.documents) {
+            val data = doc.data ?: continue
+            @Suppress("UNCHECKED_CAST")
+            val author = data["author"] as? Map<String, Any?>
+            if (author?.get("isBot") == true) continue
+            val uid = data["userId"] as? String
+            if (uid != null && isUserBannedLocally(uid)) continue
+            val parsed = parseNewReleaseSongFromPost(data) ?: continue
+            val key = parsed.first
+            val album = parsed.second
+            val releaseDate = album.trackReleaseDate
+            val existing = bySong[key]
+            if (existing != null) {
+                val prev = existing.first
+                bySong[key] = prev.copy(
+                    albumId = prev.albumId.ifEmpty { album.albumId },
+                    cymbalCount = prev.cymbalCount + 1,
+                    trackId = prev.trackId.ifEmpty { album.trackId },
+                    trackName = prev.trackName.ifEmpty { album.trackName },
+                    trackReleaseDate = maxOf(prev.trackReleaseDate, releaseDate),
+                    trackReleaseDatePrecision = prev.trackReleaseDatePrecision.ifEmpty {
+                        album.trackReleaseDatePrecision
+                    },
+                ) to maxOf(existing.second, releaseDate)
+                continue
+            }
+            bySong[key] = album to releaseDate
+        }
+        return bySong.values
+            .sortedWith(
+                compareByDescending<Pair<TrendingAlbum, String>> { it.second }
+                    .thenByDescending { it.first.cymbalCount },
+            )
+            .take(limit)
+            .mapIndexed { index, entry ->
+                entry.first.copy(rank = index + 1, openAsSong = true)
+            }
+    }
+
+    /**
+     * Group new-release posts into album candidates for the New Albums rail.
+     * Catalog qualification happens in [fm.corus.android.data.repository.ExploreRepository].
+     */
+    suspend fun fetchNewAlbumCandidates(pool: Int = 100): List<NewAlbumCandidate> {
+        val nowMs = System.currentTimeMillis()
+        val snap = firestore.collection("posts")
+            .whereEqualTo("mediaType", "track")
+            .whereGreaterThan("newReleaseExpiresAtMs", nowMs)
+            .orderBy("newReleaseExpiresAtMs", Query.Direction.DESCENDING)
+            .limit(pool.toLong())
+            .get()
+            .await()
+        val byAlbum = linkedMapOf<String, NewAlbumCandidate>()
+        for (doc in snap.documents) {
+            val data = doc.data ?: continue
+            @Suppress("UNCHECKED_CAST")
+            val author = data["author"] as? Map<String, Any?>
+            if (author?.get("isBot") == true) continue
+            val uid = data["userId"] as? String
+            if (uid != null && isUserBannedLocally(uid)) continue
+            val albumId = (data["albumId"] as? String)?.trim().orEmpty()
+            val albumName = (data["albumName"] as? String)?.trim().orEmpty()
+            val artistName = (data["artistName"] as? String)?.trim().orEmpty()
+            val trackName = (data["trackName"] as? String)?.trim().orEmpty()
+            if (albumId.isEmpty() && albumName.isEmpty()) continue
+            val key = if (albumId.isNotEmpty()) {
+                "id:${albumId.lowercase()}"
+            } else {
+                "name:${artistName.lowercase()}\u0000${albumName.lowercase()}"
+            }
+            val art = (data["albumArtLargeURL"] as? String)?.takeIf { it.isNotBlank() }
+                ?: (data["albumArtURL"] as? String)?.takeIf { it.isNotBlank() }
+            val existing = byAlbum[key]
+            if (existing != null) {
+                byAlbum[key] = existing.copy(
+                    count = existing.count + 1,
+                    albumId = existing.albumId.ifEmpty { albumId },
+                    albumName = existing.albumName.ifEmpty { albumName },
+                    artistName = existing.artistName.ifEmpty { artistName },
+                    albumArtURL = existing.albumArtURL ?: art,
+                    trackNames = if (trackName.isEmpty()) existing.trackNames else existing.trackNames + trackName,
+                )
+            } else {
+                byAlbum[key] = NewAlbumCandidate(
+                    albumId = albumId,
+                    albumName = albumName,
+                    artistName = artistName,
+                    albumArtURL = art,
+                    count = 1,
+                    trackNames = if (trackName.isEmpty()) emptySet() else setOf(trackName),
+                )
+            }
+        }
+        return byAlbum.values.toList()
+    }
+
+    private fun parseNewReleaseSongFromPost(data: Map<String, Any?>): Pair<String, TrendingAlbum>? {
+        val trackId = (data["trackId"] as? String)?.trim().orEmpty()
+        val albumId = (data["albumId"] as? String)?.trim().orEmpty()
+        val albumName = (data["albumName"] as? String)?.trim().orEmpty()
+        val trackName = (data["trackName"] as? String)?.trim().orEmpty()
+        val artistName = (data["artistName"] as? String)?.trim().orEmpty()
+        val isrc = (data["isrc"] as? String)?.trim().orEmpty()
+        val releaseDate = (data["trackReleaseDate"] as? String)?.trim().orEmpty()
+        val precision = (data["trackReleaseDatePrecision"] as? String)?.trim().orEmpty()
+        val title = trackName.ifEmpty { albumName }
+        if (trackId.isEmpty() && title.isEmpty() && isrc.isEmpty()) return null
+        val key = when {
+            isrc.isNotEmpty() -> "isrc:${isrc.lowercase()}"
+            trackId.isNotEmpty() -> "track:${trackId.lowercase()}"
+            else -> "name:${artistName.lowercase()}\u0000${title.lowercase()}"
+        }
+        return key to TrendingAlbum(
+            id = key,
+            rank = 0,
+            albumId = albumId,
+            albumName = albumName,
+            artistName = artistName,
+            albumArtURL = (data["albumArtURL"] as? String)?.takeIf { it.isNotBlank() },
+            albumArtLargeURL = (data["albumArtLargeURL"] as? String)?.takeIf { it.isNotBlank() },
+            cymbalCount = 1,
+            openAsSong = true,
+            trackId = trackId,
+            trackName = title,
+            trackReleaseDate = releaseDate,
+            trackReleaseDatePrecision = precision,
+        )
+    }
+
     // ── User Search ──
 
     suspend fun searchUsersByUsername(query: String, limit: Int = 20): List<CymbalUser> {

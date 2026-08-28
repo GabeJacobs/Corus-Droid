@@ -210,6 +210,11 @@
     <!-- One-time coachmark teaching that the Corus logo switches feed modes. -->
     <string name="feed_switch_hint_title">Explore your other feeds</string>
     <string name="feed_switch_hint_subtitle">Tap the logo to switch</string>
+    <string name="feed_mode_following">Following</string>
+    <string name="feed_mode_trending">Trending</string>
+    <string name="feed_mode_taste_matches">Taste Matches</string>
+    <string name="feed_mode_favorites">Favorites</string>
+    <string name="feed_mode_taste_matches_tab">Matches</string>
     <string name="feed_screen_title_Corus">Corus</string>
     <string name="feed_cd_filter">Filter</string>
     <string name="feed_cd_generate_playlist">Generate feed playlist</string>
@@ -592,6 +597,13 @@
     <string name="search_trending_films_title">Trending films</string>
     <string name="search_trending_hashtags_title">Trending hashtags</string>
     <string name="search_trending_artists_title">Trending artists</string>
+    <string name="search_trending_albums_title">Trending albums</string>
+    <string name="search_new_release_albums_title">New songs</string>
+    <string name="search_new_release_albums_list_title">New songs</string>
+    <string name="search_nothing_new_releases">No new songs yet</string>
+    <string name="search_new_albums_title">New albums</string>
+    <string name="search_new_albums_list_title">New albums</string>
+    <string name="search_nothing_new_albums">No new albums yet</string>
     <string name="search_tab_users">Users</string>
     <string name="search_tab_songs">Songs</string>
     <string name="search_tab_films">Films</string>
@@ -1451,4 +1463,10 @@
     <string name="full_player_cd_more">More</string>
     <string name="full_player_comments_header">Comments · %1$d</string>
     <string name="full_player_add_comment">Add a comment</string>
+    <plurals name="post_success_others_title">
+        <item quantity="one">%d other person also posted this</item>
+        <item quantity="other">%d other people also posted this</item>
+    </plurals>
+    <string name="post_success_others_done">Done</string>
+    <string name="post_success_others_kicker">Corus set!</string>
 </resources>

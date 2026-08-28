@@ -512,6 +512,12 @@
     <string name="search_trending_films_title">인기 영화</string>
     <string name="search_trending_hashtags_title">인기 해시태그</string>
     <string name="search_trending_artists_title">인기 아티스트</string>
+    <string name="search_new_release_albums_title">새 노래</string>
+    <string name="search_new_release_albums_list_title">새 노래</string>
+    <string name="search_nothing_new_releases">아직 새 노래가 없어요</string>
+    <string name="search_new_albums_title">새 앨범</string>
+    <string name="search_new_albums_list_title">새 앨범</string>
+    <string name="search_nothing_new_albums">아직 새 앨범이 없어요</string>
     <string name="search_tab_users">사용자</string>
     <string name="search_tab_songs">곡</string>
     <string name="search_tab_films">영화</string>
@@ -1186,6 +1192,11 @@
     <string name="compose_draft_choose_another">다른 항목 선택</string>
     <string name="feed_switch_hint_title">다른 피드를 살펴보세요</string>
     <string name="feed_switch_hint_subtitle">로고를 탭해서 전환하세요</string>
+    <string name="feed_mode_following">팔로잉</string>
+    <string name="feed_mode_trending">트렌딩</string>
+    <string name="feed_mode_taste_matches">취향 매치</string>
+    <string name="feed_mode_favorites">즐겨찾기</string>
+    <string name="feed_mode_taste_matches_tab">매치</string>
     <!-- Taste-match onboarding (onboarding_taste_match_enabled) - strings mirror the web locale files -->
     <string name="onboarding_sync_contacts_title">연락처를 동기화하세요</string>
     <string name="onboarding_cta_continue">계속</string>
@@ -1413,6 +1424,11 @@
     <string name="full_player_cd_more">더보기</string>
     <string name="full_player_comments_header">댓글 · %1$d</string>
     <string name="full_player_add_comment">댓글 추가</string>
+    <plurals name="post_success_others_title">
+        <item quantity="other">다른 %d명도 이것을 올렸습니다</item>
+    </plurals>
+    <string name="post_success_others_done">완료</string>
+    <string name="post_success_others_kicker">Corus 설정됨</string>
     <plurals name="feed_taste_matches_trial_banner_active">
         <item quantity="one">무료 체험 · %1$d일 남음</item>
         <item quantity="other">무료 체험 · %1$d일 남음</item>

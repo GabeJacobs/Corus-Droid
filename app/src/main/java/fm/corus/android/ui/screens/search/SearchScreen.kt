@@ -38,7 +38,9 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material.icons.filled.People
@@ -86,8 +88,11 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.RecentSearchItem
 import fm.corus.android.data.model.SuggestedUserMatch
+import fm.corus.android.data.model.TrendingAlbum
+import fm.corus.android.data.model.TrendingAlbumOpen
 import fm.corus.android.data.model.TrendingArtist
 import fm.corus.android.data.model.TrendingHashtag
+import fm.corus.android.ui.navigation.AlbumPageRoute
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.data.model.TrendingSong
@@ -173,7 +178,6 @@ fun SearchScreen(
     val trendingMovies by viewModel.trendingMovies.collectAsState()
     val isTrendingLoading by viewModel.isTrendingLoading.collectAsState()
     val isTrendingMoviesLoading by viewModel.isTrendingMoviesLoading.collectAsState()
-    val trendingSongsWindow by viewModel.trendingSongsWindow.collectAsState()
     val trendingFilmsWindow by viewModel.trendingFilmsWindow.collectAsState()
     val suggestedMatches by viewModel.suggestedMatches.collectAsState()
     val isSuggestedLoading by viewModel.isSuggestedLoading.collectAsState()
@@ -197,9 +201,54 @@ fun SearchScreen(
     val trendingArtists by viewModel.trendingArtists.collectAsState()
     val isTrendingArtistsLoading by viewModel.isTrendingArtistsLoading.collectAsState()
     val isResolvingArtist by viewModel.isResolvingArtist.collectAsState()
+    val trendingAlbums by viewModel.trendingAlbums.collectAsState()
+    val isTrendingAlbumsLoading by viewModel.isTrendingAlbumsLoading.collectAsState()
+    val newReleaseAlbums by viewModel.newReleaseAlbums.collectAsState()
+    val isNewReleaseAlbumsLoading by viewModel.isNewReleaseAlbumsLoading.collectAsState()
+    val newAlbums by viewModel.newAlbums.collectAsState()
+    val isNewAlbumsLoading by viewModel.isNewAlbumsLoading.collectAsState()
+    val isResolvingAlbum by viewModel.isResolvingAlbum.collectAsState()
     val followedHashtagNames by viewModel.followedHashtagNames.collectAsState()
     val searchScope = rememberCoroutineScope()
     val searchContext = LocalContext.current
+    val openTrendingAlbum: (TrendingAlbum) -> Unit = { album ->
+        searchScope.launch {
+            when (val dest = viewModel.resolveTrendingAlbum(album)) {
+                is TrendingAlbumOpen.Album -> onNavigateToAlbum(
+                    AlbumPageRoute(
+                        albumId = dest.albumId,
+                        title = dest.title,
+                        artist = dest.artist,
+                        coverUrl = dest.coverUrl,
+                    ),
+                )
+                is TrendingAlbumOpen.Song -> onNavigateToSong(dest.track)
+                null -> android.widget.Toast.makeText(
+                    searchContext,
+                    searchContext.getString(fm.corus.android.R.string.search_no_matches),
+                    android.widget.Toast.LENGTH_SHORT,
+                ).show()
+            }
+        }
+    }
+    val openNewAlbum: (TrendingAlbum) -> Unit = { album ->
+        if (album.albumId.isEmpty()) {
+            android.widget.Toast.makeText(
+                searchContext,
+                searchContext.getString(fm.corus.android.R.string.search_no_matches),
+                android.widget.Toast.LENGTH_SHORT,
+            ).show()
+        } else {
+            onNavigateToAlbum(
+                AlbumPageRoute(
+                    albumId = album.albumId,
+                    title = album.albumName,
+                    artist = album.artistName,
+                    coverUrl = album.albumArtLargeURL ?: album.albumArtURL,
+                ),
+            )
+        }
+    }
 
     val activeTabIndex by viewModel.activeTab.collectAsState()
     val activeTab = SearchTab.entries[activeTabIndex]
@@ -366,14 +415,14 @@ fun SearchScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background).nestedScroll(scrollDismissConnection)) {
-        // Header
+        // Header — same title-to-control gap as Activity's chip row (sm).
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = CorusSpacing.md),
+                .padding(top = CorusSpacing.md, bottom = CorusSpacing.sm),
             contentAlignment = Alignment.Center,
         ) {
-            Text(stringResource(fm.corus.android.R.string.search_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
+            Text(stringResource(fm.corus.android.R.string.search_screen_title), style = CorusFont.displayName, color = CorusColors.Text)
         }
 
         // Search bar
@@ -583,6 +632,14 @@ fun SearchScreen(
                                 }
                             },
                             onNavigateToTrending = onNavigateToTrending,
+                            trendingAlbums = trendingAlbums,
+                            isTrendingAlbumsLoading = isTrendingAlbumsLoading,
+                            newReleaseAlbums = newReleaseAlbums,
+                            isNewReleaseAlbumsLoading = isNewReleaseAlbumsLoading,
+                            newAlbums = newAlbums,
+                            isNewAlbumsLoading = isNewAlbumsLoading,
+                            onNavigateToAlbumRow = openTrendingAlbum,
+                            onNavigateToNewAlbum = openNewAlbum,
                         )
                     }
                 } else when (activeTab) {
@@ -645,15 +702,83 @@ fun SearchScreen(
                                 onAlbumTap = recordAndNavAlbum,
                             )
                         } else {
-                            TrendingSongsContent(
-                                listState = songsListState,
-                                songs = trendingSongs,
-                                isLoading = isTrendingLoading,
-                                window = trendingSongsWindow,
-                                onWindowChange = { viewModel.setTrendingSongsWindow(it) },
-                                onSongTap = onNavigateToSong,
-                                nowPlaying = viewModel.nowPlayingManager,
-                            )
+                            LazyColumn(
+                                state = songsListState,
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(top = CorusSpacing.lg, bottom = CorusSpacing.xxxl),
+                            ) {
+                                compactTrendingSongsSection(
+                                    songs = trendingSongs,
+                                    isLoading = isTrendingLoading,
+                                    nowPlaying = viewModel.nowPlayingManager,
+                                    viewModel = viewModel,
+                                    onSongTap = onNavigateToSong,
+                                    onSeeAll = { onNavigateToTrending("songs") },
+                                )
+                                if (trendingArtistsSectionEnabled) {
+                                    compactTrendingArtistsSection(
+                                        artists = trendingArtists,
+                                        isLoading = isTrendingArtistsLoading,
+                                        viewModel = viewModel,
+                                        onArtistTap = { artist ->
+                                            searchScope.launch {
+                                                val route = viewModel.resolveTrendingArtist(artist)
+                                                if (route != null) onNavigateToArtist(route)
+                                                else android.widget.Toast.makeText(
+                                                    searchContext,
+                                                    searchContext.getString(fm.corus.android.R.string.song_detail_artist_not_found),
+                                                    android.widget.Toast.LENGTH_SHORT,
+                                                ).show()
+                                            }
+                                        },
+                                        onSeeAll = { onNavigateToTrending("artists") },
+                                    )
+                                }
+                                compactTrendingAlbumsSection(
+                                    albums = trendingAlbums,
+                                    isLoading = isTrendingAlbumsLoading,
+                                    showRank = true,
+                                    viewModel = viewModel,
+                                    section = SearchSection.TrendingAlbums,
+                                    titleRes = fm.corus.android.R.string.search_trending_albums_title,
+                                    icon = "album",
+                                    onAlbumTap = openTrendingAlbum,
+                                    onSeeAll = { onNavigateToTrending("albums") },
+                                )
+                                compactTrendingAlbumsSection(
+                                    albums = newReleaseAlbums,
+                                    isLoading = isNewReleaseAlbumsLoading,
+                                    showRank = false,
+                                    viewModel = viewModel,
+                                    section = SearchSection.NewReleaseAlbums,
+                                    titleRes = fm.corus.android.R.string.search_new_release_albums_title,
+                                    icon = "new_release",
+                                    onAlbumTap = { album ->
+                                        album.asSongTrack()?.let { onNavigateToSong(it) }
+                                    },
+                                    onSeeAll = { onNavigateToTrending("new_release_albums") },
+                                )
+                                compactTrendingAlbumsSection(
+                                    albums = newAlbums,
+                                    isLoading = isNewAlbumsLoading,
+                                    showRank = false,
+                                    viewModel = viewModel,
+                                    section = SearchSection.NewAlbums,
+                                    titleRes = fm.corus.android.R.string.search_new_albums_title,
+                                    icon = "album",
+                                    onAlbumTap = openNewAlbum,
+                                    onSeeAll = { onNavigateToTrending("new_albums") },
+                                )
+                                if (artistsOnCorusSectionEnabled) {
+                                    artistsOnCorusSection(
+                                        artists = artistsOnCorus,
+                                        allFollowedIds = allFollowedIds,
+                                        viewModel = viewModel,
+                                        onNavigateToUser = onNavigateToUser,
+                                        onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
+                                    )
+                                }
+                            }
                         }
                     }
                     SearchTab.FILMS -> {
@@ -728,7 +853,7 @@ fun SearchScreen(
                     onClearAll = { viewModel.clearRecentSearches() },
                 )
             }
-            if (isResolvingArtist) {
+            if (isResolvingArtist || isResolvingAlbum) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -1087,6 +1212,8 @@ private fun SuggestedUsersContent(
     onNavigateToContactFriends: () -> Unit,
 ) {
     val context = LocalContext.current
+    val isNewUsersLoading by viewModel.isNewUsersLoading.collectAsState()
+    val isClubMembersLoading by viewModel.isClubMembersLoading.collectAsState()
     val railExcludeIds = remember(viewModel.currentUserId) {
         viewModel.currentUserId?.let { setOf(it) } ?: emptySet()
     }
@@ -1159,6 +1286,7 @@ private fun SuggestedUsersContent(
 
         clubMembersSection(
             clubMembers = clubMembers,
+            isLoading = isClubMembersLoading,
             allFollowedIds = allFollowedIds,
             viewModel = viewModel,
             onNavigateToUser = onNavigateToUser,
@@ -1175,13 +1303,14 @@ private fun SuggestedUsersContent(
 
         newOnCorusSection(
             newUsers = newUsers,
+            isLoading = isNewUsersLoading,
             mutualConnectionUsers = mutualConnectionUsers,
             viewModel = viewModel,
             onNavigateToUser = onNavigateToUser,
             onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
         )
 
-        inviteFriendsSection(isSuggestedLoading = isSuggestedLoading)
+        inviteFriendsSection()
     }
 }
 
@@ -1436,6 +1565,7 @@ private fun LazyListScope.popularSection(
 
 private fun LazyListScope.clubMembersSection(
     clubMembers: List<CymbalUser>,
+    isLoading: Boolean = false,
     allFollowedIds: Set<String>,
     viewModel: SearchViewModel,
     onNavigateToUser: (String) -> Unit,
@@ -1444,7 +1574,8 @@ private fun LazyListScope.clubMembersSection(
     // ── Corus Club Members ──
     // Horizontal rail of TasteMatchCards ordered by initial sign-up
     // (most recent first). Mirrors web; placement matches iOS.
-    if (clubMembers.isNotEmpty()) {
+    if (clubMembers.isEmpty() && !isLoading) return
+    if (clubMembers.isNotEmpty() || isLoading) {
         item {
             val clubMembersTitle = stringResource(fm.corus.android.R.string.search_club_members_title)
             SectionHeader(
@@ -1458,17 +1589,21 @@ private fun LazyListScope.clubMembersSection(
             )
         }
         item {
-            ClubMembersCardRail(
-                users = clubMembers,
-                followedIds = allFollowedIds,
-                onUserTap = { user ->
-                    viewModel.logSearchSectionUserTapped(SearchSection.ClubMembers, user.id)
-                    onNavigateToUser(user.id)
-                },
-                onFollowTap = { user -> viewModel.toggleFollow(user, SearchSection.ClubMembers) },
-                memberSinceLabel = { "" },
-                subtitleForUser = { user -> user.displayName.trim() },
-            )
+            if (isLoading && clubMembers.isEmpty()) {
+                repeat(3) { SkeletonUserRow() }
+            } else {
+                ClubMembersCardRail(
+                    users = clubMembers,
+                    followedIds = allFollowedIds,
+                    onUserTap = { user ->
+                        viewModel.logSearchSectionUserTapped(SearchSection.ClubMembers, user.id)
+                        onNavigateToUser(user.id)
+                    },
+                    onFollowTap = { user -> viewModel.toggleFollow(user, SearchSection.ClubMembers) },
+                    memberSinceLabel = { "" },
+                    subtitleForUser = { user -> user.displayName.trim() },
+                )
+            }
             Spacer(modifier = Modifier.height(CorusSpacing.sm))
         }
     }
@@ -1560,6 +1695,7 @@ private fun LazyListScope.mutualConnectionsSection(
 
 private fun LazyListScope.newOnCorusSection(
     newUsers: List<CymbalUser>,
+    isLoading: Boolean = false,
     mutualConnectionUsers: List<SuggestedUserMatch>,
     viewModel: SearchViewModel,
     onNavigateToUser: (String) -> Unit,
@@ -1570,7 +1706,8 @@ private fun LazyListScope.newOnCorusSection(
     val displayNewUsers = newUsers.filter {
         !seenNewIds.contains(it.id) && !viewModel.isFollowed(it.id)
     }
-    if (displayNewUsers.isNotEmpty()) {
+    if (displayNewUsers.isEmpty() && !isLoading) return
+    if (displayNewUsers.isNotEmpty() || isLoading) {
         item {
             val newOnCorusTitle = stringResource(fm.corus.android.R.string.search_new_title)
             SectionHeader(
@@ -1583,27 +1720,30 @@ private fun LazyListScope.newOnCorusSection(
                 },
             )
         }
-        items(displayNewUsers.take(3), key = { "new-${it.id}" }) { user ->
-            val context = LocalContext.current
-            SuggestedUserRow(
-                user = user,
-                subtitle = user.createdAt?.let { context.getString(fm.corus.android.R.string.suggested_users_joined_format, DateUtils.relativeTime(context, it)) },
-                isFollowed = viewModel.isFollowed(user.id),
-                onTap = {
-                    viewModel.logSearchSectionUserTapped(SearchSection.NewOnCorus, user.id)
-                    onNavigateToUser(user.id)
-                },
-                onFollow = { viewModel.toggleFollow(user, SearchSection.NewOnCorus) },
-            )
+        if (isLoading && displayNewUsers.isEmpty()) {
+            items(3) { SkeletonUserRow() }
+        } else {
+            items(displayNewUsers.take(3), key = { "new-${it.id}" }) { user ->
+                val context = LocalContext.current
+                SuggestedUserRow(
+                    user = user,
+                    subtitle = user.createdAt?.let { context.getString(fm.corus.android.R.string.suggested_users_joined_format, DateUtils.relativeTime(context, it)) },
+                    isFollowed = viewModel.isFollowed(user.id),
+                    onTap = {
+                        viewModel.logSearchSectionUserTapped(SearchSection.NewOnCorus, user.id)
+                        onNavigateToUser(user.id)
+                    },
+                    onFollow = { viewModel.toggleFollow(user, SearchSection.NewOnCorus) },
+                )
+            }
         }
         item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
     }
 }
 
-private fun LazyListScope.inviteFriendsSection(isSuggestedLoading: Boolean) {
+private fun LazyListScope.inviteFriendsSection() {
     // ── Invite friends ──
-    if (!isSuggestedLoading) {
-        item {
+    item {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1622,7 +1762,6 @@ private fun LazyListScope.inviteFriendsSection(isSuggestedLoading: Boolean) {
                 }
             }
         }
-    }
 }
 
 // ── Unified search (unified_search_enabled) ──
@@ -1871,6 +2010,117 @@ private fun LazyListScope.compactTrendingHashtagsSection(
     item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
 }
 
+private fun LazyListScope.compactTrendingAlbumsSection(
+    albums: List<TrendingAlbum>,
+    isLoading: Boolean,
+    showRank: Boolean,
+    viewModel: SearchViewModel,
+    section: SearchSection,
+    titleRes: Int,
+    icon: String,
+    onAlbumTap: (TrendingAlbum) -> Unit,
+    onSeeAll: () -> Unit,
+) {
+    if (!isLoading && albums.isEmpty()) return
+    item {
+        CompactTrendingAlbumsRail(
+            albums = albums,
+            isLoading = isLoading,
+            showRank = showRank,
+            viewModel = viewModel,
+            section = section,
+            titleRes = titleRes,
+            icon = icon,
+            onAlbumTap = onAlbumTap,
+            onSeeAll = onSeeAll,
+        )
+    }
+}
+
+@Composable
+private fun CompactTrendingAlbumsRail(
+    albums: List<TrendingAlbum>,
+    isLoading: Boolean,
+    showRank: Boolean,
+    viewModel: SearchViewModel,
+    section: SearchSection,
+    titleRes: Int,
+    icon: String,
+    onAlbumTap: (TrendingAlbum) -> Unit,
+    onSeeAll: () -> Unit,
+) {
+    if (!isLoading && albums.isEmpty()) return
+    Column {
+        SectionHeader(
+            icon = icon,
+            title = stringResource(titleRes).uppercase(),
+            showSeeAll = true,
+            onSeeAll = {
+                viewModel.logSearchSectionSeeAllTapped(section)
+                onSeeAll()
+            },
+        )
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+        ) {
+            if (isLoading) {
+                items(4) {
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(CorusColors.CardBackground),
+                    )
+                }
+            } else {
+                items(albums, key = { "tal-${it.id}-${it.rank}" }) { album ->
+                    Column(
+                        modifier = Modifier
+                            .width(120.dp)
+                            .clickable { onAlbumTap(album) },
+                    ) {
+                        Box {
+                            ShimmerAsyncImage(
+                                model = album.albumArtLargeURL ?: album.albumArtURL,
+                                contentDescription = "${album.rank}. ${album.displayTitle}",
+                                modifier = Modifier.size(120.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                contentScale = ContentScale.Crop,
+                            )
+                            if (showRank) {
+                                TrendingTileRankBadge(
+                                    rank = album.rank,
+                                    modifier = Modifier.align(Alignment.TopStart),
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                        Text(
+                            album.displayTitle,
+                            style = CorusFont.captionMedium,
+                            color = CorusColors.Text,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        if (album.artistName.isNotEmpty()) {
+                            Text(
+                                album.artistName,
+                                style = CorusFont.caption,
+                                color = CorusColors.Secondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+    }
+}
+
 /** Compact trending-artists strip: header + square art tiles + See all. */
 private fun LazyListScope.compactTrendingArtistsSection(
     artists: List<TrendingArtist>,
@@ -1994,8 +2244,18 @@ private fun UnifiedZeroStateContent(
     onNavigateToHashtag: (String) -> Unit,
     onNavigateToArtist: (TrendingArtist) -> Unit,
     onNavigateToTrending: (String) -> Unit,
+    trendingAlbums: List<TrendingAlbum>,
+    isTrendingAlbumsLoading: Boolean,
+    newReleaseAlbums: List<TrendingAlbum>,
+    isNewReleaseAlbumsLoading: Boolean,
+    newAlbums: List<TrendingAlbum>,
+    isNewAlbumsLoading: Boolean,
+    onNavigateToAlbumRow: (TrendingAlbum) -> Unit,
+    onNavigateToNewAlbum: (TrendingAlbum) -> Unit,
 ) {
     val context = LocalContext.current
+    val isNewUsersLoading by viewModel.isNewUsersLoading.collectAsState()
+    val isClubMembersLoading by viewModel.isClubMembersLoading.collectAsState()
     val railExcludeIds = remember(viewModel.currentUserId) {
         viewModel.currentUserId?.let { setOf(it) } ?: emptySet()
     }
@@ -2045,6 +2305,41 @@ private fun UnifiedZeroStateContent(
             viewModel = viewModel,
             onSongTap = onNavigateToSong,
             onSeeAll = { onNavigateToTrending("songs") },
+        )
+        compactTrendingAlbumsSection(
+            albums = trendingAlbums,
+            isLoading = isTrendingAlbumsLoading,
+            showRank = true,
+            viewModel = viewModel,
+            section = SearchSection.TrendingAlbums,
+            titleRes = fm.corus.android.R.string.search_trending_albums_title,
+            icon = "album",
+            onAlbumTap = onNavigateToAlbumRow,
+            onSeeAll = { onNavigateToTrending("albums") },
+        )
+        compactTrendingAlbumsSection(
+            albums = newReleaseAlbums,
+            isLoading = isNewReleaseAlbumsLoading,
+            showRank = false,
+            viewModel = viewModel,
+            section = SearchSection.NewReleaseAlbums,
+            titleRes = fm.corus.android.R.string.search_new_release_albums_title,
+            icon = "new_release",
+            onAlbumTap = { album ->
+                album.asSongTrack()?.let { onNavigateToSong(it) }
+            },
+            onSeeAll = { onNavigateToTrending("new_release_albums") },
+        )
+        compactTrendingAlbumsSection(
+            albums = newAlbums,
+            isLoading = isNewAlbumsLoading,
+            showRank = false,
+            viewModel = viewModel,
+            section = SearchSection.NewAlbums,
+            titleRes = fm.corus.android.R.string.search_new_albums_title,
+            icon = "album",
+            onAlbumTap = onNavigateToNewAlbum,
+            onSeeAll = { onNavigateToTrending("new_albums") },
         )
         compactTrendingFilmsSection(
             movies = trendingMovies,
@@ -2102,6 +2397,7 @@ private fun UnifiedZeroStateContent(
         )
         clubMembersSection(
             clubMembers = clubMembers,
+            isLoading = isClubMembersLoading,
             allFollowedIds = allFollowedIds,
             viewModel = viewModel,
             onNavigateToUser = onNavigateToUser,
@@ -2109,12 +2405,13 @@ private fun UnifiedZeroStateContent(
         )
         newOnCorusSection(
             newUsers = newUsers,
+            isLoading = isNewUsersLoading,
             mutualConnectionUsers = mutualConnectionUsers,
             viewModel = viewModel,
             onNavigateToUser = onNavigateToUser,
             onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
         )
-        inviteFriendsSection(isSuggestedLoading = isSuggestedLoading)
+        inviteFriendsSection()
     }
 }
 
@@ -2537,6 +2834,8 @@ internal fun SectionHeader(
             "music" -> Icons.Filled.MusicNote
             "film" -> Icons.Filled.Movie
             "mic" -> Icons.Filled.Mic
+            "album" -> Icons.Filled.Album
+            "new_release" -> Icons.Filled.NewReleases
             else -> null
         }
         if (iconVector != null) {
@@ -2748,6 +3047,7 @@ internal fun TrendingSongsContent(
     onWindowChange: (TrendingWindow) -> Unit,
     onSongTap: (CymbalTrack) -> Unit,
     nowPlaying: fm.corus.android.domain.NowPlayingManager,
+    modifier: Modifier = Modifier,
 ) {
     // Chart as play queue so mini-player Next walks the list. TIDAL/Deezer
     // exclusives are excluded — link-out only, same as iOS trendingSongQueue().
@@ -2761,7 +3061,7 @@ internal fun TrendingSongsContent(
         TrendingHeader(iconName = "music", window = window, onWindowChange = onWindowChange)
     }
     if (isLoading) {
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
+        LazyColumn(state = listState, modifier = modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
             item { header() }
             items(5) { SkeletonTrendingSongRow() }
         }
@@ -2770,7 +3070,7 @@ internal fun TrendingSongsContent(
     if (songs.isEmpty()) {
         // Keep the header with its picker visible so the user can pick a
         // different window when one is empty (e.g. nothing trending this week).
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
+        LazyColumn(state = listState, modifier = modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
             item { header() }
             item {
                 Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) {
@@ -2783,7 +3083,7 @@ internal fun TrendingSongsContent(
             }
         }
     } else {
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
+        LazyColumn(state = listState, modifier = modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
             item { header() }
             itemsIndexed(songs) { index, song ->
                 TrendingSongRow(
@@ -2937,6 +3237,113 @@ private fun TrendingArtistRow(
 }
 
 @Composable
+internal fun TrendingAlbumsContent(
+    listState: LazyListState = rememberLazyListState(),
+    albums: List<TrendingAlbum>,
+    isLoading: Boolean,
+    window: TrendingWindow? = null,
+    onWindowChange: ((TrendingWindow) -> Unit)? = null,
+    showRank: Boolean = true,
+    staticHeaderIcon: String? = null,
+    staticHeaderTitle: String? = null,
+    emptyMessage: String? = null,
+    onAlbumTap: (TrendingAlbum) -> Unit,
+) {
+    val header: @Composable () -> Unit = {
+        if (window != null && onWindowChange != null) {
+            TrendingHeader(iconName = "album", window = window, onWindowChange = onWindowChange)
+        } else if (staticHeaderIcon != null && staticHeaderTitle != null) {
+            SectionHeader(icon = staticHeaderIcon, title = staticHeaderTitle.uppercase())
+        }
+    }
+    if (isLoading) {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
+            item { header() }
+            items(5) { SkeletonTrendingSongRow() }
+        }
+        return
+    }
+    if (albums.isEmpty()) {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
+            item { header() }
+            item {
+                Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        emptyMessage ?: stringResource(fm.corus.android.R.string.search_nothing_trending),
+                        style = CorusFont.bodyMedium,
+                        color = CorusColors.Secondary,
+                    )
+                }
+            }
+        }
+    } else {
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
+            item { header() }
+            itemsIndexed(albums) { index, album ->
+                TrendingAlbumRow(album = album, showRank = showRank, onClick = { onAlbumTap(album) })
+                if (index < albums.lastIndex) {
+                    HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = CorusColors.Divider, thickness = 0.5.dp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrendingAlbumRow(
+    album: TrendingAlbum,
+    showRank: Boolean = true,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (showRank) {
+            Text(
+                text = "${album.rank}",
+                style = CorusFont.bodyMedium,
+                color = CorusColors.Tertiary,
+                modifier = Modifier.width(24.dp),
+            )
+            Spacer(modifier = Modifier.width(CorusSpacing.md))
+        }
+        ShimmerAsyncImage(
+            model = album.albumArtLargeURL ?: album.albumArtURL,
+            contentDescription = album.displayTitle,
+            modifier = Modifier.size(44.dp),
+            shape = RoundedCornerShape(4.dp),
+            contentScale = ContentScale.Crop,
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                album.displayTitle,
+                style = CorusFont.bodyMedium,
+                color = CorusColors.Text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (album.artistName.isNotEmpty()) {
+                Text(
+                    album.artistName,
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (album.cymbalCount > 0) {
+            Text("${album.cymbalCount}", style = CorusFont.caption, color = CorusColors.Tertiary)
+        }
+    }
+}
+
+@Composable
 internal fun TrendingFilmsContent(
     listState: LazyListState = rememberLazyListState(),
     movies: List<TrendingMovie>,
@@ -3014,6 +3421,7 @@ private fun TrendingHeader(
         "film" -> Icons.Filled.Movie
         "hashtag" -> Icons.Filled.Tag
         "mic" -> Icons.Filled.Mic
+        "album" -> Icons.Filled.Album
         else -> null
     }
     val windowLabelRes = when (window) {

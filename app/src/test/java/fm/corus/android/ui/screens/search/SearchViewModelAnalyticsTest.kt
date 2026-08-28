@@ -87,6 +87,7 @@ class SearchViewModelAnalyticsTest {
             on { trendingFilmsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()
             on { trendingHashtagsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()
             on { trendingArtistsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()
+            on { trendingAlbumsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()
         }
         remoteConfigService = mock()
         analyticsService = mock()

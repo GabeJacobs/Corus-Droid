@@ -98,6 +98,216 @@ private data class PersistedTasteMatchesPageWrapper(
     val matches: List<PersistedSuggestedMatch>,
 )
 
+@Serializable
+private data class PersistedTrendingSong(
+    val id: String,
+    val rank: Int,
+    val trackId: String,
+    val name: String,
+    val artistName: String,
+    val albumName: String = "",
+    val albumArtURL: String? = null,
+    val albumArtLargeURL: String? = null,
+    val spotifyURI: String = "",
+    val spotifyWebURL: String = "",
+    val cymbalCount: Int = 0,
+)
+
+@Serializable
+private data class PersistedTrendingSongsWrapper(
+    val fetchedAt: Long,
+    val songs: List<PersistedTrendingSong>,
+)
+
+@Serializable
+private data class PersistedTrendingMovie(
+    val id: String,
+    val rank: Int,
+    val movieId: String,
+    val movieTitle: String,
+    val directorName: String,
+    val releaseYear: String,
+    val posterURL: String? = null,
+    val posterLargeURL: String? = null,
+    val tmdbWebURL: String = "",
+    val movieOverview: String = "",
+    val movieRating: Double = 0.0,
+    val movieCast: List<String> = emptyList(),
+    val movieReleaseDate: String? = null,
+    val cymbalCount: Int = 0,
+)
+
+@Serializable
+private data class PersistedTrendingMoviesWrapper(
+    val fetchedAt: Long,
+    val movies: List<PersistedTrendingMovie>,
+)
+
+@Serializable
+private data class PersistedTrendingAlbum(
+    val id: String,
+    val rank: Int,
+    val albumId: String,
+    val albumName: String,
+    val artistName: String,
+    val albumArtURL: String? = null,
+    val albumArtLargeURL: String? = null,
+    val cymbalCount: Int = 0,
+    val openAsSong: Boolean = false,
+    val trackId: String = "",
+    val trackName: String = "",
+    val trackReleaseDate: String = "",
+    val trackReleaseDatePrecision: String = "",
+)
+
+@Serializable
+private data class PersistedTrendingAlbumsWrapper(
+    val fetchedAt: Long,
+    val albums: List<PersistedTrendingAlbum>,
+)
+
+@Serializable
+private data class PersistedBrowseUser(
+    val id: String,
+    val username: String,
+    val displayName: String,
+    val avatarURL: String? = null,
+    val avatarThumbURL: String? = null,
+    val isVerified: Boolean = false,
+    val isClubMember: Boolean = false,
+    val followerCount: Int = 0,
+    val cymbalCount: Int = 0,
+    val createdAtMs: Long? = null,
+)
+
+@Serializable
+private data class PersistedBrowseUsersWrapper(
+    val fetchedAt: Long,
+    val users: List<PersistedBrowseUser>,
+)
+
+private fun fm.corus.android.data.model.TrendingSong.toPersisted() = PersistedTrendingSong(
+    id = id,
+    rank = rank,
+    trackId = track.id,
+    name = track.name,
+    artistName = track.artistName,
+    albumName = track.albumName,
+    albumArtURL = track.albumArtURL,
+    albumArtLargeURL = track.albumArtLargeURL,
+    spotifyURI = track.spotifyURI,
+    spotifyWebURL = track.spotifyWebURL,
+    cymbalCount = cymbalCount,
+)
+
+private fun PersistedTrendingSong.toModel() = fm.corus.android.data.model.TrendingSong(
+    id = id,
+    rank = rank,
+    track = fm.corus.android.data.model.CymbalTrack(
+        id = trackId,
+        name = name,
+        artistName = artistName,
+        albumName = albumName,
+        albumArtURL = albumArtURL,
+        albumArtLargeURL = albumArtLargeURL,
+        spotifyURI = spotifyURI,
+        spotifyWebURL = spotifyWebURL,
+    ),
+    cymbalCount = cymbalCount,
+)
+
+private fun fm.corus.android.data.model.TrendingMovie.toPersisted() = PersistedTrendingMovie(
+    id = id,
+    rank = rank,
+    movieId = movieId,
+    movieTitle = movieTitle,
+    directorName = directorName,
+    releaseYear = releaseYear,
+    posterURL = posterURL,
+    posterLargeURL = posterLargeURL,
+    tmdbWebURL = tmdbWebURL,
+    movieOverview = movieOverview,
+    movieRating = movieRating,
+    movieCast = movieCast,
+    movieReleaseDate = movieReleaseDate,
+    cymbalCount = cymbalCount,
+)
+
+private fun PersistedTrendingMovie.toModel() = fm.corus.android.data.model.TrendingMovie(
+    id = id,
+    rank = rank,
+    movieId = movieId,
+    movieTitle = movieTitle,
+    directorName = directorName,
+    releaseYear = releaseYear,
+    posterURL = posterURL,
+    posterLargeURL = posterLargeURL,
+    tmdbWebURL = tmdbWebURL,
+    movieOverview = movieOverview,
+    movieRating = movieRating,
+    movieCast = movieCast,
+    movieReleaseDate = movieReleaseDate,
+    cymbalCount = cymbalCount,
+)
+
+private fun fm.corus.android.data.model.TrendingAlbum.toPersisted() = PersistedTrendingAlbum(
+    id = id,
+    rank = rank,
+    albumId = albumId,
+    albumName = albumName,
+    artistName = artistName,
+    albumArtURL = albumArtURL,
+    albumArtLargeURL = albumArtLargeURL,
+    cymbalCount = cymbalCount,
+    openAsSong = openAsSong,
+    trackId = trackId,
+    trackName = trackName,
+    trackReleaseDate = trackReleaseDate,
+    trackReleaseDatePrecision = trackReleaseDatePrecision,
+)
+
+private fun PersistedTrendingAlbum.toModel() = fm.corus.android.data.model.TrendingAlbum(
+    id = id,
+    rank = rank,
+    albumId = albumId,
+    albumName = albumName,
+    artistName = artistName,
+    albumArtURL = albumArtURL,
+    albumArtLargeURL = albumArtLargeURL,
+    cymbalCount = cymbalCount,
+    openAsSong = openAsSong,
+    trackId = trackId,
+    trackName = trackName,
+    trackReleaseDate = trackReleaseDate,
+    trackReleaseDatePrecision = trackReleaseDatePrecision,
+)
+
+private fun CymbalUser.toBrowsePersisted() = PersistedBrowseUser(
+    id = id,
+    username = username,
+    displayName = displayName,
+    avatarURL = avatarURL,
+    avatarThumbURL = avatarThumbURL,
+    isVerified = isVerified,
+    isClubMember = isClubMember,
+    followerCount = followerCount,
+    cymbalCount = cymbalCount,
+    createdAtMs = createdAt?.time,
+)
+
+private fun PersistedBrowseUser.toModel() = CymbalUser(
+    id = id,
+    username = username,
+    displayName = displayName,
+    avatarURL = avatarURL,
+    avatarThumbURL = avatarThumbURL,
+    isVerified = isVerified,
+    isClubMember = isClubMember,
+    followerCount = followerCount,
+    cymbalCount = cymbalCount,
+    createdAt = createdAtMs?.let { java.util.Date(it) },
+)
+
 private fun SuggestedUserMatch.toPersisted() = PersistedSuggestedMatch(
     userId = user.id,
     username = user.username,
@@ -240,6 +450,7 @@ class PreferencesDataStore @Inject constructor(
         val TRENDING_FILMS_WINDOW = stringPreferencesKey("trending_films_window")
         val TRENDING_HASHTAGS_WINDOW = stringPreferencesKey("trending_hashtags_window")
         val TRENDING_ARTISTS_WINDOW = stringPreferencesKey("trending_artists_window")
+        val TRENDING_ALBUMS_WINDOW = stringPreferencesKey("trending_albums_window")
         // For You feed mode + seen-IDs ring buffer (cap 500, JSON-encoded).
         val FEED_MODE = stringPreferencesKey("feed_mode")
         // Synchronous mirror of FEED_MODE's raw value, in the same launch-critical
@@ -265,6 +476,14 @@ class PreferencesDataStore @Inject constructor(
         // the last-posted medium, and that order must be right on the picker's
         // first frame or the sections visibly reshuffle under the user.
         private const val LAST_COMPOSE_MEDIA_TYPE_SYNC_KEY = "last_compose_media_type"
+        private const val SEARCH_BROWSE_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
+        private val SEARCH_TRENDING_SONGS = stringPreferencesKey("searchBrowse_v1_trendingSongs")
+        private val SEARCH_TRENDING_MOVIES = stringPreferencesKey("searchBrowse_v1_trendingMovies")
+        private val SEARCH_TRENDING_ALBUMS = stringPreferencesKey("searchBrowse_v1_trendingAlbums")
+        private val SEARCH_NEW_RELEASE_ALBUMS = stringPreferencesKey("searchBrowse_v1_newReleaseAlbums")
+        private val SEARCH_NEW_ALBUMS = stringPreferencesKey("searchBrowse_v1_newAlbums")
+        private fun searchNewUsersKey(userId: String) = stringPreferencesKey("searchBrowse_v1_newUsers_$userId")
+        private fun searchClubKey(userId: String) = stringPreferencesKey("searchBrowse_v1_club_$userId")
     }
 
     val trendingSongsWindow: Flow<String> = dataStore.data.map { prefs ->
@@ -297,6 +516,14 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setTrendingArtistsWindow(value: String) {
         dataStore.edit { it[TRENDING_ARTISTS_WINDOW] = value }
+    }
+
+    val trendingAlbumsWindow: Flow<String> = dataStore.data.map { prefs ->
+        prefs[TRENDING_ALBUMS_WINDOW] ?: "week"
+    }
+
+    suspend fun setTrendingAlbumsWindow(value: String) {
+        dataStore.edit { it[TRENDING_ALBUMS_WINDOW] = value }
     }
 
     val autoplayNextSong: Flow<Boolean> = dataStore.data.map { prefs ->
@@ -900,5 +1127,112 @@ class PreferencesDataStore @Inject constructor(
         // only returns from the lambda, not from collect.
         val raw = dataStore.data.first()[key]
         return if (raw.isNullOrBlank()) null else raw.split(",").toSet()
+    }
+
+    // ── Search browse last-session snapshot (mirrors iOS SearchBrowseCache) ──
+
+    suspend fun persistSearchTrendingSongs(songs: List<fm.corus.android.data.model.TrendingSong>) {
+        persistBrowseEnvelope(SEARCH_TRENDING_SONGS, PersistedTrendingSongsWrapper(
+            fetchedAt = System.currentTimeMillis(),
+            songs = songs.map { it.toPersisted() },
+        ))
+    }
+
+    suspend fun loadSearchTrendingSongs(): List<fm.corus.android.data.model.TrendingSong>? {
+        val wrapper = loadBrowseEnvelope<PersistedTrendingSongsWrapper>(SEARCH_TRENDING_SONGS) ?: return null
+        return wrapper.songs.map { it.toModel() }.takeIf { it.isNotEmpty() }
+    }
+
+    suspend fun persistSearchTrendingMovies(movies: List<fm.corus.android.data.model.TrendingMovie>) {
+        persistBrowseEnvelope(SEARCH_TRENDING_MOVIES, PersistedTrendingMoviesWrapper(
+            fetchedAt = System.currentTimeMillis(),
+            movies = movies.map { it.toPersisted() },
+        ))
+    }
+
+    suspend fun loadSearchTrendingMovies(): List<fm.corus.android.data.model.TrendingMovie>? {
+        val wrapper = loadBrowseEnvelope<PersistedTrendingMoviesWrapper>(SEARCH_TRENDING_MOVIES) ?: return null
+        return wrapper.movies.map { it.toModel() }.takeIf { it.isNotEmpty() }
+    }
+
+    suspend fun persistSearchTrendingAlbums(albums: List<fm.corus.android.data.model.TrendingAlbum>) {
+        persistBrowseEnvelope(SEARCH_TRENDING_ALBUMS, PersistedTrendingAlbumsWrapper(
+            fetchedAt = System.currentTimeMillis(),
+            albums = albums.map { it.toPersisted() },
+        ))
+    }
+
+    suspend fun loadSearchTrendingAlbums(): List<fm.corus.android.data.model.TrendingAlbum>? {
+        val wrapper = loadBrowseEnvelope<PersistedTrendingAlbumsWrapper>(SEARCH_TRENDING_ALBUMS) ?: return null
+        return wrapper.albums.map { it.toModel() }.takeIf { it.isNotEmpty() }
+    }
+
+    suspend fun persistSearchNewReleaseAlbums(albums: List<fm.corus.android.data.model.TrendingAlbum>) {
+        persistBrowseEnvelope(SEARCH_NEW_RELEASE_ALBUMS, PersistedTrendingAlbumsWrapper(
+            fetchedAt = System.currentTimeMillis(),
+            albums = albums.map { it.toPersisted() },
+        ))
+    }
+
+    suspend fun loadSearchNewReleaseAlbums(): List<fm.corus.android.data.model.TrendingAlbum>? {
+        val wrapper = loadBrowseEnvelope<PersistedTrendingAlbumsWrapper>(SEARCH_NEW_RELEASE_ALBUMS) ?: return null
+        return wrapper.albums.map { it.toModel() }.takeIf { it.isNotEmpty() }
+    }
+
+    suspend fun persistSearchNewAlbums(albums: List<fm.corus.android.data.model.TrendingAlbum>) {
+        persistBrowseEnvelope(SEARCH_NEW_ALBUMS, PersistedTrendingAlbumsWrapper(
+            fetchedAt = System.currentTimeMillis(),
+            albums = albums.map { it.toPersisted() },
+        ))
+    }
+
+    suspend fun loadSearchNewAlbums(): List<fm.corus.android.data.model.TrendingAlbum>? {
+        val wrapper = loadBrowseEnvelope<PersistedTrendingAlbumsWrapper>(SEARCH_NEW_ALBUMS) ?: return null
+        return wrapper.albums.map { it.toModel() }.takeIf { it.isNotEmpty() }
+    }
+
+    suspend fun persistSearchNewUsers(users: List<CymbalUser>, userId: String) {
+        persistBrowseEnvelope(searchNewUsersKey(userId), PersistedBrowseUsersWrapper(
+            fetchedAt = System.currentTimeMillis(),
+            users = users.map { it.toBrowsePersisted() },
+        ))
+    }
+
+    suspend fun loadSearchNewUsers(userId: String): List<CymbalUser>? {
+        val wrapper = loadBrowseEnvelope<PersistedBrowseUsersWrapper>(searchNewUsersKey(userId)) ?: return null
+        return wrapper.users.map { it.toModel() }.takeIf { it.isNotEmpty() }
+    }
+
+    suspend fun persistSearchClubMembers(users: List<CymbalUser>, userId: String) {
+        persistBrowseEnvelope(searchClubKey(userId), PersistedBrowseUsersWrapper(
+            fetchedAt = System.currentTimeMillis(),
+            users = users.map { it.toBrowsePersisted() },
+        ))
+    }
+
+    suspend fun loadSearchClubMembers(userId: String): List<CymbalUser>? {
+        val wrapper = loadBrowseEnvelope<PersistedBrowseUsersWrapper>(searchClubKey(userId)) ?: return null
+        return wrapper.users.map { it.toModel() }.takeIf { it.isNotEmpty() }
+    }
+
+    private suspend inline fun <reified T> persistBrowseEnvelope(key: Preferences.Key<String>, value: T) {
+        dataStore.edit { it[key] = recentJson.encodeToString(value) }
+    }
+
+    private suspend inline fun <reified T> loadBrowseEnvelope(key: Preferences.Key<String>): T? {
+        val raw = dataStore.data.first()[key] ?: return null
+        return try {
+            val parsed = recentJson.decodeFromString<T>(raw)
+            val fetchedAt = when (parsed) {
+                is PersistedTrendingSongsWrapper -> parsed.fetchedAt
+                is PersistedTrendingMoviesWrapper -> parsed.fetchedAt
+                is PersistedTrendingAlbumsWrapper -> parsed.fetchedAt
+                is PersistedBrowseUsersWrapper -> parsed.fetchedAt
+                else -> 0L
+            }
+            if (System.currentTimeMillis() - fetchedAt > SEARCH_BROWSE_MAX_AGE_MS) null else parsed
+        } catch (_: Exception) {
+            null
+        }
     }
 }

@@ -512,6 +512,12 @@
     <string name="search_trending_films_title">热门电影</string>
     <string name="search_trending_hashtags_title">热门话题标签</string>
     <string name="search_trending_artists_title">热门艺人</string>
+    <string name="search_new_release_albums_title">新歌</string>
+    <string name="search_new_release_albums_list_title">新歌</string>
+    <string name="search_nothing_new_releases">暂时没有新歌</string>
+    <string name="search_new_albums_title">新专辑</string>
+    <string name="search_new_albums_list_title">新专辑</string>
+    <string name="search_nothing_new_albums">暂时没有新专辑</string>
     <string name="search_tab_users">用户</string>
     <string name="search_tab_songs">歌曲</string>
     <string name="search_tab_films">电影</string>
@@ -1185,6 +1191,11 @@
     <string name="compose_draft_choose_another">选择其他</string>
     <string name="feed_switch_hint_title">探索你的其他信息流</string>
     <string name="feed_switch_hint_subtitle">点按标志即可切换</string>
+    <string name="feed_mode_following">已关注</string>
+    <string name="feed_mode_trending">热门</string>
+    <string name="feed_mode_taste_matches">品味匹配</string>
+    <string name="feed_mode_favorites">收藏</string>
+    <string name="feed_mode_taste_matches_tab">匹配</string>
     <!-- Taste-match onboarding (onboarding_taste_match_enabled) - strings mirror the web locale files -->
     <string name="onboarding_sync_contacts_title">同步你的通讯录</string>
     <string name="onboarding_cta_continue">继续</string>
@@ -1413,6 +1424,11 @@
     <string name="full_player_cd_more">更多</string>
     <string name="full_player_comments_header">评论 · %1$d</string>
     <string name="full_player_add_comment">添加评论</string>
+    <plurals name="post_success_others_title">
+        <item quantity="other">还有%d人也发布了这个</item>
+    </plurals>
+    <string name="post_success_others_done">完成</string>
+    <string name="post_success_others_kicker">Corus 已设置</string>
     <plurals name="feed_taste_matches_trial_banner_active">
         <item quantity="one">免费试用 · 剩余 %1$d 天</item>
         <item quantity="other">免费试用 · 剩余 %1$d 天</item>

@@ -973,6 +973,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToFilm = { filmRoute -> navController.navigate(filmRoute) },
             onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
             onNavigateToArtist = { route -> navController.navigate(route) },
+            onNavigateToAlbum = { albumRoute -> navController.navigate(albumRoute) },
         )
     }
 

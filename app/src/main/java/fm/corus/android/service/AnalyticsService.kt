@@ -25,6 +25,9 @@ enum class SearchSection(val value: String) {
     TrendingFilms("trending_films"),
     TrendingHashtags("trending_hashtags"),
     TrendingArtists("trending_artists"),
+    TrendingAlbums("trending_albums"),
+    NewReleaseAlbums("new_release_albums"),
+    NewAlbums("new_albums"),
     ArtistsOnCorus("artists_on_corus"),
 }
 
@@ -180,6 +183,24 @@ class AnalyticsService @Inject constructor(
     fun logMusicServiceSelected(service: String) = logEvent("music_service_selected", mapOf("service" to service))
 
     // MARK: - Post Events
+
+    fun logPostSuccessOthersShown(otherCount: Int, visibleCount: Int, mediaType: String) =
+        logEvent(
+            "post_success_others_shown",
+            mapOf(
+                "other_count" to otherCount,
+                "visible_count" to visibleCount,
+                "media_type" to mediaType,
+            ),
+        )
+    fun logPostSuccessOthersFollowed(targetUserId: String) =
+        logEvent("post_success_others_followed", mapOf("target_user_id" to targetUserId))
+    fun logPostSuccessOthersProfileTapped(userId: String, mediaType: String) =
+        logEvent("post_success_others_profile_tapped", mapOf("user_id" to userId, "media_type" to mediaType))
+    fun logPostSuccessOthersSeeAllTapped(mediaType: String) =
+        logEvent("post_success_others_see_all_tapped", mapOf("media_type" to mediaType))
+    fun logPostSuccessOthersDismissed(method: String) =
+        logEvent("post_success_others_dismissed", mapOf("method" to method))
 
     fun logPostCreated(
         mediaType: String,

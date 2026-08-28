@@ -101,6 +101,60 @@ data class TrendingArtist(
     val cymbalCount: Int = 0,
 )
 
+/** One row of trending_cache/albums — song counters re-merged by album
+ *  server-side. New Releases also uses this shape; unreleased parents set
+ *  [openAsSong] and open the posted track. */
+data class TrendingAlbum(
+    val id: String,
+    val rank: Int,
+    val albumId: String,
+    val albumName: String,
+    val artistName: String,
+    val albumArtURL: String? = null,
+    val albumArtLargeURL: String? = null,
+    val cymbalCount: Int = 0,
+    val openAsSong: Boolean = false,
+    val trackId: String = "",
+    val trackName: String = "",
+    val trackReleaseDate: String = "",
+    val trackReleaseDatePrecision: String = "",
+) {
+    val displayTitle: String
+        get() = if (openAsSong && trackName.isNotEmpty()) trackName else albumName
+
+    fun asSongTrack(): CymbalTrack? {
+        val songId = trackId.trim()
+        if (songId.isEmpty()) return null
+        val name = trackName.ifEmpty { albumName }
+        val prefixed = songId.contains(":")
+        return CymbalTrack(
+            id = songId,
+            name = name,
+            artistName = artistName,
+            albumName = albumName,
+            albumId = albumId.ifEmpty { null },
+            albumArtURL = albumArtURL,
+            albumArtLargeURL = albumArtLargeURL,
+            spotifyURI = if (prefixed) "" else "spotify:track:$songId",
+            spotifyWebURL = if (prefixed) "" else "https://open.spotify.com/track/$songId",
+            releaseDate = trackReleaseDate.ifEmpty { null },
+            releaseDatePrecision = trackReleaseDatePrecision.ifEmpty {
+                if (trackReleaseDate.isNotEmpty()) "day" else null
+            },
+        )
+    }
+}
+
+sealed class TrendingAlbumOpen {
+    data class Album(
+        val albumId: String,
+        val title: String,
+        val artist: String,
+        val coverUrl: String?,
+    ) : TrendingAlbumOpen()
+    data class Song(val track: CymbalTrack) : TrendingAlbumOpen()
+}
+
 data class TrendingMovie(
     val id: String,
     val rank: Int,

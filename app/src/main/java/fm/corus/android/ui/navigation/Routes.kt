@@ -123,7 +123,8 @@ const val CATALOG_SCROLL_TO_TRACK_KEY = "catalogScrollToTrack"
 @Serializable data class EditProfileRoute(val userId: String)
 @Serializable object SearchRoute
 /** Full-screen trending list ("See all" from the search page's trending
- *  strips). [kind] is "songs" | "films" | "hashtags". */
+ *  strips). [kind] is "songs" | "films" | "hashtags" | "artists" | "albums" |
+ *  "new_release_albums" | "new_albums". */
 @Serializable data class TrendingListRoute(val kind: String)
 @Serializable data class EditCaptionRoute(val postId: String, val initialCaption: String, val albumArtURL: String? = null)
 @Serializable object SettingsRoute

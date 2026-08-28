@@ -1033,6 +1033,12 @@
     <string name="search_trending_films_title">Filmes em alta</string>
     <string name="search_trending_hashtags_title">Hashtags em alta</string>
     <string name="search_trending_artists_title">Artistas em alta</string>
+    <string name="search_new_release_albums_title">Músicas novas</string>
+    <string name="search_new_release_albums_list_title">Músicas novas</string>
+    <string name="search_nothing_new_releases">Ainda não há músicas novas</string>
+    <string name="search_new_albums_title">Álbuns novos</string>
+    <string name="search_new_albums_list_title">Álbuns novos</string>
+    <string name="search_nothing_new_albums">Ainda não há álbuns novos</string>
     <string name="search_tab_hashtags">Hashtags</string>
     <string name="search_section_trending_hashtags">HASHTAGS EM ALTA</string>
     <string name="search_no_trending_hashtags">Nenhuma hashtag em alta ainda</string>
@@ -1186,6 +1192,11 @@
     <string name="compose_draft_choose_another">Escolher outro</string>
     <string name="feed_switch_hint_title">Explore seus outros feeds</string>
     <string name="feed_switch_hint_subtitle">Toque no logo para trocar</string>
+    <string name="feed_mode_following">Seguindo</string>
+    <string name="feed_mode_trending">Em alta</string>
+    <string name="feed_mode_taste_matches">Combinações de Gosto</string>
+    <string name="feed_mode_favorites">Favoritos</string>
+    <string name="feed_mode_taste_matches_tab">Matches</string>
     <!-- Taste-match onboarding (onboarding_taste_match_enabled) - strings mirror the web locale files -->
     <string name="onboarding_sync_contacts_title">Sincronize seus contatos</string>
     <string name="onboarding_cta_continue">CONTINUAR</string>
@@ -1420,6 +1431,12 @@
     <string name="full_player_cd_more">Mais</string>
     <string name="full_player_comments_header">Comentários · %1$d</string>
     <string name="full_player_add_comment">Adicionar um comentário</string>
+    <plurals name="post_success_others_title">
+        <item quantity="one">%d outra pessoa também postou isso</item>
+        <item quantity="other">%d outras pessoas também postaram isso</item>
+    </plurals>
+    <string name="post_success_others_done">Pronto</string>
+    <string name="post_success_others_kicker">Corus definido!</string>
     <plurals name="feed_taste_matches_trial_banner_active">
         <item quantity="one">Teste grátis · %1$d dia restante</item>
         <item quantity="other">Teste grátis · %1$d dias restantes</item>

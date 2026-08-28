@@ -16,7 +16,7 @@ import org.mockito.kotlin.whenever
 class ExploreRepositoryTest {
 
     private val dataSource = mock<FirestoreDataSource>()
-    private val repo = ExploreRepository(dataSource)
+    private val repo = ExploreRepository(dataSource, mock(), mock())
 
     // Regression for the "pull-to-refresh returned stale trending" bug: a user
     // saw a corrupted trending list, and pull-to-refresh kept returning the
@@ -29,13 +29,13 @@ class ExploreRepositoryTest {
             .thenReturn(first)
             .thenReturn(second)
 
-        assertEquals(first[TrendingWindow.MONTH], repo.fetchTrendingSongs())
+        assertEquals(first[TrendingWindow.MONTH], repo.fetchTrendingSongs(TrendingWindow.MONTH))
         // Without clear, TTL would serve `first` again.
-        assertEquals(first[TrendingWindow.MONTH], repo.fetchTrendingSongs())
+        assertEquals(first[TrendingWindow.MONTH], repo.fetchTrendingSongs(TrendingWindow.MONTH))
 
         repo.clearCaches()
 
-        assertEquals(second[TrendingWindow.MONTH], repo.fetchTrendingSongs())
+        assertEquals(second[TrendingWindow.MONTH], repo.fetchTrendingSongs(TrendingWindow.MONTH))
         verify(dataSource, org.mockito.kotlin.times(2)).fetchTrendingSongsByWindow(20)
     }
 
@@ -67,6 +67,44 @@ class ExploreRepositoryTest {
 
         verify(dataSource, org.mockito.kotlin.times(1)).fetchTrendingSongsByWindow(20)
     }
+
+    @Test
+    fun `trending albums window switch is served from cache`() = runTest {
+        val all = mapOf(
+            TrendingWindow.WEEK to listOf(trendingAlbum("w")),
+            TrendingWindow.MONTH to listOf(trendingAlbum("m")),
+            TrendingWindow.YEAR to listOf(trendingAlbum("y")),
+        )
+        whenever(dataSource.fetchTrendingAlbumsByWindow(20)).thenReturn(all)
+
+        assertEquals(all[TrendingWindow.MONTH], repo.fetchTrendingAlbums(TrendingWindow.MONTH))
+        assertEquals(all[TrendingWindow.WEEK], repo.fetchTrendingAlbums(TrendingWindow.WEEK))
+        verify(dataSource, org.mockito.kotlin.times(1)).fetchTrendingAlbumsByWindow(20)
+    }
+
+    @Test
+    fun `new release albums stay cached until clearCaches`() = runTest {
+        val first = listOf(trendingAlbum("a"))
+        val second = listOf(trendingAlbum("b"))
+        whenever(dataSource.fetchNewReleaseAlbums(20))
+            .thenReturn(first)
+            .thenReturn(second)
+
+        assertEquals(first, repo.fetchNewReleaseAlbums())
+        assertEquals(first, repo.fetchNewReleaseAlbums())
+        repo.clearCaches()
+        assertEquals(second, repo.fetchNewReleaseAlbums())
+        verify(dataSource, org.mockito.kotlin.times(2)).fetchNewReleaseAlbums(20)
+    }
+
+    private fun trendingAlbum(id: String) = fm.corus.android.data.model.TrendingAlbum(
+        id = id,
+        rank = 1,
+        albumId = id,
+        albumName = id,
+        artistName = "Artist",
+        cymbalCount = 1,
+    )
 
     private fun trendingSong(id: String) = TrendingSong(
         id = id,

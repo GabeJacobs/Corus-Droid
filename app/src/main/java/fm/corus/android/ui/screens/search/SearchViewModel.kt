@@ -14,11 +14,16 @@ import fm.corus.android.data.model.RecentSearchItem
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.model.SuggestionReason
+import fm.corus.android.data.model.AlbumSearchSummary
+import fm.corus.android.data.model.TrendingAlbum
+import fm.corus.android.data.model.TrendingAlbumOpen
 import fm.corus.android.data.model.TrendingArtist
 import fm.corus.android.data.model.TrendingHashtag
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.data.model.TrendingWindow
+import fm.corus.android.data.model.albumTitlesMatch
+import fm.corus.android.data.model.resolveTrendingAlbumOpen
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.repository.AuthRepository
@@ -345,6 +350,36 @@ class SearchViewModel @Inject constructor(
     private val _isResolvingArtist = MutableStateFlow(false)
     val isResolvingArtist: StateFlow<Boolean> = _isResolvingArtist.asStateFlow()
 
+    val trendingAlbumsWindow: StateFlow<TrendingWindow> =
+        preferencesDataStore.trendingAlbumsWindow
+            .map { TrendingWindow.fromKey(it) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+
+    private val _trendingAlbums = MutableStateFlow<List<TrendingAlbum>>(emptyList())
+    val trendingAlbums: StateFlow<List<TrendingAlbum>> = _trendingAlbums.asStateFlow()
+
+    private val _isTrendingAlbumsLoading = MutableStateFlow(true)
+    val isTrendingAlbumsLoading: StateFlow<Boolean> = _isTrendingAlbumsLoading.asStateFlow()
+
+    private val _newReleaseAlbums = MutableStateFlow<List<TrendingAlbum>>(emptyList())
+    val newReleaseAlbums: StateFlow<List<TrendingAlbum>> = _newReleaseAlbums.asStateFlow()
+
+    private val _isNewReleaseAlbumsLoading = MutableStateFlow(true)
+    val isNewReleaseAlbumsLoading: StateFlow<Boolean> = _isNewReleaseAlbumsLoading.asStateFlow()
+
+    private val _newAlbums = MutableStateFlow<List<TrendingAlbum>>(emptyList())
+    val newAlbums: StateFlow<List<TrendingAlbum>> = _newAlbums.asStateFlow()
+
+    private val _isNewAlbumsLoading = MutableStateFlow(true)
+    val isNewAlbumsLoading: StateFlow<Boolean> = _isNewAlbumsLoading.asStateFlow()
+
+    private var hasLoadedTrendingAlbums = false
+    private var hasLoadedNewReleaseAlbums = false
+    private var hasLoadedNewAlbums = false
+
+    private val _isResolvingAlbum = MutableStateFlow(false)
+    val isResolvingAlbum: StateFlow<Boolean> = _isResolvingAlbum.asStateFlow()
+
     fun setTrendingSongsWindow(window: TrendingWindow) {
         viewModelScope.launch {
             preferencesDataStore.setTrendingSongsWindow(window.key)
@@ -460,6 +495,57 @@ class SearchViewModel @Inject constructor(
         } finally {
             _isResolvingArtist.value = false
         }
+    }
+
+    fun setTrendingAlbumsWindow(window: TrendingWindow) {
+        viewModelScope.launch {
+            preferencesDataStore.setTrendingAlbumsWindow(window.key)
+            _isTrendingAlbumsLoading.value = true
+            _trendingAlbums.value = emptyList()
+            val start = System.currentTimeMillis()
+            val fetched = try {
+                exploreRepository.fetchTrendingAlbums(window)
+            } catch (e: Exception) {
+                Log.e("SearchVM", "Failed to switch trending albums window", e)
+                emptyList()
+            }
+            val elapsed = System.currentTimeMillis() - start
+            if (elapsed < TRENDING_WINDOW_MIN_DISPLAY_MS) {
+                kotlinx.coroutines.delay(TRENDING_WINDOW_MIN_DISPLAY_MS - elapsed)
+            }
+            _trendingAlbums.value = fetched
+            _isTrendingAlbumsLoading.value = false
+        }
+    }
+
+    suspend fun resolveTrendingAlbum(album: TrendingAlbum): TrendingAlbumOpen? {
+        if (_isResolvingAlbum.value) return null
+        _isResolvingAlbum.value = true
+        return try {
+            resolveTrendingAlbumOpen(
+                album = album,
+                fetchCatalog = { id, name, artist ->
+                    runCatching { cloudFunctions.fetchAlbumCatalog(id, name, artist) }.getOrNull()
+                },
+                resolveByName = { name, artist -> resolveAlbumByName(name, artist) },
+                today = java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString(),
+            )
+        } finally {
+            _isResolvingAlbum.value = false
+        }
+    }
+
+    private suspend fun resolveAlbumByName(name: String, artist: String): AlbumSearchSummary? {
+        val query = listOf(name, artist).filter { it.isNotBlank() }.joinToString(" ")
+        if (query.isBlank()) return null
+        val page = musicSearchRepository.search(
+            query = query,
+            limit = 5,
+            includeAlbums = true,
+            albumsMatchArtist = true,
+        )
+        return page.albums.firstOrNull { albumTitlesMatch(it.title, name) }
+            ?: page.albums.firstOrNull()
     }
 
     companion object {
@@ -587,6 +673,7 @@ class SearchViewModel @Inject constructor(
                     _isSuggestedLoading.value = false
                 }
             }
+            viewModelScope.launch { hydrateBrowseSnapshot(uid) }
         }
         // Fetch taste matches and mutual connections (Firestore) in parallel,
         // then merge them — matching how iOS loads suggestions. Taste matches go
@@ -699,7 +786,9 @@ class SearchViewModel @Inject constructor(
         }
         viewModelScope.launch {
             try {
-                _trendingSongs.value = exploreRepository.fetchTrendingSongs(trendingSongsWindow.value)
+                val songs = exploreRepository.fetchTrendingSongs(trendingSongsWindow.value)
+                _trendingSongs.value = songs
+                if (songs.isNotEmpty()) preferencesDataStore.persistSearchTrendingSongs(songs)
             } catch (e: Exception) {
                 Log.e("SearchVM", "Failed to load trending songs", e)
             }
@@ -707,7 +796,9 @@ class SearchViewModel @Inject constructor(
         }
         viewModelScope.launch {
             try {
-                _trendingMovies.value = exploreRepository.fetchTrendingMovies(trendingFilmsWindow.value)
+                val movies = exploreRepository.fetchTrendingMovies(trendingFilmsWindow.value)
+                _trendingMovies.value = movies
+                if (movies.isNotEmpty()) preferencesDataStore.persistSearchTrendingMovies(movies)
             } catch (e: Exception) {
                 Log.e("SearchVM", "Failed to load trending movies", e)
             }
@@ -739,6 +830,14 @@ class SearchViewModel @Inject constructor(
             if (forceRefresh) hasLoadedTrendingArtists = false
             loadTrendingArtistsIfNeeded()
         }
+        if (forceRefresh) {
+            hasLoadedTrendingAlbums = false
+            hasLoadedNewReleaseAlbums = false
+            hasLoadedNewAlbums = false
+        }
+        loadTrendingAlbumsIfNeeded()
+        loadNewReleaseAlbumsIfNeeded()
+        loadNewAlbumsIfNeeded()
     }
 
     // Cold-start poll: if the initial fetch returned no taste matches, the
@@ -824,6 +923,44 @@ class SearchViewModel @Inject constructor(
         return profile.cymbalCount < TASTE_MATCH_MIN_POSTS
     }
 
+    private suspend fun hydrateBrowseSnapshot(uid: String) {
+        val songs = preferencesDataStore.loadSearchTrendingSongs()
+        if (!songs.isNullOrEmpty() && _trendingSongs.value.isEmpty()) {
+            _trendingSongs.value = songs
+            _isTrendingLoading.value = false
+        }
+        val movies = preferencesDataStore.loadSearchTrendingMovies()
+        if (!movies.isNullOrEmpty() && _trendingMovies.value.isEmpty()) {
+            _trendingMovies.value = movies
+            _isTrendingMoviesLoading.value = false
+        }
+        val newUsers = preferencesDataStore.loadSearchNewUsers(uid)
+        if (!newUsers.isNullOrEmpty() && _newUsers.value.isEmpty()) {
+            _newUsers.value = newUsers
+            _isNewUsersLoading.value = false
+        }
+        val club = preferencesDataStore.loadSearchClubMembers(uid)
+        if (!club.isNullOrEmpty() && _clubMembers.value.isEmpty()) {
+            _clubMembers.value = club
+            _isClubMembersLoading.value = false
+        }
+        val albums = preferencesDataStore.loadSearchTrendingAlbums()
+        if (!albums.isNullOrEmpty() && _trendingAlbums.value.isEmpty()) {
+            _trendingAlbums.value = albums
+            _isTrendingAlbumsLoading.value = false
+        }
+        val newReleases = preferencesDataStore.loadSearchNewReleaseAlbums()
+        if (!newReleases.isNullOrEmpty() && _newReleaseAlbums.value.isEmpty()) {
+            _newReleaseAlbums.value = newReleases
+            _isNewReleaseAlbumsLoading.value = false
+        }
+        val newAlbums = preferencesDataStore.loadSearchNewAlbums()
+        if (!newAlbums.isNullOrEmpty() && _newAlbums.value.isEmpty()) {
+            _newAlbums.value = newAlbums
+            _isNewAlbumsLoading.value = false
+        }
+    }
+
     private fun loadNewUsers() {
         val uid = authRepository.currentUserId ?: return
         viewModelScope.launch {
@@ -834,6 +971,7 @@ class SearchViewModel @Inject constructor(
                 )
                 Log.d("SearchVM", "New users loaded: ${newOnes.size}")
                 _newUsers.value = newOnes
+                if (newOnes.isNotEmpty()) preferencesDataStore.persistSearchNewUsers(newOnes, uid)
             } catch (e: Exception) {
                 Log.e("SearchVM", "Failed to load new users", e)
             }
@@ -855,6 +993,7 @@ class SearchViewModel @Inject constructor(
                 )
                 Log.d("SearchVM", "Club members loaded: ${members.size}")
                 _clubMembers.value = members
+                if (members.isNotEmpty()) preferencesDataStore.persistSearchClubMembers(members, uid)
             } catch (e: Exception) {
                 Log.e("SearchVM", "Failed to load club members", e)
             }
@@ -1166,6 +1305,54 @@ class SearchViewModel @Inject constructor(
                 hasLoadedTrendingArtists = false
             }
             _isTrendingArtistsLoading.value = false
+        }
+    }
+
+    private fun loadTrendingAlbumsIfNeeded() {
+        if (hasLoadedTrendingAlbums) return
+        hasLoadedTrendingAlbums = true
+        viewModelScope.launch {
+            try {
+                val loaded = exploreRepository.fetchTrendingAlbums(trendingAlbumsWindow.value)
+                _trendingAlbums.value = loaded
+                if (loaded.isNotEmpty()) preferencesDataStore.persistSearchTrendingAlbums(loaded)
+            } catch (e: Exception) {
+                Log.e("SearchVM", "Failed to load trending albums", e)
+                hasLoadedTrendingAlbums = false
+            }
+            _isTrendingAlbumsLoading.value = false
+        }
+    }
+
+    private fun loadNewReleaseAlbumsIfNeeded() {
+        if (hasLoadedNewReleaseAlbums) return
+        hasLoadedNewReleaseAlbums = true
+        viewModelScope.launch {
+            try {
+                val loaded = exploreRepository.fetchNewReleaseAlbums()
+                _newReleaseAlbums.value = loaded
+                if (loaded.isNotEmpty()) preferencesDataStore.persistSearchNewReleaseAlbums(loaded)
+            } catch (e: Exception) {
+                Log.e("SearchVM", "Failed to load new-release albums", e)
+                hasLoadedNewReleaseAlbums = false
+            }
+            _isNewReleaseAlbumsLoading.value = false
+        }
+    }
+
+    private fun loadNewAlbumsIfNeeded() {
+        if (hasLoadedNewAlbums) return
+        hasLoadedNewAlbums = true
+        viewModelScope.launch {
+            try {
+                val loaded = exploreRepository.fetchNewAlbums()
+                _newAlbums.value = loaded
+                if (loaded.isNotEmpty()) preferencesDataStore.persistSearchNewAlbums(loaded)
+            } catch (e: Exception) {
+                Log.e("SearchVM", "Failed to load new albums", e)
+                hasLoadedNewAlbums = false
+            }
+            _isNewAlbumsLoading.value = false
         }
     }
 
