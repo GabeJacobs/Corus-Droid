@@ -46,6 +46,8 @@ import fm.corus.android.data.repository.MusicSearchRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.data.repository.TMDBRepository
+import fm.corus.android.domain.HapticManager
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -586,6 +588,7 @@ private fun PickerSegmentedToggle(
     onSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHapticManager.current
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -604,7 +607,12 @@ private fun PickerSegmentedToggle(
                             Modifier
                         }
                     )
-                    .clickable { onSelected(index) }
+                    .clickable {
+                        if (index != selectedIndex) {
+                            haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                        }
+                        onSelected(index)
+                    }
                     .padding(vertical = CorusSpacing.sm),
                 contentAlignment = Alignment.Center,
             ) {

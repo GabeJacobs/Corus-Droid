@@ -107,6 +107,7 @@ import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.data.model.TrendingWindow
+import fm.corus.android.domain.DestinationResolvingOverlay
 import fm.corus.android.domain.HapticManager
 import kotlinx.coroutines.launch
 import fm.corus.android.domain.QueuedTrack
@@ -133,7 +134,8 @@ import fm.corus.android.ui.components.SkeletonUserRow
 // TasteMatchCard is now rendered inside HorizontalTasteMatchesRail, not here.
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
-import fm.corus.android.ui.screens.feed.FeedChromeCollapseMath
+import fm.corus.android.ui.screens.feed.ModeTabBar
+import fm.corus.android.ui.screens.feed.PagerMidpointHaptic
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -349,28 +351,23 @@ fun SearchScreen(
         SearchTab.entries.size
     }
     val searchHaptics = LocalHapticManager.current
+    val pagerActiveTab = rememberUpdatedState(activeTabIndex)
     LaunchedEffect(activeTabIndex) {
-        if (browsePagerState.currentPage != activeTabIndex && !browsePagerState.isScrollInProgress) {
+        if (browsePagerState.settledPage != activeTabIndex && !browsePagerState.isScrollInProgress) {
             browsePagerState.animateScrollToPage(activeTabIndex, animationSpec = tween(180))
         }
     }
     LaunchedEffect(browsePagerState) {
         snapshotFlow { browsePagerState.settledPage }.collect { page ->
-            if (page != activeTabIndex) viewModel.setActiveTab(page)
+            if (page != pagerActiveTab.value) viewModel.setActiveTab(page)
         }
     }
     val browsePagerOffset = browsePagerState.currentPage + browsePagerState.currentPageOffsetFraction
-    var lastBrowseHapticPage by remember { mutableFloatStateOf(browsePagerOffset) }
-    LaunchedEffect(browsePagerState) {
-        snapshotFlow { browsePagerState.currentPage + browsePagerState.currentPageOffsetFraction }
-            .collect { page ->
-                if (browsePagerState.isScrollInProgress &&
-                    FeedChromeCollapseMath.crossedMidpoint(lastBrowseHapticPage, page)
-                ) {
-                    searchHaptics.impact(HapticManager.ImpactStyle.LIGHT)
-                }
-                lastBrowseHapticPage = page
-            }
+    PagerMidpointHaptic(
+        pagerState = browsePagerState,
+        enabled = showBrowseTabs,
+    ) {
+        searchHaptics.impact(HapticManager.ImpactStyle.LIGHT)
     }
 
     var lastScrollTrigger by rememberSaveable { mutableIntStateOf(0) }
@@ -457,7 +454,13 @@ fun SearchScreen(
             .sortedByDescending { it.suggestionReason?.mutualCount ?: 0 }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background).nestedScroll(scrollDismissConnection)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CorusColors.Background)
+            .statusBarsPadding()
+            .nestedScroll(scrollDismissConnection),
+    ) {
         SearchBarSection(
             query = searchQuery,
             showClearButton = searchQuery.isNotBlank() || isSearchFocused,
@@ -898,7 +901,7 @@ private fun SearchBarSection(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = CorusSpacing.lg)
-            .padding(top = CorusSpacing.sm, bottom = CorusSpacing.xs)
+            .padding(top = CorusSpacing.md, bottom = CorusSpacing.xs)
             .onFocusChanged { onFocusChanged(it.isFocused) },
         placeholder = {
             Text(placeholder, style = CorusFont.body, color = CorusColors.Tertiary)
@@ -936,111 +939,23 @@ private fun SearchCategoryTabBar(
     artistPagesEnabled: Boolean,
     onSelect: (SearchTab) -> Unit,
 ) {
-    val frames = remember { mutableStateMapOf<Int, Rect>() }
-    var barBounds by remember { mutableStateOf(Rect.Zero) }
-    val density = LocalDensity.current
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp)
-                .onGloballyPositioned { barBounds = it.boundsInWindow() },
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Bottom,
-            ) {
-                tabs.forEachIndexed { index, tab ->
-                    if (index > 0) {
-                        Spacer(Modifier.widthIn(min = 8.dp).weight(1f))
-                    }
-                    val activation = FeedChromeCollapseMath.tabActivation(pagerOffset, index)
-                    val isSelected = selected == tab
-                    val labelRes = when {
-                        artistPagesEnabled && tab == SearchTab.SONGS -> fm.corus.android.R.string.search_tab_music
-                        artistPagesEnabled && tab == SearchTab.FILMS -> fm.corus.android.R.string.search_tab_film
-                        else -> tab.labelRes
-                    }
-                    Column(
-                        modifier = Modifier
-                            .wrapContentWidth()
-                            .clickable(
-                                interactionSource = remember(tab) { MutableInteractionSource() },
-                                indication = null,
-                                role = Role.Tab,
-                                onClick = { onSelect(tab) },
-                            )
-                            .semantics { this.selected = isSelected }
-                            .padding(top = 6.dp, bottom = 2.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            text = stringResource(labelRes),
-                            style = CorusFont.custom(if (activation >= 0.5f) 800 else 500, 14),
-                            color = androidx.compose.ui.graphics.lerp(
-                                CorusColors.Secondary,
-                                CorusColors.Text,
-                                activation,
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Clip,
-                            softWrap = false,
-                        )
-                        Box(
-                            modifier = Modifier
-                                .height(2.dp)
-                                .fillMaxWidth()
-                                .onGloballyPositioned { coords ->
-                                    val window = coords.boundsInWindow()
-                                    frames[index] = Rect(
-                                        left = window.left - barBounds.left,
-                                        top = window.top - barBounds.top,
-                                        right = window.right - barBounds.left,
-                                        bottom = window.bottom - barBounds.top,
-                                    )
-                                },
-                        )
-                    }
-                }
-            }
-
-            val placement = searchUnderlinePlacement(tabs.size, pagerOffset, frames)
-            if (placement != null) {
-                Box(
-                    modifier = Modifier
-                        .offset { IntOffset(placement.left.roundToInt(), placement.top.roundToInt()) }
-                        .width(with(density) { placement.width.toDp() })
-                        .height(2.dp)
-                        .clip(RoundedCornerShape(percent = 50))
-                        .background(CorusColors.Accent),
-                )
-            }
+    val labels = ArrayList<String>(tabs.size)
+    for (tab in tabs) {
+        val labelRes = when {
+            artistPagesEnabled && tab == SearchTab.SONGS -> fm.corus.android.R.string.search_tab_music
+            artistPagesEnabled && tab == SearchTab.FILMS -> fm.corus.android.R.string.search_tab_film
+            else -> tab.labelRes
         }
-        HorizontalDivider(thickness = 1.dp, color = CorusColors.Divider)
+        labels.add(stringResource(labelRes))
     }
-}
-
-private fun searchUnderlinePlacement(
-    tabCount: Int,
-    pagerOffset: Float,
-    frames: Map<Int, Rect>,
-): Rect? {
-    if (tabCount <= 0) return null
-    val maxPage = (tabCount - 1).toFloat()
-    val page = pagerOffset.coerceIn(0f, maxPage)
-    val i0 = page.toInt().coerceIn(0, tabCount - 1)
-    val i1 = (i0 + 1).coerceAtMost(tabCount - 1)
-    val f0 = frames[i0] ?: return null
-    val f1 = frames[i1] ?: return null
-    val t = page - i0
-    return Rect(
-        left = f0.left + (f1.left - f0.left) * t,
-        top = f0.top,
-        right = f0.left + (f1.left - f0.left) * t + f0.width + (f1.width - f0.width) * t,
-        bottom = f0.top + f0.height,
+    ModeTabBar(
+        labels = labels,
+        selectedIndex = tabs.indexOf(selected).coerceAtLeast(0),
+        pagerOffset = pagerOffset,
+        onSelect = { index -> tabs.getOrNull(index)?.let(onSelect) },
     )
 }
+
 
 @Composable
 private fun RecentSearchesOverlay(

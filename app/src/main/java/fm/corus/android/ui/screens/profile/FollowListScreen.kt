@@ -28,7 +28,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.domain.HapticManager
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.UserAvatarView
+import fm.corus.android.ui.screens.feed.PagerMidpointHaptic
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -167,6 +170,10 @@ private fun FollowListPager(
     val initialPage = tabs.indexOf(initialTab).coerceAtLeast(0)
     val pagerState = rememberPagerState(initialPage = initialPage) { tabs.size }
     val scope = rememberCoroutineScope()
+    val haptics = LocalHapticManager.current
+    PagerMidpointHaptic(pagerState = pagerState, enabled = true) {
+        haptics.impact(HapticManager.ImpactStyle.LIGHT)
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         TabRow(
@@ -193,7 +200,12 @@ private fun FollowListPager(
                 val selected = pagerState.currentPage == index
                 Tab(
                     selected = selected,
-                    onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                    onClick = {
+                        if (pagerState.currentPage != index) {
+                            haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                            scope.launch { pagerState.animateScrollToPage(index) }
+                        }
+                    },
                     text = {
                         Text(
                             label,

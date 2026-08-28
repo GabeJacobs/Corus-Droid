@@ -2,6 +2,7 @@ package fm.corus.android.domain
 
 import android.content.Context
 import android.os.Build
+import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -59,15 +60,19 @@ class HapticManager @Inject constructor(
     /** Whether this device has a vibrator capable of producing haptic feedback. */
     fun hasVibrator(): Boolean = vibrator.hasVibrator()
 
-    /** Light impact — button taps, selections. */
+    /** Light impact — button taps, tab switches. Matches iOS `.light`. */
     fun impact(style: ImpactStyle = ImpactStyle.LIGHT) {
         if (!isEnabled()) return
+        if (style == ImpactStyle.LIGHT && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            vibrateTouch(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+            return
+        }
         val amplitude = when (style) {
             ImpactStyle.LIGHT -> 40
             ImpactStyle.MEDIUM -> 100
             ImpactStyle.HEAVY -> 200
         }
-        vibrator.vibrate(VibrationEffect.createOneShot(20, amplitude))
+        vibrateTouch(VibrationEffect.createOneShot(20, amplitude))
     }
 
     /** Notification-style feedback — success, warning, error. */
@@ -84,7 +89,22 @@ class HapticManager @Inject constructor(
     /** Selection tick — subtle change feedback. */
     fun selection() {
         if (!isEnabled()) return
-        vibrator.vibrate(VibrationEffect.createOneShot(10, 30))
+        vibrateTouch(VibrationEffect.createOneShot(10, 30))
+    }
+
+    /**
+     * USAGE_TOUCH so the tick is allowed while a finger is still down
+     * (page-tab swipe). Untagged one-shots are often swallowed mid-gesture.
+     */
+    private fun vibrateTouch(effect: VibrationEffect) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val attrs = VibrationAttributes.Builder()
+                .setUsage(VibrationAttributes.USAGE_TOUCH)
+                .build()
+            vibrator.vibrate(effect, attrs)
+        } else {
+            vibrator.vibrate(effect)
+        }
     }
 
     private fun isEnabled(): Boolean = cachedEnabled

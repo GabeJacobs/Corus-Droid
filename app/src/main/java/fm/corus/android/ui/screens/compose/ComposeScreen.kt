@@ -67,11 +67,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalMovie
+import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.PostSuccessOthersPayload
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.FilmSearchResultRow
 import fm.corus.android.ui.components.SkeletonFilmRow
 import fm.corus.android.ui.components.SkeletonSongRow
@@ -1572,6 +1574,7 @@ private fun SegmentedToggle(
     onSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHapticManager.current
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -1590,7 +1593,12 @@ private fun SegmentedToggle(
                             Modifier
                         }
                     )
-                    .clickable { onSelected(index) }
+                    .clickable {
+                        if (index != selectedIndex) {
+                            haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                        }
+                        onSelected(index)
+                    }
                     .padding(vertical = CorusSpacing.sm),
                 contentAlignment = Alignment.Center,
             ) {

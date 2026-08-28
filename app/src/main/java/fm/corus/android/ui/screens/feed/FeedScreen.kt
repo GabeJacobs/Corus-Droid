@@ -94,6 +94,9 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -415,8 +418,9 @@ fun FeedScreen(
     }
 
     val header: @Composable () -> Unit = {
-        // Clear the frosted status strip so the "corus" switcher sits just below it.
-        if (immersive) Spacer(Modifier.height(frost.statusBarPadding))
+        // Tabbed chrome applies the status-bar inset itself (iOS windowTopInset)
+        // so this spacer is only for the in-list header.
+        if (immersive && !feedModeTabsVisible) Spacer(Modifier.height(frost.statusBarPadding))
         FeedHeader(
             showPlaylistButton = feedMediaFilter != MediaType.MOVIE,
             playlistReady = posts.isNotEmpty(),
@@ -473,42 +477,60 @@ fun FeedScreen(
     val pagerState = rememberPagerState(initialPage = initialTabPage) {
         tabBarModes.size.coerceAtLeast(1)
     }
+    // Pager → mode must not restart when feedMode changes. Restarting
+    // re-emits the *old* settled page and writes Following back, which
+    // then animates the pager home — a Following ↔ Matches loop.
+    val pagerFeedMode = rememberUpdatedState(feedMode)
+    val pagerTabModes = rememberUpdatedState(tabBarModes)
     LaunchedEffect(feedMode, tabBarModes, feedModeTabsVisible) {
         if (!feedModeTabsVisible) return@LaunchedEffect
         val index = tabBarModes.indexOf(feedMode)
-        if (index >= 0 && pagerState.currentPage != index && !pagerState.isScrollInProgress) {
+        if (index >= 0 && pagerState.settledPage != index && !pagerState.isScrollInProgress) {
             pagerState.animateScrollToPage(index, animationSpec = tween(durationMillis = 180))
         }
     }
-    LaunchedEffect(pagerState, feedModeTabsVisible, tabBarModes, feedMode) {
+    LaunchedEffect(pagerState, feedModeTabsVisible) {
         if (!feedModeTabsVisible) return@LaunchedEffect
         snapshotFlow { pagerState.settledPage }.collect { page ->
-            val mode = tabBarModes.getOrNull(page) ?: return@collect
-            if (mode != feedMode) viewModel.setFeedMode(mode)
+            val mode = pagerTabModes.value.getOrNull(page) ?: return@collect
+            if (mode != pagerFeedMode.value) viewModel.setFeedMode(mode)
         }
     }
     val pagerOffset = pagerState.currentPage + pagerState.currentPageOffsetFraction
     val chromeCollapse = remember { FeedChromeCollapse() }
-    var lastHapticPage by remember { mutableFloatStateOf(pagerOffset) }
-    LaunchedEffect(pagerState, feedModeTabsVisible) {
-        if (!feedModeTabsVisible) return@LaunchedEffect
-        snapshotFlow { pagerState.currentPage + pagerState.currentPageOffsetFraction }
-            .collect { page ->
-                if (pagerState.isScrollInProgress &&
-                    FeedChromeCollapseMath.crossedMidpoint(lastHapticPage, page)
-                ) {
-                    haptics.impact(HapticManager.ImpactStyle.LIGHT)
-                }
-                lastHapticPage = page
-            }
+    PagerMidpointHaptic(
+        pagerState = pagerState,
+        enabled = feedModeTabsVisible,
+    ) {
+        haptics.impact(HapticManager.ImpactStyle.LIGHT)
     }
-    LaunchedEffect(listState, feedMode, feedModeTabsVisible) {
-        if (!feedModeTabsVisible) return@LaunchedEffect
-        chromeCollapse.resetAnchor()
-        snapshotFlow {
-            listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
-        }.collect { (index, offset) ->
-            chromeCollapse.applyListScroll(index, offset)
+    val tabsVisibleNow = rememberUpdatedState(feedModeTabsVisible)
+    val chromeScrollConnection = remember(chromeCollapse) {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset {
+                if (!tabsVisibleNow.value || source != NestedScrollSource.UserInput) {
+                    return Offset.Zero
+                }
+                // List actually moved: hide on scroll-down, reveal on scroll-up.
+                // Do not steal deltas in onPreScroll — that caused the chrome
+                // (and a black gap) to jump in mid-feed.
+                if (consumed.y != 0f) {
+                    chromeCollapse.applyFingerDelta(-consumed.y)
+                    return Offset.Zero
+                }
+                // At the top, the list can't move. Pull-down reveals chrome
+                // before PTR starts.
+                if (available.y > 0f && chromeCollapse.hiddenPx > 0f) {
+                    val before = chromeCollapse.hiddenPx
+                    chromeCollapse.applyFingerDelta(-available.y)
+                    return Offset(0f, before - chromeCollapse.hiddenPx)
+                }
+                return Offset.Zero
+            }
         }
     }
     LaunchedEffect(pagerState, feedModeTabsVisible) {
@@ -521,13 +543,23 @@ fun FeedScreen(
     }
 
     @Composable
-    fun FeedPageStates(includeHeader: Boolean) {
+    fun FeedPageStates(includeHeader: Boolean, chromeTop: Dp = 0.dp) {
+        // Pad *inside* the scroll, never the list viewport. Outer padding
+        // resized the LazyColumn mid-drag and jumped the feed.
+        @Composable
+        fun ChromeInset() {
+            if (chromeTop > 0.dp) Spacer(Modifier.fillMaxWidth().height(chromeTop))
+        }
+        Box(Modifier.fillMaxSize()) {
         when {
             // Loading skeleton state — show until first load completes, while a
             // refresh (e.g. filter change) is in flight with no posts yet, or
             // during the Taste Matches seed hand-off (post 3 → loading the feed).
             posts.isEmpty() && (!hasLoaded || isLoading || isRefreshing || tasteMatchesSeeding) -> {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = chromeTop),
+                ) {
                     if (includeHeader) item { header() }
                     items(3) {
                         SkeletonPostCard()
@@ -545,6 +577,7 @@ fun FeedScreen(
                 tasteMatchesGate is FeedViewModel.TasteMatchesGate.NeedMorePosts -> {
                 val gate = tasteMatchesGate as FeedViewModel.TasteMatchesGate.NeedMorePosts
                 Column(modifier = Modifier.fillMaxSize()) {
+                    ChromeInset()
                     if (includeHeader) header()
                     // Center the cold-start in the space below the header (mirrors
                     // iOS, which brackets the content with flexible Spacers). The
@@ -588,6 +621,7 @@ fun FeedScreen(
                         .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    ChromeInset()
                     if (includeHeader) header()
                     TasteMatchesPaywallState(
                         onLearnMore = {
@@ -613,6 +647,7 @@ fun FeedScreen(
                         .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    ChromeInset()
                     if (includeHeader) header()
                     TasteMatchesNeutralEmpty()
                 }
@@ -635,6 +670,7 @@ fun FeedScreen(
                         .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    ChromeInset()
                     if (includeHeader) header()
                     TasteMatchesNoMatchesYet(onPost = onNavigateToCompose)
                 }
@@ -653,6 +689,7 @@ fun FeedScreen(
                         .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    ChromeInset()
                     if (includeHeader) header()
                     Spacer(modifier = Modifier.height(60.dp))
                     Icon(
@@ -733,6 +770,7 @@ fun FeedScreen(
                         .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    ChromeInset()
                     if (includeHeader) header()
                     Spacer(modifier = Modifier.height(60.dp))
                     Icon(
@@ -786,6 +824,7 @@ fun FeedScreen(
                         .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    ChromeInset()
                     if (includeHeader) header()
                     Spacer(modifier = Modifier.height(60.dp))
                     Icon(
@@ -859,6 +898,7 @@ fun FeedScreen(
                         .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    ChromeInset()
                     if (includeHeader) header()
                     Spacer(modifier = Modifier.height(60.dp))
                     Icon(
@@ -915,6 +955,7 @@ fun FeedScreen(
                         .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    ChromeInset()
                     if (includeHeader) header()
                     FeedDecadeEmptyState(
                         decade = feedDecade,
@@ -930,6 +971,7 @@ fun FeedScreen(
                 val inviteShareText = stringResource(R.string.feed_empty_invite_share_text)
                 val inviteChooser = stringResource(R.string.feed_empty_invite_chooser)
                 Column(modifier = Modifier.fillMaxSize()) {
+                    ChromeInset()
                     if (includeHeader) header()
                     PopularUsersInfiniteGrid(
                         excludeIds = emptySet(),
@@ -989,6 +1031,7 @@ fun FeedScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = chromeTop),
                 ) {
                     if (includeHeader) item { header() }
                     if (showTasteMatchesTrialBanner) {
@@ -1219,6 +1262,7 @@ fun FeedScreen(
                 }
             }
         }
+        }
     }
 
     fun refreshFeed() {
@@ -1227,7 +1271,7 @@ fun FeedScreen(
     }
 
     @Composable
-    fun FeedPullBox(includeHeader: Boolean, topPad: Boolean) {
+    fun FeedPullBox(includeHeader: Boolean, topPad: Boolean, chromeTop: Dp = 0.dp) {
         PullToRefreshBox(
             isRefreshing = isRefreshing,
             onRefresh = { refreshFeed() },
@@ -1243,21 +1287,30 @@ fun FeedScreen(
                     isRefreshing = isRefreshing,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .padding(top = if (topPad && immersive) frost.statusBarPadding else 0.dp),
+                        .padding(
+                            top = when {
+                                chromeTop > 0.dp -> chromeTop
+                                topPad && immersive -> frost.statusBarPadding
+                                else -> 0.dp
+                            },
+                        ),
                 )
             },
         ) {
-            FeedPageStates(includeHeader = includeHeader)
+            FeedPageStates(includeHeader = includeHeader, chromeTop = chromeTop)
         }
     }
 
     @Composable
-    fun NeighborFeedPage(pageMode: String) {
+    fun NeighborFeedPage(pageMode: String, chromeTop: Dp = 0.dp) {
         // Read the revision so a stash/restore recomposes neighbor pages.
         pageCacheRevision
         val pagePosts = viewModel.postsForTabPage(pageMode)
         if (pagePosts.isEmpty()) {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = chromeTop),
+            ) {
                 items(3) {
                     SkeletonPostCard()
                     if (it < 2) HorizontalDivider(color = CorusColors.Divider)
@@ -1267,6 +1320,7 @@ fun FeedScreen(
             LazyColumn(
                 state = listStateFor(pageMode),
                 modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = chromeTop),
             ) {
                 itemsIndexed(pagePosts, key = { _, post -> "$pageMode-${post.id}" }) { _, post ->
                     val engagement = engagementStates[post.id]
@@ -1315,19 +1369,44 @@ fun FeedScreen(
 
     Box(modifier = frost.scaffoldModifier) {
     if (feedModeTabsVisible) {
-        Column(
+        // Overlay chrome on the pager like iOS so hide/reveal does not
+        // resize the list (that locked the header collapsed).
+        val chromeTop = with(LocalDensity.current) {
+            chromeCollapse.contentPadPx(
+                unmeasuredEstimatePx = (frost.statusBarPadding + 74.dp).toPx(),
+            ).toDp()
+        }
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .then(frost.hazeSourceModifier())
-                .contentHazeSource(),
+                .contentHazeSource()
+                .nestedScroll(chromeScrollConnection),
         ) {
-            FeedCollapsingChrome(collapse = chromeCollapse) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                beyondViewportPageCount = 1,
+            ) { page ->
+                val pageMode = tabBarModes.getOrNull(page) ?: return@HorizontalPager
+                val isSelected = pageMode == feedMode
+                if (isSelected) {
+                    FeedPullBox(includeHeader = false, topPad = false, chromeTop = chromeTop)
+                } else {
+                    NeighborFeedPage(pageMode, chromeTop = chromeTop)
+                }
+            }
+            FeedCollapsingChrome(
+                collapse = chromeCollapse,
+                topInset = frost.statusBarPadding,
+            ) {
                 header()
                 Spacer(Modifier.height(CorusSpacing.xxs))
                 FeedModeTabBar(
                     modes = tabBarModes,
                     selected = feedMode,
                     pagerOffset = pagerOffset,
+                    showDivider = false,
                     onSelect = { mode ->
                         haptics.impact(HapticManager.ImpactStyle.LIGHT)
                         chromeCollapse.reveal()
@@ -1343,25 +1422,6 @@ fun FeedScreen(
                         viewModel.setFeedMode(mode)
                     },
                 )
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-            ) {
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxSize(),
-                    beyondViewportPageCount = 1,
-                ) { page ->
-                    val pageMode = tabBarModes.getOrNull(page) ?: return@HorizontalPager
-                    val isSelected = pageMode == feedMode
-                    if (isSelected) {
-                        FeedPullBox(includeHeader = false, topPad = false)
-                    } else {
-                        NeighborFeedPage(pageMode)
-                    }
-                }
             }
         }
     } else {
@@ -2294,6 +2354,11 @@ internal fun FeedHeader(
             )
         }
 
+        // iOS header hugs the wordmark (32pt icons). Material IconButtons
+        // are 48dp and were adding a band of air above the tab row.
+        Box(
+            modifier = if (tabsVisible) Modifier.matchParentSize() else Modifier.fillMaxWidth(),
+        ) {
         if (showPlaylistButton) {
             val playlistAlpha by animateFloatAsState(
                 targetValue = if (playlistReady) 1f else 0.4f,
@@ -2488,6 +2553,7 @@ internal fun FeedHeader(
                     color = CorusColors.Accent,
                 )
             }
+        }
         }
     }
 }
