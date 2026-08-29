@@ -87,6 +87,27 @@ class TMDBRepository @Inject constructor(
         return filterDirectorSearchResults(tmdbApi.searchPeople(query).results, query)
     }
 
+    private val directorByNameCache = ConcurrentHashMap<String, ArtistSummary>()
+
+    fun cachedResolvedDirector(name: String): ArtistSummary? {
+        val key = name.trim().lowercase()
+        return if (key.isEmpty()) null else directorByNameCache[key]
+    }
+
+    /** Exact case-insensitive director name via TMDB person search.
+     *  Used by the trending-directors rail when the cache row has no directorId. */
+    suspend fun resolveDirectorByName(name: String): ArtistSummary? {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return null
+        val key = trimmed.lowercase()
+        directorByNameCache[key]?.let { return it }
+        val hit = searchDirectors(trimmed).firstOrNull {
+            it.name.trim().equals(trimmed, ignoreCase = true) && it.id.isNotBlank()
+        } ?: return null
+        directorByNameCache[key] = hit
+        return hit
+    }
+
     suspend fun getDirectorName(movieId: Int): String {
         directorCache[movieId]?.let { return it }
         return try {

@@ -8,11 +8,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
@@ -23,9 +25,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
+import fm.corus.android.domain.HapticManager
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.SkeletonTasteMatchCard
 import fm.corus.android.ui.components.SkeletonUserRow
@@ -71,6 +76,10 @@ fun SuggestedUsersListScreen(
      *  album-art previews. Other sources ignore this. */
     onVisibleRangeChange: (Int, Int) -> Unit = { _, _ -> },
     onBack: () -> Unit = {},
+    /** Segmented Search + Taste Matches feed available, first page loaded,
+     *  and more than 3 matches. Mirrors iOS TasteMatchesListView. */
+    showTasteMatchesFeedCta: Boolean = false,
+    onTasteMatchesFeedCta: () -> Unit = {},
 ) {
     val resolvedTitle = title ?: stringResource(fm.corus.android.R.string.suggested_users_default_title)
     val context = LocalContext.current
@@ -140,35 +149,50 @@ fun SuggestedUsersListScreen(
                 verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                 modifier = Modifier.fillMaxSize(),
             ) {
+                if (showTasteMatchesFeedCta) {
+                    item(span = { GridItemSpan(maxLineSpan) }, key = "taste_matches_feed_cta") {
+                        TasteMatchesFeedCta(onClick = onTasteMatchesFeedCta)
+                    }
+                }
                 repeat(12) { item { SkeletonTasteMatchCard() } }
             }
         } else if (matches.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (filterUnfollowed) {
-                    // Filtered to unfollowed, but you follow all of your matches.
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+            Column(modifier = Modifier.fillMaxSize()) {
+                if (showTasteMatchesFeedCta) {
+                    TasteMatchesFeedCta(
+                        onClick = onTasteMatchesFeedCta,
                         modifier = Modifier.padding(horizontal = CorusSpacing.lg),
-                    ) {
-                        Text(
-                            // No em dashes in user-facing copy (repo rule).
-                            text = stringResource(fm.corus.android.R.string.suggested_users_followed_all_taste_matches),
-                            style = CorusFont.bodyMedium,
-                            color = CorusColors.Secondary,
-                        )
-                        Text(
-                            text = stringResource(fm.corus.android.R.string.suggested_users_show_all),
-                            style = CorusFont.captionMedium,
-                            color = CorusColors.Accent,
-                            modifier = Modifier.clickable { onSetFilterUnfollowed(false) },
-                        )
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (filterUnfollowed) {
+                        // Filtered to unfollowed, but you follow all of your matches.
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+                            modifier = Modifier.padding(horizontal = CorusSpacing.lg),
+                        ) {
+                            Text(
+                                // No em dashes in user-facing copy (repo rule).
+                                text = stringResource(fm.corus.android.R.string.suggested_users_followed_all_taste_matches),
+                                style = CorusFont.bodyMedium,
+                                color = CorusColors.Secondary,
+                            )
+                            Text(
+                                text = stringResource(fm.corus.android.R.string.suggested_users_show_all),
+                                style = CorusFont.captionMedium,
+                                color = CorusColors.Accent,
+                                modifier = Modifier.clickable { onSetFilterUnfollowed(false) },
+                            )
+                        }
+                    } else {
+                        Text(stringResource(fm.corus.android.R.string.suggested_users_empty), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
                     }
-                } else {
-                    Text(stringResource(fm.corus.android.R.string.suggested_users_empty), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
                 }
             }
         } else if (useRowLayout) {
@@ -218,6 +242,11 @@ fun SuggestedUsersListScreen(
                 verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                 modifier = Modifier.fillMaxSize(),
             ) {
+                if (showTasteMatchesFeedCta) {
+                    item(span = { GridItemSpan(maxLineSpan) }, key = "taste_matches_feed_cta") {
+                        TasteMatchesFeedCta(onClick = onTasteMatchesFeedCta)
+                    }
+                }
                 gridItemsIndexed(matches, key = { _, m -> m.id }) { index, match ->
                     // For clubMembers, matches arrive without album-art previews
                     // and get enriched as they scroll into view; show a skeleton
@@ -282,5 +311,63 @@ internal fun subtitleForRow(context: android.content.Context, match: SuggestedUs
             context.resources.getQuantityString(fm.corus.android.R.plurals.search_followers_count, count, count)
         }
         else -> formatMutualFollowersText(context, match.suggestionReason?.mutualNames)
+    }
+}
+
+/**
+ * Same gate as iOS TasteMatchesListView.showTasteMatchesFeedCTA: segmented
+ * Search, Taste Matches feed available, first page loaded, and more than 3
+ * matches (unfiltered). The see-all screen is reused for Popular / Club /
+ * etc., so [source] must be tasteMatches too.
+ */
+internal fun shouldShowTasteMatchesFeedCta(
+    source: String,
+    segmentedSearchEnabled: Boolean,
+    tasteMatchesAvailable: Boolean,
+    didLoadFirstPage: Boolean,
+    matchCount: Int,
+): Boolean = source == "tasteMatches"
+    && segmentedSearchEnabled
+    && tasteMatchesAvailable
+    && didLoadFirstPage
+    && matchCount > 3
+
+/** Copy + pill that jumps to the Taste Matches feed. Mirrors iOS tasteMatchesFeedCTA. */
+@Composable
+private fun TasteMatchesFeedCta(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val haptics = LocalHapticManager.current
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = CorusSpacing.md, bottom = CorusSpacing.sm),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+    ) {
+        Text(
+            text = stringResource(fm.corus.android.R.string.search_taste_matches_feed_cta_body),
+            style = CorusFont.body,
+            color = CorusColors.Secondary,
+            textAlign = TextAlign.Center,
+        )
+        Button(
+            onClick = {
+                haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                onClick()
+            },
+            shape = RoundedCornerShape(24.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = CorusColors.Accent,
+                contentColor = Color.White,
+            ),
+            contentPadding = PaddingValues(horizontal = CorusSpacing.xl, vertical = CorusSpacing.sm),
+        ) {
+            Text(
+                text = stringResource(fm.corus.android.R.string.search_taste_matches_feed_cta_button),
+                style = CorusFont.bodyMedium,
+            )
+        }
     }
 }

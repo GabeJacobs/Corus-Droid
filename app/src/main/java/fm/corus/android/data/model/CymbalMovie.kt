@@ -189,3 +189,15 @@ data class TrendingMovie(
         releaseDate = movieReleaseDate,
     )
 }
+
+/** One row of trending_cache/directors — movie counters re-merged by the
+ *  first credited director. `directorId` is empty when only a name was stored. */
+data class TrendingDirector(
+    val id: String,
+    val rank: Int,
+    val directorId: String,
+    val directorName: String,
+    val posterURL: String? = null,
+    val posterLargeURL: String? = null,
+    val cymbalCount: Int = 0,
+)

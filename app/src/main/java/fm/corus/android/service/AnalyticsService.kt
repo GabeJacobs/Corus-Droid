@@ -27,6 +27,8 @@ enum class SearchSection(val value: String) {
     TrendingArtists("trending_artists"),
     TrendingAlbums("trending_albums"),
     NewReleaseAlbums("new_release_albums"),
+    NewReleaseFilms("new_release_films"),
+    TrendingDirectors("trending_directors"),
     ArtistsOnCorus("artists_on_corus"),
 }
 
@@ -413,6 +415,8 @@ class AnalyticsService @Inject constructor(
         logEvent("search_section_see_all_tapped", mapOf("section" to section.value))
     fun logSearchSectionItemTapped(section: SearchSection, itemId: String) =
         logEvent("search_section_item_tapped", mapOf("section" to section.value, "item_id" to itemId))
+    /** Taste Matches see-all page → feed CTA. Mirrors iOS searchTasteMatchesFeedCtaTapped. */
+    fun logSearchTasteMatchesFeedCtaTapped() = logEvent("search_taste_matches_feed_cta_tapped")
 
     // MARK: - Profile Events
 

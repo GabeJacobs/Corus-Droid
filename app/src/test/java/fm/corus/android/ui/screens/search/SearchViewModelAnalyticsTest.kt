@@ -88,6 +88,7 @@ class SearchViewModelAnalyticsTest {
             on { trendingHashtagsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()
             on { trendingArtistsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()
             on { trendingAlbumsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()
+            on { trendingDirectorsWindow } doReturn kotlinx.coroutines.flow.emptyFlow()
         }
         remoteConfigService = mock()
         analyticsService = mock()
@@ -174,6 +175,8 @@ class SearchViewModelAnalyticsTest {
             SearchSection.Popular to "popular",
             SearchSection.ClubMembers to "club_members",
             SearchSection.NewOnCorus to "new_on_corus",
+            SearchSection.NewReleaseFilms to "new_release_films",
+            SearchSection.TrendingDirectors to "trending_directors",
         )
         for ((section, wire) in expected) {
             assert(section.value == wire) {

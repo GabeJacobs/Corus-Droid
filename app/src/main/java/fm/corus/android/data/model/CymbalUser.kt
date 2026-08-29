@@ -29,6 +29,11 @@ data class CymbalUser(
     val likesCount: Int? = null,
     /** Mirror of users_v2/{uid}.favoritesCount — drives the favorite-people cap. */
     val favoritesCount: Int = 0,
+    /**
+     * True when the Firestore doc had a numeric `favoritesCount`. A missing
+     * field must not wipe a known-positive count (iOS `favFieldPresent`).
+     */
+    val favoritesCountSpecified: Boolean = false,
     val vinylColor: String = "black",
     val frameColor: String = "black",
     val profileFlair: String = "checkmark",
@@ -74,7 +79,10 @@ data class CymbalUser(
 
     val vinylStyle: VinylStyle get() = if (hasClubAccess) rawVinylStyle else VinylStyle.BLACK
     val frameStyle: FrameStyle get() = if (hasClubAccess) rawFrameStyle else FrameStyle.BLACK
-    val flairStyle: FlairStyle get() = if (hasClubAccess) rawFlairStyle else FlairStyle.CHECKMARK
+    // Free users always render/select None. Club/verified keep their saved
+    // pick; a missing stored value still parses as checkmark so a newly
+    // granted member shows the badge without a second write.
+    val flairStyle: FlairStyle get() = if (hasClubAccess) rawFlairStyle else FlairStyle.NONE
     val rainIntensity: RainIntensity get() = if (hasClubAccess) rawRainIntensity else RainIntensity.OFF
     val snowIntensity: SnowIntensity get() = if (hasClubAccess) rawSnowIntensity else SnowIntensity.OFF
     val discoIntensityLevel: DiscoIntensity get() = if (hasClubAccess) rawDiscoIntensityLevel else DiscoIntensity.OFF
@@ -205,6 +213,7 @@ data class CymbalUser(
             savesCount = (data["savesCount"] as? Number)?.toInt() ?: 0,
             likesCount = (data["likesCount"] as? Number)?.toInt(),
             favoritesCount = (data["favoritesCount"] as? Number)?.toInt() ?: 0,
+            favoritesCountSpecified = data["favoritesCount"] is Number,
             vinylColor = data["vinylColor"] as? String ?: "black",
             frameColor = data["frameColor"] as? String ?: "black",
             profileFlair = data["profileFlair"] as? String ?: "checkmark",

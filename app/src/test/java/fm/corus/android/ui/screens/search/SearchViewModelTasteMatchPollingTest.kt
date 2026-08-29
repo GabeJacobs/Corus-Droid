@@ -115,6 +115,7 @@ class SearchViewModelTasteMatchPollingTest {
             on { trendingHashtagsWindow } doReturn kotlinx.coroutines.flow.flowOf("month")
             on { trendingArtistsWindow } doReturn kotlinx.coroutines.flow.flowOf("week")
             on { trendingAlbumsWindow } doReturn kotlinx.coroutines.flow.flowOf("week")
+            on { trendingDirectorsWindow } doReturn kotlinx.coroutines.flow.flowOf("week")
         }
         remoteConfigService = mock()
         analyticsService = mock()

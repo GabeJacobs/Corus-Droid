@@ -2,42 +2,57 @@ package fm.corus.android.ui.screens.profile
 
 import android.content.Intent
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
+import fm.corus.android.data.model.ProfileMediaTab
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
-import fm.corus.android.data.model.ProfileMediaTab
 import fm.corus.android.ui.theme.CorusSpacing
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -279,23 +294,12 @@ fun EditProfileScreen(
                 }
             }
 
-            // Bio field
-            EditField(
-                label = stringResource(R.string.edit_profile_field_bio),
+            // Bio field — counter lives inside the same box as iOS so it
+            // never overlaps the typed text and doesn't add extra section space.
+            BioEditField(
                 value = bio,
                 onValueChange = { viewModel.updateBio(it) },
-                singleLine = false,
-                minLines = 3,
-                maxLines = 6,
-            )
-            // Bio character counter (matches web + iOS)
-            Spacer(modifier = Modifier.height(CorusSpacing.xs))
-            Text(
-                text = "${bio.length}/${EditProfileViewModel.BIO_MAX_LENGTH}",
-                style = CorusFont.caption,
-                color = CorusColors.Secondary,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.End,
+                maxLength = maxOf(EditProfileViewModel.BIO_MAX_LENGTH, profile?.bio?.length ?: 0),
             )
 
             // Website field
@@ -305,97 +309,19 @@ fun EditProfileScreen(
                 onValueChange = { viewModel.updateWebsite(it) },
                 singleLine = true,
                 capitalization = KeyboardCapitalization.None,
+                keyboardType = KeyboardType.Uri,
+                placeholder = stringResource(R.string.edit_profile_placeholder_website),
             )
 
-            // Profile tabs — reorder and hide media tabs. At least one must stay visible.
-            Column {
-                Text(
-                    stringResource(R.string.edit_profile_field_profile_tabs),
-                    style = CorusFont.sectionHeader,
-                    color = CorusColors.Secondary,
-                )
-                Spacer(modifier = Modifier.height(CorusSpacing.sm))
-                val booksEnabled = viewModel.booksEnabled
-                val editorTabs = tabPreferences.editorTabs(booksEnabled = booksEnabled)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, CorusColors.Divider, RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
-                ) {
-                    editorTabs.forEachIndexed { index, tab ->
-                        val isHidden = tab in tabPreferences.hidden
-                        val canHide = tabPreferences.canHide(tab, booksEnabled)
-                        val labelRes = when (tab) {
-                            ProfileMediaTab.MUSIC -> R.string.profile_tab_music
-                            ProfileMediaTab.FILM -> R.string.profile_tab_film
-                            ProfileMediaTab.BOOKS -> R.string.profile_tab_books
-                        }
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column {
-                                IconButton(
-                                    onClick = {
-                                        if (index > 0) viewModel.moveTab(tab, editorTabs[index - 1])
-                                    },
-                                    enabled = index > 0,
-                                    modifier = Modifier.size(28.dp),
-                                ) {
-                                    Icon(
-                                        Icons.Default.KeyboardArrowUp,
-                                        contentDescription = stringResource(R.string.edit_profile_tab_move_up),
-                                        tint = if (index > 0) CorusColors.Text else CorusColors.Tertiary,
-                                    )
-                                }
-                                IconButton(
-                                    onClick = {
-                                        if (index < editorTabs.lastIndex) viewModel.moveTab(tab, editorTabs[index + 1])
-                                    },
-                                    enabled = index < editorTabs.lastIndex,
-                                    modifier = Modifier.size(28.dp),
-                                ) {
-                                    Icon(
-                                        Icons.Default.KeyboardArrowDown,
-                                        contentDescription = stringResource(R.string.edit_profile_tab_move_down),
-                                        tint = if (index < editorTabs.lastIndex) CorusColors.Text else CorusColors.Tertiary,
-                                    )
-                                }
-                            }
-                            Text(
-                                text = stringResource(labelRes),
-                                style = CorusFont.body,
-                                color = if (isHidden) CorusColors.Tertiary else CorusColors.Text,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = CorusSpacing.sm),
-                            )
-                            TextButton(
-                                onClick = { viewModel.toggleHiddenTab(tab) },
-                                enabled = canHide || isHidden,
-                            ) {
-                                Text(
-                                    text = stringResource(
-                                        if (isHidden) R.string.edit_profile_tab_show else R.string.edit_profile_tab_hide
-                                    ),
-                                    color = if (canHide || isHidden) CorusColors.Accent else CorusColors.Tertiary,
-                                )
-                            }
-                        }
-                        if (index < editorTabs.lastIndex) {
-                            HorizontalDivider(color = CorusColors.Divider)
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                Text(
-                    stringResource(R.string.edit_profile_tabs_hint),
-                    style = CorusFont.caption,
-                    color = CorusColors.Tertiary,
-                )
-            }
+            // Profile tabs — drag to reorder, eye to hide. At least one must stay visible.
+            val booksEnabled = viewModel.booksEnabled
+            ProfileTabsEditor(
+                tabs = tabPreferences.editorTabs(booksEnabled = booksEnabled),
+                hidden = tabPreferences.hidden,
+                canHide = { tabPreferences.canHide(it, booksEnabled) },
+                onToggleHidden = { viewModel.toggleHiddenTab(it) },
+                onMove = { from, to -> viewModel.moveTab(from, to) },
+            )
 
             // Divider before action rows
             HorizontalDivider(color = CorusColors.Divider)
@@ -485,6 +411,8 @@ private fun EditField(
     minLines: Int = 1,
     maxLines: Int = 1,
     capitalization: KeyboardCapitalization = KeyboardCapitalization.Sentences,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    placeholder: String? = null,
 ) {
     Column {
         Text(label, style = CorusFont.sectionHeader, color = CorusColors.Secondary)
@@ -495,11 +423,19 @@ private fun EditField(
             modifier = Modifier
                 .fillMaxWidth()
                 .border(1.dp, CorusColors.Divider, RoundedCornerShape(CorusSpacing.cornerRadiusMedium)),
-            keyboardOptions = KeyboardOptions(capitalization = capitalization),
+            keyboardOptions = KeyboardOptions(
+                capitalization = capitalization,
+                keyboardType = keyboardType,
+            ),
             singleLine = singleLine,
             minLines = minLines,
             maxLines = if (singleLine) 1 else maxLines,
             shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+            placeholder = placeholder?.let {
+                {
+                    Text(it, style = CorusFont.body, color = CorusColors.Tertiary)
+                }
+            },
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = CorusColors.CardBackground,
                 unfocusedContainerColor = CorusColors.CardBackground,
@@ -508,6 +444,217 @@ private fun EditField(
                 cursorColor = CorusColors.Accent,
             ),
             textStyle = CorusFont.body.copy(color = CorusColors.Text),
+        )
+    }
+}
+
+@Composable
+private fun BioEditField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    maxLength: Int,
+) {
+    val shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium)
+    Column {
+        Text(
+            stringResource(R.string.edit_profile_field_bio),
+            style = CorusFont.sectionHeader,
+            color = CorusColors.Secondary,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(CorusColors.CardBackground, shape)
+                .border(1.dp, CorusColors.Divider, shape)
+                .padding(CorusSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+        ) {
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.fillMaxWidth(),
+                textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                cursorBrush = SolidColor(CorusColors.Accent),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                minLines = 3,
+                maxLines = 6,
+                decorationBox = { innerTextField ->
+                    Box {
+                        if (value.isEmpty()) {
+                            Text(
+                                stringResource(R.string.edit_profile_placeholder_bio),
+                                style = CorusFont.body,
+                                color = CorusColors.Tertiary,
+                            )
+                        }
+                        innerTextField()
+                    }
+                },
+            )
+            Text(
+                text = "${value.length}/$maxLength",
+                style = CorusFont.caption,
+                color = CorusColors.Tertiary,
+                modifier = Modifier.align(Alignment.End),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileTabsEditor(
+    tabs: List<ProfileMediaTab>,
+    hidden: Set<ProfileMediaTab>,
+    canHide: (ProfileMediaTab) -> Boolean,
+    onToggleHidden: (ProfileMediaTab) -> Unit,
+    onMove: (from: ProfileMediaTab, to: ProfileMediaTab) -> Unit,
+) {
+    var draggingTab by remember { mutableStateOf<ProfileMediaTab?>(null) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    var rowHeightPx by remember { mutableFloatStateOf(0f) }
+
+    val moveUpLabel = stringResource(R.string.edit_profile_tab_move_up)
+    val moveDownLabel = stringResource(R.string.edit_profile_tab_move_down)
+
+    Column {
+        Text(
+            stringResource(R.string.edit_profile_field_profile_tabs),
+            style = CorusFont.sectionHeader,
+            color = CorusColors.Secondary,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, CorusColors.Divider, RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
+        ) {
+            tabs.forEachIndexed { index, tab ->
+                key(tab) {
+                    val isHidden = tab in hidden
+                    val tabCanHide = canHide(tab)
+                    val isDragging = draggingTab == tab
+                    val labelRes = when (tab) {
+                        ProfileMediaTab.MUSIC -> R.string.edit_profile_tab_music
+                        ProfileMediaTab.FILM -> R.string.edit_profile_tab_film
+                        ProfileMediaTab.BOOKS -> R.string.edit_profile_tab_books
+                    }
+                    val label = stringResource(labelRes)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onSizeChanged { size ->
+                                if (size.height > 0) rowHeightPx = size.height.toFloat()
+                            }
+                            .zIndex(if (isDragging) 1f else 0f)
+                            .offset { IntOffset(0, if (isDragging) dragOffsetY.roundToInt() else 0) }
+                            .then(
+                                if (isDragging) {
+                                    Modifier
+                                        .shadow(4.dp)
+                                        .background(CorusColors.CardBackground)
+                                } else {
+                                    Modifier
+                                }
+                            )
+                            .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.xs)
+                            .semantics {
+                                customActions = buildList {
+                                    if (index > 0) {
+                                        add(
+                                            CustomAccessibilityAction(moveUpLabel) {
+                                                onMove(tab, tabs[index - 1])
+                                                true
+                                            }
+                                        )
+                                    }
+                                    if (index < tabs.lastIndex) {
+                                        add(
+                                            CustomAccessibilityAction(moveDownLabel) {
+                                                onMove(tab, tabs[index + 1])
+                                                true
+                                            }
+                                        )
+                                    }
+                                }
+                            },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .draggable(
+                                    state = rememberDraggableState { delta ->
+                                        dragOffsetY += delta
+                                        val height = rowHeightPx
+                                        if (height <= 0f) return@rememberDraggableState
+                                        val currentIndex = tabs.indexOf(tab)
+                                        if (currentIndex < 0) return@rememberDraggableState
+                                        if (dragOffsetY > height * 0.55f && currentIndex < tabs.lastIndex) {
+                                            onMove(tab, tabs[currentIndex + 1])
+                                            dragOffsetY -= height
+                                        } else if (dragOffsetY < -height * 0.55f && currentIndex > 0) {
+                                            onMove(tab, tabs[currentIndex - 1])
+                                            dragOffsetY += height
+                                        }
+                                    },
+                                    orientation = Orientation.Vertical,
+                                    startDragImmediately = true,
+                                    onDragStarted = { draggingTab = tab },
+                                    onDragStopped = {
+                                        draggingTab = null
+                                        dragOffsetY = 0f
+                                    },
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Menu,
+                                contentDescription = stringResource(R.string.edit_profile_tab_reorder),
+                                tint = CorusColors.Tertiary,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                        Text(
+                            text = label,
+                            style = CorusFont.body,
+                            color = if (isHidden) CorusColors.Tertiary else CorusColors.Text,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = CorusSpacing.sm),
+                        )
+                        IconButton(
+                            onClick = { onToggleHidden(tab) },
+                            enabled = tabCanHide || isHidden,
+                            modifier = Modifier.size(40.dp),
+                        ) {
+                            Icon(
+                                imageVector = if (isHidden) {
+                                    Icons.Outlined.VisibilityOff
+                                } else {
+                                    Icons.Outlined.Visibility
+                                },
+                                contentDescription = stringResource(
+                                    if (isHidden) R.string.edit_profile_tab_show
+                                    else R.string.edit_profile_tab_hide,
+                                    label,
+                                ),
+                                tint = if (isHidden || !tabCanHide) CorusColors.Tertiary else CorusColors.Text,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                    if (index < tabs.lastIndex) {
+                        HorizontalDivider(color = CorusColors.Divider)
+                    }
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+        Text(
+            stringResource(R.string.edit_profile_tabs_hint),
+            style = CorusFont.caption,
+            color = CorusColors.Tertiary,
         )
     }
 }

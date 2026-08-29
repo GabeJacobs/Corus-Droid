@@ -101,14 +101,20 @@ internal val TabRowTopPadding = 6.dp
  * 13.sp matches the optical size in screenshots.
  */
 internal const val TabLabelSizeSp = 13
-/** Extra each side so the pill overshoots the glyphs the way iOS does. */
-internal val TabUnderlineExtra = 6.dp
+/** Max extra each side. Actual overshoot is the smaller of this and half the tightest gap. */
+internal val TabUnderlineExtra = 24.dp
+/**
+ * Inset for the first/last label. iOS uses 14pt; on a wide Android
+ * phone that pins Following / Matches to the glass. 36.dp leaves a
+ * little more gap between tabs without hugging the edges.
+ */
+internal val TabRowHorizontalPadding = 36.dp
 
 /**
  * Compact feed-mode tab row under the Corus wordmark. Labels stay full size
- * (no scaling). Taste Matches shortens to "Matches". Leftover width is split
- * between the tabs. The accent underline tracks [pagerOffset] (page index +
- * fraction) so it rides with the pager while you swipe.
+ * (no scaling). Taste Matches shortens to "Matches". Leftover width is
+ * split between the tabs (iOS `Spacer`). The accent underline is the
+ * label width plus a short overshoot, and tracks [pagerOffset].
  */
 @Composable
 fun FeedModeTabBar(
@@ -134,8 +140,9 @@ fun FeedModeTabBar(
 }
 
 /**
- * Shared feed / search tab row: wrap-width labels, leftover space between
- * tabs, constant-width accent pill, pager-tracking underline.
+ * Shared feed / search tab row: wrap-width labels, leftover space split
+ * between tabs. The accent pill matches the current label and interpolates
+ * with the pager; overshoot shrinks when tabs sit closer (4-tab search / feed).
  */
 @Composable
 fun ModeTabBar(
@@ -146,7 +153,7 @@ fun ModeTabBar(
     modifier: Modifier = Modifier,
     showDivider: Boolean = true,
 ) {
-    val frames = remember { mutableStateMapOf<Int, Rect>() }
+    val frames = remember(labels) { mutableStateMapOf<Int, Rect>() }
     var barBounds by remember { mutableStateOf(Rect.Zero) }
     val density = LocalDensity.current
 
@@ -154,7 +161,7 @@ fun ModeTabBar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp)
+                .padding(horizontal = TabRowHorizontalPadding)
                 .onGloballyPositioned { barBounds = it.boundsInWindow() },
         ) {
             Row(
@@ -214,16 +221,13 @@ fun ModeTabBar(
                 }
             }
 
-            val extraPx = with(density) { TabUnderlineExtra.toPx() }
-            val measuredWidth = constantUnderlineWidthPx(frames, extraPx)
-            var lockedWidthPx by remember(labels) { mutableStateOf(0f) }
-            if (measuredWidth > lockedWidthPx) lockedWidthPx = measuredWidth
+            val maxExtraPx = with(density) { TabUnderlineExtra.toPx() }
+            val extraPx = underlineOvershootPx(frames, maxExtraPx)
             val placement = underlinePlacement(
                 labels.size,
                 pagerOffset,
                 frames,
                 extraPx,
-                fixedWidthPx = lockedWidthPx,
             )
             if (placement != null) {
                 Box(
@@ -243,18 +247,24 @@ fun ModeTabBar(
     }
 }
 
-/** Longest label plus the same overshoot on both sides — one width for every tab. */
-internal fun constantUnderlineWidthPx(frames: Map<Int, Rect>, extraPx: Float): Float {
-    if (frames.isEmpty()) return 0f
-    return frames.values.maxOf { it.width } + extraPx * 2f
+/**
+ * Overshoot shrinks when tabs sit closer together. 3-tab rows keep the
+ * 24.dp extra; 4-tab (and search) rows use half the smallest gap so the
+ * pill does not keep the 3-tab length.
+ */
+internal fun underlineOvershootPx(frames: Map<Int, Rect>, maxExtraPx: Float): Float {
+    val ordered = frames.entries.sortedBy { it.key }.map { it.value }
+    if (ordered.size < 2) return maxExtraPx
+    val minGap = ordered.zipWithNext { a, b -> b.left - a.right }.minOrNull() ?: return maxExtraPx
+    return minOf(maxExtraPx, (minGap / 2f).coerceAtLeast(0f))
 }
 
+/** Lerp the slot center and width so each label gets its own pill. */
 internal fun underlinePlacement(
     modeCount: Int,
     pagerOffset: Float,
     frames: Map<Int, Rect>,
     extraPx: Float = 0f,
-    fixedWidthPx: Float = 0f,
 ): Rect? {
     if (modeCount <= 0) return null
     val maxPage = (modeCount - 1).toFloat()
@@ -267,11 +277,7 @@ internal fun underlinePlacement(
     val center0 = (f0.left + f0.right) / 2f
     val center1 = (f1.left + f1.right) / 2f
     val center = center0 + (center1 - center0) * t
-    val width = if (fixedWidthPx > 0f) {
-        fixedWidthPx
-    } else {
-        f0.width + (f1.width - f0.width) * t + extraPx * 2f
-    }
+    val width = f0.width + (f1.width - f0.width) * t + extraPx * 2f
     val left = center - width / 2f
     return Rect(
         left = left,

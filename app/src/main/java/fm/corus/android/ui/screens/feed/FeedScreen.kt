@@ -137,6 +137,13 @@ fun FeedScreen(
     viewModel: FeedViewModel = hiltViewModel(),
     scrollToTopTrigger: Int = 0,
     /**
+     * Incremented when Search's Taste Matches CTA asks to open this mode.
+     * Applied after the Feed tab is selected so the pager animates on-screen
+     * (and any Club paywall presents on the visible stack). Mirrors iOS
+     * `requestTasteMatchesFeed` → `selectTasteMatches()`.
+     */
+    selectTasteMatchesTrigger: Int = 0,
+    /**
      * True when the user is currently looking at the feed root (i.e. the
      * feed tab is selected and no detail screen is on top — Navigation
      * Compose only composes this screen when at the start destination, so
@@ -347,6 +354,13 @@ fun FeedScreen(
             lastScrollTrigger = scrollToTopTrigger
         }
     }
+    var lastTasteMatchesTrigger by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(selectTasteMatchesTrigger) {
+        if (selectTasteMatchesTrigger > lastTasteMatchesTrigger) {
+            lastTasteMatchesTrigger = selectTasteMatchesTrigger
+            viewModel.setFeedMode("tasteMatches")
+        }
+    }
 
     // Mini-player tap shortcut: register a scroll handler so a tap on the
     // mini-player while the user is at feed root scrolls to the post here
@@ -461,6 +475,8 @@ fun FeedScreen(
             },
             trendingFeedEnabled = trendingFeedEnabled,
             favoritesEnabled = favoritesEnabled,
+            favoritesCount = favoritesCount,
+            favoritesUnlocked = favoritesTabUnlocked,
             tasteMatchesAvailable = tasteMatchesAvailable,
             feedModeOrder = feedModeOrder,
             feedMode = feedMode,
@@ -1599,6 +1615,8 @@ private fun FeedTitleWithModeMenu(
     onSetFeedMode: (String) -> Unit,
     onSwitcherOpened: () -> Unit = {},
     showHint: Boolean = false,
+    favoritesCount: Int = 0,
+    favoritesUnlocked: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -1690,7 +1708,12 @@ private fun FeedTitleWithModeMenu(
                     FeedModeOrder.TASTE_MATCHES -> tasteMatchesAvailable
                     FeedModeOrder.TRENDING -> trendingFeedEnabled
                     FeedModeOrder.FOLLOWING -> true
-                    FeedModeOrder.FAVORITES -> favoritesEnabled
+                    FeedModeOrder.FAVORITES ->
+                        fm.corus.android.domain.FavoritesTabGate.showsTab(
+                            featureEnabled = favoritesEnabled,
+                            count = favoritesCount,
+                            unlocked = favoritesUnlocked,
+                        )
                     else -> false
                 }
                 if (!available) return@forEach
@@ -2315,6 +2338,8 @@ internal fun FeedHeader(
     onSetDecade: (Int?) -> Unit = {},
     trendingFeedEnabled: Boolean = false,
     favoritesEnabled: Boolean = false,
+    favoritesCount: Int = 0,
+    favoritesUnlocked: Boolean = false,
     tasteMatchesAvailable: Boolean = false,
     feedModeOrder: List<String> = FeedModeOrder.DEFAULT,
     feedMode: String = "following",
@@ -2335,12 +2360,20 @@ internal fun FeedHeader(
                 style = CorusFont.appTitle,
                 color = CorusColors.Text,
             )
-        } else if (trendingFeedEnabled || favoritesEnabled || tasteMatchesAvailable) {
+        } else if (trendingFeedEnabled || tasteMatchesAvailable ||
+            fm.corus.android.domain.FavoritesTabGate.showsTab(
+                featureEnabled = favoritesEnabled,
+                count = favoritesCount,
+                unlocked = favoritesUnlocked,
+            )
+        ) {
             FeedTitleWithModeMenu(
                 feedMode = feedMode,
                 trendingFeedEnabled = trendingFeedEnabled,
                 favoritesEnabled = favoritesEnabled,
                 tasteMatchesAvailable = tasteMatchesAvailable,
+                favoritesCount = favoritesCount,
+                favoritesUnlocked = favoritesUnlocked,
                 feedModeOrder = feedModeOrder,
                 onSetFeedMode = onSetFeedMode,
                 onSwitcherOpened = onSwitcherOpened,

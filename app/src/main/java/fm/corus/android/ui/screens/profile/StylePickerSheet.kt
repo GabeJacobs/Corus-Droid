@@ -77,7 +77,7 @@ import fm.corus.android.ui.theme.LocalCorusDarkTheme
 data class StyleSelections(
     val vinylColor: VinylStyle = VinylStyle.BLACK,
     val frameColor: FrameStyle = FrameStyle.BLACK,
-    val profileFlair: FlairStyle = FlairStyle.CHECKMARK,
+    val profileFlair: FlairStyle = FlairStyle.NONE,
     val rainEffect: RainIntensity = RainIntensity.OFF,
     val snowEffect: SnowIntensity = SnowIntensity.OFF,
     val discoEffect: DiscoIntensity = DiscoIntensity.OFF,
@@ -107,7 +107,7 @@ data class StyleSelections(
     val hasNonDefaultValues: Boolean
         get() = vinylColor != VinylStyle.BLACK ||
                 frameColor != FrameStyle.BLACK ||
-                profileFlair != FlairStyle.CHECKMARK ||
+                profileFlair != FlairStyle.NONE ||
                 rainEffect != RainIntensity.OFF ||
                 snowEffect != SnowIntensity.OFF ||
                 discoEffect != DiscoIntensity.OFF
@@ -115,7 +115,7 @@ data class StyleSelections(
     fun introducesPremiumValue(from: StyleSelections): Boolean =
         (vinylColor != from.vinylColor && vinylColor != VinylStyle.BLACK) ||
                 (frameColor != from.frameColor && frameColor != FrameStyle.BLACK) ||
-                (profileFlair != from.profileFlair && profileFlair != FlairStyle.CHECKMARK) ||
+                (profileFlair != from.profileFlair && profileFlair != FlairStyle.NONE) ||
                 (rainEffect != from.rainEffect && rainEffect != RainIntensity.OFF) ||
                 (snowEffect != from.snowEffect && snowEffect != SnowIntensity.OFF) ||
                 (discoEffect != from.discoEffect && discoEffect != DiscoIntensity.OFF)

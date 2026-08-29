@@ -1,5 +1,6 @@
 package fm.corus.android.ui.player
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -55,6 +56,17 @@ class PlayerExpansionHitTestingTest {
         assertTrue(fullPlayerInteractive(expansion = 0.4f, isMoving = true))
         assertTrue(fullPlayerLayerAboveMini(expansion = 0.4f, isMoving = true))
         assertFalse(fullPlayerInteractive(expansion = 0.4f, isMoving = false))
+    }
+
+    @Test
+    fun fullOpacityKeepsChromeVisibleUntilNearCollapsedPark() {
+        assertEquals(1f, fullOpacity(1f), 0.001f)
+        assertEquals(1f, fullOpacity(0.55f), 0.001f)
+        // Mid-dismiss (~halfway down) used to be ~0.44 / already gone by 0.20.
+        assertEquals(0.70f, fullOpacity(0.40f), 0.001f)
+        assertEquals(0.30f, fullOpacity(0.20f), 0.001f)
+        assertEquals(0f, fullOpacity(0.05f), 0.001f)
+        assertEquals(0f, fullOpacity(0f), 0.001f)
     }
 
     @Test

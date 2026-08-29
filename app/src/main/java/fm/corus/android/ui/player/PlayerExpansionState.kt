@@ -148,9 +148,16 @@ internal fun miniOpacity(expansion: Float, travelPx: Float): Float {
     return (1f - (dragged / 100f).coerceIn(0f, 1f))
 }
 
+/**
+ * Shared fade for every full-player layer (art, title, controls, comments).
+ *
+ * Hits 1 at 55% expansion and 0 at 5% so chrome stays readable until the
+ * sheet is near the mini-player park — the old (t − 0.2) / 0.45 curve went
+ * fully transparent at 20%, leaving a large empty slab mid-dismiss.
+ */
 internal fun fullOpacity(expansion: Float): Float {
     val t = expansion.coerceIn(0f, 1f)
-    return ((t - 0.2f) / 0.45f).coerceIn(0f, 1f)
+    return ((t - 0.05f) / 0.50f).coerceIn(0f, 1f)
 }
 
 /**

@@ -180,7 +180,10 @@ class UserRepository @Inject constructor(
         profileCache[uid] = CacheEntry(user)
         if (uid == auth.currentUser?.uid) {
             subscriptionRepository.setSavesCount(user.savesCount)
-            subscriptionRepository.setFavoritesCount(user.favoritesCount)
+            subscriptionRepository.setFavoritesCount(
+                user.favoritesCount,
+                allowZero = user.favoritesCountSpecified,
+            )
             subscriptionRepository.setPlaylistTrialUsed(user.playlistTrialUsed)
         }
         return user

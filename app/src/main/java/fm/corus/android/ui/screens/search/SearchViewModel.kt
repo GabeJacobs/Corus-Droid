@@ -19,6 +19,7 @@ import fm.corus.android.data.model.TrendingAlbum
 import fm.corus.android.data.model.TrendingAlbumDestinationCache
 import fm.corus.android.data.model.TrendingAlbumOpen
 import fm.corus.android.data.model.TrendingArtist
+import fm.corus.android.data.model.TrendingDirector
 import fm.corus.android.data.model.TrendingHashtag
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
@@ -378,6 +379,30 @@ class SearchViewModel @Inject constructor(
     private var hasLoadedTrendingAlbums = false
     private var hasLoadedNewReleaseAlbums = false
 
+    private val _newReleaseMovies = MutableStateFlow<List<TrendingMovie>>(emptyList())
+    val newReleaseMovies: StateFlow<List<TrendingMovie>> = _newReleaseMovies.asStateFlow()
+
+    private val _isNewReleaseMoviesLoading = MutableStateFlow(true)
+    val isNewReleaseMoviesLoading: StateFlow<Boolean> = _isNewReleaseMoviesLoading.asStateFlow()
+
+    private var hasLoadedNewReleaseMovies = false
+
+    val trendingDirectorsWindow: StateFlow<TrendingWindow> =
+        preferencesDataStore.trendingDirectorsWindow
+            .map { TrendingWindow.fromKey(it) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+
+    private val _trendingDirectors = MutableStateFlow<List<TrendingDirector>>(emptyList())
+    val trendingDirectors: StateFlow<List<TrendingDirector>> = _trendingDirectors.asStateFlow()
+
+    private val _isTrendingDirectorsLoading = MutableStateFlow(true)
+    val isTrendingDirectorsLoading: StateFlow<Boolean> = _isTrendingDirectorsLoading.asStateFlow()
+
+    private var hasLoadedTrendingDirectors = false
+
+    private val _isResolvingDirector = MutableStateFlow(false)
+    val isResolvingDirector: StateFlow<Boolean> = _isResolvingDirector.asStateFlow()
+
     private val _isResolvingAlbum = MutableStateFlow(false)
     val isResolvingAlbum: StateFlow<Boolean> = _isResolvingAlbum.asStateFlow()
 
@@ -496,7 +521,9 @@ class SearchViewModel @Inject constructor(
             )
         } finally {
             _isResolvingArtist.value = false
-            DestinationResolvingOverlay.setResolving(_isResolvingArtist.value || _isResolvingAlbum.value)
+            DestinationResolvingOverlay.setResolving(
+                _isResolvingArtist.value || _isResolvingAlbum.value || _isResolvingDirector.value,
+            )
         }
     }
 
@@ -537,7 +564,63 @@ class SearchViewModel @Inject constructor(
             )
         } finally {
             _isResolvingAlbum.value = false
-            DestinationResolvingOverlay.setResolving(_isResolvingArtist.value || _isResolvingAlbum.value)
+            DestinationResolvingOverlay.setResolving(
+                _isResolvingArtist.value || _isResolvingAlbum.value || _isResolvingDirector.value,
+            )
+        }
+    }
+
+    fun setTrendingDirectorsWindow(window: TrendingWindow) {
+        viewModelScope.launch {
+            preferencesDataStore.setTrendingDirectorsWindow(window.key)
+            _isTrendingDirectorsLoading.value = true
+            _trendingDirectors.value = emptyList()
+            val start = System.currentTimeMillis()
+            val fetched = try {
+                exploreRepository.fetchTrendingDirectors(window)
+            } catch (e: Exception) {
+                Log.e("SearchVM", "Failed to switch trending directors window", e)
+                emptyList()
+            }
+            val elapsed = System.currentTimeMillis() - start
+            if (elapsed < TRENDING_WINDOW_MIN_DISPLAY_MS) {
+                kotlinx.coroutines.delay(TRENDING_WINDOW_MIN_DISPLAY_MS - elapsed)
+            }
+            _trendingDirectors.value = fetched
+            _isTrendingDirectorsLoading.value = false
+        }
+    }
+
+    suspend fun resolveTrendingDirector(director: TrendingDirector): fm.corus.android.ui.navigation.DirectorPageRoute? {
+        if (director.directorId.isNotEmpty()) {
+            return fm.corus.android.ui.navigation.DirectorPageRoute(
+                directorId = director.directorId,
+                name = director.directorName.ifBlank { null },
+                imageUrl = director.posterLargeURL ?: director.posterURL,
+            )
+        }
+        tmdbRepository.cachedResolvedDirector(director.directorName)?.let { cached ->
+            return fm.corus.android.ui.navigation.DirectorPageRoute(
+                directorId = cached.id,
+                name = cached.name,
+                imageUrl = cached.imageUrl ?: director.posterLargeURL ?: director.posterURL,
+            )
+        }
+        if (_isResolvingDirector.value) return null
+        _isResolvingDirector.value = true
+        DestinationResolvingOverlay.setResolving(true)
+        return try {
+            val resolved = tmdbRepository.resolveDirectorByName(director.directorName) ?: return null
+            fm.corus.android.ui.navigation.DirectorPageRoute(
+                directorId = resolved.id,
+                name = resolved.name,
+                imageUrl = resolved.imageUrl ?: director.posterLargeURL ?: director.posterURL,
+            )
+        } finally {
+            _isResolvingDirector.value = false
+            DestinationResolvingOverlay.setResolving(
+                _isResolvingArtist.value || _isResolvingAlbum.value || _isResolvingDirector.value,
+            )
         }
     }
 
@@ -607,6 +690,12 @@ class SearchViewModel @Inject constructor(
 
     private val _localFollowedIds = MutableStateFlow<Set<String>>(emptySet())
     val localFollowedIds: StateFlow<Set<String>> = _localFollowedIds.asStateFlow()
+
+    /** Optimistic unfollows. The repo `followingIds` collector can overwrite
+     *  `_followingIds` with a stale set while `unfollowUser` is in flight;
+     *  this set keeps the pill on Follow until they follow again. */
+    private val _localUnfollowedIds = MutableStateFlow<Set<String>>(emptySet())
+    val localUnfollowedIds: StateFlow<Set<String>> = _localUnfollowedIds.asStateFlow()
 
     // Recent searches (persisted as a mixed-kind RecentSearchItem list in DataStore)
     val recentSearches: StateFlow<List<RecentSearchItem>> = preferencesDataStore.recentSearches
@@ -839,9 +928,13 @@ class SearchViewModel @Inject constructor(
         if (forceRefresh) {
             hasLoadedTrendingAlbums = false
             hasLoadedNewReleaseAlbums = false
+            hasLoadedNewReleaseMovies = false
+            hasLoadedTrendingDirectors = false
         }
         loadTrendingAlbumsIfNeeded()
         loadNewReleaseAlbumsIfNeeded()
+        loadNewReleaseMoviesIfNeeded()
+        loadTrendingDirectorsIfNeeded()
     }
 
     // Cold-start poll: if the initial fetch returned no taste matches, the
@@ -957,6 +1050,16 @@ class SearchViewModel @Inject constructor(
         if (!newReleases.isNullOrEmpty() && _newReleaseAlbums.value.isEmpty()) {
             _newReleaseAlbums.value = newReleases
             _isNewReleaseAlbumsLoading.value = false
+        }
+        val newReleaseMovies = preferencesDataStore.loadSearchNewReleaseMovies()
+        if (!newReleaseMovies.isNullOrEmpty() && _newReleaseMovies.value.isEmpty()) {
+            _newReleaseMovies.value = newReleaseMovies
+            _isNewReleaseMoviesLoading.value = false
+        }
+        val directors = preferencesDataStore.loadSearchTrendingDirectors()
+        if (!directors.isNullOrEmpty() && _trendingDirectors.value.isEmpty()) {
+            _trendingDirectors.value = directors
+            _isTrendingDirectorsLoading.value = false
         }
     }
 
@@ -1339,6 +1442,38 @@ class SearchViewModel @Inject constructor(
         }
     }
 
+    private fun loadNewReleaseMoviesIfNeeded() {
+        if (hasLoadedNewReleaseMovies) return
+        hasLoadedNewReleaseMovies = true
+        viewModelScope.launch {
+            try {
+                val loaded = exploreRepository.fetchNewReleaseMovies()
+                _newReleaseMovies.value = loaded
+                if (loaded.isNotEmpty()) preferencesDataStore.persistSearchNewReleaseMovies(loaded)
+            } catch (e: Exception) {
+                Log.e("SearchVM", "Failed to load new-release movies", e)
+                hasLoadedNewReleaseMovies = false
+            }
+            _isNewReleaseMoviesLoading.value = false
+        }
+    }
+
+    private fun loadTrendingDirectorsIfNeeded() {
+        if (hasLoadedTrendingDirectors) return
+        hasLoadedTrendingDirectors = true
+        viewModelScope.launch {
+            try {
+                val loaded = exploreRepository.fetchTrendingDirectors(TrendingWindow.WEEK)
+                _trendingDirectors.value = loaded
+                if (loaded.isNotEmpty()) preferencesDataStore.persistSearchTrendingDirectors(loaded)
+            } catch (e: Exception) {
+                Log.e("SearchVM", "Failed to load trending directors", e)
+                hasLoadedTrendingDirectors = false
+            }
+            _isTrendingDirectorsLoading.value = false
+        }
+    }
+
     fun refreshFollowedHashtags() {
         val uid = authRepository.currentUserId ?: return
         viewModelScope.launch {
@@ -1466,12 +1601,15 @@ class SearchViewModel @Inject constructor(
         }
         viewModelScope.launch {
             if (isFollowed) {
+                _localUnfollowedIds.value = _localUnfollowedIds.value + user.id
                 _localFollowedIds.value = _localFollowedIds.value - user.id
                 _followingIds.value = _followingIds.value - user.id
                 try { userRepository.unfollowUser(uid, user.id) } catch (_: Exception) {
+                    _localUnfollowedIds.value = _localUnfollowedIds.value - user.id
                     _followingIds.value = _followingIds.value + user.id
                 }
             } else {
+                _localUnfollowedIds.value = _localUnfollowedIds.value - user.id
                 _localFollowedIds.value = _localFollowedIds.value + user.id
                 try { userRepository.followUser(uid, user.id) } catch (_: Exception) {
                     _localFollowedIds.value = _localFollowedIds.value - user.id
@@ -1481,6 +1619,7 @@ class SearchViewModel @Inject constructor(
     }
 
     fun isFollowed(userId: String): Boolean {
+        if (_localUnfollowedIds.value.contains(userId)) return false
         return _localFollowedIds.value.contains(userId) || _followingIds.value.contains(userId)
     }
 
@@ -1494,6 +1633,10 @@ class SearchViewModel @Inject constructor(
 
     fun logSearchSectionSeeAllTapped(section: SearchSection) {
         analyticsService.logSearchSectionSeeAllTapped(section)
+    }
+
+    fun logSearchSectionItemTapped(section: SearchSection, itemId: String) {
+        analyticsService.logSearchSectionItemTapped(section, itemId)
     }
 
     fun logMusicMatchTapped(userId: String, similarityScore: Double) {

@@ -461,6 +461,8 @@
     <string name="search_section_trending_this_month">EM ALTA ESTE MÊS</string>
     <string name="search_see_all">Ver Todos</string>
     <string name="search_taste_matches_title">Combinações de Gosto</string>
+    <string name="search_taste_matches_feed_cta_body">Veja posts de pessoas que compartilham o seu gosto.</string>
+    <string name="search_taste_matches_feed_cta_button">Ir para o feed de combinações de gosto</string>
     <string name="search_mutual_connections_title">Conexões em comum</string>
     <string name="search_popular_title">Populares no Corus</string>
     <string name="search_new_title">Novos no Corus</string>
@@ -1035,7 +1037,12 @@
     <string name="search_trending_artists_title">Artistas em alta</string>
     <string name="search_new_release_albums_title">Músicas novas</string>
     <string name="search_new_release_albums_list_title">Músicas novas</string>
-    <string name="search_nothing_new_releases">Ainda não há músicas novas</string>    <string name="search_tab_hashtags">Hashtags</string>
+    <string name="search_nothing_new_releases">Ainda não há músicas novas</string>
+    <string name="search_new_release_films_title">Lançamentos</string>
+    <string name="search_new_release_films_list_title">Lançamentos</string>
+    <string name="search_nothing_new_release_films">Ainda não há lançamentos</string>
+    <string name="search_trending_directors_title">Diretores em alta</string>
+    <string name="search_tab_hashtags">Hashtags</string>
     <string name="search_section_trending_hashtags">HASHTAGS EM ALTA</string>
     <string name="search_no_trending_hashtags">Nenhuma hashtag em alta ainda</string>
     <string name="search_no_hashtags_found">Nenhuma hashtag encontrada</string>

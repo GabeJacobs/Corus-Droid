@@ -18,7 +18,11 @@ object DestinationResolvingOverlay {
         _isResolving.value = active
     }
 
-    /** Flip the chrome HUD on the tap frame, before any coroutine hop. */
+    /**
+     * Mark a destination resolve as in-flight on the tap frame, before any
+     * coroutine hop. The chrome HUD still waits [fm.corus.android.ui.components.CHROME_HUD_SHOW_DELAY_MS]
+     * before painting so a fast catalog hit never flashes.
+     */
     fun arm() {
         _isResolving.value = true
     }

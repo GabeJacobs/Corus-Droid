@@ -648,6 +648,10 @@ class FeedViewModel @Inject constructor(
     val followingLoaded: StateFlow<Boolean> = userRepository.followingLoaded
 
     init {
+        viewModelScope.launch {
+            val uid = authRepository.currentUserId ?: return@launch
+            runCatching { userRepository.fetchUserProfile(uid) }
+        }
         // Restore the persisted feed filter on startup so a music/film/new-releases
         // selection survives an app restart (mirrors iOS @AppStorage("feedFilter")).
         viewModelScope.launch {

@@ -514,7 +514,12 @@
     <string name="search_trending_artists_title">Artists im Trend</string>
     <string name="search_new_release_albums_title">Neue Songs</string>
     <string name="search_new_release_albums_list_title">Neue Songs</string>
-    <string name="search_nothing_new_releases">Noch keine neuen Songs</string>    <string name="search_tab_users">Personen</string>
+    <string name="search_nothing_new_releases">Noch keine neuen Songs</string>
+    <string name="search_new_release_films_title">Neuerscheinungen</string>
+    <string name="search_new_release_films_list_title">Neuerscheinungen</string>
+    <string name="search_nothing_new_release_films">Noch keine Neuerscheinungen</string>
+    <string name="search_trending_directors_title">Regisseure im Trend</string>
+    <string name="search_tab_users">Personen</string>
     <string name="search_tab_songs">Songs</string>
     <string name="search_tab_films">Filme</string>
     <string name="search_tab_hashtags">Hashtags</string>
@@ -556,6 +561,8 @@
     <string name="hashtag_count_coruses">%1$s %2$s</string>
     <string name="search_see_all">Alle ansehen</string>
     <string name="search_taste_matches_title">Geschmacks-Matches</string>
+    <string name="search_taste_matches_feed_cta_body">Sieh Posts von Leuten, die deinen Geschmack teilen.</string>
+    <string name="search_taste_matches_feed_cta_button">Zum Geschmacks-Matches-Feed</string>
     <string name="search_mutual_connections_title">Gemeinsame Kontakte</string>
     <string name="search_popular_title">Beliebt auf Corus</string>
     <string name="search_new_title">Neu auf Corus</string>

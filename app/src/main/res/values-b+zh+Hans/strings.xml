@@ -514,7 +514,12 @@
     <string name="search_trending_artists_title">热门艺人</string>
     <string name="search_new_release_albums_title">新歌</string>
     <string name="search_new_release_albums_list_title">新歌</string>
-    <string name="search_nothing_new_releases">暂时没有新歌</string>    <string name="search_tab_users">用户</string>
+    <string name="search_nothing_new_releases">暂时没有新歌</string>
+    <string name="search_new_release_films_title">新上映</string>
+    <string name="search_new_release_films_list_title">新上映</string>
+    <string name="search_nothing_new_release_films">暂时没有新上映</string>
+    <string name="search_trending_directors_title">热门导演</string>
+    <string name="search_tab_users">用户</string>
     <string name="search_tab_songs">歌曲</string>
     <string name="search_tab_films">电影</string>
     <string name="search_tab_hashtags">话题标签</string>
@@ -555,6 +560,8 @@
     <string name="hashtag_count_coruses">%1$s %2$s</string>
     <string name="search_see_all">查看全部</string>
     <string name="search_taste_matches_title">品味匹配</string>
+    <string name="search_taste_matches_feed_cta_body">查看品味相近的人发布的内容。</string>
+    <string name="search_taste_matches_feed_cta_button">前往品味匹配动态</string>
     <string name="search_mutual_connections_title">共同关注</string>
     <string name="search_popular_title">Corus 上的热门</string>
     <string name="search_new_title">Corus 上的新人</string>

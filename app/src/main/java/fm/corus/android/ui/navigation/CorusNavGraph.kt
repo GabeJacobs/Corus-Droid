@@ -45,6 +45,7 @@ import fm.corus.android.ui.screens.settings.SettingsScreen
 import fm.corus.android.ui.screens.settings.SyncContactsSettingsScreen
 import fm.corus.android.ui.screens.search.SuggestedUsersListScreen
 import fm.corus.android.ui.screens.search.SuggestedUsersListViewModel
+import fm.corus.android.ui.screens.search.shouldShowTasteMatchesFeedCta
 import fm.corus.android.ui.screens.search.ContactFriendsListScreen
 import fm.corus.android.ui.components.ExpandedPhoto
 import fm.corus.android.ui.components.ToastManager
@@ -91,6 +92,17 @@ internal fun rememberArtistPagesEnabled(): Boolean {
     }
 }
 
+@Composable
+private fun rememberRemoteConfig(): fm.corus.android.service.RemoteConfigService {
+    val context = LocalContext.current
+    return remember(context) {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            RemoteConfigServiceEntryPoint::class.java,
+        ).remoteConfigService()
+    }
+}
+
 /**
  * Returns a callback that resolves a username to a user via [UserRepository] and
  * then navigates to the resolved profile. Resolving before navigation (matching
@@ -124,6 +136,7 @@ fun FeedNavGraph(
     navController: NavHostController,
     mainTabViewModel: MainTabViewModel,
     scrollToTopTrigger: Int = 0,
+    selectTasteMatchesTrigger: Int = 0,
     isFeedTabSelected: Boolean = true,
     onShowComments: (String) -> Unit = {},
     onShowPhoto: (ExpandedPhoto) -> Unit = {},
@@ -155,6 +168,7 @@ fun FeedNavGraph(
         composable<FeedTabRoute> {
             FeedScreen(
                 scrollToTopTrigger = scrollToTopTrigger,
+                selectTasteMatchesTrigger = selectTasteMatchesTrigger,
                 isAtRoot = isFeedTabSelected,
                 onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
                 onNavigateToUser = { user ->
@@ -974,6 +988,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
             onNavigateToArtist = { route -> navController.navigate(route) },
             onNavigateToAlbum = { albumRoute -> navController.navigate(albumRoute) },
+            onNavigateToDirector = { route -> navController.navigate(route) },
         )
     }
 
@@ -1059,6 +1074,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         // Render the filtered view so the tasteMatches "Unfollowed" filter drops
         // already-followed matches; all other sources pass through unchanged.
         val suggestions by viewModel.visibleSuggestions.collectAsState()
+        val allSuggestions by viewModel.suggestions.collectAsState()
         val isLoading by viewModel.isLoading.collectAsState()
         val isLoadingMore by viewModel.isLoadingMore.collectAsState()
         val isRefreshing by viewModel.isRefreshing.collectAsState()
@@ -1066,6 +1082,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         val followedIds by viewModel.followedIds.collectAsState()
         val filterUnfollowed by viewModel.filterUnfollowed.collectAsState()
         val isFilling by viewModel.isFilling.collectAsState()
+        val remoteConfig = rememberRemoteConfig()
 
         SuggestedUsersListScreen(
             matches = suggestions,
@@ -1091,6 +1108,14 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onVisibleRangeChange = { start, end -> viewModel.ensureClubMembersEnriched(start, end) },
             onBack = { navController.popBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+            showTasteMatchesFeedCta = shouldShowTasteMatchesFeedCta(
+                source = route.source,
+                segmentedSearchEnabled = remoteConfig.segmentedSearchEnabled,
+                tasteMatchesAvailable = remoteConfig.tasteMatchesEnabled || remoteConfig.tasteMatchesTester,
+                didLoadFirstPage = !isLoading,
+                matchCount = allSuggestions.size,
+            ),
+            onTasteMatchesFeedCta = { mainTabViewModel.requestTasteMatchesFeed() },
         )
     }
 

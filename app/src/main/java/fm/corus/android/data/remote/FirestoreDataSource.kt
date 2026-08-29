@@ -1233,6 +1233,99 @@ class FirestoreDataSource @Inject constructor(
         )
     }
 
+    /** Same shape as `fetchTrendingArtistsByWindow` but for directors
+     *  (trending_cache/directors). A missing week bucket stays empty. */
+    suspend fun fetchTrendingDirectorsByWindow(limit: Int = 20): Map<TrendingWindow, List<TrendingDirector>> {
+        val doc = firestore.collection("trending_cache").document("directors").get().await()
+        val data = doc.data ?: return emptyMap()
+        return TrendingWindow.values().associateWith { window ->
+            if (window == TrendingWindow.WEEK && data["week"] == null) {
+                emptyList()
+            } else {
+                pickWindowItems(data, window).take(limit).mapNotNull { parseTrendingDirector(it) }
+            }
+        }
+    }
+
+    private fun parseTrendingDirector(item: Map<String, Any?>): TrendingDirector? {
+        val name = item["directorName"] as? String ?: ""
+        val directorId = item["directorId"] as? String ?: ""
+        if (name.isEmpty() && directorId.isEmpty()) return null
+        val id = if (directorId.isEmpty()) name.lowercase() else directorId
+        return TrendingDirector(
+            id = id,
+            rank = (item["rank"] as? Number)?.toInt() ?: 0,
+            directorId = directorId,
+            directorName = name,
+            posterURL = (item["posterURL"] as? String)?.takeIf { it.isNotBlank() },
+            posterLargeURL = (item["posterLargeURL"] as? String)?.takeIf { it.isNotBlank() },
+            cymbalCount = (item["cymbalCount"] as? Number)?.toInt() ?: 0,
+        )
+    }
+
+    /**
+     * Unique films still inside the 30-day new-release window (New Releases).
+     * Grouped by movieId. Newest theatrical date first; post count breaks
+     * ties. Mirrors iOS `fetchNewReleaseMovies`.
+     */
+    suspend fun fetchNewReleaseMovies(limit: Int = 20): List<TrendingMovie> {
+        val nowMs = System.currentTimeMillis()
+        val snap = firestore.collection("posts")
+            .whereEqualTo("mediaType", "movie")
+            .whereGreaterThan("newReleaseExpiresAtMs", nowMs)
+            .orderBy("newReleaseExpiresAtMs", Query.Direction.DESCENDING)
+            .limit(100)
+            .get()
+            .await()
+        val byMovie = linkedMapOf<String, Triple<TrendingMovie, String, Int>>()
+        for (doc in snap.documents) {
+            val data = doc.data ?: continue
+            @Suppress("UNCHECKED_CAST")
+            val author = data["author"] as? Map<String, Any?>
+            if (author?.get("isBot") == true) continue
+            val uid = data["userId"] as? String
+            if (uid != null && isUserBannedLocally(uid)) continue
+            val movieId = data["movieId"] as? String ?: continue
+            if (movieId.isEmpty()) continue
+            val existing = byMovie[movieId]
+            if (existing != null) {
+                byMovie[movieId] = Triple(existing.first, existing.second, existing.third + 1)
+                continue
+            }
+            val releaseDate = data["movieReleaseDate"] as? String ?: ""
+            byMovie[movieId] = Triple(
+                TrendingMovie(
+                    id = movieId,
+                    rank = 0,
+                    movieId = movieId,
+                    movieTitle = data["movieTitle"] as? String ?: "",
+                    directorName = data["directorName"] as? String ?: "",
+                    releaseYear = data["releaseYear"] as? String ?: "",
+                    posterURL = (data["posterURL"] as? String)?.takeIf { it.isNotBlank() },
+                    posterLargeURL = (data["posterLargeURL"] as? String)?.takeIf { it.isNotBlank() },
+                    tmdbWebURL = data["tmdbWebURL"] as? String ?: "",
+                    trailerURL = data["trailerURL"] as? String,
+                    movieOverview = data["movieOverview"] as? String ?: "",
+                    movieRating = (data["movieRating"] as? Number)?.toDouble() ?: 0.0,
+                    movieCast = (data["movieCast"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
+                    movieReleaseDate = releaseDate.ifEmpty { null },
+                    cymbalCount = 1,
+                ),
+                releaseDate,
+                1,
+            )
+        }
+        return byMovie.values
+            .sortedWith(
+                compareByDescending<Triple<TrendingMovie, String, Int>> { it.second }
+                    .thenByDescending { it.third },
+            )
+            .take(limit)
+            .mapIndexed { index, entry ->
+                entry.first.copy(rank = index + 1, cymbalCount = entry.third)
+            }
+    }
+
     /**
      * Unique songs still inside the 30-day new-release window (New Songs).
      * Grouped by ISRC, then track id, then artist + title. Every row opens

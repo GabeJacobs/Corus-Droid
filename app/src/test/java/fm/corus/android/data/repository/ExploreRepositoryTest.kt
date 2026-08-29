@@ -97,6 +97,53 @@ class ExploreRepositoryTest {
         verify(dataSource, org.mockito.kotlin.times(2)).fetchNewReleaseAlbums(20)
     }
 
+    @Test
+    fun `new release movies stay cached until clearCaches`() = runTest {
+        val first = listOf(trendingMovie("a"))
+        val second = listOf(trendingMovie("b"))
+        whenever(dataSource.fetchNewReleaseMovies(20))
+            .thenReturn(first)
+            .thenReturn(second)
+
+        assertEquals(first, repo.fetchNewReleaseMovies())
+        assertEquals(first, repo.fetchNewReleaseMovies())
+        repo.clearCaches()
+        assertEquals(second, repo.fetchNewReleaseMovies())
+        verify(dataSource, org.mockito.kotlin.times(2)).fetchNewReleaseMovies(20)
+    }
+
+    @Test
+    fun `trending directors window switch is served from cache`() = runTest {
+        val all = mapOf(
+            TrendingWindow.WEEK to listOf(trendingDirector("w")),
+            TrendingWindow.MONTH to listOf(trendingDirector("m")),
+            TrendingWindow.YEAR to listOf(trendingDirector("y")),
+        )
+        whenever(dataSource.fetchTrendingDirectorsByWindow(20)).thenReturn(all)
+
+        assertEquals(all[TrendingWindow.MONTH], repo.fetchTrendingDirectors(TrendingWindow.MONTH))
+        assertEquals(all[TrendingWindow.WEEK], repo.fetchTrendingDirectors(TrendingWindow.WEEK))
+        verify(dataSource, org.mockito.kotlin.times(1)).fetchTrendingDirectorsByWindow(20)
+    }
+
+    private fun trendingDirector(id: String) = fm.corus.android.data.model.TrendingDirector(
+        id = id,
+        rank = 1,
+        directorId = id,
+        directorName = id,
+        cymbalCount = 1,
+    )
+
+    private fun trendingMovie(id: String) = fm.corus.android.data.model.TrendingMovie(
+        id = id,
+        rank = 1,
+        movieId = id,
+        movieTitle = id,
+        directorName = "Director",
+        releaseYear = "2026",
+        cymbalCount = 1,
+    )
+
     private fun trendingAlbum(id: String) = fm.corus.android.data.model.TrendingAlbum(
         id = id,
         rank = 1,

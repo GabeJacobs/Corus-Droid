@@ -3,6 +3,7 @@ package fm.corus.android.data.repository
 import fm.corus.android.data.model.CymbalHashtag
 import fm.corus.android.data.model.HashtagSuggestion
 import fm.corus.android.data.model.TrendingAlbum
+import fm.corus.android.data.model.TrendingDirector
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingArtist
 import fm.corus.android.data.model.TrendingSong
@@ -25,6 +26,8 @@ class ExploreRepository @Inject constructor(
     @Volatile private var trendingArtistsCache: CacheEntry<Map<TrendingWindow, List<TrendingArtist>>>? = null
     @Volatile private var trendingAlbumsCache: CacheEntry<Map<TrendingWindow, List<TrendingAlbum>>>? = null
     @Volatile private var newReleaseAlbumsCache: CacheEntry<List<TrendingAlbum>>? = null
+    @Volatile private var newReleaseMoviesCache: CacheEntry<List<TrendingMovie>>? = null
+    @Volatile private var trendingDirectorsCache: CacheEntry<Map<TrendingWindow, List<TrendingDirector>>>? = null
     @Volatile private var trendingMoviesCache: CacheEntry<Map<TrendingWindow, List<TrendingMovie>>>? = null
     @Volatile private var trendingHashtagsCache: CacheEntry<List<CymbalHashtag>>? = null
 
@@ -98,10 +101,29 @@ class ExploreRepository @Inject constructor(
         }
     }
 
+    suspend fun fetchNewReleaseMovies(limit: Int = 20): List<TrendingMovie> {
+        newReleaseMoviesCache?.let { if (it.isValid(TRENDING_TTL_MS)) return it.value }
+        return firestoreDataSource.fetchNewReleaseMovies(limit).also {
+            newReleaseMoviesCache = CacheEntry(it)
+        }
+    }
+
+    suspend fun fetchTrendingDirectors(
+        window: TrendingWindow = TrendingWindow.DEFAULT,
+        limit: Int = 20,
+    ): List<TrendingDirector> {
+        trendingDirectorsCache?.let { if (it.isValid(TRENDING_TTL_MS)) return it.value[window].orEmpty() }
+        val all = firestoreDataSource.fetchTrendingDirectorsByWindow(limit)
+        trendingDirectorsCache = CacheEntry(all)
+        return all[window].orEmpty()
+    }
+
     fun clearCaches() {
         trendingArtistsCache = null
         trendingAlbumsCache = null
         newReleaseAlbumsCache = null
+        newReleaseMoviesCache = null
+        trendingDirectorsCache = null
         trendingSongsCache = null
         trendingMoviesCache = null
         trendingHashtagsCache = null

@@ -78,6 +78,20 @@ class FeedModeTabsTest {
     }
 
     @Test
+    fun `favorites omitted when unlocked is stale and count is zero`() {
+        assertEquals(
+            listOf("following", "trending"),
+            visibleFeedModeTabs(
+                trendingEnabled = true,
+                tasteMatchesAvailable = false,
+                favoritesEnabled = true,
+                favoritesCount = 0,
+                favoritesUnlocked = false,
+            ),
+        )
+    }
+
+    @Test
     fun `favorites stays once unlocked`() {
         assertEquals(
             listOf("following", "favorites"),
@@ -92,32 +106,42 @@ class FeedModeTabsTest {
     }
 
     @Test
-    fun `underline grows past the label like iOS`() {
+    fun `underline follows each label instead of the longest`() {
         val frames = mapOf(
-            0 to Rect(10f, 20f, 70f, 22f),
-            1 to Rect(90f, 20f, 140f, 22f),
+            0 to Rect(0f, 0f, 40f, 2f),
+            1 to Rect(80f, 0f, 125f, 2f),
+            2 to Rect(165f, 0f, 195f, 2f),
+            3 to Rect(235f, 0f, 310f, 2f),
         )
-        val tight = underlinePlacement(2, 0f, frames, extraPx = 0f)!!
-        val wide = underlinePlacement(2, 0f, frames, extraPx = 6f)!!
-        assertEquals(60f, tight.width, 0.01f)
-        assertEquals(72f, wide.width, 0.01f)
-        assertEquals(4f, wide.left, 0.01f)
+        val extra = underlineOvershootPx(frames, maxExtraPx = 24f)
+        val users = underlinePlacement(4, 0f, frames, extraPx = extra)!!
+        val hashtags = underlinePlacement(4, 3f, frames, extraPx = extra)!!
+        assertEquals(40f + extra * 2f, users.width, 0.01f)
+        assertEquals(75f + extra * 2f, hashtags.width, 0.01f)
+        assertTrue(users.width < hashtags.width)
     }
 
     @Test
-    fun `underline width does not change from tab to tab`() {
-        val frames = mapOf(
-            0 to Rect(10f, 20f, 70f, 22f),
-            1 to Rect(90f, 20f, 140f, 22f),
+    fun `underline shrinks when a fourth tab tightens the gaps`() {
+        val three = mapOf(
+            0 to Rect(0f, 0f, 60f, 2f),
+            1 to Rect(140f, 0f, 200f, 2f),
+            2 to Rect(280f, 0f, 340f, 2f),
         )
-        val width = constantUnderlineWidthPx(frames, extraPx = 6f)
-        assertEquals(72f, width, 0.01f)
-        val following = underlinePlacement(2, 0f, frames, extraPx = 6f, fixedWidthPx = width)!!
-        val matches = underlinePlacement(2, 1f, frames, extraPx = 6f, fixedWidthPx = width)!!
-        assertEquals(width, following.width, 0.01f)
-        assertEquals(width, matches.width, 0.01f)
-        assertEquals(4f, following.left, 0.01f)
-        assertEquals(79f, matches.left, 0.01f)
+        val four = mapOf(
+            0 to Rect(0f, 0f, 60f, 2f),
+            1 to Rect(88f, 0f, 148f, 2f),
+            2 to Rect(176f, 0f, 236f, 2f),
+            3 to Rect(264f, 0f, 324f, 2f),
+        )
+        val threeExtra = underlineOvershootPx(three, 24f)
+        val fourExtra = underlineOvershootPx(four, 24f)
+        val threeWidth = underlinePlacement(3, 0f, three, extraPx = threeExtra)!!.width
+        val fourWidth = underlinePlacement(4, 0f, four, extraPx = fourExtra)!!.width
+        assertEquals(24f, threeExtra, 0.01f)
+        assertEquals(14f, fourExtra, 0.01f)
+        assertEquals(108f, threeWidth, 0.01f)
+        assertEquals(88f, fourWidth, 0.01f)
     }
 
     @Test

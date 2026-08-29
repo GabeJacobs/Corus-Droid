@@ -514,7 +514,12 @@
     <string name="search_trending_artists_title">인기 아티스트</string>
     <string name="search_new_release_albums_title">새 노래</string>
     <string name="search_new_release_albums_list_title">새 노래</string>
-    <string name="search_nothing_new_releases">아직 새 노래가 없어요</string>    <string name="search_tab_users">사용자</string>
+    <string name="search_nothing_new_releases">아직 새 노래가 없어요</string>
+    <string name="search_new_release_films_title">신작</string>
+    <string name="search_new_release_films_list_title">신작</string>
+    <string name="search_nothing_new_release_films">아직 신작이 없어요</string>
+    <string name="search_trending_directors_title">인기 감독</string>
+    <string name="search_tab_users">사용자</string>
     <string name="search_tab_songs">곡</string>
     <string name="search_tab_films">영화</string>
     <string name="search_tab_hashtags">해시태그</string>
@@ -556,6 +561,8 @@
     <string name="hashtag_count_coruses">%1$s %2$s</string>
     <string name="search_see_all">모두 보기</string>
     <string name="search_taste_matches_title">취향 매치</string>
+    <string name="search_taste_matches_feed_cta_body">취향이 비슷한 사람들의 게시물을 보세요.</string>
+    <string name="search_taste_matches_feed_cta_button">취향 매치 피드로 가기</string>
     <string name="search_mutual_connections_title">함께 아는 사람</string>
     <string name="search_popular_title">Corus 인기</string>
     <string name="search_new_title">Corus 신규</string>

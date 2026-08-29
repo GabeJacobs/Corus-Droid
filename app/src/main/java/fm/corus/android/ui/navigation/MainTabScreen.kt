@@ -51,6 +51,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.PlatformTextStyle
@@ -323,6 +324,20 @@ fun MainTabScreen(
     // screens stay composed, so the screen's own LaunchedEffect(Unit) only fires
     // once at launch and can't re-trigger the mark-read on later visits.
     val notificationsTabActivation = remember { mutableIntStateOf(0) }
+    val selectTasteMatchesTrigger = remember { mutableIntStateOf(0) }
+    val focusManager = LocalFocusManager.current
+    // Search Taste Matches list → Feed tab + Taste Matches mode. Pop feed to
+    // root first (matching iOS requestTasteMatchesFeed), then switch tabs, then
+    // bump the trigger so FeedScreen selects the mode after the tab is visible
+    // and the pager can animate.
+    LaunchedEffect(Unit) {
+        viewModel.tasteMatchesFeedRequests.collect {
+            focusManager.clearFocus()
+            feedNavController.popToStart()
+            selectedTab = CorusTab.FEED
+            selectTasteMatchesTrigger.intValue++
+        }
+    }
 
     // Frosted tab bar (Haze). The expanding player owns its own art-wash
     // surface above the tab bar — matching iOS UnifiedPlayerChrome.
@@ -440,6 +455,7 @@ fun MainTabScreen(
                     navController = feedNavController,
                     mainTabViewModel = viewModel,
                     scrollToTopTrigger = feedScrollToTop.intValue,
+                    selectTasteMatchesTrigger = selectTasteMatchesTrigger.intValue,
                     isFeedTabSelected = selectedTab == CorusTab.FEED,
                     onShowComments = { commentPostId = it },
                     onShowPhoto = { expandedPhoto = it },
@@ -996,10 +1012,9 @@ fun MainTabScreen(
 
     // Chrome-level loading HUD — sits above the tabs + mini-player so the
     // dim covers the whole window. Shared by music-service link-out and
-    // Search destination resolve (album / artist).
-    if (isResolvingLinkOut || isResolvingDestination) {
-        ChromeLoadingHud()
-    }
+    // Search destination resolve (album / artist). Deferred so a fast
+    // resolve never flashes a spinner before the page push.
+    ChromeLoadingHud(visible = isResolvingLinkOut || isResolvingDestination)
 
     if (showPlayerQueue) {
         FullPlayerQueueSheet(

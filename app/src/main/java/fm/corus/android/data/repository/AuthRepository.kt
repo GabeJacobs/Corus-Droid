@@ -36,6 +36,7 @@ class AuthRepository @Inject constructor(
     private val messaging: FirebaseMessaging,
     private val cloudFunctions: CloudFunctionsDataSource,
     private val onboardingLocalStore: OnboardingLocalStore,
+    private val subscriptionRepository: SubscriptionRepository,
 ) {
     private val _currentUser = MutableStateFlow<FirebaseUser?>(auth.currentUser)
     val currentUser: StateFlow<FirebaseUser?> = _currentUser.asStateFlow()
@@ -160,6 +161,7 @@ class AuthRepository @Inject constructor(
         _userProfile.value = profile
         if (profile != null) {
             _isClubMember.value = profile.isClubMember
+            hydrateFavoritesFromProfile(profile)
         }
         return profile == null
     }
@@ -170,7 +172,18 @@ class AuthRepository @Inject constructor(
         _userProfile.value = profile
         if (profile != null) {
             _isClubMember.value = profile.isClubMember
+            hydrateFavoritesFromProfile(profile)
         }
+    }
+
+    /** iOS `setFavoritesCount` on `users_v2` hydration — drives the Favorites tab. */
+    private fun hydrateFavoritesFromProfile(profile: CymbalUser) {
+        subscriptionRepository.setSavesCount(profile.savesCount)
+        subscriptionRepository.setFavoritesCount(
+            profile.favoritesCount,
+            allowZero = profile.favoritesCountSpecified,
+        )
+        subscriptionRepository.setPlaylistTrialUsed(profile.playlistTrialUsed)
     }
 
     fun bumpCymbalCount(delta: Int) {

@@ -110,6 +110,9 @@ class AuthViewModel @Inject constructor(
 
     // Whether this session created a new sign-in (vs app relaunch)
     private var didSignInThisSession = false
+    /** Last uid handled by [observeAuthState]. A change (or null) resets
+     *  account-scoped favorites so the next login cannot inherit the latch. */
+    private var lastAuthUid: String? = null
 
     /** Display name from the OAuth provider (Google), if any. Used to conditionally show name field. */
     val oauthDisplayName: String?
@@ -199,9 +202,17 @@ class AuthViewModel @Inject constructor(
                 val user = auth.currentUser
                 if (user == null) {
                     unreadCountsRepository.stop()
+                    if (lastAuthUid != null) {
+                        subscriptionRepository.logoutUser()
+                        lastAuthUid = null
+                    }
                     _authState.value = AuthState.SignedOut
                     return@launch
                 }
+                if (lastAuthUid != null && lastAuthUid != user.uid) {
+                    subscriptionRepository.logoutUser()
+                }
+                lastAuthUid = user.uid
 
                 // Fast path: a returning, already-onboarded user (local flag) is
                 // already on the feed (seeded in the initial state). Re-validate in
@@ -211,7 +222,7 @@ class AuthViewModel @Inject constructor(
                 if (shouldFastPathLaunch(
                         hasUser = true,
                         hasCompletedOnboardingLocally = onboardingLocalStore.hasCompletedOnboarding(user.uid),
-                    )
+                    ) && !didSignInThisSession
                 ) {
                     analyticsService.setUserId(user.uid)
                     SpotifyFtueExperiment.restoreUserProperties(
@@ -220,12 +231,18 @@ class AuthViewModel @Inject constructor(
                         analytics = analyticsService,
                     )
                     unreadCountsRepository.start(user.uid)
+                    // iOS applies a uid-matched persisted profile before MainTab.
+                    // Restore Favorites here so the tab is present on first frame.
+                    subscriptionRepository.restoreFavoritesForUser(user.uid)
                     _authState.value = AuthState.SignedIn
                     launch { revalidateInBackground(user) }
                     return@launch
                 }
 
                 _authState.value = AuthState.Loading
+                // Returning-user login: apply this uid's cached Favorites
+                // before the feed mounts (iOS waits on the profile read).
+                subscriptionRepository.restoreFavoritesForUser(user.uid)
                 try {
                     // Check if user is banned before proceeding
                     val isBanned = authRepository.checkIfUserIsBanned(user.uid)

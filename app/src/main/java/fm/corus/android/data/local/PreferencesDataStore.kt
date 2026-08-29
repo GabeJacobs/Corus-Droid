@@ -167,6 +167,23 @@ private data class PersistedTrendingAlbumsWrapper(
 )
 
 @Serializable
+private data class PersistedTrendingDirector(
+    val id: String,
+    val rank: Int,
+    val directorId: String,
+    val directorName: String,
+    val posterURL: String? = null,
+    val posterLargeURL: String? = null,
+    val cymbalCount: Int = 0,
+)
+
+@Serializable
+private data class PersistedTrendingDirectorsWrapper(
+    val fetchedAt: Long,
+    val directors: List<PersistedTrendingDirector>,
+)
+
+@Serializable
 private data class PersistedBrowseUser(
     val id: String,
     val username: String,
@@ -280,6 +297,26 @@ private fun PersistedTrendingAlbum.toModel() = fm.corus.android.data.model.Trend
     trackName = trackName,
     trackReleaseDate = trackReleaseDate,
     trackReleaseDatePrecision = trackReleaseDatePrecision,
+)
+
+private fun fm.corus.android.data.model.TrendingDirector.toPersisted() = PersistedTrendingDirector(
+    id = id,
+    rank = rank,
+    directorId = directorId,
+    directorName = directorName,
+    posterURL = posterURL,
+    posterLargeURL = posterLargeURL,
+    cymbalCount = cymbalCount,
+)
+
+private fun PersistedTrendingDirector.toModel() = fm.corus.android.data.model.TrendingDirector(
+    id = id,
+    rank = rank,
+    directorId = directorId,
+    directorName = directorName,
+    posterURL = posterURL,
+    posterLargeURL = posterLargeURL,
+    cymbalCount = cymbalCount,
 )
 
 private fun CymbalUser.toBrowsePersisted() = PersistedBrowseUser(
@@ -451,6 +488,7 @@ class PreferencesDataStore @Inject constructor(
         val TRENDING_HASHTAGS_WINDOW = stringPreferencesKey("trending_hashtags_window")
         val TRENDING_ARTISTS_WINDOW = stringPreferencesKey("trending_artists_window")
         val TRENDING_ALBUMS_WINDOW = stringPreferencesKey("trending_albums_window")
+        val TRENDING_DIRECTORS_WINDOW = stringPreferencesKey("trending_directors_window")
         // For You feed mode + seen-IDs ring buffer (cap 500, JSON-encoded).
         val FEED_MODE = stringPreferencesKey("feed_mode")
         // Synchronous mirror of FEED_MODE's raw value, in the same launch-critical
@@ -481,6 +519,8 @@ class PreferencesDataStore @Inject constructor(
         private val SEARCH_TRENDING_MOVIES = stringPreferencesKey("searchBrowse_v1_trendingMovies")
         private val SEARCH_TRENDING_ALBUMS = stringPreferencesKey("searchBrowse_v1_trendingAlbums")
         private val SEARCH_NEW_RELEASE_ALBUMS = stringPreferencesKey("searchBrowse_v1_newReleaseAlbums")
+        private val SEARCH_NEW_RELEASE_MOVIES = stringPreferencesKey("searchBrowse_v1_newReleaseMovies")
+        private val SEARCH_TRENDING_DIRECTORS = stringPreferencesKey("searchBrowse_v1_trendingDirectors")
         private fun searchNewUsersKey(userId: String) = stringPreferencesKey("searchBrowse_v1_newUsers_$userId")
         private fun searchClubKey(userId: String) = stringPreferencesKey("searchBrowse_v1_club_$userId")
     }
@@ -523,6 +563,14 @@ class PreferencesDataStore @Inject constructor(
 
     suspend fun setTrendingAlbumsWindow(value: String) {
         dataStore.edit { it[TRENDING_ALBUMS_WINDOW] = value }
+    }
+
+    val trendingDirectorsWindow: Flow<String> = dataStore.data.map { prefs ->
+        prefs[TRENDING_DIRECTORS_WINDOW] ?: "week"
+    }
+
+    suspend fun setTrendingDirectorsWindow(value: String) {
+        dataStore.edit { it[TRENDING_DIRECTORS_WINDOW] = value }
     }
 
     val autoplayNextSong: Flow<Boolean> = dataStore.data.map { prefs ->
@@ -1178,6 +1226,30 @@ class PreferencesDataStore @Inject constructor(
         return wrapper.albums.map { it.toModel() }.takeIf { it.isNotEmpty() }
     }
 
+    suspend fun persistSearchNewReleaseMovies(movies: List<fm.corus.android.data.model.TrendingMovie>) {
+        persistBrowseEnvelope(SEARCH_NEW_RELEASE_MOVIES, PersistedTrendingMoviesWrapper(
+            fetchedAt = System.currentTimeMillis(),
+            movies = movies.map { it.toPersisted() },
+        ))
+    }
+
+    suspend fun loadSearchNewReleaseMovies(): List<fm.corus.android.data.model.TrendingMovie>? {
+        val wrapper = loadBrowseEnvelope<PersistedTrendingMoviesWrapper>(SEARCH_NEW_RELEASE_MOVIES) ?: return null
+        return wrapper.movies.map { it.toModel() }.takeIf { it.isNotEmpty() }
+    }
+
+    suspend fun persistSearchTrendingDirectors(directors: List<fm.corus.android.data.model.TrendingDirector>) {
+        persistBrowseEnvelope(SEARCH_TRENDING_DIRECTORS, PersistedTrendingDirectorsWrapper(
+            fetchedAt = System.currentTimeMillis(),
+            directors = directors.map { it.toPersisted() },
+        ))
+    }
+
+    suspend fun loadSearchTrendingDirectors(): List<fm.corus.android.data.model.TrendingDirector>? {
+        val wrapper = loadBrowseEnvelope<PersistedTrendingDirectorsWrapper>(SEARCH_TRENDING_DIRECTORS) ?: return null
+        return wrapper.directors.map { it.toModel() }.takeIf { it.isNotEmpty() }
+    }
+
     suspend fun persistSearchNewUsers(users: List<CymbalUser>, userId: String) {
         persistBrowseEnvelope(searchNewUsersKey(userId), PersistedBrowseUsersWrapper(
             fetchedAt = System.currentTimeMillis(),
@@ -1214,6 +1286,7 @@ class PreferencesDataStore @Inject constructor(
                 is PersistedTrendingSongsWrapper -> parsed.fetchedAt
                 is PersistedTrendingMoviesWrapper -> parsed.fetchedAt
                 is PersistedTrendingAlbumsWrapper -> parsed.fetchedAt
+                is PersistedTrendingDirectorsWrapper -> parsed.fetchedAt
                 is PersistedBrowseUsersWrapper -> parsed.fetchedAt
                 else -> 0L
             }

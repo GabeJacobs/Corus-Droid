@@ -1,6 +1,7 @@
 package fm.corus.android.ui.screens.compose
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -241,17 +242,25 @@ private fun PostSuccessOthersRow(
     }
 }
 
-/** Same plus→check accent capsule as the feed Follow pill, but it stays
- *  on "Following" so the user can follow more than one person before Done. */
+/** Same plus→check capsule as the feed Follow pill, but it stays on
+ *  "Following" (search grey, not accent) so they can follow more than one. */
 @Composable
 private fun StayVisibleFollowPill(
     following: Boolean,
     onTap: () -> Unit,
 ) {
+    val contentColor = if (following) CorusColors.Secondary else Color.White
     Row(
         modifier = Modifier
             .clip(CircleShape)
-            .background(CorusColors.Accent)
+            .then(
+                if (following) {
+                    Modifier.border(1.dp, CorusColors.Divider, CircleShape)
+                } else {
+                    Modifier
+                },
+            )
+            .background(if (following) CorusColors.CardBackground else CorusColors.Accent)
             .clickable(
                 enabled = !following,
                 interactionSource = remember { MutableInteractionSource() },
@@ -265,7 +274,7 @@ private fun StayVisibleFollowPill(
         Icon(
             imageVector = if (following) Icons.Filled.Check else Icons.Filled.Add,
             contentDescription = null,
-            tint = Color.White,
+            tint = contentColor,
             modifier = Modifier.size(12.dp),
         )
         Text(
@@ -273,7 +282,7 @@ private fun StayVisibleFollowPill(
                 if (following) R.string.likes_button_following else R.string.likes_button_follow,
             ),
             style = CorusFont.caption.copy(fontWeight = FontWeight.SemiBold),
-            color = Color.White,
+            color = contentColor,
         )
     }
 }

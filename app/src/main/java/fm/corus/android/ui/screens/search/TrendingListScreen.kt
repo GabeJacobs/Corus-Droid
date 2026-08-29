@@ -31,6 +31,7 @@ import fm.corus.android.data.model.TrendingAlbum
 import fm.corus.android.data.model.TrendingAlbumDestinationCache
 import fm.corus.android.data.model.TrendingAlbumOpen
 import fm.corus.android.data.model.TrendingArtist
+import fm.corus.android.data.model.TrendingDirector
 import fm.corus.android.data.model.TrendingHashtag
 import fm.corus.android.data.model.TrendingMovie
 import fm.corus.android.data.model.TrendingSong
@@ -42,6 +43,7 @@ import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirestoreDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.ExploreRepository
+import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.domain.DestinationResolvingOverlay
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.ui.components.CorusHeaderIconButton
@@ -72,6 +74,7 @@ import javax.inject.Inject
 @HiltViewModel
 class TrendingListViewModel @Inject constructor(
     private val exploreRepository: ExploreRepository,
+    private val tmdbRepository: TMDBRepository,
     private val firestoreDataSource: FirestoreDataSource,
     private val cloudFunctions: CloudFunctionsDataSource,
     private val musicSearchRepository: MusicSearchRepository,
@@ -176,6 +179,30 @@ class TrendingListViewModel @Inject constructor(
         viewModelScope.launch { preferencesDataStore.setTrendingArtistsWindow(window.key) }
     }
 
+    val trendingDirectorsWindow: StateFlow<TrendingWindow> =
+        preferencesDataStore.trendingDirectorsWindow
+            .map { TrendingWindow.fromKey(it) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+
+    private val _trendingDirectors = MutableStateFlow<List<TrendingDirector>>(emptyList())
+    val trendingDirectors: StateFlow<List<TrendingDirector>> = _trendingDirectors.asStateFlow()
+
+    private val _newReleaseMovies = MutableStateFlow<List<TrendingMovie>>(emptyList())
+    val newReleaseMovies: StateFlow<List<TrendingMovie>> = _newReleaseMovies.asStateFlow()
+
+    private val _isDirectorsLoading = MutableStateFlow(true)
+    val isDirectorsLoading: StateFlow<Boolean> = _isDirectorsLoading.asStateFlow()
+
+    private val _isNewReleaseMoviesLoading = MutableStateFlow(true)
+    val isNewReleaseMoviesLoading: StateFlow<Boolean> = _isNewReleaseMoviesLoading.asStateFlow()
+
+    private val _isResolvingDirector = MutableStateFlow(false)
+    val isResolvingDirector: StateFlow<Boolean> = _isResolvingDirector.asStateFlow()
+
+    fun setTrendingDirectorsWindow(window: TrendingWindow) {
+        viewModelScope.launch { preferencesDataStore.setTrendingDirectorsWindow(window.key) }
+    }
+
     suspend fun loadSongs(window: TrendingWindow) {
         _isSongsLoading.value = true
         _trendingSongs.value = try {
@@ -246,7 +273,9 @@ class TrendingListViewModel @Inject constructor(
             )
         } finally {
             _isResolvingArtist.value = false
-            DestinationResolvingOverlay.setResolving(_isResolvingArtist.value || _isResolvingAlbum.value)
+            DestinationResolvingOverlay.setResolving(
+                _isResolvingArtist.value || _isResolvingAlbum.value || _isResolvingDirector.value,
+            )
         }
     }
 
@@ -270,6 +299,61 @@ class TrendingListViewModel @Inject constructor(
             emptyList()
         }
         _isNewReleaseAlbumsLoading.value = false
+    }
+
+    suspend fun loadNewReleaseMovies() {
+        _isNewReleaseMoviesLoading.value = true
+        _newReleaseMovies.value = try {
+            exploreRepository.fetchNewReleaseMovies()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load new-release films", e)
+            emptyList()
+        }
+        _isNewReleaseMoviesLoading.value = false
+    }
+
+    suspend fun loadDirectors(window: TrendingWindow) {
+        _isDirectorsLoading.value = true
+        _trendingDirectors.value = try {
+            exploreRepository.fetchTrendingDirectors(window)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load trending directors", e)
+            emptyList()
+        }
+        _isDirectorsLoading.value = false
+    }
+
+    suspend fun resolveTrendingDirector(director: TrendingDirector): fm.corus.android.ui.navigation.DirectorPageRoute? {
+        if (director.directorId.isNotEmpty()) {
+            return fm.corus.android.ui.navigation.DirectorPageRoute(
+                directorId = director.directorId,
+                name = director.directorName.ifBlank { null },
+                imageUrl = director.posterLargeURL ?: director.posterURL,
+            )
+        }
+        tmdbRepository.cachedResolvedDirector(director.directorName)?.let { cached ->
+            return fm.corus.android.ui.navigation.DirectorPageRoute(
+                directorId = cached.id,
+                name = cached.name,
+                imageUrl = cached.imageUrl ?: director.posterLargeURL ?: director.posterURL,
+            )
+        }
+        if (_isResolvingDirector.value) return null
+        _isResolvingDirector.value = true
+        DestinationResolvingOverlay.setResolving(true)
+        return try {
+            val resolved = tmdbRepository.resolveDirectorByName(director.directorName) ?: return null
+            fm.corus.android.ui.navigation.DirectorPageRoute(
+                directorId = resolved.id,
+                name = resolved.name,
+                imageUrl = resolved.imageUrl ?: director.posterLargeURL ?: director.posterURL,
+            )
+        } finally {
+            _isResolvingDirector.value = false
+            DestinationResolvingOverlay.setResolving(
+                _isResolvingArtist.value || _isResolvingAlbum.value || _isResolvingDirector.value,
+            )
+        }
     }
 
     suspend fun resolveTrendingAlbum(album: TrendingAlbum): TrendingAlbumOpen? {
@@ -302,7 +386,9 @@ class TrendingListViewModel @Inject constructor(
             )
         } finally {
             _isResolvingAlbum.value = false
-            DestinationResolvingOverlay.setResolving(_isResolvingArtist.value || _isResolvingAlbum.value)
+            DestinationResolvingOverlay.setResolving(
+                _isResolvingArtist.value || _isResolvingAlbum.value || _isResolvingDirector.value,
+            )
         }
     }
 
@@ -365,6 +451,7 @@ fun TrendingListScreen(
     onNavigateToHashtag: (String) -> Unit = {},
     onNavigateToArtist: (fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit = {},
     onNavigateToAlbum: (fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit = {},
+    onNavigateToDirector: (fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit = {},
 ) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -382,6 +469,11 @@ fun TrendingListScreen(
     val newReleaseAlbums by viewModel.newReleaseAlbums.collectAsState()
     val isAlbumsLoading by viewModel.isAlbumsLoading.collectAsState()
     val isNewReleaseAlbumsLoading by viewModel.isNewReleaseAlbumsLoading.collectAsState()
+    val trendingDirectors by viewModel.trendingDirectors.collectAsState()
+    val newReleaseMovies by viewModel.newReleaseMovies.collectAsState()
+    val isDirectorsLoading by viewModel.isDirectorsLoading.collectAsState()
+    val isNewReleaseMoviesLoading by viewModel.isNewReleaseMoviesLoading.collectAsState()
+    val directorsWindow by viewModel.trendingDirectorsWindow.collectAsState()
     val albumsWindow by viewModel.trendingAlbumsWindow.collectAsState()
     val songsWindow by viewModel.trendingSongsWindow.collectAsState()
     val filmsWindow by viewModel.trendingFilmsWindow.collectAsState()
@@ -403,6 +495,8 @@ fun TrendingListScreen(
             KIND_ARTISTS -> viewModel.trendingArtistsWindow.collect { viewModel.loadArtists(it) }
             KIND_ALBUMS -> viewModel.trendingAlbumsWindow.collect { viewModel.loadAlbums(it) }
             KIND_NEW_RELEASE_ALBUMS -> viewModel.loadNewReleaseAlbums()
+            KIND_NEW_RELEASE_FILMS -> viewModel.loadNewReleaseMovies()
+            KIND_DIRECTORS -> viewModel.trendingDirectorsWindow.collect { viewModel.loadDirectors(it) }
         }
     }
 
@@ -418,6 +512,8 @@ fun TrendingListScreen(
                                 KIND_ARTISTS -> fm.corus.android.R.string.search_trending_artists_title
                                 KIND_ALBUMS -> fm.corus.android.R.string.search_trending_albums_title
                                 KIND_NEW_RELEASE_ALBUMS -> fm.corus.android.R.string.search_new_release_albums_list_title
+                                KIND_NEW_RELEASE_FILMS -> fm.corus.android.R.string.search_new_release_films_list_title
+                                KIND_DIRECTORS -> fm.corus.android.R.string.search_trending_directors_title
                                 else -> fm.corus.android.R.string.search_trending_songs_title
                             },
                         ),
@@ -496,11 +592,39 @@ fun TrendingListScreen(
                     albums = newReleaseAlbums,
                     isLoading = isNewReleaseAlbumsLoading,
                     showRank = false,
-                    staticHeaderIcon = "new_release",
+                    staticHeaderIcon = "sparkle",
                     staticHeaderTitle = stringResource(fm.corus.android.R.string.search_new_release_albums_title),
                     emptyMessage = stringResource(fm.corus.android.R.string.search_nothing_new_releases),
                     onAlbumTap = { album ->
                         album.asSongTrack()?.let { onNavigateToSong(it) }
+                    },
+                )
+                KIND_NEW_RELEASE_FILMS -> TrendingFilmsContent(
+                    listState = listState,
+                    movies = newReleaseMovies,
+                    isLoading = isNewReleaseMoviesLoading,
+                    staticHeaderIcon = "sparkle",
+                    staticHeaderTitle = stringResource(fm.corus.android.R.string.search_new_release_films_title),
+                    emptyMessage = stringResource(fm.corus.android.R.string.search_nothing_new_release_films),
+                    onFilmTap = onNavigateToFilm,
+                )
+                KIND_DIRECTORS -> TrendingDirectorsContent(
+                    listState = listState,
+                    directors = trendingDirectors,
+                    isLoading = isDirectorsLoading,
+                    window = directorsWindow,
+                    onWindowChange = viewModel::setTrendingDirectorsWindow,
+                    onDirectorTap = { director ->
+                        if (director.directorId.isEmpty()) DestinationResolvingOverlay.arm()
+                        scope.launch {
+                            val route = viewModel.resolveTrendingDirector(director)
+                            if (route != null) onNavigateToDirector(route)
+                            else android.widget.Toast.makeText(
+                                context,
+                                context.getString(fm.corus.android.R.string.film_detail_director_not_found),
+                                android.widget.Toast.LENGTH_SHORT,
+                            ).show()
+                        }
                     },
                 )
                 else -> TrendingSongsContent(
@@ -523,6 +647,8 @@ private const val KIND_HASHTAGS = "hashtags"
 private const val KIND_ARTISTS = "artists"
 private const val KIND_ALBUMS = "albums"
 private const val KIND_NEW_RELEASE_ALBUMS = "new_release_albums"
+private const val KIND_NEW_RELEASE_FILMS = "new_release_films"
+private const val KIND_DIRECTORS = "directors"
 
 private fun openCachedAlbum(
     dest: TrendingAlbumOpen,

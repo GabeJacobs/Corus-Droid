@@ -36,6 +36,7 @@ class AuthRepositoryAppleTest {
     private val messaging = mock<FirebaseMessaging>()
     private val cloudFunctions = mock<CloudFunctionsDataSource>()
     private val onboardingLocalStore = mock<OnboardingLocalStore>()
+    private val subscriptionRepository = mock<SubscriptionRepository>()
     private val activity = mock<Activity>()
 
     private fun newRepo() = AuthRepository(
@@ -46,6 +47,7 @@ class AuthRepositoryAppleTest {
         messaging,
         cloudFunctions,
         onboardingLocalStore,
+        subscriptionRepository,
     )
 
     @Test

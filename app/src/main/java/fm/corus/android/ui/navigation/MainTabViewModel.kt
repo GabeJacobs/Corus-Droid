@@ -15,10 +15,13 @@ import fm.corus.android.data.repository.UnreadCountsRepository
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostSuccessOthersPayload
 import fm.corus.android.domain.SpotifyFtueExperiment
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -174,6 +177,20 @@ class MainTabViewModel @Inject constructor(
 
     fun logPaywallShown(source: String) = analyticsService.logPaywallShown(source)
     fun logSaveWarningTapped(remaining: Int) = analyticsService.logSaveWarningToastTapped(remaining)
+
+    /**
+     * Taste Matches see-all page CTA. MainTabScreen switches to the Feed tab
+     * (popping the feed stack to root first) and FeedScreen then selects the
+     * Taste Matches mode so the pager animates on-screen. Mirrors iOS
+     * `requestTasteMatchesFeed`.
+     */
+    private val _tasteMatchesFeedRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val tasteMatchesFeedRequests: SharedFlow<Unit> = _tasteMatchesFeedRequests.asSharedFlow()
+
+    fun requestTasteMatchesFeed() {
+        analyticsService.logSearchTasteMatchesFeedCtaTapped()
+        _tasteMatchesFeedRequests.tryEmit(Unit)
+    }
 
     val notificationCount: StateFlow<Int> = unreadCountsRepository.notificationCount
     val unreadMessageCount: StateFlow<Int> = unreadCountsRepository.unreadMessageCount

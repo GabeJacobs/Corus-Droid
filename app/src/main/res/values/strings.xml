@@ -513,9 +513,15 @@
     <string name="edit_profile_field_website">WEBSITE</string>
     <string name="edit_profile_field_featured_tab">FEATURED TAB</string>
     <string name="edit_profile_field_profile_tabs">PROFILE TABS</string>
-    <string name="edit_profile_tabs_hint">Use the arrows to reorder. At least one tab must stay visible.</string>
-    <string name="edit_profile_tab_hide">Hide</string>
-    <string name="edit_profile_tab_show">Show</string>
+    <string name="edit_profile_placeholder_bio">Write something about yourself</string>
+    <string name="edit_profile_placeholder_website">yourwebsite.com</string>
+    <string name="edit_profile_tabs_hint">Drag to reorder. At least one tab must stay visible.</string>
+    <string name="edit_profile_tab_music">Music</string>
+    <string name="edit_profile_tab_film">Film</string>
+    <string name="edit_profile_tab_books">Books</string>
+    <string name="edit_profile_tab_hide">Hide %1$s</string>
+    <string name="edit_profile_tab_show">Show %1$s</string>
+    <string name="edit_profile_tab_reorder">Drag to reorder</string>
     <string name="edit_profile_tab_move_up">Move up</string>
     <string name="edit_profile_tab_move_down">Move down</string>
     <string name="edit_profile_username_taken">Username is taken</string>
@@ -600,7 +606,12 @@
     <string name="search_trending_albums_title">Trending albums</string>
     <string name="search_new_release_albums_title">New songs</string>
     <string name="search_new_release_albums_list_title">New songs</string>
-    <string name="search_nothing_new_releases">No new songs yet</string>    <string name="search_tab_users">Users</string>
+    <string name="search_nothing_new_releases">No new songs yet</string>
+    <string name="search_new_release_films_title">New releases</string>
+    <string name="search_new_release_films_list_title">New releases</string>
+    <string name="search_nothing_new_release_films">No new releases yet</string>
+    <string name="search_trending_directors_title">Trending directors</string>
+    <string name="search_tab_users">Users</string>
     <string name="search_tab_songs">Songs</string>
     <string name="search_tab_films">Films</string>
     <string name="search_tab_hashtags">Hashtags</string>
@@ -642,6 +653,9 @@
     <string name="hashtag_count_coruses">%1$s %2$s</string>
     <string name="search_see_all">See All</string>
     <string name="search_taste_matches_title">Taste Matches</string>
+    <!-- Taste Matches see-all → feed CTA (mirrors iOS TasteMatchesListView). -->
+    <string name="search_taste_matches_feed_cta_body">See posts from people who share your taste.</string>
+    <string name="search_taste_matches_feed_cta_button">Go to Taste Matches feed</string>
     <string name="search_mutual_connections_title">Mutual Connections</string>
     <string name="search_popular_title">Popular on Corus</string>
     <string name="search_new_title">New on Corus</string>
