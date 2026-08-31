@@ -274,3 +274,28 @@ fun primaryNameHint(joinedName: String, idCount: Int): String {
     }
     return name
 }
+
+/**
+ * Names to try when resolving a credit string to a catalog artist.
+ * Whole string first so "Simon & Garfunkel" / "Tyler, The Creator" still
+ * exact-match; then each ", " / " & " segment. Same split as backend
+ * `artistCreditNameCandidates`.
+ */
+fun artistCreditNameCandidates(name: String): List<String> {
+    val trimmed = name.trim()
+    if (trimmed.isEmpty()) return emptyList()
+    val segments = trimmed.split(ARTIST_CREDIT_SPLIT).map { it.trim() }.filter { it.isNotEmpty() }
+    val seen = linkedSetOf<String>()
+    val out = mutableListOf<String>()
+    fun add(value: String) {
+        val key = value.lowercase()
+        if (seen.add(key)) out.add(value)
+    }
+    add(trimmed)
+    if (segments.size > 1) {
+        for (segment in segments.take(3)) add(segment)
+    }
+    return out
+}
+
+private val ARTIST_CREDIT_SPLIT = Regex(""",\s+|\s+&\s+""")

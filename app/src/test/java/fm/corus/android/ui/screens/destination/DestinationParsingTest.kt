@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.destination
 
+import fm.corus.android.data.model.artistCreditNameCandidates
 import fm.corus.android.data.model.primaryNameHint
 import fm.corus.android.data.remote.TMDBPerson
 import fm.corus.android.data.remote.parseAlbumCatalogResponse
@@ -304,6 +305,17 @@ class DestinationParsingTest {
         assertEquals("Tyler, The Creator", primaryNameHint("Tyler, The Creator", 1))
         // Unknown id count (0) behaves like a single credit.
         assertEquals("Tyler, The Creator", primaryNameHint("Tyler, The Creator", 0))
+    }
+
+    @Test
+    fun `artistCreditNameCandidates tries whole joined credit then segments`() {
+        assertEquals(
+            listOf("Erykah Badu & The Alchemist", "Erykah Badu", "The Alchemist"),
+            artistCreditNameCandidates("Erykah Badu & The Alchemist"),
+        )
+        assertEquals("Simon & Garfunkel", artistCreditNameCandidates("Simon & Garfunkel").first())
+        assertEquals("Tyler, The Creator", artistCreditNameCandidates("Tyler, The Creator").first())
+        assertEquals(listOf("Dolly Parton"), artistCreditNameCandidates("Dolly Parton"))
     }
 
     // ── Director search filter ──

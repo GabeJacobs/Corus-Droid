@@ -1380,10 +1380,11 @@ class CloudFunctionsDataSource @Inject constructor(
 
     /**
      * Resolve a Spotify artist by *exact* (trimmed, case-insensitive) name
-     * match via `searchSongs`' includeArtists extension. Carries the catalog
-     * headshot so Search trending rows don't have to pass album art as the
-     * artist-page hero (that flashes when getArtistDetail lands). Cached per
-     * name so a later tap is instant. Null on no exact match / error.
+     * match via `searchSongs`' includeArtists extension. Tries the whole
+     * credit first, then each joined-credit segment so "Erykah Badu & The
+     * Alchemist" lands on Erykah Badu. Carries the catalog headshot so
+     * Search trending rows don't have to pass album art as the artist-page
+     * hero. Cached per name so a later tap is instant. Null on miss / error.
      */
     @Suppress("UNCHECKED_CAST")
     suspend fun resolveArtistByName(name: String): ResolvedArtistByName? {
@@ -1391,20 +1392,32 @@ class CloudFunctionsDataSource @Inject constructor(
         if (trimmed.isEmpty()) return null
         val key = trimmed.lowercase()
         artistByNameCache[key]?.let { return it }
-        return try {
-            val result = functions.getHttpsCallable("searchSongs").call(
-                mapOf(
-                    "query" to trimmed,
-                    "offset" to 0,
-                    "limit" to 1,
-                    "includeArtists" to true,
-                )
-            ).await()
-            parseResolvedArtistByNameResponse(result.getData() as? Map<String, Any?>, trimmed)
-                ?.also { artistByNameCache[key] = it }
-        } catch (_: Exception) {
-            null
+        for (candidate in artistCreditNameCandidates(trimmed)) {
+            val candidateKey = candidate.lowercase()
+            artistByNameCache[candidateKey]?.let {
+                artistByNameCache[key] = it
+                return it
+            }
+            val hit = try {
+                val result = functions.getHttpsCallable("searchSongs").call(
+                    mapOf(
+                        "query" to candidate,
+                        "offset" to 0,
+                        "limit" to 1,
+                        "includeArtists" to true,
+                    )
+                ).await()
+                parseResolvedArtistByNameResponse(result.getData() as? Map<String, Any?>, candidate)
+            } catch (_: Exception) {
+                null
+            }
+            if (hit != null) {
+                artistByNameCache[key] = hit
+                artistByNameCache[candidateKey] = hit
+                return hit
+            }
         }
+        return null
     }
 
     fun cachedResolvedArtist(name: String): ResolvedArtistByName? {
