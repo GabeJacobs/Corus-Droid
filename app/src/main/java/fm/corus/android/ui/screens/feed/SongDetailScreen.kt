@@ -95,6 +95,7 @@ fun SongDetailScreen(
     soundcloudId: String? = null,
     soundcloudPermalinkUrl: String? = null,
     audiomackUrl: String? = null,
+    bandcampUrl: String? = null,
     tidalURL: String? = null,
     deezerURL: String? = null,
     isrc: String? = null,
@@ -167,6 +168,7 @@ fun SongDetailScreen(
     // still gets its "Listen on Audiomack" link-out). Link-out only — used to
     // open the Audiomack page; there is no in-app playback.
     val effectiveAudiomackUrl = songInfo?.track?.audiomackUrl ?: audiomackUrl
+    val effectiveBandcampUrl = songInfo?.track?.bandcampUrl ?: bandcampUrl
     // TIDAL/Deezer page urls (Audiomack treatment): prefer the loaded post's
     // track, fall back to the navigation hint. Link-out only — there is no
     // in-app playback for these exclusive sources.
@@ -174,6 +176,7 @@ fun SongDetailScreen(
     val effectiveDeezerURL = songInfo?.track?.deezerURL ?: deezerURL
     val isSoundCloud = effectiveSource == TrackSource.SOUNDCLOUD
     val isAudiomack = effectiveSource == TrackSource.AUDIOMACK
+    val isBandcamp = effectiveSource == TrackSource.BANDCAMP
     val isTidal = effectiveSource == TrackSource.TIDAL
     val isDeezer = effectiveSource == TrackSource.DEEZER
     val isAppleMusic = effectiveSource == TrackSource.APPLEMUSIC
@@ -203,6 +206,7 @@ fun SongDetailScreen(
         source = effectiveSource,
         soundcloudId = effectiveSoundcloudId,
         soundcloudPermalinkUrl = effectiveSoundcloudPermalinkUrl,
+        bandcampUrl = effectiveBandcampUrl,
     )
     val resolvedTrack = recordingApple?.let { (amid, storefront) ->
         baseResolvedTrack.copy(appleMusicId = amid, appleMusicStorefront = storefront)
@@ -234,6 +238,7 @@ fun SongDetailScreen(
         source = TrackSource.fromRaw(source),
         soundcloudId = soundcloudId,
         soundcloudPermalinkUrl = soundcloudPermalinkUrl,
+        bandcampUrl = bandcampUrl,
         albumId = albumId,
         releaseDate = releaseDate,
         releaseDatePrecision = releaseDatePrecision,
@@ -249,10 +254,10 @@ fun SongDetailScreen(
     val menuAlbumTrack = songInfo?.track
     val effectiveAlbumId = resolveSongAlbumId(albumId, posts) ?: vmResolvedAlbumId
 
-    // "Go to Album" is offered for everything except SoundCloud, Audiomack, and
-    // the TIDAL/Deezer exclusives, which have no album concept / no Spotify
-    // catalog presence to resolve against — a dead end.
-    val canShowAlbum = !isSoundCloud && !isAudiomack && !isTidal && !isDeezer
+    // "Go to Album" is offered for everything except SoundCloud, Audiomack,
+    // Bandcamp, and the TIDAL/Deezer exclusives, which have no Corus album
+    // page / no Spotify catalog presence to resolve against — a dead end.
+    val canShowAlbum = !isSoundCloud && !isAudiomack && !isBandcamp && !isTidal && !isDeezer
 
     val artistMissMsg = stringResource(R.string.song_detail_artist_not_found)
     val albumMissMsg = stringResource(R.string.song_detail_album_not_found)
@@ -290,6 +295,7 @@ fun SongDetailScreen(
         scope.launch {
             val dest = viewModel.resolveDestinations(
                 trackId, effectiveIsrc, displayName.orEmpty(), displayArtist.orEmpty(),
+                resolvedTrack.appleMusicId, effectiveBandcampUrl, songInfo?.track?.bandcampArtistUrl,
             )
             val aid = dest.artistIds.firstOrNull()
             if (aid != null) openArtist(aid, dest.artistIds.size) else ToastManager.show(artistMissMsg)
@@ -315,7 +321,7 @@ fun SongDetailScreen(
         scope.launch {
             val dest = viewModel.resolveDestinations(
                 trackId, effectiveIsrc, displayName.orEmpty(), displayArtist.orEmpty(),
-                resolvedTrack.appleMusicId,
+                resolvedTrack.appleMusicId, effectiveBandcampUrl, songInfo?.track?.bandcampArtistUrl,
             )
             if (fm.corus.android.domain.shouldRouteGoToAlbumToSong(
                     resolvedTrack.copy(parentAlbumUnreleased = parentUnreleased),
@@ -692,6 +698,22 @@ fun SongDetailScreen(
                             )
                             Spacer(modifier = Modifier.width(CorusSpacing.sm))
                             Text(stringResource(R.string.song_detail_listen_soundcloud), style = CorusFont.buttonSmall)
+                        }
+                    } else if (isBandcamp && !effectiveBandcampUrl.isNullOrBlank()) {
+                        Button(
+                            onClick = {
+                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(effectiveBandcampUrl))) }
+                            },
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Black,
+                                contentColor = Color.White,
+                            ),
+                            contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                        ) {
+                            fm.corus.android.ui.components.BandcampLogo(size = 16.dp)
+                            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+                            Text(stringResource(R.string.song_detail_listen_bandcamp), style = CorusFont.buttonSmall)
                         }
                     } else if (isAudiomack && !effectiveAudiomackUrl.isNullOrBlank()) {
                         // Listen on Audiomack capsule — link-out only (no in-app

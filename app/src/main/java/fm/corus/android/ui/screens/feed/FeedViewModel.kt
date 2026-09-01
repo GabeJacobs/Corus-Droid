@@ -101,15 +101,19 @@ private const val FEED_PAGE_CACHE_TTL_MS = 5 * 60 * 1000L
  *  (base * attemptNumber) so later retries wait proportionally longer. */
 private const val FEED_TRANSIENT_RETRY_BACKOFF_MS = 1200L
 
-/** How many times an online feed load is retried silently before the error
- *  panel is surfaced. A cold start after the OS killed the process (waking the
- *  phone from a long sleep) can leave App Check / Play Integrity and a cold
- *  Functions instance unready for several seconds — far longer than a single
- *  retry covered, which is what stranded users on the error panel after a normal
- *  wake. With escalating backoff these retries span ~12s (1.2+2.4+3.6+4.8), long
- *  enough that a normal cold start always recovers on its own. The error is then
- *  reserved for a genuine, persistent outage, not a transient warm-up blip. */
+/** How many times an online feed load is retried silently before we either
+ *  start another wave (feed visible) or hold the skeleton (backgrounded).
+ *  A cold start after the OS killed the process can leave App Check / DNS
+ *  unready for several seconds. These retries span ~12s (1.2+2.4+3.6+4.8).
+ *  The error panel is reserved for a genuine offline failure, not an
+ *  "online" warm-up blip that a tap on Retry would clear. */
 private const val FEED_TRANSIENT_MAX_RETRIES = 4
+
+/** Pause between retry waves while the feed is on screen and the device
+ *  still reads online. Long enough that we aren't hammering a cold
+ *  Functions instance; short enough that a wake-from-doze DNS recovery
+ *  still feels like part of the initial load. */
+private const val FEED_ONLINE_RETRY_WAVE_GAP_MS = 4000L
 
 /** How many of those retries fire even when the connectivity flag reads offline.
  *  On a cold start right after waking the phone, the Wi-Fi radio may not have
@@ -225,6 +229,7 @@ class FeedViewModel @Inject constructor(
     override suspend fun resolveTrackDestinationsForTrack(track: fm.corus.android.data.model.CymbalTrack): fm.corus.android.data.remote.CloudFunctionsDataSource.TrackDestinations =
         cloudFunctions.resolveTrackDestinations(
             track.id, track.isrc, track.name, track.artistName, track.appleMusicId,
+            track.bandcampUrl, track.bandcampArtistUrl,
         )
 
     override suspend fun resolveArtistIdForTrack(track: fm.corus.android.data.model.CymbalTrack): String? =
@@ -890,6 +895,36 @@ class FeedViewModel @Inject constructor(
         viewModelScope.launch { loadFeedSuspending(refresh) }
     }
 
+    /**
+     * True while FeedScreen's lifecycle is STARTED. Used so a doze cold-start
+     * that fails while the screen is off holds the skeleton instead of
+     * painting the error panel the user then has to Retry.
+     */
+    private var feedVisible = false
+
+    fun onFeedStarted() {
+        feedVisible = true
+        retryFailedFeedIfNeeded()
+    }
+
+    fun onFeedStopped() {
+        feedVisible = false
+    }
+
+    /**
+     * Re-attempt a failed empty feed when the app returns to the foreground.
+     * Android can cold-start (or keep composing) while the phone is still
+     * asleep: Wi-Fi looks associated so [isConnected] stays true, but DNS is
+     * dead (`UnknownHostException` for firestore.googleapis.com). The silent
+     * retries exhaust in the background; we hold the skeleton ([hasLoaded]
+     * stays false) and resume here instead of flashing "Something's off."
+     */
+    fun retryFailedFeedIfNeeded() {
+        if (!_lastLoadFailed.value || _posts.value.isNotEmpty()) return
+        if (_isLoading.value || _isRefreshing.value) return
+        loadFeed(refresh = true)
+    }
+
     private suspend fun loadFeedSuspending(refresh: Boolean, attempt: Int = 0) {
         val userId = authRepository.currentUserId ?: return
 
@@ -1123,22 +1158,24 @@ class FeedViewModel @Inject constructor(
             // down, a superseding load) as "couldn't connect" — the same
             // false-error class of bug we fixed in search. Always rethrow.
             throw e
-        } catch (_: Exception) {
-            // A transient cold-start hiccup (App Check / Play Integrity token
-            // still minting, a Functions UNAVAILABLE/INTERNAL, a dropped first
-            // request) lands here even on strong wifi — exactly the blip a manual
-            // "Retry" clears. When the screen has nothing to show, retry
-            // automatically before surfacing any error, so a momentary server blip
-            // never masquerades as "you're offline." A single retry didn't cover a
-            // real cold start (process killed during a long sleep), so retry
-            // several times with escalating backoff; the device was online the
-            // whole time, so these retries are the only automatic recovery (the
-            // reconnect handler needs a connectivity transition that never comes).
-            // The first couple retries fire even if isConnected reads false, since
-            // the radio may not have re-associated yet on a fresh wake — trusting
-            // that stale-false reading is what flashed the empty error panel. The
-            // loading flag stays set through the backoff so the skeleton holds
-            // instead of flashing an error.
+        } catch (e: Exception) {
+            // android.util.Log is not mocked in JVM unit tests; never let
+            // diagnostics abort the retry / error-surface path.
+            runCatching {
+                Log.w(
+                    "FeedVM",
+                    "Feed load failed (attempt=$attempt, connected=${isConnected.value}, mode=$mode)",
+                    e,
+                )
+            }
+            // A transient cold-start hiccup (App Check / Play Integrity, a
+            // Functions UNAVAILABLE, or DNS still dead after a doze wake) lands
+            // here even on strong wifi. Keep the skeleton up and retry — never
+            // flash "Something's off" for a blip a tap on Retry would clear.
+            // The error panel is reserved for a genuine offline failure after
+            // the connectivity grace. The first couple retries fire even if
+            // isConnected reads false, since the radio may not have
+            // re-associated yet on a fresh wake.
             val withinConnectivityGrace = attempt < FEED_TRANSIENT_CONNECTIVITY_GRACE_RETRIES
             if (attempt < FEED_TRANSIENT_MAX_RETRIES &&
                 (isConnected.value || withinConnectivityGrace) &&
@@ -1150,6 +1187,21 @@ class FeedViewModel @Inject constructor(
             }
             _lastLoadFailed.value = true
             if (useRanked) _forYouLoadFailed.value = true
+            if (_posts.value.isEmpty() && isConnected.value) {
+                if (feedVisible) {
+                    // Still on screen, radio still looks online — another wave
+                    // with the skeleton held (loading flags stay set).
+                    delay(FEED_ONLINE_RETRY_WAVE_GAP_MS)
+                    loadFeedSuspending(refresh = true, attempt = 0)
+                    return
+                }
+                // Backgrounded during a doze cold-start: hold the skeleton
+                // ([hasLoaded] stays false) so the later foreground is a
+                // resume, not an error flash. onFeedStarted() picks this up.
+                _isLoading.value = false
+                _isRefreshing.value = false
+                return
+            }
         }
 
         _isLoading.value = false

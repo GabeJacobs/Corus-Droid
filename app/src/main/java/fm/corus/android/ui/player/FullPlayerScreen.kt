@@ -103,6 +103,7 @@ import fm.corus.android.domain.SongPlayRouting
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.AudiomackLogo
+import fm.corus.android.ui.components.BandcampLogo
 import fm.corus.android.ui.components.DoubleTapLikeHeartIcon
 import fm.corus.android.ui.components.MarqueeText
 import fm.corus.android.ui.components.ShareMediaSheet
@@ -206,6 +207,7 @@ fun FullPlayerScreen(
     val openInServiceTitle = when (openInLabel) {
         FullPlayerOpenInLabel.OpenSoundCloud -> stringResource(R.string.post_menu_open_soundcloud)
         FullPlayerOpenInLabel.OpenAudiomack -> stringResource(R.string.post_menu_open_audiomack)
+        FullPlayerOpenInLabel.OpenBandcamp -> stringResource(R.string.post_menu_open_bandcamp)
         FullPlayerOpenInLabel.OpenTidal -> stringResource(R.string.post_menu_open_tidal)
         FullPlayerOpenInLabel.OpenDeezer -> stringResource(R.string.post_menu_open_deezer)
         is FullPlayerOpenInLabel.PlayIn ->
@@ -1080,6 +1082,7 @@ private fun TransportServiceLogo(
     when (trackSource) {
         TrackSource.SOUNDCLOUD -> SoundCloudAdaptiveLogo(size = 26.dp)
         TrackSource.AUDIOMACK -> AudiomackLogo(height = 26.dp)
+        TrackSource.BANDCAMP -> BandcampLogo(size = 26.dp)
         TrackSource.TIDAL -> Image(
             painter = painterResource(MusicServiceLinkOut.logoRes(MusicService.TIDAL)),
             contentDescription = null,

@@ -153,6 +153,7 @@ fun PostActionMenu(
             val openLabel = when (post.track.source) {
                 TrackSource.SOUNDCLOUD -> stringResource(R.string.post_menu_open_soundcloud)
                 TrackSource.AUDIOMACK -> stringResource(R.string.post_menu_open_audiomack)
+                TrackSource.BANDCAMP -> stringResource(R.string.post_menu_open_bandcamp)
                 TrackSource.TIDAL -> stringResource(R.string.post_menu_open_tidal)
                 TrackSource.DEEZER -> stringResource(R.string.post_menu_open_deezer)
                 TrackSource.APPLEMUSIC ->
@@ -260,7 +261,9 @@ internal fun showAddToQueueRow(post: CymbalPost): Boolean =
  * Shown for those sources even when the post carries no `artistIds` yet: an
  * Apple-Music search post lands with `artistIds:[]` (the backend resolves the
  * Spotify ids minutes later), so the row resolves the artist on tap instead of
- * waiting for that backfill — mirroring [showGoToAlbumRow]. SoundCloud/TIDAL/
+ * waiting for that backfill — mirroring [showGoToAlbumRow]. Bandcamp uses the
+ * same resolve-on-tap path (Corus page, never a Safari Bandcamp artist link —
+ * a Frankie Cosmos exclusive must land on her existing page). SoundCloud/TIDAL/
  * Deezer have no Corus artist page and are excluded. Films route to the director
  * page from their own subtitle, not here.
  */
@@ -268,7 +271,9 @@ internal fun showGoToArtistRow(post: CymbalPost, artistPagesEnabled: Boolean): B
     !post.isMovie && (
         post.track.audiomackArtistLinkOutUrl != null ||
             (artistPagesEnabled &&
-                (post.track.source == TrackSource.SPOTIFY || post.track.source == TrackSource.APPLEMUSIC))
+                (post.track.source == TrackSource.SPOTIFY
+                    || post.track.source == TrackSource.APPLEMUSIC
+                    || post.track.source == TrackSource.BANDCAMP))
     )
 
 /**

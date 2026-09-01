@@ -956,55 +956,59 @@ private fun SearchBarSection(
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    // Custom field so this matches iOS / Messages. Material TextField is 56dp
-    // tall and made Search look oversized next to the inbox bar.
+    // Same compact bar as Messages: tertiary icon, 8dp pad, 10dp corners.
+    // Outer row is 48dp so the pill sits at the same Y as the inbox field
+    // (that row is stretched by the compose IconButton).
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = CorusSpacing.lg)
-            .padding(top = CorusSpacing.sm, bottom = CorusSpacing.xs)
-            .background(
-                CorusColors.CardBackground,
-                RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-            )
-            .padding(horizontal = CorusSpacing.md, vertical = 10.dp),
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm)
+            .heightIn(min = 48.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            Icons.Filled.Search,
-            contentDescription = stringResource(fm.corus.android.R.string.search_cd_search),
-            tint = CorusColors.Secondary,
-            modifier = Modifier.size(CorusSpacing.iconMd),
-        )
-        Spacer(modifier = Modifier.width(CorusSpacing.sm))
-        Box(modifier = Modifier.weight(1f)) {
-            if (query.isEmpty()) {
-                Text(placeholder, style = CorusFont.body, color = CorusColors.Tertiary)
-            }
-            BasicTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { onFocusChanged(it.isFocused) },
-                textStyle = CorusFont.body.copy(color = CorusColors.Text),
-                singleLine = true,
-                cursorBrush = SolidColor(CorusColors.Accent),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() }),
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .background(CorusColors.CardBackground, RoundedCornerShape(10.dp))
+                .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Filled.Search,
+                contentDescription = stringResource(fm.corus.android.R.string.search_cd_search),
+                tint = CorusColors.Secondary,
+                modifier = Modifier.size(20.dp),
             )
-        }
-        if (showClearButton) {
-            IconButton(
-                onClick = onClear,
-                modifier = Modifier.size(24.dp),
-            ) {
-                Icon(
-                    Icons.Filled.Close,
-                    contentDescription = stringResource(fm.corus.android.R.string.search_cd_clear),
-                    tint = CorusColors.Secondary,
-                    modifier = Modifier.size(18.dp),
+            Spacer(modifier = Modifier.width(CorusSpacing.sm))
+            Box(modifier = Modifier.weight(1f)) {
+                if (query.isEmpty()) {
+                    Text(placeholder, style = CorusFont.body, color = CorusColors.Tertiary)
+                }
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { onFocusChanged(it.isFocused) },
+                    textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                    singleLine = true,
+                    cursorBrush = SolidColor(CorusColors.Accent),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() }),
                 )
+            }
+            if (showClearButton) {
+                IconButton(
+                    onClick = onClear,
+                    modifier = Modifier.size(24.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = stringResource(fm.corus.android.R.string.search_cd_clear),
+                        tint = CorusColors.Tertiary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
             }
         }
     }
@@ -4113,14 +4117,19 @@ private fun SongSearchRow(track: CymbalTrack, onClick: () -> Unit) {
                 modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
                 contentScale = ContentScale.Crop,
             )
-            if (track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
-                fm.corus.android.ui.components.SoundCloudBadgeOverlay(
-                    modifier = Modifier.align(Alignment.BottomEnd),
-                )
-            } else if (track.source == fm.corus.android.data.model.TrackSource.AUDIOMACK) {
-                fm.corus.android.ui.components.AudiomackBadgeOverlay(
-                    modifier = Modifier.align(Alignment.BottomEnd),
-                )
+            when {
+                track.isBandcampCatalog ->
+                    fm.corus.android.ui.components.BandcampBadgeOverlay(
+                        modifier = Modifier.align(Alignment.BottomEnd),
+                    )
+                track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD ->
+                    fm.corus.android.ui.components.SoundCloudBadgeOverlay(
+                        modifier = Modifier.align(Alignment.BottomEnd),
+                    )
+                track.source == fm.corus.android.data.model.TrackSource.AUDIOMACK ->
+                    fm.corus.android.ui.components.AudiomackBadgeOverlay(
+                        modifier = Modifier.align(Alignment.BottomEnd),
+                    )
             }
         }
         Column(

@@ -1183,6 +1183,7 @@
     <string name="director_detail_toast_director_sent">監督を送信しました！</string>
     <string name="profile_share_toast_profile_sent">プロフィールを送信しました！</string>
     <string name="song_detail_listen_audiomack">Audiomack で聴く</string>
+    <string name="song_detail_listen_bandcamp">Bandcamp で聴く</string>
     <string name="other_profile_unavailable_title">このアカウントは表示できません</string>
     <string name="other_profile_unavailable_subtitle">このユーザーは存在しない可能性があります。</string>
     <string name="other_profile_button_follow_back">フォローを返す</string>
@@ -1202,6 +1203,7 @@
     <string name="messaging_group_soft_hint">まだ表示されない場合があります</string>
     <string name="messaging_group_done">完了</string>
     <string name="post_menu_open_audiomack">Audiomack で開く</string>
+    <string name="post_menu_open_bandcamp">Bandcamp で開く</string>
     <string name="post_menu_open_tidal">TIDAL で開く</string>
     <string name="post_menu_open_deezer">Deezer で開く</string>
     <string name="post_menu_go_to_artist">アーティストを見る</string>

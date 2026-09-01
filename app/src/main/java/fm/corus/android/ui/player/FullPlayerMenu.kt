@@ -18,6 +18,7 @@ internal fun fullPlayerOpenInServiceLabelKey(
     return when (source) {
         TrackSource.SOUNDCLOUD -> FullPlayerOpenInLabel.OpenSoundCloud
         TrackSource.AUDIOMACK -> FullPlayerOpenInLabel.OpenAudiomack
+        TrackSource.BANDCAMP -> FullPlayerOpenInLabel.OpenBandcamp
         TrackSource.TIDAL -> FullPlayerOpenInLabel.OpenTidal
         TrackSource.DEEZER -> FullPlayerOpenInLabel.OpenDeezer
         TrackSource.APPLEMUSIC -> FullPlayerOpenInLabel.PlayIn(MusicService.APPLE_MUSIC.displayLabel)
@@ -28,6 +29,7 @@ internal fun fullPlayerOpenInServiceLabelKey(
 internal sealed class FullPlayerOpenInLabel {
     data object OpenSoundCloud : FullPlayerOpenInLabel()
     data object OpenAudiomack : FullPlayerOpenInLabel()
+    data object OpenBandcamp : FullPlayerOpenInLabel()
     data object OpenTidal : FullPlayerOpenInLabel()
     data object OpenDeezer : FullPlayerOpenInLabel()
     data class PlayIn(val serviceLabel: String) : FullPlayerOpenInLabel()
@@ -58,6 +60,7 @@ internal fun fullPlayerMenuPost(
             isrc = state.isrc,
             source = state.source,
             audiomackUrl = state.audiomackUrl,
+            bandcampUrl = state.bandcampUrl,
         ),
     )
 }
@@ -87,6 +90,7 @@ internal fun fullPlayerShowsAlbumRow(
     if (!artistPagesEnabled || source == null) return false
     return source != TrackSource.SOUNDCLOUD &&
         source != TrackSource.AUDIOMACK &&
+        source != TrackSource.BANDCAMP &&
         source != TrackSource.TIDAL &&
         source != TrackSource.DEEZER
 }
@@ -114,6 +118,7 @@ internal fun fullPlayerShareTrack(
         source = state.source,
         soundcloudPermalinkUrl = state.soundcloudPermalinkUrl,
         audiomackUrl = state.audiomackUrl,
+        bandcampUrl = state.bandcampUrl,
     )
 }
 

@@ -136,6 +136,7 @@ fun MiniPlayerBar(
 
     val isSoundCloud = state.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD
     val isAudiomack = state.source == fm.corus.android.data.model.TrackSource.AUDIOMACK
+    val isBandcamp = state.source == fm.corus.android.data.model.TrackSource.BANDCAMP
     val isTidal = state.source == fm.corus.android.data.model.TrackSource.TIDAL
     val isDeezer = state.source == fm.corus.android.data.model.TrackSource.DEEZER
     val displayedService = SongPlayRouting.displayedLinkOutService(
@@ -268,6 +269,14 @@ fun MiniPlayerBar(
                         width = miniPlayerAudiomackButtonWidth,
                     ) {
                         AudiomackLogo(height = 22.dp)
+                    }
+                } else if (isBandcamp) {
+                    MiniPlayerIconButton(
+                        onClick = { openCurrentInMusicService() },
+                        contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
+                        width = miniPlayerServiceButtonWidth,
+                    ) {
+                        BandcampLogo(size = 22.dp)
                     }
                 } else if (isTidal) {
                     MiniPlayerIconButton(

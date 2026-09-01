@@ -197,9 +197,13 @@ class SongDetailViewModel @Inject constructor(
         name: String,
         artist: String,
         appleMusicId: String? = null,
+        bandcampUrl: String? = null,
+        bandcampArtistUrl: String? = null,
     ): fm.corus.android.data.remote.CloudFunctionsDataSource.TrackDestinations {
         _isResolvingDestination.value = true
-        val dest = cloudFunctions.resolveTrackDestinations(trackId, isrc, name, artist, appleMusicId)
+        val dest = cloudFunctions.resolveTrackDestinations(
+            trackId, isrc, name, artist, appleMusicId, bandcampUrl, bandcampArtistUrl,
+        )
         _isResolvingDestination.value = false
         dest.artistIds.firstOrNull()?.let { _resolvedArtistId.value = it }
         dest.albumId?.takeIf { it.isNotBlank() }?.let { _resolvedAlbumId.value = it }

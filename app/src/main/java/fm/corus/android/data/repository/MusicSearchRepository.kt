@@ -18,8 +18,15 @@ internal fun parseUnifiedTrack(d: Map<String, Any?>): CymbalTrack? {
     val id = d["id"] as? String ?: return null
     val name = d["name"] as? String ?: return null
     val artistName = d["artistName"] as? String ?: return null
-    val source = if (id.startsWith("bc:")) TrackSource.BANDCAMP
-    else TrackSource.fromRaw(d["source"] as? String)
+    val source = when {
+        id.startsWith("bc:", ignoreCase = true)
+            || (d["source"] as? String).equals("bandcamp", ignoreCase = true)
+            || !(d["bandcampUrl"] as? String).isNullOrBlank() -> TrackSource.BANDCAMP
+        id.startsWith("amk:", ignoreCase = true) -> TrackSource.AUDIOMACK
+        id.startsWith("sc:", ignoreCase = true) -> TrackSource.SOUNDCLOUD
+        id.startsWith("am:", ignoreCase = true) -> TrackSource.APPLEMUSIC
+        else -> TrackSource.fromRaw(d["source"] as? String)
+    }
     val artistIds = (d["artistIds"] as? List<*>)?.mapNotNull { it as? String }?.filter { it.isNotEmpty() }
         ?: emptyList()
     return CymbalTrack(
@@ -54,7 +61,7 @@ internal fun parseUnifiedTrack(d: Map<String, Any?>): CymbalTrack? {
         audiomackArtistUrl = (d["audiomackArtistUrl"] as? String)?.ifEmpty { null },
         audiomackAlbumUrl = (d["audiomackAlbumUrl"] as? String)?.ifEmpty { null },
         bandcampId = (d["bandcampId"] as? String)?.ifEmpty { null }
-            ?: id.takeIf { it.startsWith("bc:") }?.removePrefix("bc:"),
+            ?: id.takeIf { it.startsWith("bc:", ignoreCase = true) }?.substringAfter(':'),
         bandcampUrl = (d["bandcampUrl"] as? String)?.ifEmpty { null },
         bandcampArtistUrl = (d["bandcampArtistUrl"] as? String)?.ifEmpty { null },
         bandcampAlbumUrl = (d["bandcampAlbumUrl"] as? String)?.ifEmpty { null },

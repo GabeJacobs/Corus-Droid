@@ -278,6 +278,14 @@ internal fun parseArtistDetailResponse(data: Map<String, Any?>?): ArtistDetail? 
         // track id. parseUnifiedTrack drops these additive fields, so parse them
         // off the same topTracks payload.
         corusStats = topTracksJson.mapNotNull { TrackCorusStats.entryFromTrack(it) }.toMap(),
+        bandcampUrl = (artist["bandcampUrl"] as? String)?.ifEmpty { null },
+        merchUrl = (artist["merchUrl"] as? String)?.ifEmpty { null },
+        merch = (data["merch"] as? List<Map<String, Any?>>)
+            ?.mapNotNull { BandcampMerchItem.fromMap(it) } ?: emptyList(),
+        shows = (data["shows"] as? List<Map<String, Any?>>)
+            ?.mapNotNull { BandcampShow.fromMap(it) } ?: emptyList(),
+        sites = (data["sites"] as? List<Map<String, Any?>>)
+            ?.mapNotNull { BandcampSiteLink.fromMap(it) } ?: emptyList(),
     )
 }
 
@@ -1498,6 +1506,8 @@ class CloudFunctionsDataSource @Inject constructor(
         name: String,
         artist: String,
         appleMusicId: String? = null,
+        bandcampUrl: String? = null,
+        bandcampArtistUrl: String? = null,
     ): TrackDestinations {
         return try {
             val params = mutableMapOf<String, Any>(
@@ -1507,6 +1517,8 @@ class CloudFunctionsDataSource @Inject constructor(
             )
             if (!isrc.isNullOrBlank()) params["isrc"] = isrc
             if (!appleMusicId.isNullOrBlank()) params["appleMusicId"] = appleMusicId
+            if (!bandcampUrl.isNullOrBlank()) params["bandcampUrl"] = bandcampUrl
+            if (!bandcampArtistUrl.isNullOrBlank()) params["bandcampArtistUrl"] = bandcampArtistUrl
             val result = functions.getHttpsCallable("resolveTrackDestinations").call(params).await()
             val data = result.getData() as? Map<*, *>
             val artistIds = (data?.get("artistIds") as? List<*>)

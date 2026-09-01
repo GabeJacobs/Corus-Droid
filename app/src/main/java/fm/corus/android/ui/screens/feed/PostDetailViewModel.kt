@@ -77,6 +77,7 @@ class PostDetailViewModel @Inject constructor(
     override suspend fun resolveTrackDestinationsForTrack(track: fm.corus.android.data.model.CymbalTrack): fm.corus.android.data.remote.CloudFunctionsDataSource.TrackDestinations =
         cloudFunctions.resolveTrackDestinations(
             track.id, track.isrc, track.name, track.artistName, track.appleMusicId,
+            track.bandcampUrl, track.bandcampArtistUrl,
         )
 
     override suspend fun resolveArtistIdForTrack(track: fm.corus.android.data.model.CymbalTrack): String? =

@@ -1309,6 +1309,7 @@
     <string name="director_detail_toast_director_sent">导演已发送！</string>
     <string name="profile_share_toast_profile_sent">个人资料已发送！</string>
     <string name="song_detail_listen_audiomack">在 Audiomack 上收听</string>
+    <string name="song_detail_listen_bandcamp">在 Bandcamp 上收听</string>
     <string name="other_profile_unavailable_title">此账户不可用</string>
     <string name="other_profile_unavailable_subtitle">此用户可能已不存在。</string>
     <string name="other_profile_button_follow_back">回关</string>
@@ -1329,6 +1330,7 @@
     <string name="messaging_group_soft_hint">可能还看不到</string>
     <string name="messaging_group_done">完成</string>
     <string name="post_menu_open_audiomack">在 Audiomack 中打开</string>
+    <string name="post_menu_open_bandcamp">在 Bandcamp 中打开</string>
     <string name="post_menu_open_tidal">在 TIDAL 中打开</string>
     <string name="post_menu_open_deezer">在 Deezer 中打开</string>
     <string name="post_menu_go_to_artist">前往艺人</string>

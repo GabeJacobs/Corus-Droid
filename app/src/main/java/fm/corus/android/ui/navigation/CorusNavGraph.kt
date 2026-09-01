@@ -684,6 +684,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             soundcloudId = route.soundcloudId,
             soundcloudPermalinkUrl = route.soundcloudPermalinkUrl,
             audiomackUrl = route.audiomackUrl,
+            bandcampUrl = route.bandcampUrl,
             tidalURL = route.tidalURL,
             deezerURL = route.deezerURL,
             isrc = route.isrc,

@@ -273,6 +273,7 @@ data class NowPlayingState(
     val soundcloudPermalinkUrl: String? = null,
     /** audiomack.com link-out for an Audiomack-source track; source-locked mark. */
     val audiomackUrl: String? = null,
+    val bandcampUrl: String? = null,
     /** Set when the playing track came from an artist/album page; drives the
      *  mini-player "return to origin" tap. See [CatalogPlaybackOrigin]. */
     val catalogOrigin: CatalogPlaybackOrigin? = null,
@@ -611,6 +612,7 @@ class NowPlayingManager @Inject constructor(
                 soundcloudId = null,
                 soundcloudPermalinkUrl = _state.value.soundcloudPermalinkUrl,
                 audiomackUrl = _state.value.audiomackUrl,
+                bandcampUrl = _state.value.bandcampUrl,
             )
         }
         val q = queue.ifEmpty { listOf(track) }
@@ -645,6 +647,7 @@ class NowPlayingManager @Inject constructor(
         soundcloudId = soundcloudId,
         soundcloudPermalinkUrl = soundcloudPermalinkUrl,
         audiomackUrl = audiomackUrl,
+        bandcampUrl = bandcampUrl,
     )
 
     private val _isResolvingSpotify = MutableStateFlow(false)
@@ -2008,6 +2011,7 @@ class NowPlayingManager @Inject constructor(
             source = track.source,
             soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
             audiomackUrl = track.audiomackUrl,
+            bandcampUrl = track.bandcampUrl,
             catalogOrigin = track.catalogOrigin,
         )
 
@@ -4451,6 +4455,7 @@ class NowPlayingManager @Inject constructor(
             isrc = track.isrc,
             soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
             audiomackUrl = track.audiomackUrl,
+            bandcampUrl = track.bandcampUrl,
             hasNext = computeHasNext(),
         )
     }

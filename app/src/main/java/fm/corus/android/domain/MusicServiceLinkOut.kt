@@ -240,6 +240,7 @@ object MusicServiceLinkOut {
         when (state.source) {
             TrackSource.SOUNDCLOUD -> open(state.soundcloudPermalinkUrl)
             TrackSource.AUDIOMACK -> open(state.audiomackUrl)
+            TrackSource.BANDCAMP -> open(state.bandcampUrl)
             TrackSource.TIDAL, TrackSource.DEEZER -> resolveAndOpenLinkOut()
             else -> {
                 fun openAppleSong() {

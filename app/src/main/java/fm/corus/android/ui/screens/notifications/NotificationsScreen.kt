@@ -527,16 +527,21 @@ fun NotificationsScreen(
 
 @Composable
 private fun ActivityStandaloneTitle() {
-    Text(
-        text = stringResource(id = R.string.notifications_activity_title),
-        style = CorusFont.displayName,
-        color = CorusColors.Text,
-        textAlign = TextAlign.Center,
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = CorusSpacing.lg)
-            .padding(top = CorusSpacing.sm, bottom = CorusSpacing.md),
-    )
+            .padding(top = CorusSpacing.headerTitleRowTop)
+            .height(CorusSpacing.headerTitleRowHeight)
+            .padding(horizontal = CorusSpacing.lg),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = stringResource(id = R.string.notifications_activity_title),
+            style = CorusFont.displayName,
+            color = CorusColors.Text,
+            textAlign = TextAlign.Center,
+        )
+    }
 }
 
 @Composable

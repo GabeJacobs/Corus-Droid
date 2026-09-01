@@ -333,6 +333,26 @@ fun FeedScreen(
         }
     }
 
+    // Activity stays composed while the screen is off / the process is
+    // backgrounded after a doze cold-start. Tell the ViewModel when the
+    // feed is actually visible so a failed background load holds the
+    // skeleton and resumes here, instead of flashing "Something's off."
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_START -> viewModel.onFeedStarted()
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> viewModel.onFeedStopped()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.onFeedStopped()
+        }
+    }
+
     // Pagination handled per-item via onAppear (see itemsIndexed below)
 
     // Hoist list state above the when block so scroll position survives
@@ -822,13 +842,13 @@ fun FeedScreen(
                 }
             }
 
-            // Offline / load-failed empty state. Two distinct cases share this
-            // panel but must NOT share copy: when the device is genuinely offline
-            // (!isConnected) we tell the user to check their connection; when the
-            // device is online but the load failed (lastLoadFailed) the fault is
-            // ours, so we say so instead of wrongly blaming their wifi. Mirrors
-            // iOS FeedView.offlineEmptyState.
-            isSelected && posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && (lastLoadFailed || !isConnected) -> {
+            // Offline empty state. Shown only after retries are exhausted AND
+            // the device is actually offline — an "online" failure (Wi-Fi
+            // associated, DNS still dead after a doze wake) stays on the
+            // skeleton until it recovers. Copy still keys off live
+            // connectivity so a later flip to online mid-panel isn't a
+            // wifi-blame. Mirrors iOS FeedView.offlineEmptyState.
+            isSelected && posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && lastLoadFailed && !isConnected -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -1285,6 +1305,10 @@ fun FeedScreen(
                             onSpotifyTap = {
                                 if (post.isMovie) {
                                     filmInfoPost = post
+                                } else if (post.track.source == fm.corus.android.data.model.TrackSource.BANDCAMP) {
+                                    post.track.bandcampLinkOutUrl?.let { url ->
+                                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                    }
                                 } else if (post.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
                                     val permalink = post.track.soundcloudPermalinkUrl
                                     if (!permalink.isNullOrBlank()) {

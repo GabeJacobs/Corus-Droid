@@ -561,6 +561,50 @@ class MessageThreadViewModelTest {
     }
 
     @Test
+    fun `reopening a live empty thread does not flash a load error`() = runTest {
+        val messagesFlow = MutableSharedFlow<List<CymbalMessage>>(extraBufferCapacity = 1)
+        whenever(messageRepository.listenToMessages(any())).doReturn(messagesFlow)
+        whenever(messageRepository.listenToRecipientUnreadCount(any(), any())).doReturn(emptyFlow())
+        whenever(messageRepository.listenToReadReceiptsEnabled(any())).doReturn(emptyFlow())
+
+        viewModel.loadMessages("thread1", "other")
+        advanceUntilIdle()
+        messagesFlow.emit(emptyList())
+        advanceUntilIdle()
+        assertEquals(false, viewModel.hasLoadError.first())
+        assertEquals(false, viewModel.isLoading.first())
+
+        // Same path as popping back from a profile: LaunchedEffect calls load
+        // again while the listener is still alive.
+        viewModel.loadMessages("thread1", "other")
+        advanceUntilIdle()
+
+        assertEquals(false, viewModel.hasLoadError.first())
+        assertEquals(false, viewModel.isLoading.first())
+    }
+
+    @Test
+    fun `cancelling an empty-thread listener does not surface a load error`() = runTest {
+        val first = MutableSharedFlow<List<CymbalMessage>>(extraBufferCapacity = 1)
+        whenever(messageRepository.listenToMessages(any())).doReturn(first)
+        whenever(messageRepository.listenToRecipientUnreadCount(any(), any())).doReturn(emptyFlow())
+        whenever(messageRepository.listenToReadReceiptsEnabled(any())).doReturn(emptyFlow())
+
+        viewModel.loadMessages("thread1", "other")
+        advanceUntilIdle()
+        first.emit(emptyList())
+        advanceUntilIdle()
+
+        val second = MutableSharedFlow<List<CymbalMessage>>(extraBufferCapacity = 1)
+        whenever(messageRepository.listenToMessages(any())).doReturn(second)
+        viewModel.loadMessages("thread2", "other")
+        advanceUntilIdle()
+
+        assertEquals(false, viewModel.hasLoadError.first())
+        assertEquals(true, viewModel.isLoading.first())
+    }
+
+    @Test
     fun `listener failure surfaces a load error instead of a blank thread`() = runTest {
         whenever(messageRepository.listenToMessages(any())).doReturn(
             kotlinx.coroutines.flow.flow<List<CymbalMessage>> { throw RuntimeException("PERMISSION_DENIED") }

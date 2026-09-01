@@ -144,6 +144,36 @@ class PostActionMenuTest {
     }
 
     @Test
+    fun `go to artist shown for bandcamp track when flag on`() {
+        assertTrue(
+            showGoToArtistRow(
+                post = trackPost(artistIds = emptyList(), source = TrackSource.BANDCAMP),
+                artistPagesEnabled = true,
+            )
+        )
+    }
+
+    @Test
+    fun `go to artist hidden for bandcamp track when flag off`() {
+        assertFalse(
+            showGoToArtistRow(
+                post = trackPost(artistIds = emptyList(), source = TrackSource.BANDCAMP),
+                artistPagesEnabled = false,
+            )
+        )
+    }
+
+    @Test
+    fun `go to album hidden for bandcamp tracks`() {
+        assertFalse(
+            showGoToAlbumRow(
+                post = trackPost(albumId = null, source = TrackSource.BANDCAMP),
+                artistPagesEnabled = true,
+            )
+        )
+    }
+
+    @Test
     fun `go to artist shown for audiomack track with artist link-out even when flag off`() {
         assertTrue(
             showGoToArtistRow(

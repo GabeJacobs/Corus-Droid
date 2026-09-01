@@ -492,6 +492,7 @@ class FullPlayerViewModel @Inject constructor(
     suspend fun resolveTrackDestinationsForTrack(track: CymbalTrack): CloudFunctionsDataSource.TrackDestinations =
         cloudFunctions.resolveTrackDestinations(
             track.id, track.isrc, track.name, track.artistName, track.appleMusicId,
+            track.bandcampUrl, track.bandcampArtistUrl,
         )
 
     suspend fun resolveArtistIdForTrack(track: CymbalTrack): String? =

@@ -63,6 +63,7 @@ import fm.corus.android.ui.components.FeedPlayingPill
 import fm.corus.android.ui.components.albumArtPinchZoom
 import fm.corus.android.ui.components.PostRowFullSongControlXOffset
 import fm.corus.android.ui.components.PostRowServiceControlYOffset
+import fm.corus.android.ui.components.BandcampLogo
 import fm.corus.android.ui.components.SoundCloudAdaptiveLogo
 import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.domain.HapticManager
@@ -923,6 +924,17 @@ private fun PostDetailSongInfo(
                             onClick = onSpotifyTap,
                         ),
                     size = 28.dp,
+                )
+            } else if (post.track.source == TrackSource.BANDCAMP) {
+                BandcampLogo(
+                    size = 28.dp,
+                    modifier = Modifier
+                        .offset(y = PostRowServiceControlYOffset)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onSpotifyTap,
+                        ),
                 )
             } else {
                 // Glyph reflects the service the tap opens. Apple-only tracks

@@ -309,6 +309,7 @@ fun FeaturedCymbalView(
             // sources lock to their own brand glyph regardless of viewer
             // preference (matches PostCard / MiniPlayerBar).
             val isSoundCloud = post.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD
+            val isBandcamp = post.track.source == fm.corus.android.data.model.TrackSource.BANDCAMP
             val isAppleMusic = post.track.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC
             if (isSoundCloud) {
                 SoundCloudAdaptiveLogo(
@@ -316,6 +317,11 @@ fun FeaturedCymbalView(
                         .size(21.dp)
                         .clickable(onClick = onSpotifyTap),
                     size = 21.dp,
+                )
+            } else if (isBandcamp) {
+                BandcampLogo(
+                    size = 21.dp,
+                    modifier = Modifier.clickable(onClick = onSpotifyTap),
                 )
             } else {
                 // Glyph reflects the service the tap opens. Apple-only tracks

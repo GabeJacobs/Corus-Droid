@@ -669,22 +669,23 @@ fun ProfileScreen(
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(CorusSpacing.md))
             }
         }
 
         item(span = { GridItemSpan(3) }, key = "bio") {
             Column {
-                // ── Username + Bio + Website ──
+                val hasUserInfo = currentProfile.bio.isNotBlank() ||
+                    !currentProfile.website.isNullOrBlank()
+                // iOS ProfileHeaderView: 8pt above bio/link, nothing extra
+                // when both are empty (actions then sit 12pt under the avatar).
+                if (hasUserInfo) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = usernameStartPad, end = usernameEndPad),
+                        .padding(start = usernameStartPad, end = usernameEndPad)
+                        .padding(top = CorusSpacing.sm),
                 ) {
-                    // Bio
                     if (currentProfile.bio.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(CorusSpacing.xs))
                         ExpandableBioText(
                             bio = currentProfile.bio,
                             maxCollapsedLines = 3,
@@ -692,9 +693,10 @@ fun ProfileScreen(
                         )
                     }
 
-                    // Website
                     if (!currentProfile.website.isNullOrBlank()) {
-                        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                        if (currentProfile.bio.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(CorusSpacing.xxs))
+                        }
                         val context = androidx.compose.ui.platform.LocalContext.current
                         Text(
                             text = currentProfile.website!!.removePrefix("https://").removePrefix("http://"),
@@ -718,6 +720,7 @@ fun ProfileScreen(
                         )
                     }
                 }
+                }
 
                 run {
                     val editFull = stringResource(fm.corus.android.R.string.profile_button_edit)
@@ -729,8 +732,6 @@ fun ProfileScreen(
                     )
                     val textMeasurer = rememberTextMeasurer()
                     val density = LocalDensity.current
-                    val hasUserInfo = currentProfile.bio.isNotBlank() ||
-                        !currentProfile.website.isNullOrBlank()
                     BoxWithConstraints(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1034,7 +1035,11 @@ fun ProfileScreen(
                             onLikeTap = { viewModel.toggleLike(featuredPost.id) },
                             onSpotifyTap = {
                                 val track = featuredPost.track
-                                if (track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
+                                if (track.source == fm.corus.android.data.model.TrackSource.BANDCAMP) {
+                                    track.bandcampLinkOutUrl?.takeIf { it.isNotBlank() }?.let {
+                                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) }
+                                    }
+                                } else if (track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
                                     track.soundcloudPermalinkUrl?.takeIf { it.isNotBlank() }?.let {
                                         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) }
                                     }

@@ -49,7 +49,8 @@ enum class TrackSource(val raw: String) {
     BANDCAMP("bandcamp");
 
     companion object {
-        fun fromRaw(raw: String?): TrackSource = entries.firstOrNull { it.raw == raw } ?: SPOTIFY
+        fun fromRaw(raw: String?): TrackSource =
+            entries.firstOrNull { it.raw.equals(raw, ignoreCase = true) } ?: SPOTIFY
     }
 }
 
@@ -184,7 +185,17 @@ data class CymbalTrack(
         get() = if (source == TrackSource.DEEZER) deezerURL?.takeIf { it.isNotBlank() } else null
 
     val bandcampLinkOutUrl: String?
-        get() = if (source == TrackSource.BANDCAMP) bandcampUrl?.takeIf { it.isNotBlank() } else null
+        get() = if (isBandcampCatalog) bandcampUrl?.takeIf { it.isNotBlank() } else null
+
+    /**
+     * True for Bandcamp catalog rows — `source`, `bc:` id, or a page URL.
+     * Search/compose art badges use this so a Bandcamp exclusive still
+     * gets the aqua mark if the discriminator was dropped.
+     */
+    val isBandcampCatalog: Boolean
+        get() = source == TrackSource.BANDCAMP
+            || id.startsWith("bc:", ignoreCase = true)
+            || !bandcampUrl.isNullOrBlank()
 
     /**
      * External Audiomack artist-page URL to link out to. Non-null only for an
@@ -261,8 +272,13 @@ data class CymbalTrack(
 
         fun fromMap(data: Map<String, Any?>): CymbalTrack {
             val rawId = data["trackId"] as? String ?: data["id"] as? String ?: ""
-            val source = if (rawId.startsWith("bc:")) TrackSource.BANDCAMP
-            else TrackSource.fromRaw(data["trackSource"] as? String ?: data["source"] as? String)
+            val source = when {
+                rawId.startsWith("bc:", ignoreCase = true)
+                    || (data["trackSource"] as? String).equals("bandcamp", ignoreCase = true)
+                    || (data["source"] as? String).equals("bandcamp", ignoreCase = true) ->
+                    TrackSource.BANDCAMP
+                else -> TrackSource.fromRaw(data["trackSource"] as? String ?: data["source"] as? String)
+            }
             // SoundCloud / Audiomack / TIDAL / Deezer don't live in Spotify's
             // catalog. Synthesizing `spotify:track:sc:<id>` from those ids
             // produces broken "Open in Spotify" links. Apple-sourced catalog
@@ -312,7 +328,7 @@ data class CymbalTrack(
                 deezerId = (data["deezerId"] as? String)?.ifEmpty { null },
                 deezerURL = (data["deezerURL"] as? String)?.ifEmpty { null },
                 bandcampId = (data["bandcampId"] as? String)?.ifEmpty { null }
-                    ?: rawId.takeIf { it.startsWith("bc:") }?.removePrefix("bc:"),
+                    ?: rawId.takeIf { it.startsWith("bc:", ignoreCase = true) }?.substringAfter(':'),
                 bandcampUrl = (data["bandcampUrl"] as? String)?.ifEmpty { null },
                 bandcampArtistUrl = (data["bandcampArtistUrl"] as? String)?.ifEmpty { null },
                 bandcampAlbumUrl = (data["bandcampAlbumUrl"] as? String)?.ifEmpty { null },

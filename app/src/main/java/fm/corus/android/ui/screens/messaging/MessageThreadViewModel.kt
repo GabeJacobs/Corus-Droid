@@ -21,6 +21,7 @@ import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.service.RemoteConfigService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -169,6 +170,21 @@ class MessageThreadViewModel @Inject constructor(
 
 
     fun loadMessages(threadId: String, otherUserId: String) {
+        // Popping back onto this screen re-runs LaunchedEffect(threadId). The
+        // ViewModel (and its Firestore listener) survived on the back stack, so
+        // tearing the listener down and treating that cancel as a load failure
+        // flashed "Couldn't connect" on empty 1:1 threads. Stay on the live
+        // session instead of reloading.
+        val alreadyLive = hasLoadedInitialMessages
+            && !_hasLoadError.value
+            && listenerJob?.isActive == true
+            && threadId.isNotBlank()
+            && threadId == currentThreadId
+        if (alreadyLive) {
+            _resolvedThreadId.value = threadId
+            return
+        }
+
         currentThreadId = threadId
         // Arm active-thread tracking right away when the id is already known, so
         // suppression is in effect before the (async) profile fetch completes.
@@ -219,6 +235,8 @@ class MessageThreadViewModel @Inject constructor(
                 // Mark as read
                 messageRepository.markThreadRead(resolvedId, userId)
                 startReadReceiptsListener(userId)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 // Setup failed before the message listener could deliver anything
                 // (e.g. not signed in, getOrCreateThread error). Clear the loading
@@ -317,6 +335,11 @@ class MessageThreadViewModel @Inject constructor(
                     _hasLoadError.value = false
                     _isLoading.value = false
                 }
+            } catch (e: CancellationException) {
+                // Reloading (or leaving) cancels this collect. An empty thread
+                // is a valid snapshot, not a connection failure — swallowing
+                // cancel as Exception flashed OfflineRetryState on pop-back.
+                throw e
             } catch (_: Exception) {
                 // Listener refused or dropped. Leave whatever we already have on
                 // screen; if there's nothing, the screen swaps to retry.

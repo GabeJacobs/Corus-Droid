@@ -95,7 +95,76 @@ data class ArtistDetail(
      *  for the Popular rows. Only tracks with ≥1 share are present. Empty on
      *  payloads written before this shipped. */
     val corusStats: Map<String, TrackCorusStats> = emptyMap(),
+    /** Bandcamp-only artist pages (`bc:`). Opens the Bandcamp homepage. */
+    val bandcampUrl: String? = null,
+    val merchUrl: String? = null,
+    val merch: List<BandcampMerchItem> = emptyList(),
+    val shows: List<BandcampShow> = emptyList(),
+    val sites: List<BandcampSiteLink> = emptyList(),
 )
+
+/** One merch item from a Bandcamp `/merch` grid. */
+data class BandcampMerchItem(
+    val id: String,
+    val title: String,
+    val type: String = "",
+    val price: String = "",
+    val soldOut: Boolean = false,
+    val url: String,
+    val imageUrl: String? = null,
+) {
+    companion object {
+        fun fromMap(data: Map<String, Any?>): BandcampMerchItem? {
+            val title = (data["title"] as? String)?.takeIf { it.isNotEmpty() } ?: return null
+            val url = (data["url"] as? String)?.takeIf { it.isNotEmpty() } ?: return null
+            return BandcampMerchItem(
+                id = (data["id"] as? String)?.ifEmpty { null } ?: title,
+                title = title,
+                type = data["type"] as? String ?: "",
+                price = data["price"] as? String ?: "",
+                soldOut = data["soldOut"] as? Boolean ?: false,
+                url = url,
+                imageUrl = (data["imageUrl"] as? String)?.ifEmpty { null },
+            )
+        }
+    }
+}
+
+/** One upcoming show from Bandcamp's Songkick `shows_list`. */
+data class BandcampShow(
+    val date: String = "",
+    val loc: String = "",
+    val venue: String = "",
+    val url: String,
+) {
+    val title: String
+        get() = listOf(date, loc).filter { it.isNotEmpty() }.joinToString(" · ")
+
+    companion object {
+        fun fromMap(data: Map<String, Any?>): BandcampShow? {
+            val url = (data["url"] as? String)?.takeIf { it.isNotEmpty() } ?: return null
+            return BandcampShow(
+                date = data["date"] as? String ?: "",
+                loc = data["loc"] as? String ?: "",
+                venue = data["venue"] as? String ?: "",
+                url = url,
+            )
+        }
+    }
+}
+
+data class BandcampSiteLink(
+    val title: String,
+    val url: String,
+) {
+    companion object {
+        fun fromMap(data: Map<String, Any?>): BandcampSiteLink? {
+            val title = (data["title"] as? String)?.takeIf { it.isNotEmpty() } ?: return null
+            val url = (data["url"] as? String)?.takeIf { it.isNotEmpty() } ?: return null
+            return BandcampSiteLink(title = title, url = url)
+        }
+    }
+}
 
 /** A Corus user account manually linked to a catalog artist (getArtistDetail
  *  `corusUser`). Drives the "{displayName} is on Corus" badge. The blue check

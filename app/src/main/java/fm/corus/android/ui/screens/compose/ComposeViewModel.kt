@@ -58,6 +58,7 @@ data class SearchResultItem(
     val showPlayOverlay: Boolean = false,
     val isSoundCloud: Boolean = false,
     val isAudiomack: Boolean = false,
+    val isBandcamp: Boolean = false,
 )
 
 /**
@@ -541,6 +542,7 @@ class ComposeViewModel @Inject constructor(
                             showPlayOverlay = true,
                             isSoundCloud = track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD,
                             isAudiomack = track.source == fm.corus.android.data.model.TrackSource.AUDIOMACK,
+                            isBandcamp = track.isBandcampCatalog,
                         )
                     }
                 } else {

@@ -217,7 +217,7 @@ fun PostMenuSheets(
                 },
                 onViewSongPage = { onNavigateToSong(post.track) },
                 onViewFilmPage = { onNavigateToFilm(post.movieId ?: "") },
-                showBackCoverOption = actions.remoteConfig.vinylFlipEnabled && !post.isMovie && post.track.source != TrackSource.SOUNDCLOUD && post.track.source != TrackSource.AUDIOMACK && post.track.source != TrackSource.TIDAL && post.track.source != TrackSource.DEEZER,
+                showBackCoverOption = actions.remoteConfig.vinylFlipEnabled && !post.isMovie && post.track.source != TrackSource.SOUNDCLOUD && post.track.source != TrackSource.AUDIOMACK && post.track.source != TrackSource.BANDCAMP && post.track.source != TrackSource.TIDAL && post.track.source != TrackSource.DEEZER,
                 isBackCoverFlipped = backCoverStateFor(post.id).isFlipped,
                 isSaved = isSaved,
                 // Rows gate on the flag; the nav callbacks are non-null whenever
@@ -388,6 +388,7 @@ fun openTrackInPreferredService(
         // Audiomack is link-out only — open its page regardless of the viewer's
         // preferred service (mirrors the SoundCloud lock above).
         track.source == TrackSource.AUDIOMACK -> open(track.audiomackUrl)
+        track.source == TrackSource.BANDCAMP -> open(track.bandcampUrl)
         // TIDAL/Deezer exclusives are link-out only too (Audiomack treatment) —
         // open the track's own page regardless of the viewer's preferred service.
         track.source == TrackSource.TIDAL -> open(track.tidalURL)
@@ -519,7 +520,8 @@ internal fun onGoToArtistTap(
     if (post.isMovie) return null
     if (post.track.source != TrackSource.SPOTIFY
         && post.track.source != TrackSource.APPLEMUSIC
-        && post.track.source != TrackSource.AUDIOMACK) return null
+        && post.track.source != TrackSource.AUDIOMACK
+        && post.track.source != TrackSource.BANDCAMP) return null
     fun go(artistId: String) {
         val name = fm.corus.android.data.model.primaryNameHint(
             post.track.artistName,
@@ -544,6 +546,10 @@ internal fun onGoToArtistTap(
                     if (resolved != null) go(resolved)
                     else if (post.track.source == TrackSource.AUDIOMACK) {
                         post.track.audiomackArtistLinkOutUrl?.let { openExternalUrl(context, it) }
+                            ?: onArtistNotFound()
+                    } else if (post.track.source == TrackSource.BANDCAMP) {
+                        post.track.bandcampArtistUrl?.takeIf { it.isNotBlank() }
+                            ?.let { openExternalUrl(context, it) }
                             ?: onArtistNotFound()
                     } else onArtistNotFound()
                 } finally {

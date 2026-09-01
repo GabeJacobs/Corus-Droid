@@ -1321,12 +1321,16 @@ private fun PickerSongRow(
                 cornerRadius = CorusSpacing.cornerRadius,
                 contentDescription = track.name,
             )
-            when (track.source) {
-                fm.corus.android.data.model.TrackSource.SOUNDCLOUD ->
+            when {
+                track.isBandcampCatalog ->
+                    fm.corus.android.ui.components.BandcampBadgeOverlay(
+                        modifier = Modifier.align(Alignment.BottomEnd),
+                    )
+                track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD ->
                     fm.corus.android.ui.components.SoundCloudBadgeOverlay(
                         modifier = Modifier.align(Alignment.BottomEnd),
                     )
-                fm.corus.android.data.model.TrackSource.AUDIOMACK ->
+                track.source == fm.corus.android.data.model.TrackSource.AUDIOMACK ->
                     fm.corus.android.ui.components.AudiomackBadgeOverlay(
                         modifier = Modifier.align(Alignment.BottomEnd),
                     )
@@ -1521,6 +1525,7 @@ private fun SearchModeContent(
                             isLoading = result.showPlayOverlay && previewLoadingTrackId == result.id,
                             isSoundCloud = result.isSoundCloud,
                             isAudiomack = result.isAudiomack,
+                            isBandcamp = result.isBandcamp,
                             onAlbumArtTap = if (result.showPlayOverlay) {{ onPreviewTap(result.id) }} else null,
                             onClick = { onResultClick(result) },
                         )
@@ -1837,6 +1842,7 @@ private fun SearchResultRow(
     isLoading: Boolean = false,
     isSoundCloud: Boolean = false,
     isAudiomack: Boolean = false,
+    isBandcamp: Boolean = false,
     onAlbumArtTap: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
@@ -1868,6 +1874,10 @@ private fun SearchResultRow(
                 )
             } else if (isAudiomack) {
                 fm.corus.android.ui.components.AudiomackBadgeOverlay(
+                    modifier = Modifier.align(Alignment.BottomEnd),
+                )
+            } else if (isBandcamp) {
+                fm.corus.android.ui.components.BandcampBadgeOverlay(
                     modifier = Modifier.align(Alignment.BottomEnd),
                 )
             }

@@ -39,14 +39,12 @@ import org.mockito.kotlin.whenever
 import org.mockito.kotlin.wheneverBlocking
 
 /**
- * Regression: a feed load that fails while the device is online must NOT be
- * painted as "you're offline." On a cold launch the first callable often throws
- * a transient FirebaseFunctionsException (App Check / Play Integrity token still
- * minting, a Functions UNAVAILABLE/INTERNAL) even on strong wifi — the exact
- * blip a manual "Retry" clears. The ViewModel now retries that load once,
- * silently, before surfacing any error; the offline panel only appears when the
- * retry also fails. When the device is genuinely offline, there is no silent
- * retry — the failure surfaces immediately.
+ * Regression: a feed load that fails while the device reads online must NOT
+ * flash "Something's off." On a doze cold-start the first callable often throws
+ * (App Check still minting, DNS still dead after wake) even on strong wifi —
+ * the exact blip a manual "Retry" clears. Keep the skeleton up and retry;
+ * the error panel is reserved for a genuine offline failure after the
+ * connectivity grace.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class FeedTransientRetryTest {
@@ -90,7 +88,10 @@ class FeedTransientRetryTest {
         messageRepository = mock()
         cloudFunctions = mock()
         nowPlayingManager = mock()
-        remoteConfig = mock()
+        remoteConfig = mock {
+            on { forceTasteMatchesPaywallFlow } doReturn MutableStateFlow(false)
+            on { forceTasteMatchesPaywall } doReturn false
+        }
         analyticsService = mock()
         postCreationEvent = mock { on { events } doReturn MutableSharedFlow() }
         postDeletionEvent = mock { on { events } doReturn MutableSharedFlow() }
@@ -204,7 +205,7 @@ class FeedTransientRetryTest {
         }
 
     @Test
-    fun `persistent failure while online surfaces the error after the retries are exhausted`() =
+    fun `persistent failure while online holds the skeleton instead of the error panel`() =
         runTest(testDispatcher) {
             var calls = 0
             wheneverBlocking {
@@ -220,12 +221,14 @@ class FeedTransientRetryTest {
             viewModel.loadFeed()
             advanceUntilIdle()
 
-            // One initial attempt + FEED_TRANSIENT_MAX_RETRIES silent retries, then
-            // the error surfaces (a genuine, persistent outage — not a warm-up
-            // blip). The screen keys its copy off isConnected (true here), so the
-            // user sees "something's off on our end," not a wifi blame.
+            // One initial attempt + FEED_TRANSIENT_MAX_RETRIES. Feed is not
+            // visible (doze / tests don't call onFeedStarted), so we stop the
+            // wave and hold the skeleton — [hasLoaded] stays false, so the
+            // screen cannot paint "Something's off."
             assertEquals(5, calls)
             assertTrue(viewModel.lastLoadFailed.value)
+            assertFalse(viewModel.hasLoaded.value)
+            assertFalse(viewModel.isLoading.value)
             assertTrue(viewModel.posts.value.isEmpty())
         }
 
@@ -282,5 +285,92 @@ class FeedTransientRetryTest {
             // attempt + FEED_TRANSIENT_CONNECTIVITY_GRACE_RETRIES grace retries.
             assertEquals(3, calls)
             assertTrue(viewModel.lastLoadFailed.value)
+        }
+
+    @Test
+    fun `foreground after exhausted retries retries the failed empty feed`() =
+        runTest(testDispatcher) {
+            var calls = 0
+            wheneverBlocking {
+                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+            }.doSuspendableAnswer {
+                calls++
+                // First wave: every attempt fails (DNS dead while the phone is
+                // still asleep). After retries exhaust, a later foreground
+                // retry (radio now up) succeeds — the tap-Retry path.
+                if (calls <= 5) throw RuntimeException("dns dead during doze")
+                CloudFunctionsDataSource.FeedPage(listOf(post("p1")), false)
+            }
+
+            val viewModel = vm(connected = true)
+            advanceUntilIdle()
+
+            viewModel.loadFeed()
+            advanceUntilIdle()
+            assertTrue(viewModel.lastLoadFailed.value)
+            assertFalse(viewModel.hasLoaded.value)
+            assertTrue(viewModel.posts.value.isEmpty())
+            val exhaustedCalls = calls
+
+            viewModel.onFeedStarted()
+            advanceUntilIdle()
+
+            assertTrue(calls > exhaustedCalls)
+            assertFalse(viewModel.lastLoadFailed.value)
+            assertTrue(viewModel.hasLoaded.value)
+            assertEquals(listOf("p1"), viewModel.posts.value.map { it.id })
+        }
+
+    @Test
+    fun `foreground retry is a no-op when the feed already loaded`() =
+        runTest(testDispatcher) {
+            var calls = 0
+            wheneverBlocking {
+                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+            }.doSuspendableAnswer {
+                calls++
+                CloudFunctionsDataSource.FeedPage(listOf(post("p1")), false)
+            }
+
+            val viewModel = vm(connected = true)
+            advanceUntilIdle()
+
+            viewModel.loadFeed()
+            advanceUntilIdle()
+            val afterLoad = calls
+
+            viewModel.retryFailedFeedIfNeeded()
+            advanceUntilIdle()
+
+            assertEquals(afterLoad, calls)
+        }
+
+    @Test
+    fun `visible feed keeps retrying past the first wave while online and recovers`() =
+        runTest(testDispatcher) {
+            var calls = 0
+            wheneverBlocking {
+                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+            }.doSuspendableAnswer {
+                calls++
+                // First wave (5 attempts) fails; the user is looking at the
+                // feed so a second wave starts. DNS comes up on attempt 6.
+                if (calls <= 5) throw RuntimeException("dns still dead")
+                CloudFunctionsDataSource.FeedPage(listOf(post("p1")), false)
+            }
+
+            val viewModel = vm(connected = true)
+            advanceUntilIdle()
+            // Mark visible first so the exhausted first wave starts another
+            // instead of holding. Does not itself start a load (lastLoadFailed
+            // is still false).
+            viewModel.onFeedStarted()
+            viewModel.loadFeed()
+            advanceUntilIdle()
+
+            assertTrue(calls > 5)
+            assertFalse(viewModel.lastLoadFailed.value)
+            assertTrue(viewModel.hasLoaded.value)
+            assertEquals(listOf("p1"), viewModel.posts.value.map { it.id })
         }
 }

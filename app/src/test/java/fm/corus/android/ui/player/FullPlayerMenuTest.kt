@@ -44,6 +44,10 @@ class FullPlayerMenuTest {
             fullPlayerOpenInServiceLabelKey(TrackSource.AUDIOMACK, MusicService.SPOTIFY),
         )
         assertEquals(
+            FullPlayerOpenInLabel.OpenBandcamp,
+            fullPlayerOpenInServiceLabelKey(TrackSource.BANDCAMP, MusicService.SPOTIFY),
+        )
+        assertEquals(
             FullPlayerOpenInLabel.OpenTidal,
             fullPlayerOpenInServiceLabelKey(TrackSource.TIDAL, MusicService.APPLE_MUSIC),
         )
@@ -99,6 +103,8 @@ class FullPlayerMenuTest {
         assertTrue(fullPlayerShowsAlbumRow(TrackSource.SPOTIFY, artistPagesEnabled = true))
         assertTrue(fullPlayerShowsArtistRow(TrackSource.AUDIOMACK, artistPagesEnabled = true))
         assertFalse(fullPlayerShowsAlbumRow(TrackSource.AUDIOMACK, artistPagesEnabled = true))
+        assertTrue(fullPlayerShowsArtistRow(TrackSource.BANDCAMP, artistPagesEnabled = true))
+        assertFalse(fullPlayerShowsAlbumRow(TrackSource.BANDCAMP, artistPagesEnabled = true))
         assertFalse(fullPlayerShowsArtistRow(TrackSource.SPOTIFY, artistPagesEnabled = false))
         assertFalse(fullPlayerShowsArtistRow(TrackSource.SOUNDCLOUD, artistPagesEnabled = true))
         assertFalse(fullPlayerShowsAlbumRow(TrackSource.SOUNDCLOUD, artistPagesEnabled = true))

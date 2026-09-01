@@ -63,7 +63,11 @@ class SongDetailViewModelArtistResolutionTest {
     @Test
     fun `resolveDestinations publishes both ids and returns them on success`() =
         runTest(testDispatcher) {
-            whenever(cloudFunctions.resolveTrackDestinations(any(), anyOrNull(), any(), any()))
+            whenever(
+                cloudFunctions.resolveTrackDestinations(
+                    any(), anyOrNull(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(),
+                )
+            )
                 .doReturn(
                     CloudFunctionsDataSource.TrackDestinations(
                         artistIds = listOf("spotify-jn"),
@@ -87,7 +91,11 @@ class SongDetailViewModelArtistResolutionTest {
     @Test
     fun `resolveDestinations on a miss leaves both cached ids null`() =
         runTest(testDispatcher) {
-            whenever(cloudFunctions.resolveTrackDestinations(any(), anyOrNull(), any(), any()))
+            whenever(
+                cloudFunctions.resolveTrackDestinations(
+                    any(), anyOrNull(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(),
+                )
+            )
                 .doReturn(CloudFunctionsDataSource.TrackDestinations(emptyList(), null))
 
             val dest = viewModel.resolveDestinations("am:1", null, "Sapokanikan", "Joanna Newsom")

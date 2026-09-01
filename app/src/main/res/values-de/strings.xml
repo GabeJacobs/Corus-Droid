@@ -1318,6 +1318,7 @@
     <string name="director_detail_toast_director_sent">Regisseur gesendet!</string>
     <string name="profile_share_toast_profile_sent">Profil gesendet!</string>
     <string name="song_detail_listen_audiomack">Auf Audiomack anhören</string>
+    <string name="song_detail_listen_bandcamp">Auf Bandcamp anhören</string>
     <string name="other_profile_unavailable_title">Dieses Konto ist nicht verfügbar</string>
     <string name="other_profile_unavailable_subtitle">Dieser Nutzer existiert möglicherweise nicht mehr.</string>
     <string name="other_profile_button_follow_back">ZURÜCKFOLGEN</string>
@@ -1337,6 +1338,7 @@
     <string name="messaging_group_soft_hint">Sieht das vielleicht noch nicht</string>
     <string name="messaging_group_done">Fertig</string>
     <string name="post_menu_open_audiomack">In Audiomack öffnen</string>
+    <string name="post_menu_open_bandcamp">In Bandcamp öffnen</string>
     <string name="post_menu_open_tidal">In TIDAL öffnen</string>
     <string name="post_menu_open_deezer">In Deezer öffnen</string>
     <string name="post_menu_go_to_artist">Zum Künstler</string>

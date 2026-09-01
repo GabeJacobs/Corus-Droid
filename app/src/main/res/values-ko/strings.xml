@@ -1310,6 +1310,7 @@
     <string name="director_detail_toast_director_sent">감독을 보냈어요!</string>
     <string name="profile_share_toast_profile_sent">프로필을 보냈어요!</string>
     <string name="song_detail_listen_audiomack">Audiomack에서 듣기</string>
+    <string name="song_detail_listen_bandcamp">Bandcamp에서 듣기</string>
     <string name="other_profile_unavailable_title">이 계정은 사용할 수 없어요</string>
     <string name="other_profile_unavailable_subtitle">이 사용자는 더 이상 존재하지 않을 수 있어요.</string>
     <string name="other_profile_button_follow_back">맞팔로우</string>
@@ -1329,6 +1330,7 @@
     <string name="messaging_group_soft_hint">아직 못 볼 수도 있어요</string>
     <string name="messaging_group_done">완료</string>
     <string name="post_menu_open_audiomack">Audiomack에서 열기</string>
+    <string name="post_menu_open_bandcamp">Bandcamp에서 열기</string>
     <string name="post_menu_open_tidal">TIDAL에서 열기</string>
     <string name="post_menu_open_deezer">Deezer에서 열기</string>
     <string name="post_menu_go_to_artist">아티스트로 이동</string>

@@ -584,7 +584,8 @@ fun OtherProfileScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = headerHPad, vertical = CorusSpacing.md),
+                                    .padding(horizontal = headerHPad)
+                                    .padding(top = CorusSpacing.sm),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 UserAvatarView(
@@ -636,16 +637,13 @@ fun OtherProfileScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(CorusSpacing.sm))
-
-                            // Bio
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = headerHPad),
-                            ) {
-                                if (!initialBio.isNullOrBlank()) {
-                                    Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                            if (!initialBio.isNullOrBlank()) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = headerHPad)
+                                        .padding(top = CorusSpacing.sm),
+                                ) {
                                     // Transient skeleton header shown until the live profile
                                     // lands; cap at 3 lines (no expand) to match the real
                                     // ExpandableBioText below so the bio doesn't jump on swap.
@@ -857,10 +855,8 @@ fun OtherProfileScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(
-                                horizontal = headerHPad,
-                                vertical = CorusSpacing.md,
-                            ),
+                            .padding(horizontal = headerHPad)
+                            .padding(top = CorusSpacing.sm),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         UserAvatarView(
@@ -912,16 +908,19 @@ fun OtherProfileScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                    val hasUserInfo = currentProfile.bio.isNotBlank() ||
+                        !currentProfile.website.isNullOrBlank()
 
-                    // Bio + Website
+                    // iOS ProfileHeaderView: bio/link sit 8pt under the avatar;
+                    // no spacer when both are empty.
+                    if (hasUserInfo) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = headerHPad),
+                            .padding(horizontal = headerHPad)
+                            .padding(top = CorusSpacing.sm),
                     ) {
                         if (currentProfile.bio.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(CorusSpacing.xs))
                             ExpandableBioText(
                                 bio = currentProfile.bio,
                                 maxCollapsedLines = 3,
@@ -930,7 +929,9 @@ fun OtherProfileScreen(
                         }
 
                         if (!currentProfile.website.isNullOrBlank()) {
-                            Spacer(modifier = Modifier.height(CorusSpacing.xxs))
+                            if (currentProfile.bio.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(CorusSpacing.xxs))
+                            }
                             val context = androidx.compose.ui.platform.LocalContext.current
                             Text(
                                 text = currentProfile.website!!.removePrefix("https://").removePrefix("http://"),
@@ -954,6 +955,7 @@ fun OtherProfileScreen(
                             )
                         }
                     }
+                    }
 
                     if (!isOwnProfile) {
                         val playlistContext = LocalContext.current
@@ -971,8 +973,6 @@ fun OtherProfileScreen(
                                 viewModel.nowPlayingManager.clearPlaylistError()
                             }
                         }
-                        val hasUserInfo = currentProfile.bio.isNotBlank() ||
-                            !currentProfile.website.isNullOrBlank()
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1235,7 +1235,11 @@ fun OtherProfileScreen(
                                 onLikeTap = { viewModel.toggleLike(featured.id) },
                                 onSpotifyTap = {
                                     val track = featured.track
-                                    if (track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
+                                    if (track.source == fm.corus.android.data.model.TrackSource.BANDCAMP) {
+                                        track.bandcampLinkOutUrl?.takeIf { it.isNotBlank() }?.let {
+                                            runCatching { featuredCtx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) }
+                                        }
+                                    } else if (track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
                                         track.soundcloudPermalinkUrl?.takeIf { it.isNotBlank() }?.let {
                                             runCatching { featuredCtx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) }
                                         }

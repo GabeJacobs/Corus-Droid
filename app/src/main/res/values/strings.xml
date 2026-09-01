@@ -397,6 +397,7 @@
     <string name="song_detail_open_in_service">Open in %1$s</string>
     <string name="song_detail_listen_soundcloud">Listen on SoundCloud</string>
     <string name="song_detail_listen_audiomack">Listen on Audiomack</string>
+    <string name="song_detail_listen_bandcamp">Listen on Bandcamp</string>
     <string name="song_detail_cd_pause_preview">Pause preview</string>
     <string name="song_detail_cd_play_preview">Play preview</string>
     <string name="song_detail_posted_by">Posted by</string>
@@ -1024,6 +1025,7 @@
     <string name="post_menu_play_in_service">Play in %1$s</string>
     <string name="post_menu_open_soundcloud">Open in SoundCloud</string>
     <string name="post_menu_open_audiomack">Open in Audiomack</string>
+    <string name="post_menu_open_bandcamp">Open in Bandcamp</string>
     <string name="post_menu_open_tidal">Open in TIDAL</string>
     <string name="post_menu_open_deezer">Open in Deezer</string>
     <string name="post_menu_add_to_queue">Add to Queue</string>

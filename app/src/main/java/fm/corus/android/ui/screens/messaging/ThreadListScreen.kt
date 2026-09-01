@@ -677,7 +677,7 @@ private fun InboxSearchBar(
         Icon(
             Icons.Filled.Search,
             contentDescription = stringResource(id = R.string.search_cd_search),
-            tint = CorusColors.Tertiary,
+            tint = CorusColors.Secondary,
             modifier = Modifier.size(20.dp),
         )
         Spacer(modifier = Modifier.width(CorusSpacing.sm))

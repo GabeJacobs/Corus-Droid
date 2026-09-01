@@ -1318,6 +1318,7 @@
     <string name="director_detail_toast_director_sent">Regista inviato!</string>
     <string name="profile_share_toast_profile_sent">Profilo inviato!</string>
     <string name="song_detail_listen_audiomack">Ascolta su Audiomack</string>
+    <string name="song_detail_listen_bandcamp">Ascolta su Bandcamp</string>
     <string name="other_profile_unavailable_title">Questo account non è disponibile</string>
     <string name="other_profile_unavailable_subtitle">Questo utente potrebbe non esistere più.</string>
     <string name="other_profile_button_follow_back">SEGUI ANCHE TU</string>
@@ -1337,6 +1338,7 @@
     <string name="messaging_group_soft_hint">Potrebbe non vederlo ancora</string>
     <string name="messaging_group_done">Fatto</string>
     <string name="post_menu_open_audiomack">Apri in Audiomack</string>
+    <string name="post_menu_open_bandcamp">Apri in Bandcamp</string>
     <string name="post_menu_open_tidal">Apri in TIDAL</string>
     <string name="post_menu_open_deezer">Apri in Deezer</string>
     <string name="post_menu_go_to_artist">Vai all\'artista</string>

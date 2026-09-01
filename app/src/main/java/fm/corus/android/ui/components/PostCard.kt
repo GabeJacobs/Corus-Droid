@@ -246,6 +246,11 @@ fun PostCard(
             runCatching { postCardContext.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
         }
     }
+    val openBandcamp: () -> Unit = {
+        post.track.bandcampLinkOutUrl?.let { url ->
+            runCatching { postCardContext.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+        }
+    }
     // TIDAL/Deezer exclusives get the Audiomack treatment: link-out only — the
     // service badge glyph opens the track's TIDAL/Deezer page externally.
     // Gated on the source discriminator; null/blank url is a graceful no-op.
@@ -967,6 +972,7 @@ fun PostCard(
                 ) {
                 val isSoundCloud = post.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD
                 val isAudiomack = post.track.source == fm.corus.android.data.model.TrackSource.AUDIOMACK
+                val isBandcamp = post.track.source == fm.corus.android.data.model.TrackSource.BANDCAMP
                 val isTidal = post.track.source == fm.corus.android.data.model.TrackSource.TIDAL
                 val isDeezer = post.track.source == fm.corus.android.data.model.TrackSource.DEEZER
                 val isAppleMusic = post.track.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC
@@ -996,6 +1002,18 @@ fun PostCard(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
                                 onClick = openAudiomack,
+                            )
+                            .semantics { contentDescription = cd },
+                    )
+                } else if (isBandcamp) {
+                    BandcampLogo(
+                        size = 24.dp,
+                        modifier = Modifier
+                            .offset(y = PostRowServiceControlYOffset)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = openBandcamp,
                             )
                             .semantics { contentDescription = cd },
                     )

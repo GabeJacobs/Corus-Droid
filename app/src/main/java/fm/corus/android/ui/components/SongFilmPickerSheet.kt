@@ -645,8 +645,13 @@ private fun SongPickerRow(track: CymbalTrack, onClick: () -> Unit) {
                     .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
                 contentScale = ContentScale.Crop,
             )
-            if (track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
-                SoundCloudBadgeOverlay(modifier = Modifier.align(Alignment.BottomEnd))
+            when {
+                track.isBandcampCatalog ->
+                    BandcampBadgeOverlay(modifier = Modifier.align(Alignment.BottomEnd))
+                track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD ->
+                    SoundCloudBadgeOverlay(modifier = Modifier.align(Alignment.BottomEnd))
+                track.source == fm.corus.android.data.model.TrackSource.AUDIOMACK ->
+                    AudiomackBadgeOverlay(modifier = Modifier.align(Alignment.BottomEnd))
             }
         }
         Spacer(modifier = Modifier.width(CorusSpacing.md))
