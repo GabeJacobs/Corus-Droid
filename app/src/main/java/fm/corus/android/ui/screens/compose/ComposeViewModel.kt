@@ -512,6 +512,7 @@ class ComposeViewModel @Inject constructor(
 
     private var searchJob: Job? = null
     private var mentionJob: Job? = null
+    private var movieDetailJob: Job? = null
     private var hashtagJob: Job? = null
     private var cachedTracks: List<CymbalTrack> = emptyList()
     private var cachedMovies: List<CymbalMovie> = emptyList()
@@ -728,6 +729,22 @@ class ComposeViewModel @Inject constructor(
         _error.value = null
         _selectedMovie.value = movie
         rememberComposeMediaType(MediaType.MOVIE)
+        // Search rows have director + poster but no videos. Fetch details in
+        // the background (same as iOS movieDetailTask) so createPost can wait
+        // and stamp the TMDB trailer.
+        movieDetailJob?.cancel()
+        val idInt = movie.id.removePrefix("tmdb_").toIntOrNull() ?: return
+        movieDetailJob = viewModelScope.launch {
+            try {
+                val fresh = tmdbRepository.getMovieDetails(idInt)
+                if (_selectedMovie.value?.id == movie.id) {
+                    _selectedMovie.value = fresh
+                }
+            } catch (_: Exception) {
+                // Keep the search snapshot; the post-create trigger fills
+                // trailerURL when this fetch misses.
+            }
+        }
     }
 
     /** Unified-picker pick from RECENTLY SAVED. */
@@ -896,6 +913,7 @@ class ComposeViewModel @Inject constructor(
                 null
             }
             try {
+                movieDetailJob?.join()
                 // Build the callable payload. The server validates the rolling
                 // 24h limit atomically inside `createPost`, so no separate
                 // pre-flight is needed — over-limit throws

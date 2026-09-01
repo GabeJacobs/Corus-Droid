@@ -187,8 +187,14 @@ data class TMDBMovieDetails(
         get() = credits?.cast?.take(10)?.map { it.name } ?: emptyList()
 
     val trailerURL: String?
-        get() = videos?.results?.firstOrNull { it.type == "Trailer" && it.site == "YouTube" }
-            ?.let { "https://www.youtube.com/watch?v=${it.key}" }
+        get() {
+            val yt = videos?.results?.filter { it.site == "YouTube" && it.key.isNotBlank() }
+                ?: return null
+            val pick = yt.firstOrNull { it.type == "Trailer" && it.official }
+                ?: yt.firstOrNull { it.type == "Trailer" }
+                ?: yt.firstOrNull { it.type == "Teaser" }
+            return pick?.let { "https://www.youtube.com/watch?v=${it.key}" }
+        }
 
     val releaseYear: String
         get() = releaseDate?.take(4) ?: ""
@@ -266,6 +272,7 @@ data class TMDBVideo(
     val key: String = "",
     val site: String = "",
     val type: String = "",
+    val official: Boolean = false,
 )
 
 @Serializable
