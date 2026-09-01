@@ -1284,7 +1284,7 @@ internal fun CorusBottomBar(
                 modifier = Modifier.weight(1f),
                 // Material Send points right; -45° matches iOS paperplane (nose up-right).
                 iconRotation = -45f,
-                iconYOffset = (-0.5).dp,
+                iconYOffset = (-2).dp,
                 badgeXOffset = 2.dp,
             )
             TabItem(
