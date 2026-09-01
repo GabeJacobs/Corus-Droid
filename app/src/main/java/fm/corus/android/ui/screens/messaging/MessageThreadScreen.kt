@@ -630,6 +630,7 @@ private fun ClosedThread(
 fun MessageThreadScreen(
     threadId: String,
     otherUserId: String,
+    isVisible: Boolean = true,
     onBack: () -> Unit = {},
     onNavigateToProfile: (String) -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
@@ -777,16 +778,25 @@ fun MessageThreadScreen(
         return
     }
 
+    // NavHosts for every tab remain composed, and Navigation Compose can retain
+    // a thread underneath a pushed destination. Only the top, selected thread is
+    // allowed to auto-read new messages; returning to it clears anything that
+    // arrived while it was covered.
+    DisposableEffect(isVisible, viewModel) {
+        viewModel.setActivelyViewing(isVisible)
+        onDispose { viewModel.setActivelyViewing(false) }
+    }
+
     // Mark this thread as the one being actively viewed while the screen is in
     // the foreground: suppresses its push notifications, excludes it from the
     // unread badge, and clears any notification that arrived before opening it.
     // Cleared on STOP (app backgrounded / screen left) so notifications resume.
     val resolvedThreadId by viewModel.resolvedThreadId.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(resolvedThreadId, lifecycleOwner) {
+    DisposableEffect(resolvedThreadId, lifecycleOwner, isVisible) {
         val tid = resolvedThreadId
         fun activate() {
-            if (tid != null) {
+            if (isVisible && tid != null) {
                 ActiveThreadTracker.activeThreadId = tid
                 NotificationManagerCompat.from(context)
                     .cancel(CorusFirebaseMessagingService.dmNotificationId(tid))

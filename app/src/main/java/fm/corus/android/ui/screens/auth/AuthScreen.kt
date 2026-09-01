@@ -245,14 +245,15 @@ fun AuthScreen(
                     onClick = {
                         // Mirrors iOS AuthView.signInWithGoogle / signInWithApple haptic.
                         haptics.impact(HapticManager.ImpactStyle.LIGHT)
-                        viewModel.setBusyProvider("google")
-                        val webClientId = context.getString(R.string.default_web_client_id)
-                        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                            .requestIdToken(webClientId)
-                            .requestEmail()
-                            .build()
-                        val client = GoogleSignIn.getClient(context, gso)
-                        googleSignInLauncher.launch(client.signInIntent)
+                        viewModel.beginGoogleSignIn {
+                            val webClientId = context.getString(R.string.default_web_client_id)
+                            val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                                .requestIdToken(webClientId)
+                                .requestEmail()
+                                .build()
+                            val client = GoogleSignIn.getClient(context, gso)
+                            googleSignInLauncher.launch(client.signInIntent)
+                        }
                     },
                 )
 

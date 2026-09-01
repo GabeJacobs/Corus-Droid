@@ -1284,6 +1284,7 @@ internal fun CorusBottomBar(
                 modifier = Modifier.weight(1f),
                 // Material Send points right; -45° matches iOS paperplane (nose up-right).
                 iconRotation = -45f,
+                iconYOffset = (-0.5).dp,
                 badgeXOffset = 2.dp,
             )
             TabItem(
@@ -1315,6 +1316,7 @@ private fun TabItem(
     modifier: Modifier = Modifier,
     badgeCount: Int = 0,
     iconRotation: Float = 0f,
+    iconYOffset: Dp = 0.dp,
     badgeXOffset: Dp = 2.dp,
 ) {
     val color = if (isSelected) CorusColors.Accent else CorusColors.Secondary
@@ -1338,6 +1340,7 @@ private fun TabItem(
                 contentDescription = label,
                 modifier = Modifier
                     .size(24.dp)
+                    .offset(y = iconYOffset)
                     .rotate(iconRotation),
                 tint = color,
             )

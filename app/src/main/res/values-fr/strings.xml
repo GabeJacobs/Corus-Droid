@@ -720,6 +720,7 @@
     <string name="auth_error_could_not_send_code">Impossible d\'envoyer le code de vérification. Réessaie.</string>
     <string name="auth_error_invalid_code">Code de vérification invalide. Réessaie.</string>
     <string name="auth_error_generic">Une erreur est survenue. Réessaie.</string>
+    <string name="auth_error_device_verification">La vérification de l\'appareil n\'est pas terminée. Mets à jour Google Play Services et réessaie.</string>
     <string name="auth_error_delete_account">Impossible de supprimer ton compte. Réessaie.</string>
     <string name="auth_error_invalid_phone_reauth_code">Code invalide. Réessaie.</string>
 

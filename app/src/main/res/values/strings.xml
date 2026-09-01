@@ -817,6 +817,7 @@
     <string name="auth_error_email_otp_rate_limited">Too many attempts. Please try again later.</string>
     <string name="auth_error_email_otp_unavailable">Email sign-in is temporarily unavailable.</string>
     <string name="auth_error_generic">Something went wrong. Please try again.</string>
+    <string name="auth_error_device_verification">Device verification didn\'t finish. Update Google Play Services and try again.</string>
     <string name="auth_error_delete_account">Couldn\'t delete your account. Please try again.</string>
     <string name="auth_error_invalid_phone_reauth_code">Invalid code. Please try again.</string>
 

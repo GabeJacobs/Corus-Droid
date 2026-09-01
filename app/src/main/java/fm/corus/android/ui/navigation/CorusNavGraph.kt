@@ -11,6 +11,7 @@ import fm.corus.android.R
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.toRoute
 import fm.corus.android.ui.screens.explore.HashtagFeedScreen
 import fm.corus.android.ui.screens.explore.HashtagPeopleListScreen
@@ -1114,9 +1115,13 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
 
     composable<MessageThreadRoute> { backStackEntry ->
         val route = backStackEntry.toRoute<MessageThreadRoute>()
+        val currentBackStackEntry by navController.currentBackStackEntryAsState()
         MessageThreadScreen(
             threadId = route.threadId,
             otherUserId = route.otherUserId,
+            // A thread kept alive underneath a pushed hashtag/profile/post is
+            // not being viewed and must not consume incoming unread messages.
+            isVisible = isContainingTabSelected && currentBackStackEntry == backStackEntry,
             onBack = { navController.safePopBackStack() },
             onNavigateToProfile = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToSong = { track ->

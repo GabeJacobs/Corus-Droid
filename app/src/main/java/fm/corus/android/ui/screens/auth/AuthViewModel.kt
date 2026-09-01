@@ -30,6 +30,7 @@ import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.domain.SpotifyFtueExperiment
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.AppCheckTokenSource
 import fm.corus.android.service.FeedSwitchHintManager
 import fm.corus.android.service.NetworkMonitor
 import fm.corus.android.service.RemoteConfigService
@@ -60,6 +61,7 @@ class AuthViewModel @Inject constructor(
     private val onboardingLocalStore: OnboardingLocalStore,
     private val preferencesDataStore: PreferencesDataStore,
     private val feedSwitchHintManager: FeedSwitchHintManager,
+    private val appCheckTokenSource: AppCheckTokenSource,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -427,40 +429,56 @@ class AuthViewModel @Inject constructor(
     // ── Phone Auth ──
 
     fun sendVerificationCode(phoneNumber: String, countryCode: String = "+1", activity: Activity) {
-        _error.value = null
-        _isLoading.value = true
-        didSignInThisSession = true
+        viewModelScope.launch {
+            _error.value = null
+            _isLoading.value = true
+            didSignInThisSession = true
+            try {
+                appCheckTokenSource.withToken { }
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "phone verification App Check failed", e)
+                _error.value = signupErrorString(classifyProviderSignInError(isAppCheckUnavailable(e)))
+                _isLoading.value = false
+                return@launch
+            }
 
-        authRepository.sendVerificationCode(
-            phoneNumber = phoneNumber,
-            countryCode = countryCode,
-            activity = activity,
-            callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
-                override fun onVerificationCompleted(credential: PhoneAuthCredential) {
-                    // Auto-verification on some devices
-                    viewModelScope.launch {
-                        try {
-                            firebaseAuth.signInWithCredential(credential)
-                        } catch (e: Exception) {
-                            _error.value = context.getString(R.string.auth_error_verification_failed)
+            authRepository.sendVerificationCode(
+                phoneNumber = phoneNumber,
+                countryCode = countryCode,
+                activity = activity,
+                callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+                    override fun onVerificationCompleted(credential: PhoneAuthCredential) {
+                        // Auto-verification on some devices
+                        viewModelScope.launch {
+                            try {
+                                appCheckTokenSource.withToken {
+                                    firebaseAuth.signInWithCredential(credential).await()
+                                }
+                            } catch (e: Exception) {
+                                _error.value = if (isAppCheckUnavailable(e)) {
+                                    context.getString(R.string.auth_error_device_verification)
+                                } else {
+                                    context.getString(R.string.auth_error_verification_failed)
+                                }
+                            }
+                            _isLoading.value = false
                         }
+                    }
+
+                    override fun onVerificationFailed(e: FirebaseException) {
+                        Log.e("AuthViewModel", "phone verification failed", e)
+                        _error.value = context.getString(R.string.auth_error_could_not_send_code)
+                        _isLoading.value = false
+                    }
+
+                    override fun onCodeSent(verificationId: String, token: PhoneAuthProvider.ForceResendingToken) {
+                        authRepository.setVerificationId(verificationId)
+                        _verificationSent.value = true
                         _isLoading.value = false
                     }
                 }
-
-                override fun onVerificationFailed(e: FirebaseException) {
-                    Log.e("AuthViewModel", "phone verification failed", e)
-                    _error.value = context.getString(R.string.auth_error_could_not_send_code)
-                    _isLoading.value = false
-                }
-
-                override fun onCodeSent(verificationId: String, token: PhoneAuthProvider.ForceResendingToken) {
-                    authRepository.setVerificationId(verificationId)
-                    _verificationSent.value = true
-                    _isLoading.value = false
-                }
-            }
-        )
+            )
+        }
     }
 
     fun verifyCode(code: String) {
@@ -468,20 +486,49 @@ class AuthViewModel @Inject constructor(
             _error.value = null
             _isLoading.value = true
             try {
-                val isNewUser = authRepository.verifyCode(code)
+                val isNewUser = appCheckTokenSource.withToken {
+                    authRepository.verifyCode(code)
+                }
                 if (isNewUser) {
                     analyticsService.logSignUp("phone")
                 } else {
                     analyticsService.logSignIn("phone")
                 }
             } catch (e: Exception) {
-                _error.value = context.getString(R.string.auth_error_invalid_code)
+                _error.value = if (isAppCheckUnavailable(e)) {
+                    context.getString(R.string.auth_error_device_verification)
+                } else {
+                    context.getString(R.string.auth_error_invalid_code)
+                }
             }
             _isLoading.value = false
         }
     }
 
     // ── Google Sign-In ──
+
+    /**
+     * Waits for App Check, then runs [launch] (the Google account picker).
+     * If Play Integrity cannot mint a token, the picker never opens and the
+     * user sees device verification — not a Google-account error.
+     */
+    fun beginGoogleSignIn(launch: () -> Unit) {
+        viewModelScope.launch {
+            _error.value = null
+            _busyProvider.value = "google"
+            try {
+                appCheckTokenSource.withToken { }
+                launch()
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "Google sign-in App Check failed", e)
+                _error.value = signupErrorString(
+                    classifyProviderSignInError(isAppCheckUnavailable(e)),
+                    google = true,
+                )
+                _busyProvider.value = null
+            }
+        }
+    }
 
     fun signInWithGoogle(idToken: String) {
         viewModelScope.launch {
@@ -490,7 +537,9 @@ class AuthViewModel @Inject constructor(
             _busyProvider.value = "google"
             didSignInThisSession = true
             try {
-                val isNewUser = authRepository.signInWithGoogleCredential(idToken)
+                val isNewUser = appCheckTokenSource.withToken {
+                    authRepository.signInWithGoogleCredential(idToken)
+                }
                 if (isNewUser) {
                     analyticsService.logSignUp("google")
                 } else {
@@ -498,7 +547,13 @@ class AuthViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 android.util.Log.e("AuthViewModel", "Google sign-in failed", e)
-                _error.value = context.getString(R.string.auth_google_signin_error)
+                _error.value = signupErrorString(
+                    classifyProviderSignInError(
+                        isAppCheckUnavailable(e),
+                        functionsErrorCodeName(e),
+                    ),
+                    google = true,
+                )
             }
             _isLoading.value = false
             _busyProvider.value = null
@@ -514,7 +569,9 @@ class AuthViewModel @Inject constructor(
             _busyProvider.value = "apple"
             didSignInThisSession = true
             try {
-                val isNewUser = authRepository.signInWithApple(activity)
+                val isNewUser = appCheckTokenSource.withToken {
+                    authRepository.signInWithApple(activity)
+                }
                 if (isNewUser) {
                     analyticsService.logSignUp("apple")
                 } else {
@@ -523,7 +580,13 @@ class AuthViewModel @Inject constructor(
             } catch (e: Exception) {
                 if (!isUserCancelled(e)) {
                     android.util.Log.e("AuthViewModel", "Apple sign-in failed", e)
-                    _error.value = context.getString(R.string.auth_apple_signin_error)
+                    _error.value = signupErrorString(
+                        classifyProviderSignInError(
+                            isAppCheckUnavailable(e),
+                            functionsErrorCodeName(e),
+                        ),
+                        apple = true,
+                    )
                 }
             }
             _isLoading.value = false
@@ -615,7 +678,9 @@ class AuthViewModel @Inject constructor(
             _isLoading.value = true
             didSignInThisSession = true
             try {
-                authRepository.sendEmailOtpCode(email)
+                appCheckTokenSource.withToken {
+                    authRepository.sendEmailOtpCode(email)
+                }
                 _verificationSent.value = true
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "email OTP send failed", e)
@@ -630,7 +695,9 @@ class AuthViewModel @Inject constructor(
             _error.value = null
             _isLoading.value = true
             try {
-                val isNewUser = authRepository.verifyEmailOtpCode(code)
+                val isNewUser = appCheckTokenSource.withToken {
+                    authRepository.verifyEmailOtpCode(code)
+                }
                 if (isNewUser) {
                     analyticsService.logSignUp("email")
                 } else {
@@ -645,17 +712,34 @@ class AuthViewModel @Inject constructor(
     }
 
     private fun friendlyEmailOtpError(e: Exception): String {
+        return signupErrorString(
+            classifyEmailOtpError(isAppCheckUnavailable(e), functionsErrorCodeName(e)),
+        )
+    }
+
+    private fun functionsErrorCodeName(e: Exception): String? {
         val functions = e as? com.google.firebase.functions.FirebaseFunctionsException
-        return when (functions?.code) {
-            com.google.firebase.functions.FirebaseFunctionsException.Code.RESOURCE_EXHAUSTED ->
-                context.getString(R.string.auth_error_email_otp_rate_limited)
-            com.google.firebase.functions.FirebaseFunctionsException.Code.FAILED_PRECONDITION ->
-                context.getString(R.string.auth_error_email_otp_unavailable)
-            com.google.firebase.functions.FirebaseFunctionsException.Code.PERMISSION_DENIED ->
-                context.getString(R.string.auth_error_account_suspended)
-            com.google.firebase.functions.FirebaseFunctionsException.Code.INVALID_ARGUMENT,
-            com.google.firebase.functions.FirebaseFunctionsException.Code.NOT_FOUND ->
-                context.getString(R.string.auth_error_invalid_code)
+        return functions?.code?.name
+    }
+
+    private fun signupErrorString(
+        kind: AuthSignupErrorKind,
+        google: Boolean = false,
+        apple: Boolean = false,
+    ): String = when (kind) {
+        AuthSignupErrorKind.DeviceVerification ->
+            context.getString(R.string.auth_error_device_verification)
+        AuthSignupErrorKind.EmailOtpRateLimited ->
+            context.getString(R.string.auth_error_email_otp_rate_limited)
+        AuthSignupErrorKind.EmailOtpUnavailable ->
+            context.getString(R.string.auth_error_email_otp_unavailable)
+        AuthSignupErrorKind.AccountSuspended ->
+            context.getString(R.string.auth_error_account_suspended)
+        AuthSignupErrorKind.InvalidCode ->
+            context.getString(R.string.auth_error_invalid_code)
+        AuthSignupErrorKind.Generic -> when {
+            google -> context.getString(R.string.auth_google_signin_error)
+            apple -> context.getString(R.string.auth_apple_signin_error)
             else -> context.getString(R.string.auth_error_generic)
         }
     }
@@ -834,13 +918,15 @@ class AuthViewModel @Inject constructor(
             try {
                 val email = firebaseAuth.currentUser?.email
                     ?: throw IllegalStateException("No email on account")
-                authRepository.sendEmailOtpCode(email)
+                appCheckTokenSource.withToken {
+                    authRepository.sendEmailOtpCode(email)
+                }
                 _isDeletingAccount.value = false
                 _emailReauthCodeSent.value = true
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "startEmailReauth failed", e)
                 _isDeletingAccount.value = false
-                _error.value = context.getString(R.string.auth_error_could_not_send_code)
+                _error.value = friendlyEmailOtpError(e)
             }
         }
     }
@@ -849,7 +935,9 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             _isDeletingAccount.value = true
             try {
-                authRepository.verifyEmailOtpCode(code)
+                appCheckTokenSource.withToken {
+                    authRepository.verifyEmailOtpCode(code)
+                }
                 authRepository.deleteAccount()
                 _emailReauthCodeSent.value = false
                 completeAccountDeletion()

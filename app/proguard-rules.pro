@@ -1,17 +1,12 @@
 # Firebase
 -keepattributes Signature
 -keepattributes *Annotation*
--keep class com.google.firebase.** { *; }
--keep interface com.google.firebase.** { *; }
 -dontwarn com.google.firebase.**
 
 # Google Play Services (Sign-In, Auth, Tasks, Play Integrity)
--keep class com.google.android.gms.** { *; }
--keep interface com.google.android.gms.** { *; }
 -dontwarn com.google.android.gms.**
 
 # Protobuf (used internally by Firebase)
--keep class com.google.protobuf.** { *; }
 -dontwarn com.google.protobuf.**
 
 # javax.annotation (used by Firebase but missing at runtime)
@@ -36,8 +31,20 @@
 -keepclasseswithmembers class fm.corus.android.** { kotlinx.serialization.KSerializer serializer(...); }
 
 # Ktor
--keep class io.ktor.** { *; }
 -dontwarn io.ktor.**
 
-# RevenueCat
--keep class com.revenuecat.purchases.** { *; }
+# Crashlytics: keep line numbers so release stacks stay readable after R8.
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
+
+# TIDAL Auth ships an empty consumer ProGuard file but uses Retrofit
+# interfaces and kotlinx.serialization for on-device token storage.
+# Keep the package so login/refresh cannot break after minification.
+-keep class com.tidal.sdk.auth.** { *; }
+-keep interface com.tidal.sdk.auth.** { *; }
+
+# Spotify App Remote references optional Jackson adapters and a compile-time-only
+# nullability annotation that are not present in (or required by) the app.
+-dontwarn com.fasterxml.jackson.databind.deser.std.StdDeserializer
+-dontwarn com.fasterxml.jackson.databind.ser.std.StdSerializer
+-dontwarn com.spotify.base.annotations.NotNull

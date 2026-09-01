@@ -720,6 +720,7 @@
     <string name="auth_error_could_not_send_code">Bestätigungscode konnte nicht gesendet werden. Bitte versuche es erneut.</string>
     <string name="auth_error_invalid_code">Ungültiger Bestätigungscode. Bitte versuche es erneut.</string>
     <string name="auth_error_generic">Etwas ist schiefgelaufen. Bitte versuche es erneut.</string>
+    <string name="auth_error_device_verification">Die Geräteprüfung ist nicht abgeschlossen. Aktualisiere Google Play Services und versuche es erneut.</string>
     <string name="auth_error_delete_account">Dein Konto konnte nicht gelöscht werden. Bitte versuche es erneut.</string>
     <string name="auth_error_invalid_phone_reauth_code">Ungültiger Code. Bitte versuche es erneut.</string>
 

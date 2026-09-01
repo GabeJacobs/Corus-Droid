@@ -719,6 +719,7 @@
     <string name="auth_error_could_not_send_code">无法发送验证码。请重试。</string>
     <string name="auth_error_invalid_code">验证码无效。请重试。</string>
     <string name="auth_error_generic">出错了。请重试。</string>
+    <string name="auth_error_device_verification">设备验证尚未完成。请更新 Google Play 服务后重试。</string>
     <string name="auth_error_delete_account">无法删除你的账户。请重试。</string>
     <string name="auth_error_invalid_phone_reauth_code">验证码无效。请重试。</string>
 

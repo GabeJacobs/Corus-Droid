@@ -78,8 +78,8 @@ android {
             )
         }
         release {
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
             buildConfigField("String", "APP_CHECK_DEBUG_TOKEN", "\"\"")
             buildConfigField("String", "FIREBASE_EMULATOR_HOST", "\"\"")

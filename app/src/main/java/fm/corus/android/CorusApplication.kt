@@ -18,6 +18,7 @@ import fm.corus.android.data.local.AlwaysPlayFullSongsDefaultMigration
 import fm.corus.android.data.local.AppearanceDefaultMigration
 import fm.corus.android.data.local.PlayFullSongsPostsModelMigration
 import fm.corus.android.data.local.PlaybackModePromptRolloutMigration
+import fm.corus.android.service.AppCheckTokenSource
 import fm.corus.android.service.FeedSwitchHintManager
 import javax.inject.Inject
 
@@ -26,6 +27,7 @@ class CorusApplication : Application(), SingletonImageLoader.Factory {
 
     @Inject lateinit var imageLoader: ImageLoader
     @Inject lateinit var feedSwitchHintManager: FeedSwitchHintManager
+    @Inject lateinit var appCheckTokenSource: AppCheckTokenSource
 
     override fun newImageLoader(context: PlatformContext): ImageLoader = imageLoader
 
@@ -73,6 +75,9 @@ class CorusApplication : Application(), SingletonImageLoader.Factory {
             PlayIntegrityAppCheckProviderFactory.getInstance()
         }
         FirebaseAppCheck.getInstance().installAppCheckProviderFactory(factory)
+        // Same as iOS: mint a token as soon as the provider is installed so
+        // signup / first Firestore reads don't race a lazy first fetch.
+        appCheckTokenSource.warmup()
     }
 
     private fun initRevenueCat() {

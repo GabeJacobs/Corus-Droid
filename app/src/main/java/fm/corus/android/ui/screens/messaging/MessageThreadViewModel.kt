@@ -167,6 +167,25 @@ class MessageThreadViewModel @Inject constructor(
     // already covered by markThreadRead in loadMessages).
     private var hasLoadedInitialMessages = false
     private var seenMessageIds: Set<String> = emptySet()
+    private var isActivelyViewing = false
+
+    /**
+     * Updates whether this conversation is actually visible as the selected
+     * NavHost's top destination. A retained thread underneath another page must
+     * keep receiving snapshots for a fast return, but must not consume unread
+     * state until the user comes back to it.
+     */
+    fun setActivelyViewing(active: Boolean) {
+        val becameActive = active && !isActivelyViewing
+        isActivelyViewing = active
+        if (becameActive) {
+            val threadId = currentThreadId?.takeIf { it.isNotBlank() } ?: return
+            val userId = authRepository.currentUserId ?: return
+            viewModelScope.launch {
+                runCatching { messageRepository.markThreadRead(threadId, userId) }
+            }
+        }
+    }
 
 
     fun loadMessages(threadId: String, otherUserId: String) {
@@ -232,8 +251,11 @@ class MessageThreadViewModel @Inject constructor(
                 startThreadDocListener(resolvedId, otherUserId)
                 startGroupInfoListener(resolvedId)
 
-                // Mark as read
-                messageRepository.markThreadRead(resolvedId, userId)
+                // Mark as read only while this thread is actually visible. Its
+                // NavBackStackEntry can remain alive underneath a pushed page.
+                if (isActivelyViewing) {
+                    messageRepository.markThreadRead(resolvedId, userId)
+                }
                 startReadReceiptsListener(userId)
             } catch (e: CancellationException) {
                 throw e
@@ -325,7 +347,7 @@ class MessageThreadViewModel @Inject constructor(
                     }
                     seenMessageIds = confirmedIds
 
-                    if (hasLoadedInitialMessages && hadNewIncoming && myId != null) {
+                    if (hasLoadedInitialMessages && hadNewIncoming && myId != null && isActivelyViewing) {
                         messageRepository.markThreadRead(currentThreadId ?: threadId, myId)
                     }
                     hasLoadedInitialMessages = true
