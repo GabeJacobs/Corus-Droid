@@ -177,34 +177,6 @@ class OtherProfileViewModel @Inject constructor(
         analyticsService.logProfileShareSheetOpened(profileUserId, isOwnProfile, entryPoint)
     }
 
-    init {
-        viewModelScope.launch {
-            networkMonitor.isConnected.collect { connected ->
-                // Auto-retry when the network returns if the previous attempt
-                // failed and nothing is on screen (matches own ProfileViewModel).
-                val userId = loadedUserId
-                if (connected && _hasLoadError.value && _profile.value == null && userId != null) {
-                    retryLoad(userId)
-                }
-            }
-        }
-        viewModelScope.launch {
-            postDeletionEvent.events.collect { deletedId ->
-                _posts.value = _posts.value.filter { it.id != deletedId }
-            }
-        }
-        viewModelScope.launch {
-            commentEditedEvent.events.collect { payload ->
-                _posts.value = applyCommentEditToPosts(_posts.value, payload)
-            }
-        }
-        viewModelScope.launch {
-            commentDeletedEvent.events.collect { payload ->
-                _posts.value = applyCommentDeleteToPosts(_posts.value, payload)
-            }
-        }
-    }
-
     fun generatePlaylist(
         userId: String,
         source: CloudFunctionsDataSource.ProfilePlaylistSource = CloudFunctionsDataSource.ProfilePlaylistSource.Posts,
@@ -357,6 +329,39 @@ class OtherProfileViewModel @Inject constructor(
     // redundant fetches when the composable re-enters composition after
     // forward-then-back navigation (e.g. profile → profile feed → back).
     private var loadedUserId: String? = null
+
+    // All MutableStateFlow backing fields must be declared before `init` —
+    // viewModelScope.launch uses Dispatchers.Main.immediate, so these
+    // collectors run synchronously up to first suspension and StateFlow.collect
+    // emits its current value eagerly. A null backing field at that point
+    // crashes with NPE on .getValue (same class as Crashlytics 96b87ad5).
+    init {
+        viewModelScope.launch {
+            networkMonitor.isConnected.collect { connected ->
+                // Auto-retry when the network returns if the previous attempt
+                // failed and nothing is on screen (matches own ProfileViewModel).
+                val userId = loadedUserId
+                if (connected && _hasLoadError.value && _profile.value == null && userId != null) {
+                    retryLoad(userId)
+                }
+            }
+        }
+        viewModelScope.launch {
+            postDeletionEvent.events.collect { deletedId ->
+                _posts.value = _posts.value.filter { it.id != deletedId }
+            }
+        }
+        viewModelScope.launch {
+            commentEditedEvent.events.collect { payload ->
+                _posts.value = applyCommentEditToPosts(_posts.value, payload)
+            }
+        }
+        viewModelScope.launch {
+            commentDeletedEvent.events.collect { payload ->
+                _posts.value = applyCommentDeleteToPosts(_posts.value, payload)
+            }
+        }
+    }
 
     fun start(userId: String, initialIsFollowing: Boolean?) {
         // Skip a redundant fetch when this owner is already on screen or

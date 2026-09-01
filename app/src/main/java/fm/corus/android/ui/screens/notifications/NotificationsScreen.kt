@@ -271,6 +271,10 @@ fun NotificationsScreen(
                         viewModel.selectFilter(it)
                     },
                 )
+            } else {
+                // Same as iOS `activityStandaloneTitle`: name the screen
+                // until filter chips unlock, then chips replace this.
+                ActivityStandaloneTitle()
             }
             val showSkeleton = (isLoading && notifications.isEmpty()) ||
                 (isFilterLoading && displayedNotifications.isEmpty())
@@ -286,16 +290,17 @@ fun NotificationsScreen(
                 label = "activityReveal",
             )
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            if (contentAlpha < 1f) {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+            if (showSkeleton || contentAlpha < 1f) {
+                // Full opacity while waiting; fade out with the list so
+                // leftover dividers below a short inbox don't snap away.
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .alpha(if (showSkeleton) 1f else 1f - contentAlpha),
+                    userScrollEnabled = false,
+                ) {
                     items(12) { index ->
                         SkeletonNotificationRow(showAlbumArt = index != 3 && index != 5 && index != 9)
-                        HorizontalDivider(
-                            color = CorusColors.Divider,
-                            modifier = Modifier.padding(
-                                start = CorusSpacing.lg + CorusSpacing.avatarMedium + CorusSpacing.md,
-                            ),
-                        )
                     }
                 }
             }
@@ -488,8 +493,8 @@ fun NotificationsScreen(
             )
         }
 
-        // Status-strip frost only. No Activity title — chips sit in the
-        // list when unlocked, and the first frame already knows that.
+        // Status-strip frost only. Title / chips sit in the column
+        // below (same as iOS); the first frame already knows which.
         FrostedHeaderOverlay(
             immersive = immersive,
             hazeState = frost.hazeState,
@@ -497,6 +502,20 @@ fun NotificationsScreen(
             modifier = Modifier.onGloballyPositioned { headerOverlayPx = it.size.height },
         ) {}
     }
+}
+
+@Composable
+private fun ActivityStandaloneTitle() {
+    Text(
+        text = stringResource(id = R.string.notifications_activity_title),
+        style = CorusFont.displayName,
+        color = CorusColors.Text,
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.lg)
+            .padding(top = CorusSpacing.sm, bottom = CorusSpacing.md),
+    )
 }
 
 @Composable

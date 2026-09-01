@@ -24,4 +24,14 @@ class LazyListScrollTest {
         // Landed at y=0 (under the frost) — scroll back to reveal the author row.
         assertEquals(-80, scrollDeltaToAlignItemTop(itemOffset = 0, topInsetPx = 80))
     }
+
+    @Test
+    fun `scrollToItem offset subtracts the chrome pad instead of stacking it`() {
+        // Frozen overlay pad still on the list; pin under the status bar.
+        assertEquals(70, scrollOffsetToAlignItemTop(beforeContentPadding = 150, topInsetPx = 80))
+        // No pad — same as a negative inset (item sits below y=0).
+        assertEquals(-80, scrollOffsetToAlignItemTop(beforeContentPadding = 0, topInsetPx = 80))
+        assertEquals(0, scrollOffsetToAlignItemTop(beforeContentPadding = 150, topInsetPx = 150))
+        assertEquals(150, scrollOffsetToAlignItemTop(beforeContentPadding = 150, topInsetPx = 0))
+    }
 }

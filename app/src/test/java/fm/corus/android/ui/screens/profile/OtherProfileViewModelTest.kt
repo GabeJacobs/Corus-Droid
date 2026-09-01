@@ -20,6 +20,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -97,6 +98,23 @@ class OtherProfileViewModelTest {
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+    }
+
+    /**
+     * Production viewModelScope uses Main.immediate, so networkMonitor's
+     * StateFlow.collect emits during construction. That used to NPE because
+     * `_hasLoadError` / `_profile` were declared after `init`.
+     */
+    @Test
+    fun constructingViewModelDoesNotCrashWhenNetworkEmitsImmediately() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            val viewModel = createViewModel()
+            assertEquals(null, viewModel.profile.value)
+            assertEquals(false, viewModel.hasLoadError.value)
+        } finally {
+            Dispatchers.setMain(testDispatcher)
+        }
     }
 
     private fun createViewModel(): OtherProfileViewModel = OtherProfileViewModel(

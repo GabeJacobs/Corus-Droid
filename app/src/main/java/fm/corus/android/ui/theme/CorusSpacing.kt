@@ -25,32 +25,37 @@ object CorusSpacing {
     /** Extra gap above action pills when bio/website are empty. Matches iOS. */
     val profileEmptyInfoActionsExtra = 4.dp
 
-    /**
-     * Hit box for header chrome (plus / cog / filter / playlist).
-     * Larger than iOS's 28pt frame so Material glyphs can sit with the 37dp vinyl.
-     */
-    val composePlusSide = 36.dp
+    /** Feed + profile compose `+` hit box. Matches iOS `composePlusSide`. */
+    val composePlusSide = 28.dp
 
     /**
-     * Feed + profile compose `+` glyph. Material icons read smaller than SF
-     * Symbols at the same dp; sized to sit with [profileStyleIcon].
+     * Compose `+` glyph. Material Add has inner padding; 25dp reads with
+     * the style disc (the CorusClub asset is 37dp with ~20dp of ink).
      */
-    val composePlusIcon = 32.dp
+    val composePlusIcon = 25.dp
 
-    /** Profile style vinyl. Matches iOS `titleStyleIconSide`. Do not shrink. */
+    /**
+     * Profile style vinyl. Same asset and 37pt frame as iOS `CymbalClubNavIcon`.
+     * The SVG is padded — the disc is ~21dp, which is why this is larger
+     * than the cog token.
+     */
     val profileStyleIcon = 37.dp
 
-    /** Profile settings cog. Same optical size as [composePlusIcon]. */
-    val profileSettingsIcon = 32.dp
+    /**
+     * Settings cog. Material Settings is a tight 24dp glyph, not an SF
+     * symbol; size it to the style disc (~21dp of ink in the 37dp asset)
+     * so the pair matches iOS.
+     */
+    val profileSettingsIcon = 25.dp
 
-    /** Feed filter sliders (un-narrowed). Active filter uses +3 on top of this. */
-    val feedFilterIcon = 30.dp
+    /** Feed filter (un-narrowed). Active filter uses +3 on top of this. */
+    val feedFilterIcon = 23.dp
 
-    /** Feed playlist. Same optical size as the filter. */
-    val feedPlaylistIcon = 30.dp
+    /** Feed playlist. */
+    val feedPlaylistIcon = 22.dp
 
     /** Icon-only playlist pill next to Edit / Share (34dp tall). */
-    val profileActionPlaylistIcon = 22.dp
+    val profileActionPlaylistIcon = 23.dp
 
     /** Top/bottom pad on a post header. Matches iOS (14pt). */
     val postHeaderVertical = 14.dp

@@ -38,6 +38,15 @@ fun scrollDeltaToAlignItemTop(itemOffset: Int, topInsetPx: Int): Int =
     itemOffset - topInsetPx.coerceAtLeast(0)
 
 /**
+ * [LazyListState.scrollToItem] offset that places the item [topInsetPx]
+ * below the viewport top. Compose treats `0` as the content-padding edge,
+ * not y=0 — passing `-inset` after a frozen chrome pad lands the row at
+ * `pad + inset` (about a third of the screen).
+ */
+fun scrollOffsetToAlignItemTop(beforeContentPadding: Int, topInsetPx: Int): Int =
+    beforeContentPadding.coerceAtLeast(0) - topInsetPx.coerceAtLeast(0)
+
+/**
  * Scroll so [index] sits just below [topInsetPx] — the poster's username
  * visible under the status strip, matching a tapped feed card.
  *
@@ -48,32 +57,35 @@ fun scrollDeltaToAlignItemTop(itemOffset: Int, topInsetPx: Int): Int =
  * row behind the frost.
  *
  * When the item is on screen we scroll by [scrollDeltaToAlignItemTop].
- * Otherwise we animate to the index. Either path can undershoot when
- * LazyColumn contentPadding or uncomposed rows eat the delta, so we
- * finish with [scrollToItem] — not another [scrollBy].
+ * Corrections use [scrollBy] against the visual offset — never
+ * [scrollToItem] `-inset`, which double-counts [beforeContentPadding].
  */
 suspend fun LazyListState.animateScrollItemToTop(index: Int, topInsetPx: Int = 0) {
     if (index < 0) return
     val inset = topInsetPx.coerceAtLeast(0)
-    val visible = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }
-    if (visible != null) {
-        val delta = scrollDeltaToAlignItemTop(visible.offset, inset).toFloat()
+    fun visualTop(): Int? =
+        layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }?.offset
+    fun teleportOffset(): Int =
+        scrollOffsetToAlignItemTop(layoutInfo.beforeContentPadding, inset)
+
+    val visibleTop = visualTop()
+    if (visibleTop != null) {
+        val delta = scrollDeltaToAlignItemTop(visibleTop, inset).toFloat()
         if (abs(delta) > 1f) {
             animateScrollBy(delta, FeedFollowScrollSpec)
         }
     } else {
-        // Negative scrollOffset places the item top BELOW the viewport top.
-        animateScrollToItem(index = index, scrollOffset = -inset)
+        animateScrollToItem(index = index, scrollOffset = teleportOffset())
     }
-    yield()
-    val leftover = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }?.offset
-    if (leftover == null || abs(scrollDeltaToAlignItemTop(leftover, inset)) > 1) {
-        scrollToItem(index = index, scrollOffset = -inset)
-    }
-    yield()
-    val still = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }?.offset ?: return
-    val remaining = scrollDeltaToAlignItemTop(still, inset).toFloat()
-    if (abs(remaining) > 1f) {
+    repeat(8) {
+        yield()
+        val top = visualTop()
+        if (top == null) {
+            scrollToItem(index = index, scrollOffset = teleportOffset())
+            return@repeat
+        }
+        val remaining = scrollDeltaToAlignItemTop(top, inset).toFloat()
+        if (abs(remaining) <= 1f) return
         scrollBy(remaining)
     }
 }

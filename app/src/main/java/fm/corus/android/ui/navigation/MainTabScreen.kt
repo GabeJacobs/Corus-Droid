@@ -1290,7 +1290,9 @@ internal fun CorusBottomBar(
                 badgeCount = notificationTabBadgeCount,
                 onClick = { onTabSelected(CorusTab.NOTIFICATIONS) },
                 modifier = Modifier.weight(1f),
+                badgeAlignment = Alignment.TopEnd,
                 badgeXOffset = 4.dp,
+                badgeYOffset = (-2).dp,
             )
             TabItem(
                 icon = if (selectedTab == CorusTab.PROFILE) CorusTab.PROFILE.selectedIcon else CorusTab.PROFILE.unselectedIcon,
@@ -1311,7 +1313,9 @@ private fun TabItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     badgeCount: Int = 0,
+    badgeAlignment: Alignment = Alignment.BottomEnd,
     badgeXOffset: Dp = 2.dp,
+    badgeYOffset: Dp = 2.dp,
 ) {
     val color = if (isSelected) CorusColors.Accent else CorusColors.Secondary
 
@@ -1340,8 +1344,8 @@ private fun TabItem(
                 val isWide = badgeText.length > 1
                 Box(
                     modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .offset(x = badgeXOffset, y = 2.dp)
+                        .align(badgeAlignment)
+                        .offset(x = badgeXOffset, y = badgeYOffset)
                         .defaultMinSize(minWidth = 16.dp, minHeight = 16.dp)
                         .background(Color.Red, CircleShape)
                         .padding(horizontal = if (isWide) 4.dp else 0.dp),

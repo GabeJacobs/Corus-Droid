@@ -1386,51 +1386,62 @@ fun SkeletonMessageThreadRow() {
 fun SkeletonNotificationRow(
     showAlbumArt: Boolean = true,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-    ) {
-        Box(
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
             modifier = Modifier
-                .size(CorusSpacing.avatarMedium)
-                .clip(CircleShape)
-                .shimmer()
-                .background(CorusColors.Skeleton)
-        )
-
-        Box(
-            modifier = Modifier
-                .width(180.dp)
-                .height(15.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .shimmer()
-                .background(CorusColors.Skeleton)
-        )
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        // Optional small square (album art or follow button)
-        if (showAlbumArt) {
+                .fillMaxWidth()
+                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+        ) {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                    .size(CorusSpacing.avatarMedium)
+                    .clip(CircleShape)
                     .shimmer()
                     .background(CorusColors.Skeleton)
             )
-        } else {
+
             Box(
                 modifier = Modifier
-                    .width(80.dp)
-                    .height(30.dp)
-                    .clip(RoundedCornerShape(CorusSpacing.pillCornerRadius))
+                    .width(180.dp)
+                    .height(15.dp)
+                    .clip(RoundedCornerShape(4.dp))
                     .shimmer()
                     .background(CorusColors.Skeleton)
             )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Optional small square (album art or follow button)
+            if (showAlbumArt) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                        .shimmer()
+                        .background(CorusColors.Skeleton)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .width(80.dp)
+                        .height(30.dp)
+                        .clip(RoundedCornerShape(CorusSpacing.pillCornerRadius))
+                        .shimmer()
+                        .background(CorusColors.Skeleton)
+                )
+            }
         }
+        // Same pulse as the bones, just a thinner / dimmer line.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = CorusSpacing.lg + CorusSpacing.avatarMedium + CorusSpacing.md)
+                .height(1.dp)
+                .shimmer()
+                .background(CorusColors.Skeleton.copy(alpha = 0.4f))
+        )
     }
 }
 

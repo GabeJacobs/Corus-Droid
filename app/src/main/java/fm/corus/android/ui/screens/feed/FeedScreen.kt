@@ -40,7 +40,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Add
@@ -131,7 +131,6 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.CorusSystemBars
-import fm.corus.android.ui.util.FeedFollowScrollPeekAbovePost
 import fm.corus.android.ui.util.animateScrollItemToTop
 import fm.corus.android.ui.util.feedPostLazyIndex
 
@@ -355,27 +354,25 @@ fun FeedScreen(
     val followScrollStatusBarPx = with(LocalDensity.current) {
         frost.statusBarPadding.roundToPx()
     }
-    val followScrollTopInsetPx = with(LocalDensity.current) {
-        (frost.statusBarPadding + FeedFollowScrollPeekAbovePost).roundToPx()
+    val fallbackViewportPx = with(LocalDensity.current) {
+        LocalConfiguration.current.screenHeightDp.dp.roundToPx()
     }
     val tabsVisibleForPin by rememberUpdatedState(feedModeTabsVisible)
     val statusBarForPin by rememberUpdatedState(followScrollStatusBarPx)
-    val peekInsetForPin by rememberUpdatedState(followScrollTopInsetPx)
+    val fallbackViewportForPin by rememberUpdatedState(fallbackViewportPx)
     suspend fun pinPlayingPost(lazyIndex: Int) {
         val tabs = tabsVisibleForPin
-        val inset = if (tabs) {
-            val visible = chromeCollapse.currentVisibleChrome
-            val hide = visible > 1f
+        if (tabs) {
+            val hide = chromeCollapse.currentVisibleChrome > 1f
             chromeCollapse.startProgrammaticPin()
             if (hide) chromeCollapse.hideCompletely(animated = true)
-            FeedChromeCollapseMath.programmaticPinInset(
-                visibleChrome = visible,
-                statusBarPx = statusBarForPin.toFloat(),
-                chromeWillHide = hide,
-            ).toInt()
-        } else {
-            peekInsetForPin
         }
+        val viewportH = listState.layoutInfo.viewportSize.height
+            .takeIf { it > 0 } ?: fallbackViewportForPin
+        val inset = FeedChromeCollapseMath.programmaticHighCenterInset(
+            viewportHeight = viewportH,
+            statusBarPx = statusBarForPin,
+        )
         try {
             listState.animateScrollItemToTop(lazyIndex, inset)
         } finally {
@@ -441,11 +438,8 @@ fun FeedScreen(
         if (newPostId == null) return@LaunchedEffect
         if (!feedFollowsNowPlaying) return@LaunchedEffect
         if (!isAtRoot) return@LaunchedEffect
-        // Don't yank the feed out from under a finger that's actively
-        // scrolling (or a fling that's still decelerating). Checked before
-        // we kick off our own follow-scroll, so this only reflects
-        // user-driven motion.
-        if (listState.isScrollInProgress) return@LaunchedEffect
+        // Do not skip when the list is already moving. Next's own pin
+        // sets isScrollInProgress; bailing out left the row mid-viewport.
         // Skip when the user just tapped this card to play it — they're
         // already looking at it. The marker is a one-shot, so consume it.
         val tapMarker = viewModel.nowPlayingManager.lastUserInitiatedSourcePostId
@@ -2741,7 +2735,7 @@ internal fun FeedHeader(
                         )
                     } else {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.List,
+                            imageVector = Icons.Filled.FilterList,
                             contentDescription = stringResource(R.string.feed_cd_filter),
                             tint = if (!feedFilter.isAll) CorusColors.Accent else CorusColors.Secondary,
                             modifier = Modifier.size(
