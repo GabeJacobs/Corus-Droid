@@ -411,6 +411,7 @@
     <string name="other_profile_menu_block">Blockieren</string>
     <string name="other_profile_menu_unblock">Entsperren</string>
     <string name="other_profile_blocked_message">Du hast diesen Nutzer blockiert</string>
+    <string name="other_profile_button_message">NACHRICHT</string>
     <string name="other_profile_button_follow">FOLGEN</string>
     <string name="other_profile_button_following">FOLGE ICH</string>
     <string name="other_profile_action_unfollow">Entfolgen</string>
@@ -796,6 +797,9 @@
     <string name="messaging_list_no_suggestions">Keine Vorschläge</string>
     <string name="messaging_list_inbox_search_placeholder">Nachrichten durchsuchen</string>
     <string name="messaging_list_no_matches">Keine Treffer</string>
+    <string name="messaging_search_section_chats">Chats</string>
+    <string name="messaging_search_section_messages">Nachrichten</string>
+    <string name="messaging_search_you_prefix">Du: %1$s</string>
 
     <!-- Notifications (activity feed) -->
     <string name="notifications_activity_title">Aktivität</string>

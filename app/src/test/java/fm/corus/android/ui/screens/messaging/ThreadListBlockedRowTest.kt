@@ -215,13 +215,13 @@ class ThreadListBlockedRowTest {
     fun `inbox search cannot surface a banned correspondent`() = runTest {
         whenever(userRepository.isUserBannedLocally("u-ban")).doReturn(true)
         whenever(messageRepository.searchThreads(eq("me"), eq("who"), any()))
-            .doReturn(listOf(row("hit", 2_000), row("ban", 1_000)))
+            .doReturn(fm.corus.android.data.model.InboxSearchResult(threads = listOf(row("hit", 2_000), row("ban", 1_000))))
 
         val vm = viewModel()
         vm.searchInbox("who")
         advanceUntilIdle()
 
-        assertEquals(listOf("hit"), vm.inboxSearchResults.value?.map { it.id })
+        assertEquals(listOf("hit"), vm.inboxSearchResults.value?.threads?.map { it.id })
     }
 
     @Test

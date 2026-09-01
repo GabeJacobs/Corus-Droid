@@ -35,7 +35,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalThread
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.InboxMessageHit
 import fm.corus.android.data.model.MessageType
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.SkeletonMessageThreadRow
 import fm.corus.android.ui.components.UserAvatarView
@@ -47,15 +52,37 @@ import fm.corus.android.ui.theme.CorusSystemBars
 import fm.corus.android.ui.util.DateUtils
 import kotlinx.coroutines.launch
 
+internal fun inboxThreadMatchesName(thread: CymbalThread, query: String): Boolean {
+    val ql = query.trim().lowercase()
+    if (ql.isEmpty()) return false
+    if (thread.isGroup) {
+        if (thread.groupName?.lowercase()?.contains(ql) == true) return true
+        return thread.members.any {
+            it.username.lowercase().contains(ql) || it.displayName.lowercase().contains(ql)
+        }
+    }
+    return thread.otherUser?.username?.lowercase()?.contains(ql) == true ||
+        thread.otherUser?.displayName?.lowercase()?.contains(ql) == true
+}
+
+internal fun filterInboxChats(threads: List<CymbalThread>, query: String): List<CymbalThread> {
+    val q = query.trim()
+    if (q.isEmpty()) return threads
+    return threads.filter { inboxThreadMatchesName(it, q) }
+}
+
+internal fun filterInboxMessagePreviews(threads: List<CymbalThread>, query: String): List<CymbalThread> {
+    val q = query.trim()
+    if (q.isEmpty()) return emptyList()
+    val ql = q.lowercase()
+    return threads.filter { !inboxThreadMatchesName(it, q) && it.lastMessageText.lowercase().contains(ql) }
+}
+
 internal fun filterInboxThreads(threads: List<CymbalThread>, query: String): List<CymbalThread> {
     val q = query.trim()
     if (q.isEmpty()) return threads
     val ql = q.lowercase()
-    return threads.filter { thread ->
-        (thread.otherUser?.username?.lowercase()?.contains(ql) == true) ||
-            (thread.otherUser?.displayName?.lowercase()?.contains(ql) == true) ||
-            thread.lastMessageText.lowercase().contains(ql)
-    }
+    return threads.filter { inboxThreadMatchesName(it, q) || it.lastMessageText.lowercase().contains(ql) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,16 +105,22 @@ fun ThreadListScreen(
     var inboxSearchText by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
-    // What the list renders. When searching, prefer the authoritative backend
-    // results once they land; until then fall back to the instant local filter
-    // over the already-loaded threads.
-    val displayedThreads = remember(threads, inboxSearchText, inboxSearchResults) {
+    val isSearching = inboxSearchText.isNotBlank()
+    val searchChats = remember(threads, inboxSearchText, inboxSearchResults) {
         when {
             inboxSearchText.isBlank() -> threads
-            inboxSearchResults != null -> inboxSearchResults!!
-            else -> filterInboxThreads(threads, inboxSearchText)
+            inboxSearchResults != null -> inboxSearchResults!!.threads.filter { inboxThreadMatchesName(it, inboxSearchText) }
+            else -> filterInboxChats(threads, inboxSearchText)
         }
     }
+    val searchMessages = remember(threads, inboxSearchText, inboxSearchResults, viewModel.currentUserId) {
+        when {
+            inboxSearchText.isBlank() -> emptyList()
+            inboxSearchResults != null -> inboxSearchResults!!.messages
+            else -> filterInboxMessagePreviews(threads, inboxSearchText).map { InboxMessageHit.preview(it) }
+        }
+    }
+    val searchHasHits = searchChats.isNotEmpty() || searchMessages.isNotEmpty()
 
     LaunchedEffect(Unit) {
         viewModel.loadThreads()
@@ -184,9 +217,9 @@ fun ThreadListScreen(
                         color = CorusColors.Secondary,
                     )
                 }
-            } else if (displayedThreads.isEmpty()) {
+            } else if (isSearching && !searchHasHits) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    if (inboxSearchText.isNotBlank() && isSearchingInbox) {
+                    if (isSearchingInbox) {
                         CircularProgressIndicator(color = CorusColors.Accent)
                     } else {
                         Text(
@@ -198,29 +231,57 @@ fun ThreadListScreen(
                 }
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(displayedThreads, key = { it.id }) { thread ->
-                        ThreadRow(
-                            thread = thread,
-                            onClick = { onThreadTap(thread.id, thread.otherUserId) },
-                            membersById = groupMembersById,
-                            currentUserId = viewModel.currentUserId,
-                        )
-                    }
-
-                    // Paginate by recency only when not searching — search filters the
-                    // already-loaded set client-side.
-                    if (hasMoreThreads && inboxSearchText.isBlank()) {
-                        item {
-                            CircularProgressIndicator(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = CorusSpacing.xl)
-                                    .wrapContentWidth(Alignment.CenterHorizontally),
-                                color = CorusColors.Secondary,
-                                strokeWidth = 2.dp,
+                    if (isSearching) {
+                        if (searchChats.isNotEmpty()) {
+                            item(key = "header-chats") {
+                                InboxSearchSectionHeader(stringResource(id = R.string.messaging_search_section_chats))
+                            }
+                            items(searchChats, key = { "chat-${it.id}" }) { thread ->
+                                ThreadRow(
+                                    thread = thread,
+                                    onClick = { onThreadTap(thread.id, thread.otherUserId) },
+                                    membersById = groupMembersById,
+                                    currentUserId = viewModel.currentUserId,
+                                )
+                            }
+                        }
+                        if (searchMessages.isNotEmpty()) {
+                            item(key = "header-messages") {
+                                InboxSearchSectionHeader(stringResource(id = R.string.messaging_search_section_messages))
+                            }
+                            items(searchMessages, key = { "msg-${it.id}" }) { hit ->
+                                MessageSearchHitRow(
+                                    hit = hit,
+                                    query = inboxSearchText,
+                                    onClick = { onThreadTap(hit.thread.id, hit.thread.otherUserId) },
+                                    membersById = groupMembersById,
+                                    currentUserId = viewModel.currentUserId,
+                                )
+                            }
+                        }
+                    } else {
+                        items(threads, key = { it.id }) { thread ->
+                            ThreadRow(
+                                thread = thread,
+                                onClick = { onThreadTap(thread.id, thread.otherUserId) },
+                                membersById = groupMembersById,
+                                currentUserId = viewModel.currentUserId,
                             )
-                            LaunchedEffect(threads.size) {
-                                viewModel.loadMoreThreads()
+                        }
+
+                        if (hasMoreThreads) {
+                            item {
+                                CircularProgressIndicator(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = CorusSpacing.xl)
+                                        .wrapContentWidth(Alignment.CenterHorizontally),
+                                    color = CorusColors.Secondary,
+                                    strokeWidth = 2.dp,
+                                )
+                                LaunchedEffect(threads.size) {
+                                    viewModel.loadMoreThreads()
+                                }
                             }
                         }
                     }
@@ -649,6 +710,110 @@ private fun InboxSearchBar(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun InboxSearchSectionHeader(title: String) {
+    Text(
+        text = title,
+        style = CorusFont.sectionHeader,
+        color = CorusColors.Secondary,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+    )
+}
+
+@Composable
+private fun MessageSearchHitRow(
+    hit: InboxMessageHit,
+    query: String,
+    onClick: () -> Unit,
+    membersById: Map<String, CymbalUser> = emptyMap(),
+    currentUserId: String? = null,
+) {
+    val context = LocalContext.current
+    val thread = hit.thread
+    val isGroup = thread.isGroup
+    val otherMembers = if (isGroup) {
+        thread.memberIds.filter { it != currentUserId }.mapNotNull { membersById[it] }
+    } else emptyList()
+    val title = if (isGroup) {
+        groupDisplayTitle(thread.groupName, otherMembers, context)
+    } else {
+        thread.otherUser?.username ?: ""
+    }
+    val body = if (hit.fromUserId == currentUserId) {
+        context.getString(R.string.messaging_search_you_prefix, hit.snippet)
+    } else {
+        hit.snippet
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (isGroup && thread.groupPhotoURL != null) {
+            UserAvatarView(
+                avatarURL = thread.groupPhotoURL,
+                displayName = title,
+                size = CorusSpacing.avatarMedium,
+            )
+        } else if (isGroup) {
+            StackedGroupAvatar(members = otherMembers, size = CorusSpacing.avatarMedium)
+        } else {
+            UserAvatarView(
+                avatarURL = thread.otherUser?.avatarURL,
+                displayName = thread.otherUser?.displayName,
+                size = CorusSpacing.avatarMedium,
+            )
+        }
+
+        Spacer(modifier = Modifier.width(CorusSpacing.md))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = title,
+                    style = CorusFont.username,
+                    color = CorusColors.Text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = DateUtils.relativeTime(context, hit.createdAt),
+                    style = CorusFont.timestamp,
+                    color = CorusColors.Secondary,
+                )
+            }
+            Text(
+                text = highlightedQuery(body, query),
+                style = CorusFont.body,
+                color = CorusColors.Secondary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+private fun highlightedQuery(text: String, query: String): androidx.compose.ui.text.AnnotatedString {
+    val needle = query.trim()
+    if (needle.isEmpty()) return buildAnnotatedString { append(text) }
+    val start = text.indexOf(needle, ignoreCase = true)
+    if (start < 0) return buildAnnotatedString { append(text) }
+    val end = start + needle.length
+    return buildAnnotatedString {
+        append(text.substring(0, start))
+        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+            append(text.substring(start, end))
+        }
+        append(text.substring(end))
     }
 }
 

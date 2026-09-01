@@ -481,6 +481,7 @@
     <string name="other_profile_blocked_message">You blocked this user</string>
     <string name="other_profile_unavailable_title">This account is unavailable</string>
     <string name="other_profile_unavailable_subtitle">This user may no longer exist.</string>
+    <string name="other_profile_button_message">MESSAGE</string>
     <string name="other_profile_button_follow">FOLLOW</string>
     <string name="other_profile_button_follow_back">FOLLOW BACK</string>
     <string name="other_profile_button_following">FOLLOWING</string>
@@ -895,6 +896,9 @@
     <string name="messaging_list_no_suggestions">No suggestions</string>
     <string name="messaging_list_inbox_search_placeholder">Search messages</string>
     <string name="messaging_list_no_matches">No matches</string>
+    <string name="messaging_search_section_chats">Chats</string>
+    <string name="messaging_search_section_messages">Messages</string>
+    <string name="messaging_search_you_prefix">You: %1$s</string>
 
     <!-- Messaging: date separators -->
     <string name="messaging_separator_today">Today</string>

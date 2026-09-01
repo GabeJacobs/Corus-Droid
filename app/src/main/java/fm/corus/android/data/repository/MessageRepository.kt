@@ -8,6 +8,7 @@ import com.google.firebase.firestore.Query
 import fm.corus.android.data.model.CymbalMessage
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalThread
+import fm.corus.android.data.model.InboxSearchResult
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MessageType
@@ -102,7 +103,7 @@ class MessageRepository @Inject constructor(
     }
 
     /** Searches the caller's full DM history server-side (not just loaded threads). */
-    suspend fun searchThreads(userId: String, query: String, limit: Int = 30): List<CymbalThread> {
+    suspend fun searchThreads(userId: String, query: String, limit: Int = 30): InboxSearchResult {
         return cloudFunctions.searchThreads(userId, query, limit)
     }
 

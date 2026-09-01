@@ -56,4 +56,16 @@ class FilterInboxThreadsTest {
     fun noMatchReturnsEmpty() {
         assertEquals(emptyList<CymbalThread>(), filterInboxThreads(all, "zzzzzz"))
     }
+
+    @Test
+    fun chatsSectionExcludesLastMessageOnlyHits() {
+        assertEquals(emptyList<CymbalThread>(), filterInboxChats(all, "test"))
+        assertEquals(listOf(cam), filterInboxChats(all, "Cameron"))
+    }
+
+    @Test
+    fun messagesSectionExcludesNameOnlyHits() {
+        assertEquals(emptyList<CymbalThread>(), filterInboxMessagePreviews(all, "Cameron"))
+        assertEquals(listOf(johnny), filterInboxMessagePreviews(all, "test"))
+    }
 }

@@ -411,6 +411,7 @@
     <string name="other_profile_menu_block">屏蔽</string>
     <string name="other_profile_menu_unblock">取消屏蔽</string>
     <string name="other_profile_blocked_message">你已屏蔽此用户</string>
+    <string name="other_profile_button_message">私信</string>
     <string name="other_profile_button_follow">关注</string>
     <string name="other_profile_button_following">已关注</string>
     <string name="other_profile_action_unfollow">取消关注</string>
@@ -795,6 +796,9 @@
     <string name="messaging_list_no_suggestions">没有推荐</string>
     <string name="messaging_list_inbox_search_placeholder">搜索消息</string>
     <string name="messaging_list_no_matches">没有匹配结果</string>
+    <string name="messaging_search_section_chats">聊天</string>
+    <string name="messaging_search_section_messages">消息</string>
+    <string name="messaging_search_you_prefix">你：%1$s</string>
 
     <!-- Notifications (activity feed) -->
     <string name="notifications_activity_title">互动</string>

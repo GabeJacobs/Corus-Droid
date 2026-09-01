@@ -367,6 +367,7 @@
     <string name="other_profile_menu_block">ブロック</string>
     <string name="other_profile_menu_unblock">ブロックを解除</string>
     <string name="other_profile_blocked_message">このユーザーをブロックしました</string>
+    <string name="other_profile_button_message">メッセージ</string>
     <string name="other_profile_button_follow">フォロー</string>
     <string name="other_profile_button_following">フォロー中</string>
     <string name="other_profile_action_unfollow">フォロー解除</string>
@@ -721,6 +722,9 @@
     <string name="messaging_list_no_suggestions">おすすめがありません</string>
     <string name="messaging_list_inbox_search_placeholder">メッセージを検索</string>
     <string name="messaging_list_no_matches">一致なし</string>
+    <string name="messaging_search_section_chats">チャット</string>
+    <string name="messaging_search_section_messages">メッセージ</string>
+    <string name="messaging_search_you_prefix">あなた: %1$s</string>
     <string name="notifications_activity_title">アクティビティ</string>
     <string name="notifications_cd_messages">メッセージ</string>
     <string name="notifications_cd_unlike">いいねを取り消す</string>

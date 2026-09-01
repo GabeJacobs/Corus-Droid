@@ -354,6 +354,7 @@
     <string name="other_profile_menu_block">Bloquear</string>
     <string name="other_profile_menu_unblock">Desbloquear</string>
     <string name="other_profile_blocked_message">Você bloqueou este usuário</string>
+    <string name="other_profile_button_message">MENSAGEM</string>
     <string name="other_profile_button_follow">SEGUIR</string>
     <string name="other_profile_button_following">SEGUINDO</string>
     <string name="other_profile_action_unfollow">Deixar de seguir</string>
@@ -1093,6 +1094,9 @@
     <string name="music_service_skip">Pular</string>
     <string name="messaging_list_inbox_search_placeholder">Buscar mensagens</string>
     <string name="messaging_list_no_matches">Nenhum resultado</string>
+    <string name="messaging_search_section_chats">Conversas</string>
+    <string name="messaging_search_section_messages">Mensagens</string>
+    <string name="messaging_search_you_prefix">Você: %1$s</string>
     <string name="post_card_cd_repost">Repostar</string>
     <string name="club_subtitle_post_limit_trial_format">Experimente grátis por %1$s</string>
     <string name="club_post_limit_eyebrow">LIMITE DIÁRIO ATINGIDO</string>

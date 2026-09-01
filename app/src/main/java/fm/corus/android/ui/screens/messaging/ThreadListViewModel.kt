@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalThread
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.InboxSearchResult
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.InboxSubscriptionRefused
 import fm.corus.android.data.repository.MessageRepository
@@ -315,8 +316,8 @@ class ThreadListViewModel @Inject constructor(
     // Inbox search. The local filter in the screen only sees paged-in threads, so
     // a debounced backend `searchThreads` backfills matches from the full history.
     // Null = no backend answer yet for the current query (fall back to local filter).
-    private val _inboxSearchResults = MutableStateFlow<List<CymbalThread>?>(null)
-    val inboxSearchResults: StateFlow<List<CymbalThread>?> = _inboxSearchResults.asStateFlow()
+    private val _inboxSearchResults = MutableStateFlow<InboxSearchResult?>(null)
+    val inboxSearchResults: StateFlow<InboxSearchResult?> = _inboxSearchResults.asStateFlow()
 
     private val _isSearchingInbox = MutableStateFlow(false)
     val isSearchingInbox: StateFlow<Boolean> = _isSearchingInbox.asStateFlow()
@@ -582,9 +583,10 @@ class ThreadListViewModel @Inject constructor(
                 return@launch
             }
             try {
-                _inboxSearchResults.value = visible(
-                    messageRepository.searchThreads(userId, trimmed)
-                        .filter { it.lastMessageFromUserId != null }
+                val result = messageRepository.searchThreads(userId, trimmed)
+                _inboxSearchResults.value = InboxSearchResult(
+                    threads = visible(result.threads.filter { it.lastMessageFromUserId != null }),
+                    messages = result.messages.filter { visible(listOf(it.thread)).isNotEmpty() },
                 )
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e

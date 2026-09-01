@@ -1025,16 +1025,33 @@ class CloudFunctionsDataSource @Inject constructor(
     /**
      * Server-side DM inbox search. The inbox paginates threads in, so the local
      * filter only sees what's already loaded. This searches the caller's full
-     * thread history (username, display name, last-message text) and reuses the
-     * `listThreads` thread shape. Returns threads ordered by recency.
+     * thread history (username, display name, last-message text, indexed bodies).
+     * `threads` is the back-compat union; `messages` is the body-hit list.
      */
     @Suppress("UNCHECKED_CAST")
-    suspend fun searchThreads(userId: String, query: String, limit: Int = 30): List<CymbalThread> {
+    suspend fun searchThreads(userId: String, query: String, limit: Int = 30): InboxSearchResult {
         val params = mapOf<String, Any>("userId" to userId, "query" to query, "limit" to limit)
         val result = functions.getHttpsCallable("searchThreads").call(params).await()
-        val data = result.getData() as? Map<String, Any?> ?: return emptyList()
-        return (data["threads"] as? List<Map<String, Any?>> ?: emptyList())
+        val data = result.getData() as? Map<String, Any?> ?: return InboxSearchResult()
+        val threads = (data["threads"] as? List<Map<String, Any?>> ?: emptyList())
             .map { CymbalThread.fromMap(it["id"] as? String ?: "", it) }
+        val messages = (data["messages"] as? List<Map<String, Any?>> ?: emptyList()).mapNotNull { row ->
+            val threadMap = row["thread"] as? Map<String, Any?> ?: return@mapNotNull null
+            val thread = CymbalThread.fromMap(threadMap["id"] as? String ?: "", threadMap)
+            val messageId = row["messageId"] as? String ?: ""
+            val rawId = row["id"] as? String ?: ""
+            val id = rawId.ifEmpty { if (messageId.isEmpty()) "preview:${thread.id}" else messageId }
+            val createdMs = (row["createdAt"] as? Number)?.toLong() ?: 0L
+            InboxMessageHit(
+                id = id,
+                thread = thread,
+                messageId = messageId,
+                fromUserId = row["fromUserId"] as? String ?: "",
+                snippet = row["snippet"] as? String ?: "",
+                createdAt = if (createdMs > 0) Date(createdMs) else thread.lastMessageAt,
+            )
+        }
+        return InboxSearchResult(threads = threads, messages = messages)
     }
 
     /**

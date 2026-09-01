@@ -84,12 +84,12 @@ class ThreadListSearchInboxTest {
     fun searchInboxQueriesBackendAndPublishesResults() = runTest(testDispatcher) {
         val walasia = thread("t_wal", user("u_wal", "walasia", "Walasia"))
         whenever(messageRepository.searchThreads(eq("me"), eq("walasia"), any()))
-            .doReturn(listOf(walasia))
+            .doReturn(fm.corus.android.data.model.InboxSearchResult(threads = listOf(walasia)))
 
         viewModel.searchInbox("walasia")
         advanceUntilIdle()
 
-        assertEquals(listOf(walasia), viewModel.inboxSearchResults.first())
+        assertEquals(listOf(walasia), viewModel.inboxSearchResults.first()?.threads)
         assertEquals(false, viewModel.isSearchingInbox.first())
         verify(messageRepository).searchThreads(eq("me"), eq("walasia"), any())
     }
@@ -99,12 +99,12 @@ class ThreadListSearchInboxTest {
         val real = thread("t1", user("u1", "walasia", "Walasia"), fromUserId = "u1")
         val emptyThread = thread("t2", user("u2", "walter", "Walter"), fromUserId = null)
         whenever(messageRepository.searchThreads(any(), any(), any()))
-            .doReturn(listOf(real, emptyThread))
+            .doReturn(fm.corus.android.data.model.InboxSearchResult(threads = listOf(real, emptyThread)))
 
         viewModel.searchInbox("wal")
         advanceUntilIdle()
 
-        assertEquals(listOf(real), viewModel.inboxSearchResults.first())
+        assertEquals(listOf(real), viewModel.inboxSearchResults.first()?.threads)
     }
 
     @Test
@@ -121,16 +121,16 @@ class ThreadListSearchInboxTest {
     fun rapidTypingCancelsStaleSearchAndKeepsLatest() = runTest(testDispatcher) {
         val walasia = thread("t_wal", user("u_wal", "walasia", "Walasia"))
         whenever(messageRepository.searchThreads(any(), eq("wal"), any()))
-            .doSuspendableAnswer { emptyList() }
+            .doSuspendableAnswer { fm.corus.android.data.model.InboxSearchResult() }
         whenever(messageRepository.searchThreads(any(), eq("walasia"), any()))
-            .doSuspendableAnswer { listOf(walasia) }
+            .doSuspendableAnswer { fm.corus.android.data.model.InboxSearchResult(threads = listOf(walasia)) }
 
         // Debounce (300ms) means the first query is superseded before it fires.
         viewModel.searchInbox("wal")
         viewModel.searchInbox("walasia")
         advanceUntilIdle()
 
-        assertEquals(listOf(walasia), viewModel.inboxSearchResults.first())
+        assertEquals(listOf(walasia), viewModel.inboxSearchResults.first()?.threads)
         verify(messageRepository, org.mockito.kotlin.never()).searchThreads(any(), eq("wal"), any())
     }
 
