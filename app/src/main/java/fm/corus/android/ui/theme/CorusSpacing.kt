@@ -26,34 +26,29 @@ object CorusSpacing {
     val profileEmptyInfoActionsExtra = 4.dp
 
     /**
-     * Leading inset for Feed + profile compose `+`. 4dp past iOS 16pt so
-     * Material Add doesn't sit in the corner (the glyph fills its hit box
-     * more than SF `plus`).
+     * Feed + profile compose `+` leading inset. Same token on both screens
+     * so the glyph does not jump when switching tabs. Matches iOS `lg` (16pt).
      */
-    val composePlusLeading = 20.dp
+    val composePlusLeading = 16.dp
 
-    /** Feed + profile compose `+` hit box. Matches iOS `composePlusSide`. */
-    val composePlusSide = 28.dp
+    /** Feed + profile compose `+` hit box. */
+    val composePlusSide = 32.dp
 
-    /**
-     * Compose `+` glyph. Material Add has inner padding; 25dp reads with
-     * the style disc (the CorusClub asset is 37dp with ~20dp of ink).
-     */
-    val composePlusIcon = 25.dp
+    /** Compose `+` glyph. A notch under 32 so it sits with the cog, not over iOS. */
+    val composePlusIcon = 28.dp
 
-    /**
-     * Profile style vinyl. Same asset and 37pt frame as iOS `CymbalClubNavIcon`.
-     * The SVG is padded — the disc is ~21dp, which is why this is larger
-     * than the cog token.
-     */
-    val profileStyleIcon = 37.dp
+    /** Profile style vinyl. A notch under iOS 37pt so it sits with the smaller chrome. */
+    val profileStyleIcon = 34.dp
+
+    /** Settings cog. Paired with [composePlusIcon] / the style disc. */
+    val profileSettingsIcon = 23.dp
 
     /**
-     * Settings cog. Material Settings is a tight 24dp glyph, not an SF
-     * symbol; size it to the style disc (~21dp of ink in the 37dp asset)
-     * so the pair matches iOS.
+     * Shared Feed + profile title-row height (and top inset) so the compose
+     * `+` does not jump vertically when switching tabs.
      */
-    val profileSettingsIcon = 25.dp
+    val headerTitleRowTop = sm
+    val headerTitleRowHeight = 34.dp
 
     /** Feed filter (un-narrowed). Active filter uses +3 on top of this. */
     val feedFilterIcon = 23.dp

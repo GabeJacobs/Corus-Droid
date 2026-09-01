@@ -71,7 +71,7 @@ fun SuggestedUsersListScreen(
      *  see-all section the tap came from. The default no-op makes this a
      *  pure UI screen — analytics wiring lives at the navigation-graph layer. */
     onUserTapped: (String) -> Unit = {},
-    onNavigateToUser: (String) -> Unit = {},
+    onNavigateToUser: (CymbalUser) -> Unit = {},
     /** Visible-range hook used by clubMembers to lazily enrich the 2x2
      *  album-art previews. Other sources ignore this. */
     onVisibleRangeChange: (Int, Int) -> Unit = { _, _ -> },
@@ -206,7 +206,7 @@ fun SuggestedUsersListScreen(
                         isFollowed = match.user.id in followedIds,
                         onTap = {
                             onUserTapped(match.user.id)
-                            onNavigateToUser(match.user.id)
+                            onNavigateToUser(match.user)
                         },
                         onFollow = { onFollow(match.user) },
                     )
@@ -265,7 +265,7 @@ fun SuggestedUsersListScreen(
                                 isFollowing = match.user.id in followedIds,
                                 onUserTap = {
                                     onUserTapped(match.user.id)
-                                    onNavigateToUser(match.user.id)
+                                    onNavigateToUser(match.user)
                                 },
                                 onFollowTap = { onFollow(match.user) },
                                 subtitle = subtitleForRow(context, match, source),

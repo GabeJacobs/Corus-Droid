@@ -32,7 +32,6 @@ import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
-import kotlin.math.roundToInt
 
 /** Scroll-linked hide for the tabbed feed chrome (wordmark + tabs). */
 class FeedChromeCollapse {
@@ -414,30 +413,6 @@ object FeedChromeCollapseMath {
         val bar = statusBarPx.coerceAtLeast(0f)
         if (chromeWillHide) return bar
         return max(visibleChrome, bar)
-    }
-
-    /**
-     * Android Next landing: geometric center of the feed, lifted so the
-     * username sits in the upper third. Flush-to-status-bar feels tight
-     * on Android; the old leftover-footer stop was true mid-screen.
-     */
-    const val HIGH_CENTER_LIFT_FRACTION = 0.30f
-    const val HIGH_CENTER_MIN_FRACTION = 0.12f
-    const val HIGH_CENTER_MAX_FRACTION = 0.26f
-
-    fun programmaticHighCenterInset(
-        viewportHeight: Int,
-        statusBarPx: Int,
-    ): Int {
-        if (viewportHeight <= 0) return statusBarPx.coerceAtLeast(0)
-        val center = viewportHeight / 2f
-        val lifted = center - viewportHeight * HIGH_CENTER_LIFT_FRACTION
-        val floor = max(
-            statusBarPx.coerceAtLeast(0) + 1f,
-            viewportHeight * HIGH_CENTER_MIN_FRACTION,
-        )
-        val ceil = viewportHeight * HIGH_CENTER_MAX_FRACTION
-        return lifted.coerceIn(floor, max(floor, ceil)).roundToInt()
     }
 }
 

@@ -76,6 +76,7 @@ class MessageThreadAccessTest {
         messageRepository = messageRepository,
         authRepository = authRepository,
         userRepository = userRepository,
+        exploreRepository = mock(),
         postRepository = mock(),
         remoteConfigService = mock<RemoteConfigService>(),
         gifRepository = mock(),

@@ -87,6 +87,13 @@ class HorizontalPopularUsersRailViewModelTest {
     }
 
     @Test
+    fun `isLoading starts true so the first Search frame reserves skeleton height`() {
+        val vm = makeViewModel()
+        assertTrue(vm.isLoading.value)
+        assertTrue(vm.matches.value.isEmpty())
+    }
+
+    @Test
     fun `loadInitial fetches first page and populates matches`() = runTest(testDispatcher) {
         stubPostsEmpty()
         val firstPage = listOf(makeUser("a"), makeUser("b"))
@@ -227,6 +234,7 @@ class HorizontalPopularUsersRailViewModelTest {
 
         vm.reset()
         assertTrue(vm.matches.value.isEmpty())
+        assertTrue(vm.isLoading.value)
         assertFalse(vm.endReached.value)
 
         // After reset, loadInitial fires again — proving the idempotency latch is also reset.

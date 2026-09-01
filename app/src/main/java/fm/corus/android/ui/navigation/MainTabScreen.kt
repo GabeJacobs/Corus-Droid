@@ -792,8 +792,12 @@ fun MainTabScreen(
                         val navController = navControllers[tab]!!
                         // popBackStack(start) can return true even when already
                         // at root, which skipped scroll-to-top. Only pop when
-                        // there's a screen above the tab root.
-                        if (navController.previousBackStackEntry != null) {
+                        // there's a screen above the tab root. An empty
+                        // NavHost (start dest was popped) remounts the root
+                        // instead of scrolling a screen that isn't composed.
+                        if (navController.currentDestination == null) {
+                            navController.restoreStartIfEmpty()
+                        } else if (navController.previousBackStackEntry != null) {
                             navController.popToStart()
                         } else {
                             when (tab) {
@@ -1177,11 +1181,6 @@ private fun TabContent(visible: Boolean, content: @Composable () -> Unit) {
             content()
         }
     }
-}
-
-private fun NavHostController.popToStart(): Boolean {
-    val startId = graph.startDestinationId
-    return popBackStack(startId, inclusive = false)
 }
 
 /**

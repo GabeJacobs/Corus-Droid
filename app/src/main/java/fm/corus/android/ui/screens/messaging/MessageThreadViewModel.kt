@@ -14,7 +14,10 @@ import fm.corus.android.data.model.MessageSendStatus
 import fm.corus.android.data.model.MessageType
 import fm.corus.android.data.model.MessagingRestriction
 import fm.corus.android.data.model.TrackSource
+import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.HashtagSuggestion
 import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.service.RemoteConfigService
@@ -35,6 +38,7 @@ class MessageThreadViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
+    private val exploreRepository: ExploreRepository,
     private val postRepository: fm.corus.android.data.repository.PostRepository,
     private val remoteConfigService: RemoteConfigService,
     private val gifRepository: fm.corus.android.data.repository.GifRepository,
@@ -108,6 +112,9 @@ class MessageThreadViewModel @Inject constructor(
 
     private val _otherAvatarThumbURL = MutableStateFlow<String?>(null)
     val otherAvatarThumbURL: StateFlow<String?> = _otherAvatarThumbURL.asStateFlow()
+
+    private val _artistsInCommonCount = MutableStateFlow<Int?>(null)
+    val artistsInCommonCount: StateFlow<Int?> = _artistsInCommonCount.asStateFlow()
 
     val currentUserId: String? get() = authRepository.currentUserId
 
@@ -187,6 +194,9 @@ class MessageThreadViewModel @Inject constructor(
                         _otherDisplayName.value = profile?.displayName ?: ""
                         _otherAvatarURL.value = profile?.avatarURL
                         _otherAvatarThumbURL.value = profile?.avatarThumbURL
+                        if (_artistsInCommonCount.value == null) {
+                            _artistsInCommonCount.value = profile?.artistsInCommonCount
+                        }
                     }
                 }
 
@@ -255,6 +265,9 @@ class MessageThreadViewModel @Inject constructor(
                 if (_otherDisplayName.value.isBlank()) _otherDisplayName.value = u.displayName
                 if (_otherAvatarURL.value == null) _otherAvatarURL.value = u.avatarURL
                 if (_otherAvatarThumbURL.value == null) _otherAvatarThumbURL.value = u.avatarThumbURL
+                if (_artistsInCommonCount.value == null) {
+                    _artistsInCommonCount.value = u.artistsInCommonCount
+                }
             }
         }
     }
@@ -489,6 +502,8 @@ class MessageThreadViewModel @Inject constructor(
     fun startEditing(message: CymbalMessage) {
         _replyToMessage.value = null
         _editingMessage.value = message
+        clearMentions()
+        clearHashtags()
     }
 
     fun cancelEditing() {
@@ -936,6 +951,77 @@ class MessageThreadViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    // ── Mention / hashtag search (mirrors CommentsViewModel) ──
+
+    private val _mentionSuggestions = MutableStateFlow<List<CymbalUser>>(emptyList())
+    val mentionSuggestions: StateFlow<List<CymbalUser>> = _mentionSuggestions.asStateFlow()
+
+    private val _isSearchingMentions = MutableStateFlow(false)
+    val isSearchingMentions: StateFlow<Boolean> = _isSearchingMentions.asStateFlow()
+
+    private var mentionSearchJob: Job? = null
+
+    private val _hashtagSuggestions = MutableStateFlow<List<HashtagSuggestion>>(emptyList())
+    val hashtagSuggestions: StateFlow<List<HashtagSuggestion>> = _hashtagSuggestions.asStateFlow()
+
+    private var hashtagSearchJob: Job? = null
+
+    fun searchMentions(query: String) {
+        mentionSearchJob?.cancel()
+        if (query.length < 2) {
+            _mentionSuggestions.value = emptyList()
+            _isSearchingMentions.value = false
+            return
+        }
+        _isSearchingMentions.value = true
+        mentionSearchJob = viewModelScope.launch {
+            try {
+                val results = userRepository.searchUsers(query, limit = 4)
+                _mentionSuggestions.value = results
+            } catch (_: Exception) {
+                _mentionSuggestions.value = emptyList()
+            } finally {
+                _isSearchingMentions.value = false
+            }
+        }
+    }
+
+    fun clearMentions() {
+        mentionSearchJob?.cancel()
+        mentionSearchJob = null
+        _mentionSuggestions.value = emptyList()
+        _isSearchingMentions.value = false
+    }
+
+    fun searchHashtags(query: String) {
+        hashtagSearchJob?.cancel()
+        hashtagSearchJob = viewModelScope.launch {
+            try {
+                _hashtagSuggestions.value = exploreRepository.fetchHashtagSuggestions(query, limit = 3)
+            } catch (_: Exception) {
+                _hashtagSuggestions.value = emptyList()
+            }
+        }
+    }
+
+    fun clearHashtags() {
+        hashtagSearchJob?.cancel()
+        hashtagSearchJob = null
+        _hashtagSuggestions.value = emptyList()
+    }
+
+    suspend fun resolveUsernameToId(username: String): String? {
+        return try {
+            userRepository.fetchUserByUsername(username)?.id
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun logHashtagTapped(tag: String) {
+        analyticsService.logTrendingHashtagTapped(tag)
     }
 
     // ── Helpers ──

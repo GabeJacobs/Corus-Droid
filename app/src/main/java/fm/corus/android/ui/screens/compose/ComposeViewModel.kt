@@ -1000,6 +1000,13 @@ class ComposeViewModel @Inject constructor(
                         trackMap["audiomackArtistUrl"] = track.audiomackArtistUrl ?: ""
                         trackMap["audiomackAlbumUrl"] = track.audiomackAlbumUrl ?: ""
                     }
+                    if (track.source == fm.corus.android.data.model.TrackSource.BANDCAMP) {
+                        trackMap["bandcampId"] = track.bandcampId
+                            ?: track.id.removePrefix("bc:")
+                        trackMap["bandcampUrl"] = track.bandcampUrl ?: ""
+                        trackMap["bandcampArtistUrl"] = track.bandcampArtistUrl ?: ""
+                        trackMap["bandcampAlbumUrl"] = track.bandcampAlbumUrl ?: ""
+                    }
                     payload["track"] = trackMap
                 } else {
                     val movie = _selectedMovie.value ?: throw Exception("No movie selected")

@@ -486,6 +486,7 @@ internal fun ImmersiveFrostedBar(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     topInset: Dp = 0.dp,
+    titleContent: (@Composable () -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val frost = CorusColors.Background
@@ -519,16 +520,24 @@ internal fun ImmersiveFrostedBar(
                 contentDescription = stringResource(R.string.feed_cd_back),
                 tint = CorusColors.Text,
             )
-            Text(
-                text = title ?: "",
-                style = CorusFont.screenTitle,
-                color = CorusColors.Text,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+            Box(
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = CorusSpacing.xs),
-            )
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                if (titleContent != null) {
+                    titleContent()
+                } else {
+                    Text(
+                        text = title ?: "",
+                        style = CorusFont.screenTitle,
+                        color = CorusColors.Text,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
             actions()
         }
     }

@@ -117,6 +117,7 @@ import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.ui.LocalHapticManager
+import fm.corus.android.ui.components.ComposePlusButton
 import fm.corus.android.ui.components.FrostedStatusStrip
 import fm.corus.android.ui.components.LocalContainingTabSelected
 import fm.corus.android.ui.components.contentHazeSource
@@ -131,7 +132,10 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.CorusSystemBars
+import fm.corus.android.ui.util.FeedFollowScrollLift
+import fm.corus.android.ui.util.FeedFollowScrollPeekAbovePost
 import fm.corus.android.ui.util.animateScrollItemToTop
+import fm.corus.android.ui.util.computeFollowScrollTopInset
 import fm.corus.android.ui.util.feedPostLazyIndex
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -351,34 +355,14 @@ fun FeedScreen(
     LaunchedEffect(scope) {
         chromeCollapse.attach(scope)
     }
-    val followScrollStatusBarPx = with(LocalDensity.current) {
-        frost.statusBarPadding.roundToPx()
-    }
-    val fallbackViewportPx = with(LocalDensity.current) {
-        LocalConfiguration.current.screenHeightDp.dp.roundToPx()
-    }
-    val tabsVisibleForPin by rememberUpdatedState(feedModeTabsVisible)
-    val statusBarForPin by rememberUpdatedState(followScrollStatusBarPx)
-    val fallbackViewportForPin by rememberUpdatedState(fallbackViewportPx)
-    suspend fun pinPlayingPost(lazyIndex: Int) {
-        val tabs = tabsVisibleForPin
-        if (tabs) {
-            val hide = chromeCollapse.currentVisibleChrome > 1f
-            chromeCollapse.startProgrammaticPin()
-            if (hide) chromeCollapse.hideCompletely(animated = true)
-        }
-        val viewportH = listState.layoutInfo.viewportSize.height
-            .takeIf { it > 0 } ?: fallbackViewportForPin
-        val inset = FeedChromeCollapseMath.programmaticHighCenterInset(
-            viewportHeight = viewportH,
-            statusBarPx = statusBarForPin,
+    val followScrollTopInsetPx = with(LocalDensity.current) {
+        computeFollowScrollTopInset(
+            statusBarPx = frost.statusBarPadding.roundToPx(),
+            peekPx = FeedFollowScrollPeekAbovePost.roundToPx(),
+            liftPx = FeedFollowScrollLift.roundToPx(),
         )
-        try {
-            listState.animateScrollItemToTop(lazyIndex, inset)
-        } finally {
-            if (tabs) chromeCollapse.finishProgrammaticPin()
-        }
     }
+    val currentTopInsetPx by rememberUpdatedState(followScrollTopInsetPx)
     var lastScrollTrigger by rememberSaveable { mutableIntStateOf(0) }
     var modeRetapTick by remember { mutableIntStateOf(0) }
     var lastTasteMatchesTrigger by rememberSaveable { mutableIntStateOf(0) }
@@ -408,7 +392,7 @@ fun FeedScreen(
             if (idx < 0) return@handler false
             val lazyIndex = feedPostLazyIndex(idx, currentPrefixForRouter)
             routerScope.launch {
-                pinPlayingPost(lazyIndex)
+                listState.animateScrollItemToTop(lazyIndex, currentTopInsetPx)
             }
             true
         }
@@ -438,8 +422,11 @@ fun FeedScreen(
         if (newPostId == null) return@LaunchedEffect
         if (!feedFollowsNowPlaying) return@LaunchedEffect
         if (!isAtRoot) return@LaunchedEffect
-        // Do not skip when the list is already moving. Next's own pin
-        // sets isScrollInProgress; bailing out left the row mid-viewport.
+        // Don't yank the feed out from under a finger that's actively
+        // scrolling (or a fling that's still decelerating). Checked before
+        // we kick off our own follow-scroll, so this only reflects
+        // user-driven motion.
+        if (listState.isScrollInProgress) return@LaunchedEffect
         // Skip when the user just tapped this card to play it — they're
         // already looking at it. The marker is a one-shot, so consume it.
         val tapMarker = viewModel.nowPlayingManager.lastUserInitiatedSourcePostId
@@ -449,7 +436,10 @@ fun FeedScreen(
         }
         val index = posts.indexOfFirst { it.id == newPostId }
         if (index < 0) return@LaunchedEffect
-        pinPlayingPost(feedPostLazyIndex(index, currentPrefixForRouter))
+        listState.animateScrollItemToTop(
+            feedPostLazyIndex(index, currentPrefixForRouter),
+            currentTopInsetPx,
+        )
     }
 
     val header: @Composable () -> Unit = {
@@ -2610,7 +2600,8 @@ internal fun FeedHeader(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = CorusSpacing.sm),
+            .padding(top = CorusSpacing.headerTitleRowTop)
+            .height(CorusSpacing.headerTitleRowHeight),
         contentAlignment = Alignment.Center,
     ) {
         if (tabsVisible) {
@@ -2646,30 +2637,13 @@ internal fun FeedHeader(
             )
         }
 
-        // Same leading + chrome hit box as the profile compose `+`.
-        // Avoid Material IconButtons (48dp) — they shrink the glyph inward.
         Box(
             modifier = if (tabsVisible) Modifier.matchParentSize() else Modifier.fillMaxWidth(),
         ) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(start = CorusSpacing.composePlusLeading)
-                .size(CorusSpacing.composePlusSide)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onComposePlus,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Add,
-                contentDescription = stringResource(R.string.tab_cd_compose),
-                tint = CorusColors.Secondary,
-                modifier = Modifier.size(CorusSpacing.composePlusIcon),
-            )
-        }
+        ComposePlusButton(
+            onClick = onComposePlus,
+            modifier = Modifier.align(Alignment.CenterStart),
+        )
 
         Row(
             modifier = Modifier

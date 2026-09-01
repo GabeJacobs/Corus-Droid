@@ -104,15 +104,26 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import java.text.SimpleDateFormat
 import java.util.Locale
+import androidx.compose.ui.text.font.FontWeight
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.FullScreenImageView
 import fm.corus.android.ui.components.GifPickerSheet
+import fm.corus.android.ui.components.HashtagSuggestionsList
 import fm.corus.android.ui.components.EntityPickerSheet
 import fm.corus.android.ui.components.LocalBottomBarHeight
+import fm.corus.android.ui.components.MentionSuggestionsList
 import fm.corus.android.ui.components.OfflineRetryState
+import fm.corus.android.ui.components.ToastManager
+import fm.corus.android.ui.components.applyHashtag
+import fm.corus.android.ui.components.applyMention
 import fm.corus.android.ui.components.liftAboveReservedChrome
+import fm.corus.android.ui.components.mentionHandle
+import fm.corus.android.ui.components.parseHashtagQuery
+import fm.corus.android.ui.components.parseMentionQuery
 import fm.corus.android.ui.components.PickerMode
 import fm.corus.android.ui.components.SongFilmPickerSheet
 import fm.corus.android.ui.components.UserAvatarView
@@ -627,6 +638,7 @@ fun MessageThreadScreen(
     onNavigateToArtist: (artistId: String, name: String?, imageUrl: String?) -> Unit = { _, _, _ -> },
     onNavigateToAlbum: (albumId: String, title: String?, artist: String?, coverUrl: String?, year: Int?) -> Unit = { _, _, _, _, _ -> },
     onNavigateToDirector: (directorId: String, name: String?, imageUrl: String?) -> Unit = { _, _, _ -> },
+    onNavigateToHashtag: (String) -> Unit = {},
     viewModel: MessageThreadViewModel = hiltViewModel(),
 ) {
     val nowPlayingManager = viewModel.nowPlayingManager
@@ -637,6 +649,7 @@ fun MessageThreadScreen(
     val otherDisplayName by viewModel.otherDisplayName.collectAsState()
     val otherAvatarURL by viewModel.otherAvatarURL.collectAsState()
     val otherAvatarThumbURL by viewModel.otherAvatarThumbURL.collectAsState()
+    val artistsInCommonCount by viewModel.artistsInCommonCount.collectAsState()
     val replyToMessage by viewModel.replyToMessage.collectAsState()
     val editingMessage by viewModel.editingMessage.collectAsState()
     val recipientUnread by viewModel.recipientUnread.collectAsState()
@@ -666,6 +679,26 @@ fun MessageThreadScreen(
     var fullScreenImageUrl by remember { mutableStateOf<String?>(null) }
     val keyboardController = LocalSoftwareKeyboardController.current
     val composerFocusRequester = remember { FocusRequester() }
+    val mentionSuggestions by viewModel.mentionSuggestions.collectAsState()
+    val isSearchingMentions by viewModel.isSearchingMentions.collectAsState()
+    val hashtagSuggestions by viewModel.hashtagSuggestions.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
+    var mentionSearchJob by remember { mutableStateOf<Job?>(null) }
+    val profileUnavailable = stringResource(R.string.other_profile_unavailable_title)
+    val handleMentionTap: (String) -> Unit = { username ->
+        keyboardController?.hide()
+        coroutineScope.launch {
+            val userId = viewModel.resolveUsernameToId(username)
+            if (userId != null) onNavigateToProfile(userId)
+            else ToastManager.show(profileUnavailable)
+        }
+    }
+    val handleHashtagTap: (String) -> Unit = { hashtag ->
+        keyboardController?.hide()
+        val tag = hashtag.removePrefix("#")
+        viewModel.logHashtagTapped(tag)
+        onNavigateToHashtag(tag)
+    }
 
     val latestDraftText = rememberUpdatedState(messageText.text)
     val isEditingDraft = rememberUpdatedState(editingMessage != null)
@@ -674,6 +707,8 @@ fun MessageThreadScreen(
             if (!isEditingDraft.value) {
                 draftStore.save(composerUid, threadId, latestDraftText.value)
             }
+            viewModel.clearMentions()
+            viewModel.clearHashtags()
         }
     }
 
@@ -967,12 +1002,45 @@ fun MessageThreadScreen(
                             onNavigateToAlbum = onNavigateToAlbum,
                             onNavigateToDirector = onNavigateToDirector,
                             onNavigateToProfile = onNavigateToProfile,
+                            onMentionTap = handleMentionTap,
+                            onHashtagTap = handleHashtagTap,
                             resolvePost = { viewModel.fetchSharedPost(it) },
                         )
                     }
                 }
             }
+            // reverseLayout: last item sits at the chronological start (visual top).
+            val hasOpenerIdentity = otherUsername.isNotBlank() || otherDisplayName.isNotBlank()
+            if (!isGroup && messages.isNotEmpty() && hasOpenerIdentity) {
+                item(key = "thread-opener") {
+                    ThreadOpener(
+                        username = otherUsername,
+                        displayName = otherDisplayName,
+                        avatarURL = otherAvatarURL,
+                        avatarThumbURL = otherAvatarThumbURL,
+                        artistsInCommon = artistsInCommonCount,
+                        onViewProfile = { onNavigateToProfile(otherUserId) },
+                    )
+                }
+            }
         }
+
+            val showThreadOpenerOverlay = !isGroup
+                && messages.isEmpty()
+                && !isLoading
+                && !hasLoadError
+                && (otherUsername.isNotBlank() || otherDisplayName.isNotBlank())
+            if (showThreadOpenerOverlay) {
+                ThreadOpener(
+                    username = otherUsername,
+                    displayName = otherDisplayName,
+                    avatarURL = otherAvatarURL,
+                    avatarThumbURL = otherAvatarThumbURL,
+                    artistsInCommon = artistsInCommonCount,
+                    onViewProfile = { onNavigateToProfile(otherUserId) },
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            }
 
             // Initial-load spinner: the message listener hasn't delivered a
             // publishable snapshot yet, so `messages` is empty and the list
@@ -1094,6 +1162,22 @@ fun MessageThreadScreen(
             }
         }
 
+        MentionSuggestionsList(
+            users = mentionSuggestions.take(4),
+            onSelect = { user ->
+                messageText = applyMention(messageText, user.username)
+                viewModel.clearMentions()
+            },
+            isSearching = isSearchingMentions,
+        )
+        HashtagSuggestionsList(
+            hashtags = hashtagSuggestions.take(3),
+            onSelect = { tag ->
+                messageText = applyHashtag(messageText, tag.name)
+                viewModel.clearHashtags()
+            },
+        )
+
         // Compose bar
         HorizontalDivider(color = CorusColors.Divider)
         Row(
@@ -1158,10 +1242,28 @@ fun MessageThreadScreen(
 
             OutlinedTextField(
                 value = messageText,
-                onValueChange = {
-                    messageText = it
+                onValueChange = { newValue ->
+                    val textChanged = newValue.text != messageText.text
+                    messageText = newValue
                     if (editingMessage == null) {
-                        draftStore.save(composerUid, threadId, it.text)
+                        draftStore.save(composerUid, threadId, newValue.text)
+                    }
+                    if (textChanged) {
+                        mentionSearchJob?.cancel()
+                        mentionSearchJob = coroutineScope.launch {
+                            delay(200)
+                            val caret = newValue.selection.start
+                            val mention = parseMentionQuery(newValue.text, caret)
+                            if (mention != null) {
+                                viewModel.clearHashtags()
+                                viewModel.searchMentions(mention)
+                            } else {
+                                viewModel.clearMentions()
+                                val hashtag = parseHashtagQuery(newValue.text, caret)
+                                if (hashtag != null) viewModel.searchHashtags(hashtag)
+                                else viewModel.clearHashtags()
+                            }
+                        }
                     }
                 },
                 modifier = Modifier
@@ -1177,6 +1279,8 @@ fun MessageThreadScreen(
             IconButton(
                 onClick = {
                     if (messageText.text.isNotBlank()) {
+                        viewModel.clearMentions()
+                        viewModel.clearHashtags()
                         if (editingMessage != null) {
                             viewModel.editMessage(threadId, messageText.text)
                             val draft = draftStore.load(composerUid, threadId) ?: ""
@@ -1522,6 +1626,8 @@ private fun MessageBubble(
     onNavigateToAlbum: (albumId: String, title: String?, artist: String?, coverUrl: String?, year: Int?) -> Unit = { _, _, _, _, _ -> },
     onNavigateToDirector: (directorId: String, name: String?, imageUrl: String?) -> Unit = { _, _, _ -> },
     onNavigateToProfile: (String) -> Unit = {},
+    onMentionTap: (String) -> Unit = {},
+    onHashtagTap: (String) -> Unit = {},
     resolvePost: suspend (String) -> CymbalPost? = { null },
 ) {
     val context = LocalContext.current
@@ -1651,7 +1757,7 @@ private fun MessageBubble(
                 .widthIn(max = 280.dp)
                 .then(if (isSending) Modifier.alpha(0.7f) else Modifier)
                 .onGloballyPositioned { bubbleCoords = it }
-                .pointerInput(message.id, annotatedText) {
+                .pointerInput(message.id, annotatedText, onMentionTap, onHashtagTap) {
                     detectTapGestures(
                         onLongPress = { onLongPress() },
                         onDoubleTap = { onDoubleTap() },
@@ -1668,11 +1774,20 @@ private fun MessageBubble(
                                         relative.x <= layout.size.width &&
                                         relative.y <= layout.size.height) {
                                         val charOffset = layout.getOffsetForPosition(relative)
-                                        at.getStringAnnotations("URL", charOffset, charOffset)
-                                            .firstOrNull()?.let { ann ->
-                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(ann.item))
+                                        val mention = at.getStringAnnotations("mention", charOffset, charOffset)
+                                            .firstOrNull()
+                                        val hashtag = at.getStringAnnotations("hashtag", charOffset, charOffset)
+                                            .firstOrNull()
+                                        val url = at.getStringAnnotations("URL", charOffset, charOffset)
+                                            .firstOrNull()
+                                        when {
+                                            mention != null -> onMentionTap(mention.item)
+                                            hashtag != null -> onHashtagTap(hashtag.item)
+                                            url != null -> {
+                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url.item))
                                                 context.startActivity(intent)
                                             }
+                                        }
                                     }
                                 } catch (_: Exception) {}
                             }
@@ -1980,29 +2095,70 @@ private fun MessageBubble(
     }
 }
 
-private fun buildLinkifiedText(
+private val MENTION_HASHTAG_REGEX = Regex("(@[\\w.]+)|(#\\w+)")
+
+internal fun buildLinkifiedText(
     text: String,
     isFromCurrentUser: Boolean,
 ): AnnotatedString {
+    val linkColor = if (isFromCurrentUser) Color.White else CorusColors.Accent
+    data class Span(val range: IntRange, val kind: String, val value: String)
+    val spans = mutableListOf<Span>()
+    URL_REGEX.findAll(text).forEach { match ->
+        spans.add(Span(match.range, "URL", match.value))
+    }
+    MENTION_HASHTAG_REGEX.findAll(text).forEach { match ->
+        val overlapsUrl = spans.any { it.kind == "URL" && it.range.first <= match.range.last && match.range.first <= it.range.last }
+        if (overlapsUrl) return@forEach
+        val token = match.value
+        if (token.startsWith("@")) {
+            val handle = mentionHandle(token)
+            if (handle.isNotEmpty()) {
+                spans.add(Span(match.range, "mention", handle))
+            }
+        } else {
+            spans.add(Span(match.range, "hashtag", token.removePrefix("#")))
+        }
+    }
+    spans.sortBy { it.range.first }
+
     return buildAnnotatedString {
         var lastIndex = 0
-        URL_REGEX.findAll(text).forEach { match ->
-            // Text before URL
-            append(text.substring(lastIndex, match.range.first))
-            // URL with annotation
-            pushStringAnnotation("URL", match.value)
-            withStyle(
-                SpanStyle(
-                    textDecoration = TextDecoration.Underline,
-                    color = if (isFromCurrentUser) Color.White else CorusColors.Accent,
-                )
-            ) {
-                append(match.value)
+        for (span in spans) {
+            if (span.range.first > lastIndex) {
+                append(text.substring(lastIndex, span.range.first))
             }
-            pop()
-            lastIndex = match.range.last + 1
+            val token = text.substring(span.range.first, span.range.last + 1)
+            when (span.kind) {
+                "URL" -> {
+                    pushStringAnnotation("URL", span.value)
+                    withStyle(
+                        SpanStyle(
+                            textDecoration = TextDecoration.Underline,
+                            color = linkColor,
+                        )
+                    ) {
+                        append(token)
+                    }
+                    pop()
+                }
+                "mention" -> {
+                    pushStringAnnotation("mention", span.value)
+                    withStyle(SpanStyle(color = linkColor, fontWeight = FontWeight.ExtraBold)) {
+                        append(token)
+                    }
+                    pop()
+                }
+                "hashtag" -> {
+                    pushStringAnnotation("hashtag", span.value)
+                    withStyle(SpanStyle(color = linkColor, fontWeight = FontWeight.Normal)) {
+                        append(token)
+                    }
+                    pop()
+                }
+            }
+            lastIndex = span.range.last + 1
         }
-        // Remaining text
         if (lastIndex < text.length) {
             append(text.substring(lastIndex))
         }

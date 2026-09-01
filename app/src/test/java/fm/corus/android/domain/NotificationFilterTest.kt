@@ -199,6 +199,152 @@ class NotificationFilterTest {
     }
 
     @Test
+    fun unloadedEmptyChipIsSkeletonNotEmpty() {
+        assertEquals(
+            NotificationFilterListPhase.SKELETON,
+            NotificationFilterVisibility.listPhase(
+                filter = NotificationFilter.COMMENTS,
+                displayedIsEmpty = true,
+                isLoadingAll = false,
+                chipLoaded = false,
+                isFilterLoading = false,
+            ),
+        )
+    }
+
+    @Test
+    fun unloadedChipKeepsSkeletonEvenWithFallbackRows() {
+        assertEquals(
+            NotificationFilterListPhase.SKELETON,
+            NotificationFilterVisibility.listPhase(
+                filter = NotificationFilter.COMMENTS,
+                displayedIsEmpty = false,
+                isLoadingAll = false,
+                chipLoaded = false,
+                isFilterLoading = true,
+            ),
+        )
+    }
+
+    @Test
+    fun loadedEmptyChipShowsEmptyOnlyAfterFetch() {
+        assertEquals(
+            NotificationFilterListPhase.EMPTY,
+            NotificationFilterVisibility.listPhase(
+                filter = NotificationFilter.FOLLOWS,
+                displayedIsEmpty = true,
+                isLoadingAll = false,
+                chipLoaded = true,
+                isFilterLoading = false,
+            ),
+        )
+        assertEquals(
+            NotificationFilterListPhase.SKELETON,
+            NotificationFilterVisibility.listPhase(
+                filter = NotificationFilter.FOLLOWS,
+                displayedIsEmpty = true,
+                isLoadingAll = false,
+                chipLoaded = true,
+                isFilterLoading = true,
+            ),
+        )
+    }
+
+    @Test
+    fun allListPhaseMatchesInitialLoad() {
+        assertEquals(
+            NotificationFilterListPhase.SKELETON,
+            NotificationFilterVisibility.listPhase(
+                filter = NotificationFilter.ALL,
+                displayedIsEmpty = true,
+                isLoadingAll = true,
+                chipLoaded = false,
+                isFilterLoading = false,
+            ),
+        )
+        assertEquals(
+            NotificationFilterListPhase.EMPTY,
+            NotificationFilterVisibility.listPhase(
+                filter = NotificationFilter.ALL,
+                displayedIsEmpty = true,
+                isLoadingAll = false,
+                chipLoaded = false,
+                isFilterLoading = false,
+            ),
+        )
+        assertEquals(
+            NotificationFilterListPhase.CONTENT,
+            NotificationFilterVisibility.listPhase(
+                filter = NotificationFilter.ALL,
+                displayedIsEmpty = false,
+                isLoadingAll = false,
+                chipLoaded = false,
+                isFilterLoading = false,
+            ),
+        )
+    }
+
+    @Test
+    fun knownZeroSkipsTheAllSkeleton() {
+        assertEquals(
+            NotificationFilterListPhase.EMPTY,
+            NotificationFilterVisibility.listPhase(
+                filter = NotificationFilter.ALL,
+                displayedIsEmpty = true,
+                isLoadingAll = true,
+                chipLoaded = false,
+                isFilterLoading = false,
+                knownCount = 0,
+            ),
+        )
+    }
+
+    @Test
+    fun unknownCountKeepsTheAllSkeleton() {
+        assertEquals(
+            NotificationFilterListPhase.SKELETON,
+            NotificationFilterVisibility.listPhase(
+                filter = NotificationFilter.ALL,
+                displayedIsEmpty = true,
+                isLoadingAll = true,
+                chipLoaded = false,
+                isFilterLoading = false,
+                knownCount = null,
+            ),
+        )
+    }
+
+    @Test
+    fun nonZeroKeepsTheAllSkeletonWhileRowsHydrate() {
+        assertEquals(
+            NotificationFilterListPhase.SKELETON,
+            NotificationFilterVisibility.listPhase(
+                filter = NotificationFilter.ALL,
+                displayedIsEmpty = true,
+                isLoadingAll = true,
+                chipLoaded = false,
+                isFilterLoading = false,
+                knownCount = 1,
+            ),
+        )
+    }
+
+    @Test
+    fun knownZeroDoesNotOverrideALoadedChip() {
+        assertEquals(
+            NotificationFilterListPhase.SKELETON,
+            NotificationFilterVisibility.listPhase(
+                filter = NotificationFilter.FOLLOWS,
+                displayedIsEmpty = true,
+                isLoadingAll = false,
+                chipLoaded = false,
+                isFilterLoading = false,
+                knownCount = 0,
+            ),
+        )
+    }
+
+    @Test
     fun analyticsValuesMatchIOSAndWeb() {
         assertEquals("all", NotificationFilter.ALL.value)
         assertEquals("people_you_follow", NotificationFilter.PEOPLE_YOU_FOLLOW.value)

@@ -86,4 +86,60 @@ object NotificationFilterVisibility {
         filterLoading: Boolean,
         filteredEmpty: Boolean,
     ): Boolean = filterLoading && !filteredReady && filteredEmpty
+
+    /**
+     * Empty is only honest after this chip's first page has landed. An empty
+     * All-window fallback before that is "not loaded yet" — showing it flashes
+     * notifications (or "No activity") for a frame before the skeleton.
+     */
+    fun listPhase(
+        filter: NotificationFilter,
+        displayedIsEmpty: Boolean,
+        isLoadingAll: Boolean,
+        chipLoaded: Boolean,
+        isFilterLoading: Boolean,
+        knownCount: Int? = null,
+    ): NotificationFilterListPhase {
+        if (filter.isServerScoped) {
+            if (!chipLoaded) return NotificationFilterListPhase.SKELETON
+            if (displayedIsEmpty && isFilterLoading) return NotificationFilterListPhase.SKELETON
+            return if (displayedIsEmpty) {
+                NotificationFilterListPhase.EMPTY
+            } else {
+                NotificationFilterListPhase.CONTENT
+            }
+        }
+        if (isActivityListLoading(isLoadingAll, displayedIsEmpty, knownCount)) {
+            return NotificationFilterListPhase.SKELETON
+        }
+        return if (displayedIsEmpty) {
+            NotificationFilterListPhase.EMPTY
+        } else {
+            NotificationFilterListPhase.CONTENT
+        }
+    }
+}
+
+/**
+ * Whether the Activity All list should show its loading skeleton.
+ *
+ * A cheap existence snapshot (limit 1) lands at launch — same role as
+ * likesCount on the profile. When the count is already 0, skip the
+ * skeleton and show the empty state immediately. Unknown (`null`) keeps
+ * the skeleton until the list lands. Non-zero keeps the skeleton while
+ * rows hydrate.
+ */
+fun isActivityListLoading(
+    isLoading: Boolean,
+    displayedIsEmpty: Boolean,
+    knownCount: Int? = null,
+): Boolean {
+    if (knownCount == 0) return false
+    return isLoading && displayedIsEmpty
+}
+
+enum class NotificationFilterListPhase {
+    SKELETON,
+    EMPTY,
+    CONTENT,
 }

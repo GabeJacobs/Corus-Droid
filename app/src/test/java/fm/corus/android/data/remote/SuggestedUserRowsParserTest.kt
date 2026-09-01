@@ -9,7 +9,7 @@ import org.mockito.kotlin.mock
 
 class SuggestedUserRowsParserTest {
 
-    private val dataSource = CloudFunctionsDataSource(mock<FirebaseFunctions>())
+    private val dataSource = CloudFunctionsDataSource(mock<FirebaseFunctions>(), mock(), mock())
 
     private fun row(id: String, isBot: Boolean): Map<String, Any?> = mapOf(
         "id" to id,

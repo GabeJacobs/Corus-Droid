@@ -28,6 +28,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -71,6 +72,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -164,7 +166,7 @@ enum class SearchTab(val labelRes: Int) {
 fun SearchScreen(
     viewModel: SearchViewModel = hiltViewModel(),
     scrollToTopTrigger: Int = 0,
-    onNavigateToUser: (String) -> Unit = {},
+    onNavigateToUser: (CymbalUser) -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (FilmDetailRoute) -> Unit = {},
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit = { _, _, _ -> },
@@ -800,10 +802,9 @@ fun SearchScreen(
                                 viewModel = viewModel,
                                 nowPlaying = viewModel.nowPlayingManager,
                                 onSelectFilter = { viewModel.setUnifiedFilter(it) },
-                                onNavigateToUser = { userId ->
-                                    val user = userResults.find { it.id == userId }
-                                    if (user != null) viewModel.onUserSelected(user)
-                                    onNavigateToUser(userId)
+                                onNavigateToUser = { user ->
+                                    viewModel.onUserSelected(user)
+                                    onNavigateToUser(user)
                                 },
                                 onNavigateToSong = recordAndNavSong,
                                 onNavigateToFilm = recordAndNavFilm,
@@ -815,10 +816,9 @@ fun SearchScreen(
                                 results = userResults,
                                 isSearching = isSearching,
                                 viewModel = viewModel,
-                                onNavigateToUser = { userId ->
-                                    val user = userResults.find { it.id == userId }
-                                    if (user != null) viewModel.onUserSelected(user)
-                                    onNavigateToUser(userId)
+                                onNavigateToUser = { user ->
+                                    viewModel.onUserSelected(user)
+                                    onNavigateToUser(user)
                                 },
                             )
                             UnifiedSearchFilter.MUSIC -> SongSearchResultsList(
@@ -926,7 +926,7 @@ fun SearchScreen(
                         // the user's finger. The new order shows next time recents
                         // open (the flow reflects storage).
                         when (item) {
-                            is RecentSearchItem.UserEntry -> onNavigateToUser(item.id)
+                            is RecentSearchItem.UserEntry -> onNavigateToUser(item.toUser())
                             is RecentSearchItem.ArtistEntry -> onNavigateToArtist(item.toRoute())
                             is RecentSearchItem.AlbumEntry -> onNavigateToAlbum(item.toRoute())
                             is RecentSearchItem.SongEntry -> onNavigateToSong(item.toTrack())
@@ -956,40 +956,58 @@ private fun SearchBarSection(
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    TextField(
-        value = query,
-        onValueChange = onQueryChange,
+    // Custom field so this matches iOS / Messages. Material TextField is 56dp
+    // tall and made Search look oversized next to the inbox bar.
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = CorusSpacing.lg)
-            .padding(top = CorusSpacing.md, bottom = CorusSpacing.xs)
-            .onFocusChanged { onFocusChanged(it.isFocused) },
-        placeholder = {
-            Text(placeholder, style = CorusFont.body, color = CorusColors.Tertiary)
-        },
-        leadingIcon = {
-            Icon(Icons.Filled.Search, contentDescription = stringResource(fm.corus.android.R.string.search_cd_search), tint = CorusColors.Secondary)
-        },
-        trailingIcon = {
-            if (showClearButton) {
-                IconButton(onClick = onClear) {
-                    Icon(Icons.Filled.Close, contentDescription = stringResource(fm.corus.android.R.string.search_cd_clear), tint = CorusColors.Secondary, modifier = Modifier.size(18.dp))
-                }
+            .padding(top = CorusSpacing.sm, bottom = CorusSpacing.xs)
+            .background(
+                CorusColors.CardBackground,
+                RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+            )
+            .padding(horizontal = CorusSpacing.md, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Filled.Search,
+            contentDescription = stringResource(fm.corus.android.R.string.search_cd_search),
+            tint = CorusColors.Secondary,
+            modifier = Modifier.size(CorusSpacing.iconMd),
+        )
+        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+        Box(modifier = Modifier.weight(1f)) {
+            if (query.isEmpty()) {
+                Text(placeholder, style = CorusFont.body, color = CorusColors.Tertiary)
             }
-        },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() }),
-        shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = CorusColors.CardBackground,
-            unfocusedContainerColor = CorusColors.CardBackground,
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            cursorColor = CorusColors.Accent,
-        ),
-        textStyle = CorusFont.body.copy(color = CorusColors.Text),
-    )
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { onFocusChanged(it.isFocused) },
+                textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                singleLine = true,
+                cursorBrush = SolidColor(CorusColors.Accent),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() }),
+            )
+        }
+        if (showClearButton) {
+            IconButton(
+                onClick = onClear,
+                modifier = Modifier.size(24.dp),
+            ) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = stringResource(fm.corus.android.R.string.search_cd_clear),
+                    tint = CorusColors.Secondary,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -1250,7 +1268,7 @@ private fun SuggestedUsersContent(
     tasteMatchLoadFailed: Boolean,
     belowTasteMatchThreshold: Boolean,
     viewModel: SearchViewModel,
-    onNavigateToUser: (String) -> Unit,
+    onNavigateToUser: (CymbalUser) -> Unit,
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
     onNavigateToContactFriends: () -> Unit,
 ) {
@@ -1369,7 +1387,7 @@ private fun LazyListScope.contactsSections(
     contactMatches: List<CymbalUser>,
     showNoContactMatches: Boolean,
     viewModel: SearchViewModel,
-    onNavigateToUser: (String) -> Unit,
+    onNavigateToUser: (CymbalUser) -> Unit,
     onNavigateToContactFriends: () -> Unit,
     onRequestContacts: () -> Unit,
 ) {
@@ -1420,7 +1438,7 @@ private fun LazyListScope.contactsSections(
                 isFollowed = viewModel.isFollowed(user.id),
                 onTap = {
                     viewModel.logSearchSectionUserTapped(SearchSection.FriendsOnCorus, user.id)
-                    onNavigateToUser(user.id)
+                    onNavigateToUser(user)
                 },
                 onFollow = { viewModel.toggleFollow(user, SearchSection.FriendsOnCorus) },
             )
@@ -1445,7 +1463,7 @@ private fun LazyListScope.tasteMatchesSections(
     filterUnfollowedMatches: Boolean,
     onSetFilterUnfollowed: (Boolean) -> Unit,
     viewModel: SearchViewModel,
-    onNavigateToUser: (String) -> Unit,
+    onNavigateToUser: (CymbalUser) -> Unit,
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
 ) {
     // ── Taste Matches section ──
@@ -1476,7 +1494,7 @@ private fun LazyListScope.tasteMatchesSections(
                     viewModel.logMusicMatchTapped(match.user.id, match.matchData?.similarityScore ?: 0.0)
                     // Also fire the unified event so cross-section comparisons work.
                     viewModel.logSearchSectionUserTapped(SearchSection.TasteMatches, match.user.id)
-                    onNavigateToUser(match.user.id)
+                    onNavigateToUser(match.user)
                 },
                 onFollowTap = { user -> viewModel.toggleFollow(user, SearchSection.TasteMatches) },
                 onSeeAll = {
@@ -1540,7 +1558,7 @@ private fun LazyListScope.tasteMatchesSections(
                         isFollowing = allFollowedIds.contains(match.user.id),
                         onUserTap = {
                             viewModel.logSearchSectionUserTapped(SearchSection.TasteMatches, match.user.id)
-                            onNavigateToUser(match.user.id)
+                            onNavigateToUser(match.user)
                         },
                         onFollowTap = { viewModel.toggleFollow(match.user, SearchSection.TasteMatches) },
                         modifier = Modifier.width(cardWidth),
@@ -1568,7 +1586,7 @@ private fun LazyListScope.popularSection(
     showUnfollowedPopularToggle: Boolean,
     onSetFilterUnfollowedPopular: (Boolean) -> Unit,
     viewModel: SearchViewModel,
-    onNavigateToUser: (String) -> Unit,
+    onNavigateToUser: (CymbalUser) -> Unit,
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
 ) {
     // ── Popular on Corus — paginated horizontal rail of real users ──
@@ -1584,7 +1602,7 @@ private fun LazyListScope.popularSection(
             followedIds = allFollowedIds,
             onUserTap = { user ->
                 viewModel.logSearchSectionUserTapped(SearchSection.Popular, user.id)
-                onNavigateToUser(user.id)
+                onNavigateToUser(user)
             },
             onFollowTap = { user -> viewModel.toggleFollow(user, SearchSection.Popular) },
             onSeeAll = {
@@ -1611,7 +1629,7 @@ private fun LazyListScope.clubMembersSection(
     isLoading: Boolean = false,
     allFollowedIds: Set<String>,
     viewModel: SearchViewModel,
-    onNavigateToUser: (String) -> Unit,
+    onNavigateToUser: (CymbalUser) -> Unit,
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
 ) {
     // ── Corus Club Members ──
@@ -1640,7 +1658,7 @@ private fun LazyListScope.clubMembersSection(
                     followedIds = allFollowedIds,
                     onUserTap = { user ->
                         viewModel.logSearchSectionUserTapped(SearchSection.ClubMembers, user.id)
-                        onNavigateToUser(user.id)
+                        onNavigateToUser(user)
                     },
                     onFollowTap = { user -> viewModel.toggleFollow(user, SearchSection.ClubMembers) },
                     memberSinceLabel = { "" },
@@ -1656,7 +1674,7 @@ private fun LazyListScope.artistsOnCorusSection(
     artists: List<CymbalUser>,
     allFollowedIds: Set<String>,
     viewModel: SearchViewModel,
-    onNavigateToUser: (String) -> Unit,
+    onNavigateToUser: (CymbalUser) -> Unit,
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
 ) {
     if (artists.isEmpty()) return
@@ -1679,7 +1697,7 @@ private fun LazyListScope.artistsOnCorusSection(
             followedIds = allFollowedIds,
             onUserTap = { user ->
                 viewModel.logSearchSectionUserTapped(SearchSection.ArtistsOnCorus, user.id)
-                onNavigateToUser(user.id)
+                onNavigateToUser(user)
             },
             onFollowTap = { user -> viewModel.toggleFollow(user, SearchSection.ArtistsOnCorus) },
             memberSinceLabel = { "" },
@@ -1702,7 +1720,7 @@ private fun LazyListScope.mutualConnectionsSection(
     mutualConnectionUsers: List<SuggestedUserMatch>,
     allFollowedIds: Set<String>,
     viewModel: SearchViewModel,
-    onNavigateToUser: (String) -> Unit,
+    onNavigateToUser: (CymbalUser) -> Unit,
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
 ) {
     // ── Mutual Connections section ──
@@ -1727,7 +1745,7 @@ private fun LazyListScope.mutualConnectionsSection(
                 followedIds = allFollowedIds,
                 onUserTap = { user ->
                     viewModel.logSearchSectionUserTapped(SearchSection.MutualConnections, user.id)
-                    onNavigateToUser(user.id)
+                    onNavigateToUser(user)
                 },
                 onFollowTap = { user -> viewModel.toggleFollow(user, SearchSection.MutualConnections) },
             )
@@ -1741,7 +1759,7 @@ private fun LazyListScope.newOnCorusSection(
     isLoading: Boolean = false,
     mutualConnectionUsers: List<SuggestedUserMatch>,
     viewModel: SearchViewModel,
-    onNavigateToUser: (String) -> Unit,
+    onNavigateToUser: (CymbalUser) -> Unit,
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
 ) {
     // ── New on Corus ──
@@ -1774,7 +1792,7 @@ private fun LazyListScope.newOnCorusSection(
                     isFollowed = viewModel.isFollowed(user.id),
                     onTap = {
                         viewModel.logSearchSectionUserTapped(SearchSection.NewOnCorus, user.id)
-                        onNavigateToUser(user.id)
+                        onNavigateToUser(user)
                     },
                     onFollow = { viewModel.toggleFollow(user, SearchSection.NewOnCorus) },
                 )
@@ -2366,7 +2384,7 @@ private fun UnifiedZeroStateContent(
     trendingArtistsSectionEnabled: Boolean,
     followedHashtagNames: Set<String>,
     viewModel: SearchViewModel,
-    onNavigateToUser: (String) -> Unit,
+    onNavigateToUser: (CymbalUser) -> Unit,
     onNavigateToSuggestedUsers: (title: String, useRowLayout: Boolean, source: String) -> Unit,
     onNavigateToContactFriends: () -> Unit,
     onNavigateToSong: (CymbalTrack) -> Unit,
@@ -2605,7 +2623,7 @@ private fun UnifiedAllResults(
     viewModel: SearchViewModel,
     nowPlaying: fm.corus.android.domain.NowPlayingManager,
     onSelectFilter: (UnifiedSearchFilter) -> Unit,
-    onNavigateToUser: (String) -> Unit,
+    onNavigateToUser: (CymbalUser) -> Unit,
     onNavigateToSong: (CymbalTrack) -> Unit,
     onNavigateToFilm: (FilmDetailRoute) -> Unit,
     onNavigateToArtist: (fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit,
@@ -2749,7 +2767,7 @@ private fun UnifiedAllResults(
                 SuggestedUserRow(
                     user = user,
                     isFollowed = followedUserIds.contains(user.id),
-                    onTap = { onNavigateToUser(user.id) },
+                    onTap = { onNavigateToUser(user) },
                     onFollow = { viewModel.toggleFollow(user) },
                 )
             }
@@ -3068,7 +3086,7 @@ private fun UserSearchResults(
     results: List<CymbalUser>,
     isSearching: Boolean,
     viewModel: SearchViewModel,
-    onNavigateToUser: (String) -> Unit,
+    onNavigateToUser: (CymbalUser) -> Unit,
 ) {
     val followingIds by viewModel.followingIds.collectAsState()
     val localFollowedIds by viewModel.localFollowedIds.collectAsState()
@@ -3093,7 +3111,7 @@ private fun UserSearchResults(
                 SuggestedUserRow(
                     user = user,
                     isFollowed = followedUserIds.contains(user.id),
-                    onTap = { onNavigateToUser(user.id) },
+                    onTap = { onNavigateToUser(user) },
                     onFollow = { viewModel.toggleFollow(user) },
                 )
             }

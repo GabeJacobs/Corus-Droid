@@ -68,6 +68,13 @@ class TasteMatchesRailViewModelTest {
         vm.matches.value.none { it.user.id !in followed }
 
     @Test
+    fun `isLoading starts true so the first Search frame reserves skeleton height`() {
+        val vm = vm()
+        assertTrue(vm.isLoading.value)
+        assertTrue(vm.matches.value.isEmpty())
+    }
+
+    @Test
     fun `default loads the full first page unfiltered`() = runTest(testDispatcher) {
         whenever(userRepository.getTasteMatchesPage(anyOrNull(), any()))
             .thenReturn(page(listOf("a", "b", "c"), cursor = null, hasMore = false))

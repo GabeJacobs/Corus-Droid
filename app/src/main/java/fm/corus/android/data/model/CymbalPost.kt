@@ -176,12 +176,15 @@ data class CymbalPost(
             val mediaTypeStr = data["mediaType"] as? String
             val mediaType = MediaType.from(mediaTypeStr)
 
-            val trackSource = TrackSource.fromRaw(data["trackSource"] as? String ?: data["source"] as? String)
+            val rawTrackId = data["trackId"] as? String ?: ""
+            val trackSource = if (rawTrackId.startsWith("bc:")) TrackSource.BANDCAMP
+            else TrackSource.fromRaw(data["trackSource"] as? String ?: data["source"] as? String)
             val isTrackSoundCloud = trackSource == TrackSource.SOUNDCLOUD
             // Audiomack is link-out only and not on Spotify — blank the Spotify
             // fields (like SoundCloud) so no broken "Open in Spotify" link is
             // synthesized from a non-Spotify trackId.
             val isTrackAudiomack = trackSource == TrackSource.AUDIOMACK
+            val isTrackBandcamp = trackSource == TrackSource.BANDCAMP
             // TIDAL/Deezer exclusives get the same Audiomack treatment: link-out
             // only and not on Spotify, so the Spotify fields stay blank too.
             val isTrackTidalOrDeezer = trackSource == TrackSource.TIDAL || trackSource == TrackSource.DEEZER
@@ -203,8 +206,8 @@ data class CymbalPost(
                 albumId = (data["albumId"] as? String)?.ifEmpty { null },
                 albumArtURL = data["albumArtThumbnailURL"] as? String ?: data["albumArtURL"] as? String,
                 albumArtLargeURL = data["albumArtLargeURL"] as? String,
-                spotifyURI = if (isTrackSoundCloud || isTrackAudiomack || isTrackTidalOrDeezer) "" else (data["spotifyURI"] as? String ?: ""),
-                spotifyWebURL = if (isTrackSoundCloud || isTrackAudiomack || isTrackTidalOrDeezer) "" else (data["spotifyWebURL"] as? String ?: ""),
+                spotifyURI = if (isTrackSoundCloud || isTrackAudiomack || isTrackBandcamp || isTrackTidalOrDeezer) "" else (data["spotifyURI"] as? String ?: ""),
+                spotifyWebURL = if (isTrackSoundCloud || isTrackAudiomack || isTrackBandcamp || isTrackTidalOrDeezer) "" else (data["spotifyWebURL"] as? String ?: ""),
                 durationMs = (data["durationMs"] as? Number)?.toInt() ?: 0,
                 previewUrl = data["previewUrl"] as? String ?: data["previewURL"] as? String,
                 isrc = data["isrc"] as? String,
@@ -232,6 +235,11 @@ data class CymbalPost(
                 tidalURL = (data["tidalURL"] as? String)?.ifEmpty { null },
                 deezerId = (data["deezerId"] as? String)?.ifEmpty { null },
                 deezerURL = (data["deezerURL"] as? String)?.ifEmpty { null },
+                bandcampId = (data["bandcampId"] as? String)?.ifEmpty { null }
+                    ?: rawTrackId.takeIf { it.startsWith("bc:") }?.removePrefix("bc:"),
+                bandcampUrl = (data["bandcampUrl"] as? String)?.ifEmpty { null },
+                bandcampArtistUrl = (data["bandcampArtistUrl"] as? String)?.ifEmpty { null },
+                bandcampAlbumUrl = (data["bandcampAlbumUrl"] as? String)?.ifEmpty { null },
                 // Tri-state, drives the service badge. Preserve "" (resolver
                 // confirmed NOT on Apple Music) vs null (unknown / field absent).
                 // Don't collapse "" to null, or a confirmed Spotify-only track

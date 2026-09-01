@@ -144,6 +144,9 @@ fun HorizontalTasteMatchesRail(
             trailingAction = trailingAction,
         )
 
+        // isLoading starts true so this row is reserved on the first Search
+        // frame — otherwise the header paints alone until fetchPage flips the
+        // flag (after SEARCH_LIVE_LOAD_DELAY_MS) and the rail jumps down.
         if (matches.isEmpty() && isLoading) {
             SkeletonRow(cardWidth = cardWidth)
         } else if (visibleMatches.isNotEmpty()) {
@@ -234,7 +237,9 @@ class TasteMatchesRailViewModel @Inject constructor(
     private val _matches = MutableStateFlow<List<SuggestedUserMatch>>(emptyList())
     val matches: StateFlow<List<SuggestedUserMatch>> = _matches.asStateFlow()
 
-    private val _isLoading = MutableStateFlow(false)
+    // True until the first page settles so the first Search frame reserves
+    // skeleton-card height instead of a collapsed rail under the header.
+    private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _endReached = MutableStateFlow(false)
@@ -283,6 +288,7 @@ class TasteMatchesRailViewModel @Inject constructor(
             // the next appearance silently retries instead of showing an empty rail.
             if (loadFailed && _matches.value.isEmpty()) {
                 hasLoadedInitial = false
+                _isLoading.value = true
             }
         }
     }

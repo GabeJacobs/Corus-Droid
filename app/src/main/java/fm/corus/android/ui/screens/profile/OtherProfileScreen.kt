@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VolumeOff
@@ -301,6 +302,25 @@ fun OtherProfileScreen(
     val immersive = viewModel.immersiveArtistHeaderEnabled
     val frost = rememberImmersiveHeaderState(immersive)
 
+    // Same principal as iOS OtherProfileView: username + flair, no @.
+    // Used by both the TopAppBar and the immersive frosted bar.
+    val titleUsername = profile?.username ?: initialUsername.orEmpty()
+    val otherProfileTitle: @Composable () -> Unit = {
+        if (titleUsername.isNotBlank()) {
+            UsernameWithFlair(
+                username = titleUsername,
+                isBot = profile?.isBot == true,
+                isVerified = profile?.isVerified == true,
+                isClubMember = profile?.isClubMember == true,
+                flairStyle = profile?.flairStyle
+                    ?: fm.corus.android.data.model.FlairStyle.NONE,
+                showAtPrefix = false,
+                style = CorusFont.usernameLarge,
+                color = CorusColors.Text,
+            )
+        }
+    }
+
     // Profile action icons (message / notify / favorite / menu) — shared between
     // the plain TopAppBar (non-immersive) and the frosted bar (immersive) so there
     // is a single definition.
@@ -496,22 +516,7 @@ fun OtherProfileScreen(
             // Immersive draws the shared frosted bar over the content below instead.
             if (!immersive) {
                 TopAppBar(
-                    title = {
-                        val titleUsername = profile?.username ?: initialUsername.orEmpty()
-                        if (titleUsername.isNotBlank()) {
-                            UsernameWithFlair(
-                                username = titleUsername,
-                                isBot = profile?.isBot == true,
-                                isVerified = profile?.isVerified == true,
-                                isClubMember = profile?.isClubMember == true,
-                                flairStyle = profile?.flairStyle
-                                    ?: fm.corus.android.data.model.FlairStyle.NONE,
-                                showAtPrefix = false,
-                                style = CorusFont.usernameLarge,
-                                color = CorusColors.Text,
-                            )
-                        }
-                    },
+                    title = { otherProfileTitle() },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(fm.corus.android.R.string.common_back), tint = CorusColors.Text)
@@ -672,12 +677,8 @@ fun OtherProfileScreen(
                                 ) {
                                     val hintFollowing = initialIsFollowing == true
                                     ProfileFollowPill(isFollowing = hintFollowing)
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(CorusSpacing.profileActionHeight)
-                                            .clip(RoundedCornerShape(50))
-                                            .border(1.dp, CorusColors.Divider, RoundedCornerShape(50)),
+                                    ProfileMessagePill(
+                                        onClick = { onNavigateToMessages("", userId) },
                                     )
                                     Box(
                                         modifier = Modifier
@@ -688,7 +689,7 @@ fun OtherProfileScreen(
                                         contentAlignment = Alignment.Center,
                                     ) {
                                         Icon(
-                                            painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
+                                            imageVector = Icons.Filled.QueueMusic,
                                             contentDescription = stringResource(fm.corus.android.R.string.profile_cd_playlist),
                                             modifier = Modifier.size(CorusSpacing.profileActionPlaylistIcon),
                                             tint = CorusColors.Secondary,
@@ -996,26 +997,9 @@ fun OtherProfileScreen(
                                 },
                             )
                             if (!currentProfile.isBot) {
-                                val messageShape = RoundedCornerShape(50)
-                                val messageStyle = profileActionButtonBaseStyle(
-                                    LocalConfiguration.current.screenWidthDp,
+                                ProfileMessagePill(
+                                    onClick = { onNavigateToMessages("", userId) },
                                 )
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(messageShape)
-                                        .border(1.dp, CorusColors.Divider, messageShape)
-                                        .clickable { onNavigateToMessages("", userId) }
-                                        .height(CorusSpacing.profileActionHeight)
-                                        .padding(horizontal = CorusSpacing.sm),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    ShrinkToFitText(
-                                        text = stringResource(fm.corus.android.R.string.other_profile_cd_message),
-                                        style = messageStyle,
-                                        color = CorusColors.Secondary,
-                                    )
-                                }
                             }
                             Box(
                                 modifier = Modifier
@@ -1057,7 +1041,7 @@ fun OtherProfileScreen(
                                     )
                                 } else {
                                     Icon(
-                                        painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
+                                        imageVector = Icons.Filled.QueueMusic,
                                         contentDescription = stringResource(fm.corus.android.R.string.profile_cd_playlist),
                                         modifier = Modifier
                                             .size(CorusSpacing.profileActionPlaylistIcon)
@@ -1451,9 +1435,10 @@ fun OtherProfileScreen(
         if (immersive) {
             ImmersiveFrostedBar(
                 hazeState = frost.hazeState,
-                title = null,
+                title = titleUsername,
                 onBack = onBack,
                 topInset = frost.statusBarPadding,
+                titleContent = otherProfileTitle,
                 actions = profileActions,
             )
         }
@@ -1769,6 +1754,34 @@ private fun StatDivider() {
  * (which passes followsMe=false) so both stay in sync. Call inside a Row.
  */
 @Composable
+internal fun RowScope.ProfileMessagePill(
+    onClick: (() -> Unit)? = null,
+) {
+    val messageShape = RoundedCornerShape(50)
+    val messageStyle = profileActionButtonBaseStyle(
+        LocalConfiguration.current.screenWidthDp,
+    )
+    Box(
+        modifier = Modifier
+            .weight(1f)
+            .clip(messageShape)
+            .border(1.dp, CorusColors.Divider, messageShape)
+            .then(
+                if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
+            )
+            .height(CorusSpacing.profileActionHeight)
+            .padding(horizontal = CorusSpacing.sm),
+        contentAlignment = Alignment.Center,
+    ) {
+        ShrinkToFitText(
+            text = stringResource(fm.corus.android.R.string.other_profile_button_message),
+            style = messageStyle,
+            color = CorusColors.Secondary,
+        )
+    }
+}
+
+@Composable
 internal fun RowScope.ProfileFollowPill(
     isFollowing: Boolean,
     followsMe: Boolean = false,
@@ -1848,7 +1861,7 @@ private fun FollowingOptionsSheet(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = CorusSpacing.lg)
-            .padding(bottom = CorusSpacing.sm),
+            .padding(bottom = CorusSpacing.lg),
     ) {
         if (username.isNotBlank()) {
             Text(
@@ -1858,7 +1871,7 @@ private fun FollowingOptionsSheet(
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = CorusSpacing.xxl, bottom = CorusSpacing.lg),
+                    .padding(top = CorusSpacing.lg, bottom = CorusSpacing.lg),
             )
         }
 

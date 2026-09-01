@@ -26,12 +26,11 @@ class LazyListScrollTest {
     }
 
     @Test
-    fun `scrollToItem offset subtracts the chrome pad instead of stacking it`() {
-        // Frozen overlay pad still on the list; pin under the status bar.
-        assertEquals(70, scrollOffsetToAlignItemTop(beforeContentPadding = 150, topInsetPx = 80))
-        // No pad — same as a negative inset (item sits below y=0).
-        assertEquals(-80, scrollOffsetToAlignItemTop(beforeContentPadding = 0, topInsetPx = 80))
-        assertEquals(0, scrollOffsetToAlignItemTop(beforeContentPadding = 150, topInsetPx = 150))
-        assertEquals(150, scrollOffsetToAlignItemTop(beforeContentPadding = 150, topInsetPx = 0))
+    fun `follow inset lifts 60pt and will not go above the viewport`() {
+        assertEquals(1, computeFollowScrollTopInset(statusBarPx = 48, peekPx = 13, liftPx = 60))
+        assertEquals(61, computeFollowScrollTopInset(statusBarPx = 48, peekPx = 13, liftPx = 0))
+        assertEquals(11, computeFollowScrollTopInset(statusBarPx = 48, peekPx = 13, liftPx = 50))
+        // Short device + large lift stops at the top of the list, not above it.
+        assertEquals(0, computeFollowScrollTopInset(statusBarPx = 20, peekPx = 10, liftPx = 60))
     }
 }

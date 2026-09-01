@@ -1,6 +1,7 @@
 package fm.corus.android.ui.screens.notifications
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -72,6 +73,8 @@ import fm.corus.android.data.model.CymbalNotification
 import fm.corus.android.data.model.TasteMatchDiscoveryItem
 import fm.corus.android.data.model.NotificationType
 import fm.corus.android.domain.NotificationFilter
+import fm.corus.android.domain.NotificationFilterListPhase
+import fm.corus.android.domain.NotificationFilterVisibility
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.LocalContainingTabSelected
@@ -106,11 +109,11 @@ fun NotificationsScreen(
     disabledBannerDismissed: Boolean = true,
     onDismissDisabledBanner: () -> Unit = {},
 ) {
-    val notifications by viewModel.notifications.collectAsState()
     val displayedNotifications by viewModel.displayedNotifications.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
     val showFilterChips by viewModel.showFilterChips.collectAsState()
     val isFilterLoading by viewModel.isFilterLoading.collectAsState()
+    val loadedChips by viewModel.loadedChips.collectAsState()
     val hasMoreToLoad by viewModel.hasMoreToLoad.collectAsState()
     var showFavoriteInfo by remember { mutableStateOf(false) }
     val isLoading by viewModel.isLoading.collectAsState()
@@ -276,27 +279,45 @@ fun NotificationsScreen(
                 // until filter chips unlock, then chips replace this.
                 ActivityStandaloneTitle()
             }
-            val showSkeleton = (isLoading && notifications.isEmpty()) ||
-                (isFilterLoading && displayedNotifications.isEmpty())
-            var contentRevealed by remember {
-                mutableStateOf(!showSkeleton && displayedNotifications.isNotEmpty())
-            }
-            LaunchedEffect(showSkeleton) {
-                contentRevealed = !showSkeleton
-            }
-            val contentAlpha by animateFloatAsState(
-                targetValue = if (contentRevealed) 1f else 0f,
-                animationSpec = tween(durationMillis = CorusMotion.DURATION_NORMAL),
-                label = "activityReveal",
+            val listPhase = NotificationFilterVisibility.listPhase(
+                filter = selectedFilter,
+                displayedIsEmpty = displayedNotifications.isEmpty(),
+                isLoadingAll = isLoading,
+                chipLoaded = selectedFilter in loadedChips,
+                isFilterLoading = isFilterLoading,
             )
+            val isSkeleton = listPhase == NotificationFilterListPhase.SKELETON
+            val contentAnim = remember { Animatable(if (isSkeleton) 0f else 1f) }
+            LaunchedEffect(isSkeleton) {
+                if (isSkeleton) {
+                    // Snap, don't ease out — leftover All-list opacity would
+                    // otherwise paint a frame of rows under the bones.
+                    contentAnim.snapTo(0f)
+                } else {
+                    contentAnim.animateTo(
+                        1f,
+                        tween(
+                            durationMillis = CorusMotion.DURATION_NORMAL,
+                            easing = LinearOutSlowInEasing,
+                        ),
+                    )
+                }
+            }
+            LaunchedEffect(selectedFilter) {
+                // Cached chips stay on `.content`, so the skeleton effect
+                // never fires. If a prior tap zeroed the fade, put the list back.
+                if (!isSkeleton && contentAnim.value < 1f) {
+                    contentAnim.snapTo(1f)
+                }
+            }
+            val contentAlpha = contentAnim.value
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            if (showSkeleton || contentAlpha < 1f) {
-                // Full opacity while waiting; fade out with the list so
-                // leftover dividers below a short inbox don't snap away.
+            if (isSkeleton || contentAlpha < 1f) {
+                // Bones stay up until the list covers them — same as iOS.
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .alpha(if (showSkeleton) 1f else 1f - contentAlpha),
+                        .alpha(if (isSkeleton) 1f else 1f - contentAlpha),
                     userScrollEnabled = false,
                 ) {
                     items(12) { index ->
@@ -304,14 +325,14 @@ fun NotificationsScreen(
                     }
                 }
             }
-            if (!showSkeleton) when {
+            if (!isSkeleton) when {
                 displayedNotifications.isEmpty() && !isLoading && hasLoadError && selectedFilter == NotificationFilter.ALL -> {
                     OfflineRetryState(
                         onRetry = { viewModel.retryLoad() },
                         modifier = Modifier.alpha(contentAlpha),
                     )
                 }
-                displayedNotifications.isEmpty() && !isLoading -> {
+                listPhase == NotificationFilterListPhase.EMPTY -> {
                     Column(modifier = Modifier.fillMaxSize().alpha(contentAlpha)) {
                         if (showDisabledBanner) {
                             NotificationDisabledBanner(
@@ -524,7 +545,10 @@ private fun NotificationFilterChipRow(
     onSelect: (NotificationFilter) -> Unit,
 ) {
     LazyRow(
-        modifier = Modifier.fillMaxWidth().padding(bottom = CorusSpacing.md),
+        modifier = Modifier
+            .fillMaxWidth()
+            // sm + xs — a little more air under the status strip than iOS.
+            .padding(top = CorusSpacing.sm + CorusSpacing.xs, bottom = CorusSpacing.md),
         contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
     ) {
@@ -550,7 +574,7 @@ private fun NotificationFilterChipRow(
                 contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
                 modifier = Modifier.height(32.dp),
             ) {
-                Text(label, style = CorusFont.buttonSmall)
+                Text(label, style = CorusFont.captionMedium)
             }
         }
     }

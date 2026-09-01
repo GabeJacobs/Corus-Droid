@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
+import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.screens.search.ContactFriendsListScreen
@@ -61,7 +62,7 @@ import fm.corus.android.ui.theme.CorusSpacing
 @Composable
 fun SyncContactsSettingsScreen(
     onBack: () -> Unit = {},
-    onNavigateToUser: (String) -> Unit = {},
+    onNavigateToUser: (CymbalUser) -> Unit = {},
     viewModel: ContactFriendsListViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current

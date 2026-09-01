@@ -65,6 +65,7 @@ class MessageThreadScreenAccessTest {
             messageRepository = messageRepository,
             authRepository = mock<AuthRepository> { on { currentUserId } doReturn "me" },
             userRepository = mock<UserRepository> { on { blockedIds } doReturn MutableStateFlow(emptySet()) },
+            exploreRepository = mock(),
             postRepository = mock(),
             remoteConfigService = mock<RemoteConfigService>(),
             gifRepository = mock(),
@@ -100,5 +101,66 @@ class MessageThreadScreenAccessTest {
 
         composeRule.onNodeWithText(context.getString(R.string.messaging_thread_unavailable)).assertDoesNotExist()
         composeRule.onNodeWithText(incoming.text!!).assertIsDisplayed()
+    }
+
+    @Test
+    fun `an empty 1-1 thread shows the profile opener above the composer`() {
+        val messageRepository = mock<MessageRepository> {
+            on { listenToMessages(any()) } doReturn flowOf(emptyList())
+            on { listenToGroupThreadInfo(any()) } doReturn emptyFlow()
+            on { listenToRecipientUnreadCount(any(), any()) } doReturn emptyFlow()
+            on { listenToReadReceiptsEnabled(any()) } doReturn emptyFlow()
+            on { listenToThreadRow(any(), any()) } doReturn
+                flowOf(
+                    MessageRepository.ThreadRowSnapshot(
+                        thread = CymbalThread(id = "thread1", otherUserId = "other"),
+                        fromCache = false,
+                    ),
+                )
+        }
+        val userRepository = mock<UserRepository> {
+            on { blockedIds } doReturn MutableStateFlow(emptySet())
+            onBlocking { fetchUserProfile(any()) } doReturn fm.corus.android.data.model.CymbalUser(
+                id = "other",
+                username = "devynbrowne",
+                displayName = "Devyn",
+                artistsInCommonCount = 3,
+            )
+        }
+        val viewModel = MessageThreadViewModel(
+            messageRepository = messageRepository,
+            authRepository = mock<AuthRepository> { on { currentUserId } doReturn "me" },
+            userRepository = userRepository,
+            exploreRepository = mock(),
+            postRepository = mock(),
+            remoteConfigService = mock<RemoteConfigService>(),
+            gifRepository = mock(),
+            nowPlayingManager = mock(),
+            analyticsService = mock(),
+            context = context,
+        )
+
+        composeRule.setContent {
+            CompositionLocalProvider(LocalHapticManager provides mock<HapticManager>()) {
+                MessageThreadScreen(
+                    threadId = "thread1",
+                    otherUserId = "other",
+                    viewModel = viewModel,
+                )
+            }
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("Devyn").assertIsDisplayed()
+        composeRule.onNodeWithText("@devynbrowne").assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.notif_taste_match_body_artists, 3),
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.messaging_thread_view_profile),
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.messaging_thread_placeholder),
+        ).assertIsDisplayed()
     }
 }

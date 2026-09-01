@@ -787,6 +787,7 @@
     <string name="messaging_restriction_name_fallback">상대방</string>
     <string name="messaging_thread_failed_to_deliver">전송하지 못했어요</string>
     <string name="messaging_thread_tap_to_retry">· 눌러서 다시 시도</string>
+    <string name="messaging_thread_view_profile">프로필 보기</string>
 
     <!-- Messaging: list -->
     <string name="messaging_list_title">메시지</string>

@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.SkeletonTasteMatchCard
@@ -29,7 +30,7 @@ fun BotListScreen(
     botType: String? = null,
     viewModel: BotListViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
-    onNavigateToUser: (String) -> Unit = {},
+    onNavigateToUser: (CymbalUser) -> Unit = {},
 ) {
     val bots by viewModel.bots.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -96,7 +97,7 @@ fun BotListScreen(
                     TasteMatchCard(
                         match = match,
                         isFollowing = followedIds.contains(match.user.id),
-                        onUserTap = { onNavigateToUser(match.user.id) },
+                        onUserTap = { onNavigateToUser(match.user) },
                         onFollowTap = { viewModel.toggleFollow(match.user) },
                     )
                 }

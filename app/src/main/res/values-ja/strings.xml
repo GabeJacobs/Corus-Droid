@@ -714,6 +714,7 @@
     <string name="messaging_restriction_name_fallback">相手</string>
     <string name="messaging_thread_failed_to_deliver">配信できませんでした</string>
     <string name="messaging_thread_tap_to_retry">· タップして再試行</string>
+    <string name="messaging_thread_view_profile">プロフィールを見る</string>
     <string name="messaging_list_title">メッセージ</string>
     <string name="messaging_list_cd_new_message">新しいメッセージ</string>
     <string name="messaging_list_empty">まだメッセージがありません</string>

@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.*
@@ -80,6 +81,7 @@ import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import android.graphics.Bitmap
+import fm.corus.android.ui.components.ComposePlusButton
 import fm.corus.android.ui.components.AvatarCropView
 import fm.corus.android.ui.components.LocalContainingTabSelected
 import fm.corus.android.ui.components.FrostedStatusStrip
@@ -486,37 +488,22 @@ fun ProfileScreen(
                 if (immersive) Spacer(Modifier.height(frost.statusBarPadding))
                 // ── Header Row: compose + / @username + flair / style + settings ──
                 val titleSideWidth = maxOf(
-                    CorusSpacing.composePlusSide,
-                    CorusSpacing.profileStyleIcon + CorusSpacing.md + CorusSpacing.profileSettingsIcon,
+                    CorusSpacing.composePlusLeading + CorusSpacing.composePlusSide,
+                    CorusSpacing.profileStyleIcon + CorusSpacing.md +
+                        CorusSpacing.profileSettingsIcon + CorusSpacing.composePlusLeading,
                 )
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(
-                            start = CorusSpacing.composePlusLeading,
-                            end = CorusSpacing.lg,
-                            top = CorusSpacing.md,
-                            bottom = CorusSpacing.md,
-                        ),
+                        .padding(top = CorusSpacing.headerTitleRowTop)
+                        .height(CorusSpacing.headerTitleRowHeight),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(
                         modifier = Modifier.width(titleSideWidth),
                         contentAlignment = Alignment.CenterStart,
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(CorusSpacing.composePlusSide)
-                                .clickable { onOpenCompose("track") },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Add,
-                                contentDescription = stringResource(fm.corus.android.R.string.tab_cd_compose),
-                                tint = CorusColors.Secondary,
-                                modifier = Modifier.size(CorusSpacing.composePlusIcon),
-                            )
-                        }
+                        ComposePlusButton(onClick = { onOpenCompose("track") })
                     }
 
                     Box(
@@ -540,17 +527,20 @@ fun ProfileScreen(
                     }
 
                     Row(
-                        modifier = Modifier.width(titleSideWidth),
+                        modifier = Modifier
+                            .width(titleSideWidth)
+                            .padding(end = CorusSpacing.composePlusLeading),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md, Alignment.End),
                     ) {
-                        if (posts.isNotEmpty()) {
+                        if (currentProfile.cymbalCount > 0) {
                             Icon(
                                 painter = painterResource(fm.corus.android.R.drawable.corus_club_vector),
                                 contentDescription = stringResource(fm.corus.android.R.string.profile_cd_customize),
                                 tint = CorusColors.Accent,
                                 modifier = Modifier
                                     .size(CorusSpacing.profileStyleIcon)
+                                    .offset(y = 1.dp)
                                     .clickable { showStylePicker = true },
                             )
                         }
@@ -564,6 +554,7 @@ fun ProfileScreen(
                         )
                     }
                 }
+                Spacer(Modifier.height(CorusSpacing.md))
             }
         }
 
@@ -809,7 +800,7 @@ fun ProfileScreen(
                                 )
                             } else {
                                 Icon(
-                                    painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
+                                    imageVector = Icons.Filled.QueueMusic,
                                     contentDescription = stringResource(fm.corus.android.R.string.profile_cd_playlist),
                                     modifier = Modifier
                                         .size(CorusSpacing.profileActionPlaylistIcon)

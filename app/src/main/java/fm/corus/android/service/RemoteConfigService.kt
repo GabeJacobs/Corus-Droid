@@ -168,6 +168,24 @@ class RemoteConfigService @Inject constructor(
     val soundcloudEnabled: Boolean
         get() = remoteConfig.getBoolean("soundcloud_enabled")
 
+    /**
+     * Client gate for Bandcamp catalog search. Default OFF; Firebase RC
+     * `bandcamp_enabled` is ON for @clifton only. Existing `bc:` posts still
+     * render. Flip the RC default after clients have adopted.
+     */
+    val bandcampEnabled: Boolean
+        get() = isBandcampEnabled(
+            viewerUid = auth.currentUser?.uid,
+            viewerUsername = auth.currentUser?.displayName,
+        )
+
+    fun isBandcampEnabled(viewerUid: String?, viewerUsername: String? = null): Boolean {
+        if (flagWithDefault("bandcamp_enabled", false)) return true
+        if (viewerUid == BANDCAMP_TESTER_UID) return true
+        val name = viewerUsername?.trim()?.lowercase().orEmpty()
+        return name == BANDCAMP_TESTER_USERNAME
+    }
+
     /// Master gate for the TIDAL music-service integration (onboarding + settings
     /// service picker). Keep OFF until web + iOS + Android all ship — otherwise a
     /// user could pick TIDAL on one client with no support on another. Mirrors
@@ -690,6 +708,10 @@ class RemoteConfigService @Inject constructor(
         /// Debug builds only — [spotifyFtueVariant] ignores this in release.
         val debugSpotifyFtueVariantOverride: String? = null
 
+        /** Matches iOS `BandcampGate` and backend `BANDCAMP_SEARCH_TEST_UIDS`. */
+        const val BANDCAMP_TESTER_UID = "u3UmswvOg5c2r9zYlOidJYFzqbp2"
+        const val BANDCAMP_TESTER_USERNAME = "clifton"
+
         /// In-app Remote Config defaults. Applied locally in init() (so flag-gated
         /// UI is correct before any network fetch) and re-applied in
         /// fetchAndActivate(). Single source of truth — keep in sync with the
@@ -714,6 +736,7 @@ class RemoteConfigService @Inject constructor(
             "favorite_people_cap_enforced" to true,
             "favorite_people_cap_limit" to 4L,
             "soundcloud_enabled" to false,
+            "bandcamp_enabled" to false,
             "tidal_enabled" to true,
             "tidal_full_playback_enabled" to false,
             "youtube_music_enabled" to false,

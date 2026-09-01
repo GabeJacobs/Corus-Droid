@@ -105,6 +105,17 @@ private fun rememberRemoteConfig(): fm.corus.android.service.RemoteConfigService
     }
 }
 
+@Composable
+private fun rememberUserRepository(): UserRepository {
+    val context = LocalContext.current
+    return remember(context) {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            UserRepositoryEntryPoint::class.java,
+        ).userRepository()
+    }
+}
+
 /**
  * Returns a callback that resolves a username to a user via [UserRepository] and
  * then navigates to the resolved profile. Resolving before navigation (matching
@@ -112,14 +123,8 @@ private fun rememberRemoteConfig(): fm.corus.android.service.RemoteConfigService
  */
 @Composable
 private fun rememberNavigateToUserByUsername(navController: NavHostController): (String) -> Unit {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val userRepository = remember(context) {
-        EntryPointAccessors.fromApplication(
-            context.applicationContext,
-            UserRepositoryEntryPoint::class.java,
-        ).userRepository()
-    }
+    val userRepository = rememberUserRepository()
     val unavailable = stringResource(R.string.other_profile_unavailable_title)
     return { username ->
         scope.launch {
@@ -128,7 +133,9 @@ private fun rememberNavigateToUserByUsername(navController: NavHostController): 
                 ToastManager.show(unavailable)
                 return@launch
             }
-            navController.navigate(OtherProfileRoute(user.id))
+            navController.navigate(
+                user.toOtherProfileRoute(isFollowing = userRepository.isFollowing(user.id)),
+            )
         }
     }
 }
@@ -151,13 +158,7 @@ fun FeedNavGraph(
     // Synchronous access to the cached following set so feed → profile
     // navigation can seed the correct follow state on the first frame (no
     // Follow→Following flash for authors the viewer already follows).
-    val followStateContext = LocalContext.current
-    val userRepository = remember(followStateContext) {
-        EntryPointAccessors.fromApplication(
-            followStateContext.applicationContext,
-            UserRepositoryEntryPoint::class.java,
-        ).userRepository()
-    }
+    val userRepository = rememberUserRepository()
 
     NavHost(
         navController = navController,
@@ -174,28 +175,9 @@ fun FeedNavGraph(
                 isAtRoot = isFeedTabSelected,
                 onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
                 onNavigateToUser = { user ->
-                    navController.navigate(OtherProfileRoute(
-                        userId = user.id,
-                        avatarURL = user.avatarURL,
-                        avatarThumbURL = user.avatarThumbURL,
-                        initialDisplayName = user.displayName,
-                        initialUsername = user.username,
-                        initialBio = user.bio,
-                        // The feed post's author is denormalized preview data
-                        // (fromAuthorPreview) that never carries counts, so these
-                        // are always 0 here. Leave them null so the loading header
-                        // shimmers the stats instead of flashing "0 coruses/
-                        // followers/following" until the live profile lands.
-                        initialIsVerified = user.isVerified,
-                        initialIsClubMember = user.isClubMember,
-                        // Seed the real follow state from the cached following set
-                        // (synchronous, same source as the feed's Follow pill) so
-                        // the profile opens in the correct state with no
-                        // Follow→Following flash. Hardcoding `true` here was a
-                        // Following-feed-era assumption that showed "Following" for
-                        // unfollowed Trending/For You authors.
-                        initialIsFollowing = userRepository.isFollowing(user.id),
-                    ))
+                    navController.navigate(
+                        user.toOtherProfileRoute(isFollowing = userRepository.isFollowing(user.id)),
+                    )
                 },
                 onNavigateToUserById = { userId -> navController.navigate(OtherProfileRoute(userId)) },
                 onNavigateToUserByUsername = navigateToUserByUsername,
@@ -214,6 +196,7 @@ fun FeedNavGraph(
         }
         sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowPhoto = onShowPhoto, onShowLikes = { likesPostId = it }, onShowReposters = { repostersPostId = it }, isContainingTabSelected = isFeedTabSelected, artistPagesEnabled = artistPagesEnabled)
     }
+    RestoreTabNavIfEmpty(navController)
 
     likesPostId?.let { postId ->
         LikesBottomSheet(
@@ -255,6 +238,7 @@ fun SearchNavGraph(
     var repostersPostId by remember { mutableStateOf<String?>(null) }
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
     val artistPagesEnabled = rememberArtistPagesEnabled()
+    val userRepository = rememberUserRepository()
 
     CompositionLocalProvider(LocalSkipImageRevealWhenCached provides true) {
     NavHost(
@@ -268,7 +252,11 @@ fun SearchNavGraph(
         composable<SearchTabRoute> {
             SearchScreen(
                 scrollToTopTrigger = scrollToTopTrigger,
-                onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+                onNavigateToUser = { user ->
+                    navController.navigate(
+                        user.toOtherProfileRoute(isFollowing = userRepository.isFollowing(user.id)),
+                    )
+                },
                 onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
                 onNavigateToFilm = { route -> navController.navigate(route) },
                 onNavigateToSuggestedUsers = { title, useRowLayout, source -> navController.navigate(SuggestedUsersListRoute(title, useRowLayout, source)) },
@@ -282,6 +270,7 @@ fun SearchNavGraph(
         }
         sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowPhoto = onShowPhoto, onShowLikes = { likesPostId = it }, onShowReposters = { repostersPostId = it }, isContainingTabSelected = isContainingTabSelected, artistPagesEnabled = artistPagesEnabled)
     }
+    RestoreTabNavIfEmpty(navController)
 
     likesPostId?.let { postId ->
         LikesBottomSheet(
@@ -360,6 +349,7 @@ fun NotificationsNavGraph(
         }
         sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowPhoto = onShowPhoto, onShowLikes = { likesPostId = it }, onShowReposters = { repostersPostId = it }, isContainingTabSelected = isContainingTabSelected, artistPagesEnabled = artistPagesEnabled)
     }
+    RestoreTabNavIfEmpty(navController)
 
     likesPostId?.let { postId ->
         LikesBottomSheet(
@@ -437,6 +427,7 @@ fun ProfileNavGraph(
         }
         sharedDestinations(navController, mainTabViewModel, navigateToUserByUsername = navigateToUserByUsername, onShowComments = onShowComments, onShowPhoto = onShowPhoto, onShowLikes = { likesPostId = it }, onShowReposters = { repostersPostId = it }, isContainingTabSelected = isContainingTabSelected, artistPagesEnabled = artistPagesEnabled)
     }
+    RestoreTabNavIfEmpty(navController)
 
     likesPostId?.let { postId ->
         LikesBottomSheet(
@@ -511,6 +502,7 @@ fun MessagesNavGraph(
             includeThreadList = false,
         )
     }
+    RestoreTabNavIfEmpty(navController)
 
     likesPostId?.let { postId ->
         LikesBottomSheet(
@@ -572,7 +564,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         val route = backStackEntry.toRoute<PostDetailRoute>()
         PostDetailScreen(
             postId = route.postId,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToUserByUsername = navigateToUserByUsername,
             onNavigateToComments = onShowComments,
@@ -597,7 +589,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             initialPostId = route.initialPostId,
             hashtag = route.hashtag,
             isContainingTabSelected = isContainingTabSelected,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToUserByUsername = navigateToUserByUsername,
             onNavigateToComments = onShowComments,
@@ -628,7 +620,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             initialIsVerified = route.initialIsVerified,
             initialIsClubMember = route.initialIsClubMember,
             initialIsFollowing = route.initialIsFollowing,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onNavigateToProfileFeed = { userId, username, postId, segment ->
                 navController.navigate(ProfileFeedRoute(userId, username, segment, postId))
             },
@@ -653,14 +645,14 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             if (userId != null) {
                 resolvedUserId = userId
             } else {
-                navController.popBackStack()
+                navController.safePopBackStack()
             }
         }
         resolvedUserId?.let { userId ->
             OtherProfileScreen(
                 userId = userId,
                 viewModel = viewModel,
-                onBack = { navController.popBackStack() },
+                onBack = { navController.safePopBackStack() },
                 onNavigateToProfileFeed = { uid, uname, postId, segment ->
                     navController.navigate(ProfileFeedRoute(uid, uname, segment, postId))
                 },
@@ -701,7 +693,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             releaseDate = route.releaseDate,
             releaseDatePrecision = route.releaseDatePrecision,
             albumName = route.albumName,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
             onNavigateToCompose = { track ->
@@ -723,7 +715,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             initialPosterLargeURL = route.posterLargeURL,
             initialTrailerURL = route.trailerURL,
             initialMovieReleaseDate = route.movieReleaseDate,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
             onNavigateToCompose = { movieId ->
@@ -748,7 +740,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         }
         EntityLinkScreen(
             state = state,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onRetry = { viewModel.resolve(route.segment, route.key) },
         )
     }
@@ -770,7 +762,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onInPlaceScrollConsumed = {
                 backStackEntry.savedStateHandle[CATALOG_SCROLL_TO_TRACK_KEY] = null
             },
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
             onNavigateToSong = { songRoute -> navController.navigate(songRoute) },
@@ -804,7 +796,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onInPlaceScrollConsumed = {
                 backStackEntry.savedStateHandle[CATALOG_SCROLL_TO_TRACK_KEY] = null
             },
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
             onNavigateToSong = { songRoute -> navController.navigate(songRoute) },
@@ -818,7 +810,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             directorId = route.directorId,
             nameHint = route.name,
             imageUrlHint = route.imageUrl,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
             onNavigateToFilm = { filmRoute -> navController.navigate(filmRoute) },
@@ -840,7 +832,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         fm.corus.android.ui.screens.destination.ArtistDiscographyScreen(
             artistId = route.artistId,
             nameHint = route.name,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onNavigateToAlbum = { albumRoute -> navController.navigate(albumRoute) },
         )
     }
@@ -850,7 +842,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         fm.corus.android.ui.screens.destination.ArtistMusicVideosScreen(
             artistId = route.artistId,
             nameHint = route.name,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
         )
     }
 
@@ -859,7 +851,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         fm.corus.android.ui.screens.destination.DirectorTrailersScreen(
             directorId = route.directorId,
             nameHint = route.name,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
         )
     }
 
@@ -869,7 +861,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             kind = fm.corus.android.ui.screens.destination.DestinationPostsViewModel.Kind.ARTIST,
             subjectId = route.artistId,
             subjectName = route.name,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
             onNavigateToFilm = { filmRoute -> navController.navigate(filmRoute) },
@@ -881,7 +873,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         fm.corus.android.ui.screens.destination.DirectorFilmographyScreen(
             directorId = route.directorId,
             nameHint = route.name,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onNavigateToFilm = { filmRoute -> navController.navigate(filmRoute) },
         )
     }
@@ -892,7 +884,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             kind = fm.corus.android.ui.screens.destination.DestinationPostsViewModel.Kind.DIRECTOR,
             subjectId = route.directorId,
             subjectName = route.name,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
             onNavigateToFilm = { filmRoute -> navController.navigate(filmRoute) },
@@ -903,7 +895,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         val route = backStackEntry.toRoute<HashtagFeedRoute>()
         HashtagFeedScreen(
             hashtag = route.hashtag,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
             onNavigateToHashtagFeed = { postId ->
                 navController.navigate(
@@ -930,7 +922,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         HashtagPeopleListScreen(
             hashtag = route.hashtag,
             isFollowers = route.isFollowers,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onNavigateToUser = { uid -> navController.navigate(OtherProfileRoute(uid)) },
         )
     }
@@ -943,7 +935,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             followerCount = route.followerCount,
             followingCount = route.followingCount,
             initialShowFollowers = route.isFollowers,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
         )
     }
@@ -951,12 +943,12 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     composable<EditProfileRoute> { backStackEntry ->
         val route = backStackEntry.toRoute<EditProfileRoute>()
         EditProfileScreen(
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onCustomizeProfile = {
                 navController.previousBackStackEntry
                     ?.savedStateHandle
                     ?.set("open_style_picker", true)
-                navController.popBackStack()
+                navController.safePopBackStack()
             },
         )
     }
@@ -968,20 +960,20 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             postId = route.postId,
             initialCaption = route.initialCaption,
             albumArtURL = route.albumArtURL,
-            onDismiss = { navController.popBackStack() },
+            onDismiss = { navController.safePopBackStack() },
             onSaved = { ToastManager.show(captionUpdatedMsg) },
         )
     }
 
     composable<CymbalClubOfferRoute> {
         CymbalClubOfferScreen(
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
         )
     }
 
     composable<SettingsRoute> {
         SettingsScreen(
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onChangeUsername = { navController.navigate(ChangeUsernameRoute) },
             onChangePhoneNumber = { navController.navigate(ChangePhoneNumberRoute) },
             onBlockedUsers = { navController.navigate(BlockedUsersRoute) },
@@ -994,52 +986,52 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
 
     composable<SyncContactsSettingsRoute> {
         SyncContactsSettingsScreen(
-            onBack = { navController.popBackStack() },
-            onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+            onBack = { navController.safePopBackStack() },
+            onNavigateToUser = { user -> navController.navigate(user.toOtherProfileRoute()) },
         )
     }
 
     composable<NotificationSettingsRoute> {
         NotificationSettingsScreen(
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
         )
     }
 
     composable<ChangeUsernameRoute> {
         ChangeUsernameScreen(
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
         )
     }
 
     composable<BlockedUsersRoute> {
         BlockedUsersScreen(
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
         )
     }
 
     composable<MutedUsersRoute> {
         MutedUsersScreen(
-            onNavigateBack = { navController.popBackStack() },
+            onNavigateBack = { navController.safePopBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
         )
     }
 
     composable<FeedbackFormRoute> {
         FeedbackFormScreen(
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
         )
     }
 
     composable<ChangePhoneNumberRoute> {
         ChangePhoneNumberScreen(
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
         )
     }
 
     composable<SearchRoute> {
         CompositionLocalProvider(LocalSkipImageRevealWhenCached provides true) {
         SearchScreen(
-            onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+            onNavigateToUser = { user -> navController.navigate(user.toOtherProfileRoute()) },
             onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
             onNavigateToFilm = { route -> navController.navigate(route) },
             onNavigateToSuggestedUsers = { title, useRowLayout, source -> navController.navigate(SuggestedUsersListRoute(title, useRowLayout, source)) },
@@ -1057,7 +1049,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         val route = backStackEntry.toRoute<TrendingListRoute>()
         TrendingListScreen(
             kind = route.kind,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
             onNavigateToFilm = { filmRoute -> navController.navigate(filmRoute) },
             onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
@@ -1071,8 +1063,8 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         val route = backStackEntry.toRoute<BotListRoute>()
         BotListScreen(
             botType = route.botType,
-            onBack = { navController.popBackStack() },
-            onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+            onBack = { navController.safePopBackStack() },
+            onNavigateToUser = { user -> navController.navigate(user.toOtherProfileRoute()) },
         )
     }
 
@@ -1081,7 +1073,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         SinglePostCommentsScreen(
             postId = route.postId,
             highlightCommentId = route.commentId,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
             onNavigateToFilm = { route -> navController.navigate(route) },
@@ -1103,7 +1095,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         CommentLikesScreen(
             postId = route.postId,
             commentId = route.commentId,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
         )
     }
@@ -1111,7 +1103,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     if (includeThreadList) {
     composable<ThreadListRoute> {
         ThreadListScreen(
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onThreadTap = { threadId, otherUserId ->
                 navController.navigate(MessageThreadRoute(threadId, otherUserId))
             },
@@ -1124,7 +1116,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         MessageThreadScreen(
             threadId = route.threadId,
             otherUserId = route.otherUserId,
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onNavigateToProfile = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToSong = { track ->
                 navController.navigate(track.toSongDetailRoute())
@@ -1142,6 +1134,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToDirector = { id, name, image ->
                 navigateToDirector?.invoke(DirectorPageRoute(id, name, image))
             },
+            onNavigateToHashtag = { hashtag -> navController.navigate(HashtagFeedRoute(hashtag)) },
         )
     }
 
@@ -1183,8 +1176,8 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onFollow = { viewModel.toggleFollow(it) },
             onUserTapped = { userId -> viewModel.logUserTapped(userId) },
             onVisibleRangeChange = { start, end -> viewModel.ensureClubMembersEnriched(start, end) },
-            onBack = { navController.popBackStack() },
-            onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+            onBack = { navController.safePopBackStack() },
+            onNavigateToUser = { user -> navController.navigate(user.toOtherProfileRoute()) },
             showTasteMatchesFeedCta = shouldShowTasteMatchesFeedCta(
                 source = route.source,
                 segmentedSearchEnabled = remoteConfig.segmentedSearchEnabled,
@@ -1207,8 +1200,8 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             isFollowed = { viewModel.isFollowed(it) },
             onFollow = { viewModel.toggleFollow(it) },
             onUserTapped = { userId -> viewModel.logUserTapped(userId) },
-            onBack = { navController.popBackStack() },
-            onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
+            onBack = { navController.safePopBackStack() },
+            onNavigateToUser = { user -> navController.navigate(user.toOtherProfileRoute()) },
         )
     }
 

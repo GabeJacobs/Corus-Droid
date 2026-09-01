@@ -20,7 +20,7 @@ object SongPlayRouting {
         if (service != MusicService.APPLE_MUSIC || !playFullSongs) return false
         return when (source) {
             TrackSource.SPOTIFY, TrackSource.APPLEMUSIC -> true
-            TrackSource.SOUNDCLOUD, TrackSource.AUDIOMACK, TrackSource.TIDAL, TrackSource.DEEZER -> false
+            TrackSource.SOUNDCLOUD, TrackSource.AUDIOMACK, TrackSource.BANDCAMP, TrackSource.TIDAL, TrackSource.DEEZER -> false
         }
     }
 
@@ -36,7 +36,8 @@ object SongPlayRouting {
         }
         val id = trackId ?: return false
         if (id.startsWith("am:") || id.startsWith("sc:") ||
-            id.startsWith("amk:") || id.startsWith("tdl:") || id.startsWith("dzr:")
+            id.startsWith("amk:") || id.startsWith("bc:") ||
+            id.startsWith("tdl:") || id.startsWith("dzr:")
         ) {
             return false
         }
@@ -64,7 +65,7 @@ object SongPlayRouting {
         if (service != MusicService.SPOTIFY || !playFullSongs) return false
         return when (source) {
             TrackSource.SPOTIFY, TrackSource.APPLEMUSIC -> true
-            TrackSource.SOUNDCLOUD, TrackSource.AUDIOMACK, TrackSource.TIDAL, TrackSource.DEEZER -> false
+            TrackSource.SOUNDCLOUD, TrackSource.AUDIOMACK, TrackSource.BANDCAMP, TrackSource.TIDAL, TrackSource.DEEZER -> false
         }
     }
 
@@ -86,7 +87,7 @@ object SongPlayRouting {
         if (!nativeAppInstalled(context, service)) return false
         when (source) {
             TrackSource.SPOTIFY, TrackSource.APPLEMUSIC -> Unit
-            TrackSource.SOUNDCLOUD, TrackSource.AUDIOMACK, TrackSource.TIDAL, TrackSource.DEEZER -> return false
+            TrackSource.SOUNDCLOUD, TrackSource.AUDIOMACK, TrackSource.BANDCAMP, TrackSource.TIDAL, TrackSource.DEEZER -> return false
         }
         return when (service) {
             // Apple Music full songs are iOS/MusicKit-only — never on Android.

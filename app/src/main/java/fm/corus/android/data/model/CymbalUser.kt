@@ -2,6 +2,7 @@ package fm.corus.android.data.model
 
 import java.util.Date
 import fm.corus.android.domain.PlaylistTrialUsed
+import fm.corus.android.ui.navigation.OtherProfileRoute
 
 data class CymbalUser(
     val id: String,
@@ -91,6 +92,25 @@ data class CymbalUser(
         discoIntensityLevel.visible(discoDarkModeOnly, isDark)
     val isMusicBot: Boolean get() = isBot && botType == "music"
     val isFilmBot: Boolean get() = isBot && botType == "film"
+
+    /**
+     * Seeds [OtherProfileRoute] with identity we already have so the profile
+     * header paints immediately (avatar, name, username) while stats and the
+     * grid stay on skeleton until getProfileData returns. Counts are left
+     * null — search docs and feed author previews both have counts that are
+     * either stale or zero, and iOS always waits for the live profile.
+     */
+    fun toOtherProfileRoute(isFollowing: Boolean? = null) = OtherProfileRoute(
+        userId = id,
+        avatarURL = avatarURL,
+        avatarThumbURL = avatarThumbURL,
+        initialDisplayName = displayName.takeIf { it.isNotBlank() },
+        initialUsername = username.takeIf { it.isNotBlank() },
+        initialBio = bio.takeIf { it.isNotBlank() },
+        initialIsVerified = isVerified,
+        initialIsClubMember = isClubMember,
+        initialIsFollowing = isFollowing,
+    )
 
     /**
      * Initial profile-tab segment based purely on the per-medium counters on

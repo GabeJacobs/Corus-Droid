@@ -787,6 +787,7 @@
     <string name="messaging_restriction_name_fallback">Questa persona</string>
     <string name="messaging_thread_failed_to_deliver">Consegna non riuscita</string>
     <string name="messaging_thread_tap_to_retry">· Tocca per riprovare</string>
+    <string name="messaging_thread_view_profile">Vedi profilo</string>
 
     <!-- Messaging: list -->
     <string name="messaging_list_title">Messaggi</string>

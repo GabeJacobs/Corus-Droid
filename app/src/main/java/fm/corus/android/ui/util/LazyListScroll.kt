@@ -8,7 +8,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.unit.dp
 import fm.corus.android.ui.theme.CorusSpacing
 import kotlin.math.abs
-import kotlinx.coroutines.yield
 
 /** iOS FeedView skip scroll: `.timingCurve(0.22, 0.82, 0.28, 1.0, duration: 0.42)`. */
 private val FeedFollowScrollSpec = tween<Float>(
@@ -22,6 +21,20 @@ private val FeedFollowScrollSpec = tween<Float>(
  * post doesn't sit flush under the status bar.
  */
 val FeedFollowScrollPeekAbovePost = CorusSpacing.sm + 1.dp + CorusSpacing.xs
+
+/** Nudge Next's landing up from the default middle-ish stop. */
+val FeedFollowScrollLift = 60.dp
+
+/**
+ * Status-bar frost + divider peek, minus [FeedFollowScrollLift].
+ * Clamped at 0 so a short phone cannot scroll the row above the
+ * viewport (header off the top). The 60pt lift is from the current
+ * mid-feed stop, not from the status bar, so the username stays on
+ * screen.
+ */
+fun computeFollowScrollTopInset(statusBarPx: Int, peekPx: Int, liftPx: Int = 0): Int =
+    (statusBarPx.coerceAtLeast(0) + peekPx.coerceAtLeast(0) - liftPx.coerceAtLeast(0))
+        .coerceAtLeast(0)
 
 /**
  * LazyColumn index of a feed post sitting after [prefixItemCount] leading
@@ -38,15 +51,6 @@ fun scrollDeltaToAlignItemTop(itemOffset: Int, topInsetPx: Int): Int =
     itemOffset - topInsetPx.coerceAtLeast(0)
 
 /**
- * [LazyListState.scrollToItem] offset that places the item [topInsetPx]
- * below the viewport top. Compose treats `0` as the content-padding edge,
- * not y=0 — passing `-inset` after a frozen chrome pad lands the row at
- * `pad + inset` (about a third of the screen).
- */
-fun scrollOffsetToAlignItemTop(beforeContentPadding: Int, topInsetPx: Int): Int =
-    beforeContentPadding.coerceAtLeast(0) - topInsetPx.coerceAtLeast(0)
-
-/**
  * Scroll so [index] sits just below [topInsetPx] — the poster's username
  * visible under the status strip, matching a tapped feed card.
  *
@@ -57,35 +61,24 @@ fun scrollOffsetToAlignItemTop(beforeContentPadding: Int, topInsetPx: Int): Int 
  * row behind the frost.
  *
  * When the item is on screen we scroll by [scrollDeltaToAlignItemTop].
- * Corrections use [scrollBy] against the visual offset — never
- * [scrollToItem] `-inset`, which double-counts [beforeContentPadding].
+ * Otherwise we teleport then correct leftover offset.
  */
 suspend fun LazyListState.animateScrollItemToTop(index: Int, topInsetPx: Int = 0) {
     if (index < 0) return
     val inset = topInsetPx.coerceAtLeast(0)
-    fun visualTop(): Int? =
-        layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }?.offset
-    fun teleportOffset(): Int =
-        scrollOffsetToAlignItemTop(layoutInfo.beforeContentPadding, inset)
-
-    val visibleTop = visualTop()
-    if (visibleTop != null) {
-        val delta = scrollDeltaToAlignItemTop(visibleTop, inset).toFloat()
+    val visible = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }
+    if (visible != null) {
+        val delta = scrollDeltaToAlignItemTop(visible.offset, inset).toFloat()
         if (abs(delta) > 1f) {
             animateScrollBy(delta, FeedFollowScrollSpec)
         }
     } else {
-        animateScrollToItem(index = index, scrollOffset = teleportOffset())
+        // Negative scrollOffset places the item top BELOW the viewport top.
+        animateScrollToItem(index = index, scrollOffset = -inset)
     }
-    repeat(8) {
-        yield()
-        val top = visualTop()
-        if (top == null) {
-            scrollToItem(index = index, scrollOffset = teleportOffset())
-            return@repeat
-        }
-        val remaining = scrollDeltaToAlignItemTop(top, inset).toFloat()
-        if (abs(remaining) <= 1f) return
+    val leftover = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }?.offset ?: return
+    val remaining = scrollDeltaToAlignItemTop(leftover, inset).toFloat()
+    if (abs(remaining) > 1f) {
         scrollBy(remaining)
     }
 }

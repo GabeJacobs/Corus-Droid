@@ -40,6 +40,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.foundation.isSystemInDarkTheme
 import fm.corus.android.R
 import fm.corus.android.service.DeepLinkDestination
+import fm.corus.android.ui.components.LocalPromptOverlayHost
+import fm.corus.android.ui.components.PromptOverlayHost
+import fm.corus.android.ui.components.rememberPromptOverlayHostState
 import fm.corus.android.ui.navigation.MainTabScreen
 import fm.corus.android.ui.screens.auth.AuthScreen
 import fm.corus.android.ui.screens.auth.AuthViewModel
@@ -78,8 +81,11 @@ fun CorusApp(
         val context = LocalContext.current
         val hapticManager = remember(context) { hapticManagerFromContext(context) }
 
+        val promptOverlayHost = rememberPromptOverlayHostState()
+
         CompositionLocalProvider(
             LocalHapticManager provides hapticManager,
+            LocalPromptOverlayHost provides promptOverlayHost,
         ) {
             CompactWidthContainer(modifier = Modifier.fillMaxSize()) {
                 when (authState) {
@@ -116,6 +122,8 @@ fun CorusApp(
                 ) {
                     OfflineBanner()
                 }
+
+                PromptOverlayHost(promptOverlayHost)
             }
         }
     }

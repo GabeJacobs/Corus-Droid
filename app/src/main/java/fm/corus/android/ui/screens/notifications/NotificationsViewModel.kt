@@ -86,7 +86,8 @@ class NotificationsViewModel @Inject constructor(
 
     private val chipCache = mutableMapOf<NotificationFilter, List<CymbalNotification>>()
     private val chipHasMoreMap = mutableMapOf<NotificationFilter, Boolean>()
-    private val chipsLoaded = mutableSetOf<NotificationFilter>()
+    private val _loadedChips = MutableStateFlow<Set<NotificationFilter>>(emptySet())
+    val loadedChips: StateFlow<Set<NotificationFilter>> = _loadedChips.asStateFlow()
     private val _filteredNotifications = MutableStateFlow<List<CymbalNotification>>(emptyList())
     private val _chipReady = MutableStateFlow(false)
     private val _isFilterLoading = MutableStateFlow(false)
@@ -477,6 +478,7 @@ class NotificationsViewModel @Inject constructor(
         }
         val cached = chipCache[filter]
         if (cached != null) {
+            _loadedChips.value = _loadedChips.value + filter
             _filteredNotifications.value = cached
             _hasMoreFiltered.value = chipHasMoreMap[filter] == true
             _chipReady.value = true
@@ -498,7 +500,7 @@ class NotificationsViewModel @Inject constructor(
         val userId = authRepository.currentUserId ?: return
         val filter = _selectedFilter.value
         if (!filter.isServerScoped) return
-        if (!force && chipsLoaded.contains(filter)) return
+        if (!force && filter in _loadedChips.value) return
         _isFilterLoading.value = true
         try {
             val fetched = notificationRepository.getNotifications(
@@ -510,11 +512,15 @@ class NotificationsViewModel @Inject constructor(
             val rows = guardedChipRows(fetched, filter)
             chipCache[filter] = rows
             chipHasMoreMap[filter] = fetched.size >= pageSize
-            chipsLoaded.add(filter)
+            _loadedChips.value = _loadedChips.value + filter
             if (_selectedFilter.value == filter) {
                 _filteredNotifications.value = rows
                 _hasMoreFiltered.value = fetched.size >= pageSize
                 _chipReady.value = true
+                // Drop the loading flag with the rows so listPhase can't
+                // bounce skeleton → content → skeleton while follow/like
+                // status hydrates.
+                _isFilterLoading.value = false
             }
             loadCommentLikeStatuses(userId)
             loadFollowsMeStatuses(userId)
@@ -524,7 +530,9 @@ class NotificationsViewModel @Inject constructor(
                 _hasMoreFiltered.value = false
             }
         }
-        _isFilterLoading.value = false
+        if (_selectedFilter.value == filter) {
+            _isFilterLoading.value = false
+        }
     }
 
     private fun loadMoreFilteredNotifications() {

@@ -1,5 +1,6 @@
 package fm.corus.android.ui.components
 
+import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -23,12 +24,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,9 +64,64 @@ private val CardPaddingBottom = 24.dp
 private val ScreenInset = 32.dp
 
 /**
+ * App-root slot for [CorusPromptOverlay]. A Compose [androidx.compose.ui.window.Dialog]
+ * window does not draw behind the status bar (even with `decorFitsSystemWindows = false`),
+ * so the card would sit low and the status strip would stay undimmed. Rendering in
+ * [fm.corus.android.ui.CorusApp] covers the status strip, tab bar, and mini-player, and
+ * centers the card on the real screen. System status-bar icons (clock, chips) stay
+ * above every app window — that layer cannot be dimmed.
+ */
+@Stable
+class PromptOverlayHostState {
+    internal var request by mutableStateOf<PromptOverlayRequest?>(null)
+}
+
+internal data class PromptOverlayRequest(
+    val visible: Boolean,
+    val revealed: Boolean,
+    val title: String,
+    val message: String,
+    val buttons: List<CorusPromptButton>,
+    val iconRes: Int?,
+    val footnote: String?,
+    val modifier: Modifier,
+    val onBack: () -> Unit,
+)
+
+val LocalPromptOverlayHost = staticCompositionLocalOf<PromptOverlayHostState?> { null }
+
+@Composable
+fun rememberPromptOverlayHostState(): PromptOverlayHostState = remember { PromptOverlayHostState() }
+
+/**
+ * Draws the hosted prompt, if any. Call from the app-root box so the scrim is
+ * a sibling of [fm.corus.android.ui.navigation.MainTabScreen], not a child of
+ * the inset tab scaffold.
+ */
+@Composable
+fun PromptOverlayHost(state: PromptOverlayHostState) {
+    val request = state.request ?: return
+    PromptOverlayContent(
+        visible = request.visible,
+        revealed = request.revealed,
+        title = request.title,
+        message = request.message,
+        buttons = request.buttons,
+        modifier = request.modifier,
+        iconRes = request.iconRes,
+        footnote = request.footnote,
+        onBack = request.onBack,
+    )
+}
+
+/**
  * Solid card modal over a dimmed scrim — the standard Corus prompt for multi-line
  * copy and stacked outlined actions. Material [androidx.compose.material3.AlertDialog]
  * remains for short destructive confirms.
+ *
+ * When a [LocalPromptOverlayHost] is in scope (the signed-in app), the overlay is
+ * drawn at the window root so it covers chrome and the status-bar strip. Previews
+ * and tests without a host still render in place.
  */
 @Composable
 fun CorusPromptOverlay(
@@ -94,7 +154,63 @@ fun CorusPromptOverlay(
         }
     }
 
+    val wrappedButtons = buttons.map { button ->
+        button.copy(onClick = { dismissThen(button.onClick) })
+    }
+
+    val host = LocalPromptOverlayHost.current
+    if (host != null) {
+        SideEffect {
+            host.request = if (!visible && !revealed) {
+                null
+            } else {
+                PromptOverlayRequest(
+                    visible = visible,
+                    revealed = revealed,
+                    title = title,
+                    message = message,
+                    buttons = wrappedButtons,
+                    iconRes = iconRes,
+                    footnote = footnote,
+                    modifier = modifier,
+                    onBack = { dismissThen {} },
+                )
+            }
+        }
+        DisposableEffect(host) {
+            onDispose { host.request = null }
+        }
+        return
+    }
+
     if (!visible && !revealed) return
+
+    PromptOverlayContent(
+        visible = visible,
+        revealed = revealed,
+        title = title,
+        message = message,
+        buttons = wrappedButtons,
+        modifier = modifier,
+        iconRes = iconRes,
+        footnote = footnote,
+        onBack = { dismissThen {} },
+    )
+}
+
+@Composable
+private fun PromptOverlayContent(
+    visible: Boolean,
+    revealed: Boolean,
+    title: String,
+    message: String,
+    buttons: List<CorusPromptButton>,
+    modifier: Modifier,
+    @DrawableRes iconRes: Int?,
+    footnote: String?,
+    onBack: () -> Unit,
+) {
+    BackHandler(enabled = visible || revealed, onBack = onBack)
 
     Box(
         modifier = modifier.fillMaxSize(),
@@ -187,7 +303,7 @@ fun CorusPromptOverlay(
                             OutlinedPromptButton(
                                 label = button.label,
                                 emphasized = button.emphasized,
-                                onClick = { dismissThen(button.onClick) },
+                                onClick = { button.onClick() },
                             )
                         }
                         if (!footnote.isNullOrBlank()) {

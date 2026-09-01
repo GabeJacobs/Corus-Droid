@@ -32,7 +32,7 @@ fun ContactFriendsListScreen(
      *  the FriendsOnCorus see-all destination. Default no-op keeps this a
      *  pure UI screen. */
     onUserTapped: (String) -> Unit = {},
-    onNavigateToUser: (String) -> Unit = {},
+    onNavigateToUser: (CymbalUser) -> Unit = {},
     onBack: () -> Unit = {},
 ) {
     Scaffold(
@@ -118,7 +118,7 @@ fun ContactFriendsListScreen(
                         isFollowed = isFollowed(user.id),
                         onTap = {
                             onUserTapped(user.id)
-                            onNavigateToUser(user.id)
+                            onNavigateToUser(user)
                         },
                         onFollow = { onFollow(user) },
                     )

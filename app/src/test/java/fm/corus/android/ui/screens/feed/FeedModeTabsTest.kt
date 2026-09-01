@@ -235,25 +235,6 @@ class FeedModeTabsTest {
     }
 
     @Test
-    fun `android next pin is high center not flush to the status bar`() {
-        val inset = FeedChromeCollapseMath.programmaticHighCenterInset(
-            viewportHeight = 800,
-            statusBarPx = 48,
-        )
-        // Upper third (~160), not status-bar flush (~48) or mid-screen leftover (~266).
-        assertEquals(160, inset)
-        assertTrue(inset > 48 + 40)
-        assertTrue(inset < 800 / 3)
-        assertEquals(
-            48,
-            FeedChromeCollapseMath.programmaticHighCenterInset(
-                viewportHeight = 0,
-                statusBarPx = 48,
-            ),
-        )
-    }
-
-    @Test
     fun `programmatic pin inset uses status bar when chrome will hide`() {
         assertEquals(
             48f,

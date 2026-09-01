@@ -93,6 +93,9 @@ sealed interface CatalogPlaybackOrigin {
 internal fun audiomackIdFromTrackId(trackId: String): String? =
     trackId.takeIf { it.startsWith("amk:") }?.removePrefix("amk:")?.takeIf { it.isNotEmpty() }
 
+internal fun bandcampIdFromTrackId(trackId: String): String? =
+    trackId.takeIf { it.startsWith("bc:") }?.removePrefix("bc:")?.takeIf { it.isNotEmpty() }
+
 /**
  * iOS Previous: restart current when >3s in (or no prior queue item); otherwise
  * skip to the previous entry. [positionMs] is Android ScrubberClock time.
@@ -179,6 +182,7 @@ data class QueuedTrack(
      *  locked (link-out only, no Spotify/Apple equivalent), so the mini-player
      *  shows the Audiomack mark + opens this, regardless of the viewer's service. */
     val audiomackUrl: String? = null,
+    val bandcampUrl: String? = null,
     /** Where this track was played from, when it came from an artist/album page.
      *  See [CatalogPlaybackOrigin]. */
     val catalogOrigin: CatalogPlaybackOrigin? = null,
@@ -214,6 +218,7 @@ fun CymbalTrack.toQueuedTrack(origin: CatalogPlaybackOrigin? = null) = QueuedTra
     soundcloudId = soundcloudId,
     soundcloudPermalinkUrl = soundcloudPermalinkUrl,
     audiomackUrl = audiomackUrl,
+    bandcampUrl = bandcampUrl,
     catalogOrigin = origin,
     appleMusicId = appleMusicId,
     durationMs = durationMs.takeIf { it > 0 },
@@ -241,6 +246,7 @@ fun CymbalPost.toQueuedTrack() = QueuedTrack(
     soundcloudId = track.soundcloudId,
     soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
     audiomackUrl = track.audiomackUrl,
+    bandcampUrl = track.bandcampUrl,
     appleMusicId = track.appleMusicId,
     durationMs = track.durationMs.takeIf { it > 0 },
     albumName = track.albumName,
@@ -1909,6 +1915,12 @@ class NowPlayingManager @Inject constructor(
             // the unavailable toast, and the full song stays reachable via the
             // TIDAL/Deezer badge link-out.
             TrackSource.TIDAL, TrackSource.DEEZER -> track.previewUrl?.takeIf { it.isNotBlank() }
+            TrackSource.BANDCAMP -> resolveBandcampPreview(
+                bandcampUrl = track.bandcampUrl,
+                bandcampId = bandcampIdFromTrackId(trackId),
+                name = track.trackName,
+                artist = track.artistName,
+            )?.first
             else -> track.previewUrl?.takeIf { it.isNotBlank() }
                 ?: previewCache[trackId]
                 ?: lookupPreviewUrl(
@@ -2078,6 +2090,32 @@ class NowPlayingManager @Inject constructor(
             url
         } catch (e: Exception) {
             android.util.Log.w("NowPlaying", "resolveAudiomackPreview FAILED id=$audiomackId msg=${e.message}", e)
+            null
+        }
+    }
+
+    private suspend fun resolveBandcampPreview(
+        bandcampUrl: String?,
+        bandcampId: String?,
+        name: String,
+        artist: String,
+    ): Pair<String, String?>? {
+        return try {
+            val resolved = withContext(Dispatchers.IO) {
+                cloudFunctions.resolveBandcampPreview(
+                    bandcampUrl = bandcampUrl,
+                    bandcampId = bandcampId,
+                    name = name,
+                    artist = artist,
+                )
+            }
+            android.util.Log.i(
+                "NowPlaying",
+                "resolveBandcampPreview OK id=$bandcampId url=${resolved?.first?.take(60)}…",
+            )
+            resolved
+        } catch (e: Exception) {
+            android.util.Log.w("NowPlaying", "resolveBandcampPreview FAILED id=$bandcampId msg=${e.message}", e)
             null
         }
     }

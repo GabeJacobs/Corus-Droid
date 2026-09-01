@@ -1,9 +1,11 @@
 package fm.corus.android.data.remote
 
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import fm.corus.android.data.model.*
 import fm.corus.android.data.repository.parseUnifiedTrack
 import fm.corus.android.service.EntitySegment
+import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
 import java.util.Date
@@ -44,6 +46,17 @@ internal fun parseBackCoverResponse(data: Map<String, Any?>?): String? {
 internal fun parseAudiomackPreviewResponse(data: Map<String, Any?>?): String? {
     val url = data?.get("previewUrl") as? String
     return url?.takeIf { it.isNotBlank() }
+}
+
+/**
+ * Parses a `resolveBandcampPreview` Cloud Function response. Shape:
+ * `{ "previewUrl": "<signed mp3>", "bandcampUrl": "<page>" }`.
+ */
+internal fun parseBandcampPreviewResponse(data: Map<String, Any?>?): Pair<String, String?>? {
+    val url = data?.get("previewUrl") as? String
+    val preview = url?.takeIf { it.isNotBlank() } ?: return null
+    val page = (data["bandcampUrl"] as? String)?.takeIf { it.isNotBlank() }
+    return preview to page
 }
 
 /**
@@ -351,6 +364,8 @@ internal fun parseAlbumPostsResponse(
 @Singleton
 class CloudFunctionsDataSource @Inject constructor(
     private val functions: FirebaseFunctions,
+    private val remoteConfigService: RemoteConfigService,
+    private val auth: FirebaseAuth,
 ) {
     // ── Email OTP auth ──
 
@@ -1377,7 +1392,7 @@ class CloudFunctionsDataSource @Inject constructor(
             "limit" to limit,
             "market" to market,
             "includeSoundCloud" to includeSoundCloud,
-            "supports" to listOf("spotify", "soundcloud", "applemusic", "audiomack"),
+            "supports" to supportedTrackSources(),
             // "recording" (default; one row per recording, for search) vs
             // "cover" (keeps alternate album covers pickable, for the compose
             // picker). Absent-value default matches the backend, so search rows
@@ -1397,6 +1412,14 @@ class CloudFunctionsDataSource @Inject constructor(
         if (includeAlbums && albumsMatchArtist) params["albumsMatchArtist"] = true
         val result = functions.getHttpsCallable("searchSongs").call(params).await()
         return result.getData() as? Map<String, Any?> ?: emptyMap()
+    }
+
+    private fun supportedTrackSources(): List<String> {
+        val sources = mutableListOf("spotify", "soundcloud", "applemusic", "audiomack")
+        if (remoteConfigService.isBandcampEnabled(viewerUid = auth.currentUser?.uid)) {
+            sources += "bandcamp"
+        }
+        return sources
     }
 
     /**
@@ -1737,6 +1760,22 @@ class CloudFunctionsDataSource @Inject constructor(
             mapOf("audiomackId" to audiomackId)
         ).await()
         return parseAudiomackPreviewResponse(result.getData() as? Map<String, Any?>)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun resolveBandcampPreview(
+        bandcampUrl: String?,
+        bandcampId: String?,
+        name: String,
+        artist: String,
+    ): Pair<String, String?>? {
+        val payload = mutableMapOf<String, String>()
+        if (!bandcampUrl.isNullOrBlank()) payload["bandcampUrl"] = bandcampUrl
+        if (!bandcampId.isNullOrBlank()) payload["bandcampId"] = bandcampId
+        if (name.isNotBlank()) payload["name"] = name
+        if (artist.isNotBlank()) payload["artist"] = artist
+        val result = functions.getHttpsCallable("resolveBandcampPreview").call(payload).await()
+        return parseBandcampPreviewResponse(result.getData() as? Map<String, Any?>)
     }
 
     // ── Social ──

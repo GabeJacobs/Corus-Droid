@@ -10,7 +10,7 @@ import org.mockito.kotlin.mock
 
 class PlaylistResponseParserTest {
 
-    private val dataSource = CloudFunctionsDataSource(mock<FirebaseFunctions>())
+    private val dataSource = CloudFunctionsDataSource(mock<FirebaseFunctions>(), mock(), mock())
 
     @Test
     fun `success response returns PlaylistResult`() {
