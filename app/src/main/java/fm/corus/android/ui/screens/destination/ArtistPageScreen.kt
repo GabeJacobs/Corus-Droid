@@ -745,14 +745,46 @@ fun ArtistPageScreen(
                 }
             }
 
+            if (artistId.startsWith("bc:")) {
+                val extras = detail
+                if (extras != null && (extras.shows.isNotEmpty() || extras.merch.isNotEmpty() || extras.sites.isNotEmpty())) {
+                    item {
+                        BandcampArtistExtras(
+                            shows = extras.shows,
+                            merch = extras.merch,
+                            merchUrl = extras.merchUrl,
+                            sites = extras.sites,
+                            onOpenUrl = { url ->
+                                runCatching {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+
             // ── Attribution footer ──
             item {
+                val isBandcampArtist = artistId.startsWith("bc:")
                 DestinationAttributionFooter(
-                    attribution = stringResource(R.string.destination_music_attribution),
-                    onOpenSpotify = {
-                        val url = "https://open.spotify.com/artist/${Uri.encode(artistId)}"
-                        runCatching {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    attribution = stringResource(
+                        if (isBandcampArtist) R.string.destination_bandcamp_attribution
+                        else R.string.destination_music_attribution,
+                    ),
+                    onOpenSpotify = if (isBandcampArtist) null else {
+                        {
+                            val url = "https://open.spotify.com/artist/${Uri.encode(artistId)}"
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                            }
+                        }
+                    },
+                    onOpenBandcamp = detail?.bandcampUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                        {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                            }
                         }
                     },
                 )

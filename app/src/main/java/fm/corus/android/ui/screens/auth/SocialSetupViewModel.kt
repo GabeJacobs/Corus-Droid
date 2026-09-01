@@ -315,6 +315,18 @@ class SocialSetupViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Completes the notification primer before leaving onboarding. Persisting
+     * first prevents MainTab's legacy-user fallback from observing a stale
+     * false value and launching the system permission dialog after Not now.
+     */
+    fun finishPushPermissionPrimer(onFinished: () -> Unit) {
+        viewModelScope.launch {
+            preferencesDataStore.completePushPermissionPrimerWithoutRequest()
+            onFinished()
+        }
+    }
+
     fun logFollowFriendsOnboardingCompleted() {
         analyticsService.logFollowFriendsOnboardingCompleted(_followedIds.value.size)
     }

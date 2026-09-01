@@ -114,6 +114,51 @@ class BandcampTrackTest {
     }
 
     @Test
+    fun `bandcampLinkOutUrl falls back to search when the page url is missing`() {
+        val track = CymbalTrack(
+            id = "bc:2795236384",
+            name = "Geeneus - In To The Future",
+            artistName = "Geeneus",
+            albumName = "Geeneus - Volumes: One",
+            source = TrackSource.BANDCAMP,
+        )
+        val url = requireNotNull(track.bandcampLinkOutUrl)
+        assertTrue(url.startsWith("https://bandcamp.com/search?"))
+        assertTrue(url.contains("Geeneus"))
+    }
+
+    @Test
+    fun `toSongDetailRoute carries bandcampUrl so the listen CTA is correct on first frame`() {
+        val track = CymbalTrack(
+            id = "bc:424242",
+            name = "smartly",
+            artistName = "frankie cosmos",
+            albumName = "donutes",
+            source = TrackSource.BANDCAMP,
+            bandcampUrl = "https://frankiecosmos.bandcamp.com/track/smartly",
+        )
+        val route = track.toSongDetailRoute()
+        assertEquals("bc:424242", route.trackId)
+        assertEquals("bandcamp", route.source)
+        assertEquals(
+            "https://frankiecosmos.bandcamp.com/track/smartly",
+            route.bandcampUrl,
+        )
+    }
+
+    @Test
+    fun `TrackSource resolve heals bc id and bandcampUrl before posts load`() {
+        assertEquals(
+            TrackSource.BANDCAMP,
+            TrackSource.resolve("bc:1", raw = null, bandcampUrl = null),
+        )
+        assertEquals(
+            TrackSource.BANDCAMP,
+            TrackSource.resolve("spot1", raw = null, bandcampUrl = "https://x.bandcamp.com/track/y"),
+        )
+    }
+
+    @Test
     fun `fromMap heals a bc trackId to BANDCAMP`() {
         val track = CymbalTrack.fromMap(
             mapOf(

@@ -729,6 +729,8 @@
     <string name="onboarding_add_photo">添加照片</string>
     <string name="onboarding_full_name">昵称</string>
     <string name="onboarding_terms">创建账户即表示你同意我们的使用条款和隐私政策。</string>
+    <string name="onboarding_terms_link">使用条款</string>
+    <string name="onboarding_privacy_link">隐私政策</string>
     <string name="onboarding_button_continue">继续</string>
     <!-- Music-service onboarding (Choose Your Player) -->
     <string name="music_service_title">选择你的播放器</string>

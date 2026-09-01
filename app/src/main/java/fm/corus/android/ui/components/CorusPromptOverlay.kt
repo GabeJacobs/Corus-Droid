@@ -26,7 +26,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -74,6 +73,23 @@ private val ScreenInset = 32.dp
 @Stable
 class PromptOverlayHostState {
     internal var request by mutableStateOf<PromptOverlayRequest?>(null)
+        private set
+
+    private var requestOwner: Any? = null
+
+    internal fun publish(owner: Any, prompt: PromptOverlayRequest) {
+        requestOwner = owner
+        request = prompt
+    }
+
+    internal fun clear(owner: Any) {
+        // Several prompt call sites stay composed while hidden. A hidden or
+        // disposed prompt must not clear a different prompt that currently
+        // owns the app-root slot.
+        if (requestOwner !== owner) return
+        requestOwner = null
+        request = null
+    }
 }
 
 internal data class PromptOverlayRequest(
@@ -101,9 +117,17 @@ fun rememberPromptOverlayHostState(): PromptOverlayHostState = remember { Prompt
 @Composable
 fun PromptOverlayHost(state: PromptOverlayHostState) {
     val request = state.request ?: return
+    // A hosted prompt first enters this app-root slot with visible=true. Feeding
+    // that directly to AnimatedVisibility makes it the initial state, so Compose
+    // paints the final card immediately and never runs its enter transition.
+    // Mount it hidden for the first composition, then reveal on the next frame.
+    var entered by remember(request.title, request.message) { mutableStateOf(false) }
+    LaunchedEffect(request.title, request.message) {
+        entered = true
+    }
     PromptOverlayContent(
-        visible = request.visible,
-        revealed = request.revealed,
+        visible = request.visible && entered,
+        revealed = request.revealed && entered,
         title = request.title,
         message = request.message,
         buttons = request.buttons,
@@ -160,25 +184,45 @@ fun CorusPromptOverlay(
 
     val host = LocalPromptOverlayHost.current
     if (host != null) {
-        SideEffect {
-            host.request = if (!visible && !revealed) {
-                null
+        val hostOwner = remember { Any() }
+        // Do not publish from SideEffect. Publishing mutates app-root state,
+        // which recomposes this subtree; allocating another request from the
+        // next SideEffect creates a feedback loop that keeps the scrim alive
+        // while repeatedly restarting the card reveal animation.
+        val buttonPresentation = buttons.map { it.label to it.emphasized }
+        LaunchedEffect(
+            host,
+            hostOwner,
+            visible,
+            revealed,
+            title,
+            message,
+            iconRes,
+            footnote,
+            modifier,
+            buttonPresentation,
+        ) {
+            if (!visible && !revealed) {
+                host.clear(hostOwner)
             } else {
-                PromptOverlayRequest(
-                    visible = visible,
-                    revealed = revealed,
-                    title = title,
-                    message = message,
-                    buttons = wrappedButtons,
-                    iconRes = iconRes,
-                    footnote = footnote,
-                    modifier = modifier,
-                    onBack = { dismissThen {} },
+                host.publish(
+                    hostOwner,
+                    PromptOverlayRequest(
+                        visible = visible,
+                        revealed = revealed,
+                        title = title,
+                        message = message,
+                        buttons = wrappedButtons,
+                        iconRes = iconRes,
+                        footnote = footnote,
+                        modifier = modifier,
+                        onBack = { dismissThen {} },
+                    ),
                 )
             }
         }
-        DisposableEffect(host) {
-            onDispose { host.request = null }
+        DisposableEffect(host, hostOwner) {
+            onDispose { host.clear(hostOwner) }
         }
         return
     }

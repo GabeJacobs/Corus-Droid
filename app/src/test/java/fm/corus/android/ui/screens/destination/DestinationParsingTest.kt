@@ -67,6 +67,45 @@ class DestinationParsingTest {
     }
 
     @Test
+    fun `parses Bandcamp merch and shows on a bc artist page`() {
+        val detail = parseArtistDetailResponse(
+            mapOf(
+                "artist" to mapOf(
+                    "id" to "bc:1852554914",
+                    "name" to "memkay",
+                    "bandcampUrl" to "https://memkay.bandcamp.com",
+                    "merchUrl" to "https://bigthief.bandcamp.com/merch",
+                ),
+                "topTracks" to emptyList<Map<String, Any?>>(),
+                "albums" to emptyList<Map<String, Any?>>(),
+                "merch" to listOf(
+                    mapOf(
+                        "id" to "1",
+                        "title" to "Standard 2xLP",
+                        "type" to "Vinyl",
+                        "price" to "$28.03 USD",
+                        "soldOut" to false,
+                        "url" to "https://bigthief.bandcamp.com/album/x",
+                    ),
+                ),
+                "shows" to listOf(
+                    mapOf(
+                        "date" to "Sep 16",
+                        "loc" to "Santa Fe, NM",
+                        "venue" to "Santa Fe Opera House",
+                        "url" to "https://www.songkick.com/concerts/1",
+                    ),
+                ),
+            )
+        )
+        assertEquals("bc:1852554914", detail?.id)
+        assertEquals("https://memkay.bandcamp.com", detail?.bandcampUrl)
+        assertEquals(1, detail?.merch?.size)
+        assertEquals("Standard 2xLP", detail?.merch?.first()?.title)
+        assertEquals("Sep 16 · Santa Fe, NM", detail?.shows?.first()?.title)
+    }
+
+    @Test
     fun `artist detail parse returns null on a malformed payload`() {
         assertNull(parseArtistDetailResponse(null))
         assertNull(parseArtistDetailResponse(mapOf("artist" to "nope")))

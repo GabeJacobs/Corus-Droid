@@ -1023,7 +1023,7 @@ private fun NotificationDisabledBanner(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onEnable)
-                .padding(start = CorusSpacing.lg, end = 2.dp, top = 14.dp, bottom = 14.dp),
+                .padding(start = CorusSpacing.lg, end = 8.dp, top = 14.dp, bottom = 14.dp),
         ) {
             Text(
                 text = stringResource(R.string.notif_disabled_banner_title),

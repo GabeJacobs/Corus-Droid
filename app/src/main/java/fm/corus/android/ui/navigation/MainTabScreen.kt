@@ -128,11 +128,12 @@ fun MainTabScreen(
     val milestonePaywallSource by viewModel.milestonePaywallSource.collectAsState()
     val notificationCount by viewModel.notificationCount.collectAsState()
     val unreadMessageCount by viewModel.unreadMessageCount.collectAsState()
-    val hasRequestedPushPermission by viewModel.hasRequestedPushPermission.collectAsState()
+    val hasCompletedPushPermissionPrimer by viewModel.hasCompletedPushPermissionPrimer.collectAsState()
 
     // Fallback for users who signed up before the onboarding primer shipped.
-    // hasRequestedPushPermission is also set on Not now, so the feed does not
-    // immediately fire the system dialog after they skip. Matches iOS
+    // Completing the primer (Allow or Not now) suppresses this fallback; the
+    // separate OS-requested flag remains false after Not now so the Activity
+    // banner can still show the native dialog. Matches iOS
     // MainTabView.requestNotificationPermissionIfNeeded.
     val context = LocalContext.current
 
@@ -166,12 +167,12 @@ fun MainTabScreen(
     ) { _ ->
         viewModel.markPushPermissionRequested()
     }
-    LaunchedEffect(hasRequestedPushPermission) {
-        if (!hasRequestedPushPermission &&
+    LaunchedEffect(hasCompletedPushPermissionPrimer) {
+        if (!hasCompletedPushPermissionPrimer &&
             PushNotificationPermission.shouldRequestPushPermission(context)
         ) {
             pushPermissionLauncher.launch(PushNotificationPermission.permission)
-        } else if (!hasRequestedPushPermission) {
+        } else if (!hasCompletedPushPermissionPrimer) {
             // No system prompt needed (already granted or pre-Android-13);
             // still record so we don't re-check every launch.
             viewModel.markPushPermissionRequested()

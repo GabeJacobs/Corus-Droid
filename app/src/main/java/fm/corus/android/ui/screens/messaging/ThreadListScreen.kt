@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Group
@@ -211,11 +212,22 @@ fun ThreadListScreen(
                 }
             } else if (threads.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        stringResource(id = R.string.messaging_list_empty),
-                        style = CorusFont.body,
-                        color = CorusColors.Secondary,
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.Send,
+                            contentDescription = null,
+                            modifier = Modifier.size(40.dp),
+                            tint = CorusColors.Tertiary,
+                        )
+                        Text(
+                            stringResource(id = R.string.messaging_list_empty),
+                            style = CorusFont.body,
+                            color = CorusColors.Secondary,
+                        )
+                    }
                 }
             } else if (isSearching && !searchHasHits) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

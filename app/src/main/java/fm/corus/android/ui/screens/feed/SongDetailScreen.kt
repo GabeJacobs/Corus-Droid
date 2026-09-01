@@ -77,6 +77,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.CorusSystemBars
+import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import fm.corus.android.ui.util.DateUtils
 import kotlinx.coroutines.launch
 
@@ -160,7 +161,9 @@ fun SongDetailScreen(
     val effectiveSpotifyWebURL = songInfo?.track?.spotifyWebURL ?: spotifyWebURL ?: ""
     val effectivePreviewUrl = songInfo?.track?.previewUrl ?: previewUrl
     val effectiveIsrc = songInfo?.track?.isrc
-    val effectiveSource = songInfo?.track?.source ?: TrackSource.fromRaw(source)
+    val effectiveBandcampUrl = songInfo?.track?.bandcampUrl ?: bandcampUrl
+    val effectiveSource = songInfo?.track?.source
+        ?: TrackSource.resolve(trackId, source, effectiveBandcampUrl)
     val effectiveSoundcloudId = songInfo?.track?.soundcloudId ?: soundcloudId
     val effectiveSoundcloudPermalinkUrl = songInfo?.track?.soundcloudPermalinkUrl ?: soundcloudPermalinkUrl
     // Audiomack page url: prefer the loaded post's track, fall back to the hint
@@ -168,7 +171,6 @@ fun SongDetailScreen(
     // still gets its "Listen on Audiomack" link-out). Link-out only — used to
     // open the Audiomack page; there is no in-app playback.
     val effectiveAudiomackUrl = songInfo?.track?.audiomackUrl ?: audiomackUrl
-    val effectiveBandcampUrl = songInfo?.track?.bandcampUrl ?: bandcampUrl
     // TIDAL/Deezer page urls (Audiomack treatment): prefer the loaded post's
     // track, fall back to the navigation hint. Link-out only — there is no
     // in-app playback for these exclusive sources.
@@ -235,7 +237,7 @@ fun SongDetailScreen(
         spotifyWebURL = spotifyWebURL ?: "",
         previewUrl = previewUrl,
         isrc = isrc,
-        source = TrackSource.fromRaw(source),
+        source = TrackSource.resolve(trackId, source, bandcampUrl),
         soundcloudId = soundcloudId,
         soundcloudPermalinkUrl = soundcloudPermalinkUrl,
         bandcampUrl = bandcampUrl,
@@ -699,15 +701,22 @@ fun SongDetailScreen(
                             Spacer(modifier = Modifier.width(CorusSpacing.sm))
                             Text(stringResource(R.string.song_detail_listen_soundcloud), style = CorusFont.buttonSmall)
                         }
-                    } else if (isBandcamp && !effectiveBandcampUrl.isNullOrBlank()) {
+                    } else if (isBandcamp) {
+                        val isDark = LocalCorusDarkTheme.current
+                        val listenUrl = effectiveBandcampUrl?.takeIf { it.isNotBlank() }
+                            ?: resolvedTrack.bandcampLinkOutUrl
                         Button(
                             onClick = {
-                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(effectiveBandcampUrl))) }
+                                listenUrl?.let { url ->
+                                    runCatching {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                    }
+                                }
                             },
                             shape = RoundedCornerShape(50),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.Black,
-                                contentColor = Color.White,
+                                containerColor = if (isDark) Color.White else Color.Black,
+                                contentColor = if (isDark) Color.Black else Color.White,
                             ),
                             contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                         ) {

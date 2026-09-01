@@ -51,6 +51,22 @@ enum class TrackSource(val raw: String) {
     companion object {
         fun fromRaw(raw: String?): TrackSource =
             entries.firstOrNull { it.raw.equals(raw, ignoreCase = true) } ?: SPOTIFY
+
+        /** Heal catalog source from id prefix + link-out hints so song-detail
+         *  CTAs paint correctly on the first frame (before posts load). */
+        fun resolve(
+            trackId: String,
+            raw: String? = null,
+            bandcampUrl: String? = null,
+        ): TrackSource = when {
+            trackId.startsWith("bc:", ignoreCase = true)
+                || raw.equals("bandcamp", ignoreCase = true)
+                || !bandcampUrl.isNullOrBlank() -> BANDCAMP
+            trackId.startsWith("amk:", ignoreCase = true) -> AUDIOMACK
+            trackId.startsWith("sc:", ignoreCase = true) -> SOUNDCLOUD
+            trackId.startsWith("am:", ignoreCase = true) -> APPLEMUSIC
+            else -> fromRaw(raw)
+        }
     }
 }
 
@@ -185,7 +201,18 @@ data class CymbalTrack(
         get() = if (source == TrackSource.DEEZER) deezerURL?.takeIf { it.isNotBlank() } else null
 
     val bandcampLinkOutUrl: String?
-        get() = if (isBandcampCatalog) bandcampUrl?.takeIf { it.isNotBlank() } else null
+        get() = if (isBandcampCatalog) {
+            bandcampUrl?.takeIf { it.isNotBlank() } ?: bandcampSearchUrl
+        } else null
+
+    /** Bandcamp search for this recording when the page URL was dropped. */
+    val bandcampSearchUrl: String?
+        get() {
+            val q = listOf(name, artistName).filter { it.isNotBlank() }.joinToString(" ")
+            if (q.isBlank()) return null
+            val encoded = java.net.URLEncoder.encode(q, Charsets.UTF_8.name())
+            return "https://bandcamp.com/search?q=$encoded"
+        }
 
     /**
      * True for Bandcamp catalog rows — `source`, `bc:` id, or a page URL.
@@ -256,6 +283,7 @@ data class CymbalTrack(
         soundcloudId = soundcloudId,
         soundcloudPermalinkUrl = soundcloudPermalinkUrl,
         audiomackUrl = audiomackUrl,
+        bandcampUrl = bandcampUrl,
         tidalURL = tidalURL,
         deezerURL = deezerURL,
         isrc = isrc,

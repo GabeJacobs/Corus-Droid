@@ -662,6 +662,8 @@
     <string name="onboarding_add_photo">写真を追加</string>
     <string name="onboarding_full_name">表示名</string>
     <string name="onboarding_terms">アカウントを作成することで、利用規約およびプライバシーポリシーに同意したものとみなされます。</string>
+    <string name="onboarding_terms_link">利用規約</string>
+    <string name="onboarding_privacy_link">プライバシーポリシー</string>
     <string name="onboarding_button_continue">続ける</string>
     <string name="music_service_title">プレーヤーを選ぼう</string>
     <string name="music_service_subtitle">お好みの音楽サービスを選びましょう</string>

@@ -119,7 +119,7 @@ internal fun NotificationPermissionScreen(
         if (isFinishing || isRequesting) return@skip
         isFinishing = true
         viewModel.analyticsService.logNotificationPermissionPrimerTapped("not_now")
-        onFinished()
+        viewModel.finishPushPermissionPrimer(onFinished)
     }
 
     BackHandler(onBack = finishWithoutSystemPrompt)

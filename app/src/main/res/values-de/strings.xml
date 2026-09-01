@@ -730,6 +730,8 @@
     <string name="onboarding_add_photo">Foto hinzufügen</string>
     <string name="onboarding_full_name">Anzeigename</string>
     <string name="onboarding_terms">Indem du ein Konto erstellst, stimmst du unseren Nutzungsbedingungen und der Datenschutzrichtlinie zu.</string>
+    <string name="onboarding_terms_link">Nutzungsbedingungen</string>
+    <string name="onboarding_privacy_link">Datenschutzrichtlinie</string>
     <string name="onboarding_button_continue">WEITER</string>
     <!-- Music-service onboarding (Choose Your Player) -->
     <string name="music_service_title">Wähle deinen Player</string>

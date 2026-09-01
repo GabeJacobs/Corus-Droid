@@ -54,6 +54,7 @@ import fm.corus.android.domain.CatalogPlaybackOrigin
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.QueuedTrack
 import fm.corus.android.domain.toQueuedTrack
+import fm.corus.android.ui.components.BandcampLogo
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
@@ -801,14 +802,15 @@ internal fun CatalogTrackRow(
 }
 
 /**
- * Muted data-credit footer. [spotifyRow] renders the "Open in Spotify" line
- * (Spotify Developer Terms: mark + link back to the content — a credit, not a
- * playback CTA); pass null to omit it (director pages, `am:` albums).
+ * Muted data-credit footer. [onOpenSpotify] / [onOpenBandcamp] render the
+ * credit mark + link — a credit, not a playback CTA. Pass both null to omit
+ * the row (director pages, `am:` albums).
  */
 @Composable
 internal fun DestinationAttributionFooter(
     attribution: String,
     onOpenSpotify: (() -> Unit)? = null,
+    onOpenBandcamp: (() -> Unit)? = null,
 ) {
     Column(
         modifier = Modifier
@@ -821,7 +823,21 @@ internal fun DestinationAttributionFooter(
             style = CorusFont.caption,
             color = CorusColors.Tertiary,
         )
-        if (onOpenSpotify != null) {
+        if (onOpenBandcamp != null) {
+            Spacer(modifier = Modifier.height(CorusSpacing.sm))
+            Row(
+                modifier = Modifier.clickable(onClick = onOpenBandcamp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                BandcampLogo(size = 13.dp)
+                Spacer(modifier = Modifier.width(CorusSpacing.xs))
+                Text(
+                    text = stringResource(R.string.destination_open_in_bandcamp),
+                    style = CorusFont.caption,
+                    color = CorusColors.Tertiary,
+                )
+            }
+        } else if (onOpenSpotify != null) {
             Spacer(modifier = Modifier.height(CorusSpacing.sm))
             Row(
                 modifier = Modifier.clickable(onClick = onOpenSpotify),
@@ -840,5 +856,105 @@ internal fun DestinationAttributionFooter(
                 )
             }
         }
+    }
+}
+
+/** Merch, upcoming shows, and site links at the bottom of a `bc:` artist page. */
+@Composable
+internal fun BandcampArtistExtras(
+    shows: List<fm.corus.android.data.model.BandcampShow>,
+    merch: List<fm.corus.android.data.model.BandcampMerchItem>,
+    merchUrl: String?,
+    sites: List<fm.corus.android.data.model.BandcampSiteLink>,
+    onOpenUrl: (String) -> Unit,
+) {
+    if (shows.isEmpty() && merch.isEmpty() && sites.isEmpty()) return
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (shows.isNotEmpty()) {
+            DestinationSectionHeader(stringResource(R.string.destination_upcoming_shows))
+            shows.forEach { show ->
+                BandcampExtrasRow(
+                    title = show.title,
+                    subtitle = show.venue,
+                    onClick = { onOpenUrl(show.url) },
+                )
+            }
+        }
+        if (merch.isNotEmpty()) {
+            DestinationSectionHeader(
+                title = stringResource(R.string.destination_merch),
+                onSeeAll = merchUrl?.let { url -> { onOpenUrl(url) } },
+            )
+            merch.forEach { item ->
+                val trailing = if (item.soldOut) {
+                    stringResource(R.string.destination_merch_sold_out)
+                } else {
+                    item.price
+                }
+                BandcampExtrasRow(
+                    title = item.title,
+                    subtitle = listOf(item.type, trailing).filter { it.isNotEmpty() }.joinToString(" · "),
+                    imageUrl = item.imageUrl,
+                    onClick = { onOpenUrl(item.url) },
+                )
+            }
+        }
+        if (sites.isNotEmpty()) {
+            DestinationSectionHeader(stringResource(R.string.destination_links))
+            sites.forEach { site ->
+                BandcampExtrasRow(
+                    title = site.title,
+                    subtitle = "",
+                    onClick = { onOpenUrl(site.url) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BandcampExtrasRow(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    imageUrl: String? = null,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (imageUrl != null) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = title,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
+                contentScale = ContentScale.Crop,
+            )
+            Spacer(modifier = Modifier.width(CorusSpacing.md))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = CorusFont.bodyMedium,
+                color = CorusColors.Text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (subtitle.isNotEmpty()) {
+                Text(
+                    text = subtitle,
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        BandcampLogo(size = 13.dp)
     }
 }

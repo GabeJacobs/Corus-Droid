@@ -1,6 +1,8 @@
 package fm.corus.android.ui.screens.auth
 
 import android.net.Uri
+import android.content.Context
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -13,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.verticalScroll
@@ -38,10 +41,12 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import android.graphics.Bitmap
@@ -497,11 +502,43 @@ fun OnboardingScreen(
                 enter = fadeIn(),
                 exit = fadeOut(),
             ) {
-                Text(
-                    text = stringResource(id = R.string.onboarding_terms),
-                    style = CorusFont.caption,
-                    color = CorusColors.Tertiary,
-                    textAlign = TextAlign.Center,
+                val termsText = stringResource(id = R.string.onboarding_terms)
+                val termsLabel = stringResource(id = R.string.onboarding_terms_link)
+                val privacyLabel = stringResource(id = R.string.onboarding_privacy_link)
+                val legalText = remember(termsText, termsLabel, privacyLabel) {
+                    buildAnnotatedString {
+                        append(termsText)
+                        val termsStart = termsText.indexOf(termsLabel)
+                        if (termsStart >= 0) {
+                            addStringAnnotation(
+                                tag = "LEGAL_URL",
+                                annotation = "https://corus.fm/terms",
+                                start = termsStart,
+                                end = termsStart + termsLabel.length,
+                            )
+                        }
+                        val privacyStart = termsText.indexOf(privacyLabel)
+                        if (privacyStart >= 0) {
+                            addStringAnnotation(
+                                tag = "LEGAL_URL",
+                                annotation = "https://corus.fm/privacy",
+                                start = privacyStart,
+                                end = privacyStart + privacyLabel.length,
+                            )
+                        }
+                    }
+                }
+                ClickableText(
+                    text = legalText,
+                    style = CorusFont.caption.copy(
+                        color = CorusColors.Tertiary,
+                        textAlign = TextAlign.Center,
+                    ),
+                    onClick = { offset ->
+                        legalText.getStringAnnotations("LEGAL_URL", offset, offset)
+                            .firstOrNull()
+                            ?.let { openLegalPage(context, it.item) }
+                    },
                     modifier = Modifier
                         .padding(horizontal = CorusSpacing.xxl)
                         .padding(bottom = CorusSpacing.sm),
@@ -672,5 +709,19 @@ fun OnboardingScreen(
             },
             onCancel = { cropBitmap = null },
         )
+    }
+}
+
+private fun openLegalPage(context: Context, url: String) {
+    try {
+        CustomTabsIntent.Builder()
+            .setShowTitle(true)
+            .build()
+            .launchUrl(context, Uri.parse(url))
+    } catch (_: Exception) {
+        // Keep a browser fallback for devices without a Custom Tabs provider.
+        try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (_: Exception) { }
     }
 }

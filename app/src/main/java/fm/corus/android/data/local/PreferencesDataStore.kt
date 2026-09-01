@@ -468,6 +468,7 @@ class PreferencesDataStore @Inject constructor(
         val APPEARANCE_MODE = stringPreferencesKey("appearance_mode")
         val HAS_SEEN_FIRST_POST_PAYWALL = booleanPreferencesKey("has_seen_first_post_paywall")
         val HAS_SEEN_TENTH_POST_PAYWALL = booleanPreferencesKey("has_seen_tenth_post_paywall")
+        val HAS_COMPLETED_PUSH_PERMISSION_PRIMER = booleanPreferencesKey("has_completed_push_permission_primer")
         val HAS_REQUESTED_PUSH_PERMISSION = booleanPreferencesKey("has_requested_push_permission")
         val HAS_DISMISSED_NOTIF_DISABLED_BANNER = booleanPreferencesKey("has_dismissed_notif_disabled_banner")
         val HAS_TAPPED_ALBUM_ART = booleanPreferencesKey("has_tapped_album_art")
@@ -981,8 +982,27 @@ class PreferencesDataStore @Inject constructor(
         prefs[HAS_REQUESTED_PUSH_PERMISSION] ?: false
     }
 
+    /** Whether the onboarding soft-ask was completed, independently of whether
+     * the Android runtime permission dialog was actually shown. */
+    val hasCompletedPushPermissionPrimer: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[HAS_COMPLETED_PUSH_PERMISSION_PRIMER]
+            // Before these states were split, every completed primer wrote the
+            // requested flag. Preserve that as the legacy migration default.
+            ?: (prefs[HAS_REQUESTED_PUSH_PERMISSION] ?: false)
+    }
+
     suspend fun setHasRequestedPushPermission() {
-        dataStore.edit { it[HAS_REQUESTED_PUSH_PERMISSION] = true }
+        dataStore.edit {
+            it[HAS_COMPLETED_PUSH_PERMISSION_PRIMER] = true
+            it[HAS_REQUESTED_PUSH_PERMISSION] = true
+        }
+    }
+
+    suspend fun completePushPermissionPrimerWithoutRequest() {
+        dataStore.edit {
+            it[HAS_COMPLETED_PUSH_PERMISSION_PRIMER] = true
+            it[HAS_REQUESTED_PUSH_PERMISSION] = false
+        }
     }
 
     val hasDismissedNotifDisabledBanner: Flow<Boolean> = dataStore.data.map { prefs ->

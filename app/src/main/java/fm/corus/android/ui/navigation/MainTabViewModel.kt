@@ -215,10 +215,11 @@ class MainTabViewModel @Inject constructor(
         unreadCountsRepository.clearNotificationCount()
     }
 
-    /** True once we've shown the Android push-permission prompt (onboarding or
-     * MainTab fallback). Used to avoid re-prompting users who already saw it. */
-    val hasRequestedPushPermission: StateFlow<Boolean> = preferencesDataStore
-        .hasRequestedPushPermission
+    /** True once the onboarding soft-ask was completed. This is deliberately
+     * separate from whether the Android OS dialog was shown: Skip completes
+     * the primer while preserving the native ask for the Activity banner. */
+    val hasCompletedPushPermissionPrimer: StateFlow<Boolean> = preferencesDataStore
+        .hasCompletedPushPermissionPrimer
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     fun markPushPermissionRequested() {

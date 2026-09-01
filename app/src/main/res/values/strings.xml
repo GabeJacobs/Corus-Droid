@@ -827,6 +827,8 @@
     <string name="onboarding_add_photo">Add photo</string>
     <string name="onboarding_full_name">Display name</string>
     <string name="onboarding_terms">By creating an account, you agree to our Terms of Use and Privacy Policy.</string>
+    <string name="onboarding_terms_link">Terms of Use</string>
+    <string name="onboarding_privacy_link">Privacy Policy</string>
     <string name="onboarding_button_continue">CONTINUE</string>
     <!-- Music-service onboarding (Choose Your Player) -->
     <string name="music_service_title">Choose Your Player</string>
@@ -1396,8 +1398,14 @@
     <string name="destination_filter_singles_eps">Singles and EPs</string>
     <string name="destination_filter_compilations">Compilations</string>
     <string name="destination_music_attribution">Artwork, metadata and previews from Apple Music and Spotify.</string>
+    <string name="destination_bandcamp_attribution">Artwork, metadata, merch and show listings from Bandcamp.</string>
     <string name="destination_film_attribution">Film data from The Movie Database (TMDB).</string>
     <string name="destination_open_in_spotify">Open in Spotify</string>
+    <string name="destination_open_in_bandcamp">Open in Bandcamp</string>
+    <string name="destination_upcoming_shows">Upcoming shows</string>
+    <string name="destination_merch">Merch</string>
+    <string name="destination_merch_sold_out">Sold out</string>
+    <string name="destination_links">Links</string>
     <string name="destination_posts_load_error">Couldn\'t load posts right now.</string>
     <string name="destination_album_posts_load_error">Couldn\'t load posts for this album.</string>
     <string name="destination_no_posts_artist">No posts from this artist yet.</string>

@@ -621,6 +621,8 @@
     <string name="onboarding_add_photo">Adicionar foto</string>
     <string name="onboarding_full_name">Nome de exibição</string>
     <string name="onboarding_terms">Ao criar uma conta, você concorda com nossos Termos de Uso e Política de Privacidade.</string>
+    <string name="onboarding_terms_link">Termos de Uso</string>
+    <string name="onboarding_privacy_link">Política de Privacidade</string>
     <string name="onboarding_button_continue">CONTINUAR</string>
     <string name="onboarding_dialog_photo_title">Foto de Perfil</string>
     <string name="onboarding_remove_photo">Remover Foto</string>
