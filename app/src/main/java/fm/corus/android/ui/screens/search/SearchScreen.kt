@@ -314,8 +314,11 @@ fun SearchScreen(
     val showSearchOfflineRetry = hasSearchQuery && !isSearching && searchHasError && currentTabIsEmpty
     var isSearchFocused by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
+    // Recents overlay on focus, matching iOS `showingRecents`: only when
+    // there are items. Empty recents leave browse / discovery visible.
     // Unified search has no Users tab; recents overlay on focus everywhere.
     val showRecentOverlay = isSearchFocused && !hasSearchQuery &&
+        recentSearches.isNotEmpty() &&
         (unifiedQueryMode || activeTab == SearchTab.USERS)
     val showBrowseTabs = if (segmentedSearchEnabled) {
         !hasSearchQuery && !showRecentOverlay

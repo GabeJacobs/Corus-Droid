@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
@@ -1281,6 +1282,8 @@ internal fun CorusBottomBar(
                 badgeCount = unreadMessageCount,
                 onClick = { onTabSelected(CorusTab.MESSAGES) },
                 modifier = Modifier.weight(1f),
+                // Material Send points right; -45° matches iOS paperplane (nose up-right).
+                iconRotation = -45f,
                 badgeXOffset = 2.dp,
             )
             TabItem(
@@ -1290,9 +1293,7 @@ internal fun CorusBottomBar(
                 badgeCount = notificationTabBadgeCount,
                 onClick = { onTabSelected(CorusTab.NOTIFICATIONS) },
                 modifier = Modifier.weight(1f),
-                badgeAlignment = Alignment.TopEnd,
                 badgeXOffset = 4.dp,
-                badgeYOffset = (-2).dp,
             )
             TabItem(
                 icon = if (selectedTab == CorusTab.PROFILE) CorusTab.PROFILE.selectedIcon else CorusTab.PROFILE.unselectedIcon,
@@ -1313,9 +1314,8 @@ private fun TabItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     badgeCount: Int = 0,
-    badgeAlignment: Alignment = Alignment.BottomEnd,
+    iconRotation: Float = 0f,
     badgeXOffset: Dp = 2.dp,
-    badgeYOffset: Dp = 2.dp,
 ) {
     val color = if (isSelected) CorusColors.Accent else CorusColors.Secondary
 
@@ -1336,7 +1336,9 @@ private fun TabItem(
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier
+                    .size(24.dp)
+                    .rotate(iconRotation),
                 tint = color,
             )
             if (badgeCount > 0) {
@@ -1344,8 +1346,8 @@ private fun TabItem(
                 val isWide = badgeText.length > 1
                 Box(
                     modifier = Modifier
-                        .align(badgeAlignment)
-                        .offset(x = badgeXOffset, y = badgeYOffset)
+                        .align(Alignment.BottomEnd)
+                        .offset(x = badgeXOffset, y = 2.dp)
                         .defaultMinSize(minWidth = 16.dp, minHeight = 16.dp)
                         .background(Color.Red, CircleShape)
                         .padding(horizontal = if (isWide) 4.dp else 0.dp),

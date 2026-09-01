@@ -2646,7 +2646,7 @@ internal fun FeedHeader(
             )
         }
 
-        // Same 16dp gutter + chrome hit box as the profile compose `+`.
+        // Same leading + chrome hit box as the profile compose `+`.
         // Avoid Material IconButtons (48dp) — they shrink the glyph inward.
         Box(
             modifier = if (tabsVisible) Modifier.matchParentSize() else Modifier.fillMaxWidth(),
@@ -2654,7 +2654,7 @@ internal fun FeedHeader(
         Box(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = CorusSpacing.lg)
+                .padding(start = CorusSpacing.composePlusLeading)
                 .size(CorusSpacing.composePlusSide)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },

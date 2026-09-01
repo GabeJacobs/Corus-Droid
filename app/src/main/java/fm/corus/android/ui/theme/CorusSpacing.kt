@@ -25,6 +25,13 @@ object CorusSpacing {
     /** Extra gap above action pills when bio/website are empty. Matches iOS. */
     val profileEmptyInfoActionsExtra = 4.dp
 
+    /**
+     * Leading inset for Feed + profile compose `+`. 4dp past iOS 16pt so
+     * Material Add doesn't sit in the corner (the glyph fills its hit box
+     * more than SF `plus`).
+     */
+    val composePlusLeading = 20.dp
+
     /** Feed + profile compose `+` hit box. Matches iOS `composePlusSide`. */
     val composePlusSide = 28.dp
 

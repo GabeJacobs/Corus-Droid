@@ -122,8 +122,8 @@ fun ThreadListScreen(
                 onClick = { showNewMessagePicker = true },
                 painter = painterResource(id = R.drawable.ic_edit_square),
                 contentDescription = stringResource(id = R.string.messaging_list_cd_new_message),
-                tint = CorusColors.Text,
-                size = CorusSpacing.iconMd,
+                tint = CorusColors.Secondary,
+                size = CorusSpacing.iconLg,
             )
         }
 
@@ -149,8 +149,8 @@ fun ThreadListScreen(
                     onClick = { showNewMessagePicker = true },
                     painter = painterResource(id = R.drawable.ic_edit_square),
                     contentDescription = stringResource(id = R.string.messaging_list_cd_new_message),
-                    tint = CorusColors.Text,
-                    size = CorusSpacing.iconMd,
+                    tint = CorusColors.Secondary,
+                    size = CorusSpacing.iconLg,
                 )
             }
             HorizontalDivider(color = CorusColors.Divider)

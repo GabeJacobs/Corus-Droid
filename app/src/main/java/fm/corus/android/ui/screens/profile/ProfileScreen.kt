@@ -492,7 +492,12 @@ fun ProfileScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+                        .padding(
+                            start = CorusSpacing.composePlusLeading,
+                            end = CorusSpacing.lg,
+                            top = CorusSpacing.md,
+                            bottom = CorusSpacing.md,
+                        ),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(
