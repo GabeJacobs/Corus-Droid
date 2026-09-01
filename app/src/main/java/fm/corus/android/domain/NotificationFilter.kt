@@ -52,10 +52,15 @@ object NotificationFilterVisibility {
         filtered: List<CymbalNotification>,
         followingIds: Set<String>,
         filteredReady: Boolean = false,
+        filterLoading: Boolean = false,
     ): List<CymbalNotification> = when (filter) {
         NotificationFilter.ALL -> all
         NotificationFilter.PEOPLE_YOU_FOLLOW -> {
-            if (filteredReady || filtered.isNotEmpty()) {
+            // Don't paint the All-window subset while the chip fetch is in
+            // flight — that is the "one comment, then the rest" flash.
+            if (holdForServer(filteredReady, filterLoading, filtered.isEmpty())) {
+                emptyList()
+            } else if (filteredReady || filtered.isNotEmpty()) {
                 if (followingIds.isEmpty()) filtered
                 else filtered.filter { followingIds.contains(it.fromUser.id) }
             } else {
@@ -65,11 +70,20 @@ object NotificationFilterVisibility {
         NotificationFilter.COMMENTS,
         NotificationFilter.FOLLOWS,
         NotificationFilter.TAGS_AND_MENTIONS -> {
-            if (filteredReady || filtered.isNotEmpty()) filtered
-            else {
+            if (holdForServer(filteredReady, filterLoading, filtered.isEmpty())) {
+                emptyList()
+            } else if (filteredReady || filtered.isNotEmpty()) {
+                filtered
+            } else {
                 val types = filter.queryTypes?.map { it.value }?.toSet().orEmpty()
                 all.filter { it.type.value in types }
             }
         }
     }
+
+    private fun holdForServer(
+        filteredReady: Boolean,
+        filterLoading: Boolean,
+        filteredEmpty: Boolean,
+    ): Boolean = filterLoading && !filteredReady && filteredEmpty
 }

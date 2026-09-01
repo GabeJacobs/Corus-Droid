@@ -30,6 +30,7 @@ object FullSongPlayCoordinator {
         playbackModePromptManager: PlaybackModePromptManager,
         skipPlaybackModePrompt: Boolean = false,
         preferFullSong: Boolean = false,
+        forcePlay: Boolean = false,
     ): PlayTapOutcome {
         remoteConfig.awaitInitialFetch()
         if (playbackModePromptManager.shouldPrompt(
@@ -59,6 +60,7 @@ object FullSongPlayCoordinator {
                 sourcePostId = sourcePostId,
                 nowPlaying = nowPlaying,
                 preferFullSong = preferFullSong,
+                forcePlay = forcePlay,
             )
         }
 
@@ -89,6 +91,7 @@ object FullSongPlayCoordinator {
         sourcePostId: String?,
         nowPlaying: NowPlayingManager,
         preferFullSong: Boolean,
+        forcePlay: Boolean = false,
     ): PlayTapOutcome {
         val isReTap = isReTapOfActiveEntry(
             activeTrackId = nowPlaying.currentTrackId,
@@ -96,7 +99,7 @@ object FullSongPlayCoordinator {
             tappedTrackId = track.id,
             tappedSourcePostId = sourcePostId,
         )
-        if (isReTap) {
+        if (!forcePlay && isReTap) {
             if (nowPlaying.isResolvingSpotify) {
                 return PlayTapOutcome.CancelLoading
             }

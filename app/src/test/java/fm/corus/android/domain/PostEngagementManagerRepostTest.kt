@@ -27,6 +27,7 @@ class PostEngagementManagerRepostTest {
         analyticsService = mock(),
         saveChangedEvent = mock(),
         spotifySaveAutoAdd = mock(),
+        reviewPromptManager = mock(),
     )
 
     @Test

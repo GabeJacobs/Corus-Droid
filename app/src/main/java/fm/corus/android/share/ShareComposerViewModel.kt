@@ -21,6 +21,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.Date
 import kotlinx.coroutines.launch
 
 /**
@@ -426,7 +427,21 @@ class ShareComposerViewModel @Inject constructor(
                 // Same signal ComposeViewModel fires: Feed + Profile listen on
                 // this singleton bus and refresh themselves, so the new post is
                 // already there when the user lands in the app (no manual pull).
-                postCreationEvent.notifyPostCreated(MediaType.TRACK)
+                val author = authRepository.userProfile.value
+                    ?: CymbalUser(id = userId, username = "", displayName = "")
+                val captionText = _caption.value.trim().ifEmpty { null }
+                postCreationEvent.notifyPostCreated(
+                    MediaType.TRACK,
+                    CymbalPost(
+                        id = result.postId,
+                        user = author,
+                        track = postTrack,
+                        caption = captionText,
+                        timestamp = Date(),
+                        isFirstPoster = result.isFirstPoster,
+                        mediaType = MediaType.TRACK,
+                    ).takeIf { result.postId.isNotBlank() },
+                )
 
                 if (result.isFirstPoster) {
                     _trophyPost.value = CymbalPost(

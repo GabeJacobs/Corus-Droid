@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.unit.dp
 import fm.corus.android.ui.theme.CorusSpacing
 import kotlin.math.abs
+import kotlinx.coroutines.yield
 
 /** iOS FeedView skip scroll: `.timingCurve(0.22, 0.82, 0.28, 1.0, duration: 0.42)`. */
 private val FeedFollowScrollSpec = tween<Float>(
@@ -47,7 +48,9 @@ fun scrollDeltaToAlignItemTop(itemOffset: Int, topInsetPx: Int): Int =
  * row behind the frost.
  *
  * When the item is on screen we scroll by [scrollDeltaToAlignItemTop].
- * Otherwise we teleport then correct leftover offset.
+ * Otherwise we animate to the index. Either path can undershoot when
+ * LazyColumn contentPadding or uncomposed rows eat the delta, so we
+ * finish with [scrollToItem] — not another [scrollBy].
  */
 suspend fun LazyListState.animateScrollItemToTop(index: Int, topInsetPx: Int = 0) {
     if (index < 0) return
@@ -62,8 +65,14 @@ suspend fun LazyListState.animateScrollItemToTop(index: Int, topInsetPx: Int = 0
         // Negative scrollOffset places the item top BELOW the viewport top.
         animateScrollToItem(index = index, scrollOffset = -inset)
     }
-    val leftover = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }?.offset ?: return
-    val remaining = scrollDeltaToAlignItemTop(leftover, inset).toFloat()
+    yield()
+    val leftover = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }?.offset
+    if (leftover == null || abs(scrollDeltaToAlignItemTop(leftover, inset)) > 1) {
+        scrollToItem(index = index, scrollOffset = -inset)
+    }
+    yield()
+    val still = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }?.offset ?: return
+    val remaining = scrollDeltaToAlignItemTop(still, inset).toFloat()
     if (abs(remaining) > 1f) {
         scrollBy(remaining)
     }

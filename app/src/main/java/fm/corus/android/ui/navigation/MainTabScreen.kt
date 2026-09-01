@@ -7,7 +7,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -26,12 +25,11 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Scaffold
 import fm.corus.android.ui.components.PlaybackModePromptOverlay
+import fm.corus.android.ui.components.ReviewPromptView
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -46,7 +44,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
@@ -160,6 +157,7 @@ fun MainTabScreen(
     val playFullSongs by viewModel.playFullSongs.collectAsState()
     val alwaysPlayFullSongs by viewModel.alwaysPlayFullSongs.collectAsState()
     val playbackModePending by viewModel.playbackModePromptManager.pending.collectAsState()
+    val showReviewPrompt by viewModel.reviewPromptManager.shouldShowPrompt.collectAsState()
     val isResolvingLinkOut by fm.corus.android.domain.MusicServiceLinkOut.isResolving.collectAsState()
     val isResolvingDestination by fm.corus.android.domain.DestinationResolvingOverlay.isResolving.collectAsState()
     val pushPermissionLauncher = rememberLauncherForActivityResult(
@@ -232,14 +230,16 @@ fun MainTabScreen(
     val searchNavController = rememberNavController()
     val notificationsNavController = rememberNavController()
     val profileNavController = rememberNavController()
+    val messagesNavController = rememberNavController()
 
     // Map for tab-based navigation from overlay sheets
-    val navControllers = remember(feedNavController, searchNavController, notificationsNavController, profileNavController) {
+    val navControllers = remember(feedNavController, searchNavController, notificationsNavController, profileNavController, messagesNavController) {
         mapOf(
             CorusTab.FEED to feedNavController,
             CorusTab.EXPLORE to searchNavController,
             CorusTab.NOTIFICATIONS to notificationsNavController,
             CorusTab.PROFILE to profileNavController,
+            CorusTab.MESSAGES to messagesNavController,
         )
     }
 
@@ -359,8 +359,14 @@ fun MainTabScreen(
         if (playerExpansion.isExpandedOrExpanding) {
             playerExpansion.collapse()
         }
-        val navController = notificationsNavController
-        selectedTab = CorusTab.NOTIFICATIONS
+        val isThread = notificationDestination is DeepLinkDestination.Thread
+        val navController = if (isThread) {
+            selectedTab = CorusTab.MESSAGES
+            messagesNavController
+        } else {
+            selectedTab = CorusTab.NOTIFICATIONS
+            notificationsNavController
+        }
         when (notificationDestination) {
             is DeepLinkDestination.Post -> navController.navigate(PostDetailRoute(notificationDestination.postId))
             is DeepLinkDestination.PostComment -> navController.navigate(
@@ -368,7 +374,6 @@ fun MainTabScreen(
             )
             is DeepLinkDestination.Profile -> navController.navigate(OtherProfileRoute(notificationDestination.userId))
             is DeepLinkDestination.Thread -> {
-                navController.navigate(ThreadListRoute)
                 navController.navigate(MessageThreadRoute(
                     threadId = notificationDestination.threadId,
                     otherUserId = notificationDestination.otherUserId,
@@ -393,7 +398,7 @@ fun MainTabScreen(
     val density = LocalDensity.current
     // Seed with a typical bar height so park math is sane before first measure.
     var tabBarHeightPx by remember { mutableStateOf(with(density) { 90.dp.toPx() }) }
-    var miniHeightPx by remember { mutableStateOf(with(density) { 56.dp.toPx() }) }
+    var miniHeightPx by remember { mutableStateOf(with(density) { CorusSpacing.miniPlayerMinHeight.toPx() }) }
 
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
     val isHydratingExternalSpotify by viewModel.nowPlayingManager.isHydratingExternalSpotify.collectAsState()
@@ -487,6 +492,15 @@ fun MainTabScreen(
                     scrollToTopTrigger = notificationsScrollToTop.intValue,
                     tabActivationTrigger = notificationsTabActivation.intValue,
                     isContainingTabSelected = selectedTab == CorusTab.NOTIFICATIONS,
+                    onShowComments = { commentPostId = it },
+                    onShowPhoto = { expandedPhoto = it },
+                )
+            }
+            TabContent(visible = selectedTab == CorusTab.MESSAGES) {
+                MessagesNavGraph(
+                    navController = messagesNavController,
+                    mainTabViewModel = viewModel,
+                    isContainingTabSelected = selectedTab == CorusTab.MESSAGES,
                     onShowComments = { commentPostId = it },
                     onShowPhoto = { expandedPhoto = it },
                 )
@@ -761,11 +775,8 @@ fun MainTabScreen(
             // on — including when the mini-player wash is the shared background.
             frosted = FrostedBottomBar,
             selectedTab = selectedTab,
-            notificationTabBadgeCount = notificationTabBadge(
-                selectedTab = selectedTab,
-                notificationCount = notificationCount,
-                unreadMessageCount = unreadMessageCount,
-            ),
+            unreadMessageCount = unreadMessageCount,
+            notificationTabBadgeCount = notificationTabBadge(notificationCount),
             onTabSelected = { tab ->
                 if (tab == CorusTab.COMPOSE) {
                     if (viewModel.subscriptionRepository.canPost) {
@@ -778,13 +789,18 @@ fun MainTabScreen(
                 } else {
                     if (tab == selectedTab) {
                         val navController = navControllers[tab]!!
-                        val popped = navController.popToStart()
-                        if (!popped) {
+                        // popBackStack(start) can return true even when already
+                        // at root, which skipped scroll-to-top. Only pop when
+                        // there's a screen above the tab root.
+                        if (navController.previousBackStackEntry != null) {
+                            navController.popToStart()
+                        } else {
                             when (tab) {
                                 CorusTab.FEED -> feedScrollToTop.intValue++
                                 CorusTab.EXPLORE -> searchScrollToTop.intValue++
                                 CorusTab.NOTIFICATIONS -> notificationsScrollToTop.intValue++
                                 CorusTab.PROFILE -> profileScrollToTop.intValue++
+                                CorusTab.MESSAGES -> {}
                                 else -> {}
                             }
                         }
@@ -799,15 +815,6 @@ fun MainTabScreen(
                         profileTabActivation.intValue++
                     }
                     selectedTab = tab
-                }
-            },
-            onComposeTapped = {
-                if (viewModel.subscriptionRepository.canPost) {
-                    composeViewModel.reset()
-                    showCompose = true
-                } else {
-                    clubOfferSource = PaywallSource.POST_LIMIT
-                    showClubOffer = true
                 }
             },
         )
@@ -832,6 +839,13 @@ fun MainTabScreen(
         )
     }
 
+    ReviewPromptView(
+        visible = showReviewPrompt,
+        onLeaveReview = { viewModel.reviewPromptManager.requestReview() },
+        onDismiss = { viewModel.reviewPromptManager.dismiss() },
+        modifier = Modifier.zIndex(4f),
+    )
+
     // Status-bar strip cover. The immersive detail pages (song/artist/album/director/
     // film) paint their blurred backdrop UP into the shared, unclipped status-bar strip
     // (see extendIntoStatusBar). When a non-immersive page (post/profile) is pushed on
@@ -846,6 +860,7 @@ fun MainTabScreen(
             CorusTab.EXPLORE -> searchNavController
             CorusTab.NOTIFICATIONS -> notificationsNavController
             CorusTab.PROFILE -> profileNavController
+            CorusTab.MESSAGES -> messagesNavController
             CorusTab.COMPOSE -> feedNavController
         }
         // Gate on any VISIBLE entry (the top one AND any mid-transition one), not just
@@ -872,6 +887,7 @@ fun MainTabScreen(
                 add("ProfileTabRoute")
                 // Activity (frosted header overlay).
                 add("NotificationsTabRoute")
+                add("ThreadListRoute")
             }
         }
         val anyImmersiveVisible = visibleEntries.any { entry ->
@@ -1168,23 +1184,11 @@ private fun NavHostController.popToStart(): Boolean {
 }
 
 /**
- * Combined badge count to display on the Activity tab icon.
+ * Badge count on the Activity tab icon.
  *
- * Matches iOS MainTabView:
- *  - When the user is already on the Activity tab, only unread DMs count (notifications
- *    were just marked read on screen entry, so surfacing them would re-appear a badge
- *    that the user considers dismissed).
- *  - Otherwise, sum of unread notifications + unread DMs.
+ * Messages has its own unread-DM badge, so Activity shows notifications only.
  */
-internal fun notificationTabBadge(
-    selectedTab: CorusTab,
-    notificationCount: Int,
-    unreadMessageCount: Int,
-): Int = if (selectedTab == CorusTab.NOTIFICATIONS) {
-    unreadMessageCount
-} else {
-    notificationCount + unreadMessageCount
-}
+internal fun notificationTabBadge(notificationCount: Int): Int = notificationCount
 
 /**
  * Floor for the gesture-navigation strip under the tab bar. 24dp is what AOSP
@@ -1216,8 +1220,8 @@ internal fun CorusBottomBar(
     selectedTab: CorusTab,
     notificationTabBadgeCount: Int,
     onTabSelected: (CorusTab) -> Unit,
-    onComposeTapped: () -> Unit,
     frosted: Boolean = false,
+    unreadMessageCount: Int = 0,
     // Overridable so tests can drive the nav strip; Robolectric always reports 0.
     navInset: Dp = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
 ) {
@@ -1270,9 +1274,14 @@ internal fun CorusBottomBar(
                 onClick = { onTabSelected(CorusTab.EXPLORE) },
                 modifier = Modifier.weight(1f),
             )
-            ComposeButton(
-                onClick = onComposeTapped,
+            TabItem(
+                icon = if (selectedTab == CorusTab.MESSAGES) CorusTab.MESSAGES.selectedIcon else CorusTab.MESSAGES.unselectedIcon,
+                label = stringResource(CorusTab.MESSAGES.labelRes),
+                isSelected = selectedTab == CorusTab.MESSAGES,
+                badgeCount = unreadMessageCount,
+                onClick = { onTabSelected(CorusTab.MESSAGES) },
                 modifier = Modifier.weight(1f),
+                badgeXOffset = 2.dp,
             )
             TabItem(
                 icon = if (selectedTab == CorusTab.NOTIFICATIONS) CorusTab.NOTIFICATIONS.selectedIcon else CorusTab.NOTIFICATIONS.unselectedIcon,
@@ -1281,6 +1290,7 @@ internal fun CorusBottomBar(
                 badgeCount = notificationTabBadgeCount,
                 onClick = { onTabSelected(CorusTab.NOTIFICATIONS) },
                 modifier = Modifier.weight(1f),
+                badgeXOffset = 4.dp,
             )
             TabItem(
                 icon = if (selectedTab == CorusTab.PROFILE) CorusTab.PROFILE.selectedIcon else CorusTab.PROFILE.unselectedIcon,
@@ -1301,6 +1311,7 @@ private fun TabItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     badgeCount: Int = 0,
+    badgeXOffset: Dp = 2.dp,
 ) {
     val color = if (isSelected) CorusColors.Accent else CorusColors.Secondary
 
@@ -1329,19 +1340,18 @@ private fun TabItem(
                 val isWide = badgeText.length > 1
                 Box(
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .offset(x = 8.dp, y = (-4).dp)
-                        .defaultMinSize(minWidth = 18.dp, minHeight = 18.dp)
+                        .align(Alignment.BottomEnd)
+                        .offset(x = badgeXOffset, y = 2.dp)
+                        .defaultMinSize(minWidth = 16.dp, minHeight = 16.dp)
                         .background(Color.Red, CircleShape)
-                        .border(1.5.dp, Color.White, CircleShape)
-                        .padding(horizontal = if (isWide) 5.dp else 0.dp),
+                        .padding(horizontal = if (isWide) 4.dp else 0.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = badgeText,
                         color = Color.White,
-                        fontSize = 11.sp,
-                        lineHeight = 11.sp,
+                        fontSize = 10.sp,
+                        lineHeight = 10.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         textAlign = TextAlign.Center,
@@ -1360,43 +1370,5 @@ private fun TabItem(
             style = CorusFont.tabLabel,
             color = color,
         )
-    }
-}
-
-// The button is centered on the icon+label stack (CenterVertically in the Row),
-// then lifted 2dp. A solid filled disc optically reads low next to the lightweight
-// outline icons, so this small nudge balances it against the icon row by eye.
-private val ComposeButtonOpticalLift = 2.dp
-
-@Composable
-private fun ComposeButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.offset(y = -ComposeButtonOpticalLift),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .shadow(
-                    elevation = 4.dp,
-                    shape = CircleShape,
-                    ambientColor = CorusColors.Accent.copy(alpha = 0.3f),
-                    spotColor = CorusColors.Accent.copy(alpha = 0.3f),
-                )
-                .background(CorusColors.Accent, CircleShape)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onClick,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Add,
-                contentDescription = stringResource(R.string.tab_cd_compose),
-                modifier = Modifier.size(25.dp),
-                tint = Color.White,
-            )
-        }
     }
 }

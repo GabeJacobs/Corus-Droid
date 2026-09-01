@@ -53,7 +53,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import coil3.request.ImageRequest
-import coil3.request.crossfade
 import coil3.size.Size
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -63,7 +62,6 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import coil3.compose.AsyncImage
 import fm.corus.android.R
 import fm.corus.android.ui.rememberHiddenUserIds
 import fm.corus.android.data.model.CymbalPost
@@ -585,10 +583,9 @@ fun PostCard(
                     contentAlignment = Alignment.Center,
                 ) {
                     val isUnavailable = post.isTrack && post.track.unavailable
-                    AsyncImage(
+                    ShimmerAsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(post.displayImageLargeURL ?: post.displayImageURL)
-                            .crossfade(true)
                             .size(if (post.isMovie) Size(780, 1170) else Size(640, 640))
                             .build(),
                         contentDescription = post.displayTitle,
@@ -859,10 +856,9 @@ fun PostCard(
                             detectTapGestures(onTap = { flipState.flipBack() })
                         },
                 ) {
-                    AsyncImage(
+                    ShimmerAsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(flipState.backCoverURL)
-                            .crossfade(true)
                             .size(Size(640, 640))
                             .build(),
                         contentDescription = stringResource(R.string.post_card_cd_album_back_cover),

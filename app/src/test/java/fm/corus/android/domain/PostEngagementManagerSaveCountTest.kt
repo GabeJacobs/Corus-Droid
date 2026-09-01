@@ -38,6 +38,7 @@ class PostEngagementManagerSaveCountTest {
         analyticsService = mock(),
         saveChangedEvent = mock(),
         spotifySaveAutoAdd = mock(),
+        reviewPromptManager = mock(),
     )
 
     @Test

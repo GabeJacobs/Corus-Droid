@@ -190,6 +190,7 @@
     <string name="feed_empty_new_releases_title">Noch keine neuen Releases</string>
     <string name="feed_empty_new_releases_subtitle">Schau später noch mal vorbei für weitere neue Releases von Leuten, denen du folgst.</string>
     <string name="feed_empty_new_releases_show_all">Alle Beiträge anzeigen</string>
+    <string name="feed_empty_favorites_eyebrow">FAVORITEN</string>
     <string name="feed_empty_favorites_title">Noch keine Favoriten</string>
     <string name="feed_empty_favorites_subtitle">Tippe auf den ☆ im Profil einer Person, um sie hier hinzuzufügen.</string>
     <string name="feed_empty_favorites_button">Zurück zu Folge ich</string>
@@ -363,8 +364,10 @@
     <string name="profile_toast_style_updated">Stil aktualisiert!</string>
     <string name="profile_toast_no_songs_for_playlist">Keine Songs für eine Playlist</string>
     <string name="profile_button_edit">PROFIL BEARBEITEN</string>
+    <string name="profile_button_edit_short">BEARBEITEN</string>
     <string name="profile_button_playlist">PLAYLIST</string>
     <string name="profile_button_share">PROFIL TEILEN</string>
+    <string name="profile_button_share_short">TEILEN</string>
     <string name="hashtag_button_playlist">Playlist</string>
     <string name="profile_stat_coruses">coruses</string>
     <string name="profile_stat_followers">Follower</string>
@@ -410,6 +413,10 @@
     <string name="other_profile_blocked_message">Du hast diesen Nutzer blockiert</string>
     <string name="other_profile_button_follow">FOLGEN</string>
     <string name="other_profile_button_following">FOLGE ICH</string>
+    <string name="other_profile_action_unfollow">Entfolgen</string>
+    <string name="other_profile_action_add_favorite">@string/other_profile_cd_add_favorite</string>
+    <string name="other_profile_action_remove_favorite">@string/other_profile_cd_remove_favorite</string>
+    <string name="other_profile_cd_following_options">Zeigt Follow-Optionen</string>
     <string name="other_profile_tab_likes">LIKES</string>
     <string name="other_profile_empty_no_songs">Noch keine Songs</string>
     <string name="other_profile_empty_no_films">Noch keine Filme</string>
@@ -436,7 +443,7 @@
     <string name="edit_profile_dialog_keep_editing">Weiter bearbeiten</string>
     <string name="edit_profile_share_text_format">Schau dir mein Profil auf Corus an: https://corus.fm/user/%1$s</string>
     <string name="edit_profile_share_chooser">Profil teilen</string>
-    <string name="edit_profile_field_name">NAME</string>
+    <string name="edit_profile_field_name">ANZEIGENAME</string>
     <string name="edit_profile_field_username">BENUTZERNAME</string>
     <string name="edit_profile_field_bio">BIO</string>
     <string name="edit_profile_field_website">WEBSITE</string>
@@ -720,7 +727,7 @@
     <string name="onboarding_subtitle">richte dein Profil ein</string>
     <string name="onboarding_cd_avatar">Avatar</string>
     <string name="onboarding_add_photo">Foto hinzufügen</string>
-    <string name="onboarding_full_name">Vollständiger Name</string>
+    <string name="onboarding_full_name">Anzeigename</string>
     <string name="onboarding_terms">Indem du ein Konto erstellst, stimmst du unseren Nutzungsbedingungen und der Datenschutzrichtlinie zu.</string>
     <string name="onboarding_button_continue">WEITER</string>
     <!-- Music-service onboarding (Choose Your Player) -->
@@ -773,6 +780,10 @@
     <string name="messaging_thread_sending">Wird gesendet...</string>
     <string name="messaging_thread_unavailable">Diese Unterhaltung ist nicht mehr verfügbar</string>
     <string name="messaging_thread_user_messaging_disabled">Dieser Nutzer hat Nachrichten deaktiviert</string>
+    <string name="messaging_restriction_nobody">%1$s akzeptiert gerade keine Nachrichten.</string>
+    <string name="messaging_restriction_followers">%1$s akzeptiert nur Nachrichten von Followern.</string>
+    <string name="messaging_restriction_following">%1$s akzeptiert nur Nachrichten von Personen, denen er oder sie folgt.</string>
+    <string name="messaging_restriction_name_fallback">Diese Person</string>
     <string name="messaging_thread_failed_to_deliver">Zustellung fehlgeschlagen</string>
     <string name="messaging_thread_tap_to_retry">· Zum erneuten Versuch tippen</string>
 
@@ -1114,6 +1125,16 @@
     <string name="messaging_group_member_count">%1$d Mitglieder</string>
     <string name="messaging_group_and_others">und %1$d weitere</string>
     <string name="messaging_group_sender_preview">%1$s: %2$s</string>
+    <string name="messaging_group_sys_created">%1$s hat die Gruppe erstellt</string>
+    <string name="messaging_group_sys_added">%1$s hat %2$s hinzugefügt</string>
+    <string name="messaging_group_sys_removed">%1$s hat %2$s entfernt</string>
+    <string name="messaging_group_sys_left">%1$s hat die Gruppe verlassen</string>
+    <string name="messaging_group_sys_named">%1$s hat die Gruppe %2$s genannt</string>
+    <string name="messaging_group_sys_renamed">%1$s hat den Gruppennamen geändert</string>
+    <string name="messaging_group_sys_photo">%1$s hat das Gruppenfoto geändert</string>
+    <string name="messaging_group_sys_and">%1$s und %2$s</string>
+    <string name="messaging_group_sys_and_n_other">%1$s, %2$s und %3$d weitere Person</string>
+    <string name="messaging_group_sys_and_n_others">%1$s, %2$s und %3$d weitere</string>
     <string name="club_feature_taste_matches">Geschmacks-Matches-Feed</string>
     <string name="feed_taste_matches_coldstart_title">Was sind 3 Songs oder Filme, die du liebst?</string>
     <string name="feed_taste_matches_coldstart_body">Corus stellt dir einen personalisierten Feed zusammen und bringt dich mit Menschen mit ähnlichem Geschmack zusammen.</string>
@@ -1124,9 +1145,12 @@
     <string name="feed_taste_matches_no_matches_title">Noch keine Matches</string>
     <string name="feed_taste_matches_no_matches_body">Poste mehr Musik und Filme, die du liebst, und Menschen mit deinem Geschmack erscheinen hier.</string>
     <string name="feed_taste_matches_end_more">Je mehr du teilst, desto mehr Matches bekommst du.</string>
-    <string name="feed_taste_matches_paywall_title">Geschmacks-Matches</string>
-    <string name="feed_taste_matches_paywall_body">Erhalte Empfehlungen von deinen Geschmacks-Matches, von Menschen, die dasselbe lieben wie du.</string>
-    <string name="feed_taste_matches_paywall_cta">Mehr erfahren</string>
+    <string name="feed_taste_matches_paywall_title">Deine Geschmacks-Matches-Vorschau ist vorbei</string>
+    <string name="feed_taste_matches_paywall_body">Tritt dem Corus Club bei, um Beiträge von Menschen mit deinem Geschmack zu sehen.</string>
+    <string name="feed_taste_matches_paywall_cta">Freischalten</string>
+    <string name="feed_taste_matches_paywall_trial_title">Schalte deinen Geschmacks-Matches-Feed frei</string>
+    <string name="feed_taste_matches_paywall_trial_body">Probiere Corus Club 2 Wochen kostenlos und sieh Beiträge von Menschen mit deinem Geschmack.</string>
+    <string name="feed_taste_matches_paywall_trial_cta">Freischalten</string>
 
     <!-- Artist / Album / Director destination pages (artist_pages_enabled) -->
     <string name="search_tab_music">Musik</string>

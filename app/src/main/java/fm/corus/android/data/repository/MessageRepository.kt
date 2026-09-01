@@ -419,16 +419,39 @@ class MessageRepository @Inject constructor(
             // once a thread passes 200 messages the newest ones fall outside the
             // window and never appear (chat looks blank; only old messages show).
             .limitToLast(200)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null || snapshot == null) return@addSnapshotListener
+            // Metadata is included so an empty *cache* miss is not treated as
+            // "this thread has no messages." That snapshot arrives first on a
+            // cold open (emulator and first-visit alike), the spinner dropped,
+            // and a hung or failed server fetch left a blank thread. Errors
+            // close the flow so the screen can show retry instead of waiting
+            // forever with nothing on it.
+            .addSnapshotListener(MetadataChanges.INCLUDE) { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                if (snapshot == null) return@addSnapshotListener
                 val messages = snapshot.documents.mapNotNull { doc ->
                     val data = doc.data ?: return@mapNotNull null
                     CymbalMessage.fromFirestoreDoc(doc.id, threadId, data)
                 }
+                if (!shouldPublishMessagesSnapshot(
+                        fromCache = snapshot.metadata.isFromCache,
+                        isEmpty = messages.isEmpty(),
+                    )
+                ) return@addSnapshotListener
                 trySend(messages)
             }
         awaitClose { registration.remove() }
     }
+
+    /**
+     * An empty cache snapshot means "we have never fetched this thread," not
+     * "this thread is empty." Cached messages can paint immediately; a server
+     * snapshot (empty or not) is the real answer.
+     */
+    internal fun shouldPublishMessagesSnapshot(fromCache: Boolean, isEmpty: Boolean): Boolean =
+        !fromCache || !isEmpty
 
     /**
      * Emits the user's `settings.messaging.readReceiptsEnabled` setting,

@@ -45,6 +45,7 @@ import fm.corus.android.data.model.MusicService
 import fm.corus.android.domain.SpotifyPlaybackService
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LibraryAdd
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.ui.unit.dp
@@ -199,6 +200,7 @@ fun SettingsScreen(
     val settingsScope = rememberCoroutineScope()
     val feedFollowsNowPlaying by settingsViewModel.feedFollowsNowPlaying.collectAsState()
     val alwaysPlayFullSongs by settingsViewModel.alwaysPlayFullSongs.collectAsState()
+    val forceTasteMatchesPaywall by settingsViewModel.forceTasteMatchesPaywall.collectAsState()
 
     val notificationSettings by notificationSettingsViewModel.settings.collectAsState()
     val hasRequestedPush by notificationSettingsViewModel.hasRequestedPushPermission.collectAsState()
@@ -663,6 +665,17 @@ fun SettingsScreen(
                     label = stringResource(R.string.settings_social_discord),
                     url = "https://discord.gg/mXzt8NDCWD",
                     context = context,
+                )
+            }
+
+            if (BuildConfig.DEBUG) {
+                SectionHeader("Developer")
+                SettingsToggleRow(
+                    icon = Icons.Filled.Lock,
+                    title = "Preview Taste Matches lock",
+                    subtitle = "Shows the expired-trial overlay on the Matches tab, even if you are Club or a tester.",
+                    checked = forceTasteMatchesPaywall,
+                    onCheckedChange = { settingsViewModel.setForceTasteMatchesPaywall(it) },
                 )
             }
 

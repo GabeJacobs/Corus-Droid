@@ -199,6 +199,7 @@ class PlaybackModePromptManager @Inject constructor(
                             playbackModePromptManager = this@PlaybackModePromptManager,
                             skipPlaybackModePrompt = true,
                             preferFullSong = true,
+                            forcePlay = true,
                         )
                         FullSongPlayCoordinator.applyPlayTapOutcome(
                             outcome = outcome,
@@ -230,6 +231,7 @@ class PlaybackModePromptManager @Inject constructor(
                         playbackModePromptManager = this@PlaybackModePromptManager,
                         skipPlaybackModePrompt = true,
                         preferFullSong = true,
+                        forcePlay = true,
                     )
                     FullSongPlayCoordinator.applyPlayTapOutcome(
                         outcome = outcome,

@@ -11,6 +11,7 @@ import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PostCreated
 import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
@@ -68,7 +69,7 @@ class FeedTasteMatchesRematchOnPostTest {
     private lateinit var preferencesDataStore: fm.corus.android.data.local.PreferencesDataStore
 
     // Post-creation bus we drive directly so the test can fire a "posted" event.
-    private val postEvents = MutableSharedFlow<MediaType>(extraBufferCapacity = 1)
+    private val postEvents = MutableSharedFlow<PostCreated>(extraBufferCapacity = 1)
     private val postCreationEvent: PostCreationEvent = mock { on { events } doReturn postEvents }
 
     private val modeFlow = MutableStateFlow("tasteMatches")
@@ -189,7 +190,7 @@ class FeedTasteMatchesRematchOnPostTest {
             // The user posts from the empty state; that post now shares taste
             // with someone, so the next ranked fetch serves matches.
             serving = true
-            postEvents.emit(MediaType.TRACK)
+            postEvents.emit(PostCreated(MediaType.TRACK))
             advanceUntilIdle()
 
             // Feed auto-refreshed into the served matches — no manual refresh.
@@ -214,7 +215,7 @@ class FeedTasteMatchesRematchOnPostTest {
 
             // Post something nobody else shares: the bounded poll must exhaust
             // and quietly restore the "no matches yet" state (no hung skeleton).
-            postEvents.emit(MediaType.TRACK)
+            postEvents.emit(PostCreated(MediaType.TRACK))
             advanceUntilIdle()
 
             assertEquals(

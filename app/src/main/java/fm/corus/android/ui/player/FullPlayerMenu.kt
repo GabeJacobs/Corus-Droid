@@ -91,7 +91,31 @@ internal fun fullPlayerShowsAlbumRow(
         source != TrackSource.DEEZER
 }
 
-internal fun fullPlayerShowsShareRow(sourcePost: CymbalPost?): Boolean = sourcePost != null
+/** Overflow Share is always offered when a track is on screen — same as the song page. */
+internal fun fullPlayerShowsShareRow(shareTrack: CymbalTrack?): Boolean = shareTrack != null
+
+/** Track for overflow Share: loaded source-post track, else a now-playing stub. */
+internal fun fullPlayerShareTrack(
+    sourcePost: CymbalPost?,
+    state: NowPlayingState,
+): CymbalTrack? {
+    sourcePost?.track?.let { return it }
+    val trackId = state.trackId ?: return null
+    return CymbalTrack(
+        id = trackId,
+        name = state.trackName,
+        artistName = state.artistName,
+        albumName = "",
+        albumArtURL = state.albumArtURL,
+        albumArtLargeURL = state.albumArtLargeURL,
+        spotifyURI = state.spotifyURI.orEmpty(),
+        spotifyWebURL = state.spotifyWebURL.orEmpty(),
+        isrc = state.isrc,
+        source = state.source,
+        soundcloudPermalinkUrl = state.soundcloudPermalinkUrl,
+        audiomackUrl = state.audiomackUrl,
+    )
+}
 
 /** Prefer source-post track source, else now-playing — same as iOS chrome. */
 internal fun fullPlayerMenuTrackSource(

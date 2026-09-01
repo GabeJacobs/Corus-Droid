@@ -309,7 +309,7 @@ class ThreadListViewModel @Inject constructor(
      * also what makes "the list ends up with no live listener" unreachable — no
      * callable outcome can skip it.
      */
-    private val threadSummaryJob: Job? =
+    private var threadSummaryJob: Job? =
         authRepository.currentUserId?.let { startThreadSummaryListener(it) }
 
     // Inbox search. The local filter in the screen only sees paged-in threads, so
@@ -331,6 +331,9 @@ class ThreadListViewModel @Inject constructor(
      */
     fun loadThreads() {
         val userId = authRepository.currentUserId ?: return
+        if (threadSummaryJob == null) {
+            threadSummaryJob = startThreadSummaryListener(userId)
+        }
         if (hasLoadedThreads) {
             viewModelScope.launch { refreshThreads(userId) }
             return
@@ -338,6 +341,8 @@ class ThreadListViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             refreshThreads(userId)
+            // An empty page is a real inbox for a new account — don't wait
+            // on a live snapshot that may never confirm "zero" from cache.
             _isLoading.value = false
         }
     }

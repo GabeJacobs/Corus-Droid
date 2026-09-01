@@ -24,10 +24,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
-import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
@@ -53,7 +53,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -62,7 +64,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
-import coil3.request.crossfade
 import coil3.size.Size
 import android.content.Intent
 import android.net.Uri
@@ -71,6 +72,7 @@ import kotlinx.coroutines.launch
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
+import fm.corus.android.data.model.ProfileTabPreferences
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
@@ -88,6 +90,7 @@ import fm.corus.android.ui.components.ShareMediaSheet
 import fm.corus.android.ui.components.ShareMediaSubject
 import fm.corus.android.ui.components.ShareProfileSubject
 import fm.corus.android.ui.components.ShimmerAsyncImage
+import fm.corus.android.ui.components.OfflineRetryState
 import fm.corus.android.ui.components.SkeletonProfileGrid
 import fm.corus.android.ui.components.SkeletonProfileView
 import fm.corus.android.ui.components.SkeletonProfileWithAvatar
@@ -138,13 +141,9 @@ fun OtherProfileScreen(
     // The FOLLOWING pill no longer carries its own horizontal padding: it's
     // weighted to fill the leftover row width with a shrink-to-fit label, so
     // only the unweighted PLAYLIST pill needs an explicit inset.
-    val playlistHPad = if (isWideHeader) CorusSpacing.xxl else CorusSpacing.md
-    val headerAvatarSize = if (isWideHeader) CorusSpacing.avatarLarge else 68.dp
+    val headerAvatarSize = 88.dp
     // Avatar + username + bio sit slightly inside the taste-match pill's left
     // edge — matches iOS.
-    val avatarHPad = headerHPad + 8.dp
-    val usernameStartPad = avatarHPad
-    val usernameEndPad = avatarHPad
     val pillHPad = headerHPad - 4.dp
 
     val profile by viewModel.profile.collectAsState()
@@ -157,6 +156,7 @@ fun OtherProfileScreen(
     var showYouTubeMusicPlaylistExplainer by remember { mutableStateOf(false) }
     val isLoading by viewModel.isLoading.collectAsState()
     val profileUnavailable by viewModel.profileUnavailable.collectAsState()
+    val hasLoadError by viewModel.hasLoadError.collectAsState()
     val isFollowing by viewModel.isFollowing.collectAsState()
     val followsMe by viewModel.followsMe.collectAsState()
     val isBlocked by viewModel.isBlocked.collectAsState()
@@ -208,6 +208,7 @@ fun OtherProfileScreen(
     var isFeaturedArtReady by rememberSaveable { mutableStateOf(false) }
     var didRevealFromSkeleton by rememberSaveable { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var showFollowingSheet by remember { mutableStateOf(false) }
     var showShareSheet by remember { mutableStateOf(false) }
     val recentShareContacts by viewModel.recentShareContacts.collectAsState()
     val shareSearchResults by viewModel.shareSearchResults.collectAsState()
@@ -275,11 +276,14 @@ fun OtherProfileScreen(
         }
     }
 
-    // When the user switches to the FILM tab, fetch movie-only posts so films
-    // older than the recency-sorted first page still appear without a manual refresh.
-    LaunchedEffect(selectedSegment, userId, profile?.isBot) {
+    // When the FILM tab is showing — including first composition, when the
+    // profile opens already on FILM — fetch movie-only posts so films older
+    // than the recency-sorted first page appear without a manual refresh.
+    // `isLoading` is a key so a first-frame call that no-ops while posts are
+    // still landing retries after loadProfile applies the mixed page.
+    LaunchedEffect(selectedSegment, userId, profile?.isBot, isLoading) {
         val isFilmsTab = profile?.isBot == false && selectedSegment == 1
-        if (isFilmsTab) {
+        if (isFilmsTab && !isLoading) {
             viewModel.loadFilmPageIfNeeded(userId)
         }
     }
@@ -301,11 +305,6 @@ fun OtherProfileScreen(
     // the plain TopAppBar (non-immersive) and the frosted bar (immersive) so there
     // is a single definition.
     val profileActions: @Composable RowScope.() -> Unit = {
-                    // Dedicated message button (matching iOS outlined envelope icon)
-                    IconButton(onClick = { onNavigateToMessages("", userId) }) {
-                        Icon(Icons.Outlined.Email, contentDescription = stringResource(fm.corus.android.R.string.other_profile_cd_message), tint = CorusColors.Text, modifier = Modifier.size(20.dp))
-                    }
-
                     // Post notifications bell button (matching iOS)
                     val notifContext = LocalContext.current
                     IconButton(onClick = {
@@ -497,7 +496,22 @@ fun OtherProfileScreen(
             // Immersive draws the shared frosted bar over the content below instead.
             if (!immersive) {
                 TopAppBar(
-                    title = { },
+                    title = {
+                        val titleUsername = profile?.username ?: initialUsername.orEmpty()
+                        if (titleUsername.isNotBlank()) {
+                            UsernameWithFlair(
+                                username = titleUsername,
+                                isBot = profile?.isBot == true,
+                                isVerified = profile?.isVerified == true,
+                                isClubMember = profile?.isClubMember == true,
+                                flairStyle = profile?.flairStyle
+                                    ?: fm.corus.android.data.model.FlairStyle.NONE,
+                                showAtPrefix = false,
+                                style = CorusFont.usernameLarge,
+                                color = CorusColors.Text,
+                            )
+                        }
+                    },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(fm.corus.android.R.string.common_back), tint = CorusColors.Text)
@@ -561,20 +575,11 @@ fun OtherProfileScreen(
                 ) {
                     item(span = { GridItemSpan(3) }) {
                         Column {
-                            // Display name
-                            Text(
-                                text = initialDisplayName,
-                                style = CorusFont.displayName,
-                                color = CorusColors.Text,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-
-                            // Avatar + Stats Row
+                            // Avatar + display name + stats (Instagram identity)
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = avatarHPad, vertical = CorusSpacing.md),
+                                    .padding(horizontal = headerHPad, vertical = CorusSpacing.md),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 UserAvatarView(
@@ -584,80 +589,56 @@ fun OtherProfileScreen(
                                     size = headerAvatarSize,
                                 )
 
-                                Spacer(modifier = Modifier.width(CorusSpacing.md))
+                                Spacer(modifier = Modifier.width(16.dp))
 
                                 Column(
                                     modifier = Modifier.weight(1f),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    horizontalAlignment = Alignment.Start,
                                 ) {
+                                    Text(
+                                        text = initialDisplayName,
+                                        style = CorusFont.usernameLarge,
+                                        color = CorusColors.Text,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Row(
+                                        modifier = Modifier.fillMaxWidth(),
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xxl),
+                                        horizontalArrangement = Arrangement.Start,
                                     ) {
-                                        StatItemOrSkeleton(count = initialCymbalCount, label = stringResource(fm.corus.android.R.string.profile_stat_coruses))
-                                        StatItemOrSkeleton(count = initialFollowerCount, label = stringResource(fm.corus.android.R.string.profile_stat_followers))
-                                        StatItemOrSkeleton(count = initialFollowingCount, label = stringResource(fm.corus.android.R.string.profile_stat_following))
-                                    }
-
-                                    Spacer(modifier = Modifier.height(CorusSpacing.sm))
-
-                                    // Follow + Playlist buttons (non-interactive placeholders)
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
-                                    ) {
-                                        val hintFollowing = initialIsFollowing == true
-                                        // Non-interactive placeholder; shares the live pill so
-                                        // the skeleton matches it and never clips.
-                                        ProfileFollowPill(isFollowing = hintFollowing)
-
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(50))
-                                                .border(1.dp, CorusColors.Divider, RoundedCornerShape(50))
-                                                .padding(vertical = 6.dp, horizontal = playlistHPad),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
-                                                    contentDescription = stringResource(fm.corus.android.R.string.profile_cd_playlist),
-                                                    modifier = Modifier.size(14.dp),
-                                                    tint = CorusColors.Secondary,
-                                                )
-                                                Text(
-                                                    text = stringResource(fm.corus.android.R.string.profile_button_playlist),
-                                                    style = CorusFont.button,
-                                                    color = CorusColors.Secondary,
-                                                    maxLines = 1,
-                                                )
-                                            }
-                                        }
+                                        val statMod = Modifier.weight(1f)
+                                        StatItemOrSkeleton(
+                                            count = initialCymbalCount,
+                                            label = stringResource(fm.corus.android.R.string.profile_stat_coruses),
+                                            modifier = statMod,
+                                            instagram = true,
+                                        )
+                                        StatItemOrSkeleton(
+                                            count = initialFollowerCount,
+                                            label = stringResource(fm.corus.android.R.string.profile_stat_followers),
+                                            modifier = statMod,
+                                            instagram = true,
+                                        )
+                                        StatItemOrSkeleton(
+                                            count = initialFollowingCount,
+                                            label = stringResource(fm.corus.android.R.string.profile_stat_following),
+                                            modifier = statMod,
+                                            instagram = true,
+                                        )
                                     }
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
-                            // Username + Bio
+                            // Bio
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(start = usernameStartPad, end = usernameEndPad),
+                                    .padding(horizontal = headerHPad),
                             ) {
-                                UsernameWithFlair(
-                                    username = initialUsername,
-                                    isBot = false,
-                                    isVerified = initialIsVerified ?: false,
-                                    isClubMember = initialIsClubMember ?: false,
-                                    showAtPrefix = true,
-                                    style = CorusFont.username,
-                                    color = CorusColors.Text,
-                                )
-
                                 if (!initialBio.isNullOrBlank()) {
                                     Spacer(modifier = Modifier.height(CorusSpacing.xs))
                                     // Transient skeleton header shown until the live profile
@@ -670,6 +651,49 @@ fun OtherProfileScreen(
                                         maxLines = 3,
                                         overflow = TextOverflow.Ellipsis,
                                     )
+                                }
+                            }
+
+                            if (!isOwnProfile) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = headerHPad)
+                                        .padding(
+                                            top = CorusSpacing.sm +
+                                                if (initialBio.isNullOrBlank()) {
+                                                    CorusSpacing.profileEmptyInfoActionsExtra
+                                                } else {
+                                                    0.dp
+                                                },
+                                        ),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+                                ) {
+                                    val hintFollowing = initialIsFollowing == true
+                                    ProfileFollowPill(isFollowing = hintFollowing)
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(CorusSpacing.profileActionHeight)
+                                            .clip(RoundedCornerShape(50))
+                                            .border(1.dp, CorusColors.Divider, RoundedCornerShape(50)),
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .height(CorusSpacing.profileActionHeight)
+                                            .clip(RoundedCornerShape(50))
+                                            .border(1.dp, CorusColors.Divider, RoundedCornerShape(50))
+                                            .padding(horizontal = CorusSpacing.sm),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
+                                            contentDescription = stringResource(fm.corus.android.R.string.profile_cd_playlist),
+                                            modifier = Modifier.size(CorusSpacing.profileActionPlaylistIcon),
+                                            tint = CorusColors.Secondary,
+                                        )
+                                    }
                                 }
                             }
 
@@ -737,6 +761,16 @@ fun OtherProfileScreen(
                 }
                 SkeletonProfileGrid()
             }
+            return@run
+        }
+
+        if (profile == null && hasLoadError) {
+            OfflineRetryState(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                onRetry = { viewModel.retryLoad(userId) },
+            )
             return@run
         }
 
@@ -818,20 +852,14 @@ fun OtherProfileScreen(
         ) {
             item(span = { GridItemSpan(3) }) {
                 Column {
-                    // Display name centered (matching iOS)
-                    Text(
-                        text = currentProfile.displayName,
-                        style = CorusFont.displayName,
-                        color = CorusColors.Text,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    // Avatar + Stats Row
+                    // Avatar + display name + stats (Instagram identity)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = avatarHPad, vertical = CorusSpacing.md),
+                            .padding(
+                                horizontal = headerHPad,
+                                vertical = CorusSpacing.md,
+                            ),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         UserAvatarView(
@@ -841,156 +869,56 @@ fun OtherProfileScreen(
                             modifier = Modifier.clickable { showAvatarFullScreen = true },
                         )
 
-                        Spacer(modifier = Modifier.width(CorusSpacing.md))
+                        Spacer(modifier = Modifier.width(16.dp))
 
                         Column(
                             modifier = Modifier.weight(1f),
-                            horizontalAlignment = Alignment.CenterHorizontally,
+                            horizontalAlignment = Alignment.Start,
                         ) {
-                            // Stats
+                            Text(
+                                text = currentProfile.displayName,
+                                style = CorusFont.usernameLarge,
+                                color = CorusColors.Text,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
                             Row(
+                                modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xxl),
+                                horizontalArrangement = Arrangement.Start,
                             ) {
-                                StatItem(count = currentProfile.cymbalCount, label = stringResource(fm.corus.android.R.string.profile_stat_coruses))
+                                val statMod: Modifier = Modifier.weight(1f)
+                                StatItem(
+                                    count = currentProfile.cymbalCount,
+                                    label = stringResource(fm.corus.android.R.string.profile_stat_coruses),
+                                    modifier = statMod,
+                                    instagram = true,
+                                )
                                 StatItem(
                                     count = currentProfile.followerCount,
                                     label = stringResource(fm.corus.android.R.string.profile_stat_followers),
-                                    modifier = Modifier.clickable { onNavigateToFollowList(userId, true, currentProfile.username, currentProfile.followerCount, currentProfile.followingCount) },
+                                    modifier = statMod.clickable { onNavigateToFollowList(userId, true, currentProfile.username, currentProfile.followerCount, currentProfile.followingCount) },
+                                    instagram = true,
                                 )
                                 StatItem(
                                     count = currentProfile.followingCount,
                                     label = stringResource(fm.corus.android.R.string.profile_stat_following),
-                                    modifier = Modifier.clickable { onNavigateToFollowList(userId, false, currentProfile.username, currentProfile.followerCount, currentProfile.followingCount) },
+                                    modifier = statMod.clickable { onNavigateToFollowList(userId, false, currentProfile.username, currentProfile.followerCount, currentProfile.followingCount) },
+                                    instagram = true,
                                 )
-                            }
-
-                            Spacer(modifier = Modifier.height(CorusSpacing.sm))
-
-                            // Follow button + Playlist button — hidden on own profile (matches iOS)
-                            if (!isOwnProfile) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
-                            ) {
-                                // Follow button — matching iOS Capsule with fill/stroke
-                                ProfileFollowPill(
-                                    isFollowing = isFollowing,
-                                    followsMe = followsMe,
-                                    onClick = { viewModel.toggleFollow(userId) },
-                                )
-
-                                // Playlist button
-                                val playlistContext = LocalContext.current
-                                // A playlist is music, so the Film tab (non-bot segment 1) can
-                                // never build one — disable it there. Music builds from posted
-                                // tracks; Likes is lazy-loaded so the backend responds when empty.
-                                val isFilmTab = profile?.isBot == false && selectedSegment == 1
-                                val hasSongs = when (playlistSource) {
-                                    CloudFunctionsDataSource.ProfilePlaylistSource.Posts ->
-                                        !isFilmTab && posts.any { it.mediaType == MediaType.TRACK }
-                                    else -> true
-                                }
-                                val isGeneratingPlaylist by viewModel.nowPlayingManager.isGeneratingPlaylist.collectAsState()
-                                val playlistError by viewModel.nowPlayingManager.playlistError.collectAsState()
-
-                                LaunchedEffect(playlistError) {
-                                    if (playlistError != null) {
-                                        ToastManager.show(playlistError!!)
-                                        viewModel.nowPlayingManager.clearPlaylistError()
-                                    }
-                                }
-
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(50))
-                                        .border(1.dp, CorusColors.Divider, RoundedCornerShape(50))
-                                        .clickable(enabled = hasSongs && !isGeneratingPlaylist) {
-                                            if (!hasSongs) {
-                                                ToastManager.show(playlistContext.getString(fm.corus.android.R.string.profile_toast_no_songs_for_playlist))
-                                            } else if (viewModel.shouldPaywallOtherProfilePlaylist()) {
-                                                clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT
-                                                clubPlaylistTrialContext = fm.corus.android.domain.PlaylistTrialField.OtherProfile
-                                                showClubOffer = true
-                                            } else if (musicService == fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
-                                                // No YouTube Music playlist export yet — explain, then
-                                                // offer a Spotify playlist (explainer keeps quick vs all).
-                                                showYouTubeMusicPlaylistExplainer = true
-                                            } else if (fm.corus.android.domain.shouldOfferProfileFullExport(
-                                                    selectedSegment, profile?.trackCount, profile?.likesCount, profile?.savesCount ?: 0,
-                                                )
-                                            ) {
-                                                showPlaylistChooser = true
-                                            } else {
-                                                // TIDAL generates directly (own account); Apple Music /
-                                                // Deezer and SoundCloud-on-Spotify get the alert.
-                                                val hasSoundCloud = playlistSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
-                                                    && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-                                                if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
-                                                    showPlaylistAlert = true
-                                                } else {
-                                                    viewModel.generatePlaylist(userId, playlistSource)
-                                                }
-                                            }
-                                        }
-                                        .padding(vertical = 6.dp, horizontal = playlistHPad),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    // Always render label to preserve button width
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
-                                        modifier = Modifier.alpha(
-                                            if (!hasSongs) 0.35f
-                                            else if (isGeneratingPlaylist) 0f
-                                            else 1f
-                                        ),
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
-                                            contentDescription = "Playlist",
-                                            modifier = Modifier.size(14.dp),
-                                            tint = CorusColors.Secondary,
-                                        )
-                                        Text(
-                                            text = stringResource(fm.corus.android.R.string.profile_button_playlist),
-                                            style = CorusFont.button,
-                                            color = CorusColors.Secondary,
-                                            maxLines = 1,
-                                        )
-                                    }
-                                    if (isGeneratingPlaylist) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(14.dp),
-                                            strokeWidth = 2.dp,
-                                            color = CorusColors.Secondary,
-                                        )
-                                    }
-                                }
-                            }
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
-                    // Username + Bio + Website
+                    // Bio + Website
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = usernameStartPad, end = usernameEndPad),
+                            .padding(horizontal = headerHPad),
                     ) {
-                        UsernameWithFlair(
-                            username = currentProfile.username,
-                            isBot = currentProfile.isBot,
-                            isVerified = currentProfile.isVerified,
-                            isClubMember = currentProfile.isClubMember,
-                            flairStyle = currentProfile.flairStyle,
-                            showAtPrefix = true,
-                            style = CorusFont.username,
-                            color = CorusColors.Text,
-                        )
-
                         if (currentProfile.bio.isNotBlank()) {
                             Spacer(modifier = Modifier.height(CorusSpacing.xs))
                             ExpandableBioText(
@@ -1023,6 +951,121 @@ fun OtherProfileScreen(
                                     } catch (_: Exception) { }
                                 },
                             )
+                        }
+                    }
+
+                    if (!isOwnProfile) {
+                        val playlistContext = LocalContext.current
+                        val isFilmTab = profile?.isBot == false && selectedSegment == 1
+                        val instagramHasSongs = when (playlistSource) {
+                            CloudFunctionsDataSource.ProfilePlaylistSource.Posts ->
+                                !isFilmTab && posts.any { it.mediaType == MediaType.TRACK }
+                            else -> true
+                        }
+                        val instagramGenerating by viewModel.nowPlayingManager.isGeneratingPlaylist.collectAsState()
+                        val playlistError by viewModel.nowPlayingManager.playlistError.collectAsState()
+                        LaunchedEffect(playlistError) {
+                            if (playlistError != null) {
+                                ToastManager.show(playlistError!!)
+                                viewModel.nowPlayingManager.clearPlaylistError()
+                            }
+                        }
+                        val hasUserInfo = currentProfile.bio.isNotBlank() ||
+                            !currentProfile.website.isNullOrBlank()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = headerHPad)
+                                .padding(
+                                    top = CorusSpacing.sm +
+                                        if (hasUserInfo) 0.dp else CorusSpacing.profileEmptyInfoActionsExtra,
+                                ),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+                        ) {
+                            ProfileFollowPill(
+                                isFollowing = isFollowing,
+                                followsMe = followsMe,
+                                onClick = {
+                                    if (isFollowing) {
+                                        showFollowingSheet = true
+                                        viewModel.logFollowingOptionsOpened(userId)
+                                    } else {
+                                        viewModel.toggleFollow(userId)
+                                    }
+                                },
+                            )
+                            if (!currentProfile.isBot) {
+                                val messageShape = RoundedCornerShape(50)
+                                val messageStyle = profileActionButtonBaseStyle(
+                                    LocalConfiguration.current.screenWidthDp,
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(messageShape)
+                                        .border(1.dp, CorusColors.Divider, messageShape)
+                                        .clickable { onNavigateToMessages("", userId) }
+                                        .height(CorusSpacing.profileActionHeight)
+                                        .padding(horizontal = CorusSpacing.sm),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    ShrinkToFitText(
+                                        text = stringResource(fm.corus.android.R.string.other_profile_cd_message),
+                                        style = messageStyle,
+                                        color = CorusColors.Secondary,
+                                    )
+                                }
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .border(1.dp, CorusColors.Divider, RoundedCornerShape(50))
+                                    .clickable(enabled = instagramHasSongs && !instagramGenerating) {
+                                        if (!instagramHasSongs) {
+                                            ToastManager.show(playlistContext.getString(fm.corus.android.R.string.profile_toast_no_songs_for_playlist))
+                                        } else if (viewModel.shouldPaywallOtherProfilePlaylist()) {
+                                            clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT
+                                            clubPlaylistTrialContext = fm.corus.android.domain.PlaylistTrialField.OtherProfile
+                                            showClubOffer = true
+                                        } else if (musicService == fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
+                                            showYouTubeMusicPlaylistExplainer = true
+                                        } else if (fm.corus.android.domain.shouldOfferProfileFullExport(
+                                                selectedSegment, profile?.trackCount, profile?.likesCount, profile?.savesCount ?: 0,
+                                            )
+                                        ) {
+                                            showPlaylistChooser = true
+                                        } else {
+                                            val hasSoundCloud = playlistSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
+                                                && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
+                                            if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
+                                                showPlaylistAlert = true
+                                            } else {
+                                                viewModel.generatePlaylist(userId, playlistSource)
+                                            }
+                                        }
+                                    }
+                                    .height(CorusSpacing.profileActionHeight)
+                                    .padding(horizontal = CorusSpacing.sm),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (instagramGenerating) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(14.dp),
+                                        strokeWidth = 2.dp,
+                                        color = CorusColors.Secondary,
+                                    )
+                                } else {
+                                    Icon(
+                                        painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
+                                        contentDescription = stringResource(fm.corus.android.R.string.profile_cd_playlist),
+                                        modifier = Modifier
+                                            .size(CorusSpacing.profileActionPlaylistIcon)
+                                            .alpha(if (!instagramHasSongs) 0.35f else 1f),
+                                        tint = CorusColors.Secondary,
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -1145,8 +1188,13 @@ fun OtherProfileScreen(
                     // null-or-positive check keeps the skeleton up while the
                     // counter is still unknown so it can't flash empty. Mirrors
                     // iOS OtherProfileView's songsPending in segmentAndGrid.
-                    val songsPending = !currentProfile.isBot && selectedSegment == 0 && filteredPosts.isEmpty() &&
-                        (isLoadingSongs || (!hasFetchedSongPage && (currentProfile.trackCount ?: 1) > 0 && hasMore))
+                    val songsPending = !currentProfile.isBot && selectedSegment == 0 &&
+                        ProfileTabPreferences.shouldHoldEmptyState(
+                            isLoading = isLoading || isLoadingSongs,
+                            hasFetchedPage = hasFetchedSongPage,
+                            itemCount = filteredPosts.size,
+                            totalCount = currentProfile.trackCount,
+                        ) && (isLoading || isLoadingSongs || hasMore)
                     if (selectedSegment == 0 && songsPending) {
                         // Backfill pending — show skeleton (covers featured +
                         // grid) instead of the empty state. The grid block below
@@ -1240,7 +1288,7 @@ fun OtherProfileScreen(
                             )
                         }
                     } else if (filteredPosts.isEmpty() && !isLoading
-                        && !(selectedSegment == 2 && (isLoadingLiked || !hasFetchedLikedPage))) {
+                        && !(selectedSegment == 2 && (isLoadingLiked || !hasFetchedLikedPage) && currentProfile.likesCount != 0)) {
                         // Empty state per segment (matching iOS: icon + text, no emoji)
                         Box(
                             modifier = Modifier
@@ -1296,14 +1344,19 @@ fun OtherProfileScreen(
                 .distinctBy { it.id }
             val filmGridLoading = !currentProfile.isBot && selectedSegment == 1 && (isLoadingFilms || !hasFetchedFilmPage)
             val likesGridLoading = !currentProfile.isBot && selectedSegment == 2 &&
-                (isLoadingLiked || !hasFetchedLikedPage) && likedPosts.isEmpty()
+                (isLoadingLiked || !hasFetchedLikedPage) && likedPosts.isEmpty() &&
+                currentProfile.likesCount != 0
             // Recomputed here (different scope than the featured block). When
             // pending, the featured block renders SkeletonProfileGrid which
             // already covers the grid region, so this block emits nothing —
             // exactly like the music isFeaturedArtReady path below.
             val songGridPending = !currentProfile.isBot && selectedSegment == 0 &&
-                filteredPosts.isEmpty() &&
-                (isLoadingSongs || (!hasFetchedSongPage && (currentProfile.trackCount ?: 1) > 0 && hasMore))
+                ProfileTabPreferences.shouldHoldEmptyState(
+                    isLoading = isLoading || isLoadingSongs,
+                    hasFetchedPage = hasFetchedSongPage,
+                    itemCount = filteredPosts.size,
+                    totalCount = currentProfile.trackCount,
+                ) && (isLoading || isLoadingSongs || hasMore)
             // Hide grid while featured art is loading (skeleton in header covers both areas)
             if (isFeaturedTab && selectedSegment == 0 && !isFeaturedArtReady && filteredPosts.isNotEmpty()) {
                 // Music featured uses SkeletonProfileGrid in the header; emit nothing.
@@ -1358,7 +1411,6 @@ fun OtherProfileScreen(
                     ShimmerAsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(post.displayImageLargeURL ?: post.displayImageURL)
-                            .crossfade(true)
                             .size(imageSize)
                             .build(),
                         contentDescription = post.displayTitle,
@@ -1415,6 +1467,46 @@ fun OtherProfileScreen(
         visible = showAvatarFullScreen,
         onDismiss = { showAvatarFullScreen = false },
     )
+
+    if (showFollowingSheet) {
+        val followingSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val followingSheetContext = LocalContext.current
+        ModalBottomSheet(
+            onDismissRequest = { showFollowingSheet = false },
+            sheetState = followingSheetState,
+            containerColor = CorusColors.Background,
+            dragHandle = { BottomSheetDefaults.DragHandle() },
+        ) {
+            CorusSystemBars()
+            FollowingOptionsSheet(
+                username = profile?.username.orEmpty(),
+                isFavorited = isFavorite,
+                isMuted = isMuted,
+                showFavorites = viewModel.favoritesEnabled,
+                showMute = !fm.corus.android.data.OfficialAccounts.isOfficial(userId),
+                onFavorite = {
+                    showFollowingSheet = false
+                    val username = profile?.username ?: ""
+                    val nowFavorite = viewModel.toggleFavorite(userId)
+                    ToastManager.show(
+                        followingSheetContext.getString(
+                            if (nowFavorite) fm.corus.android.R.string.other_profile_toast_favorite_added_format
+                            else fm.corus.android.R.string.other_profile_toast_favorite_removed_format,
+                            username,
+                        ),
+                    )
+                },
+                onMute = {
+                    showFollowingSheet = false
+                    viewModel.toggleMute(userId)
+                },
+                onUnfollow = {
+                    showFollowingSheet = false
+                    viewModel.toggleFollow(userId)
+                },
+            )
+        }
+    }
 
     // Club offer sheet
     if (showClubOffer) {
@@ -1593,10 +1685,34 @@ fun OtherProfileScreen(
 }
 
 @Composable
-private fun StatItem(count: Int, label: String, modifier: Modifier = Modifier) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
-        Text(text = formattedCount(count), style = CorusFont.stat, color = CorusColors.Text)
-        Text(text = label, style = CorusFont.statLabel, color = CorusColors.Secondary)
+private fun StatItem(
+    count: Int,
+    label: String,
+    modifier: Modifier = Modifier,
+    instagram: Boolean = false,
+) {
+    Column(
+        horizontalAlignment = if (instagram) Alignment.Start else Alignment.CenterHorizontally,
+        modifier = modifier,
+    ) {
+        Text(
+            text = formattedCount(count),
+            style = if (instagram) {
+                CorusFont.stat.copy(fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            } else {
+                CorusFont.stat
+            },
+            color = CorusColors.Text,
+        )
+        Text(
+            text = label,
+            style = if (instagram) {
+                CorusFont.statLabel.copy(fontSize = 12.sp)
+            } else {
+                CorusFont.statLabel
+            },
+            color = CorusColors.Secondary,
+        )
     }
 }
 
@@ -1608,12 +1724,20 @@ private fun StatItem(count: Int, label: String, modifier: Modifier = Modifier) {
  * so the row keeps its shape and doesn't jump on swap.
  */
 @Composable
-private fun StatItemOrSkeleton(count: Int?, label: String, modifier: Modifier = Modifier) {
+private fun StatItemOrSkeleton(
+    count: Int?,
+    label: String,
+    modifier: Modifier = Modifier,
+    instagram: Boolean = false,
+) {
     if (count != null) {
-        StatItem(count = count, label = label, modifier = modifier)
+        StatItem(count = count, label = label, modifier = modifier, instagram = instagram)
         return
     }
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
+    Column(
+        horizontalAlignment = if (instagram) Alignment.Start else Alignment.CenterHorizontally,
+        modifier = modifier,
+    ) {
         Box(
             modifier = Modifier
                 .padding(vertical = 4.dp)
@@ -1654,26 +1778,148 @@ internal fun RowScope.ProfileFollowPill(
     val labelStyle = profileActionButtonBaseStyle(
         LocalConfiguration.current.screenWidthDp,
     )
+    val followingOptionsLabel = stringResource(fm.corus.android.R.string.other_profile_cd_following_options)
     Box(
         modifier = Modifier
             .weight(1f)
+            .testTag("profileFollowPill")
             .clip(followShape)
             .then(
                 if (isFollowing) Modifier.border(1.dp, CorusColors.Divider, followShape)
                 else Modifier.background(CorusColors.Accent)
             )
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = CorusSpacing.sm, vertical = 6.dp),
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(
+                        onClick = onClick,
+                        onClickLabel = if (isFollowing) followingOptionsLabel else null,
+                    )
+                } else {
+                    Modifier
+                },
+            )
+            .height(CorusSpacing.profileActionHeight)
+            .padding(horizontal = CorusSpacing.sm),
         contentAlignment = Alignment.Center,
     ) {
-        ShrinkToFitText(
-            text = when {
-                isFollowing -> stringResource(fm.corus.android.R.string.other_profile_button_following)
-                followsMe -> stringResource(fm.corus.android.R.string.other_profile_button_follow_back)
-                else -> stringResource(fm.corus.android.R.string.other_profile_button_follow)
-            },
-            style = labelStyle,
-            color = if (isFollowing) CorusColors.Secondary else Color.White,
+        if (isFollowing) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                ShrinkToFitText(
+                    text = stringResource(fm.corus.android.R.string.other_profile_button_following),
+                    style = labelStyle,
+                    color = CorusColors.Secondary,
+                )
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = CorusColors.Secondary,
+                    modifier = Modifier.size(12.dp),
+                )
+            }
+        } else {
+            ShrinkToFitText(
+                text = if (followsMe) {
+                    stringResource(fm.corus.android.R.string.other_profile_button_follow_back)
+                } else {
+                    stringResource(fm.corus.android.R.string.other_profile_button_follow)
+                },
+                style = labelStyle,
+                color = Color.White,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FollowingOptionsSheet(
+    username: String,
+    isFavorited: Boolean,
+    isMuted: Boolean,
+    showFavorites: Boolean,
+    showMute: Boolean,
+    onFavorite: () -> Unit,
+    onMute: () -> Unit,
+    onUnfollow: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.lg)
+            .padding(bottom = CorusSpacing.sm),
+    ) {
+        if (username.isNotBlank()) {
+            Text(
+                text = username,
+                style = CorusFont.displayName,
+                color = CorusColors.Text,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = CorusSpacing.xxl, bottom = CorusSpacing.lg),
+            )
+        }
+
+        if (showFavorites) {
+            FollowingSheetRow(
+                title = stringResource(
+                    if (isFavorited) fm.corus.android.R.string.other_profile_action_remove_favorite
+                    else fm.corus.android.R.string.other_profile_action_add_favorite,
+                ),
+                icon = if (isFavorited) Icons.Filled.Star else Icons.Filled.StarBorder,
+                onClick = onFavorite,
+            )
+            HorizontalDivider(color = CorusColors.Divider)
+        }
+
+        if (showMute) {
+            FollowingSheetRow(
+                title = stringResource(
+                    if (isMuted) fm.corus.android.R.string.other_profile_menu_unmute
+                    else fm.corus.android.R.string.other_profile_menu_mute,
+                ),
+                icon = if (isMuted) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
+                onClick = onMute,
+            )
+            HorizontalDivider(color = CorusColors.Divider)
+        }
+
+        FollowingSheetRow(
+            title = stringResource(fm.corus.android.R.string.other_profile_action_unfollow),
+            icon = null,
+            onClick = onUnfollow,
         )
+    }
+}
+
+@Composable
+private fun FollowingSheetRow(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector?,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = CorusSpacing.lg),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            style = CorusFont.body.copy(fontSize = 17.sp),
+            color = CorusColors.Text,
+            modifier = Modifier.weight(1f),
+        )
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = CorusColors.Secondary,
+                modifier = Modifier.size(20.dp),
+            )
+        }
     }
 }

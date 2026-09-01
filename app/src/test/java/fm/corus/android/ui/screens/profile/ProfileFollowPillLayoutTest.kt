@@ -84,19 +84,19 @@ class ProfileFollowPillLayoutTest {
     fun `follow pill is weighted and fills the leftover row width`() {
         composeRule.setContent { setRow() }
 
-        val label = composeRule
-            .onNodeWithText(context.getString(R.string.other_profile_button_following))
+        val pill = composeRule
+            .onNodeWithTag("profileFollowPill")
             .getUnclippedBoundsInRoot()
 
-        val labelCenterX = (label.left + label.right).value / 2f
-        // The pill occupies [siblingDp, rowWidthDp]; its centered label should sit
+        val pillCenterX = (pill.left + pill.right).value / 2f
+        // The pill occupies [siblingDp, rowWidthDp]; its box should sit
         // at the middle of that leftover band.
         val expectedCenterX = siblingDp + (rowWidthDp - siblingDp) / 2f
 
         assertTrue(
-            "FOLLOWING label center ($labelCenterX) should be centered in the leftover " +
+            "FOLLOWING pill center ($pillCenterX) should be centered in the leftover " +
                 "band around $expectedCenterX — the pill is not filling the row (lost its weight)",
-            kotlin.math.abs(labelCenterX - expectedCenterX) < 8f,
+            kotlin.math.abs(pillCenterX - expectedCenterX) < 8f,
         )
     }
 

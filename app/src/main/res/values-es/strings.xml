@@ -190,6 +190,7 @@
     <string name="feed_empty_new_releases_title">Aún no hay nuevos lanzamientos</string>
     <string name="feed_empty_new_releases_subtitle">Vuelve más tarde para ver más lanzamientos de las personas que sigues.</string>
     <string name="feed_empty_new_releases_show_all">Mostrar todas las publicaciones</string>
+    <string name="feed_empty_favorites_eyebrow">FAVORITOS</string>
     <string name="feed_empty_favorites_title">Aún no hay favoritos</string>
     <string name="feed_empty_favorites_subtitle">Toca la ☆ en el perfil de alguien para agregarlo aquí.</string>
     <string name="feed_empty_favorites_button">Volver a Siguiendo</string>
@@ -363,8 +364,10 @@
     <string name="profile_toast_style_updated">¡Estilo actualizado!</string>
     <string name="profile_toast_no_songs_for_playlist">No hay canciones para crear una playlist</string>
     <string name="profile_button_edit">EDITAR PERFIL</string>
+    <string name="profile_button_edit_short">EDITAR</string>
     <string name="profile_button_playlist">PLAYLIST</string>
     <string name="profile_button_share">COMPARTIR PERFIL</string>
+    <string name="profile_button_share_short">COMPARTIR</string>
     <string name="hashtag_button_playlist">Playlist</string>
     <string name="profile_stat_coruses">coruses</string>
     <string name="profile_stat_followers">seguidores</string>
@@ -410,6 +413,10 @@
     <string name="other_profile_blocked_message">Bloqueaste a este usuario</string>
     <string name="other_profile_button_follow">SEGUIR</string>
     <string name="other_profile_button_following">SIGUIENDO</string>
+    <string name="other_profile_action_unfollow">Dejar de seguir</string>
+    <string name="other_profile_action_add_favorite">@string/other_profile_cd_add_favorite</string>
+    <string name="other_profile_action_remove_favorite">@string/other_profile_cd_remove_favorite</string>
+    <string name="other_profile_cd_following_options">Muestra opciones de seguimiento</string>
     <string name="other_profile_tab_likes">ME GUSTA</string>
     <string name="other_profile_empty_no_songs">Aún no hay canciones</string>
     <string name="other_profile_empty_no_films">Aún no hay películas</string>
@@ -436,7 +443,7 @@
     <string name="edit_profile_dialog_keep_editing">Seguir editando</string>
     <string name="edit_profile_share_text_format">Mira mi perfil en Corus: https://corus.fm/user/%1$s</string>
     <string name="edit_profile_share_chooser">Compartir perfil</string>
-    <string name="edit_profile_field_name">NOMBRE</string>
+    <string name="edit_profile_field_name">NOMBRE VISIBLE</string>
     <string name="edit_profile_field_username">NOMBRE DE USUARIO</string>
     <string name="edit_profile_field_bio">BIO</string>
     <string name="edit_profile_field_website">SITIO WEB</string>
@@ -720,7 +727,7 @@
     <string name="onboarding_subtitle">configura tu perfil</string>
     <string name="onboarding_cd_avatar">Avatar</string>
     <string name="onboarding_add_photo">Agregar foto</string>
-    <string name="onboarding_full_name">Nombre completo</string>
+    <string name="onboarding_full_name">Nombre visible</string>
     <string name="onboarding_terms">Al crear una cuenta, aceptas nuestros Términos de uso y Política de privacidad.</string>
     <string name="onboarding_button_continue">CONTINUAR</string>
     <!-- Music-service onboarding (Choose Your Player) -->
@@ -773,6 +780,10 @@
     <string name="messaging_thread_sending">Enviando...</string>
     <string name="messaging_thread_unavailable">Esta conversación ya no está disponible</string>
     <string name="messaging_thread_user_messaging_disabled">Este usuario tiene los mensajes desactivados</string>
+    <string name="messaging_restriction_nobody">%1$s no está aceptando mensajes ahora.</string>
+    <string name="messaging_restriction_followers">%1$s solo acepta mensajes de seguidores.</string>
+    <string name="messaging_restriction_following">%1$s solo acepta mensajes de las personas que sigue.</string>
+    <string name="messaging_restriction_name_fallback">Esta persona</string>
     <string name="messaging_thread_failed_to_deliver">No se pudo entregar</string>
     <string name="messaging_thread_tap_to_retry">· Toca para reintentar</string>
 
@@ -1114,6 +1125,16 @@
     <string name="messaging_group_member_count">%1$d miembros</string>
     <string name="messaging_group_and_others">y %1$d más</string>
     <string name="messaging_group_sender_preview">%1$s: %2$s</string>
+    <string name="messaging_group_sys_created">%1$s creó el grupo</string>
+    <string name="messaging_group_sys_added">%1$s agregó a %2$s</string>
+    <string name="messaging_group_sys_removed">%1$s quitó a %2$s</string>
+    <string name="messaging_group_sys_left">%1$s salió</string>
+    <string name="messaging_group_sys_named">%1$s nombró el grupo %2$s</string>
+    <string name="messaging_group_sys_renamed">%1$s cambió el nombre del grupo</string>
+    <string name="messaging_group_sys_photo">%1$s cambió la foto del grupo</string>
+    <string name="messaging_group_sys_and">%1$s y %2$s</string>
+    <string name="messaging_group_sys_and_n_other">%1$s, %2$s y %3$d más</string>
+    <string name="messaging_group_sys_and_n_others">%1$s, %2$s y %3$d más</string>
     <string name="club_feature_taste_matches">Feed de coincidencias de gustos</string>
     <string name="feed_taste_matches_coldstart_title">¿Cuáles son 3 canciones o películas que amas?</string>
     <string name="feed_taste_matches_coldstart_body">Corus creará un feed personalizado para ti y te conectará con personas que tienen un gusto similar.</string>
@@ -1124,9 +1145,12 @@
     <string name="feed_taste_matches_no_matches_title">Aún no tienes coincidencias</string>
     <string name="feed_taste_matches_no_matches_body">Publica más música y cine que te encanten y aquí aparecerán las personas que comparten tus gustos.</string>
     <string name="feed_taste_matches_end_more">Cuanto más compartes, más coincidencias de gustos tendrás.</string>
-    <string name="feed_taste_matches_paywall_title">Coincidencias de gustos</string>
-    <string name="feed_taste_matches_paywall_body">Recibe recomendaciones de tus coincidencias de gustos, personas que aman lo mismo que tú.</string>
-    <string name="feed_taste_matches_paywall_cta">Más información</string>
+    <string name="feed_taste_matches_paywall_title">Tu vista previa de Coincidencias de gustos terminó</string>
+    <string name="feed_taste_matches_paywall_body">Únete a Corus Club para ver publicaciones de personas que comparten tu gusto.</string>
+    <string name="feed_taste_matches_paywall_cta">Desbloquear</string>
+    <string name="feed_taste_matches_paywall_trial_title">Desbloquea tu feed de Coincidencias de gustos</string>
+    <string name="feed_taste_matches_paywall_trial_body">Prueba Corus Club gratis durante 2 semanas y ve publicaciones de personas que comparten tu gusto.</string>
+    <string name="feed_taste_matches_paywall_trial_cta">Desbloquear</string>
 
     <!-- Artist / Album / Director destination pages (artist_pages_enabled) -->
     <string name="search_tab_music">Música</string>

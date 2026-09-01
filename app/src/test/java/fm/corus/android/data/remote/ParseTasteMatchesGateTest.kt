@@ -44,6 +44,20 @@ class ParseTasteMatchesGateTest {
     }
 
     @Test
+    fun `paywall gate still parses when teaser posts are present`() {
+        val payload = mapOf(
+            "gated" to "paywall",
+            "posts" to listOf(mapOf("id" to "p1")),
+            "hasMore" to false,
+        )
+        val gate = parseTasteMatchesGate(payload)
+        assertEquals("paywall", gate?.gated)
+        val parsed = parseForYouFeedResponse(payload)
+        assertEquals(1, parsed.a.size)
+        assertEquals("p1", parsed.a[0]["id"])
+    }
+
+    @Test
     fun `noMatchesYet gate parses (posted enough, no shared artist yet)`() {
         val gate = parseTasteMatchesGate(mapOf("gated" to "noMatchesYet"))
         assertEquals("noMatchesYet", gate?.gated)

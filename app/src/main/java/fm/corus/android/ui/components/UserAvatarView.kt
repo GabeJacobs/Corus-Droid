@@ -69,6 +69,7 @@ fun UserAvatarView(
             modifier = modifier.size(size),
             shape = CircleShape,
             usesSolidLoadingPlaceholder = usesSolidLoadingPlaceholder,
+            skipFadeOnMemoryCache = true,
         )
     }
 }

@@ -25,8 +25,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
-import androidx.compose.ui.unit.dp
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.ui.theme.CorusSpacing
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -55,7 +55,7 @@ fun ExpandingPlayerHost(
 ) {
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
-    val minMiniPx = with(density) { 56.dp.toPx() }
+    val minMiniPx = with(density) { CorusSpacing.miniPlayerMinHeight.toPx() }
     var miniHeightPx by remember { mutableFloatStateOf(minMiniPx) }
 
     BackHandler(enabled = expansionState.isExpandedOrExpanding) {

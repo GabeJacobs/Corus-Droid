@@ -190,6 +190,7 @@
     <string name="feed_empty_new_releases_title">还没有新发布</string>
     <string name="feed_empty_new_releases_subtitle">稍后再来查看你关注的人发布的更多新作。</string>
     <string name="feed_empty_new_releases_show_all">显示全部内容</string>
+    <string name="feed_empty_favorites_eyebrow">收藏</string>
     <string name="feed_empty_favorites_title">还没有收藏</string>
     <string name="feed_empty_favorites_subtitle">点按某人资料页上的 ☆，即可把他们添加到这里。</string>
     <string name="feed_empty_favorites_button">返回关注</string>
@@ -363,8 +364,10 @@
     <string name="profile_toast_style_updated">样式已更新！</string>
     <string name="profile_toast_no_songs_for_playlist">没有可用于创建歌单的歌曲</string>
     <string name="profile_button_edit">编辑资料</string>
+    <string name="profile_button_edit_short">编辑</string>
     <string name="profile_button_playlist">歌单</string>
     <string name="profile_button_share">分享个人资料</string>
+    <string name="profile_button_share_short">分享</string>
     <string name="hashtag_button_playlist">歌单</string>
     <string name="profile_stat_coruses">coruses</string>
     <string name="profile_stat_followers">粉丝</string>
@@ -410,6 +413,10 @@
     <string name="other_profile_blocked_message">你已屏蔽此用户</string>
     <string name="other_profile_button_follow">关注</string>
     <string name="other_profile_button_following">已关注</string>
+    <string name="other_profile_action_unfollow">取消关注</string>
+    <string name="other_profile_action_add_favorite">@string/other_profile_cd_add_favorite</string>
+    <string name="other_profile_action_remove_favorite">@string/other_profile_cd_remove_favorite</string>
+    <string name="other_profile_cd_following_options">显示关注选项</string>
     <string name="other_profile_tab_likes">赞</string>
     <string name="other_profile_empty_no_songs">还没有歌曲</string>
     <string name="other_profile_empty_no_films">还没有电影</string>
@@ -436,7 +443,7 @@
     <string name="edit_profile_dialog_keep_editing">继续编辑</string>
     <string name="edit_profile_share_text_format">来看看我在 Corus 上的个人资料：https://corus.fm/user/%1$s</string>
     <string name="edit_profile_share_chooser">分享个人资料</string>
-    <string name="edit_profile_field_name">姓名</string>
+    <string name="edit_profile_field_name">昵称</string>
     <string name="edit_profile_field_username">用户名</string>
     <string name="edit_profile_field_bio">简介</string>
     <string name="edit_profile_field_website">网站</string>
@@ -719,7 +726,7 @@
     <string name="onboarding_subtitle">设置你的个人资料</string>
     <string name="onboarding_cd_avatar">头像</string>
     <string name="onboarding_add_photo">添加照片</string>
-    <string name="onboarding_full_name">全名</string>
+    <string name="onboarding_full_name">昵称</string>
     <string name="onboarding_terms">创建账户即表示你同意我们的使用条款和隐私政策。</string>
     <string name="onboarding_button_continue">继续</string>
     <!-- Music-service onboarding (Choose Your Player) -->
@@ -772,6 +779,10 @@
     <string name="messaging_thread_sending">发送中...</string>
     <string name="messaging_thread_unavailable">此对话已不可用</string>
     <string name="messaging_thread_user_messaging_disabled">此用户已关闭私信</string>
+    <string name="messaging_restriction_nobody">%1$s 暂时不接受私信。</string>
+    <string name="messaging_restriction_followers">%1$s 只接受来自关注者的私信。</string>
+    <string name="messaging_restriction_following">%1$s 只接受来自自己关注的人的私信。</string>
+    <string name="messaging_restriction_name_fallback">对方</string>
     <string name="messaging_thread_failed_to_deliver">发送失败</string>
     <string name="messaging_thread_tap_to_retry">· 点按重试</string>
 
@@ -1113,6 +1124,16 @@
     <string name="messaging_group_member_count">%1$d 名成员</string>
     <string name="messaging_group_and_others">等另外 %1$d 人</string>
     <string name="messaging_group_sender_preview">%1$s: %2$s</string>
+    <string name="messaging_group_sys_created">%1$s 创建了群组</string>
+    <string name="messaging_group_sys_added">%1$s 添加了 %2$s</string>
+    <string name="messaging_group_sys_removed">%1$s 移除了 %2$s</string>
+    <string name="messaging_group_sys_left">%1$s 已退出</string>
+    <string name="messaging_group_sys_named">%1$s 将群组命名为 %2$s</string>
+    <string name="messaging_group_sys_renamed">%1$s 更改了群组名称</string>
+    <string name="messaging_group_sys_photo">%1$s 更改了群组照片</string>
+    <string name="messaging_group_sys_and">%1$s 和 %2$s</string>
+    <string name="messaging_group_sys_and_n_other">%1$s、%2$s 等 %3$d 人</string>
+    <string name="messaging_group_sys_and_n_others">%1$s、%2$s 等 %3$d 人</string>
     <string name="club_feature_taste_matches">品味匹配动态</string>
     <string name="feed_taste_matches_coldstart_title">你喜欢哪3首歌曲或电影？</string>
     <string name="feed_taste_matches_coldstart_body">Corus 会为你打造个性化动态，并将你与品味相近的人联系起来。</string>
@@ -1123,9 +1144,12 @@
     <string name="feed_taste_matches_no_matches_title">还没有匹配</string>
     <string name="feed_taste_matches_no_matches_body">多发布你喜欢的音乐和电影，品味相近的人就会出现在这里。</string>
     <string name="feed_taste_matches_end_more">分享得越多，你的品味匹配就越多。</string>
-    <string name="feed_taste_matches_paywall_title">品味匹配</string>
-    <string name="feed_taste_matches_paywall_body">从与你品味相同的人那里获得推荐，他们也喜欢你所爱的。</string>
-    <string name="feed_taste_matches_paywall_cta">了解更多</string>
+    <string name="feed_taste_matches_paywall_title">品味匹配预览已结束</string>
+    <string name="feed_taste_matches_paywall_body">加入 Corus Club，即可查看与你品味相近的人分享的内容。</string>
+    <string name="feed_taste_matches_paywall_cta">解锁</string>
+    <string name="feed_taste_matches_paywall_trial_title">解锁你的品味匹配动态</string>
+    <string name="feed_taste_matches_paywall_trial_body">免费试用 Corus Club 两周，查看与你品味相近的人分享的内容。</string>
+    <string name="feed_taste_matches_paywall_trial_cta">解锁</string>
 
     <!-- Artist / Album / Director destination pages (artist_pages_enabled) -->
     <string name="search_tab_music">音乐</string>

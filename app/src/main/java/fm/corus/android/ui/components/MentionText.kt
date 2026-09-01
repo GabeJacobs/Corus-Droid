@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -51,6 +52,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -679,6 +681,11 @@ fun UsernameWithFlair(
     style: TextStyle = CorusFont.username,
     color: Color = CorusColors.Text,
     modifier: Modifier = Modifier,
+    // Vector-icon flair size. Asset flairs default 4dp larger to compensate
+    // for transparent padding in the artwork (see iOS UsernameWithBotBadge).
+    flairIconSize: Dp = 14.dp,
+    flairAssetSize: Dp = 18.dp,
+    flairYOffset: Dp = 0.dp,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -699,14 +706,16 @@ fun UsernameWithFlair(
             if (flair != FlairStyle.NONE) {
                 Spacer(modifier = Modifier.width(4.dp))
                 if (flair.usesAssetImage) {
-                    // 18dp, not 14: the logo artwork carries its own transparent
-                    // margin, so at the icon size it reads visibly smaller than the
-                    // other flairs. Matches iOS UsernameWithBotBadge (18pt asset,
-                    // 12pt SF Symbols).
+                    // Default 18dp, not 14: the logo artwork carries its own
+                    // transparent margin, so at the icon size it reads visibly
+                    // smaller than the other flairs. Matches iOS
+                    // UsernameWithBotBadge (asset = symbol + 6pt).
                     Image(
                         painter = painterResource(R.drawable.logo_no_background),
                         contentDescription = stringResource(R.string.mention_cd_corus),
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier
+                            .size(flairAssetSize)
+                            .offset(y = flairYOffset),
                         contentScale = ContentScale.Fit,
                         colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(CorusColors.Accent),
                     )
@@ -715,7 +724,9 @@ fun UsernameWithFlair(
                         imageVector = flair.icon!!,
                         contentDescription = flair.displayName,
                         tint = CorusColors.Accent,
-                        modifier = Modifier.size(14.dp),
+                        modifier = Modifier
+                            .size(flairIconSize)
+                            .offset(y = flairYOffset),
                     )
                 }
             }

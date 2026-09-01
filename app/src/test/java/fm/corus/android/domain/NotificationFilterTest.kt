@@ -167,6 +167,22 @@ class NotificationFilterTest {
     }
 
     @Test
+    fun typeScopedHidesAllWindowWhileChipIsLoading() {
+        val all = listOf(
+            notif("1", NotificationType.LIKE),
+            notif("2", NotificationType.COMMENT),
+        )
+        val shown = NotificationFilterVisibility.apply(
+            filter = NotificationFilter.COMMENTS,
+            all = all,
+            filtered = emptyList(),
+            followingIds = emptySet(),
+            filterLoading = true,
+        )
+        assertTrue(shown.isEmpty())
+    }
+
+    @Test
     fun typeScopedFallsBackToAllWindowWhenFetchEmpty() {
         val all = listOf(
             notif("1", NotificationType.LIKE),

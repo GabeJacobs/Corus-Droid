@@ -9,8 +9,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,21 +25,39 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
+import coil3.memory.MemoryCache
 import coil3.request.ImageRequest
+import coil3.request.crossfade
 import com.valentinilk.shimmer.shimmer
 import fm.corus.android.ui.theme.CorusColors
+import fm.corus.android.ui.theme.CorusMotion
 import fm.corus.android.ui.theme.CorusSpacing
 
 /**
- * Async image that shows a shimmer skeleton while loading and fades in when ready.
- * Use this everywhere an image is loaded from a URL to get consistent loading UX.
+ * Async image that keeps a shimmer bone underneath and fades the bitmap over it.
+ * Matches iOS: art never pops, never flashes a black/divider hole, and never
+ * drops to a dead grey between skeleton and image.
  *
- * When Coil serves the image from its memory cache the shimmer and fade are
- * skipped entirely so that recycled grid items appear instantly.
+ * [skipFadeOnMemoryCache] is for recycled avatars that should appear instantly
+ * after the first decode. Album art / posters leave it off so a prefetch cache
+ * hit still fades over the shimmering bone.
+ *
+ * Search sets [LocalSkipImageRevealWhenCached] so on-device (memory or disk)
+ * art paints immediately — no shimmer after a quit/reopen.
  */
+val LocalSkipImageRevealWhenCached = compositionLocalOf { false }
+
+private fun coilCacheKey(model: Any?): String? = when (model) {
+    is ImageRequest -> model.data?.toString()
+    is String -> model
+    else -> model?.toString()
+}
+
 @Composable
 fun ShimmerAsyncImage(
     model: Any?,
@@ -47,6 +67,8 @@ fun ShimmerAsyncImage(
     shape: Shape = RectangleShape,
     /** Solid primary@0.16 circle/rect instead of shimmer — frosted player surfaces. */
     usesSolidLoadingPlaceholder: Boolean = false,
+    skipFadeOnMemoryCache: Boolean = false,
+    colorFilter: ColorFilter? = null,
 ) {
     // Key loading state on a stable identity. Callers often pass a freshly-built
     // ImageRequest each recomposition, so keying on `model` directly would reset
@@ -55,15 +77,52 @@ fun ShimmerAsyncImage(
         is ImageRequest -> model.data
         else -> model
     }
-    var isLoading by remember(modelKey) { mutableStateOf(true) }
-    var fromMemoryCache by remember(modelKey) { mutableStateOf(false) }
+    val skipRevealWhenCached = LocalSkipImageRevealWhenCached.current
+    val context = LocalContext.current
+    // Coil's loader-level crossfade paints a black frame in dark mode before
+    // our alpha fade. Kill it here so every caller fades over the bone only.
+    val request = remember(modelKey) {
+        when (val m = model) {
+            is ImageRequest -> m.newBuilder().crossfade(false).build()
+            else -> ImageRequest.Builder(context).data(m).crossfade(false).build()
+        }
+    }
+    val cachedOnDevice = remember(modelKey, skipRevealWhenCached) {
+        if (!skipRevealWhenCached) {
+            false
+        } else {
+            val key = coilCacheKey(modelKey) ?: return@remember false
+            val loader = SingletonImageLoader.get(context)
+            if (loader.memoryCache?.get(MemoryCache.Key(key)) != null) {
+                true
+            } else {
+                loader.diskCache?.openSnapshot(key)?.use { true } ?: false
+            }
+        }
+    }
+    var isLoading by remember(modelKey) { mutableStateOf(!cachedOnDevice) }
+    var fromMemoryCache by remember(modelKey) { mutableStateOf(cachedOnDevice) }
+    val skipFade = cachedOnDevice ||
+        ((skipFadeOnMemoryCache || skipRevealWhenCached) && fromMemoryCache)
     val imageAlpha by animateFloatAsState(
         targetValue = if (isLoading) 0f else 1f,
-        animationSpec = if (fromMemoryCache) tween(durationMillis = 0) else tween(durationMillis = 300),
+        animationSpec = tween(
+            durationMillis = if (skipFade) 0 else CorusMotion.IMAGE_REVEAL_MS,
+        ),
         label = "shimmerFade",
     )
 
-    Box(modifier = modifier.clip(shape)) {
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .then(
+                if (usesSolidLoadingPlaceholder) {
+                    Modifier.background(CorusColors.Text.copy(alpha = 0.16f))
+                } else {
+                    Modifier.background(CorusColors.Skeleton)
+                },
+            ),
+    ) {
         if (imageAlpha < 1f) {
             Box(
                 modifier = Modifier
@@ -80,14 +139,22 @@ fun ShimmerAsyncImage(
             )
         }
         AsyncImage(
-            model = model,
+            model = request,
             contentDescription = contentDescription,
             modifier = Modifier
                 .fillMaxSize()
                 .alpha(imageAlpha),
             contentScale = contentScale,
+            colorFilter = colorFilter,
             onSuccess = { state ->
-                fromMemoryCache = state.result.dataSource == coil3.decode.DataSource.MEMORY_CACHE
+                val source = state.result.dataSource
+                fromMemoryCache = source == coil3.decode.DataSource.MEMORY_CACHE
+                if (skipRevealWhenCached &&
+                    (source == coil3.decode.DataSource.MEMORY_CACHE ||
+                        source == coil3.decode.DataSource.DISK)
+                ) {
+                    fromMemoryCache = true
+                }
                 isLoading = false
             },
             onError = { isLoading = false },
@@ -1322,39 +1389,28 @@ fun SkeletonNotificationRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .shimmer()
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
-        verticalAlignment = Alignment.Top,
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
     ) {
-        // Circle avatar (40dp — avatarMedium)
         Box(
             modifier = Modifier
                 .size(CorusSpacing.avatarMedium)
                 .clip(CircleShape)
+                .shimmer()
                 .background(CorusColors.Skeleton)
         )
 
-        // 2-line text
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(13.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.Skeleton)
-            )
-            Box(
-                modifier = Modifier
-                    .width(140.dp)
-                    .height(11.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(CorusColors.Skeleton)
-            )
-        }
+        Box(
+            modifier = Modifier
+                .width(180.dp)
+                .height(15.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .shimmer()
+                .background(CorusColors.Skeleton)
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
 
         // Optional small square (album art or follow button)
         if (showAlbumArt) {
@@ -1362,6 +1418,7 @@ fun SkeletonNotificationRow(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                    .shimmer()
                     .background(CorusColors.Skeleton)
             )
         } else {
@@ -1370,6 +1427,7 @@ fun SkeletonNotificationRow(
                     .width(80.dp)
                     .height(30.dp)
                     .clip(RoundedCornerShape(CorusSpacing.pillCornerRadius))
+                    .shimmer()
                     .background(CorusColors.Skeleton)
             )
         }

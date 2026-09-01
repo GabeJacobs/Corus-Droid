@@ -62,9 +62,35 @@ class FullPlayerMenuTest {
     }
 
     @Test
-    fun `share row only when a source post is loaded`() {
-        assertTrue(fullPlayerShowsShareRow(post()))
+    fun `share row shows whenever a track is on screen`() {
+        assertTrue(fullPlayerShowsShareRow(post().track))
         assertFalse(fullPlayerShowsShareRow(null))
+    }
+
+    @Test
+    fun `share track prefers the loaded source post`() {
+        val source = post()
+        val state = NowPlayingState(trackId = "other", trackName = "Other")
+        assertEquals(source.track.id, fullPlayerShareTrack(source, state)?.id)
+    }
+
+    @Test
+    fun `share track falls back to now-playing when there is no source post`() {
+        val state = NowPlayingState(
+            trackId = "t9",
+            trackName = "Forever",
+            artistName = "Noname",
+            source = TrackSource.SPOTIFY,
+        )
+        val track = fullPlayerShareTrack(sourcePost = null, state = state)
+        assertNotNull(track)
+        assertEquals("t9", track!!.id)
+        assertEquals("Forever", track.name)
+    }
+
+    @Test
+    fun `share track is null when nothing is playing`() {
+        assertNull(fullPlayerShareTrack(null, NowPlayingState()))
     }
 
     @Test

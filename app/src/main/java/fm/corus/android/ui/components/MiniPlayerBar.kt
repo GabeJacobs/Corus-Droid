@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
@@ -174,7 +175,7 @@ fun MiniPlayerBar(
                     // Scrubber's expanded touch strip straddles this row's top edge;
                     // win hit tests here so transport controls stay tappable.
                     .zIndex(2f)
-                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.miniPlayerVerticalPadding),
                 verticalAlignment = Alignment.CenterVertically,
                 // 11dp gap between controls — a hair more than `sm` (8dp), tuned
                 // to feel close to the iOS mini-player spacing.
@@ -202,6 +203,7 @@ fun MiniPlayerBar(
                     // memory cache — avoids a blank art tile on first mini paint.
                     val artUrl = state.albumArtLargeURL ?: state.albumArtURL
                     if (artUrl != null) {
+                        val artShape = RoundedCornerShape(CorusSpacing.cornerRadius)
                         AsyncImage(
                             model = ImageRequest.Builder(LocalContext.current)
                                 .data(artUrl)
@@ -209,8 +211,17 @@ fun MiniPlayerBar(
                                 .build(),
                             contentDescription = state.trackName,
                             modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
+                                .size(CorusSpacing.miniPlayerArtwork)
+                                // Material elevation at 2.5dp was invisible on the light bar.
+                                // Stronger downward shadow, clip=false so the halo isn't cut off.
+                                .shadow(
+                                    elevation = 4.dp,
+                                    shape = artShape,
+                                    clip = false,
+                                    ambientColor = Color.Black.copy(alpha = 0.20f),
+                                    spotColor = Color.Black.copy(alpha = 0.28f),
+                                )
+                                .clip(artShape),
                             contentScale = ContentScale.Crop,
                         )
                     }

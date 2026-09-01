@@ -750,26 +750,38 @@ class SearchViewModel @Inject constructor(
         }
     }
 
-    fun loadInitialData(forceRefresh: Boolean = false) {
+    private var hasSeededBrowse = false
+    private var hasStartedInitialLoad = false
+
+    /**
+     * Last-session Search browse snapshot — no network. Call as soon as the
+     * Search tab is selected so rails can paint while the live load waits
+     * [fm.corus.android.ui.theme.CorusMotion.SEARCH_LIVE_LOAD_DELAY_MS].
+     */
+    fun seedBrowseCache() {
         val uid = authRepository.currentUserId ?: return
+        if (hasSeededBrowse) return
+        hasSeededBrowse = true
         viewModelScope.launch {
             userRepository.followingIds.collect { ids ->
                 _followingIds.value = ids
             }
         }
-        // Stale-while-revalidate: paint the last-known suggestions instantly on a
-        // fresh launch so the taste rail doesn't shimmer for ~5s while the network
-        // call runs. The parallel fetch below overwrites this with fresh data.
-        if (!forceRefresh) {
-            viewModelScope.launch {
-                val cached = userRepository.peekPersistedSuggestions(uid)
-                if (!cached.isNullOrEmpty() && _suggestedMatches.value.isEmpty()) {
-                    _suggestedMatches.value = cached
-                    _isSuggestedLoading.value = false
-                }
+        viewModelScope.launch {
+            val cached = userRepository.peekPersistedSuggestions(uid)
+            if (!cached.isNullOrEmpty() && _suggestedMatches.value.isEmpty()) {
+                _suggestedMatches.value = cached
+                _isSuggestedLoading.value = false
             }
-            viewModelScope.launch { hydrateBrowseSnapshot(uid) }
         }
+        viewModelScope.launch { hydrateBrowseSnapshot(uid) }
+    }
+
+    fun loadInitialData(forceRefresh: Boolean = false) {
+        val uid = authRepository.currentUserId ?: return
+        if (!forceRefresh && hasStartedInitialLoad) return
+        hasStartedInitialLoad = true
+        seedBrowseCache()
         // Fetch taste matches and mutual connections (Firestore) in parallel,
         // then merge them — matching how iOS loads suggestions. Taste matches go
         // through the repository's 4h cache (warmed from DataStore at sign-in) so

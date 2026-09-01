@@ -122,6 +122,13 @@ class FeedModeTabsTest {
     }
 
     @Test
+    fun `three tab row insets more so four tab spacing is unchanged`() {
+        assertEquals(TabRowThreeTabHorizontalPadding, tabRowHorizontalPadding(2))
+        assertEquals(TabRowThreeTabHorizontalPadding, tabRowHorizontalPadding(3))
+        assertEquals(TabRowHorizontalPadding, tabRowHorizontalPadding(4))
+    }
+
+    @Test
     fun `underline shrinks when a fourth tab tightens the gaps`() {
         val three = mapOf(
             0 to Rect(0f, 0f, 60f, 2f),
@@ -157,10 +164,123 @@ class FeedModeTabsTest {
         assertEquals(12f, FeedChromeCollapse.nextHiddenPx(0f, 80f, 50f, 12f))
         assertEquals(0f, FeedChromeCollapse.nextHiddenPx(12f, 80f, 40f, -12f))
         assertEquals(80f, FeedChromeCollapse.nextHiddenPx(70f, 80f, 200f, 40f))
-        assertEquals(0f, FeedChromeCollapse.nextHiddenPx(80f, 80f, 0f, 10f))
-        assertEquals(0f, FeedChromeCollapse.nextHiddenPx(40f, 80f, -20f, 80f))
-        assertEquals(0f, FeedChromeCollapse.nextHiddenPx(0f, 80f, 12f, 12f))
+        // Overscroll bounce-back must not hide or snap-open.
+        assertEquals(80f, FeedChromeCollapse.nextHiddenPx(80f, 80f, 0f, 10f))
+        assertEquals(40f, FeedChromeCollapse.nextHiddenPx(40f, 80f, -20f, 80f))
+        assertEquals(24f, FeedChromeCollapse.nextHiddenPx(40f, 80f, -20f, -16f))
+        assertEquals(0f, FeedChromeCollapse.nextHiddenPx(0f, 80f, 1f, 12f))
+        assertEquals(12f, FeedChromeCollapse.nextHiddenPx(0f, 80f, 12f, 12f))
         assertEquals(14f, FeedChromeCollapse.nextHiddenPx(8f, 80f, 12f, 6f))
+    }
+
+    @Test
+    fun `chrome settles like blinds latch`() {
+        val height = 130f
+        val latch = height * FeedChromeCollapseMath.CHROME_LATCH_OPEN_FRACTION
+        assertEquals(0f, FeedChromeCollapseMath.settledHiddenPx(0f, height, 0f))
+        assertEquals(0f, FeedChromeCollapseMath.settledHiddenPx(20f, height, latch))
+        // Fully down mid-feed stays down.
+        assertEquals(0f, FeedChromeCollapseMath.settledHiddenPx(0f, height, latch + 1f))
+        assertEquals(0f, FeedChromeCollapseMath.settledHiddenPx(latch, height, 80f))
+        assertEquals(height, FeedChromeCollapseMath.settledHiddenPx(40f, height, 80f))
+        assertEquals(height, FeedChromeCollapseMath.settledHiddenPx(120f, height, 80f))
+        assertEquals(0f, FeedChromeCollapseMath.settledHiddenPx(40f, height, -10f))
+    }
+
+    @Test
+    fun `labels fade out over first 65 percent of hide`() {
+        assertEquals(1f, FeedChromeCollapseMath.contentFade(0f, 100f), 0.01f)
+        assertEquals(0f, FeedChromeCollapseMath.contentFade(65f, 100f), 0.01f)
+        assertEquals(0f, FeedChromeCollapseMath.contentFade(100f, 100f), 0.01f)
+        assertEquals(0.5f, FeedChromeCollapseMath.contentFade(32.5f, 100f), 0.01f)
+    }
+
+    @Test
+    fun `expand spacer opens pad when chrome comes down`() {
+        val collapse = FeedChromeCollapse()
+        collapse.heightPx = 110f
+        collapse.hiddenPx = 110f
+        assertEquals(0f, collapse.contentPadPx(90f), 0.01f)
+        collapse.expandSpacerToOpenChrome()
+        assertEquals(110f, collapse.contentPadPx(90f), 0.01f)
+    }
+
+    @Test
+    fun `reveal leaves collapsed pad until top of feed expands it`() {
+        val collapse = FeedChromeCollapse()
+        collapse.heightPx = 110f
+        collapse.hiddenPx = 110f
+        collapse.applyFingerDelta(1f)
+        assertEquals(0f, collapse.contentPadPx(90f), 0.01f)
+        collapse.reveal()
+        assertEquals(0f, collapse.contentPadPx(90f), 0.01f)
+    }
+
+    @Test
+    fun `settle stays open when chrome is fully down mid feed`() {
+        val collapse = FeedChromeCollapse()
+        collapse.heightPx = 130f
+        collapse.hiddenPx = 0f
+        collapse.settleAfterDrag(scrollTop = 80f)
+        assertEquals(0f, collapse.hiddenPx, 0.01f)
+    }
+
+    @Test
+    fun `settle hides when chrome is halfway mid feed`() {
+        val collapse = FeedChromeCollapse()
+        collapse.heightPx = 130f
+        collapse.hiddenPx = 65f
+        collapse.settleAfterDrag(scrollTop = 80f)
+        assertEquals(130f, collapse.hiddenPx, 0.01f)
+    }
+
+    @Test
+    fun `programmatic pin inset uses status bar when chrome will hide`() {
+        assertEquals(
+            48f,
+            FeedChromeCollapseMath.programmaticPinInset(140f, 48f, chromeWillHide = true),
+            0.01f,
+        )
+        assertEquals(
+            140f,
+            FeedChromeCollapseMath.programmaticPinInset(140f, 48f, chromeWillHide = false),
+            0.01f,
+        )
+        assertEquals(
+            48f,
+            FeedChromeCollapseMath.programmaticPinInset(0f, 48f, chromeWillHide = false),
+            0.01f,
+        )
+        assertEquals(
+            48f,
+            FeedChromeCollapseMath.programmaticPinInset(0f, 48f, chromeWillHide = true),
+            0.01f,
+        )
+    }
+
+    @Test
+    fun `programmatic pin freezes pad while overlay hides`() {
+        val collapse = FeedChromeCollapse()
+        collapse.heightPx = 140f
+        collapse.hiddenPx = 0f
+        collapse.startProgrammaticPin()
+        assertEquals(140f, collapse.contentPadPx(90f), 0.01f)
+        collapse.hideCompletely(animated = false)
+        assertEquals(140f, collapse.hiddenPx, 0.01f)
+        assertEquals(140f, collapse.contentPadPx(90f), 0.01f)
+        collapse.finishProgrammaticPin()
+        assertEquals(140f, collapse.contentPadPx(90f), 0.01f)
+        assertFalse(collapse.isProgrammaticPin)
+    }
+
+    @Test
+    fun `programmatic pin ignores settle so chrome stays hidden`() {
+        val collapse = FeedChromeCollapse()
+        collapse.heightPx = 130f
+        collapse.hiddenPx = 65f
+        collapse.startProgrammaticPin()
+        collapse.settleAfterDrag(scrollTop = 80f)
+        assertEquals(65f, collapse.hiddenPx, 0.01f)
     }
 
     @Test

@@ -560,6 +560,22 @@ class MessageThreadViewModelTest {
     }
 
     @Test
+    fun `listener failure surfaces a load error instead of a blank thread`() = runTest {
+        whenever(messageRepository.listenToMessages(any())).doReturn(
+            kotlinx.coroutines.flow.flow<List<CymbalMessage>> { throw RuntimeException("PERMISSION_DENIED") }
+        )
+        whenever(messageRepository.listenToRecipientUnreadCount(any(), any())).doReturn(emptyFlow())
+        whenever(messageRepository.listenToReadReceiptsEnabled(any())).doReturn(emptyFlow())
+
+        viewModel.loadMessages("thread1", "other")
+        advanceUntilIdle()
+
+        assertEquals(false, viewModel.isLoading.first())
+        assertEquals(true, viewModel.hasLoadError.first())
+        assertTrue(viewModel.messages.first().isEmpty())
+    }
+
+    @Test
     fun `isLoading clears when thread setup fails before the listener starts`() = runTest {
         // No signed-in user + a blank threadId forces the getOrCreateThread path,
         // which throws before startListening — the spinner must still come down.

@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -96,19 +95,32 @@ fun feedModeTabLabel(mode: String): String = when (mode) {
 /** Matches iOS `FeedModeTabBar` VStack spacing + top pad. */
 internal val TabLabelToUnderline = 6.dp
 internal val TabRowTopPadding = 6.dp
-/**
- * iOS is 14pt Nunito Heavy but reads smaller than Compose 14.sp ExtraBold.
- * 13.sp matches the optical size in screenshots.
- */
-internal const val TabLabelSizeSp = 13
+/** Matches iOS `FeedModeTabBar` 14pt Nunito Heavy. */
+internal const val TabLabelSizeSp = 14
 /** Max extra each side. Actual overshoot is the smaller of this and half the tightest gap. */
 internal val TabUnderlineExtra = 24.dp
 /**
- * Inset for the first/last label. iOS uses 14pt; on a wide Android
- * phone that pins Following / Matches to the glass. 36.dp leaves a
- * little more gap between tabs without hugging the edges.
+ * iOS uses 2pt; 3.dp reads on Android's light hairline without looking chunky.
+ * Slot height and the accent pill must stay in sync so the overlay sits on
+ * the divider (same as iOS `overlay(alignment: .bottom)`).
+ */
+internal val TabUnderlineHeight = 3.dp
+/**
+ * Inset for the first/last label when 4 tabs are visible (feed with
+ * Favorites, or search). iOS uses 14pt; on a wide Android phone that
+ * pins Following / Matches to the glass. 36.dp leaves a little more
+ * gap between tabs without hugging the edges.
  */
 internal val TabRowHorizontalPadding = 36.dp
+/**
+ * Extra inset when Favorites is hidden (3 tabs). Pulls Following /
+ * Matches inward so the leftover gap is smaller. 4-tab rows keep
+ * [TabRowHorizontalPadding].
+ */
+internal val TabRowThreeTabHorizontalPadding = 56.dp
+
+internal fun tabRowHorizontalPadding(tabCount: Int) =
+    if (tabCount >= 4) TabRowHorizontalPadding else TabRowThreeTabHorizontalPadding
 
 /**
  * Compact feed-mode tab row under the Corus wordmark. Labels stay full size
@@ -157,11 +169,14 @@ fun ModeTabBar(
     var barBounds by remember { mutableStateOf(Rect.Zero) }
     val density = LocalDensity.current
 
-    Column(modifier = modifier.fillMaxWidth()) {
+    // Hairline + accent share this box's bottom edge, matching iOS
+    // `overlay(alignment: .bottom)` so the divider is edge-to-edge and
+    // the pill sits on it (a sibling divider left a gap and inset).
+    Box(modifier = modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = TabRowHorizontalPadding)
+                .padding(horizontal = tabRowHorizontalPadding(labels.size))
                 .onGloballyPositioned { barBounds = it.boundsInWindow() },
         ) {
             Row(
@@ -205,7 +220,7 @@ fun ModeTabBar(
                         )
                         Box(
                             modifier = Modifier
-                                .height(2.dp)
+                                .height(TabUnderlineHeight)
                                 .fillMaxWidth()
                                 .onGloballyPositioned { coords ->
                                     val window = coords.boundsInWindow()
@@ -234,7 +249,7 @@ fun ModeTabBar(
                     modifier = Modifier
                         .offset { IntOffset(placement.left.roundToInt(), placement.top.roundToInt()) }
                         .width(with(density) { placement.width.toDp() })
-                        .height(2.dp)
+                        .height(TabUnderlineHeight)
                         .clip(RoundedCornerShape(percent = 50))
                         .background(CorusColors.Accent),
                 )
@@ -242,7 +257,13 @@ fun ModeTabBar(
         }
 
         if (showDivider) {
-            HorizontalDivider(thickness = 1.dp, color = CorusColors.Divider)
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(CorusColors.Divider),
+            )
         }
     }
 }

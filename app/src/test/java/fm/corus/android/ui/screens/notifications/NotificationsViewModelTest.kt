@@ -102,14 +102,12 @@ class NotificationsViewModelTest {
 
     // ── Mark-as-viewed is driven by tab activation, NOT by loadNotifications ──
     //
-    // Regression context: all tab screens stay composed, so the screen's
-    // LaunchedEffect(Unit) (which calls loadNotifications) fires once at app
-    // launch — not on tab entry. The previous design marked everything read in
-    // loadNotifications, so it ran only at cold start and the badge never
-    // cleared on subsequent Activity-tab visits (it only got an optimistic
-    // in-memory zero, then snapped back to the full accumulated count when a
-    // new notification arrived). The mark-read now lives in markActivityViewed,
-    // bumped by the tab-activation trigger on every visit.
+    // Regression context: all tab screens stay composed. The list load is
+    // gated on the Activity tab being selected; the previous design marked
+    // everything read in loadNotifications, so a launch-time load cleared
+    // the badge before the user visited Activity. The mark-read now lives
+    // in markActivityViewed, bumped by the tab-activation trigger on every
+    // visit. The tab-bar badge is UnreadCountsRepository (starts at sign-in).
 
     @Test
     fun `loadNotifications does NOT mark read or stamp lastSeen (no premature clear at launch)`() = runTest {
@@ -211,6 +209,21 @@ class NotificationsViewModelTest {
 
         // The list listener is set up only once, matching the `hasStartedLoading`
         // guard — observeNotifications must not be re-subscribed per call.
+        verify(notificationRepository, times(1)).observeNotifications(eq("user1"), any())
+    }
+
+    @Test
+    fun `loadNotifications retries once auth is ready`() = runTest {
+        whenever(authRepository.currentUserId).thenReturn(null)
+        val viewModel = createViewModel()
+
+        viewModel.loadNotifications()
+        advanceUntilIdle()
+        verify(notificationRepository, never()).observeNotifications(any(), any())
+
+        whenever(authRepository.currentUserId).thenReturn("user1")
+        viewModel.loadNotifications()
+        advanceUntilIdle()
         verify(notificationRepository, times(1)).observeNotifications(eq("user1"), any())
     }
 

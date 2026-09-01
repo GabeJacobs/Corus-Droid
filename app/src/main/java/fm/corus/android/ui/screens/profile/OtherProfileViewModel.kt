@@ -9,6 +9,7 @@ import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.NetworkMonitor
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.data.model.LinkedArtist
 import fm.corus.android.data.model.MediaType
@@ -27,10 +28,9 @@ import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.ui.components.ShareCardTheme
 import fm.corus.android.ui.components.ToastManager
-import fm.corus.android.ui.screens.feed.SHARE_CONTACTS_TARGET
 import fm.corus.android.ui.screens.feed.applyCommentDeleteToPosts
 import fm.corus.android.ui.screens.feed.applyCommentEditToPosts
-import fm.corus.android.ui.screens.feed.rankShareContacts
+import fm.corus.android.ui.screens.feed.loadRecentDmShareContacts
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,6 +56,7 @@ class OtherProfileViewModel @Inject constructor(
     private val commentDeletedEvent: CommentDeletedEvent,
     private val analyticsService: AnalyticsService,
     private val remoteConfig: RemoteConfigService,
+    private val networkMonitor: NetworkMonitor,
     private val favoriteChangedEvent: fm.corus.android.domain.FavoriteChangedEvent,
 ) : ViewModel() {
 
@@ -89,7 +90,7 @@ class OtherProfileViewModel @Inject constructor(
     // ── Profile share sheet ──
     // Mirrors the destination-page share plumbing (recipient picker + DM send),
     // but shares a *profile*: DMs send a `sharedProfile` message deep-linking to
-    // the user's profile. Reuses the package-level rankShareContacts helper.
+    // the user's profile. Recents are the most recent people you've DMed.
 
     private val _shareSearchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
     val shareSearchResults: StateFlow<List<CymbalUser>> = _shareSearchResults.asStateFlow()
@@ -107,22 +108,14 @@ class OtherProfileViewModel @Inject constructor(
 
     fun loadRecentShareContacts() {
         val userId = authRepository.currentUserId ?: return
-        _isLoadingShareContacts.value = true
-        viewModelScope.launch {
-            try {
-                val shareRecipients = runCatching { messageRepository.listShareRecipients(12) }.getOrDefault(emptyList())
-                val threadContacts = messageRepository.listThreads(userId).mapNotNull { it.otherUser }
-                val followFallback = if (rankShareContacts(shareRecipients, threadContacts, emptyList()).size < SHARE_CONTACTS_TARGET) {
-                    val following = userRepository.fetchFollowingPaginated(userId, limit = 20).users
-                    val followers = userRepository.fetchFollowersPaginated(userId, limit = 20).users
-                    following + followers
-                } else {
-                    emptyList()
-                }
-                _recentShareContacts.value = rankShareContacts(shareRecipients, threadContacts, followFallback)
-            } catch (_: Exception) { }
-            _isLoadingShareContacts.value = false
-        }
+        loadRecentDmShareContacts(
+            userId = userId,
+            messageRepository = messageRepository,
+            currentContacts = _recentShareContacts.value,
+            setContacts = { _recentShareContacts.value = it },
+            setLoading = { _isLoadingShareContacts.value = it },
+            scope = viewModelScope,
+        )
     }
 
     fun searchShareUsers(query: String) {
@@ -186,6 +179,16 @@ class OtherProfileViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            networkMonitor.isConnected.collect { connected ->
+                // Auto-retry when the network returns if the previous attempt
+                // failed and nothing is on screen (matches own ProfileViewModel).
+                val userId = loadedUserId
+                if (connected && _hasLoadError.value && _profile.value == null && userId != null) {
+                    retryLoad(userId)
+                }
+            }
+        }
+        viewModelScope.launch {
             postDeletionEvent.events.collect { deletedId ->
                 _posts.value = _posts.value.filter { it.id != deletedId }
             }
@@ -224,10 +227,15 @@ class OtherProfileViewModel @Inject constructor(
     private val _profileUnavailable = MutableStateFlow(false)
     val profileUnavailable: StateFlow<Boolean> = _profileUnavailable.asStateFlow()
 
+    private val _hasLoadError = MutableStateFlow(false)
+    val hasLoadError: StateFlow<Boolean> = _hasLoadError.asStateFlow()
+
     private val _posts = MutableStateFlow<List<CymbalPost>>(emptyList())
     val posts: StateFlow<List<CymbalPost>> = _posts.asStateFlow()
 
-    private val _isLoading = MutableStateFlow(false)
+    // Starts true (mirrors iOS isGridLoading) so the first frame cannot
+    // paint "No songs yet" before loadProfile() sets posts.
+    private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _isLoadingMore = MutableStateFlow(false)
@@ -351,7 +359,13 @@ class OtherProfileViewModel @Inject constructor(
     private var loadedUserId: String? = null
 
     fun start(userId: String, initialIsFollowing: Boolean?) {
-        if (loadedUserId == userId) return
+        // Skip a redundant fetch when this owner is already on screen or
+        // still loading. A previous failure (profile still null, not banned)
+        // must retry — otherwise LaunchedEffect re-entry after a flake leaves
+        // the chrome-only blank page forever.
+        if (loadedUserId == userId &&
+            (_profile.value != null || _isLoading.value || _profileUnavailable.value)
+        ) return
         // Seed from the explicit hint when a caller passes an authoritative
         // optimistic value; otherwise fall back to the cached following set
         // (the same source the feed's Follow pill reads) so the button is
@@ -359,6 +373,13 @@ class OtherProfileViewModel @Inject constructor(
         // loadProfile() reconciles against the server regardless.
         _isFollowing.value = initialIsFollowing ?: userRepository.isFollowing(userId)
         loadProfile(userId)
+    }
+
+    /** Re-run [loadProfile] after a previous failure. */
+    fun retryLoad(userId: String) {
+        loadedUserId = null
+        _hasLoadError.value = false
+        start(userId, initialIsFollowing = _isFollowing.value)
     }
 
     fun loadProfile(userId: String) {
@@ -377,9 +398,15 @@ class OtherProfileViewModel @Inject constructor(
         // profile navigation) never carries the previous owner's fetched flag.
         _hasFetchedSongPage.value = false
         _isLoadingSongs.value = false
+        // Same for films: a reused ViewModel that already fetched films for
+        // the previous owner would skip loadFilmPageIfNeeded and leave a
+        // film-primary profile stuck on "No films yet".
+        _hasFetchedFilmPage.value = false
+        _isLoadingFilms.value = false
         _linkedArtist.value = null
         viewModelScope.launch {
             _isLoading.value = true
+            _hasLoadError.value = false
             try {
                 _isFollowing.value = userRepository.isFollowing(userId)
                 _isBlocked.value = userRepository.blockedIds.value.contains(userId)
@@ -394,7 +421,11 @@ class OtherProfileViewModel @Inject constructor(
                     }.getOrDefault(false)
                 }
 
-                val viewerId = authRepository.currentUserId ?: return@launch
+                val viewerId = authRepository.currentUserId
+                if (viewerId == null) {
+                    _hasLoadError.value = true
+                    return@launch
+                }
 
                 // Single round-trip: user (with live cymbalCount via count() aggregation)
                 // and the first page of posts come from the same backend call, so the
@@ -460,8 +491,26 @@ class OtherProfileViewModel @Inject constructor(
                 if (_profile.value?.isBot != true && page.none { it.mediaType == MediaType.TRACK }) {
                     loadSongPageIfNeeded(userId)
                 }
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                if (_profile.value == null && !_profileUnavailable.value) {
+                    _hasLoadError.value = true
+                }
+            }
+            if (_profile.value == null && !_profileUnavailable.value) {
+                _hasLoadError.value = true
+            }
             _isLoading.value = false
+            // After the mixed page is applied and loading has cleared — a
+            // film-primary profile opens already on FILM, and the recency
+            // window can be music-only. Kick here (not only on tab change)
+            // so first load matches pull-to-refresh. Must run after
+            // isLoading=false; loadFilmPageIfNeeded no-ops while loading
+            // so an early LaunchedEffect can't mark the tab fetched empty.
+            if (_profile.value?.isBot != true &&
+                _posts.value.none { it.mediaType == MediaType.MOVIE }
+            ) {
+                loadFilmPageIfNeeded(userId)
+            }
         }
     }
 
@@ -584,6 +633,11 @@ class OtherProfileViewModel @Inject constructor(
 
     fun loadFilmPageIfNeeded(userId: String) {
         if (_hasFetchedFilmPage.value) return
+        // Mixed posts aren't applied yet. Return without flipping the fetched
+        // flag so the call after loadProfile (or LaunchedEffect when loading
+        // finishes) still runs — otherwise a film-primary first frame can
+        // mark the tab fetched against an empty window and stick on empty.
+        if (_isLoading.value) return
         val viewerId = authRepository.currentUserId ?: return
         val hasAnyMovies = _posts.value.any { it.mediaType == MediaType.MOVIE }
         // Prefer the counter (authoritative); fall back to the "all posts loaded,
@@ -784,6 +838,10 @@ class OtherProfileViewModel @Inject constructor(
         if (posts.isNotEmpty()) engagementManager.checkSaveStatuses(posts.map { it.id }, viewerId)
     }
 
+    fun logFollowingOptionsOpened(targetUserId: String) {
+        analyticsService.logFollowingOptionsOpened(targetUserId)
+    }
+
     fun toggleFollow(userId: String) {
         val currentUserId = authRepository.currentUserId ?: return
         val wasFollowing = _isFollowing.value
@@ -800,8 +858,10 @@ class OtherProfileViewModel @Inject constructor(
             try {
                 if (wasFollowing) {
                     userRepository.unfollowUser(currentUserId, userId)
+                    analyticsService.logUnfollowUser(userId)
                 } else {
                     userRepository.followUser(currentUserId, userId)
+                    analyticsService.logFollowUser(userId)
                 }
             } catch (e: Exception) {
                 _isFollowing.value = wasFollowing
@@ -812,6 +872,7 @@ class OtherProfileViewModel @Inject constructor(
                         maxOf(0, (_profile.value?.followerCount ?: 1) - 1)
                     }
                 )
+                analyticsService.logFollowError(userId, e.message ?: e.toString())
                 if (e is CloudFunctionsDataSource.FollowLimitReachedException) {
                     ToastManager.show(buildFollowLimitMessage(e))
                 }
@@ -927,10 +988,12 @@ class OtherProfileViewModel @Inject constructor(
             try {
                 if (!wasMuted) {
                     userRepository.muteUser(currentUserId, userId)
+                    analyticsService.logMuteUser(userId)
                     val message = if (username != null) context.getString(R.string.other_profile_muted_format, username) else context.getString(R.string.other_profile_muted)
                     ToastManager.update(toastId, message)
                 } else {
                     userRepository.unmuteUser(currentUserId, userId)
+                    analyticsService.logUnmuteUser(userId)
                     val message = if (username != null) context.getString(R.string.other_profile_unmuted_format, username) else context.getString(R.string.other_profile_unmuted)
                     ToastManager.update(toastId, message)
                 }

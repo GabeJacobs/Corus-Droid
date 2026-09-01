@@ -12,6 +12,7 @@ import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.service.NetworkMonitor
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +26,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
@@ -114,6 +116,7 @@ class OtherProfileViewModelTest {
         favoriteChangedEvent = fm.corus.android.domain.FavoriteChangedEvent(),
         commentEditedEvent = fm.corus.android.domain.CommentEditedEvent(),
         commentDeletedEvent = fm.corus.android.domain.CommentDeletedEvent(),
+        networkMonitor = mock<NetworkMonitor> { on { isConnected } doReturn MutableStateFlow(true) },
     )
 
     private fun makeUser(id: String, cymbalCount: Int): CymbalUser = CymbalUser(
@@ -373,6 +376,12 @@ class OtherProfileViewModelTest {
         verify(cloudFunctions).getLikedPosts(eq(targetId), eq("viewer1"), any(), eq(30))
     }
 
+    @Test
+    fun `isLoading starts true so first paint cannot flash empty music`() = runTest {
+        val viewModel = createViewModel()
+        assertTrue(viewModel.isLoading.value)
+    }
+
     /**
      * Regression guard for the film-dominant poster "No songs yet" bug: the
      * MUSIC tab filters the recency-ordered posts window, so a poster whose
@@ -463,5 +472,108 @@ class OtherProfileViewModelTest {
         assertEquals(false, viewModel.isLoadingSongs.value)
         assertEquals(true, viewModel.hasFetchedSongPage.value)
         assertEquals(2, viewModel.posts.value.count { it.mediaType == MediaType.TRACK })
+    }
+
+    /**
+     * Film-primary profiles open already on FILM. The mixed recency page can
+     * be all music, so first load used to settle on "No films yet" until
+     * pull-to-refresh. loadProfile must kick the movie-only fetch itself.
+     */
+    @Test
+    fun `loadProfile backfills films when the recency window is music-only`() = runTest {
+        val targetId = "azucar"
+        val tracks = (1..30).map { makeTrackPostTs("t$it", targetId, timestampMs = (100_000 - it).toLong()) }
+        whenever(postRepository.getProfileData(eq(targetId), any(), anyOrNull()))
+            .thenReturn(
+                CloudFunctionsDataSource.ProfileData(
+                    makeUserWithCounts(targetId, trackCount = 30, movieCount = 5)
+                        .copy(featuredTab = "film"),
+                    tracks,
+                ),
+            )
+        whenever(userRepository.isSubscribedToUserPosts(any(), any())).thenReturn(false)
+        val movies = (1..5).map { makeMoviePost("m$it", targetId, timestampMs = (5_000 - it).toLong()) }
+        whenever(postRepository.getProfilePosts(eq(targetId), eq("viewer1"), any(), eq(null), eq("movie")))
+            .thenReturn(movies)
+
+        val viewModel = createViewModel()
+        viewModel.start(targetId, initialIsFollowing = false)
+        advanceUntilIdle()
+
+        verify(postRepository).getProfilePosts(eq(targetId), eq("viewer1"), any(), eq(null), eq("movie"))
+        val films = viewModel.posts.value.filter { it.mediaType == MediaType.MOVIE }
+        assertEquals(listOf("m1", "m2", "m3", "m4", "m5"), films.map { it.id })
+        assertEquals(true, viewModel.hasFetchedFilmPage.value)
+        assertEquals(false, viewModel.isLoadingFilms.value)
+    }
+
+    @Test
+    fun `loadProfile does not fetch films when movieCount is zero`() = runTest {
+        val targetId = "musiconly1"
+        val tracks = (1..2).map { makeTrackPostTs("t$it", targetId, timestampMs = (10_000 - it).toLong()) }
+        whenever(postRepository.getProfileData(eq(targetId), any(), anyOrNull()))
+            .thenReturn(
+                CloudFunctionsDataSource.ProfileData(
+                    makeUserWithCounts(targetId, trackCount = 2, movieCount = 0),
+                    tracks,
+                ),
+            )
+        whenever(userRepository.isSubscribedToUserPosts(any(), any())).thenReturn(false)
+
+        val viewModel = createViewModel()
+        viewModel.start(targetId, initialIsFollowing = false)
+        advanceUntilIdle()
+
+        verify(postRepository, never()).getProfilePosts(
+            eq(targetId), eq("viewer1"), any(), anyOrNull(), eq("movie"),
+        )
+        assertEquals(true, viewModel.hasFetchedFilmPage.value)
+        assertEquals(false, viewModel.isLoadingFilms.value)
+    }
+
+    @Test
+    fun `loadProfile surfaces a load error instead of a blank page when fallback fails`() = runTest {
+        val targetId = "offline1"
+        whenever(postRepository.getProfileData(eq(targetId), any(), anyOrNull()))
+            .thenThrow(RuntimeException("network blip"))
+        whenever(userRepository.fetchUserProfile(eq(targetId)))
+            .thenThrow(RuntimeException("network blip"))
+        whenever(userRepository.isSubscribedToUserPosts(any(), any())).thenReturn(false)
+
+        val viewModel = createViewModel()
+        viewModel.start(targetId, initialIsFollowing = false)
+        advanceUntilIdle()
+
+        assertEquals(true, viewModel.hasLoadError.value)
+        assertEquals(null, viewModel.profile.value)
+        assertEquals(false, viewModel.isLoading.value)
+        assertEquals(false, viewModel.profileUnavailable.value)
+    }
+
+    @Test
+    fun `start retries a previous failed load for the same user`() = runTest {
+        val targetId = "retry1"
+        whenever(postRepository.getProfileData(eq(targetId), any(), anyOrNull()))
+            .thenThrow(RuntimeException("network blip"))
+        whenever(userRepository.fetchUserProfile(eq(targetId)))
+            .thenThrow(RuntimeException("network blip"))
+        whenever(userRepository.isSubscribedToUserPosts(any(), any())).thenReturn(false)
+
+        val viewModel = createViewModel()
+        viewModel.start(targetId, initialIsFollowing = false)
+        advanceUntilIdle()
+        assertEquals(true, viewModel.hasLoadError.value)
+
+        doReturn(
+            CloudFunctionsDataSource.ProfileData(
+                makeUser(targetId, cymbalCount = 1),
+                listOf(makePost("p1", targetId)),
+            ),
+        ).whenever(postRepository).getProfileData(eq(targetId), any(), anyOrNull())
+        viewModel.start(targetId, initialIsFollowing = false)
+        advanceUntilIdle()
+
+        assertEquals(false, viewModel.hasLoadError.value)
+        assertEquals(targetId, viewModel.profile.value?.id)
     }
 }

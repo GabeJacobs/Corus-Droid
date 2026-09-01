@@ -92,22 +92,25 @@ class NotificationsViewModel @Inject constructor(
     private val _isFilterLoading = MutableStateFlow(false)
     val isFilterLoading: StateFlow<Boolean> = _isFilterLoading.asStateFlow()
     private val _hasMoreFiltered = MutableStateFlow(false)
-    private val _filtersUnlocked = MutableStateFlow(false)
+    private val _filtersUnlocked = MutableStateFlow(initialFiltersUnlocked())
 
     private data class ChipDisplay(
         val all: List<CymbalNotification>,
         val filtered: List<CymbalNotification>,
         val filter: NotificationFilter,
         val ready: Boolean,
+        val loading: Boolean,
     )
 
     val displayedNotifications: StateFlow<List<CymbalNotification>> = combine(
-        combine(_notifications, _filteredNotifications, _selectedFilter, _chipReady, ::ChipDisplay),
+        combine(_notifications, _filteredNotifications, _selectedFilter, _chipReady, _isFilterLoading) { all, filtered, filter, ready, loading ->
+            ChipDisplay(all, filtered, filter, ready, loading)
+        },
         userRepository.followingIds,
         userRepository.hiddenUserIds,
     ) { chip, following, hidden ->
         NotificationFilterVisibility.apply(
-            chip.filter, chip.all, chip.filtered, following, chip.ready,
+            chip.filter, chip.all, chip.filtered, following, chip.ready, chip.loading,
         ).filter { it.fromUser.id !in hidden }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -119,7 +122,18 @@ class NotificationsViewModel @Inject constructor(
             minCount = remoteConfigService.notificationFiltersMinCount,
             minTypes = remoteConfigService.notificationFiltersMinTypes,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        // Seed from disk so the first frame isn't title-then-chips.
+        NotificationFilterVisibility.shouldShow(
+            flagEnabled = remoteConfigService.notificationFiltersEnabled,
+            alreadyUnlocked = _filtersUnlocked.value,
+            notifications = _notifications.value,
+            minCount = remoteConfigService.notificationFiltersMinCount,
+            minTypes = remoteConfigService.notificationFiltersMinTypes,
+        ),
+    )
 
     val hasMoreToLoad: StateFlow<Boolean> = combine(
         _selectedFilter,
@@ -141,10 +155,15 @@ class NotificationsViewModel @Inject constructor(
 
     private fun unlockKey(uid: String) = "notification_filters_unlocked_$uid"
 
+    private fun initialFiltersUnlocked(): Boolean {
+        val uid = authRepository.currentUserId ?: return false
+        return runCatching {
+            context.getSharedPreferences("corus_notification_filters", Context.MODE_PRIVATE)
+                .getBoolean(unlockKey(uid), false)
+        }.getOrDefault(false)
+    }
+
     init {
-        authRepository.currentUserId?.let { uid ->
-            _filtersUnlocked.value = unlockPrefs?.getBoolean(unlockKey(uid), false) == true
-        }
         viewModelScope.launch {
             networkMonitor.isConnected.collect { connected ->
                 // Auto-retry the initial load when the network returns if the previous
@@ -267,6 +286,9 @@ class NotificationsViewModel @Inject constructor(
                 loadFollowingStatuses(userId)
             } catch (_: Exception) { }
             _isRefreshing.value = false
+            // Pull is enough to leave the skeleton — a brand-new account's
+            // live query can sit on a cache-empty snapshot forever.
+            _isLoading.value = false
         }
     }
 
@@ -275,17 +297,17 @@ class NotificationsViewModel @Inject constructor(
      * "seen" cutoff (for new-row highlighting) and attaches the real-time
      * listener. Runs once per ViewModel lifetime — and because all tab
      * screens stay composed (MainTabScreen keeps invisible tabs off-screen
-     * rather than disposing them), the triggering `LaunchedEffect(Unit)` fires
-     * at app launch, not on tab entry. The actual "mark as viewed" side effect
-     * therefore lives in [markActivityViewed], which is driven by the Activity
-     * tab-activation trigger so it re-runs on every visit. Do NOT stamp
-     * lastSeen or markAllRead here — that would clear the badge at launch
-     * before the user has viewed anything.
+     * rather than disposing them). The list load is gated on the Activity tab
+     * being selected so it doesn't compete with first feed scroll. The actual
+     * "mark as viewed" side effect lives in [markActivityViewed], which is
+     * driven by the Activity tab-activation trigger so it re-runs on every
+     * visit. Do NOT stamp lastSeen or markAllRead here — that would clear the
+     * badge at launch before the user has viewed anything.
      */
     fun loadNotifications() {
         if (hasStartedLoading) return
-        hasStartedLoading = true
         val userId = authRepository.currentUserId ?: return
+        hasStartedLoading = true
         viewModelScope.launch {
             _isLoading.value = true
             // Capture the previous "seen" cutoff so we can flag later-arriving
@@ -465,6 +487,9 @@ class NotificationsViewModel @Inject constructor(
         _filteredNotifications.value = emptyList()
         _chipReady.value = false
         _hasMoreFiltered.value = false
+        // Same turn as the chip change so the All-window fallback never
+        // paints a partial Comments list before the skeleton.
+        _isFilterLoading.value = true
         _selectedFilter.value = filter
         viewModelScope.launch { loadFilteredNotificationsSuspend() }
     }

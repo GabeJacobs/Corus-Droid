@@ -37,6 +37,7 @@ import fm.corus.android.data.model.CymbalThread
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MessageType
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.SkeletonMessageThreadRow
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.theme.CorusColors
@@ -62,6 +63,7 @@ internal fun filterInboxThreads(threads: List<CymbalThread>, query: String): Lis
 fun ThreadListScreen(
     onBack: () -> Unit = {},
     onThreadTap: (String, String) -> Unit = { _, _ -> },
+    isTabRoot: Boolean = false,
     viewModel: ThreadListViewModel = hiltViewModel(),
 ) {
     val threads by viewModel.threads.collectAsState()
@@ -97,6 +99,7 @@ fun ThreadListScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
     Column(modifier = Modifier.fillMaxSize()) {
+        if (!isTabRoot) {
         // Header with back and compose button
         Row(
             modifier = Modifier
@@ -119,38 +122,78 @@ fun ThreadListScreen(
                 onClick = { showNewMessagePicker = true },
                 painter = painterResource(id = R.drawable.ic_edit_square),
                 contentDescription = stringResource(id = R.string.messaging_list_cd_new_message),
+                tint = CorusColors.Text,
+                size = CorusSpacing.iconMd,
             )
         }
 
         HorizontalDivider(color = CorusColors.Divider)
+        }
 
-        if (!isLoading && threads.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(stringResource(id = R.string.messaging_list_empty), style = CorusFont.body, color = CorusColors.Secondary)
+        if (isTabRoot) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                InboxSearchBar(
+                    value = inboxSearchText,
+                    onValueChange = { inboxSearchText = it },
+                    onClear = { inboxSearchText = "" },
+                    compact = true,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(modifier = Modifier.width(CorusSpacing.sm))
+                CorusHeaderIconButton(
+                    onClick = { showNewMessagePicker = true },
+                    painter = painterResource(id = R.drawable.ic_edit_square),
+                    contentDescription = stringResource(id = R.string.messaging_list_cd_new_message),
+                    tint = CorusColors.Text,
+                    size = CorusSpacing.iconMd,
+                )
             }
-        } else {
+            HorizontalDivider(color = CorusColors.Divider)
+        }
+
+        if (!isTabRoot) {
             InboxSearchBar(
                 value = inboxSearchText,
                 onValueChange = { inboxSearchText = it },
                 onClear = { inboxSearchText = "" },
             )
             HorizontalDivider(color = CorusColors.Divider)
+        }
 
-            PullToRefreshBox(
-                isRefreshing = isRefreshing,
-                onRefresh = { viewModel.pullRefresh() },
-                modifier = Modifier.fillMaxSize(),
-            ) {
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { viewModel.pullRefresh() },
+            modifier = Modifier.fillMaxSize(),
+        ) {
             if (isLoading && threads.isEmpty()) {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(12) {
+                        SkeletonMessageThreadRow()
+                    }
+                }
+            } else if (threads.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = CorusColors.Accent)
+                    Text(
+                        stringResource(id = R.string.messaging_list_empty),
+                        style = CorusFont.body,
+                        color = CorusColors.Secondary,
+                    )
                 }
             } else if (displayedThreads.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     if (inboxSearchText.isNotBlank() && isSearchingInbox) {
                         CircularProgressIndicator(color = CorusColors.Accent)
                     } else {
-                        Text(stringResource(id = R.string.messaging_list_no_matches), style = CorusFont.body, color = CorusColors.Secondary)
+                        Text(
+                            stringResource(id = R.string.messaging_list_no_matches),
+                            style = CorusFont.body,
+                            color = CorusColors.Secondary,
+                        )
                     }
                 }
             } else {
@@ -182,7 +225,6 @@ fun ThreadListScreen(
                         }
                     }
                 }
-            }
             }
         }
     }
@@ -558,12 +600,17 @@ private fun InboxSearchBar(
     value: String,
     onValueChange: (String) -> Unit,
     onClear: () -> Unit,
+    compact: Boolean = false,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(CorusColors.CardBackground)
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+        modifier = modifier
+            .then(if (compact) Modifier else Modifier.fillMaxWidth())
+            .background(CorusColors.CardBackground, RoundedCornerShape(if (compact) 10.dp else 0.dp))
+            .padding(
+                horizontal = if (compact) CorusSpacing.md else CorusSpacing.lg,
+                vertical = if (compact) CorusSpacing.sm else CorusSpacing.md,
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -624,7 +671,9 @@ private fun ThreadRow(
     }
     // In groups, prefix the sender's first name for other people's messages;
     // system events already carry full text.
-    val preview = if (isGroup && thread.lastMessageType != MessageType.SYSTEM) {
+    val preview = if (isGroup && thread.lastMessageType == MessageType.SYSTEM) {
+        GroupSystemMessages.localize(thread.lastMessageText, context)
+    } else if (isGroup) {
         val fromId = thread.lastMessageFromUserId
         val sender = if (fromId != null && fromId != currentUserId) membersById[fromId] else null
         val first = sender?.let { (it.displayName.ifBlank { it.username }).split(" ").firstOrNull() }

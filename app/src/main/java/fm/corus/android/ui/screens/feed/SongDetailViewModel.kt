@@ -330,7 +330,7 @@ class SongDetailViewModel @Inject constructor(
     // ── Song share sheet ──
     // Mirrors the post share sheet's recipient picker (see FeedViewModel), but
     // shares a *track*: DMs send a `sharedTrack` message (deep-links to this
-    // song page in-app). Reuses the package-level rankShareContacts helper.
+    // song page in-app). Recents are the most recent people you've DMed.
 
     private val _shareSearchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
     val shareSearchResults: StateFlow<List<CymbalUser>> = _shareSearchResults.asStateFlow()
@@ -348,24 +348,14 @@ class SongDetailViewModel @Inject constructor(
 
     fun loadRecentShareContacts() {
         val userId = authRepository.currentUserId ?: return
-        _isLoadingShareContacts.value = true
-        viewModelScope.launch {
-            try {
-                val shareRecipients = runCatching { messageRepository.listShareRecipients(12) }.getOrDefault(emptyList())
-                val threadContacts = messageRepository.listThreads(userId).mapNotNull { it.otherUser }
-
-                val followFallback = if (rankShareContacts(shareRecipients, threadContacts, emptyList()).size < SHARE_CONTACTS_TARGET) {
-                    val following = userRepository.fetchFollowingPaginated(userId, limit = 20).users
-                    val followers = userRepository.fetchFollowersPaginated(userId, limit = 20).users
-                    following + followers
-                } else {
-                    emptyList()
-                }
-
-                _recentShareContacts.value = rankShareContacts(shareRecipients, threadContacts, followFallback)
-            } catch (_: Exception) { }
-            _isLoadingShareContacts.value = false
-        }
+        loadRecentDmShareContacts(
+            userId = userId,
+            messageRepository = messageRepository,
+            currentContacts = _recentShareContacts.value,
+            setContacts = { _recentShareContacts.value = it },
+            setLoading = { _isLoadingShareContacts.value = it },
+            scope = viewModelScope,
+        )
     }
 
     fun searchShareUsers(query: String) {

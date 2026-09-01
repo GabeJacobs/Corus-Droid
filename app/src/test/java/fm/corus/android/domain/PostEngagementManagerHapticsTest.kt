@@ -26,6 +26,7 @@ class PostEngagementManagerHapticsTest {
         analyticsService = mock(),
         saveChangedEvent = mock(),
         spotifySaveAutoAdd = mock(),
+        reviewPromptManager = mock(),
     )
 
     @Test

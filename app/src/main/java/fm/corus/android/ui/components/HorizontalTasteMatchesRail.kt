@@ -31,9 +31,11 @@ import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
+import fm.corus.android.ui.theme.CorusMotion
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.horizontalRailCardWidth
 import fm.corus.android.ui.util.deferToInnerHorizontalScroll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -78,8 +80,13 @@ fun HorizontalTasteMatchesRail(
     val isLoading by viewModel.isLoading.collectAsState()
     val endReached by viewModel.endReached.collectAsState()
     val isFilling by viewModel.isFilling.collectAsState()
+    val isActive = LocalContainingTabSelected.current
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(isActive) {
+        if (!isActive) return@LaunchedEffect
+        if (viewModel.matches.value.isEmpty()) {
+            delay(CorusMotion.SEARCH_LIVE_LOAD_DELAY_MS)
+        }
         viewModel.loadInitial()
     }
 

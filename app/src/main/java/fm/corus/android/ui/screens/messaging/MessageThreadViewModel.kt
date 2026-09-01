@@ -12,6 +12,7 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MessageFailureReason
 import fm.corus.android.data.model.MessageSendStatus
 import fm.corus.android.data.model.MessageType
+import fm.corus.android.data.model.MessagingRestriction
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
@@ -87,8 +88,14 @@ class MessageThreadViewModel @Inject constructor(
         (server + unconfirmed).sortedByDescending { it.createdAt }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    private val _isLoading = MutableStateFlow(false)
+    // Starts true so the first frame of an opened thread cannot paint a blank
+    // message list before loadMessages() runs. Cleared by the first publishable
+    // snapshot (or a setup / listener failure).
+    private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _hasLoadError = MutableStateFlow(false)
+    val hasLoadError: StateFlow<Boolean> = _hasLoadError.asStateFlow()
 
     private val _otherUsername = MutableStateFlow("")
     val otherUsername: StateFlow<String> = _otherUsername.asStateFlow()
@@ -124,6 +131,9 @@ class MessageThreadViewModel @Inject constructor(
 
     /** The caller's own inbox row for this conversation; null until one is known. */
     private val _threadRow = MutableStateFlow<MessageRepository.ThreadRowSnapshot?>(null)
+
+    private val _messagingRestriction = MutableStateFlow<MessagingRestriction?>(null)
+    val messagingRestriction: StateFlow<MessagingRestriction?> = _messagingRestriction.asStateFlow()
 
     /**
      * Whether this conversation may be shown, and the screen's whole answer to
@@ -162,8 +172,11 @@ class MessageThreadViewModel @Inject constructor(
         // and live listeners below. No-op when the thread wasn't in the inbox cache
         // (e.g. opened from a profile or notification), which keeps prior behavior.
         seedHeaderFromCachedInbox(threadId)
+        // Arm the spinner before the coroutine is scheduled so the first OPEN
+        // frame cannot paint an empty list with isLoading still false.
+        _hasLoadError.value = false
+        _isLoading.value = true
         viewModelScope.launch {
-            _isLoading.value = true
             try {
                 // Load other user's profile for the header (1:1 only; group threads
                 // have no single otherUserId so skip to avoid an empty-string Firestore error).
@@ -196,13 +209,14 @@ class MessageThreadViewModel @Inject constructor(
                 // Mark as read
                 messageRepository.markThreadRead(resolvedId, userId)
                 startReadReceiptsListener(userId)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 // Setup failed before the message listener could deliver anything
                 // (e.g. not signed in, getOrCreateThread error). Clear the loading
                 // state so the thread doesn't spin forever. On the success path the
                 // spinner is cleared by startListening's first snapshot instead, so
                 // it stays up until messages are actually ready to render.
                 _isLoading.value = false
+                _messagingRestriction.value = messagingRestrictionFrom(e)
                 // Getting this far without a conversation IS the refusal on the
                 // create path: getOrCreateThread enforces the same rule the row
                 // does, so there is nothing to show and nothing left to wait for.
@@ -257,34 +271,45 @@ class MessageThreadViewModel @Inject constructor(
         hasLoadedInitialMessages = false
         seenMessageIds = emptySet()
         listenerJob = viewModelScope.launch {
-            messageRepository.listenToMessages(threadId).collect { serverMessages ->
-                val confirmedIds = serverMessages.map { it.id }.toSet()
-                // Publish the server snapshot BEFORE pruning the matching pending
-                // copy. The `messages` combine filters pending by the current
-                // server ids, so setting server first means the confirmed message
-                // is already present when pending drops — it never blinks out of
-                // the merged list, which would otherwise re-anchor the reverseLayout
-                // list and hide the newest bubble behind the composer.
-                _serverMessages.value = serverMessages
-                // Remove pending messages that the server has now confirmed
-                _pendingMessages.value = _pendingMessages.value.filterKeys { it !in confirmedIds }
+            try {
+                messageRepository.listenToMessages(threadId).collect { serverMessages ->
+                    val confirmedIds = serverMessages.map { it.id }.toSet()
+                    // Publish the server snapshot BEFORE pruning the matching pending
+                    // copy. The `messages` combine filters pending by the current
+                    // server ids, so setting server first means the confirmed message
+                    // is already present when pending drops — it never blinks out of
+                    // the merged list, which would otherwise re-anchor the reverseLayout
+                    // list and hide the newest bubble behind the composer.
+                    _serverMessages.value = serverMessages
+                    // Remove pending messages that the server has now confirmed
+                    _pendingMessages.value = _pendingMessages.value.filterKeys { it !in confirmedIds }
 
-                // Re-mark the thread read whenever a NEW message arrives from the
-                // other user while we're viewing it, so the unread badge clears
-                // instead of ticking up (mirrors iOS MessageThreadView). The
-                // initial snapshot is already covered by loadMessages.
-                val myId = authRepository.currentUserId
-                val hadNewIncoming = serverMessages.any {
-                    it.id !in seenMessageIds && it.fromUserId != myId
-                }
-                seenMessageIds = confirmedIds
+                    // Re-mark the thread read whenever a NEW message arrives from the
+                    // other user while we're viewing it, so the unread badge clears
+                    // instead of ticking up (mirrors iOS MessageThreadView). The
+                    // initial snapshot is already covered by loadMessages.
+                    val myId = authRepository.currentUserId
+                    val hadNewIncoming = serverMessages.any {
+                        it.id !in seenMessageIds && it.fromUserId != myId
+                    }
+                    seenMessageIds = confirmedIds
 
-                if (hasLoadedInitialMessages && hadNewIncoming && myId != null) {
-                    messageRepository.markThreadRead(currentThreadId ?: threadId, myId)
+                    if (hasLoadedInitialMessages && hadNewIncoming && myId != null) {
+                        messageRepository.markThreadRead(currentThreadId ?: threadId, myId)
+                    }
+                    hasLoadedInitialMessages = true
+                    // First publishable snapshot has landed (cached messages, or a
+                    // server snapshot even if empty) — drop the spinner. Empty cache
+                    // misses never reach here; see shouldPublishMessagesSnapshot.
+                    _hasLoadError.value = false
+                    _isLoading.value = false
                 }
-                hasLoadedInitialMessages = true
-                // First snapshot has landed (even if empty) — messages are ready to
-                // render, so drop the initial-load spinner. No-op on later snapshots.
+            } catch (_: Exception) {
+                // Listener refused or dropped. Leave whatever we already have on
+                // screen; if there's nothing, the screen swaps to retry.
+                if (_serverMessages.value.isEmpty() && _pendingMessages.value.isEmpty()) {
+                    _hasLoadError.value = true
+                }
                 _isLoading.value = false
             }
         }
@@ -928,7 +953,8 @@ class MessageThreadViewModel @Inject constructor(
     }
 
     private fun failureReasonFrom(error: Exception): MessageFailureReason {
-        return if (error.message?.contains("turned off messaging") == true) {
+        messagingRestrictionFrom(error)?.let { _messagingRestriction.value = it }
+        return if (messagingRestrictionFrom(error) != null) {
             MessageFailureReason.MESSAGING_DISABLED
         } else {
             MessageFailureReason.GENERIC

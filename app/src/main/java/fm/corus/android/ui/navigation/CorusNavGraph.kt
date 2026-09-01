@@ -4,7 +4,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.res.stringResource
+import fm.corus.android.ui.components.LocalSkipImageRevealWhenCached
 import fm.corus.android.R
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -254,6 +256,7 @@ fun SearchNavGraph(
     val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
     val artistPagesEnabled = rememberArtistPagesEnabled()
 
+    CompositionLocalProvider(LocalSkipImageRevealWhenCached provides true) {
     NavHost(
         navController = navController,
         startDestination = SearchTabRoute,
@@ -305,6 +308,7 @@ fun SearchNavGraph(
             },
         )
     }
+    }
 }
 
 @Composable
@@ -331,16 +335,13 @@ fun NotificationsNavGraph(
         popExitTransition = { slideOutHorizontally(tween(400), targetOffsetX = { it }) },
     ) {
         composable<NotificationsTabRoute> {
-            val unreadMessageCount by mainTabViewModel.unreadMessageCount.collectAsState()
             val bannerDismissed by mainTabViewModel.notificationReaskController.dismissedBanner.collectAsState()
             val hasRequestedPush by mainTabViewModel.notificationReaskController.hasRequestedPushPermission.collectAsState()
             NotificationsScreen(
                 scrollToTopTrigger = scrollToTopTrigger,
                 tabActivationTrigger = tabActivationTrigger,
-                unreadMessageCount = unreadMessageCount,
                 onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
                 onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
-                onNavigateToMessages = { navController.navigate(ThreadListRoute) },
                 hasRequestedPushPermission = hasRequestedPush,
                 onMarkPushPermissionRequested = {
                     mainTabViewModel.notificationReaskController.markPushPermissionRequested()
@@ -467,6 +468,77 @@ fun ProfileNavGraph(
 /**
  * Shared destinations available from any tab's NavHost.
  */
+@Composable
+fun MessagesNavGraph(
+    navController: NavHostController,
+    mainTabViewModel: MainTabViewModel,
+    isContainingTabSelected: Boolean = true,
+    onShowComments: (String) -> Unit = {},
+    onShowPhoto: (ExpandedPhoto) -> Unit = {},
+) {
+    var likesPostId by remember { mutableStateOf<String?>(null) }
+    var repostersPostId by remember { mutableStateOf<String?>(null) }
+    val navigateToUserByUsername = rememberNavigateToUserByUsername(navController)
+    val artistPagesEnabled = rememberArtistPagesEnabled()
+
+    NavHost(
+        navController = navController,
+        startDestination = ThreadListRoute,
+        enterTransition = { slideInHorizontally(tween(400), initialOffsetX = { it }) },
+        exitTransition = { slideOutHorizontally(tween(400), targetOffsetX = { -it / 3 }) },
+        popEnterTransition = { slideInHorizontally(tween(400), initialOffsetX = { -it / 3 }) },
+        popExitTransition = { slideOutHorizontally(tween(400), targetOffsetX = { it }) },
+    ) {
+        composable<ThreadListRoute> {
+            ThreadListScreen(
+                isTabRoot = true,
+                onBack = {},
+                onThreadTap = { threadId, otherUserId ->
+                    navController.navigate(MessageThreadRoute(threadId, otherUserId))
+                },
+            )
+        }
+        sharedDestinations(
+            navController,
+            mainTabViewModel,
+            navigateToUserByUsername = navigateToUserByUsername,
+            onShowComments = onShowComments,
+            onShowPhoto = onShowPhoto,
+            onShowLikes = { likesPostId = it },
+            onShowReposters = { repostersPostId = it },
+            isContainingTabSelected = isContainingTabSelected,
+            artistPagesEnabled = artistPagesEnabled,
+            includeThreadList = false,
+        )
+    }
+
+    likesPostId?.let { postId ->
+        LikesBottomSheet(
+            postId = postId,
+            onDismiss = { likesPostId = null },
+            onNavigateToUser = { userId ->
+                likesPostId = null
+                navController.navigate(OtherProfileRoute(userId))
+            },
+        )
+    }
+
+    repostersPostId?.let { postId ->
+        RepostersBottomSheet(
+            postId = postId,
+            onDismiss = { repostersPostId = null },
+            onNavigateToUser = { userId ->
+                repostersPostId = null
+                navController.navigate(OtherProfileRoute(userId))
+            },
+            onNavigateToPost = { pid ->
+                repostersPostId = null
+                navController.navigate(PostDetailRoute(pid))
+            },
+        )
+    }
+}
+
 private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     navController: NavHostController,
     mainTabViewModel: MainTabViewModel,
@@ -486,6 +558,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
      *  The destinations themselves are always registered, but with the flag
      *  off no callback navigates to them, so they're unreachable. */
     artistPagesEnabled: Boolean = false,
+    includeThreadList: Boolean = true,
 ) {
     // Nullable-when-flag-off navigation callbacks. Screens receive these and
     // keep their names as plain text whenever they're null.
@@ -964,6 +1037,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     }
 
     composable<SearchRoute> {
+        CompositionLocalProvider(LocalSkipImageRevealWhenCached provides true) {
         SearchScreen(
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
@@ -976,6 +1050,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToDirector = { route -> navController.navigate(route) },
             onNavigateToTrending = { kind -> navController.navigate(TrendingListRoute(kind)) },
         )
+        }
     }
 
     composable<TrendingListRoute> { backStackEntry ->
@@ -1033,6 +1108,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         )
     }
 
+    if (includeThreadList) {
     composable<ThreadListRoute> {
         ThreadListScreen(
             onBack = { navController.popBackStack() },
@@ -1040,6 +1116,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
                 navController.navigate(MessageThreadRoute(threadId, otherUserId))
             },
         )
+    }
     }
 
     composable<MessageThreadRoute> { backStackEntry ->

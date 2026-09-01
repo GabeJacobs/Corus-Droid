@@ -17,6 +17,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
+import fm.corus.android.ui.theme.CorusMotion
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -81,11 +83,18 @@ fun HorizontalPopularUsersRail(
     val matches by viewModel.matches.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val endReached by viewModel.endReached.collectAsState()
+    // Search is always composed behind Feed. Don't fan out getProfilePosts
+    // until this tab is on screen — same as iOS `isActive`.
+    val isActive = LocalContainingTabSelected.current
 
     // excludeIds carries the followed-id set when the filter is on, so a change
     // (toggle flip, or the following set finishing its layered load) refetches
     // the rail against the new exclusion. The viewModel no-ops if it's unchanged.
-    LaunchedEffect(excludeIds) {
+    LaunchedEffect(isActive, excludeIds) {
+        if (!isActive) return@LaunchedEffect
+        if (viewModel.matches.value.isEmpty()) {
+            delay(CorusMotion.SEARCH_LIVE_LOAD_DELAY_MS)
+        }
         viewModel.loadInitial(excludeIds)
     }
 

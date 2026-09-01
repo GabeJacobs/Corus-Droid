@@ -38,6 +38,16 @@ class SettingsViewModel @Inject constructor(
     val isClubMember: StateFlow<Boolean> = subscriptionRepository.isClubMember
     val isVerified: StateFlow<Boolean> = subscriptionRepository.isVerified
 
+    /** DEBUG-only preview of the Taste Matches expired-trial lock. */
+    private val _forceTasteMatchesPaywall =
+        MutableStateFlow(remoteConfigService.forceTasteMatchesPaywall)
+    val forceTasteMatchesPaywall: StateFlow<Boolean> = _forceTasteMatchesPaywall.asStateFlow()
+
+    fun setForceTasteMatchesPaywall(enabled: Boolean) {
+        remoteConfigService.forceTasteMatchesPaywall = enabled
+        _forceTasteMatchesPaywall.value = enabled
+    }
+
     /** Whether the TIDAL option should appear in the music-service picker. */
     val tidalEnabled: Boolean
         get() = remoteConfigService.tidalEnabled

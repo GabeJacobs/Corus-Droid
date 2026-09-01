@@ -6,54 +6,21 @@ import org.junit.Test
 class NotificationTabBadgeTest {
 
     @Test
-    fun `on Feed tab combines unread notifications and DMs`() {
-        val badge = notificationTabBadge(
-            selectedTab = CorusTab.FEED,
-            notificationCount = 3,
-            unreadMessageCount = 2,
-        )
-        assertEquals(5, badge)
-    }
-
-    @Test
-    fun `on Explore tab combines unread notifications and DMs`() {
-        val badge = notificationTabBadge(
-            selectedTab = CorusTab.EXPLORE,
-            notificationCount = 4,
-            unreadMessageCount = 0,
-        )
-        assertEquals(4, badge)
-    }
-
-    @Test
-    fun `on Profile tab combines unread notifications and DMs`() {
-        val badge = notificationTabBadge(
-            selectedTab = CorusTab.PROFILE,
-            notificationCount = 1,
-            unreadMessageCount = 7,
-        )
-        assertEquals(8, badge)
-    }
-
-    @Test
-    fun `on Notifications tab hides notifications portion`() {
-        // Matches iOS: the user just entered Activity and markNotificationsRead
-        // fires — suppressing the notifications portion avoids the badge re-appearing.
-        val badge = notificationTabBadge(
-            selectedTab = CorusTab.NOTIFICATIONS,
-            notificationCount = 10,
-            unreadMessageCount = 3,
-        )
+    fun `Activity badge is notifications only`() {
+        val badge = notificationTabBadge(notificationCount = 3)
         assertEquals(3, badge)
     }
 
     @Test
+    fun `Activity badge ignores unread DMs`() {
+        // DMs live on the Messages tab; Activity never includes them.
+        val badge = notificationTabBadge(notificationCount = 10)
+        assertEquals(10, badge)
+    }
+
+    @Test
     fun `zero counts render no badge`() {
-        val badge = notificationTabBadge(
-            selectedTab = CorusTab.FEED,
-            notificationCount = 0,
-            unreadMessageCount = 0,
-        )
+        val badge = notificationTabBadge(notificationCount = 0)
         assertEquals(0, badge)
     }
 }

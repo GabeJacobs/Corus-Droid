@@ -50,7 +50,24 @@ class SpotifyAuthService @Inject constructor(
             .putString(ACCESS_TOKEN_KEY, token)
             .putLong(TOKEN_EXPIRY_KEY, System.currentTimeMillis() + 3_600_000L)
             .putStringSet(SCOPES_KEY, grantedScopes.toSet())
+            .putBoolean(HAS_AUTHORIZED_KEY, true)
             .apply()
+    }
+
+    /**
+     * True when this install has already authorized Spotify App Remote.
+     * The Spotify grant is device-level, so a new Corus account should not
+     * re-ask to link. Survives [clearAccessToken] (expired/reconnect drops);
+     * only a missing grant (never linked) is false.
+     */
+    fun hasAuthorizedAppRemote(): Boolean {
+        if (prefs.getBoolean(HAS_AUTHORIZED_KEY, false)) return true
+        val token = prefs.getString(ACCESS_TOKEN_KEY, null)
+        if (!token.isNullOrBlank()) {
+            prefs.edit().putBoolean(HAS_AUTHORIZED_KEY, true).apply()
+            return true
+        }
+        return false
     }
 
     /**
@@ -100,6 +117,7 @@ class SpotifyAuthService @Inject constructor(
         private const val ACCESS_TOKEN_KEY = "accessToken"
         private const val TOKEN_EXPIRY_KEY = "tokenExpiry"
         private const val SCOPES_KEY = "appRemoteScopes"
+        private const val HAS_AUTHORIZED_KEY = "hasAuthorizedAppRemote"
     }
 }
 

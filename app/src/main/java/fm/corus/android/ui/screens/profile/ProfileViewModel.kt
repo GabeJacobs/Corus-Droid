@@ -27,11 +27,13 @@ import fm.corus.android.service.NetworkMonitor
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.ShareCardTheme
-import fm.corus.android.ui.screens.feed.SHARE_CONTACTS_TARGET
 import fm.corus.android.ui.screens.feed.applyCommentDeleteToPosts
 import fm.corus.android.ui.screens.feed.applyCommentEditToPosts
-import fm.corus.android.ui.screens.feed.rankShareContacts
+import fm.corus.android.ui.screens.feed.loadRecentDmShareContacts
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,7 +41,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Media-type lens for the Likes/Saves grids (which mix songs + films, unlike
@@ -84,6 +89,25 @@ fun computeFilteredEngagementPage(
     return FilteredEngagementPage(posts, nextOffset, hasMore)
 }
 
+/**
+ * First-load apply can race a just-posted corus: the launch cache /
+ * getProfilePosts page started before the write. Keep local posts that
+ * aren't on that page and are newer than its newest row.
+ */
+fun mergeProfilePostsPreservingOptimistic(
+    incoming: List<CymbalPost>,
+    local: List<CymbalPost>,
+): List<CymbalPost> {
+    if (local.isEmpty()) return incoming
+    val incomingIds = incoming.mapTo(HashSet()) { it.id }
+    val newestIncoming = incoming.maxOfOrNull { it.timestamp.time }
+    val extras = local.filter { post ->
+        post.id !in incomingIds && (newestIncoming == null || post.timestamp.time >= newestIncoming)
+    }
+    if (extras.isEmpty()) return incoming
+    return extras + incoming
+}
+
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -103,6 +127,7 @@ class ProfileViewModel @Inject constructor(
     private val analyticsService: AnalyticsService,
     private val remoteConfigService: RemoteConfigService,
     private val networkMonitor: NetworkMonitor,
+    private val ownProfileLaunchCache: OwnProfileLaunchCache,
 ) : ViewModel() {
 
     /**
@@ -135,8 +160,7 @@ class ProfileViewModel @Inject constructor(
 
     // ── Profile share sheet ──
     // Sharing your own profile: DMs send a `sharedProfile` message deep-linking
-    // to your profile. Mirrors the destination-page share plumbing; reuses the
-    // package-level rankShareContacts helper.
+    // to your profile. Recents are the most recent people you've DMed.
 
     private val _shareSearchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
     val shareSearchResults: StateFlow<List<CymbalUser>> = _shareSearchResults.asStateFlow()
@@ -154,22 +178,14 @@ class ProfileViewModel @Inject constructor(
 
     fun loadRecentShareContacts() {
         val userId = authRepository.currentUserId ?: return
-        _isLoadingShareContacts.value = true
-        viewModelScope.launch {
-            try {
-                val shareRecipients = runCatching { messageRepository.listShareRecipients(12) }.getOrDefault(emptyList())
-                val threadContacts = messageRepository.listThreads(userId).mapNotNull { it.otherUser }
-                val followFallback = if (rankShareContacts(shareRecipients, threadContacts, emptyList()).size < SHARE_CONTACTS_TARGET) {
-                    val following = userRepository.fetchFollowingPaginated(userId, limit = 20).users
-                    val followers = userRepository.fetchFollowersPaginated(userId, limit = 20).users
-                    following + followers
-                } else {
-                    emptyList()
-                }
-                _recentShareContacts.value = rankShareContacts(shareRecipients, threadContacts, followFallback)
-            } catch (_: Exception) { }
-            _isLoadingShareContacts.value = false
-        }
+        loadRecentDmShareContacts(
+            userId = userId,
+            messageRepository = messageRepository,
+            currentContacts = _recentShareContacts.value,
+            setContacts = { _recentShareContacts.value = it },
+            setLoading = { _isLoadingShareContacts.value = it },
+            scope = viewModelScope,
+        )
     }
 
     fun searchShareUsers(query: String) {
@@ -286,7 +302,12 @@ class ProfileViewModel @Inject constructor(
     // below run synchronously up to first suspension and StateFlow.collect
     // emits its current value eagerly. A null backing field at that point
     // crashes with NPE on .setValue. (Crashlytics 96b87ad5.)
-    private val _isLoading = MutableStateFlow(false)
+
+    // Starts true (mirrors iOS isGridLoading) so the off-screen own-profile
+    // tab cannot paint the music empty prompt before loadProfile() runs.
+    // Seeded from auth with empty posts; LaunchedEffect only fetches once
+    // the tab is selected, one frame after first composition.
+    private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _isRefreshing = MutableStateFlow(false)
@@ -349,13 +370,17 @@ class ProfileViewModel @Inject constructor(
                 if (user != null) _profile.value = user
             }
         }
-        // Auto-refresh profile when a new post is created, and switch to the tab
-        // that surfaces it so the user sees what they just posted.
+        // Optimistic insert when compose sent a card (matches iOS). Fall
+        // back to a short live refetch when only the media type arrived.
         viewModelScope.launch {
-            postCreationEvent.events.collect { mediaType ->
-                _switchToSegment.tryEmit(if (mediaType == MediaType.MOVIE) 1 else 0)
-                delay(500) // brief delay for Firestore propagation
-                refreshProfile()
+            postCreationEvent.events.collect { created ->
+                _switchToSegment.tryEmit(if (created.mediaType == MediaType.MOVIE) 1 else 0)
+                if (created.post != null) {
+                    insertOptimisticPost(created.post)
+                } else {
+                    delay(500)
+                    refreshProfile()
+                }
             }
         }
         // Drop deleted posts from any visible list so returning from
@@ -493,17 +518,26 @@ class ProfileViewModel @Inject constructor(
                     )
                     analyticsService.logProfileViewed(profile.id, isOwnProfile = true)
                 }
-                // Load initial page of posts (matching iOS fixed-page approach).
-                // Users load more on demand via loadMorePosts().
-                val page = cloudFunctions.getProfilePosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = null)
-                _posts.value = page
-                if (page.isNotEmpty()) postsLastTimestamp = page.last().timestamp.time
+                // Prefer the launch prefetch so tapping Profile right after
+                // open already has posts. Fetch stays off the hidden tab
+                // until this apply — same as iOS OwnProfileLaunchCache.
+                ownProfileLaunchCache.awaitInFlight(userId)
+                val cached = ownProfileLaunchCache.peek(userId)
+                val page = if (cached != null) {
+                    cached
+                } else {
+                    cloudFunctions.getProfilePosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = null)
+                }
+                val merged = mergeProfilePostsPreservingOptimistic(page, _posts.value)
+                ownProfileLaunchCache.store(userId, merged)
+                _posts.value = merged
+                if (merged.isNotEmpty()) postsLastTimestamp = merged.last().timestamp.time
                 val serverHasMore = page.size >= PAGE_SIZE
                 _hasMore.value = _hasMore.value.toMutableMap().apply {
                     this[0] = serverHasMore
                     this[1] = serverHasMore
                 }
-                page.forEach { post ->
+                merged.forEach { post ->
                     engagementManager.initState(
                         postId = post.id,
                         likeCount = post.likeCount,
@@ -513,22 +547,28 @@ class ProfileViewModel @Inject constructor(
                         isSaved = false,
                     )
                 }
-                engagementManager.checkLikeStatuses(page.map { it.id }, userId)
-                engagementManager.checkSaveStatuses(page.map { it.id }, userId)
+                engagementManager.checkLikeStatuses(merged.map { it.id }, userId)
+                engagementManager.checkSaveStatuses(merged.map { it.id }, userId)
                 lastFeaturedRefreshAt = clock()
                 _hasLoadError.value = false
                 // Backfill songs when the recency window is film-only so the
                 // MUSIC tab shows skeleton → songs instead of flashing "No
                 // songs yet". Symmetric to the FILM tab's loadFilmPageIfNeeded.
-                if (page.none { it.mediaType == MediaType.TRACK }) loadSongPageIfNeeded()
+                if (merged.none { it.mediaType == MediaType.TRACK }) loadSongPageIfNeeded()
+                // Film-primary own profiles land on FILM without a tab tap, so
+                // loadSegment(1) never runs. Kick the movie-only fetch when the
+                // mixed recency window missed films — same empty-state bug as
+                // other-profile / iOS.
+                if (merged.none { it.mediaType == MediaType.MOVIE }) loadFilmPageIfNeeded()
                 loadLinkedArtist(userId)
             } catch (e: Exception) {
                 android.util.Log.e("ProfileViewModel", "loadProfile failed", e)
                 if (_profile.value == null) {
                     _hasLoadError.value = true
                 }
+            } finally {
+                _isLoading.value = false
             }
-            _isLoading.value = false
         }
     }
 
@@ -537,6 +577,12 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _linkedArtist.value = runCatching { cloudFunctions.getLinkedArtistForUser(userId) }.getOrNull()
         }
+    }
+
+    fun insertOptimisticPost(post: CymbalPost) {
+        if (_posts.value.any { it.id == post.id }) return
+        _posts.value = listOf(post) + _posts.value
+        ownProfileLaunchCache.prependOptimistic(post)
     }
 
     /** Re-run [loadProfile] after a previous failure. */
@@ -587,7 +633,9 @@ class ProfileViewModel @Inject constructor(
                         cloudFunctions.getProfilePosts(userId, userId, limit = PAGE_SIZE, lastTimestamp = null, mediaType = "movie")
                     }.getOrDefault(emptyList())
                 } else emptyList()
-                val merged = page + movieSupplement.filter { m -> page.none { it.id == m.id } }
+                val withFilms = page + movieSupplement.filter { m -> page.none { it.id == m.id } }
+                val merged = mergeProfilePostsPreservingOptimistic(withFilms, _posts.value)
+                ownProfileLaunchCache.store(userId, merged)
                 _posts.value = merged
                 if (page.isNotEmpty()) postsLastTimestamp = page.last().timestamp.time
                 filmsLastTimestamp = if (onFilmsTab && movieSupplement.isNotEmpty()) {
@@ -631,9 +679,10 @@ class ProfileViewModel @Inject constructor(
                 savedOffset = 0
             } catch (e: Exception) {
                 android.util.Log.e("ProfileViewModel", "refreshProfile failed", e)
+            } finally {
+                _isLoading.value = false
+                _isRefreshing.value = false
             }
-            _isLoading.value = false
-            _isRefreshing.value = false
             // If the user is currently viewing Likes/Saves, re-fetch that segment
             // immediately so pull-to-refresh doesn't leave them on an empty state.
             when (_currentSegment.value) {
@@ -1089,5 +1138,86 @@ class ProfileViewModel @Inject constructor(
             }
             _isLoadingMore.value = false
         }
+    }
+}
+
+/**
+ * Fetches own-profile posts at launch without publishing to [ProfileViewModel],
+ * so the hidden Profile tab doesn't rebuild during first feed scroll.
+ * Tapping Profile applies this snapshot (header still seeds from auth/disk).
+ */
+@Singleton
+class OwnProfileLaunchCache @Inject constructor(
+    private val cloudFunctions: CloudFunctionsDataSource,
+) {
+    private val mutex = Mutex()
+    private var userId: String? = null
+    private var posts: List<CymbalPost>? = null
+    private var inFlight: Deferred<List<CymbalPost>?>? = null
+    private val pendingOptimistic = mutableListOf<CymbalPost>()
+
+    fun prefetchIfNeeded(userId: String, scope: CoroutineScope) {
+        scope.launch {
+            val fetch: Deferred<List<CymbalPost>?> = mutex.withLock {
+                if (this@OwnProfileLaunchCache.userId != userId) {
+                    posts = null
+                    pendingOptimistic.clear()
+                    inFlight?.cancel()
+                    inFlight = null
+                    this@OwnProfileLaunchCache.userId = userId
+                }
+                if (posts != null) return@launch
+                inFlight?.let { return@withLock it }
+                scope.async {
+                    runCatching {
+                        cloudFunctions.getProfilePosts(userId, userId, limit = 30, lastTimestamp = null)
+                    }.getOrNull()
+                }.also { inFlight = it }
+            }
+            val result = runCatching { fetch.await() }.getOrNull()
+            mutex.withLock {
+                if (this@OwnProfileLaunchCache.userId == userId) {
+                    if (result != null) posts = applyingPending(result)
+                    if (inFlight === fetch) inFlight = null
+                }
+            }
+        }
+    }
+
+    fun peek(userId: String): List<CymbalPost>? =
+        posts.takeIf { this.userId == userId }
+
+    /** No-op when nothing is in flight (unit tests never prefetch). */
+    suspend fun awaitInFlight(userId: String) {
+        val pending = inFlight.takeIf { this.userId == userId } ?: return
+        runCatching { pending.await() }
+    }
+
+    fun store(userId: String, page: List<CymbalPost>) {
+        this.userId = userId
+        posts = applyingPending(page)
+        inFlight = null
+    }
+
+    fun prependOptimistic(post: CymbalPost) {
+        if (userId == null) {
+            userId = post.user.id
+        } else if (userId != post.user.id) {
+            return
+        }
+        val current = posts
+        if (current != null) {
+            posts = mergeProfilePostsPreservingOptimistic(current, listOf(post))
+            return
+        }
+        if (pendingOptimistic.none { it.id == post.id }) {
+            pendingOptimistic.add(0, post)
+        }
+    }
+
+    private fun applyingPending(page: List<CymbalPost>): List<CymbalPost> {
+        val extras = pendingOptimistic.toList()
+        pendingOptimistic.clear()
+        return mergeProfilePostsPreservingOptimistic(page, extras)
     }
 }

@@ -49,6 +49,8 @@ class MainTabViewModel @Inject constructor(
     val remoteConfigService: fm.corus.android.service.RemoteConfigService,
     val playbackModePromptManager: fm.corus.android.domain.PlaybackModePromptManager,
     val notificationReaskController: fm.corus.android.ui.util.NotificationPermissionReaskController,
+    private val ownProfileLaunchCache: fm.corus.android.ui.screens.profile.OwnProfileLaunchCache,
+    val reviewPromptManager: fm.corus.android.service.ReviewPromptManager,
 ) : ViewModel() {
 
     val playFullSongs = preferencesDataStore.playFullSongs
@@ -111,6 +113,14 @@ class MainTabViewModel @Inject constructor(
         // can gate who's addable to a group (capability gate). Fire-and-forget.
         authRepository.currentUserId?.let { uid ->
             viewModelScope.launch { messageRepository.advertiseGroupMessagingCapability(uid) }
+        }
+        // Fetch own-profile posts without publishing to the hidden Profile
+        // tree, so tapping Profile after open already has a page ready.
+        viewModelScope.launch {
+            authRepository.userProfile.collect { user ->
+                val uid = user?.id ?: authRepository.currentUserId ?: return@collect
+                ownProfileLaunchCache.prefetchIfNeeded(uid, viewModelScope)
+            }
         }
     }
 
@@ -293,8 +303,12 @@ class MainTabViewModel @Inject constructor(
         }
         viewModelScope.launch {
             runCatching {
-                if (nowLiked) cloudFunctions.likePost(postId)
-                else cloudFunctions.unlikePost(postId)
+                if (nowLiked) {
+                    cloudFunctions.likePost(postId)
+                    reviewPromptManager.recordLike()
+                } else {
+                    cloudFunctions.unlikePost(postId)
+                }
             }
         }
     }

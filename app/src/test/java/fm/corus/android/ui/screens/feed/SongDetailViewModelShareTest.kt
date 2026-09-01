@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.feed
 
+import fm.corus.android.data.model.CymbalThread
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.repository.AuthRepository
@@ -121,17 +122,38 @@ class SongDetailViewModelShareTest {
     }
 
     @Test
-    fun `loadRecentShareContacts skips follow-graph fetch when shares plus DMs fill the grid`() = runTest {
-        val recipients = (1..SHARE_CONTACTS_TARGET).map { CymbalUser(id = "r$it", username = "r$it", displayName = "R$it") }
-        whenever(messageRepository.listShareRecipients(any())).doReturn(recipients)
-        whenever(messageRepository.listThreads(eq("me"))).doReturn(emptyList())
+    fun `loadRecentShareContacts uses recent DMs and skips share ranking and follow graph`() = runTest {
+        val threads = listOf(
+            CymbalThread(id = "t1", otherUser = CymbalUser(id = "u1", username = "u1", displayName = "U1")),
+            CymbalThread(id = "t2", otherUser = CymbalUser(id = "u2", username = "u2", displayName = "U2")),
+        )
+        whenever(messageRepository.listThreads(eq("me"))).doReturn(threads)
 
         viewModel.loadRecentShareContacts()
         advanceUntilIdle()
 
-        assertEquals(SHARE_CONTACTS_TARGET, viewModel.recentShareContacts.first().size)
+        assertEquals(listOf("u1", "u2"), viewModel.recentShareContacts.first().map { it.id })
         assertTrue(!viewModel.isLoadingShareContacts.first())
+        verify(messageRepository, never()).listShareRecipients(any())
         verify(userRepository, never()).fetchFollowingPaginated(any(), any(), anyOrNull())
         verify(userRepository, never()).fetchFollowersPaginated(any(), any(), anyOrNull())
+    }
+
+    @Test
+    fun `loadRecentShareContacts does not reshuffle contacts already on screen`() = runTest {
+        whenever(messageRepository.listThreads(eq("me"))).doReturn(
+            listOf(CymbalThread(id = "t1", otherUser = CymbalUser(id = "u1", username = "u1", displayName = "U1"))),
+        )
+
+        viewModel.loadRecentShareContacts()
+        advanceUntilIdle()
+
+        whenever(messageRepository.listThreads(eq("me"))).doReturn(
+            listOf(CymbalThread(id = "t2", otherUser = CymbalUser(id = "u2", username = "u2", displayName = "U2"))),
+        )
+        viewModel.loadRecentShareContacts()
+        advanceUntilIdle()
+
+        assertEquals(listOf("u1"), viewModel.recentShareContacts.first().map { it.id })
     }
 }

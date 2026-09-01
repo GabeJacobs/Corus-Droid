@@ -190,6 +190,7 @@
     <string name="feed_empty_new_releases_title">아직 신작이 없어요</string>
     <string name="feed_empty_new_releases_subtitle">팔로우하는 사람들의 신작을 보려면 나중에 다시 확인해 주세요.</string>
     <string name="feed_empty_new_releases_show_all">모든 게시물 보기</string>
+    <string name="feed_empty_favorites_eyebrow">즐겨찾기</string>
     <string name="feed_empty_favorites_title">아직 즐겨찾기가 없어요</string>
     <string name="feed_empty_favorites_subtitle">프로필에서 ☆를 눌러 즐겨찾기에 추가하세요.</string>
     <string name="feed_empty_favorites_button">팔로잉으로 돌아가기</string>
@@ -363,8 +364,10 @@
     <string name="profile_toast_style_updated">스타일을 변경했어요!</string>
     <string name="profile_toast_no_songs_for_playlist">플레이리스트를 만들 곡이 없어요</string>
     <string name="profile_button_edit">프로필 편집</string>
+    <string name="profile_button_edit_short">편집</string>
     <string name="profile_button_playlist">플레이리스트</string>
     <string name="profile_button_share">프로필 공유</string>
+    <string name="profile_button_share_short">공유</string>
     <string name="hashtag_button_playlist">플레이리스트</string>
     <string name="profile_stat_coruses">coruses</string>
     <string name="profile_stat_followers">팔로워</string>
@@ -410,6 +413,10 @@
     <string name="other_profile_blocked_message">이 사용자를 차단했어요</string>
     <string name="other_profile_button_follow">팔로우</string>
     <string name="other_profile_button_following">팔로잉</string>
+    <string name="other_profile_action_unfollow">언팔로우</string>
+    <string name="other_profile_action_add_favorite">@string/other_profile_cd_add_favorite</string>
+    <string name="other_profile_action_remove_favorite">@string/other_profile_cd_remove_favorite</string>
+    <string name="other_profile_cd_following_options">팔로우 옵션 표시</string>
     <string name="other_profile_tab_likes">좋아요</string>
     <string name="other_profile_empty_no_songs">아직 곡이 없어요</string>
     <string name="other_profile_empty_no_films">아직 영화가 없어요</string>
@@ -436,7 +443,7 @@
     <string name="edit_profile_dialog_keep_editing">계속 편집</string>
     <string name="edit_profile_share_text_format">Corus에서 제 프로필을 확인해 보세요: https://corus.fm/user/%1$s</string>
     <string name="edit_profile_share_chooser">프로필 공유</string>
-    <string name="edit_profile_field_name">이름</string>
+    <string name="edit_profile_field_name">표시 이름</string>
     <string name="edit_profile_field_username">사용자 이름</string>
     <string name="edit_profile_field_bio">소개</string>
     <string name="edit_profile_field_website">웹사이트</string>
@@ -720,7 +727,7 @@
     <string name="onboarding_subtitle">프로필을 설정하세요</string>
     <string name="onboarding_cd_avatar">프로필 사진</string>
     <string name="onboarding_add_photo">사진 추가</string>
-    <string name="onboarding_full_name">이름</string>
+    <string name="onboarding_full_name">표시 이름</string>
     <string name="onboarding_terms">계정을 만들면 이용약관 및 개인정보 처리방침에 동의하는 것이에요.</string>
     <string name="onboarding_button_continue">계속</string>
     <!-- Music-service onboarding (Choose Your Player) -->
@@ -773,6 +780,10 @@
     <string name="messaging_thread_sending">보내는 중...</string>
     <string name="messaging_thread_unavailable">이 대화는 더 이상 사용할 수 없어요</string>
     <string name="messaging_thread_user_messaging_disabled">이 사용자는 메시지를 받지 않아요</string>
+    <string name="messaging_restriction_nobody">%1$s님은 지금 메시지를 받지 않아요.</string>
+    <string name="messaging_restriction_followers">%1$s님은 팔로워의 메시지만 받아요.</string>
+    <string name="messaging_restriction_following">%1$s님은 팔로우하는 사람의 메시지만 받아요.</string>
+    <string name="messaging_restriction_name_fallback">상대방</string>
     <string name="messaging_thread_failed_to_deliver">전송하지 못했어요</string>
     <string name="messaging_thread_tap_to_retry">· 눌러서 다시 시도</string>
 
@@ -1114,6 +1125,16 @@
     <string name="messaging_group_member_count">멤버 %1$d명</string>
     <string name="messaging_group_and_others">외 %1$d명</string>
     <string name="messaging_group_sender_preview">%1$s: %2$s</string>
+    <string name="messaging_group_sys_created">%1$s님이 그룹을 만들었어요</string>
+    <string name="messaging_group_sys_added">%1$s님이 %2$s님을 추가했어요</string>
+    <string name="messaging_group_sys_removed">%1$s님이 %2$s님을 삭제했어요</string>
+    <string name="messaging_group_sys_left">%1$s님이 나갔어요</string>
+    <string name="messaging_group_sys_named">%1$s님이 그룹 이름을 %2$s로 정했어요</string>
+    <string name="messaging_group_sys_renamed">%1$s님이 그룹 이름을 변경했어요</string>
+    <string name="messaging_group_sys_photo">%1$s님이 그룹 사진을 변경했어요</string>
+    <string name="messaging_group_sys_and">%1$s 님과 %2$s</string>
+    <string name="messaging_group_sys_and_n_other">%1$s, %2$s 외 %3$d명</string>
+    <string name="messaging_group_sys_and_n_others">%1$s, %2$s 외 %3$d명</string>
     <string name="club_feature_taste_matches">취향 매치 피드</string>
     <string name="feed_taste_matches_coldstart_title">좋아하는 노래나 영화 3가지는 무엇인가요?</string>
     <string name="feed_taste_matches_coldstart_body">Corus가 맞춤 피드를 만들고 취향이 비슷한 사람들과 연결해 줍니다.</string>
@@ -1124,9 +1145,12 @@
     <string name="feed_taste_matches_no_matches_title">아직 매치가 없어요</string>
     <string name="feed_taste_matches_no_matches_body">좋아하는 음악과 영화를 더 올리면 취향이 맞는 사람들이 여기에 표시됩니다.</string>
     <string name="feed_taste_matches_end_more">더 많이 공유할수록 취향 매치가 늘어납니다.</string>
-    <string name="feed_taste_matches_paywall_title">취향 매치</string>
-    <string name="feed_taste_matches_paywall_body">당신과 같은 것을 좋아하는 사람들, 취향 매치에서 추천을 받아보세요.</string>
-    <string name="feed_taste_matches_paywall_cta">자세히 보기</string>
+    <string name="feed_taste_matches_paywall_title">취향 매치 미리보기가 끝났어요</string>
+    <string name="feed_taste_matches_paywall_body">Corus Club에 가입하면 취향이 비슷한 사람들의 게시물을 볼 수 있어요.</string>
+    <string name="feed_taste_matches_paywall_cta">잠금 해제</string>
+    <string name="feed_taste_matches_paywall_trial_title">취향 매치 피드를 잠금 해제하세요</string>
+    <string name="feed_taste_matches_paywall_trial_body">Corus Club을 2주간 무료로 체험하고 취향이 비슷한 사람들의 게시물을 보세요.</string>
+    <string name="feed_taste_matches_paywall_trial_cta">잠금 해제</string>
 
     <!-- Artist / Album / Director destination pages (artist_pages_enabled) -->
     <string name="search_tab_music">음악</string>

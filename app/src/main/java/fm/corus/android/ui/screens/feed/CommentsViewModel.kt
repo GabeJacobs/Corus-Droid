@@ -1097,26 +1097,14 @@ class CommentsViewModel @Inject constructor(
 
     override fun loadRecentShareContacts() {
         val userId = authRepository.currentUserId ?: return
-        _isLoadingShareContacts.value = true
-        viewModelScope.launch {
-            try {
-                val threads = messageRepository.listThreads(userId)
-                val contacts = threads.mapNotNull { it.otherUser }
-                if (contacts.isNotEmpty()) {
-                    _recentShareContacts.value = contacts.take(20)
-                } else {
-                    val following = userRepository.fetchFollowingPaginated(userId, limit = 20).users
-                    val followers = userRepository.fetchFollowersPaginated(userId, limit = 20).users
-                    val seen = mutableSetOf<String>()
-                    val combined = mutableListOf<CymbalUser>()
-                    for (user in following + followers) {
-                        if (seen.add(user.id)) combined.add(user)
-                    }
-                    _recentShareContacts.value = combined.take(20)
-                }
-            } catch (_: Exception) { }
-            _isLoadingShareContacts.value = false
-        }
+        loadRecentDmShareContacts(
+            userId = userId,
+            messageRepository = messageRepository,
+            currentContacts = _recentShareContacts.value,
+            setContacts = { _recentShareContacts.value = it },
+            setLoading = { _isLoadingShareContacts.value = it },
+            scope = viewModelScope,
+        )
     }
 
     override fun searchShareUsers(query: String) {

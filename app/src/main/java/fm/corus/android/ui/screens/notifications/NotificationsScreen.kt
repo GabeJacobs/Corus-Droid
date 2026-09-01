@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.notifications
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Headphones
@@ -35,6 +36,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -46,7 +48,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.input.ImeAction
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -73,6 +74,7 @@ import fm.corus.android.data.model.NotificationType
 import fm.corus.android.domain.NotificationFilter
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
+import fm.corus.android.ui.components.LocalContainingTabSelected
 import fm.corus.android.ui.components.CommentAttachmentPendingChip
 import fm.corus.android.ui.components.FrostedHeaderOverlay
 import fm.corus.android.ui.components.rememberImmersiveHeaderState
@@ -85,6 +87,7 @@ import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
+import fm.corus.android.ui.theme.CorusMotion
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.util.DateUtils
 import fm.corus.android.ui.util.PushNotificationPermission
@@ -94,8 +97,6 @@ fun NotificationsScreen(
     viewModel: NotificationsViewModel = hiltViewModel(),
     scrollToTopTrigger: Int = 0,
     tabActivationTrigger: Int = 0,
-    unreadMessageCount: Int = 0,
-    onNavigateToMessages: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToPost: (String) -> Unit = {},
     onNavigateToPostComments: (postId: String, commentId: String) -> Unit = { _, _ -> },
@@ -182,8 +183,12 @@ fun NotificationsScreen(
         FavoriteInfoDialog(onDismiss = { showFavoriteInfo = false })
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.loadNotifications()
+    // Activity stays composed off-screen. The tab-bar badge is owned by
+    // UnreadCountsRepository (starts at sign-in). The list itself waits
+    // until this tab is selected — same as iOS.
+    val activityTabSelected = LocalContainingTabSelected.current
+    LaunchedEffect(activityTabSelected) {
+        if (activityTabSelected) viewModel.loadNotifications()
     }
 
     // Mark the feed as viewed every time the user actually navigates to the
@@ -267,22 +272,42 @@ fun NotificationsScreen(
                     },
                 )
             }
-            when {
-                (isLoading && notifications.isEmpty()) || (isFilterLoading && displayedNotifications.isEmpty()) -> {
-                    // Loading skeleton — 12 shimmer rows
-                    LazyColumn(
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        items(12) {
-                            SkeletonNotificationRow()
-                        }
+            val showSkeleton = (isLoading && notifications.isEmpty()) ||
+                (isFilterLoading && displayedNotifications.isEmpty())
+            var contentRevealed by remember {
+                mutableStateOf(!showSkeleton && displayedNotifications.isNotEmpty())
+            }
+            LaunchedEffect(showSkeleton) {
+                contentRevealed = !showSkeleton
+            }
+            val contentAlpha by animateFloatAsState(
+                targetValue = if (contentRevealed) 1f else 0f,
+                animationSpec = tween(durationMillis = CorusMotion.DURATION_NORMAL),
+                label = "activityReveal",
+            )
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            if (contentAlpha < 1f) {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(12) { index ->
+                        SkeletonNotificationRow(showAlbumArt = index != 3 && index != 5 && index != 9)
+                        HorizontalDivider(
+                            color = CorusColors.Divider,
+                            modifier = Modifier.padding(
+                                start = CorusSpacing.lg + CorusSpacing.avatarMedium + CorusSpacing.md,
+                            ),
+                        )
                     }
                 }
+            }
+            if (!showSkeleton) when {
                 displayedNotifications.isEmpty() && !isLoading && hasLoadError && selectedFilter == NotificationFilter.ALL -> {
-                    OfflineRetryState(onRetry = { viewModel.retryLoad() })
+                    OfflineRetryState(
+                        onRetry = { viewModel.retryLoad() },
+                        modifier = Modifier.alpha(contentAlpha),
+                    )
                 }
                 displayedNotifications.isEmpty() && !isLoading -> {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(modifier = Modifier.fillMaxSize().alpha(contentAlpha)) {
                         if (showDisabledBanner) {
                             NotificationDisabledBanner(
                                 onEnable = enablePushFromBanner,
@@ -299,7 +324,8 @@ fun NotificationsScreen(
                     LazyColumn(
                         state = listState,
                         modifier = Modifier
-                            .weight(1f)
+                            .fillMaxSize()
+                            .alpha(contentAlpha)
                             .nestedScroll(dismissKeyboardOnScroll),
                     ) {
                         if (showDisabledBanner) {
@@ -384,6 +410,7 @@ fun NotificationsScreen(
                 }
             }
             }
+            }
         }
 
         if (replyingTo != null) {
@@ -461,83 +488,14 @@ fun NotificationsScreen(
             )
         }
 
-        // Frosted header overlay (status strip + Activity header) — the list scrolls
-        // under it; its measured height sizes the list's top clearance above.
+        // Status-strip frost only. No Activity title — chips sit in the
+        // list when unlocked, and the first frame already knows that.
         FrostedHeaderOverlay(
             immersive = immersive,
             hazeState = frost.hazeState,
             topInset = frost.statusBarPadding,
             modifier = Modifier.onGloballyPositioned { headerOverlayPx = it.size.height },
-        ) {
-            NotificationsHeader(
-                unreadMessageCount = unreadMessageCount,
-                onMessagesTapped = onNavigateToMessages,
-            )
-        }
-    }
-}
-
-@Composable
-private fun NotificationsHeader(
-    unreadMessageCount: Int,
-    onMessagesTapped: () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
-    ) {
-        // Center: "Activity" title
-        Text(
-            text = stringResource(id = R.string.notifications_activity_title),
-            style = CorusFont.displayName,
-            color = CorusColors.Text,
-            modifier = Modifier.align(Alignment.Center),
-        )
-
-        // Right: Message inbox button
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .size(34.dp)
-                .clickable(onClick = onMessagesTapped),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Email,
-                contentDescription = stringResource(id = R.string.notifications_cd_messages),
-                modifier = Modifier.size(24.dp),
-                tint = CorusColors.Secondary,
-            )
-
-            // Unread badge
-            if (unreadMessageCount > 0) {
-                val badgeText = if (unreadMessageCount > 99) "99+" else "$unreadMessageCount"
-                val isWide = badgeText.length > 1
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .defaultMinSize(minWidth = 18.dp, minHeight = 18.dp)
-                        .background(Color.Red, CircleShape)
-                        .border(1.5.dp, Color.White, CircleShape)
-                        .padding(horizontal = if (isWide) 5.dp else 0.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = badgeText,
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        lineHeight = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        textAlign = TextAlign.Center,
-                        style = LocalTextStyle.current.copy(
-                            platformStyle = PlatformTextStyle(includeFontPadding = false),
-                        ),
-                    )
-                }
-            }
-        }
+        ) {}
     }
 }
 

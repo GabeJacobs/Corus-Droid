@@ -110,6 +110,7 @@ class ProfileViewModelFeaturedRefreshTest {
         networkMonitor = org.mockito.kotlin.mock {
             on { isConnected } doReturn kotlinx.coroutines.flow.MutableStateFlow(true)
         },
+        ownProfileLaunchCache = OwnProfileLaunchCache(cloudFunctions),
     ).also { it.clock = { fakeNow } }
 
     private fun makePost(id: String, mediaType: MediaType = MediaType.TRACK, likeCount: Int = 0): CymbalPost = CymbalPost(

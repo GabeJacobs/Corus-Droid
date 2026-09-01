@@ -111,6 +111,7 @@ import fm.corus.android.data.model.TrendingSong
 import fm.corus.android.data.model.TrendingWindow
 import fm.corus.android.domain.DestinationResolvingOverlay
 import fm.corus.android.domain.HapticManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import fm.corus.android.domain.QueuedTrack
 import fm.corus.android.domain.toQueuedTrack
@@ -118,6 +119,8 @@ import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.SearchSection
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.ClubMembersCardRail
+import fm.corus.android.ui.components.LocalContainingTabSelected
+import fm.corus.android.ui.components.LocalSkipImageRevealWhenCached
 import fm.corus.android.ui.components.FilmSearchResultRow
 import fm.corus.android.ui.components.HorizontalPopularUsersRail
 import fm.corus.android.ui.components.contentHazeSource
@@ -140,6 +143,7 @@ import fm.corus.android.ui.screens.feed.ModeTabBar
 import fm.corus.android.ui.screens.feed.PagerMidpointHaptic
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
+import fm.corus.android.ui.theme.CorusMotion
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.horizontalRailCardWidth
 import fm.corus.android.ui.util.DateUtils
@@ -414,7 +418,14 @@ fun SearchScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
+    // Search stays composed off-screen behind Feed. Don't start the browse
+    // fan-out (taste scan, club/popular post previews) until this tab is
+    // selected — same gate as iOS `searchLiveLoadsEnabled`.
+    val searchTabSelected = LocalContainingTabSelected.current
+    LaunchedEffect(searchTabSelected) {
+        if (!searchTabSelected) return@LaunchedEffect
+        viewModel.seedBrowseCache()
+        delay(CorusMotion.SEARCH_LIVE_LOAD_DELAY_MS)
         viewModel.loadInitialData()
     }
 
@@ -479,6 +490,7 @@ fun SearchScreen(
             .sortedByDescending { it.suggestionReason?.mutualCount ?: 0 }
     }
 
+    CompositionLocalProvider(LocalSkipImageRevealWhenCached provides true) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -926,6 +938,7 @@ fun SearchScreen(
                 )
             }
         }
+    }
     }
 }
 

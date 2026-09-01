@@ -17,15 +17,19 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -49,9 +53,12 @@ import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -98,6 +105,9 @@ import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.AudiomackLogo
 import fm.corus.android.ui.components.DoubleTapLikeHeartIcon
 import fm.corus.android.ui.components.MarqueeText
+import fm.corus.android.ui.components.ShareMediaSheet
+import fm.corus.android.ui.components.ShareMediaSubject
+import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.MiniPlayerPlaybackModeToggle
 import fm.corus.android.ui.components.SoundCloudAdaptiveLogo
 import fm.corus.android.ui.components.playDoubleTapLikeHeartAnimation
@@ -108,11 +118,12 @@ import fm.corus.android.ui.navigation.ArtistPageRoute
 import fm.corus.android.ui.navigation.rememberArtistPagesEnabled
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
+import fm.corus.android.ui.theme.CorusSystemBars
 import kotlin.math.abs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun FullPlayerScreen(
     nowPlayingManager: NowPlayingManager,
@@ -189,6 +200,8 @@ fun FullPlayerScreen(
     val sourcePost by fullPlayerViewModel.sourcePost.collectAsState()
     val menuPost = remember(sourcePost, state) { fullPlayerMenuPost(sourcePost, state) }
     val menuSource = remember(sourcePost, state) { fullPlayerMenuTrackSource(sourcePost, state) }
+    val shareTrack = remember(sourcePost, state) { fullPlayerShareTrack(sourcePost, state) }
+    var showShareSheet by remember { mutableStateOf(false) }
     val openInLabel = fullPlayerOpenInServiceLabelKey(state.source, musicService)
     val openInServiceTitle = when (openInLabel) {
         FullPlayerOpenInLabel.OpenSoundCloud -> stringResource(R.string.post_menu_open_soundcloud)
@@ -278,7 +291,7 @@ fun FullPlayerScreen(
                 openInServiceTitle = openInServiceTitle,
                 showsArtistRow = showsArtistRow,
                 showsAlbumRow = fullPlayerShowsAlbumRow(menuSource, artistPagesEnabled),
-                showsShareRow = fullPlayerShowsShareRow(sourcePost),
+                showsShareRow = fullPlayerShowsShareRow(shareTrack),
                 showsPlaybackModeToggle = showsPlaybackModeToggle,
                 playFullSongs = playFullSongs,
                 onDismiss = onDismiss,
@@ -286,7 +299,7 @@ fun FullPlayerScreen(
                 onOpenInService = onOpenInService,
                 onGoToArtist = { onGoToArtist?.invoke() },
                 onGoToAlbum = { onGoToAlbum?.invoke() },
-                onSharePost = { sourcePost?.let(onSharePost) },
+                onSharePost = { if (shareTrack != null) showShareSheet = true },
                 onOpenQueue = onOpenQueue,
                 interactive = interactive,
             )
@@ -520,6 +533,49 @@ fun FullPlayerScreen(
                     .clip(RoundedCornerShape(50))
                     .background(CorusColors.Text.copy(alpha = 0.12f))
                     .padding(horizontal = 14.dp, vertical = 8.dp),
+            )
+        }
+    }
+
+    if (showShareSheet && shareTrack != null) {
+        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val songSharedMsg = stringResource(R.string.song_detail_toast_song_sent)
+        val recentShareContacts by fullPlayerViewModel.recentShareContacts.collectAsState()
+        val shareSearchResults by fullPlayerViewModel.shareSearchResults.collectAsState()
+        val isShareSearching by fullPlayerViewModel.isShareSearching.collectAsState()
+        val isLoadingShareContacts by fullPlayerViewModel.isLoadingShareContacts.collectAsState()
+
+        LaunchedEffect(Unit) { fullPlayerViewModel.loadRecentShareContacts() }
+
+        ModalBottomSheet(
+            onDismissRequest = { showShareSheet = false },
+            sheetState = shareSheetState,
+            containerColor = CorusColors.Background,
+            dragHandle = null,
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+            contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Bottom) },
+        ) {
+            CorusSystemBars()
+            BackHandler { showShareSheet = false }
+            ShareMediaSheet(
+                subject = ShareMediaSubject.Track(shareTrack),
+                recentContacts = recentShareContacts,
+                searchResults = shareSearchResults,
+                isSearching = isShareSearching,
+                isLoadingContacts = isLoadingShareContacts,
+                onSearchQueryChange = { query -> fullPlayerViewModel.searchShareUsers(query) },
+                onSendToUser = { userId, message ->
+                    fullPlayerViewModel.sendTrackToUser(userId, shareTrack, message)
+                    ToastManager.show(songSharedMsg)
+                    showShareSheet = false
+                },
+                onDismiss = { showShareSheet = false },
+                onAnalyticsLog = { method ->
+                    fullPlayerViewModel.analyticsService.logSongShared(
+                        trackId = shareTrack.id,
+                        method = method,
+                    )
+                },
             )
         }
     }

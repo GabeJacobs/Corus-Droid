@@ -15,6 +15,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import fm.corus.android.ui.theme.CorusMotion
+import kotlinx.coroutines.delay
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -67,8 +69,11 @@ fun ClubMembersCardRail(
     viewModel: ClubMembersCardRailViewModel = hiltViewModel(key = viewModelKey),
 ) {
     val enriched by viewModel.enriched.collectAsState()
+    val isActive = LocalContainingTabSelected.current
 
-    LaunchedEffect(users.map { it.id }) {
+    LaunchedEffect(isActive, users.map { it.id }) {
+        if (!isActive || users.isEmpty()) return@LaunchedEffect
+        delay(CorusMotion.SEARCH_LIVE_LOAD_DELAY_MS)
         viewModel.enrichAll(users)
     }
 

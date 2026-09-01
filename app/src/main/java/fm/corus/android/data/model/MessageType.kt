@@ -37,6 +37,18 @@ enum class MessageFailureReason {
     GENERIC, MESSAGING_DISABLED
 }
 
+/** Why a 1:1 open/send was refused — the other person's Who Can Message Me setting. */
+enum class MessagingRestriction(val value: String) {
+    NOBODY("nobody"),
+    FOLLOWERS("followers"),
+    FOLLOWING("following");
+
+    companion object {
+        fun from(value: String?): MessagingRestriction? =
+            entries.firstOrNull { it.value == value }
+    }
+}
+
 enum class MessagePrivacyOption(val value: String) {
     EVERYONE("everyone"),
     FOLLOWERS("followers"),

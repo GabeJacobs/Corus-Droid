@@ -178,5 +178,27 @@ data class ProfileTabPreferences(
 
         private fun availableTabs(booksEnabled: Boolean): List<ProfileMediaTab> =
             if (booksEnabled) DEFAULT_ORDER else listOf(ProfileMediaTab.MUSIC, ProfileMediaTab.FILM)
+
+        /**
+         * Hold a profile media tab on the skeleton instead of "No songs/films yet"
+         * until a media-only backfill has confirmed the tab is empty.
+         *
+         * The mixed recency window can miss an entire medium (a film-primary
+         * poster whose latest page is all music, or the reverse). A tab change
+         * does not fire when that tab is already the initial segment, so the
+         * empty state must stay gated on [hasFetchedPage] even before the
+         * backfill is scheduled. Mirrors iOS `ProfileTabPreferences.shouldHoldEmptyState`.
+         */
+        fun shouldHoldEmptyState(
+            isLoading: Boolean,
+            hasFetchedPage: Boolean,
+            itemCount: Int,
+            totalCount: Int?,
+        ): Boolean {
+            if (itemCount != 0) return false
+            if (isLoading) return true
+            if (hasFetchedPage) return false
+            return (totalCount ?: 1) > 0
+        }
     }
 }

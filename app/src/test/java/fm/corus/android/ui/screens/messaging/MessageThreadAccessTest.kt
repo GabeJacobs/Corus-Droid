@@ -1,6 +1,7 @@
 package fm.corus.android.ui.screens.messaging
 
 import fm.corus.android.data.model.CymbalThread
+import fm.corus.android.data.model.MessagingRestriction
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.UserRepository
@@ -190,6 +191,19 @@ class MessageThreadAccessTest {
         advanceUntilIdle()
 
         assertEquals(ThreadAccess.UNAVAILABLE, vm.threadAccess.value)
+    }
+
+    @Test
+    fun `messaging off on the create path is a restriction, not a generic closed thread`() = runTest {
+        whenever(messageRepository.getOrCreateThread(any(), any()))
+            .doSuspendableAnswer { throw RuntimeException("This user has turned off messaging") }
+
+        val vm = viewModel()
+        vm.loadMessages("", "other")
+        advanceUntilIdle()
+
+        assertEquals(ThreadAccess.UNAVAILABLE, vm.threadAccess.value)
+        assertEquals(MessagingRestriction.NOBODY, vm.messagingRestriction.value)
     }
 
     @Test

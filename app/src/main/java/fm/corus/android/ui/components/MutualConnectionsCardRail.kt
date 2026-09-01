@@ -15,6 +15,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import fm.corus.android.ui.theme.CorusMotion
+import kotlinx.coroutines.delay
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -60,8 +62,11 @@ fun MutualConnectionsCardRail(
     viewModel: MutualConnectionsCardRailViewModel = hiltViewModel(),
 ) {
     val enriched by viewModel.enriched.collectAsState()
+    val isActive = LocalContainingTabSelected.current
 
-    LaunchedEffect(matches.map { it.user.id }) {
+    LaunchedEffect(isActive, matches.map { it.user.id }) {
+        if (!isActive || matches.isEmpty()) return@LaunchedEffect
+        delay(CorusMotion.SEARCH_LIVE_LOAD_DELAY_MS)
         viewModel.enrichAll(matches)
     }
 

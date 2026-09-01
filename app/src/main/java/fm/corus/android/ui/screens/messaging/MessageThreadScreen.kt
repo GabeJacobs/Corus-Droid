@@ -91,6 +91,7 @@ import fm.corus.android.data.model.MessageDeliveryStatus
 import fm.corus.android.data.model.MessageFailureReason
 import fm.corus.android.data.model.MessageSendStatus
 import fm.corus.android.data.model.MessageType
+import fm.corus.android.data.model.MessagingRestriction
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
@@ -100,6 +101,7 @@ import fm.corus.android.ui.components.SoundCloudAdaptiveLogo
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import java.text.SimpleDateFormat
 import java.util.Locale
 import kotlinx.coroutines.launch
@@ -109,6 +111,7 @@ import fm.corus.android.ui.components.FullScreenImageView
 import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.EntityPickerSheet
 import fm.corus.android.ui.components.LocalBottomBarHeight
+import fm.corus.android.ui.components.OfflineRetryState
 import fm.corus.android.ui.components.liftAboveReservedChrome
 import fm.corus.android.ui.components.PickerMode
 import fm.corus.android.ui.components.SongFilmPickerSheet
@@ -540,7 +543,12 @@ private fun isEmojiOnly(text: String): Boolean {
  * is the one the other clients already use for this.
  */
 @Composable
-private fun ClosedThread(access: ThreadAccess, onBack: () -> Unit) {
+private fun ClosedThread(
+    access: ThreadAccess,
+    restriction: MessagingRestriction?,
+    name: String?,
+    onBack: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -569,13 +577,39 @@ private fun ClosedThread(access: ThreadAccess, onBack: () -> Unit) {
             if (access == ThreadAccess.RESOLVING) {
                 CircularProgressIndicator(color = CorusColors.Accent)
             } else {
-                Text(
-                    text = stringResource(id = R.string.messaging_thread_unavailable),
-                    style = CorusFont.bodyMedium,
-                    color = CorusColors.Secondary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = CorusSpacing.md),
-                )
+                val closedText = if (restriction != null) {
+                    val displayName = name?.takeIf { it.isNotBlank() }
+                        ?: stringResource(id = R.string.messaging_restriction_name_fallback)
+                    when (restriction) {
+                        MessagingRestriction.NOBODY ->
+                            stringResource(id = R.string.messaging_restriction_nobody, displayName)
+                        MessagingRestriction.FOLLOWERS ->
+                            stringResource(id = R.string.messaging_restriction_followers, displayName)
+                        MessagingRestriction.FOLLOWING ->
+                            stringResource(id = R.string.messaging_restriction_following, displayName)
+                    }
+                } else {
+                    stringResource(id = R.string.messaging_thread_unavailable)
+                }
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                    modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.ChatBubbleOutline,
+                        contentDescription = null,
+                        tint = CorusColors.Tertiary,
+                        modifier = Modifier.size(40.dp),
+                    )
+                    Text(
+                        text = closedText,
+                        style = CorusFont.bodyMedium,
+                        color = CorusColors.Secondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.widthIn(max = 280.dp),
+                    )
+                }
             }
         }
     }
@@ -598,6 +632,7 @@ fun MessageThreadScreen(
     val nowPlayingManager = viewModel.nowPlayingManager
     val messages by viewModel.messages.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val hasLoadError by viewModel.hasLoadError.collectAsState()
     val otherUsername by viewModel.otherUsername.collectAsState()
     val otherDisplayName by viewModel.otherDisplayName.collectAsState()
     val otherAvatarURL by viewModel.otherAvatarURL.collectAsState()
@@ -696,8 +731,14 @@ fun MessageThreadScreen(
     // to see, and it stops being drawn the moment it isn't — a block landing
     // while the thread is open takes it away.
     val access by viewModel.threadAccess.collectAsState()
+    val messagingRestriction by viewModel.messagingRestriction.collectAsState()
     if (access != ThreadAccess.OPEN) {
-        ClosedThread(access = access, onBack = onBack)
+        ClosedThread(
+            access = access,
+            restriction = messagingRestriction,
+            name = otherUsername,
+            onBack = onBack,
+        )
         return
     }
 
@@ -872,13 +913,14 @@ fun MessageThreadScreen(
                         )
                     }
                     if (message.isSystem) {
-                        GroupSystemRow(message.text ?: "")
+                        GroupSystemRow(GroupSystemMessages.localize(message.text ?: "", context))
                     } else {
                         MessageBubble(
                             message = message,
                             isFromCurrentUser = mine,
                             currentUserId = viewModel.currentUserId ?: "",
                             otherUsername = otherUsername,
+                            messagingRestriction = messagingRestriction,
                             deliveryStatus = computeDeliveryStatus(
                                 message = message,
                                 currentUserId = viewModel.currentUserId,
@@ -932,17 +974,45 @@ fun MessageThreadScreen(
             }
         }
 
-            // Initial-load spinner: the message listener hasn't delivered its first
-            // snapshot yet, so `messages` is empty and the list would otherwise be a
-            // blank page. Mirrors ThreadListScreen's `isLoading && isEmpty` pattern.
+            // Initial-load spinner: the message listener hasn't delivered a
+            // publishable snapshot yet, so `messages` is empty and the list
+            // would otherwise be a blank page. A listener failure with nothing
+            // on screen swaps to the same retry state the other tabs use.
             if (isLoading && messages.isEmpty()) {
                 CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center),
                     color = CorusColors.Accent,
                 )
+            } else if (hasLoadError && messages.isEmpty()) {
+                OfflineRetryState(
+                    modifier = Modifier.align(Alignment.Center),
+                    onRetry = { viewModel.loadMessages(threadId, otherUserId) },
+                )
             }
         }
 
+        if (messagingRestriction != null) {
+            val displayName = otherUsername.takeIf { it.isNotBlank() }
+                ?: stringResource(id = R.string.messaging_restriction_name_fallback)
+            val restrictionText = when (messagingRestriction) {
+                MessagingRestriction.NOBODY ->
+                    stringResource(id = R.string.messaging_restriction_nobody, displayName)
+                MessagingRestriction.FOLLOWERS ->
+                    stringResource(id = R.string.messaging_restriction_followers, displayName)
+                MessagingRestriction.FOLLOWING ->
+                    stringResource(id = R.string.messaging_restriction_following, displayName)
+                null -> ""
+            }
+            Text(
+                text = restrictionText,
+                style = CorusFont.bodyMedium,
+                color = CorusColors.Secondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.lg),
+            )
+        } else {
         // Edit banner (mirrors the reply bar). Editing and replying are mutually exclusive.
         if (editingMessage != null) {
             Row(
@@ -1126,6 +1196,7 @@ fun MessageThreadScreen(
                     tint = if (messageText.text.isNotBlank()) CorusColors.Accent else CorusColors.Tertiary,
                 )
             }
+        }
         }
     }
 
@@ -1425,6 +1496,7 @@ private fun MessageBubble(
     isFromCurrentUser: Boolean,
     currentUserId: String,
     otherUsername: String,
+    messagingRestriction: MessagingRestriction? = null,
     deliveryStatus: MessageDeliveryStatus,
     nowPlayingManager: NowPlayingManager,
     showHeartBurst: Boolean = false,
@@ -1875,8 +1947,18 @@ private fun MessageBubble(
                     tint = Color.Red,
                 )
                 if (message.failureReason == MessageFailureReason.MESSAGING_DISABLED) {
+                    val displayName = otherUsername.takeIf { it.isNotBlank() }
+                        ?: stringResource(id = R.string.messaging_restriction_name_fallback)
+                    val disabledText = when (messagingRestriction) {
+                        MessagingRestriction.FOLLOWERS ->
+                            stringResource(id = R.string.messaging_restriction_followers, displayName)
+                        MessagingRestriction.FOLLOWING ->
+                            stringResource(id = R.string.messaging_restriction_following, displayName)
+                        else ->
+                            stringResource(id = R.string.messaging_restriction_nobody, displayName)
+                    }
                     Text(
-                        text = stringResource(id = R.string.messaging_thread_user_messaging_disabled),
+                        text = disabledText,
                         style = CorusFont.caption,
                         color = Color.Red,
                     )

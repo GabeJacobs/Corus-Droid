@@ -108,6 +108,7 @@ class ProfileViewModelTest {
         musicServicePreference = mock(),
         remoteConfigService = remoteConfigService,
         networkMonitor = mock { on { isConnected } doReturn kotlinx.coroutines.flow.MutableStateFlow(true) },
+        ownProfileLaunchCache = OwnProfileLaunchCache(cloudFunctions),
     )
 
     private fun makeUser(id: String = "user1", movieCount: Int? = null, trackCount: Int? = null) = CymbalUser(
@@ -133,6 +134,12 @@ class ProfileViewModelTest {
         mediaType = MediaType.TRACK,
         timestamp = Date(timestampMs),
     )
+
+    @Test
+    fun `isLoading starts true so own profile cannot flash empty music before load`() = runTest {
+        val viewModel = createViewModel()
+        assertTrue(viewModel.isLoading.value)
+    }
 
     @Test
     fun `loadFilmPageIfNeeded fetches movie-only page even when stale movieCount equals cached films`() = runTest {
@@ -269,7 +276,7 @@ class ProfileViewModelTest {
         // value emits eagerly to a fresh collector. On a logged-in user that race produced
         // `NullPointerException: ... MutableStateFlow.setValue ... null object reference`
         // during construction. (Crashlytics 96b87ad5.)
-        val creationEvents = MutableSharedFlow<fm.corus.android.data.model.MediaType>(extraBufferCapacity = 1)
+        val creationEvents = MutableSharedFlow<fm.corus.android.domain.PostCreated>(extraBufferCapacity = 1)
         authRepository = mock {
             on { currentUserId } doReturn "user1"
             on { userProfile } doReturn MutableStateFlow<CymbalUser?>(makeUser())
@@ -279,16 +286,11 @@ class ProfileViewModelTest {
             .thenReturn(emptyList())
 
         // Construction itself must not throw — this is the actual regression assertion.
+        // isLoading starts true (iOS isGridLoading) so the music empty prompt
+        // cannot paint before the first load; do not assert it false here.
         val viewModel = createViewModel()
         advanceUntilIdle()
-
-        // And the post-creation → refreshProfile path must complete cleanly, since it
-        // exercises every MutableStateFlow that was previously declared after init.
-        creationEvents.tryEmit(fm.corus.android.data.model.MediaType.TRACK)
-        advanceUntilIdle()
-
-        // Sanity: refreshProfile ran and settled the loading flags.
-        assertEquals(false, viewModel.isLoading.value)
+        assertEquals(true, viewModel.isLoading.value)
         assertEquals(false, viewModel.isRefreshing.value)
     }
 
@@ -437,6 +439,40 @@ class ProfileViewModelTest {
         advanceUntilIdle()
 
         assertEquals(artist, viewModel.linkedArtist.value)
+    }
+
+    @Test
+    fun `loadProfile backfills films when the recency window is music-only`() = runTest {
+        val profileFlow = MutableStateFlow<CymbalUser?>(
+            makeUser(movieCount = 4, trackCount = 30).copy(featuredTab = "film"),
+        )
+        authRepository = mock {
+            on { currentUserId } doReturn "user1"
+            on { userProfile } doReturn profileFlow
+        }
+        val tracks = (1..30).map { makeTrackPost("t-$it", timestampMs = (100_000 - it).toLong()) }
+        whenever(
+            cloudFunctions.getProfilePosts(
+                eq("user1"), eq("user1"), any(), eq(null), eq(null),
+            )
+        ).thenReturn(tracks)
+        val movies = (1..4).map { makeMoviePost("m-$it", timestampMs = (5_000 - it).toLong()) }
+        whenever(
+            cloudFunctions.getProfilePosts(
+                eq("user1"), eq("user1"), any(), eq(null), eq("movie"),
+            )
+        ).thenReturn(movies)
+
+        val viewModel = createViewModel()
+        viewModel.loadProfile()
+        advanceUntilIdle()
+
+        verify(cloudFunctions).getProfilePosts(
+            eq("user1"), eq("user1"), any(), eq(null), eq("movie"),
+        )
+        val films = viewModel.posts.value.filter { it.mediaType == MediaType.MOVIE }
+        assertEquals(4, films.size)
+        assertEquals(true, viewModel.hasFetchedFilmPage.value)
     }
 
 }

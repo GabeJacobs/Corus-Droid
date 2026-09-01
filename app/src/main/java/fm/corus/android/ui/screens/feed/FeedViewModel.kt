@@ -8,6 +8,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import android.util.Log
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalThread
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.FeedDecade
 import fm.corus.android.data.model.FeedFilter
@@ -39,6 +40,7 @@ import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.PostMenuActions
 import fm.corus.android.ui.components.ToastManager
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -74,7 +76,8 @@ internal fun albumArtHintTargetPostId(posts: List<CymbalPost>): String? =
 
 /** In-memory page per mode/filter so tab switches don't wipe the list
  *  and flash the skeleton. Restored on the way back in if it's still
- *  fresh; after [FEED_PAGE_CACHE_TTL_MS] a switch is a cold load.
+ *  fresh; after [FEED_PAGE_CACHE_TTL_MS] the snapshot is dropped (so the
+ *  pager already shows skeleton) and a switch is a cold load.
  *  Pull-to-refresh always fetches. */
 data class FeedModePageSnapshot(
     val posts: List<CymbalPost>,
@@ -310,6 +313,12 @@ class FeedViewModel @Inject constructor(
     private val _tasteMatchesGate = MutableStateFlow<TasteMatchesGate?>(null)
     val tasteMatchesGate: StateFlow<TasteMatchesGate?> = _tasteMatchesGate.asStateFlow()
 
+    /** Club App Store / Play intro trial still available on the default package. */
+    val hasClubIntroTrial: StateFlow<Boolean> = subscriptionRepository.hasClubIntroTrial
+
+    /** Refresh Club offerings so [hasClubIntroTrial] is current before the lock logs. */
+    suspend fun awaitClubOfferings() = subscriptionRepository.awaitOfferings()
+
     /** Trigger for the Club paywall when a non-member taps Taste Matches. */
     private val _tasteMatchesPaywall = MutableStateFlow<PaywallSource?>(null)
     val tasteMatchesPaywall: StateFlow<PaywallSource?> = _tasteMatchesPaywall.asStateFlow()
@@ -451,6 +460,7 @@ class FeedViewModel @Inject constructor(
     private var lastLoadedMode: String? = null
 
     private val feedPageCache = mutableMapOf<String, FeedModePageSnapshot>()
+    private val feedPageExpiryJobs = mutableMapOf<String, Job>()
     private var appliedFeedSignature: String = ""
     private val _pageCacheRevision = MutableStateFlow(0)
     val pageCacheRevision: StateFlow<Int> = _pageCacheRevision.asStateFlow()
@@ -462,6 +472,7 @@ class FeedViewModel @Inject constructor(
 
     private fun applyFeedSignatureChange(from: String, to: String) {
         if (from == to && appliedFeedSignature == to) return
+        evictExpiredFeedPages()
         stashFeedPage(from)
         if (restoreFeedPage(to)) {
             appliedFeedSignature = to
@@ -483,6 +494,43 @@ class FeedViewModel @Inject constructor(
         loadFeed(refresh = true)
     }
 
+    private fun FeedModePageSnapshot.isFresh(now: Long = System.currentTimeMillis()): Boolean =
+        now - cachedAt < FEED_PAGE_CACHE_TTL_MS
+
+    private fun freshCachedPosts(mode: String): List<CymbalPost> {
+        val snap = feedPageCache[feedRequestSignature(mode)] ?: return emptyList()
+        return if (snap.isFresh()) snap.posts else emptyList()
+    }
+
+    private fun evictExpiredFeedPages() {
+        val now = System.currentTimeMillis()
+        val stale = feedPageCache.filter { !it.value.isFresh(now) }.keys.toList()
+        if (stale.isEmpty()) return
+        stale.forEach { key ->
+            feedPageCache.remove(key)
+            feedPageExpiryJobs.remove(key)?.cancel()
+        }
+        _pageCacheRevision.value += 1
+    }
+
+    private fun evictExpiredFeedPage(signature: String, expectedCachedAt: Long) {
+        val snap = feedPageCache[signature] ?: return
+        if (snap.cachedAt != expectedCachedAt) return
+        if (snap.isFresh()) return
+        feedPageCache.remove(signature)
+        feedPageExpiryJobs.remove(signature)?.cancel()
+        _pageCacheRevision.value += 1
+    }
+
+    private fun scheduleFeedPageExpiry(signature: String, cachedAt: Long) {
+        feedPageExpiryJobs[signature]?.cancel()
+        feedPageExpiryJobs[signature] = viewModelScope.launch {
+            val remaining = FEED_PAGE_CACHE_TTL_MS - (System.currentTimeMillis() - cachedAt)
+            if (remaining > 0) delay(remaining)
+            evictExpiredFeedPage(signature, cachedAt)
+        }
+    }
+
     private fun stashFeedPage(signature: String) {
         if (signature.isEmpty()) return
         // Only snapshot a page we actually applied. Otherwise the first
@@ -497,6 +545,7 @@ class FeedViewModel @Inject constructor(
             _tasteMatchesGate.value == null &&
             !_lastLoadFailed.value
         ) return
+        val cachedAt = System.currentTimeMillis()
         feedPageCache[signature] = FeedModePageSnapshot(
             posts = _posts.value,
             hasMore = _hasMore.value,
@@ -507,15 +556,18 @@ class FeedViewModel @Inject constructor(
             lastTimestamp = lastTimestamp,
             tasteMatchesGate = _tasteMatchesGate.value,
             tasteMatchesTrial = _tasteMatchesTrial.value,
-            cachedAt = System.currentTimeMillis(),
+            cachedAt = cachedAt,
         )
+        scheduleFeedPageExpiry(signature, cachedAt)
         _pageCacheRevision.value += 1
     }
 
     private fun restoreFeedPage(signature: String): Boolean {
         val snap = feedPageCache[signature] ?: return false
-        if (System.currentTimeMillis() - snap.cachedAt >= FEED_PAGE_CACHE_TTL_MS) {
+        if (!snap.isFresh()) {
             feedPageCache.remove(signature)
+            feedPageExpiryJobs.remove(signature)?.cancel()
+            _pageCacheRevision.value += 1
             return false
         }
         _posts.value = snap.posts
@@ -535,15 +587,21 @@ class FeedViewModel @Inject constructor(
     }
 
     /**
-     * Neighbor tabs always read their snapshot. The selected tab uses live
-     * posts once those posts belong to it; until restore runs, keep showing
-     * the snapshot the user was already dragging.
+     * Neighbor tabs always read their snapshot. Expired snapshots are
+     * treated as empty so the pager is already skeleton if a switch would
+     * cold-load. The selected tab uses live posts once those posts belong
+     * to it; until restore runs, keep showing the snapshot the user was
+     * already dragging — but never another mode's live posts.
      */
     fun postsForTabPage(mode: String): List<CymbalPost> {
-        val cached = feedPageCache[feedRequestSignature(mode)]?.posts ?: emptyList()
+        val cached = freshCachedPosts(mode)
         if (mode != feedMode.value) return cached
-        if (cached.isEmpty()) return _posts.value
-        if (_posts.value.any { live -> cached.any { it.id == live.id } }) return _posts.value
+        // `appliedFeedSignature` is empty until the first mode/filter change,
+        // so first paint still shows whatever loadFeed / restore already wrote.
+        if (appliedFeedSignature.isEmpty() || appliedFeedSignature == feedRequestSignature(mode)) {
+            if (cached.isEmpty()) return _posts.value
+            if (_posts.value.any { live -> cached.any { it.id == live.id } }) return _posts.value
+        }
         return cached
     }
 
@@ -725,6 +783,20 @@ class FeedViewModel @Inject constructor(
         // Auto-retry the feed when the network returns if the previous load
         // failed and the screen has no posts to show. Mirrors iOS FeedView's
         // reconnect handler.
+        // DEBUG Settings toggle: overlay the expired-trial lock on Matches
+        // without needing an expired free account. Keep fetched posts so the
+        // frosted peek still renders.
+        viewModelScope.launch {
+            remoteConfig.forceTasteMatchesPaywallFlow.collect { force ->
+                if (feedMode.value != "tasteMatches") return@collect
+                if (force) {
+                    _tasteMatchesGate.value = TasteMatchesGate.Paywall
+                    subscriptionRepository.fetchOfferings()
+                } else if (_tasteMatchesGate.value is TasteMatchesGate.Paywall) {
+                    loadFeed(refresh = true)
+                }
+            }
+        }
         viewModelScope.launch {
             isConnected.collect { connected ->
                 if (connected && _lastLoadFailed.value && _posts.value.isEmpty()) {
@@ -903,15 +975,19 @@ class FeedViewModel @Inject constructor(
                             // Seed the leftmost slots with the caller's existing covers.
                             loadTasteMatchesSeedArt(forYouPage.gatedPostCount, forYouPage.gatedThreshold)
                         }
-                        "paywall" -> _tasteMatchesGate.value = TasteMatchesGate.Paywall
+                        "paywall" -> {
+                            _tasteMatchesGate.value = TasteMatchesGate.Paywall
+                            subscriptionRepository.fetchOfferings()
+                        }
                         "unavailable" -> _tasteMatchesGate.value = TasteMatchesGate.Unavailable
                         "noMatchesYet" -> _tasteMatchesGate.value = TasteMatchesGate.NoMatchesYet
                         else -> _tasteMatchesGate.value = null
                     }
                     if (forYouPage.gated != null) {
-                        // Gated → no feed. Reset paging state, surface empty, bail.
+                        // Gated → no live feed. Paywall may carry teaser posts
+                        // for the frosted lock overlay; other gates stay empty.
                         if (feedMode.value != mode) return
-                        _posts.value = emptyList()
+                        _posts.value = if (forYouPage.gated == "paywall") forYouPage.posts else emptyList()
                         _hasMore.value = false
                         _tasteMatchesTrial.value = null
                         _lastLoadFailed.value = false
@@ -919,6 +995,10 @@ class FeedViewModel @Inject constructor(
                         _isLoading.value = false
                         _isRefreshing.value = false
                         _hasLoaded.value = true
+                        if (remoteConfig.forceTasteMatchesPaywall) {
+                            _tasteMatchesGate.value = TasteMatchesGate.Paywall
+                            subscriptionRepository.fetchOfferings()
+                        }
                         return
                     }
                     // Un-gated (served) response: mirror the free-trial banner
@@ -926,6 +1006,12 @@ class FeedViewModel @Inject constructor(
                     // viewers, RC off, or once the trial expired (that path
                     // returns gated:"paywall" above instead).
                     _tasteMatchesTrial.value = forYouPage.trial
+                    // DEBUG preview: testers/Club still get a served feed —
+                    // keep those posts under the frosted lock.
+                    if (remoteConfig.forceTasteMatchesPaywall) {
+                        _tasteMatchesGate.value = TasteMatchesGate.Paywall
+                        subscriptionRepository.fetchOfferings()
+                    }
                 }
                 if (forYouPage.sessionToken != (forYouSessionToken ?: "") && forYouPage.sessionToken.isNotEmpty()) {
                     forYouSessionToken = forYouPage.sessionToken
@@ -1374,28 +1460,14 @@ class FeedViewModel @Inject constructor(
 
     override fun loadRecentShareContacts() {
         val userId = authRepository.currentUserId ?: return
-        _isLoadingShareContacts.value = true
-        viewModelScope.launch {
-            try {
-                // Rank by people you actually share with, then fill gaps from recent
-                // DM threads, then fall back to following + followers. Keeps the grid
-                // full for new users while surfacing real share intent for everyone.
-                val shareRecipients = runCatching { messageRepository.listShareRecipients(12) }.getOrDefault(emptyList())
-                val threadContacts = messageRepository.listThreads(userId).mapNotNull { it.otherUser }
-
-                // Only pay for the follow-graph fetch when shares + DMs don't fill the grid.
-                val followFallback = if (rankShareContacts(shareRecipients, threadContacts, emptyList()).size < SHARE_CONTACTS_TARGET) {
-                    val following = userRepository.fetchFollowingPaginated(userId, limit = 20).users
-                    val followers = userRepository.fetchFollowersPaginated(userId, limit = 20).users
-                    following + followers
-                } else {
-                    emptyList()
-                }
-
-                _recentShareContacts.value = rankShareContacts(shareRecipients, threadContacts, followFallback)
-            } catch (_: Exception) { }
-            _isLoadingShareContacts.value = false
-        }
+        loadRecentDmShareContacts(
+            userId = userId,
+            messageRepository = messageRepository,
+            currentContacts = _recentShareContacts.value,
+            setContacts = { _recentShareContacts.value = it },
+            setLoading = { _isLoadingShareContacts.value = it },
+            scope = viewModelScope,
+        )
     }
 
     override fun searchShareUsers(query: String) {
@@ -1557,27 +1629,62 @@ class FeedViewModel @Inject constructor(
 
 }
 
-/** Target number of contacts before we stop reaching for fallback sources. */
-const val SHARE_CONTACTS_TARGET = 12
-
 /** Max contacts shown in the share sheet grid. */
 const val SHARE_CONTACTS_CAP = 20
 
 /**
- * Merge the share-sheet contact sources in priority order — people you deliberately
- * share with first, then recent DM partners, then the follow-graph fallback — keeping
- * the first occurrence of each user (preserving rank) and capping the result.
+ * Share-sheet recents: most recent 1:1 DM partners, inbox order.
+ * Painted once — never replaced while the sheet is on screen, so cells
+ * can't move under a tap.
  */
-fun rankShareContacts(
-    shareRecipients: List<CymbalUser>,
-    threadContacts: List<CymbalUser>,
-    followFallback: List<CymbalUser>,
+fun recentDmShareContacts(
+    threads: List<CymbalThread>,
     cap: Int = SHARE_CONTACTS_CAP,
 ): List<CymbalUser> {
     val seen = mutableSetOf<String>()
-    val combined = mutableListOf<CymbalUser>()
-    for (user in shareRecipients + threadContacts + followFallback) {
-        if (user.id.isNotEmpty() && seen.add(user.id)) combined.add(user)
+    val contacts = mutableListOf<CymbalUser>()
+    for (thread in threads) {
+        if (thread.isGroup) continue
+        val user = thread.otherUser ?: continue
+        if (user.id.isNotEmpty() && seen.add(user.id)) {
+            contacts.add(user)
+            if (contacts.size >= cap) break
+        }
     }
-    return combined.take(cap)
+    return contacts
+}
+
+fun cachedRecentDmShareContacts(
+    userId: String,
+    messageRepository: MessageRepository,
+    cap: Int = SHARE_CONTACTS_CAP,
+): List<CymbalUser>? {
+    val threads = messageRepository.cachedInbox?.takeIf { it.userId == userId }?.threads ?: return null
+    return recentDmShareContacts(threads, cap).takeIf { it.isNotEmpty() }
+}
+
+fun loadRecentDmShareContacts(
+    userId: String,
+    messageRepository: MessageRepository,
+    currentContacts: List<CymbalUser>,
+    setContacts: (List<CymbalUser>) -> Unit,
+    setLoading: (Boolean) -> Unit,
+    scope: CoroutineScope,
+) {
+    if (currentContacts.isNotEmpty()) {
+        setLoading(false)
+        return
+    }
+    cachedRecentDmShareContacts(userId, messageRepository)?.let { cached ->
+        setContacts(cached)
+        setLoading(false)
+        return
+    }
+    setLoading(true)
+    scope.launch {
+        try {
+            setContacts(recentDmShareContacts(messageRepository.listThreads(userId)))
+        } catch (_: Exception) { }
+        setLoading(false)
+    }
 }

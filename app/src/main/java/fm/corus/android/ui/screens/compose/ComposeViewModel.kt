@@ -46,6 +46,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.Date
 import javax.inject.Inject
 
 data class SearchResultItem(
@@ -1019,7 +1020,17 @@ class ComposeViewModel @Inject constructor(
                 analyticsService.logPostCreated(mediaType.value)
                 subscriptionRepository.incrementPostCount()
                 authRepository.bumpCymbalCount(1)
-                postCreationEvent.notifyPostCreated(mediaType)
+                val hashtags = (payload["hashtags"] as? List<*>)?.filterIsInstance<String>().orEmpty()
+                postCreationEvent.notifyPostCreated(
+                    mediaType,
+                    buildOptimisticPost(
+                        postId = result.postId,
+                        mediaType = mediaType,
+                        caption = caption,
+                        hashtags = hashtags,
+                        isFirstPoster = result.isFirstPoster,
+                    ),
+                )
 
                 // A resumed draft that just posted should disappear from Drafts.
                 val postedDraftId = _editingDraftId.value
@@ -1534,5 +1545,67 @@ class ComposeViewModel @Inject constructor(
         savedSignature = null
         _attachmentUnavailable.value = false
         _savingDraft.value = false
+    }
+
+    private fun buildOptimisticPost(
+        postId: String,
+        mediaType: MediaType,
+        caption: String,
+        hashtags: List<String>,
+        isFirstPoster: Boolean,
+    ): CymbalPost? {
+        if (postId.isBlank()) return null
+        val userId = authRepository.currentUserId ?: return null
+        val user = authRepository.userProfile.value
+            ?: CymbalUser(id = userId, username = "", displayName = "")
+        val trimmed = caption.trim().ifEmpty { null }
+        val voiceUrl = _resumedVoiceNoteURL.value
+        val attributed = _showRepostAttribution.value
+        return if (mediaType == MediaType.TRACK) {
+            val track = _selectedTrack.value ?: return null
+            CymbalPost(
+                id = postId,
+                user = user,
+                track = track,
+                caption = trimmed,
+                voiceNoteURL = voiceUrl,
+                hashtags = hashtags,
+                timestamp = Date(),
+                isFirstPoster = isFirstPoster,
+                mediaType = MediaType.TRACK,
+                repostedFromPostId = if (attributed) _repostedFromPostId.value else null,
+                repostedFromUserId = if (attributed) _repostedFromUserId.value else null,
+                repostedFromUsername = if (attributed) _repostedFromUsername.value else null,
+            )
+        } else {
+            val movie = _selectedMovie.value ?: return null
+            CymbalPost(
+                id = postId,
+                user = user,
+                track = CymbalTrack(id = "", name = "", artistName = "", albumName = ""),
+                caption = trimmed,
+                voiceNoteURL = voiceUrl,
+                hashtags = hashtags,
+                timestamp = Date(),
+                isFirstPoster = isFirstPoster,
+                mediaType = MediaType.MOVIE,
+                movieId = movie.id,
+                movieTitle = movie.title,
+                directorName = movie.directorName,
+                directorIds = movie.directorIds,
+                releaseYear = movie.year,
+                posterURL = movie.posterURL,
+                posterLargeURL = movie.posterLargeURL,
+                tmdbWebURL = movie.tmdbWebURL,
+                trailerURL = movie.trailerURL,
+                movieOverview = movie.overview,
+                movieRating = movie.rating,
+                movieCast = movie.cast,
+                movieReleaseDate = movie.releaseDate,
+                repostedFromPostId = if (attributed) _repostedFromPostId.value else null,
+                repostedFromUserId = if (attributed) _repostedFromUserId.value else null,
+                repostedFromUsername = if (attributed) _repostedFromUsername.value else null,
+            )
+        }
     }
 }

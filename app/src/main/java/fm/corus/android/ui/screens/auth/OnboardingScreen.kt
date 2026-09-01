@@ -79,7 +79,7 @@ fun OnboardingScreen(
     val decodeScope = rememberCoroutineScope()
 
     // Pre-fill display name from OAuth provider (matching iOS behavior).
-    // Always show the Full Name field so the user can edit it — iOS only hides
+    // Always show the Display name field so the user can edit it — iOS only hides
     // it for Apple sign-in, and Android doesn't support Apple sign-in.
     val oauthDisplayName = viewModel.oauthDisplayName
     var displayName by remember { mutableStateOf(oauthDisplayName ?: "") }

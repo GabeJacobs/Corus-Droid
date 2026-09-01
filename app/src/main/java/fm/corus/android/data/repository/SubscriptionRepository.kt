@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -94,6 +95,12 @@ class SubscriptionRepository @Inject constructor(
 
     private val _packages = MutableStateFlow<List<Package>>(emptyList())
     val packages: StateFlow<List<Package>> = _packages.asStateFlow()
+
+    /** Whether the default Club package still has a Play intro trial.
+     *  False until offerings load — never promise a trial we cannot give. */
+    val hasClubIntroTrial: StateFlow<Boolean> = _packages
+        .map { pkgs -> clubPackageHasIntroTrial(pkgs, remoteConfig.paywallDefaultYearly) }
+        .stateIn(scope, SharingStarted.Eagerly, false)
 
     // Posts created in the rolling 24h window (mirrors iOS SubscriptionService).
     private val _recentPostCount = MutableStateFlow(0)
@@ -446,12 +453,22 @@ class SubscriptionRepository @Inject constructor(
     }
 
     fun fetchOfferings() {
-        Purchases.sharedInstance.getOfferingsWith(
-            onError = { },
-            onSuccess = { offerings ->
-                _packages.value = offerings.current?.availablePackages ?: emptyList()
-            },
-        )
+        scope.launch { awaitOfferings() }
+    }
+
+    /** Resolves after the Club packages (and therefore [hasClubIntroTrial]) are current. */
+    suspend fun awaitOfferings() = suspendCancellableCoroutine<Unit> { cont ->
+        try {
+            Purchases.sharedInstance.getOfferingsWith(
+                onError = { if (cont.isActive) cont.resume(Unit) },
+                onSuccess = { offerings ->
+                    _packages.value = offerings.current?.availablePackages ?: emptyList()
+                    if (cont.isActive) cont.resume(Unit)
+                },
+            )
+        } catch (_: Exception) {
+            if (cont.isActive) cont.resume(Unit)
+        }
     }
 
     fun purchase(
@@ -558,4 +575,12 @@ class SubscriptionRepository @Inject constructor(
             } catch (_: Exception) { }
         }
     }
+}
+
+/** Default Club package (yearly vs monthly from RC) still has a Play intro trial. */
+private fun clubPackageHasIntroTrial(packages: List<Package>, defaultYearly: Boolean): Boolean {
+    val yearly = packages.firstOrNull { it.identifier == "\$rc_annual" }
+    val monthly = packages.firstOrNull { it.identifier == "\$rc_monthly" }
+    val preferred = if (defaultYearly) yearly ?: monthly else monthly ?: yearly
+    return preferred?.product?.subscriptionOptions?.freeTrial != null
 }

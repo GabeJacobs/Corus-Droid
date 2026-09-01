@@ -11,6 +11,9 @@ import fm.corus.android.BuildConfig
 import fm.corus.android.domain.FeedModeOrder
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
@@ -466,6 +469,28 @@ class RemoteConfigService @Inject constructor(
             return remoteConfig.getBoolean("comment_controls_on_posts")
         }
 
+    /**
+     * DEBUG-only: force the Taste Matches expired-trial lock so testers and
+     * Club members can preview the in-feed paywall on their own account.
+     * Server still fetches Matches (teaser posts sit behind the frost).
+     * Never read in release.
+     */
+    private val _forceTasteMatchesPaywall = MutableStateFlow(
+        BuildConfig.DEBUG &&
+            context.getSharedPreferences("corus_dev_flags", Context.MODE_PRIVATE)
+                .getBoolean("force_taste_matches_paywall", false),
+    )
+    val forceTasteMatchesPaywallFlow: StateFlow<Boolean> = _forceTasteMatchesPaywall.asStateFlow()
+
+    var forceTasteMatchesPaywall: Boolean
+        get() = BuildConfig.DEBUG && _forceTasteMatchesPaywall.value
+        set(value) {
+            if (!BuildConfig.DEBUG) return
+            if (_forceTasteMatchesPaywall.value == value) return
+            devPrefs.edit().putBoolean("force_taste_matches_paywall", value).apply()
+            _forceTasteMatchesPaywall.value = value
+        }
+
     /// Master gate for the "who reposted this" list: long-press the repost count
     /// on a post to open a sheet of the people who reposted it, each row tapping
     /// through to that person's repost. OFF = the repost button only opens
@@ -490,8 +515,10 @@ class RemoteConfigService @Inject constructor(
     val spotifyLibrarySaveEnabled: Boolean
         get() = flagWithDefault("spotify_library_save_enabled", false)
 
-    /// Spotify first-time playback experiment for new users. `off` (default) =
-    /// today's Always Full ON, no new prompt. `a` / `b` are console-assigned.
+    /// Spotify first-time playback experiment for new users. In-app default is
+    /// `b` (Always Full + first-play chooser) so a late or failed fetch still
+    /// prompts. Live RC experiment still assigns `a` / `b`; `off` remains a
+    /// kill switch. Clients never randomize.
     val spotifyFtueVariant: String
         get() {
             if (BuildConfig.DEBUG) {
@@ -733,7 +760,7 @@ class RemoteConfigService @Inject constructor(
             "reposters_list_enabled" to false,
             "feed_decade_filter_enabled" to false,
             "spotify_library_save_enabled" to false,
-            "spotify_ftue_variant" to "off",
+            "spotify_ftue_variant" to "b",
             "feed_mode_order" to FeedModeOrder.DEFAULT_RAW,
             "feed_mode_tabs_enabled" to true,
         )

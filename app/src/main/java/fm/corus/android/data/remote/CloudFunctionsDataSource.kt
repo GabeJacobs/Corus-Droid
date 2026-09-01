@@ -504,12 +504,16 @@ class CloudFunctionsDataSource @Inject constructor(
 
         val result = functions.getHttpsCallable("getForYouFeed").call(params).await()
         val data = result.getData() as? Map<String, Any?>
-        // Premium Taste Matches gate: the server returns {gated:...} with no
-        // posts when the caller must subscribe or post more. Surface it so the
-        // feed renders the cold-start / paywall state, not a generic empty.
+        // Premium Taste Matches gate. Paywall may include teaser `posts` for
+        // the frosted lock overlay; other gates still return no posts.
         parseTasteMatchesGate(data)?.let { gate ->
+            val preview = if (gate.gated == "paywall") {
+                parseForYouFeedResponse(data).a.map { CymbalPost.fromCloudData(it) }
+            } else {
+                emptyList()
+            }
             return ForYouFeedPage(
-                emptyList(), false, "", false, gate.gated, gate.postCount, gate.threshold,
+                preview, false, "", false, gate.gated, gate.postCount, gate.threshold,
             )
         }
         val parsed = parseForYouFeedResponse(data)

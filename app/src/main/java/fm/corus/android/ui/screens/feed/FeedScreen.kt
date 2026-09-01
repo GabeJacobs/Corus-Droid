@@ -2,6 +2,7 @@ package fm.corus.android.ui.screens.feed
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -68,6 +69,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -90,6 +93,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -240,6 +244,7 @@ fun FeedScreen(
         }
     }
     val tasteMatchesGate by viewModel.tasteMatchesGate.collectAsState()
+    val hasClubIntroTrial by viewModel.hasClubIntroTrial.collectAsState()
     val tasteMatchesTrial by viewModel.tasteMatchesTrial.collectAsState()
     val tasteMatchesSeeding by viewModel.tasteMatchesSeeding.collectAsState()
     val tasteMatchesSeedArt by viewModel.tasteMatchesSeedArt.collectAsState()
@@ -343,17 +348,42 @@ fun FeedScreen(
     val listState = listStateFor(feedMode)
     val immersive = viewModel.remoteConfig.immersiveArtistHeaderEnabled
     val frost = rememberImmersiveHeaderState(immersive)
+    val chromeCollapse = remember { FeedChromeCollapse() }
+    LaunchedEffect(scope) {
+        chromeCollapse.attach(scope)
+    }
+    val followScrollStatusBarPx = with(LocalDensity.current) {
+        frost.statusBarPadding.roundToPx()
+    }
     val followScrollTopInsetPx = with(LocalDensity.current) {
         (frost.statusBarPadding + FeedFollowScrollPeekAbovePost).roundToPx()
     }
-    val currentTopInsetPx by rememberUpdatedState(followScrollTopInsetPx)
-    var lastScrollTrigger by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(scrollToTopTrigger) {
-        if (scrollToTopTrigger > lastScrollTrigger) {
-            listState.animateScrollToItem(0)
-            lastScrollTrigger = scrollToTopTrigger
+    val tabsVisibleForPin by rememberUpdatedState(feedModeTabsVisible)
+    val statusBarForPin by rememberUpdatedState(followScrollStatusBarPx)
+    val peekInsetForPin by rememberUpdatedState(followScrollTopInsetPx)
+    suspend fun pinPlayingPost(lazyIndex: Int) {
+        val tabs = tabsVisibleForPin
+        val inset = if (tabs) {
+            val visible = chromeCollapse.currentVisibleChrome
+            val hide = visible > 1f
+            chromeCollapse.startProgrammaticPin()
+            if (hide) chromeCollapse.hideCompletely(animated = true)
+            FeedChromeCollapseMath.programmaticPinInset(
+                visibleChrome = visible,
+                statusBarPx = statusBarForPin.toFloat(),
+                chromeWillHide = hide,
+            ).toInt()
+        } else {
+            peekInsetForPin
+        }
+        try {
+            listState.animateScrollItemToTop(lazyIndex, inset)
+        } finally {
+            if (tabs) chromeCollapse.finishProgrammaticPin()
         }
     }
+    var lastScrollTrigger by rememberSaveable { mutableIntStateOf(0) }
+    var modeRetapTick by remember { mutableIntStateOf(0) }
     var lastTasteMatchesTrigger by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(selectTasteMatchesTrigger) {
         if (selectTasteMatchesTrigger > lastTasteMatchesTrigger) {
@@ -381,7 +411,7 @@ fun FeedScreen(
             if (idx < 0) return@handler false
             val lazyIndex = feedPostLazyIndex(idx, currentPrefixForRouter)
             routerScope.launch {
-                listState.animateScrollItemToTop(lazyIndex, currentTopInsetPx)
+                pinPlayingPost(lazyIndex)
             }
             true
         }
@@ -425,10 +455,7 @@ fun FeedScreen(
         }
         val index = posts.indexOfFirst { it.id == newPostId }
         if (index < 0) return@LaunchedEffect
-        listState.animateScrollItemToTop(
-            feedPostLazyIndex(index, currentPrefixForRouter),
-            currentTopInsetPx,
-        )
+        pinPlayingPost(feedPostLazyIndex(index, currentPrefixForRouter))
     }
 
     val header: @Composable () -> Unit = {
@@ -437,7 +464,8 @@ fun FeedScreen(
         if (immersive && !feedModeTabsVisible) Spacer(Modifier.height(frost.statusBarPadding))
         FeedHeader(
             showPlaylistButton = feedMediaFilter != MediaType.MOVIE,
-            playlistReady = posts.isNotEmpty(),
+            playlistReady = posts.isNotEmpty() &&
+                tasteMatchesGate !is FeedViewModel.TasteMatchesGate.Paywall,
             isGeneratingPlaylist = isGeneratingPlaylist,
             feedFilter = feedFilter,
             filterMenuExpanded = filterMenuExpanded,
@@ -480,15 +508,17 @@ fun FeedScreen(
             tasteMatchesAvailable = tasteMatchesAvailable,
             feedModeOrder = feedModeOrder,
             feedMode = feedMode,
-            onSetFeedMode = { viewModel.setFeedMode(it) },
+            onSetFeedMode = { mode ->
+                if (mode == feedMode) modeRetapTick++ else viewModel.setFeedMode(mode)
+            },
             onSwitcherOpened = { viewModel.onFeedSwitcherOpened() },
             showFeedSwitchHint = feedSwitchHintVisible && !feedModeTabsVisible,
             tabsVisible = feedModeTabsVisible,
+            onComposePlus = onNavigateToCompose,
         )
     }
 
     val haptics = LocalHapticManager.current
-    val pullState = rememberPullToRefreshState()
     val initialTabPage = tabBarModes.indexOf(feedMode).coerceAtLeast(0)
     val pagerState = rememberPagerState(initialPage = initialTabPage) {
         tabBarModes.size.coerceAtLeast(1)
@@ -513,7 +543,18 @@ fun FeedScreen(
         }
     }
     val pagerOffset = pagerState.currentPage + pagerState.currentPageOffsetFraction
-    val chromeCollapse = remember { FeedChromeCollapse() }
+    LaunchedEffect(scrollToTopTrigger) {
+        if (scrollToTopTrigger > lastScrollTrigger) {
+            chromeCollapse.reveal()
+            listState.animateScrollToItem(0)
+            lastScrollTrigger = scrollToTopTrigger
+        }
+    }
+    LaunchedEffect(modeRetapTick) {
+        if (modeRetapTick == 0) return@LaunchedEffect
+        chromeCollapse.reveal()
+        listState.animateScrollToItem(0)
+    }
     PagerMidpointHaptic(
         pagerState = pagerState,
         enabled = feedModeTabsVisible,
@@ -521,6 +562,7 @@ fun FeedScreen(
         haptics.impact(HapticManager.ImpactStyle.LIGHT)
     }
     val tabsVisibleNow = rememberUpdatedState(feedModeTabsVisible)
+    val listStateNow = rememberUpdatedState(listState)
     val chromeScrollConnection = remember(chromeCollapse) {
         object : NestedScrollConnection {
             override fun onPostScroll(
@@ -531,6 +573,7 @@ fun FeedScreen(
                 if (!tabsVisibleNow.value || source != NestedScrollSource.UserInput) {
                     return Offset.Zero
                 }
+                chromeCollapse.beginDrag()
                 // List actually moved: hide on scroll-down, reveal on scroll-up.
                 // Do not steal deltas in onPreScroll — that caused the chrome
                 // (and a black gap) to jump in mid-feed.
@@ -547,19 +590,70 @@ fun FeedScreen(
                 }
                 return Offset.Zero
             }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (!tabsVisibleNow.value) return Velocity.Zero
+                chromeCollapse.endDrag()
+                val state = listStateNow.value
+                chromeCollapse.trySettleIfIdle(
+                    isScrollInProgress = state.isScrollInProgress,
+                    scrollTop = FeedChromeCollapseMath.scrollTop(
+                        firstIndex = state.firstVisibleItemIndex,
+                        firstOffset = state.firstVisibleItemScrollOffset,
+                        headerHeight = chromeCollapse.heightPx,
+                    ),
+                )
+                return Velocity.Zero
+            }
+        }
+    }
+    LaunchedEffect(listState, feedModeTabsVisible) {
+        if (!feedModeTabsVisible) return@LaunchedEffect
+        snapshotFlow { listState.isScrollInProgress }.collect { inProgress ->
+            chromeCollapse.trySettleIfIdle(
+                isScrollInProgress = inProgress,
+                scrollTop = FeedChromeCollapseMath.scrollTop(
+                    firstIndex = listState.firstVisibleItemIndex,
+                    firstOffset = listState.firstVisibleItemScrollOffset,
+                    headerHeight = chromeCollapse.heightPx,
+                ),
+            )
         }
     }
     LaunchedEffect(pagerState, feedModeTabsVisible) {
         if (!feedModeTabsVisible) return@LaunchedEffect
+        var previousFrac = pagerState.currentPageOffsetFraction
         snapshotFlow { pagerState.currentPageOffsetFraction }.collect { frac ->
-            if (FeedChromeCollapse.swipeTravel(frac) > 0.02f) {
+            val travel = FeedChromeCollapse.swipeTravel(frac)
+            val previousTravel = FeedChromeCollapse.swipeTravel(previousFrac)
+            if (travel > 0.02f && previousTravel <= 0.02f) {
                 chromeCollapse.reveal()
             }
+            previousFrac = frac
         }
+    }
+    LaunchedEffect(feedMode, pagerState.settledPage, feedModeTabsVisible, posts.size) {
+        if (!feedModeTabsVisible) return@LaunchedEffect
+        val state = listState
+        val scrollTop = FeedChromeCollapseMath.scrollTop(
+            firstIndex = state.firstVisibleItemIndex,
+            firstOffset = state.firstVisibleItemScrollOffset,
+            headerHeight = chromeCollapse.heightPx,
+        )
+        chromeCollapse.syncSpacerForTopOfFeed(scrollTop)
     }
 
     @Composable
-    fun FeedPageStates(includeHeader: Boolean, chromeTop: Dp = 0.dp) {
+    fun FeedPageStates(
+        includeHeader: Boolean,
+        chromeTop: Dp,
+        pageMode: String,
+    ) {
+        // Subscribe so a stash/restore recomposes off-screen pages.
+        pageCacheRevision
+        val isSelected = pageMode == feedMode
+        val pagePosts = viewModel.postsForTabPage(pageMode)
+        val pageListState = listStateFor(pageMode)
         // Pad *inside* the scroll, never the list viewport. Outer padding
         // resized the LazyColumn mid-drag and jumped the feed.
         @Composable
@@ -568,18 +662,33 @@ fun FeedScreen(
         }
         Box(Modifier.fillMaxSize()) {
         when {
+            // Peeked tab with no snapshot yet. Keep this off the selected-mode
+            // empty/gate branches so a Following peek never paints Taste Matches
+            // chrome while that feed is the selected one.
+            !isSelected && pagePosts.isEmpty() -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = chromeTop),
+                ) {
+                    items(2) {
+                        SkeletonPostCard()
+                        if (it < 1) HorizontalDivider(color = CorusColors.Divider)
+                    }
+                }
+            }
+
             // Loading skeleton state — show until first load completes, while a
             // refresh (e.g. filter change) is in flight with no posts yet, or
             // during the Taste Matches seed hand-off (post 3 → loading the feed).
-            posts.isEmpty() && (!hasLoaded || isLoading || isRefreshing || tasteMatchesSeeding) -> {
+            isSelected && posts.isEmpty() && (!hasLoaded || isLoading || isRefreshing || tasteMatchesSeeding) -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = chromeTop),
                 ) {
                     if (includeHeader) item { header() }
-                    items(3) {
+                    items(2) {
                         SkeletonPostCard()
-                        if (it < 2) {
+                        if (it < 1) {
                             HorizontalDivider(color = CorusColors.Divider)
                         }
                     }
@@ -588,7 +697,7 @@ fun FeedScreen(
 
             // Premium Taste Matches cold-start: a Club member / tester who hasn't
             // posted enough yet. Album-art seed slots invite the next post.
-            posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing &&
+            isSelected && posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing &&
                 feedMode == "tasteMatches" &&
                 tasteMatchesGate is FeedViewModel.TasteMatchesGate.NeedMorePosts -> {
                 val gate = tasteMatchesGate as FeedViewModel.TasteMatchesGate.NeedMorePosts
@@ -626,25 +735,62 @@ fun FeedScreen(
             }
 
             // Premium Taste Matches paywall backstop: a server gated:"paywall"
-            // (tester / entitlement desync). Renders in-feed with a "Learn more"
-            // CTA that opens the Club sheet (mirrors iOS tasteMatchesPaywallState).
-            posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing &&
+            // (expired trial, or tester / entitlement desync). Renders in-feed
+            // with Unlock → Club sheet (mirrors iOS tasteMatchesPaywallState).
+            // Teaser posts (if the server sent them) sit behind frosted glass.
+            isSelected && hasLoaded && !isLoading && !isRefreshing &&
                 feedMode == "tasteMatches" &&
                 tasteMatchesGate is FeedViewModel.TasteMatchesGate.Paywall -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState()),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    ChromeInset()
-                    if (includeHeader) header()
-                    TasteMatchesPaywallState(
-                        onLearnMore = {
-                            clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.TASTE_MATCHES
-                            showClubOffer = true
-                        },
-                    )
+                Box(modifier = Modifier.fillMaxSize()) {
+                    if (posts.isNotEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .then(
+                                    if (android.os.Build.VERSION.SDK_INT >= 31) {
+                                        Modifier.blur(20.dp)
+                                    } else {
+                                        Modifier
+                                    },
+                                ),
+                        ) {
+                            Spacer(Modifier.height(160.dp))
+                            posts.take(3).forEach { post ->
+                                TasteMatchesLockedFeedPeek(post)
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Color.Black.copy(
+                                        alpha = if (android.os.Build.VERSION.SDK_INT >= 31) 0.28f else 0.5f,
+                                    ),
+                                ),
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        ChromeInset()
+                        if (includeHeader) header()
+                        TasteMatchesPaywallState(
+                            hasClubIntroTrial = hasClubIntroTrial,
+                            overFeedPreview = posts.isNotEmpty(),
+                            onAwaitOfferings = { viewModel.awaitClubOfferings() },
+                            onShown = {
+                                viewModel.analyticsService.logTasteMatchesPaywallShown(
+                                    viewModel.hasClubIntroTrial.value,
+                                )
+                            },
+                            onSubscribe = {
+                                viewModel.analyticsService.logTasteMatchesPaywallTapped(hasClubIntroTrial)
+                                clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.TASTE_MATCHES
+                                showClubOffer = true
+                            },
+                        )
+                    }
                 }
             }
 
@@ -654,7 +800,7 @@ fun FeedScreen(
             // tasteMatchesNeutralEmptyState). Shown regardless of filter — an
             // unavailable cohort has no matches, so naming a filter would wrongly
             // imply you have taste matches.
-            posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing &&
+            isSelected && posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing &&
                 feedMode == "tasteMatches" &&
                 tasteMatchesGate is FeedViewModel.TasteMatchesGate.Unavailable -> {
                 Column(
@@ -677,7 +823,7 @@ fun FeedScreen(
             // "no matches" state, not a filter-specific empty. (When you DO have
             // matches but none in this media type, the server returns an ungated
             // empty page, which the filter-aware branch below handles.)
-            posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing &&
+            isSelected && posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing &&
                 feedMode == "tasteMatches" &&
                 tasteMatchesGate is FeedViewModel.TasteMatchesGate.NoMatchesYet -> {
                 Column(
@@ -698,7 +844,7 @@ fun FeedScreen(
             // device is online but the load failed (lastLoadFailed) the fault is
             // ours, so we say so instead of wrongly blaming their wifi. Mirrors
             // iOS FeedView.offlineEmptyState.
-            posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && (lastLoadFailed || !isConnected) -> {
+            isSelected && posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && (lastLoadFailed || !isConnected) -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -758,7 +904,7 @@ fun FeedScreen(
             // so name the filter and offer to clear it instead of falling through
             // to the generic invite grid. Mirrors the favorites filter-aware
             // empty below (and iOS tasteMatchesFilteredEmptyState).
-            posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing &&
+            isSelected && posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing &&
                 feedMode == "tasteMatches" && feedFilter != FeedFilter.ALL -> {
                 val icon = when (feedFilter) {
                     FeedFilter.MUSIC -> Icons.Filled.MusicNote
@@ -833,7 +979,7 @@ fun FeedScreen(
             // Favorites mode is handled by its own branch below (which is
             // filter-aware), so exclude it here to avoid the generic
             // "from people you follow" copy leaking into a favorites view.
-            posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && feedFilter.newReleasesOnly && feedMode != "favorites" -> {
+            isSelected && posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && feedFilter.newReleasesOnly && feedMode != "favorites" -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -886,7 +1032,7 @@ fun FeedScreen(
             // filter instead of saying "No favorites yet", and offer to clear
             // the filter rather than leave the feed. Only the unfiltered case
             // is a true "no favorites" state. Mirrors iOS favoritesFilteredEmptyState.
-            posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && feedMode == "favorites" -> {
+            isSelected && posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && feedMode == "favorites" -> {
                 val filtered = feedFilter != FeedFilter.ALL
                 val icon = when (feedFilter) {
                     FeedFilter.MUSIC -> Icons.Filled.MusicNote
@@ -906,17 +1052,25 @@ fun FeedScreen(
                     FeedFilter.FILM -> R.string.feed_empty_favorites_film_subtitle
                     FeedFilter.MUSIC_NEW_RELEASES -> R.string.feed_empty_favorites_new_music_subtitle
                     FeedFilter.FILM_NEW_RELEASES -> R.string.feed_empty_favorites_new_film_subtitle
-                    FeedFilter.                    ALL -> R.string.feed_empty_favorites_subtitle
+                    FeedFilter.ALL -> R.string.feed_empty_favorites_subtitle
                 }
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .verticalScroll(rememberScrollState()),
+                        .then(if (filtered) Modifier.verticalScroll(rememberScrollState()) else Modifier),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     ChromeInset()
                     if (includeHeader) header()
-                    Spacer(modifier = Modifier.height(60.dp))
+                    if (!filtered) {
+                        FavoritesEmptyState(
+                            onBackToFollowing = {
+                                haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                                viewModel.setFeedMode("following")
+                            },
+                        )
+                    } else {
+                    Spacer(modifier = Modifier.height(100.dp))
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
@@ -942,29 +1096,23 @@ fun FeedScreen(
                     Button(
                         onClick = {
                             haptics.impact(HapticManager.ImpactStyle.LIGHT)
-                            if (filtered) {
-                                viewModel.setFeedFilter(FeedFilter.ALL)
-                            } else {
-                                viewModel.setFeedMode("following")
-                            }
+                            viewModel.setFeedFilter(FeedFilter.ALL)
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
                         shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
                     ) {
                         Text(
-                            text = stringResource(
-                                if (filtered) R.string.feed_empty_clear_filter
-                                else R.string.feed_empty_favorites_button,
-                            ),
+                            text = stringResource(R.string.feed_empty_clear_filter),
                             style = CorusFont.button,
                             color = CorusColors.Background,
                         )
                     }
                     Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+                    }
                 }
             }
 
-            posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && feedDecade != null -> {
+            isSelected && posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && feedDecade != null -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -983,7 +1131,7 @@ fun FeedScreen(
                 }
             }
 
-            posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing -> {
+            isSelected && posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing -> {
                 val inviteShareText = stringResource(R.string.feed_empty_invite_share_text)
                 val inviteChooser = stringResource(R.string.feed_empty_invite_chooser)
                 Column(modifier = Modifier.fillMaxSize()) {
@@ -1042,15 +1190,16 @@ fun FeedScreen(
                 }
             }
 
-            // Posts list
+            // Posts list — same LazyColumn for a peeked tab and the landed
+            // tab so album art is not remounted (and faded in again) on settle.
             else -> {
                 LazyColumn(
-                    state = listState,
+                    state = pageListState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = chromeTop),
                 ) {
                     if (includeHeader) item { header() }
-                    if (showTasteMatchesTrialBanner) {
+                    if (isSelected && showTasteMatchesTrialBanner) {
                         item(key = "taste_matches_trial_banner", contentType = "taste_matches_trial_banner") {
                             TasteMatchesTrialBanner(
                                 trial = tasteMatchesTrial!!,
@@ -1059,7 +1208,7 @@ fun FeedScreen(
                         }
                     }
                     itemsIndexed(
-                        posts,
+                        pagePosts,
                         key = { _, post -> post.id },
                         contentType = { _, _ -> "post_card" },
                     ) { index, post ->
@@ -1074,7 +1223,7 @@ fun FeedScreen(
                         // against concurrent loads, so the near-end rows collapse
                         // into one fetch; each appended row composes and
                         // re-triggers until the screen fills or `hasMore` is false.
-                        if (hasMore && index >= posts.size - 3) {
+                        if (isSelected && hasMore && index >= pagePosts.size - 3) {
                             LaunchedEffect(post.id) { viewModel.loadFeed() }
                         }
                         val engagement = engagementStates[post.id]
@@ -1229,10 +1378,11 @@ fun FeedScreen(
                             },
                             onVoiceNotePlayed = { viewModel.analyticsService.logVoiceNotePlayed() },
                             backCoverFlipState = backCoverStateFor(post.id),
-                            showsTapHint = post.id == albumArtHintTargetPostId(posts)
-                                && isNewAccount && !hasTappedAlbumArt,
+                            showsTapHint = isSelected &&
+                                post.id == albumArtHintTargetPostId(pagePosts) &&
+                                isNewAccount && !hasTappedAlbumArt,
                             onAlbumArtTap = { viewModel.markAlbumArtTapped() },
-                            isTrendingFeed = feedMode == "trending",
+                            isTrendingFeed = pageMode == "trending",
                             isFollowingAuthor = followingUserIds.contains(post.user.id),
                             isFollowingKnown = followingLoaded,
                             onFollowAuthor = { viewModel.followAuthor(post.user.id) },
@@ -1250,7 +1400,7 @@ fun FeedScreen(
                         HorizontalDivider(color = CorusColors.Divider)
                     }
 
-                    if (isLoading && posts.isNotEmpty()) {
+                    if (isSelected && isLoading && pagePosts.isNotEmpty()) {
                         item {
                             Box(
                                 modifier = Modifier
@@ -1270,7 +1420,7 @@ fun FeedScreen(
                     // Taste Matches reached the end: this feed is finite (only
                     // people you share an artist/director with), so nudge to post
                     // more instead of the generic invite footer.
-                    if (feedMode == "tasteMatches" && !hasMore && !isLoading && posts.isNotEmpty()) {
+                    if (isSelected && pageMode == "tasteMatches" && !hasMore && !isLoading && pagePosts.isNotEmpty()) {
                         item {
                             TasteMatchesEndOfFeed(onPost = onNavigateToCompose)
                         }
@@ -1287,11 +1437,18 @@ fun FeedScreen(
     }
 
     @Composable
-    fun FeedPullBox(includeHeader: Boolean, topPad: Boolean, chromeTop: Dp = 0.dp) {
+    fun FeedPullBox(
+        includeHeader: Boolean,
+        topPad: Boolean,
+        chromeTop: Dp,
+        pageMode: String,
+    ) {
+        val isSelected = pageMode == feedMode
+        val pagePullState = rememberPullToRefreshState()
         PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh = { refreshFeed() },
-            state = pullState,
+            isRefreshing = isSelected && isRefreshing,
+            onRefresh = { if (isSelected) refreshFeed() },
+            state = pagePullState,
             modifier = Modifier.fillMaxSize().then(
                 if (!feedModeTabsVisible) frost.hazeSourceModifier() else Modifier
             ).then(
@@ -1299,8 +1456,8 @@ fun FeedScreen(
             ),
             indicator = {
                 PullToRefreshDefaults.Indicator(
-                    state = pullState,
-                    isRefreshing = isRefreshing,
+                    state = pagePullState,
+                    isRefreshing = isSelected && isRefreshing,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(
@@ -1313,73 +1470,11 @@ fun FeedScreen(
                 )
             },
         ) {
-            FeedPageStates(includeHeader = includeHeader, chromeTop = chromeTop)
-        }
-    }
-
-    @Composable
-    fun NeighborFeedPage(pageMode: String, chromeTop: Dp = 0.dp) {
-        // Read the revision so a stash/restore recomposes neighbor pages.
-        pageCacheRevision
-        val pagePosts = viewModel.postsForTabPage(pageMode)
-        if (pagePosts.isEmpty()) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = chromeTop),
-            ) {
-                items(3) {
-                    SkeletonPostCard()
-                    if (it < 2) HorizontalDivider(color = CorusColors.Divider)
-                }
-            }
-        } else {
-            LazyColumn(
-                state = listStateFor(pageMode),
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = chromeTop),
-            ) {
-                itemsIndexed(pagePosts, key = { _, post -> "$pageMode-${post.id}" }) { _, post ->
-                    val engagement = engagementStates[post.id]
-                    PostCard(
-                        post = post,
-                        likeCount = engagement?.likeCount ?: post.likeCount,
-                        commentCount = engagement?.commentCount ?: post.commentCount,
-                        repostCount = engagement?.repostCount ?: post.repostCount,
-                        isLiked = engagement?.isLiked ?: post.isLiked,
-                        isSaved = engagement?.isSaved ?: false,
-                        saveCount = engagement?.saveCount ?: post.saveCount,
-                        saveCountEnabled = viewModel.remoteConfig.saveCountEnabled,
-                        currentUser = currentUserProfile,
-                        isPreviewLoading = false,
-                        isPreviewPlaying = false,
-                        ownsActivePlayback = false,
-                        onLikeTap = { viewModel.toggleLike(post.id) },
-                        onSaveTap = { viewModel.toggleSave(post.id) },
-                        onUserTap = { onNavigateToUser(post.user) },
-                        onPostTap = { onNavigateToPost(post.id) },
-                        onPreviewTap = { viewModel.playPreview(post) },
-                        isFullSongPlaying = false,
-                        isFullSongLoading = false,
-                        onTrailerTap = {},
-                        onCommentTap = { onNavigateToComments(post.id) },
-                        onLikesTap = { onNavigateToLikes(post.id) },
-                        onLikerTap = { liker -> onNavigateToUser(liker) },
-                        onRepostTap = { onRepost(post) },
-                        onShareTap = { sharePost = post },
-                        onMenuTap = { menuPost = post },
-                        onFilmPageTap = { onNavigateToFilm(post.movieId ?: "") },
-                        musicService = musicService,
-                        onMentionTap = { username -> onNavigateToUserByUsername(username) },
-                        onHashtagTap = { hashtag -> onNavigateToHashtag(hashtag) },
-                        backCoverFlipState = backCoverStateFor(post.id),
-                        isTrendingFeed = pageMode == "trending",
-                        isFollowingAuthor = followingUserIds.contains(post.user.id),
-                        isFollowingKnown = followingLoaded,
-                        onFollowAuthor = { viewModel.followAuthor(post.user.id) },
-                    )
-                    HorizontalDivider(color = CorusColors.Divider)
-                }
-            }
+            FeedPageStates(
+                includeHeader = includeHeader,
+                chromeTop = chromeTop,
+                pageMode = pageMode,
+            )
         }
     }
 
@@ -1405,12 +1500,15 @@ fun FeedScreen(
                 beyondViewportPageCount = 1,
             ) { page ->
                 val pageMode = tabBarModes.getOrNull(page) ?: return@HorizontalPager
-                val isSelected = pageMode == feedMode
-                if (isSelected) {
-                    FeedPullBox(includeHeader = false, topPad = false, chromeTop = chromeTop)
-                } else {
-                    NeighborFeedPage(pageMode, chromeTop = chromeTop)
-                }
+                // Same composition for peek and settle. Swapping a neighbor
+                // preview for the live feed remounted PostCards and faded
+                // album art in again after a swipe that already looked right.
+                FeedPullBox(
+                    includeHeader = false,
+                    topPad = false,
+                    chromeTop = chromeTop,
+                    pageMode = pageMode,
+                )
             }
             FeedCollapsingChrome(
                 collapse = chromeCollapse,
@@ -1422,26 +1520,29 @@ fun FeedScreen(
                     modes = tabBarModes,
                     selected = feedMode,
                     pagerOffset = pagerOffset,
-                    showDivider = false,
                     onSelect = { mode ->
                         haptics.impact(HapticManager.ImpactStyle.LIGHT)
                         chromeCollapse.reveal()
-                        val index = tabBarModes.indexOf(mode)
-                        if (index >= 0) {
-                            scope.launch {
-                                pagerState.animateScrollToPage(
-                                    index,
-                                    animationSpec = tween(durationMillis = 180),
-                                )
+                        if (mode == feedMode) {
+                            scope.launch { listState.animateScrollToItem(0) }
+                        } else {
+                            val index = tabBarModes.indexOf(mode)
+                            if (index >= 0) {
+                                scope.launch {
+                                    pagerState.animateScrollToPage(
+                                        index,
+                                        animationSpec = tween(durationMillis = 180),
+                                    )
+                                }
                             }
+                            viewModel.setFeedMode(mode)
                         }
-                        viewModel.setFeedMode(mode)
                     },
                 )
             }
         }
     } else {
-        FeedPullBox(includeHeader = true, topPad = true)
+        FeedPullBox(includeHeader = true, topPad = true, chromeTop = 0.dp, pageMode = feedMode)
     }
     if (immersive) {
         FrostedStatusStrip(
@@ -2118,45 +2219,67 @@ private fun TasteMatchesNeutralEmpty() {
 /**
  * "No matches yet": posted enough to clear the cold-start gate, but no shared
  * artist/director with anyone yet (gated:"noMatchesYet"). Unlike the neutral
- * empty, this is actionable — keep posting and your matches fill in. Mirrors
- * iOS tasteMatchesNoMatchesYetState.
+ * empty, this is actionable — keep posting and your matches fill in. Same
+ * branded lock layout as [FavoritesEmptyState] / [TasteMatchesPaywallState]
+ * so the empties sit at the same height. Mirrors iOS TasteMatchesNoMatchesYetState.
  */
 @Composable
 private fun TasteMatchesNoMatchesYet(onPost: () -> Unit) {
-    Spacer(modifier = Modifier.height(60.dp))
-    VennDiagramIcon(
-        size = 36.dp,
-        color = CorusColors.Tertiary,
-        shadedIntersection = true,
-    )
-    Spacer(modifier = Modifier.height(CorusSpacing.md))
-    Text(
-        text = stringResource(R.string.feed_taste_matches_no_matches_title),
-        style = CorusFont.songTitle,
-        color = CorusColors.Secondary,
-        textAlign = TextAlign.Center,
-    )
-    Spacer(modifier = Modifier.height(CorusSpacing.xs))
-    Text(
-        text = stringResource(R.string.feed_taste_matches_no_matches_body),
-        style = CorusFont.body,
-        color = CorusColors.Tertiary,
-        textAlign = TextAlign.Center,
-        modifier = Modifier.padding(horizontal = CorusSpacing.xl),
-    )
-    Spacer(modifier = Modifier.height(CorusSpacing.lg))
-    Button(
-        onClick = onPost,
-        colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
-        shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
-    ) {
-        Text(
-            text = stringResource(R.string.feed_taste_matches_coldstart_cta),
-            style = CorusFont.button,
-            color = Color.White,
-        )
+    val appeared = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        appeared.animateTo(1f, tween(450, easing = FastOutSlowInEasing))
     }
-    Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+
+    Spacer(modifier = Modifier.height(160.dp))
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.xxxl)
+            .graphicsLayer { alpha = appeared.value; translationY = (1f - appeared.value) * 8f },
+    ) {
+        VennDiagramIcon(
+            size = 40.dp,
+            color = CorusColors.Accent,
+            shadedIntersection = true,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        Text(
+            text = stringResource(R.string.search_section_taste_matches).uppercase(),
+            style = CorusFont.sectionHeader.copy(letterSpacing = 0.8.sp),
+            color = CorusColors.Accent,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+        Text(
+            text = stringResource(R.string.feed_taste_matches_no_matches_title),
+            style = CorusFont.songTitleLarge.copy(fontSize = 21.sp),
+            color = CorusColors.Text,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        Text(
+            text = stringResource(R.string.feed_taste_matches_no_matches_body),
+            style = CorusFont.body.copy(fontSize = 16.sp),
+            color = CorusColors.Secondary,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.xl))
+        Button(
+            onClick = onPost,
+            colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+            shape = CircleShape,
+            contentPadding = PaddingValues(
+                horizontal = CorusSpacing.xxl,
+                vertical = CorusSpacing.md,
+            ),
+        ) {
+            Text(
+                text = stringResource(R.string.feed_taste_matches_coldstart_cta),
+                style = CorusFont.button.copy(fontSize = 17.sp),
+                color = Color.White,
+            )
+        }
+    }
 }
 
 /**
@@ -2210,46 +2333,187 @@ private fun TasteMatchesTrialBanner(
 }
 
 /**
- * In-feed Taste Matches paywall backstop (server gated:"paywall"). A sparkles
- * mark + copy + "Learn more" CTA that opens the Club sheet. Mirrors iOS
- * tasteMatchesPaywallState.
+ * Unfiltered Favorites empty. Same layout as [TasteMatchesPaywallState]
+ * (eyebrow + headline + body + pill) so the two feed locks feel like a pair.
  */
 @Composable
-private fun TasteMatchesPaywallState(onLearnMore: () -> Unit) {
-    Spacer(modifier = Modifier.height(60.dp))
-    VennDiagramIcon(
-        size = 40.dp,
-        color = CorusColors.Accent,
-        shadedIntersection = true,
-    )
-    Spacer(modifier = Modifier.height(CorusSpacing.md))
-    Text(
-        text = stringResource(R.string.feed_taste_matches_paywall_title),
-        style = CorusFont.bodyMedium,
-        color = CorusColors.Text,
-        textAlign = TextAlign.Center,
-    )
-    Spacer(modifier = Modifier.height(CorusSpacing.xs))
-    Text(
-        text = stringResource(R.string.feed_taste_matches_paywall_body),
-        style = CorusFont.body,
-        color = CorusColors.Secondary,
-        textAlign = TextAlign.Center,
-        modifier = Modifier.padding(horizontal = CorusSpacing.xl),
-    )
-    Spacer(modifier = Modifier.height(CorusSpacing.lg))
-    Button(
-        onClick = onLearnMore,
-        colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
-        shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+private fun FavoritesEmptyState(onBackToFollowing: () -> Unit) {
+    val appeared = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        appeared.animateTo(1f, tween(450, easing = FastOutSlowInEasing))
+    }
+
+    Spacer(modifier = Modifier.height(160.dp))
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.xxxl)
+            .graphicsLayer { alpha = appeared.value; translationY = (1f - appeared.value) * 8f },
+    ) {
+        Box(
+            modifier = Modifier.size(40.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Star,
+                contentDescription = null,
+                tint = CorusColors.Accent,
+                modifier = Modifier.size(34.dp),
+            )
+        }
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        Text(
+            text = stringResource(R.string.feed_empty_favorites_eyebrow).uppercase(),
+            style = CorusFont.sectionHeader.copy(letterSpacing = 0.8.sp),
+            color = CorusColors.Accent,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+        Text(
+            text = stringResource(R.string.feed_empty_favorites_title),
+            style = CorusFont.songTitleLarge.copy(fontSize = 21.sp),
+            color = CorusColors.Text,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        Text(
+            text = stringResource(R.string.feed_empty_favorites_subtitle),
+            style = CorusFont.body.copy(fontSize = 16.sp),
+            color = CorusColors.Secondary,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.xl))
+        Button(
+            onClick = onBackToFollowing,
+            colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+            shape = CircleShape,
+            contentPadding = PaddingValues(
+                horizontal = CorusSpacing.xxl,
+                vertical = CorusSpacing.md,
+            ),
+        ) {
+            Text(
+                text = stringResource(R.string.feed_empty_favorites_button),
+                style = CorusFont.button.copy(fontSize = 17.sp),
+                color = Color.White,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TasteMatchesLockedFeedPeek(post: fm.corus.android.data.model.CymbalPost) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
     ) {
         Text(
-            text = stringResource(R.string.feed_taste_matches_paywall_cta),
-            style = CorusFont.button,
-            color = Color.White,
+            text = post.user.username,
+            style = CorusFont.username,
+            color = CorusColors.Text,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        AsyncImage(
+            model = post.displayImageLargeURL ?: post.displayImageURL,
+            contentDescription = null,
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(CorusSpacing.cornerRadiusLarge)),
+            contentScale = ContentScale.Crop,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        Text(
+            text = post.displayTitle,
+            style = CorusFont.songTitle,
+            color = CorusColors.Text,
+        )
+        Text(
+            text = post.displaySubtitle,
+            style = CorusFont.artistName,
+            color = CorusColors.Secondary,
         )
     }
-    Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+}
+
+/**
+ * Expired-trial / gated:"paywall" lock. Mirrors iOS TasteMatchesExpiredTrialView.
+ */
+@Composable
+private fun TasteMatchesPaywallState(
+    hasClubIntroTrial: Boolean,
+    overFeedPreview: Boolean = false,
+    onAwaitOfferings: suspend () -> Unit,
+    onShown: () -> Unit,
+    onSubscribe: () -> Unit,
+) {
+    val appeared = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        onAwaitOfferings()
+        onShown()
+        appeared.animateTo(1f, tween(450, easing = FastOutSlowInEasing))
+    }
+
+    Spacer(modifier = Modifier.height(if (overFeedPreview) 120.dp else 160.dp))
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.xxxl)
+            .graphicsLayer { alpha = appeared.value; translationY = (1f - appeared.value) * 8f },
+    ) {
+        VennDiagramIcon(
+            size = 40.dp,
+            color = CorusColors.Accent,
+            shadedIntersection = true,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        Text(
+            text = stringResource(R.string.search_section_taste_matches).uppercase(),
+            style = CorusFont.sectionHeader.copy(letterSpacing = 0.8.sp),
+            color = CorusColors.Accent,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+        Text(
+            text = stringResource(
+                if (hasClubIntroTrial) R.string.feed_taste_matches_paywall_trial_title
+                else R.string.feed_taste_matches_paywall_title,
+            ),
+            style = CorusFont.songTitleLarge.copy(fontSize = 21.sp),
+            color = CorusColors.Text,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.sm))
+        Text(
+            text = stringResource(
+                if (hasClubIntroTrial) R.string.feed_taste_matches_paywall_trial_body
+                else R.string.feed_taste_matches_paywall_body,
+            ),
+            style = CorusFont.body.copy(fontSize = 16.sp),
+            color = CorusColors.Secondary,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(CorusSpacing.xl))
+        Button(
+            onClick = onSubscribe,
+            colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+            shape = CircleShape,
+            contentPadding = PaddingValues(
+                horizontal = CorusSpacing.xxl,
+                vertical = CorusSpacing.md,
+            ),
+        ) {
+            Text(
+                text = stringResource(
+                    if (hasClubIntroTrial) R.string.feed_taste_matches_paywall_trial_cta
+                    else R.string.feed_taste_matches_paywall_cta,
+                ),
+                style = CorusFont.button.copy(fontSize = 17.sp),
+                color = Color.White,
+            )
+        }
+    }
 }
 
 /**
@@ -2347,6 +2611,7 @@ internal fun FeedHeader(
     onSwitcherOpened: () -> Unit = {},
     showFeedSwitchHint: Boolean = false,
     tabsVisible: Boolean = false,
+    onComposePlus: () -> Unit = {},
 ) {
     Box(
         modifier = Modifier
@@ -2387,58 +2652,104 @@ internal fun FeedHeader(
             )
         }
 
-        // iOS header hugs the wordmark (32pt icons). Material IconButtons
-        // are 48dp and were adding a band of air above the tab row.
+        // Same 16dp gutter + chrome hit box as the profile compose `+`.
+        // Avoid Material IconButtons (48dp) — they shrink the glyph inward.
         Box(
             modifier = if (tabsVisible) Modifier.matchParentSize() else Modifier.fillMaxWidth(),
         ) {
-        if (showPlaylistButton) {
-            val playlistAlpha by animateFloatAsState(
-                targetValue = if (playlistReady) 1f else 0.4f,
-                animationSpec = tween(durationMillis = 200),
-                label = "playlistDim",
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = CorusSpacing.lg)
+                .size(CorusSpacing.composePlusSide)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onComposePlus,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Add,
+                contentDescription = stringResource(R.string.tab_cd_compose),
+                tint = CorusColors.Secondary,
+                modifier = Modifier.size(CorusSpacing.composePlusIcon),
             )
-            IconButton(
-                onClick = { if (playlistReady) onGeneratePlaylist() },
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .graphicsLayer { alpha = playlistAlpha },
-                enabled = !isGeneratingPlaylist,
-            ) {
-                if (isGeneratingPlaylist) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = CorusColors.Secondary,
-                        strokeWidth = 2.dp,
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Filled.QueueMusic,
-                        contentDescription = stringResource(R.string.feed_cd_generate_playlist),
-                        tint = CorusColors.Secondary,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-            }
         }
 
         Row(
-            modifier = Modifier.align(Alignment.CenterStart),
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = CorusSpacing.lg),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
         ) {
+            if (showPlaylistButton) {
+                val playlistAlpha by animateFloatAsState(
+                    targetValue = if (playlistReady) 1f else 0.4f,
+                    animationSpec = tween(durationMillis = 200),
+                    label = "playlistDim",
+                )
+                Box(
+                    modifier = Modifier
+                        .size(CorusSpacing.composePlusSide)
+                        .graphicsLayer { alpha = playlistAlpha }
+                        .clickable(
+                            enabled = !isGeneratingPlaylist && playlistReady,
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onGeneratePlaylist,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (isGeneratingPlaylist) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(CorusSpacing.feedPlaylistIcon),
+                            color = CorusColors.Secondary,
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.QueueMusic,
+                            contentDescription = stringResource(R.string.feed_cd_generate_playlist),
+                            tint = CorusColors.Secondary,
+                            modifier = Modifier.size(CorusSpacing.feedPlaylistIcon),
+                        )
+                    }
+                }
+            }
             Box {
                 var decadeDrillIn by remember { mutableStateOf(false) }
-                IconButton(
-                    onClick = {
-                        decadeDrillIn = false
-                        onFilterMenuExpandedChange(true)
-                    },
+                Box(
+                    modifier = Modifier
+                        .size(CorusSpacing.composePlusSide)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {
+                                decadeDrillIn = false
+                                onFilterMenuExpandedChange(true)
+                            },
+                        ),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.List,
-                        contentDescription = stringResource(R.string.feed_cd_filter),
-                        tint = if (!feedFilter.isAll || feedDecade != null) CorusColors.Accent else CorusColors.Secondary,
-                    )
+                    if (feedDecade != null) {
+                        Text(
+                            text = FeedDecade.label(feedDecade),
+                            style = CorusFont.button,
+                            color = CorusColors.Accent,
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.List,
+                            contentDescription = stringResource(R.string.feed_cd_filter),
+                            tint = if (!feedFilter.isAll) CorusColors.Accent else CorusColors.Secondary,
+                            modifier = Modifier.size(
+                                if (feedFilter.isAll) CorusSpacing.feedFilterIcon
+                                else CorusSpacing.feedFilterIcon + 3.dp,
+                            ),
+                        )
+                    }
                 }
                 DropdownMenu(
                     expanded = filterMenuExpanded,
@@ -2554,37 +2865,28 @@ internal fun FeedHeader(
                     }
                 }
             }
-            // Indicator icon next to the filter button. Same purple as the
-            // existing NEW RELEASE badge for the new-releases filters; accent
-            // blue for the plain media-type filters.
-            when (feedFilter) {
-                FeedFilter.MUSIC -> Icon(
-                    imageVector = Icons.Filled.MusicNote,
-                    contentDescription = null,
-                    tint = CorusColors.Accent,
-                    modifier = Modifier.size(20.dp),
-                )
-                FeedFilter.FILM -> Icon(
-                    imageVector = Icons.Filled.Movie,
-                    contentDescription = null,
-                    tint = CorusColors.Accent,
-                    modifier = Modifier.size(20.dp),
-                )
-                FeedFilter.MUSIC_NEW_RELEASES, FeedFilter.FILM_NEW_RELEASES -> Icon(
-                    imageVector = Icons.Filled.LocalFireDepartment,
-                    contentDescription = null,
-                    tint = androidx.compose.ui.graphics.Color(0.62f, 0.35f, 0.95f),
-                    modifier = Modifier.size(20.dp),
-                )
-                FeedFilter.ALL -> {}
-            }
-            if (feedDecade != null) {
-                Spacer(modifier = Modifier.width(CorusSpacing.xs - 1.dp))
-                Text(
-                    text = FeedDecade.label(feedDecade),
-                    style = CorusFont.button,
-                    color = CorusColors.Accent,
-                )
+            if (feedDecade == null) {
+                when (feedFilter) {
+                    FeedFilter.MUSIC -> Icon(
+                        imageVector = Icons.Filled.MusicNote,
+                        contentDescription = null,
+                        tint = CorusColors.Accent,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    FeedFilter.FILM -> Icon(
+                        imageVector = Icons.Filled.Movie,
+                        contentDescription = null,
+                        tint = CorusColors.Accent,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    FeedFilter.MUSIC_NEW_RELEASES, FeedFilter.FILM_NEW_RELEASES -> Icon(
+                        imageVector = Icons.Filled.LocalFireDepartment,
+                        contentDescription = null,
+                        tint = androidx.compose.ui.graphics.Color(0.62f, 0.35f, 0.95f),
+                        modifier = Modifier.size(20.dp),
+                    )
+                    FeedFilter.ALL -> {}
+                }
             }
         }
         }

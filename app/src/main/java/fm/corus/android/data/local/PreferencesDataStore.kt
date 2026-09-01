@@ -703,6 +703,19 @@ class PreferencesDataStore @Inject constructor(
         dataStore.edit { it[SPOTIFY_FTUE_FIRST_PLAY_CONSUMED] = true }
     }
 
+    /** New Corus account: drop the previous account's prompt consumption. */
+    suspend fun resetSpotifyFtuePrompts() {
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .remove("spotify_ftue_link_prompt_consumed")
+            .remove("spotify_ftue_first_play_consumed")
+            .apply()
+        dataStore.edit {
+            it.remove(SPOTIFY_FTUE_LINK_PROMPT_CONSUMED)
+            it.remove(SPOTIFY_FTUE_FIRST_PLAY_CONSUMED)
+        }
+    }
+
     /**
      * Opt-in: once the user turns on the Settings "Add Saved Songs to Library"
      * toggle for Spotify, every subsequent song save also adds the track to

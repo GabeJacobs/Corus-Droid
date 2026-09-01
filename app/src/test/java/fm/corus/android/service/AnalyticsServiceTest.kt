@@ -213,6 +213,14 @@ class AnalyticsServiceTest {
     }
 
     @Test
+    fun `taste matches paywall lock events match iOS names`() {
+        service.logTasteMatchesPaywallShown(false)
+        verify(firebase).logEvent(eq("taste_matches_paywall_shown"), any<Bundle>())
+        service.logTasteMatchesPaywallTapped(true)
+        verify(firebase).logEvent(eq("taste_matches_paywall_tapped"), any<Bundle>())
+    }
+
+    @Test
     fun `logFeedSwitcherOpened emits feed_switcher_opened`() {
         service.logFeedSwitcherOpened()
         verify(firebase).logEvent(eq("feed_switcher_opened"), any<Bundle>())

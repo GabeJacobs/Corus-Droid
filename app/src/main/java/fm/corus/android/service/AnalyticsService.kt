@@ -429,6 +429,7 @@ class AnalyticsService @Inject constructor(
     fun logUnmuteUser(targetUserId: String) = logEvent("unmute_user", mapOf("target_user_id" to targetUserId))
     fun logFavoriteAdded(targetUserId: String) = logEvent("favorite_added", mapOf("target_user_id" to targetUserId))
     fun logFavoriteRemoved(targetUserId: String) = logEvent("favorite_removed", mapOf("target_user_id" to targetUserId))
+    fun logFollowingOptionsOpened(targetUserId: String) = logEvent("following_options_opened", mapOf("target_user_id" to targetUserId))
     fun logReportUser(targetUserId: String) = logEvent("report_user", mapOf("target_user_id" to targetUserId))
     fun logReportPost(postId: String, reason: String) = logEvent("report_post", mapOf("post_id" to postId, "reason" to reason))
     fun logReportComment(commentId: String, reason: String) = logEvent("report_comment", mapOf("comment_id" to commentId, "reason" to reason))
@@ -565,6 +566,12 @@ class AnalyticsService @Inject constructor(
         if (daysRemaining != null) params["days_remaining"] = daysRemaining
         logEvent("taste_matches_banner_tapped", params)
     }
+    // In-feed Taste Matches lock (gated:"paywall"). Distinct from paywall_shown
+    // (the Club sheet). Names + param keys match iOS / web.
+    fun logTasteMatchesPaywallShown(hasClubTrial: Boolean) =
+        logEvent("taste_matches_paywall_shown", mapOf("has_club_trial" to hasClubTrial))
+    fun logTasteMatchesPaywallTapped(hasClubTrial: Boolean) =
+        logEvent("taste_matches_paywall_tapped", mapOf("has_club_trial" to hasClubTrial))
     fun logMessageThreadOpened(threadId: String) = logEvent("message_thread_opened", mapOf("thread_id" to threadId))
     fun logMessageSent(threadId: String, type: String) = logEvent("message_sent", mapOf("thread_id" to threadId, "message_type" to type))
     fun logMessageError(threadId: String, error: String) = logEvent("message_error", mapOf("thread_id" to threadId, "error" to error.take(100)))

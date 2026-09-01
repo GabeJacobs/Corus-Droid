@@ -19,6 +19,39 @@ object CorusSpacing {
     val avatarMedium = 36.dp
     val avatarLarge = 72.dp
 
+    /** Follow / Message / Edit / playlist pills. Matches iOS `instagramActionHeight`. */
+    val profileActionHeight = 34.dp
+
+    /** Extra gap above action pills when bio/website are empty. Matches iOS. */
+    val profileEmptyInfoActionsExtra = 4.dp
+
+    /**
+     * Hit box for header chrome (plus / cog / filter / playlist).
+     * Larger than iOS's 28pt frame so Material glyphs can sit with the 37dp vinyl.
+     */
+    val composePlusSide = 36.dp
+
+    /**
+     * Feed + profile compose `+` glyph. Material icons read smaller than SF
+     * Symbols at the same dp; sized to sit with [profileStyleIcon].
+     */
+    val composePlusIcon = 32.dp
+
+    /** Profile style vinyl. Matches iOS `titleStyleIconSide`. Do not shrink. */
+    val profileStyleIcon = 37.dp
+
+    /** Profile settings cog. Same optical size as [composePlusIcon]. */
+    val profileSettingsIcon = 32.dp
+
+    /** Feed filter sliders (un-narrowed). Active filter uses +3 on top of this. */
+    val feedFilterIcon = 30.dp
+
+    /** Feed playlist. Same optical size as the filter. */
+    val feedPlaylistIcon = 30.dp
+
+    /** Icon-only playlist pill next to Edit / Share (34dp tall). */
+    val profileActionPlaylistIcon = 22.dp
+
     /** Top/bottom pad on a post header. Matches iOS (14pt). */
     val postHeaderVertical = 14.dp
 
@@ -26,6 +59,17 @@ object CorusSpacing {
     val albumArtSearch = 48.dp
 
     val touchTarget = 44.dp
+
+    /** Collapsed mini-player artwork. 36dp (was 40) so a 56dp bar still has air. */
+    val miniPlayerArtwork = 36.dp
+
+    /** Vertical inset of the collapsed mini-player. 6dp + 44dp controls = 56dp,
+     *  ~93% of the previous 60dp bar (8+8 pad). Matches iOS. */
+    val miniPlayerVerticalPadding = 6.dp
+
+    /** Floor for collapsed mini-player layout reserve / park height.
+     *  Measured height wins when larger; this only prevents a 0-height first frame. */
+    val miniPlayerMinHeight = 50.dp
 
     val tabBarHeight = 50.dp
 

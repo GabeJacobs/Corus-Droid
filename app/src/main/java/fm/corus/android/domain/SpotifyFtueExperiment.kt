@@ -133,6 +133,7 @@ object SpotifyFtueExperiment {
             variant = result.variant.value,
             alwaysPlayFullSongs = result.alwaysPlayFullSongs,
         )
+        preferences.resetSpotifyFtuePrompts()
         analytics.setSpotifyFtueUserProperties(result.variant.value, service.value)
         analytics.logSpotifyFtueAssigned(result.variant.value, spotifyInstalled)
         return result

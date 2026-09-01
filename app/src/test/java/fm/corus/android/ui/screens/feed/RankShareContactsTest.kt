@@ -1,57 +1,65 @@
 package fm.corus.android.ui.screens.feed
 
+import fm.corus.android.data.model.CymbalThread
 import fm.corus.android.data.model.CymbalUser
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Regression coverage for the share-sheet contact ranking: share recipients lead,
- * recent DM partners fill, the follow-graph fallback comes last, duplicates collapse
- * to their highest-priority position, and the grid is capped.
+ * Share-sheet recents are most-recent 1:1 DM partners in inbox order.
+ * Groups drop out, duplicates collapse, and the grid is capped.
  */
 class RankShareContactsTest {
 
     private fun user(id: String) = CymbalUser(id = id, username = id, displayName = id)
 
+    private fun thread(id: String, other: CymbalUser? = null, isGroup: Boolean = false) =
+        CymbalThread(id = id, otherUser = other, otherUserId = other?.id ?: "", isGroup = isGroup)
+
     @Test
-    fun `share recipients rank ahead of dm partners and follow fallback`() {
-        val result = rankShareContacts(
-            shareRecipients = listOf(user("a"), user("b")),
-            threadContacts = listOf(user("c")),
-            followFallback = listOf(user("d")),
+    fun `contacts stay in inbox order`() {
+        val result = recentDmShareContacts(
+            listOf(thread("t1", user("c")), thread("t2", user("a")), thread("t3", user("b"))),
         )
-        assertEquals(listOf("a", "b", "c", "d"), result.map { it.id })
+        assertEquals(listOf("c", "a", "b"), result.map { it.id })
     }
 
     @Test
-    fun `duplicates keep their highest-priority position`() {
-        // "b" appears as a share recipient AND a DM partner AND a follow — it should
-        // surface once, at its share-recipient rank, not be duplicated lower down.
-        val result = rankShareContacts(
-            shareRecipients = listOf(user("a"), user("b")),
-            threadContacts = listOf(user("b"), user("c")),
-            followFallback = listOf(user("b"), user("d")),
+    fun `group threads are skipped`() {
+        val result = recentDmShareContacts(
+            listOf(
+                thread("g1", isGroup = true),
+                thread("t1", user("a")),
+                thread("g2", user("skip"), isGroup = true),
+            ),
         )
-        assertEquals(listOf("a", "b", "c", "d"), result.map { it.id })
+        assertEquals(listOf("a"), result.map { it.id })
+    }
+
+    @Test
+    fun `duplicates keep their first inbox position`() {
+        val result = recentDmShareContacts(
+            listOf(thread("t1", user("a")), thread("t2", user("b")), thread("t3", user("a"))),
+        )
+        assertEquals(listOf("a", "b"), result.map { it.id })
     }
 
     @Test
     fun `result is capped`() {
-        val many = (1..30).map { user("u$it") }
-        val result = rankShareContacts(
-            shareRecipients = many,
-            threadContacts = emptyList(),
-            followFallback = emptyList(),
-        )
+        val many = (1..30).map { thread("t$it", user("u$it")) }
+        val result = recentDmShareContacts(many)
         assertEquals(SHARE_CONTACTS_CAP, result.size)
+        assertEquals("u1", result.first().id)
     }
 
     @Test
-    fun `blank ids are dropped`() {
-        val result = rankShareContacts(
-            shareRecipients = listOf(user("a"), user("")),
-            threadContacts = emptyList(),
-            followFallback = emptyList(),
+    fun `blank ids and missing otherUser are dropped`() {
+        val result = recentDmShareContacts(
+            listOf(
+                thread("t1", user("a")),
+                thread("t2", user("")),
+                thread("t3"),
+            ),
         )
         assertEquals(listOf("a"), result.map { it.id })
     }

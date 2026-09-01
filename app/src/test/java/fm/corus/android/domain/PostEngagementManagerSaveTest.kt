@@ -44,6 +44,7 @@ class PostEngagementManagerSaveTest {
         analyticsService = mock(),
         saveChangedEvent = saveEvent,
         spotifySaveAutoAdd = mock(),
+        reviewPromptManager = mock(),
     )
 
     /** checkSaveStatuses launches on Dispatchers.IO; poll briefly for the result. */

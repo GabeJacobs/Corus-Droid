@@ -168,6 +168,7 @@
     <string name="feed_empty_new_releases_title">まだ新着がありません</string>
     <string name="feed_empty_new_releases_subtitle">フォロー中の人からの新着は、しばらくしてからもう一度確認してください。</string>
     <string name="feed_empty_new_releases_show_all">すべての投稿を表示</string>
+    <string name="feed_empty_favorites_eyebrow">お気に入り</string>
     <string name="feed_empty_favorites_title">お気に入りはまだありません</string>
     <string name="feed_empty_favorites_subtitle">誰かのプロフィールで☆をタップすると、ここに追加できます。</string>
     <string name="feed_empty_favorites_button">フォロー中に戻る</string>
@@ -321,8 +322,10 @@
     <string name="profile_toast_style_updated">スタイルを更新しました！</string>
     <string name="profile_toast_no_songs_for_playlist">プレイリストを作成する曲がありません</string>
     <string name="profile_button_edit">プロフィールを編集</string>
+    <string name="profile_button_edit_short">編集</string>
     <string name="profile_button_playlist">プレイリスト</string>
     <string name="profile_button_share">プロフィールをシェア</string>
+    <string name="profile_button_share_short">シェア</string>
     <string name="hashtag_button_playlist">プレイリスト</string>
     <string name="profile_stat_coruses">coruses</string>
     <string name="profile_stat_followers">フォロワー</string>
@@ -366,6 +369,10 @@
     <string name="other_profile_blocked_message">このユーザーをブロックしました</string>
     <string name="other_profile_button_follow">フォロー</string>
     <string name="other_profile_button_following">フォロー中</string>
+    <string name="other_profile_action_unfollow">フォロー解除</string>
+    <string name="other_profile_action_add_favorite">@string/other_profile_cd_add_favorite</string>
+    <string name="other_profile_action_remove_favorite">@string/other_profile_cd_remove_favorite</string>
+    <string name="other_profile_cd_following_options">フォローオプションを表示</string>
     <string name="other_profile_tab_likes">いいね</string>
     <string name="other_profile_empty_no_songs">まだ曲がありません</string>
     <string name="other_profile_empty_no_films">まだ映画がありません</string>
@@ -390,7 +397,7 @@
     <string name="edit_profile_dialog_keep_editing">編集を続ける</string>
     <string name="edit_profile_share_text_format">Corus で私のプロフィールをチェック： https://corus.fm/user/%1$s</string>
     <string name="edit_profile_share_chooser">プロフィールをシェア</string>
-    <string name="edit_profile_field_name">名前</string>
+    <string name="edit_profile_field_name">表示名</string>
     <string name="edit_profile_field_username">ユーザーネーム</string>
     <string name="edit_profile_field_bio">自己紹介</string>
     <string name="edit_profile_field_website">ウェブサイト</string>
@@ -652,7 +659,7 @@
     <string name="onboarding_subtitle">プロフィールを設定しましょう</string>
     <string name="onboarding_cd_avatar">アバター</string>
     <string name="onboarding_add_photo">写真を追加</string>
-    <string name="onboarding_full_name">氏名</string>
+    <string name="onboarding_full_name">表示名</string>
     <string name="onboarding_terms">アカウントを作成することで、利用規約およびプライバシーポリシーに同意したものとみなされます。</string>
     <string name="onboarding_button_continue">続ける</string>
     <string name="music_service_title">プレーヤーを選ぼう</string>
@@ -700,6 +707,10 @@
     <string name="messaging_thread_sending">送信中...</string>
     <string name="messaging_thread_unavailable">この会話は利用できなくなりました</string>
     <string name="messaging_thread_user_messaging_disabled">このユーザーはメッセージを無効にしています</string>
+    <string name="messaging_restriction_nobody">%1$sは今メッセージを受け付けていません。</string>
+    <string name="messaging_restriction_followers">%1$sはフォロワーからのメッセージのみ受け付けています。</string>
+    <string name="messaging_restriction_following">%1$sはフォローしている人からのメッセージのみ受け付けています。</string>
+    <string name="messaging_restriction_name_fallback">相手</string>
     <string name="messaging_thread_failed_to_deliver">配信できませんでした</string>
     <string name="messaging_thread_tap_to_retry">· タップして再試行</string>
     <string name="messaging_list_title">メッセージ</string>
@@ -987,6 +998,16 @@
     <string name="messaging_group_member_count">メンバー%1$d人</string>
     <string name="messaging_group_and_others">他%1$d人</string>
     <string name="messaging_group_sender_preview">%1$s: %2$s</string>
+    <string name="messaging_group_sys_created">%1$sがグループを作成しました</string>
+    <string name="messaging_group_sys_added">%1$sが%2$sを追加しました</string>
+    <string name="messaging_group_sys_removed">%1$sが%2$sを削除しました</string>
+    <string name="messaging_group_sys_left">%1$sが退出しました</string>
+    <string name="messaging_group_sys_named">%1$sがグループ名を%2$sに変更しました</string>
+    <string name="messaging_group_sys_renamed">%1$sがグループ名を変更しました</string>
+    <string name="messaging_group_sys_photo">%1$sがグループ写真を変更しました</string>
+    <string name="messaging_group_sys_and">%1$sと%2$s</string>
+    <string name="messaging_group_sys_and_n_other">%1$s、%2$s、他%3$d人</string>
+    <string name="messaging_group_sys_and_n_others">%1$s、%2$s、他%3$d人</string>
     <string name="club_feature_taste_matches">好みの一致フィード</string>
     <string name="feed_taste_matches_coldstart_title">好きな曲や映画を3つ教えてください。</string>
     <string name="feed_taste_matches_coldstart_body">Corusがあなた専用のフィードを作り、好みの近い人とつなげます。</string>
@@ -997,9 +1018,12 @@
     <string name="feed_taste_matches_no_matches_title">まだ一致がありません</string>
     <string name="feed_taste_matches_no_matches_body">好きな音楽や映画をもっと投稿すると、好みの合う人がここに表示されます。</string>
     <string name="feed_taste_matches_end_more">シェアするほど、好みの一致が増えます。</string>
-    <string name="feed_taste_matches_paywall_title">好みの一致</string>
-    <string name="feed_taste_matches_paywall_body">あなたと同じものを好きな人たち、好みの一致からおすすめが届きます。</string>
-    <string name="feed_taste_matches_paywall_cta">詳しく見る</string>
+    <string name="feed_taste_matches_paywall_title">好みの一致のプレビューが終了しました</string>
+    <string name="feed_taste_matches_paywall_body">Corus Clubに参加すると、好みが近い人の投稿を見られます。</string>
+    <string name="feed_taste_matches_paywall_cta">解除</string>
+    <string name="feed_taste_matches_paywall_trial_title">好みの一致フィードを解除</string>
+    <string name="feed_taste_matches_paywall_trial_body">Corus Clubを2週間無料で試して、好みが近い人の投稿を見ましょう。</string>
+    <string name="feed_taste_matches_paywall_trial_cta">解除</string>
 
     <!-- Artist / Album / Director destination pages (artist_pages_enabled) -->
     <string name="search_tab_music">音楽</string>

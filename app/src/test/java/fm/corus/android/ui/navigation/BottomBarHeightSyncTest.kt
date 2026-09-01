@@ -62,7 +62,6 @@ class BottomBarHeightSyncTest {
                                     selectedTab = CorusTab.FEED,
                                     notificationTabBadgeCount = 0,
                                     onTabSelected = {},
-                                    onComposeTapped = {},
                                     navInset = navInset,
                                 )
                             },
