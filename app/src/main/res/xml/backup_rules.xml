@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Android Keystore keys are device-bound, so restoring these encrypted
+         files without their keys makes them permanently unreadable. -->
+    <exclude domain="sharedpref" path="fm.corus.spotify.auth.xml" />
+    <exclude domain="sharedpref" path="fm.corus.spotify.libraryauth.xml" />
+</full-backup-content>

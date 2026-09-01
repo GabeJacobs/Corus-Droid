@@ -2151,7 +2151,10 @@ internal fun buildLinkifiedText(
                 }
                 "hashtag" -> {
                     pushStringAnnotation("hashtag", span.value)
-                    withStyle(SpanStyle(color = linkColor, fontWeight = FontWeight.Normal)) {
+                    // ExtraBold like @mentions so a tag stays readable on a
+                    // white-on-accent own bubble (regular weight looked like
+                    // plain body text). Incoming bubbles already use accent.
+                    withStyle(SpanStyle(color = linkColor, fontWeight = FontWeight.ExtraBold)) {
                         append(token)
                     }
                     pop()

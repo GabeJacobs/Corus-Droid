@@ -2,8 +2,6 @@ package fm.corus.android.domain
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -17,18 +15,7 @@ import javax.inject.Singleton
 class SpotifyAuthService @Inject constructor(
     @ApplicationContext context: Context,
 ) {
-    private val prefs: SharedPreferences = run {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        EncryptedSharedPreferences.create(
-            context,
-            PREFS_NAME,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-        )
-    }
+    private val prefs: SharedPreferences = SpotifyEncryptedPreferences.open(context, PREFS_NAME)
 
     /** Cached App Remote access token (no refresh). null when missing or expired. */
     fun cachedAccessToken(): String? {
@@ -113,7 +100,7 @@ class SpotifyAuthService @Inject constructor(
         /** Requested by [SpotifyConnectContext.beginInteractiveAuthorization]. */
         val APP_REMOTE_SCOPES = arrayOf("app-remote-control") + LIBRARY_SCOPES
 
-        private const val PREFS_NAME = "fm.corus.spotify.auth"
+        private const val PREFS_NAME = SpotifyEncryptedPreferences.APP_REMOTE_PREFS_NAME
         private const val ACCESS_TOKEN_KEY = "accessToken"
         private const val TOKEN_EXPIRY_KEY = "tokenExpiry"
         private const val SCOPES_KEY = "appRemoteScopes"

@@ -26,10 +26,21 @@ class MessageThreadLinkifyTest {
     }
 
     @Test
-    fun `hashtags are annotated`() {
+    fun `hashtags are annotated and extra bold like mentions`() {
         val attributed = buildLinkifiedText("love #tampopo tonight", isFromCurrentUser = false)
         val hashtag = attributed.getStringAnnotations("hashtag", 0, attributed.length).single()
         assertEquals("tampopo", hashtag.item)
+        val span = attributed.spanStyles.single { it.start == hashtag.start && it.end == hashtag.end }
+        assertEquals(FontWeight.ExtraBold, span.item.fontWeight)
+    }
+
+    @Test
+    fun `own-bubble hashtags stay white and extra bold`() {
+        val attributed = buildLinkifiedText("#jazztuesday", isFromCurrentUser = true)
+        val hashtag = attributed.getStringAnnotations("hashtag", 0, attributed.length).single()
+        val span = attributed.spanStyles.single { it.start == hashtag.start }
+        assertEquals(Color.White, span.item.color)
+        assertEquals(FontWeight.ExtraBold, span.item.fontWeight)
     }
 
     @Test

@@ -5,8 +5,6 @@ import android.content.Intent
 import android.net.Uri
 import android.util.Base64
 import androidx.browser.customtabs.CustomTabsIntent
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.ktor.client.HttpClient
 import io.ktor.client.request.forms.FormDataContent
@@ -58,18 +56,7 @@ class SpotifyLibraryAuthService @Inject constructor(
     private val httpClient: HttpClient,
     private val analyticsService: fm.corus.android.service.AnalyticsService,
 ) {
-    private val prefs by lazy {
-        val masterKey = MasterKey.Builder(appContext)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        EncryptedSharedPreferences.create(
-            appContext,
-            PREFS_NAME,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-        )
-    }
+    private val prefs by lazy { SpotifyEncryptedPreferences.open(appContext, PREFS_NAME) }
 
     /** Set while a [login] round-trip is in flight; completed by
      *  [handleRedirect] once the `corus://spotify-auth` redirect (with a
@@ -270,7 +257,7 @@ class SpotifyLibraryAuthService @Inject constructor(
         private const val TOKEN_URL = "https://accounts.spotify.com/api/token"
         private const val SCOPE = "user-library-modify"
 
-        private const val PREFS_NAME = "fm.corus.spotify.libraryauth"
+        private const val PREFS_NAME = SpotifyEncryptedPreferences.LIBRARY_PREFS_NAME
         private const val ACCESS_TOKEN_KEY = "webApiAccessToken"
         private const val TOKEN_EXPIRY_KEY = "webApiTokenExpiry"
         private const val REFRESH_TOKEN_KEY = "refreshToken"
