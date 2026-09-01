@@ -654,7 +654,7 @@
     <string name="auth_error_could_not_send_code">認証コードを送信できませんでした。もう一度お試しください。</string>
     <string name="auth_error_invalid_code">認証コードが正しくありません。もう一度お試しください。</string>
     <string name="auth_error_generic">問題が発生しました。もう一度お試しください。</string>
-    <string name="auth_error_device_verification">端末確認が完了しませんでした。Google Play 開発者サービスを更新して、もう一度お試しください。</string>
+    <string name="auth_error_device_verification">問題が発生しました。少し待ってからもう一度お試しください。</string>
     <string name="auth_error_delete_account">アカウントを削除できませんでした。もう一度お試しください。</string>
     <string name="auth_error_invalid_phone_reauth_code">コードが正しくありません。もう一度お試しください。</string>
     <string name="onboarding_welcome">ようこそ</string>

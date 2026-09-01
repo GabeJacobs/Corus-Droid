@@ -611,7 +611,7 @@
     <string name="auth_error_could_not_send_code">Não foi possível enviar o código de verificação. Tente novamente.</string>
     <string name="auth_error_invalid_code">Código de verificação inválido. Tente novamente.</string>
     <string name="auth_error_generic">Algo deu errado. Tente novamente.</string>
-    <string name="auth_error_device_verification">A verificação do aparelho não terminou. Atualize o Google Play Services e tente novamente.</string>
+    <string name="auth_error_device_verification">Algo deu errado. Tente novamente em instantes.</string>
     <string name="auth_error_delete_account">Não foi possível excluir sua conta. Tente novamente.</string>
     <string name="auth_error_invalid_phone_reauth_code">Código inválido. Tente novamente.</string>
 
