@@ -41,6 +41,10 @@ class MessageRepository @Inject constructor(
     private val storageDataSource: FirebaseStorageDataSource,
     private val firestore: FirebaseFirestore,
 ) {
+    companion object {
+        /** Small enough for an instant first paint; older history is paged on demand. */
+        const val MESSAGE_PAGE_SIZE = 40L
+    }
     // Emits a threadId when the caller leaves a group, so the inbox can drop the
     // row immediately (the live snapshot merge only adds/updates, never removes).
     private val _leftThreads = MutableSharedFlow<String>(extraBufferCapacity = 8)
@@ -415,11 +419,11 @@ class MessageRepository @Inject constructor(
             .document(threadId)
             .collection("messages")
             .orderBy("createdAt", Query.Direction.ASCENDING)
-            // limitToLast returns the NEWEST 200 (tail of the ascending order),
-            // still oldest-first. A plain limit(200) returns the OLDEST 200, so
-            // once a thread passes 200 messages the newest ones fall outside the
-            // window and never appear (chat looks blank; only old messages show).
-            .limitToLast(200)
+            // Keep only the recent live window. Older history is fetched through
+            // listMessages(beforeMs) when the user approaches the visual top.
+            // limitToLast keeps this ascending query newest-first in purpose but
+            // delivered oldest-first, which the ViewModel then reverses for UI.
+            .limitToLast(MESSAGE_PAGE_SIZE)
             // Metadata is included so an empty *cache* miss is not treated as
             // "this thread has no messages." That snapshot arrives first on a
             // cold open (emulator and first-visit alike), the spinner dropped,
@@ -478,10 +482,11 @@ class MessageRepository @Inject constructor(
     }
 
     /**
-     * Live snapshot of the first page of the caller's inbox, read straight from
-     * `users_v2/{uid}/threads` (ordered by `updatedAt`, newest first). Lets the
-     * inbox preview/timestamp/unread update in real time, while the paginated
-     * `listThreadsPage` callable still loads older threads on scroll.
+     * Live snapshot of recently-active inbox rows, read straight from
+     * `users_v2/{uid}/threads` (ordered by `updatedAt` so a read still
+     * streams). The list itself is last-message order; merge will not insert
+     * an opened old thread. The paginated `listThreadsPage` callable loads
+     * older conversations on scroll.
      *
      * These docs carry only `otherUserId` (not the resolved profile), so the
      * caller keeps the already-resolved `otherUser` for known threads and looks

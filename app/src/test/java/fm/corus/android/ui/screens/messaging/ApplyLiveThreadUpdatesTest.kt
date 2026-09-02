@@ -177,6 +177,20 @@ class ApplyLiveThreadUpdatesTest {
     }
 
     @Test
+    fun openingAnOldThreadDoesNotInsertItAboveNewerLastMessages() {
+        val existing = listOf(loaded("a", at = 9_000, updated = 9_000))
+        val live = listOf(
+            summary("ancient", at = 100, updated = 20_000),
+            summary("a", at = 9_000),
+        )
+
+        val result = applyLiveThreadUpdates(existing, live, pageSize = 2)
+
+        assertEquals(listOf("a"), result.merged.map { it.id })
+        assertTrue(result.newThreads.isEmpty())
+    }
+
+    @Test
     fun readingAnOldConversationDoesNotDeleteTheRowsAboveIt() {
         // Marking a thread read bumps `updatedAt` and nothing else, so a months-old
         // conversation the user just opened jumps to the top of the window carrying

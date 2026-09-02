@@ -29,9 +29,11 @@ import javax.inject.Inject
 internal fun mergeRefreshedThreads(
     existing: List<CymbalThread>,
     refreshed: List<CymbalThread>,
+    keepOlderTail: Boolean = true,
 ): List<CymbalThread> {
     val refreshedIds = refreshed.map { it.id }.toSet()
-    return refreshed + existing.filter { it.id !in refreshedIds }
+    val tail = if (keepOlderTail) existing.filter { it.id !in refreshedIds } else emptyList()
+    return refreshed + tail
 }
 
 /**
@@ -101,7 +103,12 @@ internal fun applyLiveThreadUpdates(
                 updatedAt = lt.updatedAt,
             )
         } else {
-            newThreads.add(lt)
+            // Live window is `updatedAt`. Opening an old thread must not insert
+            // it into a last-message list; a new message still may.
+            val oldestLoaded = byId.values.minOfOrNull { it.lastMessageAt.time }
+            if (oldestLoaded == null || lt.lastMessageAt.time >= oldestLoaded) {
+                newThreads.add(lt)
+            }
         }
     }
     // Prune threads that vanished from the live window — left, removed by someone
@@ -258,8 +265,11 @@ class ThreadListViewModel @Inject constructor(
     val hasMoreThreads: StateFlow<Boolean> = _hasMoreThreads.asStateFlow()
 
     private val pageSize = 30
+    /// True after load-more, or when the reopen cache already holds more than
+    /// one last-message page. Refresh then keeps that older tail.
+    private var hasPagedFurther = (seededInbox?.threads?.size ?: 0) > pageSize
 
-    /** Cursor for the next page — the `updatedAt` of the last thread fetched, in millis. */
+    /** Cursor for the next page — last-message time of the last scanned row, in millis. */
     private var nextCursor: Long? = seededInbox?.nextCursor
 
     /**
@@ -457,17 +467,21 @@ class ThreadListViewModel @Inject constructor(
             val page = messageRepository.listThreadsPage(userId, limit = pageSize)
             val left = messageRepository.recentlyLeftThreadIds()
             val refreshed = page.threads.filter { it.lastMessageFromUserId != null && it.id !in left }
-            val merged = mergeRefreshedThreads(_threads.value, refreshed).filterNot { it.id in left }
+            val merged = mergeRefreshedThreads(
+                _threads.value,
+                refreshed,
+                keepOlderTail = hasPagedFurther,
+            ).filterNot { it.id in left }
             publishThreads(merged)
             hasLoadedThreads = true
             // The cursor belongs to whatever is oldest in the list. Rows older
             // than the refreshed page came from pagination, and the existing
-            // cursor (the end of that tail) still points past them. Rows the
-            // page simply doesn't carry but that fall inside its recency window
-            // — the live listener publishes those before the callable answers —
-            // are not a tail, so the page's cursor is still the list's cursor.
+            // cursor (the end of that tail) still points past them. Before the
+            // user has paged, live-window leftovers are not a tail.
             val pageOldest = refreshed.minOfOrNull { it.lastMessageAt.time }
-            val hasOlderTail = pageOldest != null && merged.any { it.lastMessageAt.time < pageOldest }
+            val hasOlderTail = hasPagedFurther &&
+                pageOldest != null &&
+                merged.any { it.lastMessageAt.time < pageOldest }
             if (!hasOlderTail) {
                 nextCursor = page.nextCursor
                 _hasMoreThreads.value = page.hasMore && page.nextCursor != null
@@ -494,7 +508,10 @@ class ThreadListViewModel @Inject constructor(
                 val newThreads = page.threads
                     .filter { it.lastMessageFromUserId != null }
                     .filter { it.id !in existingIds }
-                publishThreads(_threads.value + newThreads)
+                hasPagedFurther = true
+                publishThreads(
+                    (_threads.value + newThreads).sortedByDescending { it.lastMessageAt.time }
+                )
                 nextCursor = page.nextCursor
                 // The recency cursor strictly decreases each page, so it can't loop;
                 // stop when the server reports no more or the cursor didn't advance.

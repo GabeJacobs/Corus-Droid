@@ -62,4 +62,14 @@ class MergeRefreshedThreadsTest {
 
         assertEquals(refreshed, mergeRefreshedThreads(emptyList(), refreshed))
     }
+
+    @Test
+    fun firstRefreshDropsLiveWindowLeftoversUntilTheUserHasPaged() {
+        val existing = listOf(thread("a"), thread("ancient"))
+        val refreshed = listOf(thread("a"))
+
+        val merged = mergeRefreshedThreads(existing, refreshed, keepOlderTail = false)
+
+        assertEquals(listOf("a"), merged.map { it.id })
+    }
 }

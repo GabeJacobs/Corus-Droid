@@ -1019,7 +1019,7 @@ class CloudFunctionsDataSource @Inject constructor(
 
     /**
      * One page of inbox threads plus the cursor for the next page. [nextCursor] is
-     * the `updatedAt` of the last thread scanned (millis) — pass it back as
+     * the last-message time of the last thread scanned (millis) — pass it back as
      * `startAfter`. [hasMore] is authoritative from the server: block/ban filtering
      * can leave [threads] shorter than the page size, so don't infer it from size.
      */
@@ -1031,7 +1031,11 @@ class CloudFunctionsDataSource @Inject constructor(
 
     @Suppress("UNCHECKED_CAST")
     suspend fun listThreadsPage(userId: String, limit: Int = 30, startAfter: Long? = null): ThreadListPage {
-        val params = mutableMapOf<String, Any>("userId" to userId, "limit" to limit)
+        val params = mutableMapOf<String, Any>(
+            "userId" to userId,
+            "limit" to limit,
+            "sortBy" to "lastMessageAt",
+        )
         startAfter?.let { params["startAfter"] = it }
         val result = functions.getHttpsCallable("listThreads").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: return ThreadListPage(emptyList())
