@@ -135,6 +135,9 @@ fun SongDetailScreen(
     val isResolvingDestination by viewModel.isResolvingDestination.collectAsState()
     val nowPlayingState by viewModel.nowPlayingState.collectAsState()
     val previewLoadingTrackId by viewModel.previewLoadingTrackId.collectAsState()
+    // Full-song Spotify Connect resolve — miniplayer already spins on this;
+    // album-art play must too (mirrors iOS SongDetailView.isPreviewLoading).
+    val isResolvingSpotify by viewModel.nowPlayingManager.isResolvingSpotifyFlow.collectAsState()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
     val absentFromSpotify by fm.corus.android.domain.MusicServiceLinkOut.absentFromSpotify.collectAsState()
     val context = LocalContext.current
@@ -378,8 +381,15 @@ fun SongDetailScreen(
         }
     }
 
-    val isPlayingThisTrack = nowPlayingState.trackId == trackId && nowPlayingState.isPlaying
-    val isLoadingThisTrack = previewLoadingTrackId == trackId
+    // Track-id match only (no sourcePostId) — song pages are catalog, not a
+    // feed card. Mirrors iOS SongDetailView play/loading overlays.
+    val isPlayingThisTrack = nowPlayingState.trackId == trackId && (
+        (nowPlayingState.isPlaying && !isResolvingSpotify) ||
+            viewModel.nowPlayingManager.showsFullSongPlayingOverlay(musicService)
+    )
+    val isLoadingThisTrack =
+        previewLoadingTrackId == trackId ||
+            (nowPlayingState.trackId == trackId && isResolvingSpotify)
 
     LaunchedEffect(trackId) {
         viewModel.loadSongPosts(

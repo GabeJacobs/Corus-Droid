@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.data.model.CymbalMessage
+import fm.corus.android.data.local.MessageLocalStore
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
@@ -34,6 +35,29 @@ import java.util.Date
 import java.util.UUID
 import javax.inject.Inject
 
+/** Keep the history-fetch flag once older pages exist; the live tail is not the whole thread. */
+internal fun hasMoreAfterLiveSnapshot(
+    previous: Boolean,
+    liveWindowCount: Int,
+    hasRetainedOlder: Boolean,
+    pageSize: Long,
+): Boolean {
+    if (liveWindowCount == 0) return false
+    if (hasRetainedOlder) return previous
+    return liveWindowCount.toLong() >= pageSize
+}
+
+/** Newer copies win when the live window overlaps a fetched history page. */
+internal fun mergeMessagePages(
+    preferred: List<CymbalMessage>,
+    fallback: List<CymbalMessage>,
+): List<CymbalMessage> {
+    val byId = LinkedHashMap<String, CymbalMessage>(preferred.size + fallback.size)
+    fallback.forEach { byId[it.id] = it }
+    preferred.forEach { byId[it.id] = it }
+    return byId.values.sortedByDescending { it.createdAt }
+}
+
 @HiltViewModel
 class MessageThreadViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
@@ -47,6 +71,7 @@ class MessageThreadViewModel @Inject constructor(
     private val analyticsService: fm.corus.android.service.AnalyticsService,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
+    private val messageLocalStore = MessageLocalStore(context)
 
     val gifSupport: Boolean
         get() = remoteConfigService.gifSupport
@@ -67,6 +92,15 @@ class MessageThreadViewModel @Inject constructor(
     val membersById: StateFlow<Map<String, fm.corus.android.data.model.CymbalUser>> = _membersById.asStateFlow()
 
     private val _serverMessages = MutableStateFlow<List<CymbalMessage>>(emptyList())
+    private val _olderMessages = MutableStateFlow<List<CymbalMessage>>(emptyList())
+    private val _isLoadingOlder = MutableStateFlow(false)
+    val isLoadingOlder: StateFlow<Boolean> = _isLoadingOlder.asStateFlow()
+    private val _hasMoreMessages = MutableStateFlow(true)
+    val hasMoreMessages: StateFlow<Boolean> = _hasMoreMessages.asStateFlow()
+    /// False until the live window has decided `hasMore`, so a short thread
+    /// can paint the profile card in the same frame as the bubbles.
+    private val _liveWindowReady = MutableStateFlow(false)
+    val liveWindowReady: StateFlow<Boolean> = _liveWindowReady.asStateFlow()
 
     /**
      * Optimistic copies of messages we've sent, keyed by client message id.
@@ -86,11 +120,13 @@ class MessageThreadViewModel @Inject constructor(
     /** Merged server + unconfirmed pending messages, reversed for reverseLayout LazyColumn. */
     val messages: StateFlow<List<CymbalMessage>> = combine(
         _serverMessages,
+        _olderMessages,
         _pendingMessages,
-    ) { server, pending ->
-        val confirmedIds = server.map { it.id }.toSet()
+    ) { server, older, pending ->
+        val history = mergeMessagePages(server, older)
+        val confirmedIds = history.map { it.id }.toSet()
         val unconfirmed = pending.values.filter { it.id !in confirmedIds }
-        (server + unconfirmed).sortedByDescending { it.createdAt }
+        (history + unconfirmed).sortedByDescending { it.createdAt }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     // Starts true so the first frame of an opened thread cannot paint a blank
@@ -116,6 +152,10 @@ class MessageThreadViewModel @Inject constructor(
 
     private val _artistsInCommonCount = MutableStateFlow<Int?>(null)
     val artistsInCommonCount: StateFlow<Int?> = _artistsInCommonCount.asStateFlow()
+
+    /** True when opened without a thread id (profile Message on an inbox miss). */
+    private val _openedAsNewCompose = MutableStateFlow(false)
+    val openedAsNewCompose: StateFlow<Boolean> = _openedAsNewCompose.asStateFlow()
 
     val currentUserId: String? get() = authRepository.currentUserId
 
@@ -205,6 +245,8 @@ class MessageThreadViewModel @Inject constructor(
         }
 
         currentThreadId = threadId
+        val composeFromPeer = threadId.isBlank() && otherUserId.isNotBlank()
+        _openedAsNewCompose.value = composeFromPeer
         // Arm active-thread tracking right away when the id is already known, so
         // suppression is in effect before the (async) profile fetch completes.
         if (threadId.isNotBlank()) _resolvedThreadId.value = threadId
@@ -214,6 +256,11 @@ class MessageThreadViewModel @Inject constructor(
         // and live listeners below. No-op when the thread wasn't in the inbox cache
         // (e.g. opened from a profile or notification), which keeps prior behavior.
         seedHeaderFromCachedInbox(threadId)
+        // Profile → Message (inbox miss): the peer was just on screen, so their
+        // cached profile lets the opener paint before getOrCreate returns.
+        if (composeFromPeer) {
+            seedHeaderFromUser(userRepository.peekCachedUser(otherUserId))
+        }
         // Arm the spinner before the coroutine is scheduled so the first OPEN
         // frame cannot paint an empty list with isLoading still false.
         _hasLoadError.value = false
@@ -225,13 +272,7 @@ class MessageThreadViewModel @Inject constructor(
                 if (otherUserId.isNotBlank()) {
                     runCatching {
                         val profile = userRepository.fetchUserProfile(otherUserId)
-                        _otherUsername.value = profile?.username ?: ""
-                        _otherDisplayName.value = profile?.displayName ?: ""
-                        _otherAvatarURL.value = profile?.avatarURL
-                        _otherAvatarThumbURL.value = profile?.avatarThumbURL
-                        if (_artistsInCommonCount.value == null) {
-                            _artistsInCommonCount.value = profile?.artistsInCommonCount
-                        }
+                        seedHeaderFromUser(profile)
                     }
                 }
 
@@ -275,6 +316,17 @@ class MessageThreadViewModel @Inject constructor(
         }
     }
 
+    private fun seedHeaderFromUser(user: CymbalUser?) {
+        val u = user ?: return
+        if (_otherUsername.value.isBlank()) _otherUsername.value = u.username
+        if (_otherDisplayName.value.isBlank()) _otherDisplayName.value = u.displayName
+        if (_otherAvatarURL.value == null) _otherAvatarURL.value = u.avatarURL
+        if (_otherAvatarThumbURL.value == null) _otherAvatarThumbURL.value = u.avatarThumbURL
+        if (_artistsInCommonCount.value == null) {
+            _artistsInCommonCount.value = u.artistsInCommonCount
+        }
+    }
+
     /**
      * Seed the header state from the last-rendered inbox snapshot (kept in
      * [MessageRepository.cachedInbox]) so opening a thread from the inbox shows the
@@ -300,15 +352,7 @@ class MessageThreadViewModel @Inject constructor(
                 _membersById.value = cached.members.associateBy { it.id }
             }
         } else {
-            cached.otherUser?.let { u ->
-                if (_otherUsername.value.isBlank()) _otherUsername.value = u.username
-                if (_otherDisplayName.value.isBlank()) _otherDisplayName.value = u.displayName
-                if (_otherAvatarURL.value == null) _otherAvatarURL.value = u.avatarURL
-                if (_otherAvatarThumbURL.value == null) _otherAvatarThumbURL.value = u.avatarThumbURL
-                if (_artistsInCommonCount.value == null) {
-                    _artistsInCommonCount.value = u.artistsInCommonCount
-                }
-            }
+            seedHeaderFromUser(cached.otherUser)
         }
     }
 
@@ -323,9 +367,29 @@ class MessageThreadViewModel @Inject constructor(
         listenerJob?.cancel()
         hasLoadedInitialMessages = false
         seenMessageIds = emptySet()
+        _olderMessages.value = emptyList()
+        _hasMoreMessages.value = true
+        _liveWindowReady.value = false
+        _isLoadingOlder.value = false
+        authRepository.currentUserId?.let { userId ->
+            val cached = messageLocalStore.load(userId, threadId)
+            if (cached.isNotEmpty()) {
+                _olderMessages.value = cached
+                _isLoading.value = false
+            }
+        }
         listenerJob = viewModelScope.launch {
             try {
                 messageRepository.listenToMessages(threadId).collect { serverMessages ->
+                    val liveOldest = serverMessages.minOfOrNull { it.createdAt }
+                    val hasRetainedOlder = liveOldest != null &&
+                        _olderMessages.value.any { it.createdAt < liveOldest }
+                    _hasMoreMessages.value = hasMoreAfterLiveSnapshot(
+                        previous = _hasMoreMessages.value,
+                        liveWindowCount = serverMessages.size,
+                        hasRetainedOlder = hasRetainedOlder,
+                        pageSize = MessageRepository.MESSAGE_PAGE_SIZE,
+                    )
                     val confirmedIds = serverMessages.map { it.id }.toSet()
                     // Publish the server snapshot BEFORE pruning the matching pending
                     // copy. The `messages` combine filters pending by the current
@@ -336,6 +400,13 @@ class MessageThreadViewModel @Inject constructor(
                     _serverMessages.value = serverMessages
                     // Remove pending messages that the server has now confirmed
                     _pendingMessages.value = _pendingMessages.value.filterKeys { it !in confirmedIds }
+                    authRepository.currentUserId?.let { userId ->
+                        messageLocalStore.save(
+                            userId,
+                            threadId,
+                            mergeMessagePages(serverMessages, _olderMessages.value),
+                        )
+                    }
 
                     // Re-mark the thread read whenever a NEW message arrives from the
                     // other user while we're viewing it, so the unread badge clears
@@ -356,6 +427,7 @@ class MessageThreadViewModel @Inject constructor(
                     // misses never reach here; see shouldPublishMessagesSnapshot.
                     _hasLoadError.value = false
                     _isLoading.value = false
+                    _liveWindowReady.value = true
                 }
             } catch (e: CancellationException) {
                 // Reloading (or leaving) cancels this collect. An empty thread
@@ -369,6 +441,49 @@ class MessageThreadViewModel @Inject constructor(
                     _hasLoadError.value = true
                 }
                 _isLoading.value = false
+                _liveWindowReady.value = true
+            }
+        }
+    }
+
+    /** Fetches one page older than the oldest retained message. Safe to call
+     * repeatedly from scroll observation; concurrent and end-of-history calls
+     * are ignored. Stable IDs let LazyColumn preserve the visible anchor while
+     * the page is appended to its reverse-layout data. */
+    fun loadOlderMessages() {
+        val threadId = currentThreadId?.takeIf { it.isNotBlank() } ?: return
+        if (_isLoadingOlder.value || !_hasMoreMessages.value) return
+        val oldest = (_serverMessages.value + _olderMessages.value)
+            .minByOrNull { it.createdAt } ?: return
+        _isLoadingOlder.value = true
+        viewModelScope.launch {
+            try {
+                val page = messageRepository.listMessages(
+                    threadId = threadId,
+                    // One look-ahead record distinguishes an exact-size final
+                    // page from a page that genuinely has more history.
+                    limit = MessageRepository.MESSAGE_PAGE_SIZE.toInt() + 1,
+                    lastTimestamp = oldest.createdAt.time,
+                )
+                val visiblePage = page.takeLast(MessageRepository.MESSAGE_PAGE_SIZE.toInt())
+                val knownIds = (_serverMessages.value + _olderMessages.value).map { it.id }.toSet()
+                val addedOlder = visiblePage.any { it.id !in knownIds }
+                _olderMessages.value = mergeMessagePages(_olderMessages.value, visiblePage)
+                _hasMoreMessages.value =
+                    addedOlder && page.size.toLong() > MessageRepository.MESSAGE_PAGE_SIZE
+                authRepository.currentUserId?.let { userId ->
+                    messageLocalStore.save(
+                        userId,
+                        threadId,
+                        mergeMessagePages(_serverMessages.value, _olderMessages.value),
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // Keep the boundary retryable; reaching the top again can retry.
+            } finally {
+                _isLoadingOlder.value = false
             }
         }
     }

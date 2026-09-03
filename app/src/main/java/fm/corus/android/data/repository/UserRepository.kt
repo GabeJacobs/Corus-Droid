@@ -206,6 +206,9 @@ class UserRepository @Inject constructor(
         profileCache.remove(uid)
     }
 
+    /** Synchronous peek for instant DM header seeding (e.g. Message from profile). */
+    fun peekCachedUser(uid: String): CymbalUser? = profileCache[uid]?.value
+
     suspend fun updateUserProfile(uid: String, fields: Map<String, Any?>) {
         firestoreDataSource.updateUserProfile(uid, fields)
         invalidateUserProfileCache(uid)

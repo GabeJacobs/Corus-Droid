@@ -28,6 +28,14 @@ class MessageSeparatorTest {
     }
 
     @Test
+    fun pageBoundaryDoesNotForceSeparator() {
+        // Oldest row in a loaded page is not the conversation start.
+        // Forcing a stamp here is what shifted Clifton when the next page arrived.
+        assertFalse(shouldShowSeparator(null, date(2026, 5, 23, 10), isConversationStart = false))
+        assertFalse(isDayBoundary(null, date(2026, 5, 23, 10), isConversationStart = false))
+    }
+
+    @Test
     fun sameDaySmallGapNoSeparator() {
         val a = date(2026, 5, 23, 10, 0)
         val b = date(2026, 5, 23, 10, 30) // 30 min later

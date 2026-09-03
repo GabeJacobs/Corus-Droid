@@ -225,6 +225,52 @@ class ThreadListBlockedRowTest {
     }
 
     @Test
+    fun `listThreads rows with a missing peer never paint as blank inbox rows`() = runTest {
+        // Server joins otherUser; deleted/incomplete accounts come back null.
+        // Live correctly drops unresolved peers, but reconcile used to re-add them.
+        val ghost = CymbalThread(
+            id = "ghost",
+            otherUser = null,
+            otherUserId = "u-ghost",
+            lastMessageText = "Ye",
+            lastMessageAt = Date(4_000),
+            lastMessageFromUserId = "u-ghost",
+        )
+        whenever(messageRepository.listThreadsPage(eq("me"), any(), isNull()))
+            .doReturn(page(listOf(row("keep", 5_000), ghost), cursor = 4_000L, hasMore = false))
+
+        val vm = viewModel()
+        vm.loadThreads()
+        advanceUntilIdle()
+
+        assertEquals(listOf("keep"), vm.threads.value.map { it.id })
+    }
+
+    @Test
+    fun `pagination cannot append a row with a missing peer`() = runTest {
+        val ghost = CymbalThread(
+            id = "ghost",
+            otherUser = null,
+            otherUserId = "u-ghost",
+            lastMessageText = "Hey",
+            lastMessageAt = Date(2_000),
+            lastMessageFromUserId = "u-ghost",
+        )
+        whenever(messageRepository.listThreadsPage(eq("me"), any(), isNull()))
+            .doReturn(page(listOf(row("keep", 5_000)), cursor = 5_000L, hasMore = true))
+        whenever(messageRepository.listThreadsPage(eq("me"), any(), eq(5_000L)))
+            .doReturn(page(listOf(ghost, row("older", 1_000)), cursor = 1_000L, hasMore = false))
+
+        val vm = viewModel()
+        vm.loadThreads()
+        advanceUntilIdle()
+        vm.loadMoreThreads()
+        advanceUntilIdle()
+
+        assertEquals(listOf("keep", "older"), vm.threads.value.map { it.id })
+    }
+
+    @Test
     fun `a group survives a member the caller cannot see`() {
         val group = CymbalThread(
             id = "g",

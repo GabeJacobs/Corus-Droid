@@ -159,6 +159,10 @@ class OtherProfileViewModel @Inject constructor(
         }
     }
 
+    /** Inbox hit → real thread id; miss → blank so the thread screen composes new. */
+    fun resolveDirectThreadId(otherUserId: String): String =
+        messageRepository.directThreadId(otherUserId).orEmpty()
+
     fun logProfileShared(
         profileUserId: String,
         method: String,

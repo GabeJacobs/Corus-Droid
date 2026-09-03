@@ -37,11 +37,13 @@ internal fun mergeRefreshedThreads(
 }
 
 /**
- * The rows the inbox is allowed to draw. Each is put to [mayShowThread], the
- * same rule that decides whether the conversation itself may be opened.
+ * The rows the inbox is allowed to draw. Each must pass [mayShowThread] (the
+ * same rule that decides whether the conversation itself may be opened) and
+ * [hasDisplayableInboxPeer] so deleted/missing accounts never paint as blank
+ * username/avatar rows the way they used to after a `listThreads` reconcile.
  *
- * The rule reads two sources for a block because each covers rows the other
- * cannot see here: the row's own stamp reaches this client only through the live
+ * The block rule reads two sources because each covers rows the other cannot
+ * see here: the row's own stamp reaches this client only through the live
  * listener's window, while the device's block set covers every row whatever path
  * it arrived by — the paginated tail below that window, and the reopen cache
  * that re-seeds it.
@@ -50,7 +52,9 @@ internal fun visibleInboxRows(
     threads: List<CymbalThread>,
     blockedIds: Set<String>,
     isBanned: (String) -> Boolean,
-): List<CymbalThread> = threads.filter { mayShowThread(it, blockedIds, isBanned) }
+): List<CymbalThread> = threads.filter {
+    mayShowThread(it, blockedIds, isBanned) && hasDisplayableInboxPeer(it)
+}
 
 /** Result of folding a live inbox snapshot into the loaded list. */
 internal data class LiveThreadMerge(
@@ -389,9 +393,14 @@ class ThreadListViewModel @Inject constructor(
                 val live = if (left.isEmpty()) liveRaw else liveRaw.filterNot { it.id in left }
                 val (merged, newRows) = applyLiveThreadUpdates(_threads.value, live, pageSize)
                 val mergedFiltered = if (left.isEmpty()) merged else merged.filterNot { it.id in left }
-                // Dropped before resolution, so a row the inbox may not draw
-                // never costs a profile read on its way to being discarded.
-                val newThreads = visible(newRows)
+                // Block/ban only here — live summaries have no otherUser yet.
+                // Requiring a displayable peer would drop every new row before
+                // profile resolution, and blank peers never reach publish after.
+                val newThreads = newRows.filter {
+                    mayShowThread(it, userRepository.blockedIds.value) {
+                        userRepository.isUserBannedLocally(it)
+                    }
+                }
 
                 // The merge can transiently drop everything: a partial snapshot whose
                 // only threads are brand-new (still awaiting the profile resolution
@@ -619,4 +628,9 @@ class ThreadListViewModel @Inject constructor(
         val userId = authRepository.currentUserId ?: throw IllegalStateException("Not signed in")
         return messageRepository.getOrCreateThread(userId, otherUserId)
     }
+
+    /** Inbox / loaded-list hit for a peer; blank means open as new compose. */
+    fun resolveDirectThreadId(otherUserId: String): String =
+        _threads.value.firstOrNull { !it.isGroup && it.otherUserId == otherUserId }?.id
+            ?: messageRepository.directThreadId(otherUserId).orEmpty()
 }

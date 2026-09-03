@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -407,19 +408,21 @@ fun ThreadListScreen(
                         onConfirm = { selectedUsers, name ->
                             showGroupCreate = false
                             showNewMessagePicker = false
-                            isCreatingThread = true
                             scope.launch {
                                 try {
                                     if (selectedUsers.size == 1) {
                                         val u = selectedUsers.first()
-                                        val threadId = viewModel.getOrCreateThread(u.id)
-                                        onThreadTap(threadId, u.id)
+                                        onThreadTap(viewModel.resolveDirectThreadId(u.id), u.id)
                                     } else if (selectedUsers.size >= 2) {
-                                        val threadId = viewModel.createGroup(selectedUsers.map { it.id }, name)
-                                        onThreadTap(threadId, "")
+                                        isCreatingThread = true
+                                        try {
+                                            val threadId = viewModel.createGroup(selectedUsers.map { it.id }, name)
+                                            onThreadTap(threadId, "")
+                                        } finally {
+                                            isCreatingThread = false
+                                        }
                                     }
                                 } catch (_: Exception) {
-                                } finally {
                                     isCreatingThread = false
                                 }
                             }
@@ -438,16 +441,8 @@ fun ThreadListScreen(
                         onUserSelected = { user ->
                             viewModel.clearSearch()
                             showNewMessagePicker = false
-                            isCreatingThread = true
-                            scope.launch {
-                                try {
-                                    val threadId = viewModel.getOrCreateThread(user.id)
-                                    onThreadTap(threadId, user.id)
-                                } catch (_: Exception) {
-                                } finally {
-                                    isCreatingThread = false
-                                }
-                            }
+                            // Inbox hit → real thread; miss → blank id for instant opener.
+                            onThreadTap(viewModel.resolveDirectThreadId(user.id), user.id)
                         },
                         showHeader = false,
                     )
@@ -733,7 +728,8 @@ private fun InboxSearchSectionHeader(title: String) {
         color = CorusColors.Secondary,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+            .padding(horizontal = CorusSpacing.lg)
+            .padding(top = CorusSpacing.sm),
     )
 }
 
@@ -756,11 +752,7 @@ private fun MessageSearchHitRow(
     } else {
         thread.otherUser?.username ?: ""
     }
-    val body = if (hit.fromUserId == currentUserId) {
-        context.getString(R.string.messaging_search_you_prefix, hit.snippet)
-    } else {
-        hit.snippet
-    }
+    val body = hit.snippet
 
     Row(
         modifier = Modifier
@@ -809,6 +801,7 @@ private fun MessageSearchHitRow(
                 color = CorusColors.Secondary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Start,
             )
         }
     }

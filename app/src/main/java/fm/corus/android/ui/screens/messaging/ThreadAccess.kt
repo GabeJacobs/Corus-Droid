@@ -30,6 +30,15 @@ internal fun mayShowThread(
         (!thread.blocked && thread.otherUserId !in blockedIds && !isBanned(thread.otherUserId))
 
 /**
+ * Whether a 1:1 inbox row has a peer the list can name. `listThreads` joins
+ * `otherUser` server-side and leaves it null when the account is gone or the
+ * profile is incomplete; iOS drops those via `fetchVisibleUsers` hidden ids.
+ * Groups always pass — their title does not depend on a single peer profile.
+ */
+internal fun hasDisplayableInboxPeer(thread: CymbalThread): Boolean =
+    thread.isGroup || !thread.otherUser?.username.isNullOrBlank()
+
+/**
  * Badge contribution of one inbox mirror row. Hidden 1:1 peers (banned,
  * blocked, or a missing account the inbox already dropped) must not count —
  * otherwise the envelope shows a number the user can never clear.

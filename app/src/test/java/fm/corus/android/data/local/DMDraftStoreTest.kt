@@ -78,4 +78,33 @@ class DMDraftStoreTest {
         store.save("me", "t1", long)
         assertEquals(DMDraftStore.MAX_LENGTH, store.load("me", "t1")?.length)
     }
+
+    @Test
+    fun emptyThreadIdDoesNotWriteWithoutPeer() {
+        store.save("me", "", "nope")
+        assertNull(store.load("me", ""))
+        assertNull(store.load("me", "t1"))
+    }
+
+    @Test
+    fun peerDraftFallsBackUntilThreadExistsThenMigrates() {
+        store.save("me", "", "new chat", peerUserId = "bo")
+        assertEquals("new chat", store.load("me", "", peerUserId = "bo"))
+
+        // Once the thread id lands, load still finds the peer draft, and a
+        // subsequent save under the thread key retires the peer key.
+        assertEquals("new chat", store.load("me", "t1", peerUserId = "bo"))
+        store.save("me", "t1", "new chat", peerUserId = "bo")
+        assertEquals("new chat", store.load("me", "t1"))
+        assertNull(store.load("me", "", peerUserId = "bo"))
+    }
+
+    @Test
+    fun clearWithPeerRemovesBothKeys() {
+        store.save("me", "", "kept", peerUserId = "bo")
+        store.save("me", "t1", "kept")
+        store.clear("me", "t1", peerUserId = "bo")
+        assertNull(store.load("me", "t1", peerUserId = "bo"))
+        assertNull(store.load("me", "", peerUserId = "bo"))
+    }
 }

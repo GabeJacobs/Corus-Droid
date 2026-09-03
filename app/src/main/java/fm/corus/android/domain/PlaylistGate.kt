@@ -3,9 +3,9 @@ package fm.corus.android.domain
 import fm.corus.android.data.model.MusicService
 
 /**
- * Whether tapping "Generate Playlist" should show the "Spotify Feature" alert
- * first (vs. generating directly). Single source of truth for the feed and
- * profile screens, which used to duplicate this logic.
+ * Whether tapping "Generate Playlist" should show the "Generate Spotify
+ * Playlist?" alert first (vs. generating directly). Single source of truth
+ * for the feed and profile screens, which used to duplicate this logic.
  *
  * - **TIDAL** builds the playlist on the user's own TIDAL account (client-side),
  *   so it never shows the alert — and TIDAL silently skips SoundCloud tracks.
@@ -18,12 +18,64 @@ import fm.corus.android.data.model.MusicService
 fun shouldShowSpotifyPlaylistAlert(service: MusicService, hasSoundCloud: Boolean): Boolean =
     usesSpotifyFallback(service) || (service == MusicService.SPOTIFY && hasSoundCloud)
 
+const val SPOTIFY_PLAYLIST_ALERT_TITLE = "Generate Spotify Playlist?"
+
+/** Body for [SPOTIFY_PLAYLIST_ALERT_TITLE]. SoundCloud skip when it applies. */
+fun spotifyPlaylistAlertMessage(hasSoundCloud: Boolean): String =
+    if (hasSoundCloud) "SoundCloud songs will be skipped."
+    else "This creates a Spotify playlist."
+
+/** Quick-vs-all export chooser when a source has more than 75 songs. */
+const val PLAYLIST_EXPORT_CHOOSER_TITLE = "Export playlist"
+
+enum class PlaylistExportChooserSource {
+    OwnProfile,
+    OtherProfile,
+    Hashtag,
+}
+
+/** Where the playlist actually lands for this viewer preference on Android. */
+fun playlistExportDestinationLabel(service: MusicService): String =
+    if (usesSpotifyFallback(service) || service == MusicService.SPOTIFY) {
+        MusicService.SPOTIFY.displayLabel
+    } else {
+        service.displayLabel
+    }
+
+/**
+ * Body for [PLAYLIST_EXPORT_CHOOSER_TITLE]. Names the real destination and only
+ * mentions SoundCloud when those songs would be skipped from a Spotify playlist.
+ */
+fun playlistExportChooserMessage(
+    source: PlaylistExportChooserSource,
+    service: MusicService,
+    hasSoundCloud: Boolean,
+): String {
+    val label = playlistExportDestinationLabel(service)
+    val article = if (label == MusicService.APPLE_MUSIC.displayLabel) "An" else "A"
+    val base = when (source) {
+        PlaylistExportChooserSource.OwnProfile ->
+            "$article $label playlist of your profile."
+        PlaylistExportChooserSource.OtherProfile ->
+            "$article $label playlist of their profile."
+        PlaylistExportChooserSource.Hashtag ->
+            "$article $label playlist from this hashtag."
+    }
+    val isSpotifyDestination = label == MusicService.SPOTIFY.displayLabel
+    return if (hasSoundCloud && isSpotifyDestination) {
+        "$base SoundCloud songs will be skipped."
+    } else {
+        base
+    }
+}
+
 /**
  * Whether the service has no native playlist path on Android and therefore
  * always produces a Spotify playlist instead (Apple Music needs iOS-only
  * MusicKit; Deezer and YouTube Music are link-out only). These always show the
- * "Spotify Feature" warning and never the first-time export explainer. TIDAL and
- * Spotify export natively, so they get the one-time explainer instead.
+ * "Generate Spotify Playlist?" warning and never the first-time export
+ * explainer. TIDAL and Spotify export natively, so they get the one-time
+ * explainer instead.
  */
 fun usesSpotifyFallback(service: MusicService): Boolean =
     service == MusicService.APPLE_MUSIC ||

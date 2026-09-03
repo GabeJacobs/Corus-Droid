@@ -16,12 +16,14 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
+import com.valentinilk.shimmer.LocalShimmerTheme
 
 private val LightColorScheme = lightColorScheme(
     primary = CorusColors.Accent,
@@ -68,9 +70,11 @@ fun CorusTheme(
     CorusWindowAppearance(darkTheme)
     CorusSystemBars(darkTheme)
 
+    val shimmerTheme = remember(darkTheme) { corusShimmerTheme(darkTheme) }
     CompositionLocalProvider(
         LocalCorusPalette provides palette,
         LocalCorusDarkTheme provides darkTheme,
+        LocalShimmerTheme provides shimmerTheme,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

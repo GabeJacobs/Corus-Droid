@@ -676,7 +676,12 @@ fun OtherProfileScreen(
                                     val hintFollowing = initialIsFollowing == true
                                     ProfileFollowPill(isFollowing = hintFollowing)
                                     ProfileMessagePill(
-                                        onClick = { onNavigateToMessages("", userId) },
+                                        onClick = {
+                                            onNavigateToMessages(
+                                                viewModel.resolveDirectThreadId(userId),
+                                                userId,
+                                            )
+                                        },
                                     )
                                     Box(
                                         modifier = Modifier
@@ -998,7 +1003,12 @@ fun OtherProfileScreen(
                             )
                             if (!currentProfile.isBot) {
                                 ProfileMessagePill(
-                                    onClick = { onNavigateToMessages("", userId) },
+                                    onClick = {
+                                        onNavigateToMessages(
+                                            viewModel.resolveDirectThreadId(userId),
+                                            userId,
+                                        )
+                                    },
                                 )
                             }
                             Box(
@@ -1581,15 +1591,10 @@ fun OtherProfileScreen(
     if (showPlaylistAlert) {
         val hasSoundCloud = playlistSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
             && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-        val message = if (hasSoundCloud) {
-            "Playlist generation creates a Spotify playlist. Any SoundCloud tracks will be skipped."
-        } else {
-            "Playlist generation creates a Spotify playlist. Would you like to generate it anyway?"
-        }
         fm.corus.android.ui.components.CorusPromptOverlay(
             visible = true,
-            title = "Spotify Feature",
-            message = message,
+            title = fm.corus.android.domain.SPOTIFY_PLAYLIST_ALERT_TITLE,
+            message = fm.corus.android.domain.spotifyPlaylistAlertMessage(hasSoundCloud),
             iconRes = fm.corus.android.R.drawable.spotify_logo,
             onDismiss = { showPlaylistAlert = false },
             buttons = listOf(
@@ -1612,24 +1617,13 @@ fun OtherProfileScreen(
         )
         val hasSoundCloud = playlistSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
             && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-        // Fold the service caveat into the one dialog (no stacked popups). Deezer /
-        // Apple Music can't build playlists on Android and fall back to Spotify —
-        // name the service so the substitution is clear.
-        val showSpotifyFallbackNote = fm.corus.android.domain.usesSpotifyFallback(musicService)
-        val showSoundCloudNote = hasSoundCloud &&
-            (musicService == fm.corus.android.data.model.MusicService.SPOTIFY || showSpotifyFallbackNote)
-        val caveat = buildString {
-            if (showSpotifyFallbackNote) {
-                append("${musicService.displayLabel} can't build playlists, so this creates a Spotify playlist.")
-            }
-            if (showSoundCloudNote) {
-                if (isNotEmpty()) append(" ")
-                append("SoundCloud tracks are skipped.")
-            }
-        }
         PlaylistExportChooserDialog(
             count = count,
-            caveat = caveat,
+            message = fm.corus.android.domain.playlistExportChooserMessage(
+                source = fm.corus.android.domain.PlaylistExportChooserSource.OtherProfile,
+                service = musicService,
+                hasSoundCloud = hasSoundCloud,
+            ),
             onQuick = {
                 viewModel.generatePlaylist(userId, playlistSource, fullExport = false)
             },

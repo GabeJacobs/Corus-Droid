@@ -170,7 +170,7 @@ class RemoteConfigService @Inject constructor(
 
     /**
      * Client gate for Bandcamp catalog search. Default OFF; Firebase RC
-     * `bandcamp_enabled` is ON for @clifton only. Existing `bc:` posts still
+     * `bandcamp_enabled` is ON for @gabe / @clifton. Existing `bc:` posts still
      * render. Flip the RC default after clients have adopted.
      */
     val bandcampEnabled: Boolean
@@ -181,9 +181,9 @@ class RemoteConfigService @Inject constructor(
 
     fun isBandcampEnabled(viewerUid: String?, viewerUsername: String? = null): Boolean {
         if (flagWithDefault("bandcamp_enabled", false)) return true
-        if (viewerUid == BANDCAMP_TESTER_UID) return true
+        if (viewerUid != null && viewerUid in BANDCAMP_TESTER_UIDS) return true
         val name = viewerUsername?.trim()?.lowercase().orEmpty()
-        return name == BANDCAMP_TESTER_USERNAME
+        return name in BANDCAMP_TESTER_USERNAMES
     }
 
     /// Master gate for the TIDAL music-service integration (onboarding + settings
@@ -709,8 +709,11 @@ class RemoteConfigService @Inject constructor(
         val debugSpotifyFtueVariantOverride: String? = null
 
         /** Matches iOS `BandcampGate` and backend `BANDCAMP_SEARCH_TEST_UIDS`. */
-        const val BANDCAMP_TESTER_UID = "u3UmswvOg5c2r9zYlOidJYFzqbp2"
-        const val BANDCAMP_TESTER_USERNAME = "clifton"
+        val BANDCAMP_TESTER_UIDS = setOf(
+            "FUQZIrZR08T2Ux2vYpPzWx7B1rv1", // @gabe
+            "u3UmswvOg5c2r9zYlOidJYFzqbp2", // @clifton
+        )
+        val BANDCAMP_TESTER_USERNAMES = setOf("gabe", "clifton")
 
         /// In-app Remote Config defaults. Applied locally in init() (so flag-gated
         /// UI is correct before any network fetch) and re-applied in

@@ -1601,15 +1601,10 @@ fun FeedScreen(
     // skipped from the Spotify playlist.
     if (showPlaylistAlert) {
         val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-        val message = if (hasSoundCloud) {
-            "Playlist generation creates a Spotify playlist. Any SoundCloud tracks will be skipped."
-        } else {
-            "Playlist generation creates a Spotify playlist. Would you like to generate it anyway?"
-        }
         fm.corus.android.ui.components.CorusPromptOverlay(
             visible = true,
-            title = "Spotify Feature",
-            message = message,
+            title = fm.corus.android.domain.SPOTIFY_PLAYLIST_ALERT_TITLE,
+            message = fm.corus.android.domain.spotifyPlaylistAlertMessage(hasSoundCloud),
             iconRes = R.drawable.spotify_logo,
             onDismiss = { showPlaylistAlert = false },
             buttons = listOf(

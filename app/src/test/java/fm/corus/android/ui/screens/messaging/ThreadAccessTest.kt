@@ -1,6 +1,7 @@
 package fm.corus.android.ui.screens.messaging
 
 import fm.corus.android.data.model.CymbalThread
+import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.repository.MessageRepository
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -132,6 +133,27 @@ class ThreadAccessTest {
         assertEquals(
             2,
             unreadContribution("g", 2, isGroup = true, otherUserId = "", blocked = false, activeThreadId = null) { it == "spammer" },
+        )
+    }
+
+    @Test
+    fun `a direct row without a resolvable peer is not drawn in the inbox`() {
+        val missing = CymbalThread(id = "gone", otherUserId = "deleted", otherUser = null)
+        val blankName = CymbalThread(
+            id = "stub",
+            otherUserId = "stub",
+            otherUser = CymbalUser(id = "stub", username = "", displayName = ""),
+        )
+        val ok = CymbalThread(
+            id = "ok",
+            otherUserId = "ada",
+            otherUser = CymbalUser(id = "ada", username = "ada", displayName = "Ada"),
+        )
+        val group = CymbalThread(id = "g", isGroup = true, memberIds = listOf("me", "ada"))
+
+        assertEquals(
+            listOf("ok", "g"),
+            visibleInboxRows(listOf(missing, blankName, ok, group), emptySet(), nobodyBanned).map { it.id },
         )
     }
 }

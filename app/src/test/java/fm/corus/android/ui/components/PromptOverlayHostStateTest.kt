@@ -42,7 +42,7 @@ class PromptOverlayHostStateTest {
         val spotifyPrompt = Any()
         val spotifyRequest = request("Link Spotify")
 
-        host.publish(playlistPrompt, request("Generate a playlist?"))
+        host.publish(playlistPrompt, request("Export playlist"))
         host.publish(spotifyPrompt, spotifyRequest)
         host.clear(playlistPrompt)
 
@@ -77,7 +77,7 @@ class PromptOverlayHostStateTest {
                         )
                         CorusPromptOverlay(
                             visible = false,
-                            title = "Generate a playlist?",
+                            title = "Export playlist",
                             message = "Inactive prompt",
                             buttons = emptyList(),
                         )

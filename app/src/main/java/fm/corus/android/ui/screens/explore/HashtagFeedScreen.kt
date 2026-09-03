@@ -38,8 +38,12 @@ import com.valentinilk.shimmer.shimmer
 import fm.corus.android.R
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.TrackSource
+import fm.corus.android.domain.PlaylistExportChooserSource
+import fm.corus.android.domain.SPOTIFY_PLAYLIST_ALERT_TITLE
+import fm.corus.android.domain.playlistExportChooserMessage
 import fm.corus.android.domain.shouldOfferHashtagFullExport
 import fm.corus.android.domain.shouldShowSpotifyPlaylistAlert
+import fm.corus.android.domain.spotifyPlaylistAlertMessage
 import fm.corus.android.domain.usesSpotifyFallback
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.screens.profile.PlaylistExportChooserDialog
@@ -362,15 +366,10 @@ fun HashtagFeedScreen(
 
     if (showPlaylistAlert) {
         val hasSoundCloud = posts.any { it.isTrack && it.track.source == TrackSource.SOUNDCLOUD }
-        val message = if (hasSoundCloud) {
-            "Playlist generation creates a Spotify playlist. Any SoundCloud tracks will be skipped."
-        } else {
-            "Playlist generation creates a Spotify playlist. Would you like to generate it anyway?"
-        }
         fm.corus.android.ui.components.CorusPromptOverlay(
             visible = true,
-            title = "Spotify Feature",
-            message = message,
+            title = SPOTIFY_PLAYLIST_ALERT_TITLE,
+            message = spotifyPlaylistAlertMessage(hasSoundCloud),
             iconRes = R.drawable.spotify_logo,
             onDismiss = { showPlaylistAlert = false },
             buttons = listOf(
@@ -389,23 +388,13 @@ fun HashtagFeedScreen(
 
     if (showPlaylistChooser) {
         val hasSoundCloud = posts.any { it.isTrack && it.track.source == TrackSource.SOUNDCLOUD }
-        // Fold the service caveat into this one dialog so we never stack a second
-        // popup on the chooser — same construction as ProfileScreen.
-        val showSpotifyFallbackNote = usesSpotifyFallback(musicService)
-        val showSoundCloudNote = hasSoundCloud &&
-            (musicService == MusicService.SPOTIFY || showSpotifyFallbackNote)
-        val caveat = buildString {
-            if (showSpotifyFallbackNote) {
-                append("${musicService.displayLabel} can't build playlists, so this creates a Spotify playlist.")
-            }
-            if (showSoundCloudNote) {
-                if (isNotEmpty()) append(" ")
-                append("SoundCloud tracks are skipped.")
-            }
-        }
         PlaylistExportChooserDialog(
             count = totalCount,
-            caveat = caveat,
+            message = playlistExportChooserMessage(
+                source = PlaylistExportChooserSource.Hashtag,
+                service = musicService,
+                hasSoundCloud = hasSoundCloud,
+            ),
             onQuick = {
                 viewModel.generateHashtagPlaylist(hashtag, fullExport = false)
             },

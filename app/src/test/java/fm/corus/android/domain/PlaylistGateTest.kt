@@ -8,10 +8,10 @@ import org.junit.Test
 
 /**
  * [shouldShowSpotifyPlaylistAlert] decides whether tapping "Generate Playlist"
- * shows the "Spotify Feature" alert first. TIDAL builds on the user's own
- * account so it never alerts; Apple Music / Deezer have no Android client-side
- * path so they always alert; Spotify alerts only to warn about skipped
- * SoundCloud tracks.
+ * shows the "Generate Spotify Playlist?" alert first. TIDAL builds on the user's
+ * own account so it never alerts; Apple Music / Deezer have no Android
+ * client-side path so they always alert; Spotify alerts only to warn about
+ * skipped SoundCloud tracks.
  */
 class PlaylistGateTest {
 
@@ -32,7 +32,7 @@ class PlaylistGateTest {
     @Test
     fun `youtube music falls back to a spotify playlist like deezer`() {
         // YouTube Music is link-out only with no client-side playlist path, so it
-        // must behave exactly like Deezer: always the "Spotify Feature" alert, and
+        // must behave exactly like Deezer: always the Spotify-playlist alert, and
         // usesSpotifyFallback true so it gets the fallback path, not the native
         // one-time explainer.
         assertTrue(usesSpotifyFallback(MusicService.YOUTUBE_MUSIC))
@@ -98,5 +98,58 @@ class PlaylistGateTest {
         assertFalse(shouldOfferHashtagFullExport(0))
         assertFalse(shouldOfferHashtagFullExport(75))
         assertTrue(shouldOfferHashtagFullExport(76))
+    }
+
+    @Test
+    fun `spotify playlist alert copy names the playlist and soundcloud skip`() {
+        assertEquals("Generate Spotify Playlist?", SPOTIFY_PLAYLIST_ALERT_TITLE)
+        assertEquals("SoundCloud songs will be skipped.", spotifyPlaylistAlertMessage(true))
+        assertEquals("This creates a Spotify playlist.", spotifyPlaylistAlertMessage(false))
+    }
+
+    @Test
+    fun `playlist export chooser copy names destination and context`() {
+        assertEquals("Export playlist", PLAYLIST_EXPORT_CHOOSER_TITLE)
+        assertEquals(
+            "A Spotify playlist of your profile.",
+            playlistExportChooserMessage(
+                PlaylistExportChooserSource.OwnProfile,
+                MusicService.SPOTIFY,
+                hasSoundCloud = false,
+            ),
+        )
+        assertEquals(
+            "A Spotify playlist of your profile. SoundCloud songs will be skipped.",
+            playlistExportChooserMessage(
+                PlaylistExportChooserSource.OwnProfile,
+                MusicService.SPOTIFY,
+                hasSoundCloud = true,
+            ),
+        )
+        assertEquals(
+            "A Spotify playlist of their profile.",
+            playlistExportChooserMessage(
+                PlaylistExportChooserSource.OtherProfile,
+                MusicService.SPOTIFY,
+                hasSoundCloud = false,
+            ),
+        )
+        // Apple Music falls back to Spotify on Android.
+        assertEquals(
+            "A Spotify playlist of your profile.",
+            playlistExportChooserMessage(
+                PlaylistExportChooserSource.OwnProfile,
+                MusicService.APPLE_MUSIC,
+                hasSoundCloud = false,
+            ),
+        )
+        assertEquals(
+            "A TIDAL playlist from this hashtag.",
+            playlistExportChooserMessage(
+                PlaylistExportChooserSource.Hashtag,
+                MusicService.TIDAL,
+                hasSoundCloud = false,
+            ),
+        )
     }
 }

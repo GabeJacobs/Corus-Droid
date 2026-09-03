@@ -33,7 +33,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SongDetailViewModel @Inject constructor(
     private val postRepository: PostRepository,
-    private val nowPlayingManager: NowPlayingManager,
+    val nowPlayingManager: NowPlayingManager,
     val analyticsService: AnalyticsService,
     private val commentEditedEvent: CommentEditedEvent,
     private val commentDeletedEvent: CommentDeletedEvent,

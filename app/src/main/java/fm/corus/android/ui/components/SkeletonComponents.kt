@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
 import coil3.memory.MemoryCache
 import coil3.request.ImageRequest
 import coil3.request.crossfade
@@ -69,6 +70,8 @@ fun ShimmerAsyncImage(
     usesSolidLoadingPlaceholder: Boolean = false,
     skipFadeOnMemoryCache: Boolean = false,
     colorFilter: ColorFilter? = null,
+    /** Invoked after the paint succeeds; used by callers that size from intrinsic aspect. */
+    onSuccess: ((AsyncImagePainter.State.Success) -> Unit)? = null,
 ) {
     // Key loading state on a stable identity. Callers often pass a freshly-built
     // ImageRequest each recomposition, so keying on `model` directly would reset
@@ -156,6 +159,7 @@ fun ShimmerAsyncImage(
                     fromMemoryCache = true
                 }
                 isLoading = false
+                onSuccess?.invoke(state)
             },
             onError = { isLoading = false },
         )

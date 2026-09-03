@@ -70,6 +70,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -223,10 +225,16 @@ private fun startOfDayMs(date: java.util.Date): Long {
     return cal.timeInMillis
 }
 
-/** Mirror of iOS shouldShowTimeSeparator: separator before the first message,
- *  on a calendar-day change, or after a gap of an hour or more. */
-internal fun shouldShowSeparator(prev: java.util.Date?, cur: java.util.Date): Boolean {
-    if (prev == null) return true
+/** Mirror of iOS shouldShowTimeSeparator: separator at the true conversation
+ *  start, on a calendar-day change, or after a gap of an hour or more.
+ *  Page edges (`prev == null` while older history is still loading) do not
+ *  force a stamp — that stamp would vanish on the next prepend. */
+internal fun shouldShowSeparator(
+    prev: java.util.Date?,
+    cur: java.util.Date,
+    isConversationStart: Boolean = true,
+): Boolean {
+    if (prev == null) return isConversationStart
     if (startOfDayMs(prev) != startOfDayMs(cur)) return true
     return cur.time - prev.time >= SEPARATOR_GAP_MS
 }
@@ -234,8 +242,12 @@ internal fun shouldShowSeparator(prev: java.util.Date?, cur: java.util.Date): Bo
 /** Whether the separator marks a new calendar day (vs. an intra-day gap). Day
  *  boundaries always carry a day label; intra-day gaps show only the time, so a
  *  multi-day "leap" is always obvious. */
-internal fun isDayBoundary(prev: java.util.Date?, cur: java.util.Date): Boolean {
-    if (prev == null) return true
+internal fun isDayBoundary(
+    prev: java.util.Date?,
+    cur: java.util.Date,
+    isConversationStart: Boolean = true,
+): Boolean {
+    if (prev == null) return isConversationStart
     return startOfDayMs(prev) != startOfDayMs(cur)
 }
 
@@ -646,17 +658,22 @@ fun MessageThreadScreen(
     val messages by viewModel.messages.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val hasLoadError by viewModel.hasLoadError.collectAsState()
+    val hasMoreMessages by viewModel.hasMoreMessages.collectAsState()
+    val isLoadingOlder by viewModel.isLoadingOlder.collectAsState()
+    val liveWindowReady by viewModel.liveWindowReady.collectAsState()
     val otherUsername by viewModel.otherUsername.collectAsState()
     val otherDisplayName by viewModel.otherDisplayName.collectAsState()
     val otherAvatarURL by viewModel.otherAvatarURL.collectAsState()
     val otherAvatarThumbURL by viewModel.otherAvatarThumbURL.collectAsState()
     val artistsInCommonCount by viewModel.artistsInCommonCount.collectAsState()
+    val openedAsNewCompose by viewModel.openedAsNewCompose.collectAsState()
     val replyToMessage by viewModel.replyToMessage.collectAsState()
     val editingMessage by viewModel.editingMessage.collectAsState()
     val recipientUnread by viewModel.recipientUnread.collectAsState()
     val myReadReceiptsEnabled by viewModel.myReadReceiptsEnabled.collectAsState()
     val groupInfo by viewModel.groupInfo.collectAsState()
     val membersById by viewModel.membersById.collectAsState()
+    val resolvedThreadId by viewModel.resolvedThreadId.collectAsState()
     val isGroup = groupInfo?.isGroup == true
     var showGroupInfo by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -665,10 +682,20 @@ fun MessageThreadScreen(
     // TextFieldValue (not plain String) so we can place the cursor at the end of
     // the prefilled text when an edit starts; the String overload resets it to 0.
     // Seeded from the local draft store so tapping back doesn't lose unsent text.
-    var messageText by remember(threadId, composerUid) {
-        mutableStateOf(TextFieldValue(draftStore.load(composerUid, threadId) ?: ""))
+    var messageText by remember(threadId, composerUid, otherUserId) {
+        mutableStateOf(
+            TextFieldValue(draftStore.load(composerUid, threadId, otherUserId) ?: ""),
+        )
     }
+    // After Send, ignore IME echoes of the outgoing string so they can't refill
+    // the box or re-persist the draft (iOS `takeText()` / `isSendingComposerText`).
+    var sentComposerText by remember(threadId) { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
+    var unseenIncomingMessageCount by remember(threadId) { mutableIntStateOf(0) }
+    var lastObservedNewestId by remember(threadId) { mutableStateOf<String?>(null) }
+    var readerFollowingLatest by remember(threadId) { mutableStateOf(true) }
+    var olderPageArmedByUserScroll by remember(threadId) { mutableStateOf(false) }
+    var showInitialLoadingIndicator by remember(threadId) { mutableStateOf(false) }
     var reactionTarget by remember { mutableStateOf<CymbalMessage?>(null) }
     // The group message whose "Reactions" list bottom sheet is open, if any.
     var reactionsSheetMessage by remember { mutableStateOf<CymbalMessage?>(null) }
@@ -703,10 +730,18 @@ fun MessageThreadScreen(
 
     val latestDraftText = rememberUpdatedState(messageText.text)
     val isEditingDraft = rememberUpdatedState(editingMessage != null)
-    DisposableEffect(threadId, composerUid) {
+    val latestSentComposerText = rememberUpdatedState(sentComposerText)
+    val persistThreadId = resolvedThreadId?.takeIf { it.isNotBlank() } ?: threadId
+    val latestPersistThreadId = rememberUpdatedState(persistThreadId)
+    DisposableEffect(threadId, composerUid, otherUserId) {
         onDispose {
-            if (!isEditingDraft.value) {
-                draftStore.save(composerUid, threadId, latestDraftText.value)
+            if (!isEditingDraft.value && latestSentComposerText.value == null) {
+                draftStore.save(
+                    composerUid,
+                    latestPersistThreadId.value,
+                    latestDraftText.value,
+                    otherUserId,
+                )
             }
             viewModel.clearMentions()
             viewModel.clearHashtags()
@@ -763,6 +798,16 @@ fun MessageThreadScreen(
         viewModel.loadMessages(threadId, otherUserId)
     }
 
+    // Avoid flashing a spinner for fast cache hits, but explain a genuine cache
+    // miss instead of leaving an apparently broken blank conversation canvas.
+    LaunchedEffect(isLoading, messages.isEmpty()) {
+        showInitialLoadingIndicator = false
+        if (isLoading && messages.isEmpty()) {
+            kotlinx.coroutines.delay(300)
+            if (isLoading && messages.isEmpty()) showInitialLoadingIndicator = true
+        }
+    }
+
     // Nothing of the conversation is drawn until it is known to be the caller's
     // to see, and it stops being drawn the moment it isn't — a block landing
     // while the thread is open takes it away.
@@ -791,7 +836,6 @@ fun MessageThreadScreen(
     // the foreground: suppresses its push notifications, excludes it from the
     // unread badge, and clears any notification that arrived before opening it.
     // Cleared on STOP (app backgrounded / screen left) so notifications resume.
-    val resolvedThreadId by viewModel.resolvedThreadId.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(resolvedThreadId, lifecycleOwner, isVisible) {
         val tid = resolvedThreadId
@@ -829,9 +873,65 @@ fun MessageThreadScreen(
     // also re-pins when the newest bubble changes height in place on a send-status
     // transition.
     LaunchedEffect(autoScrollKey(messages)) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(0)
+        val newest = messages.firstOrNull() ?: return@LaunchedEffect
+        val previousId = lastObservedNewestId
+        lastObservedNewestId = newest.id
+        if (previousId == null) {
+            listState.scrollToItem(0)
+            return@LaunchedEffect
         }
+        if (readerFollowingLatest || newest.fromUserId == viewModel.currentUserId) {
+            unseenIncomingMessageCount = 0
+            listState.animateScrollToItem(0)
+        } else if (newest.id != previousId) {
+            unseenIncomingMessageCount += 1
+        }
+    }
+
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            Triple(
+                listState.firstVisibleItemIndex,
+                listState.firstVisibleItemScrollOffset,
+                listState.isScrollInProgress,
+            )
+        }.distinctUntilChanged().collect { (index, offset, scrolling) ->
+            val atBottom = index == 0 && offset < 24
+            if (atBottom) {
+                readerFollowingLatest = true
+                unseenIncomingMessageCount = 0
+            } else if (scrolling) {
+                readerFollowingLatest = false
+            }
+        }
+    }
+
+    // Arm while the user is scrolling up. After a page lands, a still-moving
+    // fling can fetch the next page; a prepend alone cannot.
+    LaunchedEffect(listState, isLoadingOlder, hasMoreMessages) {
+        snapshotFlow { listState.isScrollInProgress }
+            .collect { scrolling ->
+                if (scrolling && !isLoadingOlder && hasMoreMessages) {
+                    olderPageArmedByUserScroll = true
+                }
+            }
+    }
+
+    // reverseLayout puts older messages at larger indices. Load when the
+    // chronological start is on screen — including a rest-at-top after a
+    // fling, so history can finish and the profile card can appear.
+    LaunchedEffect(listState, hasMoreMessages, isLoadingOlder) {
+        snapshotFlow {
+            val lastVisible = listState.layoutInfo.visibleItemsInfo.maxOfOrNull { it.index } ?: 0
+            messages.isNotEmpty() && hasMoreMessages && !isLoadingOlder &&
+                lastVisible >= messages.lastIndex - 5
+        }
+            .distinctUntilChanged()
+            .filter { it }
+            .collect {
+                olderPageArmedByUserScroll = false
+                viewModel.loadOlderMessages()
+            }
     }
 
     // This thread renders inside the tab NavHost, UNDERNEATH the persistent global
@@ -921,7 +1021,9 @@ fun MessageThreadScreen(
         ) {
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .then(if (liveWindowReady) Modifier else Modifier.alpha(0f)),
             reverseLayout = true,
             contentPadding = PaddingValues(vertical = CorusSpacing.sm),
         ) {
@@ -952,9 +1054,22 @@ fun MessageThreadScreen(
                 else null
 
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    if (shouldShowSeparator(older?.createdAt, message.createdAt)) {
+                    if (shouldShowSeparator(
+                            older?.createdAt,
+                            message.createdAt,
+                            isConversationStart = !hasMoreMessages,
+                        )
+                    ) {
                         DateSeparatorRow(
-                            separatorText(message.createdAt, isDayBoundary(older?.createdAt, message.createdAt), context)
+                            separatorText(
+                                message.createdAt,
+                                isDayBoundary(
+                                    older?.createdAt,
+                                    message.createdAt,
+                                    isConversationStart = !hasMoreMessages,
+                                ),
+                                context,
+                            )
                         )
                     }
                     if (message.isSystem) {
@@ -1021,7 +1136,7 @@ fun MessageThreadScreen(
             }
             // reverseLayout: last item sits at the chronological start (visual top).
             val hasOpenerIdentity = otherUsername.isNotBlank() || otherDisplayName.isNotBlank()
-            if (!isGroup && messages.isNotEmpty() && hasOpenerIdentity) {
+            if (!isGroup && messages.isNotEmpty() && !hasMoreMessages && hasOpenerIdentity) {
                 item(key = "thread-opener") {
                     ThreadOpener(
                         username = otherUsername,
@@ -1032,14 +1147,57 @@ fun MessageThreadScreen(
                         onViewProfile = { onNavigateToProfile(otherUserId) },
                     )
                 }
+            } else if (hasMoreMessages && messages.isNotEmpty()) {
+                item(key = "older-page-spinner") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = CorusSpacing.md)
+                            .height(36.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (isLoadingOlder) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = CorusColors.Secondary,
+                                strokeWidth = 2.dp,
+                            )
+                        }
+                    }
+                }
             }
         }
 
+            if (unseenIncomingMessageCount > 0) {
+                Button(
+                    onClick = {
+                        unseenIncomingMessageCount = 0
+                        readerFollowingLatest = true
+                        coroutineScope.launch { listState.animateScrollToItem(0) }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(CorusSpacing.md),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+                ) {
+                    Text(
+                        if (unseenIncomingMessageCount == 1) "New message"
+                        else "$unseenIncomingMessageCount new messages",
+                        color = Color.White,
+                    )
+                }
+            }
+
+            val headerReady = otherUsername.isNotBlank() || otherDisplayName.isNotBlank()
             val showThreadOpenerOverlay = !isGroup
                 && messages.isEmpty()
-                && !isLoading
                 && !hasLoadError
-                && (otherUsername.isNotBlank() || otherDisplayName.isNotBlank())
+                && headerReady
+                // Inbox-miss compose: paint the card while getOrCreate runs.
+                // Existing threads still wait for !isLoading so opener never
+                // flashes over a history that is about to appear.
+                && (!isLoading || openedAsNewCompose)
             if (showThreadOpenerOverlay) {
                 ThreadOpener(
                     username = otherUsername,
@@ -1052,11 +1210,7 @@ fun MessageThreadScreen(
                 )
             }
 
-            // Initial-load spinner: the message listener hasn't delivered a
-            // publishable snapshot yet, so `messages` is empty and the list
-            // would otherwise be a blank page. A listener failure with nothing
-            // on screen swaps to the same retry state the other tabs use.
-            if (isLoading && messages.isEmpty()) {
+            if (showInitialLoadingIndicator && messages.isEmpty() && !(openedAsNewCompose && headerReady)) {
                 CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center),
                     color = CorusColors.Accent,
@@ -1122,7 +1276,7 @@ fun MessageThreadScreen(
                 }
                 IconButton(onClick = {
                     viewModel.cancelEditing()
-                    val draft = draftStore.load(composerUid, threadId) ?: ""
+                    val draft = draftStore.load(composerUid, persistThreadId, otherUserId) ?: ""
                     messageText = TextFieldValue(text = draft, selection = TextRange(draft.length))
                 }) {
                     Icon(
@@ -1253,25 +1407,31 @@ fun MessageThreadScreen(
             OutlinedTextField(
                 value = messageText,
                 onValueChange = { newValue ->
-                    val textChanged = newValue.text != messageText.text
-                    messageText = newValue
-                    if (editingMessage == null) {
-                        draftStore.save(composerUid, threadId, newValue.text)
-                    }
-                    if (textChanged) {
-                        mentionSearchJob?.cancel()
-                        mentionSearchJob = coroutineScope.launch {
-                            delay(200)
-                            val caret = newValue.selection.start
-                            val mention = parseMentionQuery(newValue.text, caret)
-                            if (mention != null) {
-                                viewModel.clearHashtags()
-                                viewModel.searchMentions(mention)
-                            } else {
-                                viewModel.clearMentions()
-                                val hashtag = parseHashtagQuery(newValue.text, caret)
-                                if (hashtag != null) viewModel.searchHashtags(hashtag)
-                                else viewModel.clearHashtags()
+                    // IME can echo the just-sent string; don't put it back in the box.
+                    if (!dropComposerImeEcho(sentComposerText, newValue.text)) {
+                        if (newValue.text.isEmpty() || newValue.text != sentComposerText) {
+                            sentComposerText = null
+                        }
+                        val textChanged = newValue.text != messageText.text
+                        messageText = newValue
+                        if (editingMessage == null && sentComposerText == null) {
+                            draftStore.save(composerUid, persistThreadId, newValue.text, otherUserId)
+                        }
+                        if (textChanged) {
+                            mentionSearchJob?.cancel()
+                            mentionSearchJob = coroutineScope.launch {
+                                delay(200)
+                                val caret = newValue.selection.start
+                                val mention = parseMentionQuery(newValue.text, caret)
+                                if (mention != null) {
+                                    viewModel.clearHashtags()
+                                    viewModel.searchMentions(mention)
+                                } else {
+                                    viewModel.clearMentions()
+                                    val hashtag = parseHashtagQuery(newValue.text, caret)
+                                    if (hashtag != null) viewModel.searchHashtags(hashtag)
+                                    else viewModel.clearHashtags()
+                                }
                             }
                         }
                     }
@@ -1282,7 +1442,8 @@ fun MessageThreadScreen(
                 placeholder = { Text(stringResource(id = R.string.messaging_thread_placeholder), style = CorusFont.body) },
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 singleLine = false,
-                maxLines = 4,
+                minLines = 1,
+                maxLines = MESSAGE_COMPOSER_MAX_LINES,
                 shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
             )
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
@@ -1293,12 +1454,14 @@ fun MessageThreadScreen(
                         viewModel.clearHashtags()
                         if (editingMessage != null) {
                             viewModel.editMessage(threadId, messageText.text)
-                            val draft = draftStore.load(composerUid, threadId) ?: ""
+                            val draft = draftStore.load(composerUid, persistThreadId, otherUserId) ?: ""
                             messageText = TextFieldValue(text = draft, selection = TextRange(draft.length))
                         } else {
-                            viewModel.sendMessage(threadId, messageText.text)
-                            draftStore.clear(composerUid, threadId)
+                            val outgoing = messageText.text
+                            sentComposerText = outgoing
                             messageText = TextFieldValue("")
+                            draftStore.clear(composerUid, persistThreadId, otherUserId)
+                            viewModel.sendMessage(threadId, outgoing)
                         }
                     }
                 },
@@ -1859,15 +2022,10 @@ private fun MessageBubble(
                 // Image content
                 if (message.type == MessageType.IMAGE) {
                     if (message.mediaURL != null) {
-                        ShimmerAsyncImage(
-                            model = message.mediaURL,
+                        MessageMediaImage(
+                            url = message.mediaURL,
                             contentDescription = stringResource(id = R.string.messaging_thread_cd_shared_image),
-                            modifier = Modifier
-                                .widthIn(max = 240.dp)
-                                .heightIn(max = 300.dp)
-                                .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
-                                .clickable { onImageTap(message.mediaURL!!) },
-                            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                            onClick = { onImageTap(message.mediaURL!!) },
                         )
                     } else {
                         // Pending upload — show a shimmering skeleton so the bubble has
@@ -1887,14 +2045,9 @@ private fun MessageBubble(
 
                 // GIF content
                 if (message.type == MessageType.GIF && message.mediaURL != null) {
-                    ShimmerAsyncImage(
-                        model = message.mediaURL,
+                    MessageMediaImage(
+                        url = message.mediaURL,
                         contentDescription = stringResource(id = R.string.comments_cd_gif),
-                        modifier = Modifier
-                            .widthIn(max = 240.dp)
-                            .heightIn(max = 300.dp)
-                            .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
-                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                     )
                 }
 
@@ -2636,3 +2789,6 @@ private fun SharedProfileContent(
         )
     }
 }
+
+/** Instagram-style composer: grow through 5 lines, then scroll with the caret. */
+internal const val MESSAGE_COMPOSER_MAX_LINES = 5

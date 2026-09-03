@@ -89,6 +89,14 @@ class MessageRepository @Inject constructor(
 
     fun cacheInbox(snapshot: CachedInbox) { cachedInbox = snapshot }
 
+    /** Local 1:1 row for a peer if this process has them in the inbox cache. */
+    fun directThread(otherUserId: String): CymbalThread? {
+        if (otherUserId.isBlank()) return null
+        return cachedInbox?.threads?.firstOrNull { !it.isGroup && it.otherUserId == otherUserId }
+    }
+
+    fun directThreadId(otherUserId: String): String? = directThread(otherUserId)?.id
+
     suspend fun listThreads(userId: String): List<CymbalThread> {
         return cloudFunctions.listThreads(userId)
     }

@@ -1,6 +1,7 @@
 package fm.corus.android.ui.screens.profile
 
 import androidx.compose.runtime.Composable
+import fm.corus.android.domain.PLAYLIST_EXPORT_CHOOSER_TITLE
 import fm.corus.android.ui.components.CorusPromptButton
 import fm.corus.android.ui.components.CorusPromptOverlay
 
@@ -10,22 +11,14 @@ import fm.corus.android.ui.components.CorusPromptOverlay
 @Composable
 fun PlaylistExportChooserDialog(
     count: Int,
-    caveat: String,
+    message: String,
     onQuick: () -> Unit,
     onAll: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val message = buildString {
-        append("Make a playlist of the most recent 75 songs, or export all $count songs.")
-        if (caveat.isNotBlank()) {
-            append(' ')
-            append(caveat)
-        }
-    }
-
     CorusPromptOverlay(
         visible = true,
-        title = "Generate a playlist?",
+        title = PLAYLIST_EXPORT_CHOOSER_TITLE,
         message = message,
         onDismiss = onDismiss,
         buttons = listOf(

@@ -19,24 +19,55 @@ class DMDraftStore(private val prefs: SharedPreferences) {
         context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE),
     )
 
-    fun load(uid: String?, threadId: String): String? {
-        val key = key(uid, threadId) ?: return null
-        val text = prefs.getString(key, null)
-        return if (text.isNullOrEmpty()) null else text
-    }
-
-    fun save(uid: String?, threadId: String, text: String) {
-        val key = key(uid, threadId) ?: return
-        val normalized = normalized(text)
-        if (normalized == null) {
-            prefs.edit().remove(key).apply()
-        } else {
-            prefs.edit().putString(key, normalized).apply()
+    fun load(
+        uid: String?,
+        threadId: String,
+        peerUserId: String? = null,
+    ): String? {
+        key(uid, threadId, peerUserId = null)?.let { threadKey ->
+            val text = prefs.getString(threadKey, null)
+            if (!text.isNullOrEmpty()) return text
         }
+        key(uid, threadId = "", peerUserId)?.let { peerKey ->
+            val text = prefs.getString(peerKey, null)
+            if (!text.isNullOrEmpty()) return text
+        }
+        return null
     }
 
-    fun clear(uid: String?, threadId: String) {
-        save(uid, threadId, "")
+    /**
+     * Persists [text] for the thread (or peer, if the thread isn't resolved
+     * yet). Whitespace-only input deletes the draft. Once a thread id exists,
+     * any leftover peer-keyed draft is removed so it can't resurrect later.
+     */
+    fun save(
+        uid: String?,
+        threadId: String,
+        text: String,
+        peerUserId: String? = null,
+    ) {
+        val normalized = normalized(text)
+        key(uid, threadId, peerUserId = null)?.let { threadKey ->
+            val editor = prefs.edit()
+            if (normalized == null) editor.remove(threadKey)
+            else editor.putString(threadKey, normalized)
+            key(uid, threadId = "", peerUserId)?.let { editor.remove(it) }
+            editor.apply()
+            return
+        }
+        val peerKey = key(uid, threadId = "", peerUserId) ?: return
+        val editor = prefs.edit()
+        if (normalized == null) editor.remove(peerKey)
+        else editor.putString(peerKey, normalized)
+        editor.apply()
+    }
+
+    fun clear(
+        uid: String?,
+        threadId: String,
+        peerUserId: String? = null,
+    ) {
+        save(uid, threadId, "", peerUserId)
     }
 
     companion object {
@@ -44,9 +75,15 @@ class DMDraftStore(private val prefs: SharedPreferences) {
         const val MAX_LENGTH = 10_000
         private const val KEY_PREFIX = "dm_draft."
 
-        fun key(uid: String?, threadId: String): String? {
-            if (uid.isNullOrEmpty() || threadId.isEmpty()) return null
-            return "$KEY_PREFIX$uid.thread.$threadId"
+        /**
+         * Prefer a resolved thread id; fall back to the peer so a brand-new
+         * conversation can keep a draft before `getOrCreateThread` returns.
+         */
+        fun key(uid: String?, threadId: String?, peerUserId: String? = null): String? {
+            if (uid.isNullOrEmpty()) return null
+            if (!threadId.isNullOrEmpty()) return "$KEY_PREFIX$uid.thread.$threadId"
+            if (!peerUserId.isNullOrEmpty()) return "$KEY_PREFIX$uid.peer.$peerUserId"
+            return null
         }
 
         /** Empty / whitespace-only drafts are discarded. Trailing spaces stay. */
