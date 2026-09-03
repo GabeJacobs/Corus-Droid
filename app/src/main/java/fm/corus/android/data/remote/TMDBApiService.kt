@@ -190,9 +190,14 @@ data class TMDBMovieDetails(
         get() {
             val yt = videos?.results?.filter { it.site == "YouTube" && it.key.isNotBlank() }
                 ?: return null
-            val pick = yt.firstOrNull { it.type == "Trailer" && it.official }
-                ?: yt.firstOrNull { it.type == "Trailer" }
-                ?: yt.firstOrNull { it.type == "Teaser" }
+            // Prefer English within each quality tier so a dubbed FR/DE
+            // "official" trailer does not beat the English one when TMDB
+            // lists it first.
+            fun pickBest(candidates: List<TMDBVideo>): TMDBVideo? =
+                candidates.minByOrNull { it.trailerLangRank }
+            val pick = pickBest(yt.filter { it.type == "Trailer" && it.official })
+                ?: pickBest(yt.filter { it.type == "Trailer" })
+                ?: pickBest(yt.filter { it.type == "Teaser" })
             return pick?.let { "https://www.youtube.com/watch?v=${it.key}" }
         }
 
@@ -273,7 +278,19 @@ data class TMDBVideo(
     val site: String = "",
     val type: String = "",
     val official: Boolean = false,
-)
+    @SerialName("iso_639_1") val iso6391: String = "",
+) {
+    /** Lower is better: English → untagged/xx → other locales. */
+    val trailerLangRank: Int
+        get() {
+            val lang = iso6391.trim().lowercase()
+            return when {
+                lang == "en" -> 0
+                lang.isEmpty() || lang == "xx" -> 1
+                else -> 2
+            }
+        }
+}
 
 @Serializable
 data class TMDBGenre(
