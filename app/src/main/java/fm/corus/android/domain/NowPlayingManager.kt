@@ -594,6 +594,7 @@ class NowPlayingManager @Inject constructor(
             isPreviewMode = isPreviewMode,
             desiresFullSong = preferencesDataStore.effectivePlayFullSongsSync(),
             isExternalSpotifyListening = isExternalSpotifyListening,
+            fullSongUnavailable = _state.value.notOnSpotify,
         )
     }
 

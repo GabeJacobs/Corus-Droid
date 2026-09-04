@@ -87,5 +87,16 @@ class SongPlayRoutingPlaybackModeTest {
                 desiresFullSong = false,
             ),
         )
+        // Full mode remains selected, but this Apple-only recording cannot use
+        // Spotify. Its preview is therefore the realized session we should resume.
+        assertFalse(
+            SongPlayRouting.shouldRestartPausedSessionForDesiredMode(
+                hasActiveTrack = true,
+                isPlaying = false,
+                isPreviewMode = true,
+                desiresFullSong = true,
+                fullSongUnavailable = true,
+            ),
+        )
     }
 }

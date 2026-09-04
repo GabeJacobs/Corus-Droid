@@ -160,8 +160,10 @@ object SongPlayRouting {
         isPreviewMode: Boolean,
         desiresFullSong: Boolean,
         isExternalSpotifyListening: Boolean = false,
+        fullSongUnavailable: Boolean = false,
     ): Boolean {
         if (!hasActiveTrack || isPlaying || isExternalSpotifyListening) return false
+        if (isPreviewMode && fullSongUnavailable) return false
         return !realizedSessionMatchesDesiredMode(isPreviewMode, desiresFullSong)
     }
 

@@ -18,17 +18,12 @@ if (versionPropsFile.exists()) {
     versionProps.load(versionPropsFile.inputStream())
 }
 
-val isReleaseBuild = gradle.startParameter.taskNames.any {
-    val lower = it.lowercase()
-    lower.contains("bundlerelease") || lower.contains("assemblerelease")
-}
-
-var resolvedVersionCode = (versionProps["VERSION_CODE"] as? String)?.toInt() ?: 1
-if (isReleaseBuild) {
-    resolvedVersionCode += 1
-    versionProps["VERSION_CODE"] = resolvedVersionCode.toString()
-    versionPropsFile.outputStream().use { versionProps.store(it, null) }
-}
+val resolvedVersionCode = providers.gradleProperty("versionCode").orNull?.toInt()
+    ?: (versionProps["VERSION_CODE"] as? String)?.toInt()
+    ?: 1
+val resolvedVersionName = providers.gradleProperty("versionName").orNull
+    ?: (versionProps["VERSION_NAME"] as? String)
+    ?: "1.5.2"
 
 plugins {
     alias(libs.plugins.android.application)
@@ -59,7 +54,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = resolvedVersionCode
-        versionName = "1.5.2"
+        versionName = resolvedVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

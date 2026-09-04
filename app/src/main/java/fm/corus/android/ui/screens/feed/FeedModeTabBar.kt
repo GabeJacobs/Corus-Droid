@@ -171,8 +171,19 @@ fun ModeTabBar(
 
     // Hairline + accent share this box's bottom edge, matching iOS
     // `overlay(alignment: .bottom)` so the divider is edge-to-edge and
-    // the pill sits on it (a sibling divider left a gap and inset).
+    // the pill sits on it. Draw the divider first so it cannot cover the
+    // bottom of the accent pill.
     Box(modifier = modifier.fillMaxWidth()) {
+        if (showDivider) {
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(CorusColors.Divider),
+            )
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -254,16 +265,6 @@ fun ModeTabBar(
                         .background(CorusColors.Accent),
                 )
             }
-        }
-
-        if (showDivider) {
-            Box(
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(CorusColors.Divider),
-            )
         }
     }
 }
