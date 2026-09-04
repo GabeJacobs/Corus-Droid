@@ -654,6 +654,13 @@ fun MessageThreadScreen(
     onNavigateToHashtag: (String) -> Unit = {},
     viewModel: MessageThreadViewModel = hiltViewModel(),
 ) {
+    // Inbox-miss compose: arm optimistic OPEN + header seed before we read
+    // threadAccess so the first frame paints the opener (iOS parity), not ClosedThread.
+    val navComposeFromPeer = threadId.isBlank() && otherUserId.isNotBlank()
+    if (navComposeFromPeer) {
+        viewModel.prepareComposeFromPeer(otherUserId)
+    }
+
     val nowPlayingManager = viewModel.nowPlayingManager
     val messages by viewModel.messages.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -667,6 +674,7 @@ fun MessageThreadScreen(
     val otherAvatarThumbURL by viewModel.otherAvatarThumbURL.collectAsState()
     val artistsInCommonCount by viewModel.artistsInCommonCount.collectAsState()
     val openedAsNewCompose by viewModel.openedAsNewCompose.collectAsState()
+    val composeFromPeer = openedAsNewCompose || navComposeFromPeer
     val replyToMessage by viewModel.replyToMessage.collectAsState()
     val editingMessage by viewModel.editingMessage.collectAsState()
     val recipientUnread by viewModel.recipientUnread.collectAsState()
@@ -798,29 +806,35 @@ fun MessageThreadScreen(
         viewModel.loadMessages(threadId, otherUserId)
     }
 
-    // Avoid flashing a spinner for fast cache hits, but explain a genuine cache
-    // miss instead of leaving an apparently broken blank conversation canvas.
-    LaunchedEffect(isLoading, messages.isEmpty()) {
+    // Avoid flashing a spinner for fast cache hits. A slow unresolved compose
+    // gets the same spinner as every other cold thread; the peer opener is only
+    // shown after an authoritative empty snapshot.
+    LaunchedEffect(isLoading, messages.isEmpty(), composeFromPeer) {
         showInitialLoadingIndicator = false
         if (isLoading && messages.isEmpty()) {
-            kotlinx.coroutines.delay(300)
+            if (!composeFromPeer) kotlinx.coroutines.delay(600)
             if (isLoading && messages.isEmpty()) showInitialLoadingIndicator = true
         }
     }
 
     // Nothing of the conversation is drawn until it is known to be the caller's
     // to see, and it stops being drawn the moment it isn't — a block landing
-    // while the thread is open takes it away.
+    // while the thread is open takes it away. Inbox-miss compose is allowed
+    // through while RESOLVING so getOrCreate can finish behind the thread shell.
     val access by viewModel.threadAccess.collectAsState()
     val messagingRestriction by viewModel.messagingRestriction.collectAsState()
     if (access != ThreadAccess.OPEN) {
-        ClosedThread(
-            access = access,
-            restriction = messagingRestriction,
-            name = otherUsername,
-            onBack = onBack,
-        )
-        return
+        val allowComposeWhileResolving =
+            composeFromPeer && access == ThreadAccess.RESOLVING && messagingRestriction == null
+        if (!allowComposeWhileResolving) {
+            ClosedThread(
+                access = access,
+                restriction = messagingRestriction,
+                name = otherUsername,
+                onBack = onBack,
+            )
+            return
+        }
     }
 
     // NavHosts for every tab remain composed, and Navigation Compose can retain
@@ -1194,10 +1208,8 @@ fun MessageThreadScreen(
                 && messages.isEmpty()
                 && !hasLoadError
                 && headerReady
-                // Inbox-miss compose: paint the card while getOrCreate runs.
-                // Existing threads still wait for !isLoading so opener never
-                // flashes over a history that is about to appear.
-                && (!isLoading || openedAsNewCompose)
+                // Never let an unresolved conversation impersonate a new one.
+                && !isLoading
             if (showThreadOpenerOverlay) {
                 ThreadOpener(
                     username = otherUsername,
@@ -1210,7 +1222,7 @@ fun MessageThreadScreen(
                 )
             }
 
-            if (showInitialLoadingIndicator && messages.isEmpty() && !(openedAsNewCompose && headerReady)) {
+            if (showInitialLoadingIndicator && messages.isEmpty()) {
                 CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center),
                     color = CorusColors.Accent,

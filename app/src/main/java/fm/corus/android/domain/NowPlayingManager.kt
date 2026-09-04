@@ -196,6 +196,7 @@ data class QueuedTrack(
     val durationMs: Int? = null,
     val albumName: String? = null,
     val appleMusicStorefront: String? = null,
+    val notOnSpotify: Boolean = false,
 )
 
 /**
@@ -224,6 +225,7 @@ fun CymbalTrack.toQueuedTrack(origin: CatalogPlaybackOrigin? = null) = QueuedTra
     durationMs = durationMs.takeIf { it > 0 },
     albumName = albumName,
     appleMusicStorefront = appleMusicStorefront,
+    notOnSpotify = notOnSpotify,
 )
 
 /**
@@ -251,6 +253,7 @@ fun CymbalPost.toQueuedTrack() = QueuedTrack(
     durationMs = track.durationMs.takeIf { it > 0 },
     albumName = track.albumName,
     appleMusicStorefront = track.appleMusicStorefront,
+    notOnSpotify = track.notOnSpotify,
 )
 
 data class NowPlayingState(
@@ -277,6 +280,7 @@ data class NowPlayingState(
     /** Set when the playing track came from an artist/album page; drives the
      *  mini-player "return to origin" tap. See [CatalogPlaybackOrigin]. */
     val catalogOrigin: CatalogPlaybackOrigin? = null,
+    val notOnSpotify: Boolean = false,
 ) {
     val hasActiveTrack: Boolean get() = trackId != null
 }
@@ -648,6 +652,7 @@ class NowPlayingManager @Inject constructor(
         soundcloudPermalinkUrl = soundcloudPermalinkUrl,
         audiomackUrl = audiomackUrl,
         bandcampUrl = bandcampUrl,
+        notOnSpotify = notOnSpotify,
     )
 
     private val _isResolvingSpotify = MutableStateFlow(false)
@@ -705,6 +710,7 @@ class NowPlayingManager @Inject constructor(
         preferFullSong: Boolean = false,
         trackId: String? = null,
         spotifyURI: String? = null,
+        knownNotOnSpotify: Boolean = false,
     ): Boolean {
         if (!SpotifyPlaybackService.isSpotifyAppInstalled(context)) return false
         val playFull = preferFullSong || preferencesDataStore.effectivePlayFullSongsSync()
@@ -714,6 +720,7 @@ class NowPlayingManager @Inject constructor(
             playFullSongs = playFull,
             trackId = trackId,
             spotifyURI = spotifyURI,
+            knownNotOnSpotify = knownNotOnSpotify,
         )
     }
 
@@ -725,6 +732,7 @@ class NowPlayingManager @Inject constructor(
         preferFullSong = preferFullSong,
         trackId = track.trackId,
         spotifyURI = track.spotifyURI,
+        knownNotOnSpotify = track.notOnSpotify,
     )
 
     /** Album-art play/pause overlay for in-app full-song playback. */
@@ -2013,6 +2021,7 @@ class NowPlayingManager @Inject constructor(
             audiomackUrl = track.audiomackUrl,
             bandcampUrl = track.bandcampUrl,
             catalogOrigin = track.catalogOrigin,
+            notOnSpotify = track.notOnSpotify,
         )
 
         // This corus is now playing in-app — report a unique play. Reached for
@@ -4456,6 +4465,7 @@ class NowPlayingManager @Inject constructor(
             soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
             audiomackUrl = track.audiomackUrl,
             bandcampUrl = track.bandcampUrl,
+            notOnSpotify = track.notOnSpotify,
             hasNext = computeHasNext(),
         )
     }

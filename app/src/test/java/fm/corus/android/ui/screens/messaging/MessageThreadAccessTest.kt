@@ -171,6 +171,27 @@ class MessageThreadAccessTest {
     }
 
     @Test
+    fun `inbox-miss compose is open before getOrCreate returns`() = runTest {
+        whenever(userRepository.peekCachedUser(any())).doReturn(null)
+        whenever(messageRepository.getOrCreateThread(any(), any())).doReturn("t1")
+        // Row listener never emits — access must stay OPEN from compose alone.
+        whenever(userRepository.fetchUserProfile(any())).doReturn(
+            fm.corus.android.data.model.CymbalUser(
+                id = "other",
+                username = "other",
+                displayName = "Other",
+            ),
+        )
+
+        val vm = viewModel()
+        vm.loadMessages("", "other")
+        advanceUntilIdle()
+
+        assertEquals(true, vm.openedAsNewCompose.value)
+        assertEquals(ThreadAccess.OPEN, vm.threadAccess.value)
+    }
+
+    @Test
     fun `the row consulted is the caller's own, which is the one the rule is written against`() = runTest {
         val vm = viewModel()
         vm.loadMessages("thread1", "other")

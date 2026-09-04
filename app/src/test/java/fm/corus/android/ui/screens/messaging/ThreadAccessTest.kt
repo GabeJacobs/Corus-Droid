@@ -28,6 +28,62 @@ class ThreadAccessTest {
     }
 
     @Test
+    fun `inbox-miss compose opens immediately while getOrCreate is still in flight`() {
+        assertEquals(
+            ThreadAccess.OPEN,
+            resolveThreadAccess(
+                null,
+                emptySet(),
+                nobodyBanned,
+                composeFromPeer = true,
+                composePeerUserId = "peer",
+            ),
+        )
+    }
+
+    @Test
+    fun `inbox-miss compose still refuses a peer this device has already blocked`() {
+        assertEquals(
+            ThreadAccess.UNAVAILABLE,
+            resolveThreadAccess(
+                null,
+                setOf("peer"),
+                nobodyBanned,
+                composeFromPeer = true,
+                composePeerUserId = "peer",
+            ),
+        )
+    }
+
+    @Test
+    fun `inbox-miss compose still refuses a banned peer`() {
+        assertEquals(
+            ThreadAccess.UNAVAILABLE,
+            resolveThreadAccess(
+                null,
+                emptySet(),
+                isBanned = { it == "spammer" },
+                composeFromPeer = true,
+                composePeerUserId = "spammer",
+            ),
+        )
+    }
+
+    @Test
+    fun `create failure still refuses after optimistic compose`() {
+        assertEquals(
+            ThreadAccess.UNAVAILABLE,
+            resolveThreadAccess(
+                row(null),
+                emptySet(),
+                nobodyBanned,
+                composeFromPeer = true,
+                composePeerUserId = "peer",
+            ),
+        )
+    }
+
+    @Test
     fun `an ordinary conversation opens`() {
         assertEquals(ThreadAccess.OPEN, resolveThreadAccess(row(direct()), emptySet(), nobodyBanned))
     }
@@ -52,7 +108,7 @@ class ThreadAccessTest {
     fun `a conversation with a banned account is refused`() {
         assertEquals(
             ThreadAccess.UNAVAILABLE,
-            resolveThreadAccess(row(direct(otherUserId = "spammer")), emptySet()) { it == "spammer" },
+            resolveThreadAccess(row(direct(otherUserId = "spammer")), emptySet(), isBanned = { it == "spammer" }),
         )
     }
 
@@ -84,7 +140,7 @@ class ThreadAccessTest {
 
         assertEquals(
             ThreadAccess.OPEN,
-            resolveThreadAccess(row(group), setOf("nemesis")) { it == "nemesis" },
+            resolveThreadAccess(row(group), setOf("nemesis"), isBanned = { it == "nemesis" }),
         )
     }
 

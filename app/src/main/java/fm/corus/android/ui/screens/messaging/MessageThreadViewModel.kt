@@ -23,6 +23,7 @@ import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -157,6 +158,9 @@ class MessageThreadViewModel @Inject constructor(
     private val _openedAsNewCompose = MutableStateFlow(false)
     val openedAsNewCompose: StateFlow<Boolean> = _openedAsNewCompose.asStateFlow()
 
+    /** Peer id for inbox-miss compose; drives optimistic [threadAccess] + send fallback. */
+    private val _composePeerUserId = MutableStateFlow("")
+
     val currentUserId: String? get() = authRepository.currentUserId
 
     private val _replyToMessage = MutableStateFlow<CymbalMessage?>(null)
@@ -187,15 +191,28 @@ class MessageThreadViewModel @Inject constructor(
      * Whether this conversation may be shown, and the screen's whole answer to
      * that question — every way in lands here, including a tapped push and a
      * deep link, neither of which passes through the inbox.
+     *
+     * Inbox-miss compose opens immediately (peer card from cache) while
+     * getOrCreate runs; create failure / the row still override.
      */
     val threadAccess: StateFlow<ThreadAccess> = combine(
         _threadRow,
         userRepository.blockedIds,
-    ) { row, blockedIds ->
-        resolveThreadAccess(row, blockedIds) { userRepository.isUserBannedLocally(it) }
+        _openedAsNewCompose,
+        _composePeerUserId,
+    ) { row, blockedIds, composeFromPeer, peerId ->
+        resolveThreadAccess(
+            row = row,
+            blockedIds = blockedIds,
+            isBanned = { userRepository.isUserBannedLocally(it) },
+            composeFromPeer = composeFromPeer,
+            composePeerUserId = peerId,
+        )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, ThreadAccess.RESOLVING)
 
     private var currentThreadId: String? = null
+    /** In-flight getOrCreate for compose-from-peer; send awaits this if the user is faster. */
+    private var threadCreateDeferred: CompletableDeferred<String>? = null
     private var listenerJob: Job? = null
     private var threadRowJob: Job? = null
     private var recipientUnreadJob: Job? = null
@@ -247,6 +264,9 @@ class MessageThreadViewModel @Inject constructor(
         currentThreadId = threadId
         val composeFromPeer = threadId.isBlank() && otherUserId.isNotBlank()
         _openedAsNewCompose.value = composeFromPeer
+        _composePeerUserId.value = if (composeFromPeer) otherUserId else ""
+        // Fresh create wait for this open; prior deferred must not leak across loads.
+        threadCreateDeferred = if (composeFromPeer) CompletableDeferred() else null
         // Arm active-thread tracking right away when the id is already known, so
         // suppression is in effect before the (async) profile fetch completes.
         if (threadId.isNotBlank()) _resolvedThreadId.value = threadId
@@ -262,7 +282,8 @@ class MessageThreadViewModel @Inject constructor(
             seedHeaderFromUser(userRepository.peekCachedUser(otherUserId))
         }
         // Arm the spinner before the coroutine is scheduled so the first OPEN
-        // frame cannot paint an empty list with isLoading still false.
+        // frame cannot paint an empty list with isLoading still false. Compose
+        // from peer skips covering the opener (see MessageThreadScreen).
         _hasLoadError.value = false
         _isLoading.value = true
         viewModelScope.launch {
@@ -278,11 +299,13 @@ class MessageThreadViewModel @Inject constructor(
 
                 val userId = authRepository.currentUserId ?: throw IllegalStateException("Not signed in")
 
-                // Resolve threadId if empty (e.g. navigating from a user profile)
+                // Resolve threadId if empty (e.g. navigating from a user profile).
+                // Complete the deferred so a concurrent send can proceed.
                 var resolvedId = threadId
                 if (resolvedId.isBlank()) {
                     resolvedId = messageRepository.getOrCreateThread(userId, otherUserId)
                     currentThreadId = resolvedId
+                    threadCreateDeferred?.complete(resolvedId)
                 }
                 _resolvedThreadId.value = resolvedId
 
@@ -299,6 +322,7 @@ class MessageThreadViewModel @Inject constructor(
                 }
                 startReadReceiptsListener(userId)
             } catch (e: CancellationException) {
+                threadCreateDeferred?.cancel(e)
                 throw e
             } catch (e: Exception) {
                 // Setup failed before the message listener could deliver anything
@@ -308,12 +332,84 @@ class MessageThreadViewModel @Inject constructor(
                 // it stays up until messages are actually ready to render.
                 _isLoading.value = false
                 _messagingRestriction.value = messagingRestrictionFrom(e)
+                threadCreateDeferred?.completeExceptionally(e)
                 // Getting this far without a conversation IS the refusal on the
                 // create path: getOrCreateThread enforces the same rule the row
                 // does, so there is nothing to show and nothing left to wait for.
                 _threadRow.value = MessageRepository.ThreadRowSnapshot(thread = null, fromCache = false)
             }
         }
+    }
+
+    /**
+     * Thread id for an outgoing send. Compose-from-peer may still be waiting on
+     * getOrCreate — await that (or create) so a fast tap does not send with a
+     * blank id. Matches iOS `ensureThreadForSend`.
+     */
+    private suspend fun ensureThreadForSend(navThreadId: String): String {
+        currentThreadId?.takeIf { it.isNotBlank() }?.let { return it }
+        navThreadId.takeIf { it.isNotBlank() }?.let { return it }
+
+        val deferred = threadCreateDeferred
+        if (deferred != null) {
+            return deferred.await()
+        }
+
+        val userId = authRepository.currentUserId
+            ?: throw IllegalStateException("Not signed in")
+        val peerId = _composePeerUserId.value
+        if (peerId.isBlank()) throw IllegalStateException("Missing recipient user")
+        val created = messageRepository.getOrCreateThread(userId, peerId)
+        currentThreadId = created
+        _resolvedThreadId.value = created
+        return created
+    }
+
+    /** Placeholder thread id for optimistic bubbles before getOrCreate returns. */
+    private fun provisionalThreadId(navThreadId: String): String =
+        currentThreadId?.takeIf { it.isNotBlank() }
+            ?: navThreadId.takeIf { it.isNotBlank() }
+            ?: "pending"
+
+    /**
+     * Inserts [optimistic] immediately, then resolves the real thread id (awaiting
+     * in-flight getOrCreate when needed) before calling [send].
+     */
+    private fun launchOutgoing(
+        navThreadId: String,
+        clientId: String,
+        optimistic: CymbalMessage,
+        send: suspend (resolvedThreadId: String) -> Unit,
+    ) {
+        _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
+        viewModelScope.launch {
+            try {
+                val resolvedId = ensureThreadForSend(navThreadId)
+                if (resolvedId != optimistic.threadId) {
+                    _pendingMessages.value = _pendingMessages.value.toMutableMap().also { map ->
+                        map[clientId]?.let { map[clientId] = it.copy(threadId = resolvedId) }
+                    }
+                }
+                send(resolvedId)
+                // Ack: mark sent so the clock icon clears immediately (iOS parity); the
+                // copy itself is held until the listener has the canonical doc.
+                updatePendingStatus(clientId, MessageSendStatus.SENT)
+            } catch (e: Exception) {
+                updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
+            }
+        }
+    }
+
+    /**
+     * Arms inbox-miss compose before the first paint so [threadAccess] is already
+     * OPEN and the header can seed from cache — no ClosedThread spinner flash.
+     * Idempotent; [loadMessages] still owns getOrCreate + listeners.
+     */
+    fun prepareComposeFromPeer(otherUserId: String) {
+        if (otherUserId.isBlank()) return
+        _openedAsNewCompose.value = true
+        _composePeerUserId.value = otherUserId
+        seedHeaderFromUser(userRepository.peekCachedUser(otherUserId))
     }
 
     private fun seedHeaderFromUser(user: CymbalUser?) {
@@ -707,7 +803,7 @@ class MessageThreadViewModel @Inject constructor(
 
     fun sendMessage(threadId: String, text: String) {
         val userId = authRepository.currentUserId ?: return
-        val resolvedId = currentThreadId ?: threadId
+        val provisionalId = provisionalThreadId(threadId)
         val reply = _replyToMessage.value
         val replySnippet = reply?.let { replyPreviewText(it, context) }
         val clientId = UUID.randomUUID().toString()
@@ -715,7 +811,7 @@ class MessageThreadViewModel @Inject constructor(
         // Optimistic insert
         val optimistic = CymbalMessage(
             id = clientId,
-            threadId = resolvedId,
+            threadId = provisionalId,
             fromUserId = userId,
             text = text,
             type = MessageType.TEXT,
@@ -725,26 +821,17 @@ class MessageThreadViewModel @Inject constructor(
             replyToText = replySnippet,
             replyToUserId = reply?.fromUserId,
         )
-        _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
         _replyToMessage.value = null
-
-        viewModelScope.launch {
-            try {
-                messageRepository.sendTextMessage(
-                    threadId = resolvedId,
-                    fromUserId = userId,
-                    text = text,
-                    replyToMessageId = reply?.id,
-                    replyToText = replySnippet,
-                    replyToUserId = reply?.fromUserId,
-                    clientMessageId = clientId,
-                )
-                // Ack: mark sent so the clock icon clears immediately (iOS parity); the
-                // copy itself is held until the listener has the canonical doc.
-                updatePendingStatus(clientId, MessageSendStatus.SENT)
-            } catch (e: Exception) {
-                updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
-            }
+        launchOutgoing(navThreadId = threadId, clientId = clientId, optimistic = optimistic) { resolvedId ->
+            messageRepository.sendTextMessage(
+                threadId = resolvedId,
+                fromUserId = userId,
+                text = text,
+                replyToMessageId = reply?.id,
+                replyToText = replySnippet,
+                replyToUserId = reply?.fromUserId,
+                clientMessageId = clientId,
+            )
         }
     }
 
@@ -752,34 +839,25 @@ class MessageThreadViewModel @Inject constructor(
 
     fun sendImageMessage(threadId: String, imageData: ByteArray) {
         val userId = authRepository.currentUserId ?: return
-        val resolvedId = currentThreadId ?: threadId
+        val provisionalId = provisionalThreadId(threadId)
         val clientId = UUID.randomUUID().toString()
 
         val optimistic = CymbalMessage(
             id = clientId,
-            threadId = resolvedId,
+            threadId = provisionalId,
             fromUserId = userId,
             text = null,
             type = MessageType.IMAGE,
             createdAt = Date(),
             sendStatus = MessageSendStatus.SENDING,
         )
-        _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
-
-        viewModelScope.launch {
-            try {
-                messageRepository.sendImageMessage(
-                    threadId = resolvedId,
-                    fromUserId = userId,
-                    imageData = imageData,
-                    clientMessageId = clientId,
-                )
-                // Ack: mark sent so the clock icon clears immediately (iOS parity); the
-                // copy itself is held until the listener has the canonical doc.
-                updatePendingStatus(clientId, MessageSendStatus.SENT)
-            } catch (e: Exception) {
-                updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
-            }
+        launchOutgoing(navThreadId = threadId, clientId = clientId, optimistic = optimistic) { resolvedId ->
+            messageRepository.sendImageMessage(
+                threadId = resolvedId,
+                fromUserId = userId,
+                imageData = imageData,
+                clientMessageId = clientId,
+            )
         }
     }
 
@@ -787,12 +865,12 @@ class MessageThreadViewModel @Inject constructor(
 
     fun sendGifMessage(threadId: String, gifURL: String, slug: String = "") {
         val userId = authRepository.currentUserId ?: return
-        val resolvedId = currentThreadId ?: threadId
+        val provisionalId = provisionalThreadId(threadId)
         val clientId = UUID.randomUUID().toString()
 
         val optimistic = CymbalMessage(
             id = clientId,
-            threadId = resolvedId,
+            threadId = provisionalId,
             fromUserId = userId,
             text = null,
             type = MessageType.GIF,
@@ -800,25 +878,16 @@ class MessageThreadViewModel @Inject constructor(
             createdAt = Date(),
             sendStatus = MessageSendStatus.SENDING,
         )
-        _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
-
-        viewModelScope.launch {
-            try {
-                if (slug.isNotEmpty()) {
-                    gifRepository.triggerShare(slug)
-                }
-                messageRepository.sendGifMessage(
-                    threadId = resolvedId,
-                    fromUserId = userId,
-                    gifURL = gifURL,
-                    clientMessageId = clientId,
-                )
-                // Ack: mark sent so the clock icon clears immediately (iOS parity); the
-                // copy itself is held until the listener has the canonical doc.
-                updatePendingStatus(clientId, MessageSendStatus.SENT)
-            } catch (e: Exception) {
-                updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
+        launchOutgoing(navThreadId = threadId, clientId = clientId, optimistic = optimistic) { resolvedId ->
+            if (slug.isNotEmpty()) {
+                gifRepository.triggerShare(slug)
             }
+            messageRepository.sendGifMessage(
+                threadId = resolvedId,
+                fromUserId = userId,
+                gifURL = gifURL,
+                clientMessageId = clientId,
+            )
         }
     }
 
@@ -826,13 +895,13 @@ class MessageThreadViewModel @Inject constructor(
 
     fun sendSongMessage(threadId: String, track: CymbalTrack) {
         val userId = authRepository.currentUserId ?: return
-        val resolvedId = currentThreadId ?: threadId
+        val provisionalId = provisionalThreadId(threadId)
         val clientId = UUID.randomUUID().toString()
 
         val isSoundCloud = track.source == TrackSource.SOUNDCLOUD
         val optimistic = CymbalMessage(
             id = clientId,
-            threadId = resolvedId,
+            threadId = provisionalId,
             fromUserId = userId,
             text = null,
             type = MessageType.SHARED_TRACK,
@@ -853,22 +922,13 @@ class MessageThreadViewModel @Inject constructor(
             soundcloudId = track.soundcloudId,
             soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
         )
-        _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
-
-        viewModelScope.launch {
-            try {
-                messageRepository.sendSharedTrackMessage(
-                    threadId = resolvedId,
-                    fromUserId = userId,
-                    track = track,
-                    clientMessageId = clientId,
-                )
-                // Ack: mark sent so the clock icon clears immediately (iOS parity); the
-                // copy itself is held until the listener has the canonical doc.
-                updatePendingStatus(clientId, MessageSendStatus.SENT)
-            } catch (e: Exception) {
-                updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
-            }
+        launchOutgoing(navThreadId = threadId, clientId = clientId, optimistic = optimistic) { resolvedId ->
+            messageRepository.sendSharedTrackMessage(
+                threadId = resolvedId,
+                fromUserId = userId,
+                track = track,
+                clientMessageId = clientId,
+            )
         }
     }
 
@@ -876,12 +936,12 @@ class MessageThreadViewModel @Inject constructor(
 
     fun sendFilmMessage(threadId: String, movie: CymbalMovie) {
         val userId = authRepository.currentUserId ?: return
-        val resolvedId = currentThreadId ?: threadId
+        val provisionalId = provisionalThreadId(threadId)
         val clientId = UUID.randomUUID().toString()
 
         val optimistic = CymbalMessage(
             id = clientId,
-            threadId = resolvedId,
+            threadId = provisionalId,
             fromUserId = userId,
             text = null,
             type = MessageType.SHARED_FILM,
@@ -895,99 +955,66 @@ class MessageThreadViewModel @Inject constructor(
             posterLargeURL = movie.posterLargeURL,
             tmdbWebURL = movie.tmdbWebURL.ifBlank { null },
         )
-        _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
-
-        viewModelScope.launch {
-            try {
-                messageRepository.sendSharedFilmMessage(
-                    threadId = resolvedId,
-                    fromUserId = userId,
-                    movie = movie,
-                    clientMessageId = clientId,
-                )
-                // Ack: mark sent so the clock icon clears immediately (iOS parity); the
-                // copy itself is held until the listener has the canonical doc.
-                updatePendingStatus(clientId, MessageSendStatus.SENT)
-            } catch (e: Exception) {
-                updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
-            }
+        launchOutgoing(navThreadId = threadId, clientId = clientId, optimistic = optimistic) { resolvedId ->
+            messageRepository.sendSharedFilmMessage(
+                threadId = resolvedId,
+                fromUserId = userId,
+                movie = movie,
+                clientMessageId = clientId,
+            )
         }
     }
 
     fun sendArtistMessage(threadId: String, artistId: String, name: String, imageUrl: String?) {
         val userId = authRepository.currentUserId ?: return
-        val resolvedId = currentThreadId ?: threadId
+        val provisionalId = provisionalThreadId(threadId)
         val clientId = UUID.randomUUID().toString()
         val optimistic = CymbalMessage(
-            id = clientId, threadId = resolvedId, fromUserId = userId, text = null,
+            id = clientId, threadId = provisionalId, fromUserId = userId, text = null,
             type = MessageType.SHARED_ARTIST, createdAt = Date(), sendStatus = MessageSendStatus.SENDING,
             artistId = artistId, artistName = name, artistImageURL = imageUrl,
         )
-        _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
-        viewModelScope.launch {
-            try {
-                messageRepository.sendSharedArtistMessage(
-                    threadId = resolvedId, fromUserId = userId, artistId = artistId,
-                    name = name, imageUrl = imageUrl, clientMessageId = clientId,
-                )
-                // Ack: mark sent so the clock icon clears immediately (iOS parity); the
-                // copy itself is held until the listener has the canonical doc.
-                updatePendingStatus(clientId, MessageSendStatus.SENT)
-            } catch (e: Exception) {
-                updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
-            }
+        launchOutgoing(navThreadId = threadId, clientId = clientId, optimistic = optimistic) { resolvedId ->
+            messageRepository.sendSharedArtistMessage(
+                threadId = resolvedId, fromUserId = userId, artistId = artistId,
+                name = name, imageUrl = imageUrl, clientMessageId = clientId,
+            )
         }
     }
 
     fun sendAlbumMessage(threadId: String, albumId: String, title: String, artistName: String?, coverUrl: String?, year: Int?) {
         val userId = authRepository.currentUserId ?: return
-        val resolvedId = currentThreadId ?: threadId
+        val provisionalId = provisionalThreadId(threadId)
         val clientId = UUID.randomUUID().toString()
         val optimistic = CymbalMessage(
-            id = clientId, threadId = resolvedId, fromUserId = userId, text = null,
+            id = clientId, threadId = provisionalId, fromUserId = userId, text = null,
             type = MessageType.SHARED_ALBUM, createdAt = Date(), sendStatus = MessageSendStatus.SENDING,
             albumId = albumId, albumTitle = title, albumArtistName = artistName,
             albumCoverURL = coverUrl, albumYear = year?.toString(),
         )
-        _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
-        viewModelScope.launch {
-            try {
-                messageRepository.sendSharedAlbumMessage(
-                    threadId = resolvedId, fromUserId = userId, albumId = albumId,
-                    title = title, artistName = artistName ?: "", coverUrl = coverUrl,
-                    year = year?.toString(), clientMessageId = clientId,
-                )
-                // Ack: mark sent so the clock icon clears immediately (iOS parity); the
-                // copy itself is held until the listener has the canonical doc.
-                updatePendingStatus(clientId, MessageSendStatus.SENT)
-            } catch (e: Exception) {
-                updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
-            }
+        launchOutgoing(navThreadId = threadId, clientId = clientId, optimistic = optimistic) { resolvedId ->
+            messageRepository.sendSharedAlbumMessage(
+                threadId = resolvedId, fromUserId = userId, albumId = albumId,
+                title = title, artistName = artistName ?: "", coverUrl = coverUrl,
+                year = year?.toString(), clientMessageId = clientId,
+            )
         }
     }
 
     fun sendDirectorMessage(threadId: String, directorId: String, name: String, imageUrl: String?) {
         val userId = authRepository.currentUserId ?: return
-        val resolvedId = currentThreadId ?: threadId
+        val provisionalId = provisionalThreadId(threadId)
         val clientId = UUID.randomUUID().toString()
         val optimistic = CymbalMessage(
-            id = clientId, threadId = resolvedId, fromUserId = userId, text = null,
+            id = clientId, threadId = provisionalId, fromUserId = userId, text = null,
             type = MessageType.SHARED_DIRECTOR, createdAt = Date(), sendStatus = MessageSendStatus.SENDING,
             directorId = directorId, directorName = name, directorImageURL = imageUrl,
         )
-        _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
-        viewModelScope.launch {
-            try {
-                messageRepository.sendSharedDirectorMessage(
-                    threadId = resolvedId, fromUserId = userId, directorId = directorId,
-                    name = name, imageUrl = imageUrl, clientMessageId = clientId,
-                )
-                // Ack: mark sent so the clock icon clears immediately (iOS parity); the
-                // copy itself is held until the listener has the canonical doc.
-                updatePendingStatus(clientId, MessageSendStatus.SENT)
-            } catch (e: Exception) {
-                updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
-            }
+        launchOutgoing(navThreadId = threadId, clientId = clientId, optimistic = optimistic) { resolvedId ->
+            messageRepository.sendSharedDirectorMessage(
+                threadId = resolvedId, fromUserId = userId, directorId = directorId,
+                name = name, imageUrl = imageUrl, clientMessageId = clientId,
+            )
         }
     }
 

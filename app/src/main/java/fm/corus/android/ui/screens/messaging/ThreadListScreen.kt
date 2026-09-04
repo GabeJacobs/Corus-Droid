@@ -439,6 +439,7 @@ fun ThreadListScreen(
                             showNewMessagePicker = false
                         },
                         onUserSelected = { user ->
+                            viewModel.cacheUserForCompose(user)
                             viewModel.clearSearch()
                             showNewMessagePicker = false
                             // Inbox hit → real thread; miss → blank id for instant opener.

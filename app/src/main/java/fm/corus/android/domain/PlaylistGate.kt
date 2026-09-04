@@ -52,14 +52,14 @@ fun playlistExportChooserMessage(
     hasSoundCloud: Boolean,
 ): String {
     val label = playlistExportDestinationLabel(service)
-    val article = if (label == MusicService.APPLE_MUSIC.displayLabel) "An" else "A"
+    val article = if (label == MusicService.APPLE_MUSIC.displayLabel) "an" else "a"
     val base = when (source) {
         PlaylistExportChooserSource.OwnProfile ->
-            "$article $label playlist of your profile."
+            "Export $article $label playlist of your profile."
         PlaylistExportChooserSource.OtherProfile ->
-            "$article $label playlist of their profile."
+            "Export $article $label playlist of their profile."
         PlaylistExportChooserSource.Hashtag ->
-            "$article $label playlist from this hashtag."
+            "Export $article $label playlist from this hashtag."
     }
     val isSpotifyDestination = label == MusicService.SPOTIFY.displayLabel
     return if (hasSoundCloud && isSpotifyDestination) {

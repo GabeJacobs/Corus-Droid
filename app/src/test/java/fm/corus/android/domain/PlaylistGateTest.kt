@@ -111,7 +111,7 @@ class PlaylistGateTest {
     fun `playlist export chooser copy names destination and context`() {
         assertEquals("Export playlist", PLAYLIST_EXPORT_CHOOSER_TITLE)
         assertEquals(
-            "A Spotify playlist of your profile.",
+            "Export a Spotify playlist of your profile.",
             playlistExportChooserMessage(
                 PlaylistExportChooserSource.OwnProfile,
                 MusicService.SPOTIFY,
@@ -119,7 +119,7 @@ class PlaylistGateTest {
             ),
         )
         assertEquals(
-            "A Spotify playlist of your profile. SoundCloud songs will be skipped.",
+            "Export a Spotify playlist of your profile. SoundCloud songs will be skipped.",
             playlistExportChooserMessage(
                 PlaylistExportChooserSource.OwnProfile,
                 MusicService.SPOTIFY,
@@ -127,7 +127,7 @@ class PlaylistGateTest {
             ),
         )
         assertEquals(
-            "A Spotify playlist of their profile.",
+            "Export a Spotify playlist of their profile.",
             playlistExportChooserMessage(
                 PlaylistExportChooserSource.OtherProfile,
                 MusicService.SPOTIFY,
@@ -136,7 +136,7 @@ class PlaylistGateTest {
         )
         // Apple Music falls back to Spotify on Android.
         assertEquals(
-            "A Spotify playlist of your profile.",
+            "Export a Spotify playlist of your profile.",
             playlistExportChooserMessage(
                 PlaylistExportChooserSource.OwnProfile,
                 MusicService.APPLE_MUSIC,
@@ -144,7 +144,7 @@ class PlaylistGateTest {
             ),
         )
         assertEquals(
-            "A TIDAL playlist from this hashtag.",
+            "Export a TIDAL playlist from this hashtag.",
             playlistExportChooserMessage(
                 PlaylistExportChooserSource.Hashtag,
                 MusicService.TIDAL,

@@ -52,6 +52,7 @@ object FullSongPlayCoordinator {
                 playFullSongs = playFull,
                 trackId = track.id,
                 spotifyURI = track.spotifyURI,
+                knownNotOnSpotify = track.notOnSpotify,
             )
         ) {
             seedQueueIfNeeded(track, sourcePostId, queue, nowPlaying)
@@ -190,6 +191,7 @@ object SpotifyPlaybackExperiment {
                 preferFullSong = preferFullSong,
                 trackId = track.id,
                 spotifyURI = track.spotifyURI,
+                knownNotOnSpotify = track.notOnSpotify,
             )
         ) return false
         val pending = SpotifyAuthPendingPlay(

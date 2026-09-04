@@ -2,6 +2,7 @@ package fm.corus.android.domain
 
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.TrackSource
+import fm.corus.android.data.model.CymbalTrack
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -11,6 +12,22 @@ import org.junit.Test
  * Coverage for [SongPlayRouting] — mirrors iOS SongPlayRoutingTests.
  */
 class SongPlayRoutingTest {
+    @Test
+    fun appleOnlyFlagSurvivesPlaybackQueueConversion() {
+        val queued = CymbalTrack(
+            id = "am:212853519",
+            name = "Apple-only song",
+            artistName = "Artist",
+            albumName = "Album",
+            source = TrackSource.APPLEMUSIC,
+            previewUrl = "https://example.com/preview.m4a",
+            notOnSpotify = true,
+        ).toQueuedTrack()
+
+        assertTrue(queued.notOnSpotify)
+        assertEquals("https://example.com/preview.m4a", queued.previewUrl)
+    }
+
     @Test
     fun fullSongForEntitledAppleMusicUser() {
         for (source in listOf(TrackSource.SPOTIFY, TrackSource.APPLEMUSIC)) {
@@ -82,6 +99,15 @@ class SongPlayRoutingTest {
                 TrackSource.APPLEMUSIC, MusicService.SPOTIFY, playFullSongs = true,
                 trackId = "am:212853519",
                 spotifyURI = "",
+            ),
+        )
+        assertFalse(
+            "A backend-confirmed Apple-only track must use its preview instead of entering Connect",
+            SongPlayRouting.wantsSpotifyAuthExperiment(
+                TrackSource.APPLEMUSIC, MusicService.SPOTIFY, playFullSongs = true,
+                trackId = "am:212853519",
+                spotifyURI = "",
+                knownNotOnSpotify = true,
             ),
         )
         assertFalse(

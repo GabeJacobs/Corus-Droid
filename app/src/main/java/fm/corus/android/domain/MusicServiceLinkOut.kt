@@ -260,7 +260,7 @@ object MusicServiceLinkOut {
                 val displayed = SongPlayRouting.displayedLinkOutService(
                     source = state.source,
                     viewer = musicService,
-                    knownNotOnSpotify = knownNotOnSpotify(state.trackId),
+                    knownNotOnSpotify = state.notOnSpotify || knownNotOnSpotify(state.trackId),
                 )
                 when {
                     isAppleMusic && displayed == MusicService.APPLE_MUSIC -> openAppleSong()

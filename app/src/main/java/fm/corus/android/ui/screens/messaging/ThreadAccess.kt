@@ -66,16 +66,33 @@ internal fun unreadContribution(
  * A row that is merely missing from the local cache is not an answer: a cold
  * deep link has never held the row, and calling that unavailable would refuse
  * every conversation opened from a notification.
+ *
+ * Inbox-miss compose ([composeFromPeer]) is the exception: the peer card is
+ * already known from the previous screen, so we paint it immediately while
+ * getOrCreate runs — matching iOS — unless the device already knows the peer
+ * is blocked or banned. A later row (or create failure) still overrides.
  */
 internal fun resolveThreadAccess(
     row: MessageRepository.ThreadRowSnapshot?,
     blockedIds: Set<String>,
     isBanned: (String) -> Boolean,
+    composeFromPeer: Boolean = false,
+    composePeerUserId: String = "",
 ): ThreadAccess = when {
-    row == null -> ThreadAccess.RESOLVING
-    row.thread != null ->
-        if (mayShowThread(row.thread, blockedIds, isBanned)) ThreadAccess.OPEN
-        else ThreadAccess.UNAVAILABLE
-    row.fromCache -> ThreadAccess.RESOLVING
-    else -> ThreadAccess.UNAVAILABLE
+    row != null -> when {
+        row.thread != null ->
+            if (mayShowThread(row.thread, blockedIds, isBanned)) ThreadAccess.OPEN
+            else ThreadAccess.UNAVAILABLE
+        row.fromCache -> ThreadAccess.RESOLVING
+        else -> ThreadAccess.UNAVAILABLE
+    }
+    composeFromPeer -> {
+        val peerId = composePeerUserId
+        if (peerId.isNotBlank() && (peerId in blockedIds || isBanned(peerId))) {
+            ThreadAccess.UNAVAILABLE
+        } else {
+            ThreadAccess.OPEN
+        }
+    }
+    else -> ThreadAccess.RESOLVING
 }

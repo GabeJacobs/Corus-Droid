@@ -61,8 +61,10 @@ object SongPlayRouting {
         playFullSongs: Boolean,
         @Suppress("UNUSED_PARAMETER") trackId: String? = null,
         @Suppress("UNUSED_PARAMETER") spotifyURI: String? = null,
+        knownNotOnSpotify: Boolean = false,
     ): Boolean {
         if (service != MusicService.SPOTIFY || !playFullSongs) return false
+        if (source == TrackSource.APPLEMUSIC && knownNotOnSpotify) return false
         return when (source) {
             TrackSource.SPOTIFY, TrackSource.APPLEMUSIC -> true
             TrackSource.SOUNDCLOUD, TrackSource.AUDIOMACK, TrackSource.BANDCAMP, TrackSource.TIDAL, TrackSource.DEEZER -> false
@@ -75,7 +77,10 @@ object SongPlayRouting {
         playFullSongs: Boolean,
         trackId: String? = null,
         spotifyURI: String? = null,
-    ): Boolean = wantsSpotifyAuthExperiment(source, service, playFullSongs, trackId, spotifyURI)
+        knownNotOnSpotify: Boolean = false,
+    ): Boolean = wantsSpotifyAuthExperiment(
+        source, service, playFullSongs, trackId, spotifyURI, knownNotOnSpotify,
+    )
 
     /** Whether in-app full playback is available for this track source (ignores Settings). */
     fun supportsInAppFullSong(

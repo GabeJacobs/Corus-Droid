@@ -633,4 +633,9 @@ class ThreadListViewModel @Inject constructor(
     fun resolveDirectThreadId(otherUserId: String): String =
         _threads.value.firstOrNull { !it.isGroup && it.otherUserId == otherUserId }?.id
             ?: messageRepository.directThreadId(otherUserId).orEmpty()
+
+    /** Seed the profile cache so MessageThread can paint the opener immediately. */
+    fun cacheUserForCompose(user: CymbalUser) {
+        userRepository.cacheUser(user)
+    }
 }

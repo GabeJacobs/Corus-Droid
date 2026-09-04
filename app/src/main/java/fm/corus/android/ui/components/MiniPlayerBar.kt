@@ -142,7 +142,8 @@ fun MiniPlayerBar(
     val displayedService = SongPlayRouting.displayedLinkOutService(
         source = state.source,
         viewer = musicService,
-        knownNotOnSpotify = fm.corus.android.domain.MusicServiceLinkOut.knownNotOnSpotify(state.trackId),
+        knownNotOnSpotify = state.notOnSpotify ||
+            fm.corus.android.domain.MusicServiceLinkOut.knownNotOnSpotify(state.trackId),
     )
 
     // Same destination as the service glyph (and iOS viewCurrentInMusicService).
