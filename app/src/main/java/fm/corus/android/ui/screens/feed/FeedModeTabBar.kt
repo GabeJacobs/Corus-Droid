@@ -99,12 +99,8 @@ internal val TabRowTopPadding = 6.dp
 internal const val TabLabelSizeSp = 14
 /** Max extra each side. Actual overshoot is the smaller of this and half the tightest gap. */
 internal val TabUnderlineExtra = 24.dp
-/**
- * iOS uses 2pt; 3.dp reads on Android's light hairline without looking chunky.
- * Slot height and the accent pill must stay in sync so the overlay sits on
- * the divider (same as iOS `overlay(alignment: .bottom)`).
- */
-internal val TabUnderlineHeight = 3.dp
+/** Matches the 2pt iOS accent pill. */
+internal val TabUnderlineHeight = 2.dp
 /**
  * Inset for the first/last label when 4 tabs are visible (feed with
  * Favorites, or search). iOS uses 14pt; on a wide Android phone that

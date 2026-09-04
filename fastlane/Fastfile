@@ -34,7 +34,7 @@ platform :android do
     version_code = version_codes.map(&:to_i).max + 1
 
     File.write(
-      "version.properties",
+      File.expand_path("../version.properties", __dir__),
       "VERSION_CODE=#{version_code}\nVERSION_NAME=#{version_name}\n"
     )
 
@@ -71,6 +71,48 @@ platform :android do
     end
 
     UI.success("Uploaded Corus #{version_name} (#{version_code}) to internal testing")
+  end
+
+  desc "Update localized notes for the current internal release"
+  lane :update_notes do |options|
+    version_code = options[:version_code].to_s.strip
+    notes_en = options[:notes_en].to_s.strip
+    notes_pt = options[:notes_pt].to_s.strip
+    json_key = ENV["SUPPLY_JSON_KEY"].to_s
+
+    UI.user_error!("Pass the internal version_code") if version_code.empty?
+    UI.user_error!("Pass English release notes with notes_en:\"...\"") if notes_en.empty?
+    UI.user_error!("Pass Portuguese release notes with notes_pt:\"...\"") if notes_pt.empty?
+    UI.user_error!("Set SUPPLY_JSON_KEY to the Play service-account JSON file") if json_key.empty?
+    UI.user_error!("SUPPLY_JSON_KEY does not point to a file: #{json_key}") unless File.file?(json_key)
+
+    internal_codes = google_play_track_version_codes(
+      package_name: "fm.corus.android",
+      track: "internal",
+      json_key: json_key
+    ).map(&:to_s)
+    UI.user_error!("Version code #{version_code} is not the current internal release") unless internal_codes == [version_code]
+
+    Dir.mktmpdir("corus-play-metadata") do |metadata_path|
+      { "en-US" => notes_en, "pt-BR" => notes_pt }.each do |locale, notes|
+        changelog_dir = File.join(metadata_path, locale, "changelogs")
+        FileUtils.mkdir_p(changelog_dir)
+        File.write(File.join(changelog_dir, "#{version_code}.txt"), "#{notes}\n")
+      end
+
+      upload_to_play_store(
+        package_name: "fm.corus.android",
+        json_key: json_key,
+        track: "internal",
+        metadata_path: metadata_path,
+        skip_upload_apk: true,
+        skip_upload_aab: true,
+        skip_upload_images: true,
+        skip_upload_screenshots: true
+      )
+    end
+
+    UI.success("Updated release notes for internal version code #{version_code}")
   end
 
   desc "Promote one verified internal release to production"
