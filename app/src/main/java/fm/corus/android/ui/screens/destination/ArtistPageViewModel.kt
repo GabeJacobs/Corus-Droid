@@ -146,6 +146,9 @@ class ArtistPageViewModel @Inject constructor(
     private val _tourDates = MutableStateFlow<List<ArtistTourDate>>(emptyList())
     val tourDates: StateFlow<List<ArtistTourDate>> = _tourDates.asStateFlow()
 
+    private val _isTourDatesLoading = MutableStateFlow(true)
+    val isTourDatesLoading: StateFlow<Boolean> = _isTourDatesLoading.asStateFlow()
+
     private val _isCatalogLoading = MutableStateFlow(true)
     val isCatalogLoading: StateFlow<Boolean> = _isCatalogLoading.asStateFlow()
 
@@ -190,6 +193,7 @@ class ArtistPageViewModel @Inject constructor(
             } catch (_: Exception) {
                 _catalogError.value = true
             }
+            _isTourDatesLoading.value = false
             _isCatalogLoading.value = false
         }
     }

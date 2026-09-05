@@ -2,6 +2,7 @@ package fm.corus.android.ui.screens.destination
 
 import fm.corus.android.data.model.AlbumSummary
 import fm.corus.android.data.model.ArtistDetail
+import fm.corus.android.data.model.ArtistTourDate
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
@@ -98,6 +99,16 @@ class ArtistPageViewModelTest {
     @Test
     fun `load success populates catalog and posts sections independently`() = runTest(testDispatcher) {
         whenever(cloudFunctions.fetchArtistDetail(eq("a1"), anyOrNull())).thenReturn(detail())
+        whenever(cloudFunctions.fetchArtistTourDates("Mount Kimbie")).thenReturn(
+            listOf(
+                ArtistTourDate(
+                    id = "show-1",
+                    date = "2026-09-05",
+                    venue = "The Venue",
+                    url = "https://ticketmaster.com/show-1",
+                )
+            )
+        )
         whenever(
             cloudFunctions.fetchArtistPosts(
                 artistId = eq("a1"), artistName = anyOrNull(), pageSize = any(),
@@ -113,6 +124,7 @@ class ArtistPageViewModelTest {
         )
 
         val vm = createViewModel()
+        assertTrue(vm.isTourDatesLoading.value)
         vm.loadCatalog("a1", "Mount Kimbie")
         vm.loadPosts("a1", "Mount Kimbie")
         advanceUntilIdle()
@@ -120,6 +132,8 @@ class ArtistPageViewModelTest {
         assertEquals("Mount Kimbie", vm.detail.value?.name)
         assertFalse(vm.isCatalogLoading.value)
         assertFalse(vm.catalogError.value)
+        assertFalse(vm.isTourDatesLoading.value)
+        assertEquals("show-1", vm.tourDates.value.single().id)
         assertEquals(1, vm.posts.value.size)
         assertEquals(1, vm.viewerPosts.value.size)
         assertEquals(4, vm.uniquePosterCount.value)
@@ -146,6 +160,7 @@ class ArtistPageViewModelTest {
 
         assertTrue(vm.catalogError.value)
         assertFalse(vm.isCatalogLoading.value)
+        assertFalse(vm.isTourDatesLoading.value)
         // Posts section loaded fine — errors are per-section.
         assertFalse(vm.postsError.value)
         assertFalse(vm.isPostsLoading.value)

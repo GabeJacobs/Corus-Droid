@@ -183,6 +183,7 @@ fun ArtistPageScreen(
     val isPostsLoading by viewModel.isPostsLoading.collectAsState()
     val postsError by viewModel.postsError.collectAsState()
     val tourDates by viewModel.tourDates.collectAsState()
+    val isTourDatesLoading by viewModel.isTourDatesLoading.collectAsState()
     val recentShareContacts by viewModel.recentShareContacts.collectAsState()
     val shareSearchResults by viewModel.shareSearchResults.collectAsState()
     val isShareSearching by viewModel.isShareSearching.collectAsState()
@@ -736,7 +737,14 @@ fun ArtistPageScreen(
             }
 
             // ── Ticketmaster tour dates — immediately above music videos. ──
-            if (tourDates.isNotEmpty()) {
+            if (!artistId.startsWith("bc:") && isTourDatesLoading) {
+                item {
+                    DestinationSectionHeader(title = stringResource(R.string.destination_tour_dates))
+                }
+                items(3) {
+                    SkeletonTourDateRow()
+                }
+            } else if (tourDates.isNotEmpty()) {
                 item {
                     DestinationSectionHeader(
                         title = stringResource(R.string.destination_tour_dates),
@@ -938,6 +946,51 @@ private fun ArtistTourDateRow(show: ArtistTourDate, onClick: () -> Unit) {
             )
         }
         Icon(Icons.Filled.OpenInNew, contentDescription = null, tint = CorusColors.Secondary, modifier = Modifier.size(16.dp))
+    }
+}
+
+@Composable
+private fun SkeletonTourDateRow() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+    ) {
+        Box(
+            modifier = Modifier
+                .width(44.dp)
+                .height(38.dp)
+                .clip(RoundedCornerShape(CorusSpacing.xs))
+                .shimmer()
+                .background(CorusColors.Skeleton),
+        )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Box(
+                modifier = Modifier
+                    .width(170.dp)
+                    .height(13.dp)
+                    .clip(RoundedCornerShape(CorusSpacing.xs))
+                    .shimmer()
+                    .background(CorusColors.Skeleton),
+            )
+            Box(
+                modifier = Modifier
+                    .width(110.dp)
+                    .height(11.dp)
+                    .clip(RoundedCornerShape(CorusSpacing.xs))
+                    .shimmer()
+                    .background(CorusColors.Skeleton),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(16.dp)
+                .clip(RoundedCornerShape(CorusSpacing.xs))
+                .shimmer()
+                .background(CorusColors.Skeleton),
+        )
     }
 }
 
