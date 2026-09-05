@@ -200,7 +200,8 @@ fun ArtistPageScreen(
     var showAllTourDates by remember { mutableStateOf(false) }
 
     val artistName = detail?.name?.takeIf { it.isNotBlank() } ?: nameHint
-    val heroImage = detail?.imageUrl ?: imageUrlHint
+    // Keep the portrait tapped in search when a different catalog image arrives.
+    val heroImage = imageUrlHint?.takeIf { it.isNotBlank() } ?: detail?.imageUrl
     val matchedVideos = detail?.musicVideos?.filter { it.youtubeId != null } ?: emptyList()
 
     val listState = rememberLazyListState()
