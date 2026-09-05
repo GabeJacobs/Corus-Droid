@@ -7,6 +7,7 @@ import fm.corus.android.data.remote.parseAlbumCatalogResponse
 import fm.corus.android.data.remote.parseAlbumPostsResponse
 import fm.corus.android.data.remote.parseArtistDetailResponse
 import fm.corus.android.data.remote.parseArtistIdByNameResponse
+import fm.corus.android.data.remote.parseArtistTourDatesResponse
 import fm.corus.android.data.remote.parseResolvedArtistByNameResponse
 import fm.corus.android.data.remote.parseDestinationPostsResponse
 import fm.corus.android.data.remote.parseDirectorDetailResponse
@@ -23,6 +24,28 @@ import org.junit.Test
  * plus the primaryNameHint rule and the director search filter.
  */
 class DestinationParsingTest {
+
+    @Test
+    fun `parses Ticketmaster tour dates and drops malformed rows`() {
+        val dates = parseArtistTourDatesResponse(
+            mapOf("dates" to listOf(
+                mapOf(
+                    "id" to "event-1",
+                    "name" to "The Show",
+                    "date" to "2026-09-05",
+                    "venue" to "MetLife Stadium",
+                    "city" to "East Rutherford",
+                    "region" to "NJ",
+                    "url" to "https://ticketmaster.com/event/1",
+                ),
+                mapOf("id" to "bad", "date" to "2026-09-06"),
+            ))
+        )
+
+        assertEquals(1, dates.size)
+        assertEquals("MetLife Stadium", dates.first().venue)
+        assertEquals("East Rutherford", dates.first().city)
+    }
 
     // ── getArtistDetail ──
 

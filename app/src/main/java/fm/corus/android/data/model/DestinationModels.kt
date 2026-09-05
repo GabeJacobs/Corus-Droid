@@ -103,6 +103,40 @@ data class ArtistDetail(
     val sites: List<BandcampSiteLink> = emptyList(),
 )
 
+/** One upcoming Ticketmaster performance. Ticket purchasing always leaves Corus. */
+data class ArtistTourDate(
+    val id: String,
+    val name: String = "Live show",
+    val date: String,
+    val time: String? = null,
+    val timezone: String? = null,
+    val venue: String = "",
+    val city: String = "",
+    val region: String = "",
+    val status: String = "onsale",
+    val url: String,
+) {
+    companion object {
+        fun fromMap(data: Map<String, Any?>): ArtistTourDate? {
+            val id = (data["id"] as? String)?.takeIf { it.isNotEmpty() } ?: return null
+            val date = (data["date"] as? String)?.takeIf { it.isNotEmpty() } ?: return null
+            val url = (data["url"] as? String)?.takeIf { it.isNotEmpty() } ?: return null
+            return ArtistTourDate(
+                id = id,
+                name = (data["name"] as? String)?.ifEmpty { null } ?: "Live show",
+                date = date,
+                time = (data["time"] as? String)?.ifEmpty { null },
+                timezone = (data["timezone"] as? String)?.ifEmpty { null },
+                venue = data["venue"] as? String ?: "",
+                city = data["city"] as? String ?: "",
+                region = data["region"] as? String ?: "",
+                status = (data["status"] as? String)?.ifEmpty { null } ?: "onsale",
+                url = url,
+            )
+        }
+    }
+}
+
 /** One merch item from a Bandcamp `/merch` grid. */
 data class BandcampMerchItem(
     val id: String,

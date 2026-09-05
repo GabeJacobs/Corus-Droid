@@ -8,6 +8,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.R
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.ArtistDetail
+import fm.corus.android.data.model.ArtistTourDate
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.UserLite
@@ -142,6 +143,9 @@ class ArtistPageViewModel @Inject constructor(
     private val _detail = MutableStateFlow<ArtistDetail?>(null)
     val detail: StateFlow<ArtistDetail?> = _detail.asStateFlow()
 
+    private val _tourDates = MutableStateFlow<List<ArtistTourDate>>(emptyList())
+    val tourDates: StateFlow<List<ArtistTourDate>> = _tourDates.asStateFlow()
+
     private val _isCatalogLoading = MutableStateFlow(true)
     val isCatalogLoading: StateFlow<Boolean> = _isCatalogLoading.asStateFlow()
 
@@ -176,7 +180,13 @@ class ArtistPageViewModel @Inject constructor(
             _isCatalogLoading.value = true
             _catalogError.value = false
             try {
-                _detail.value = cloudFunctions.fetchArtistDetail(artistId, artistNameHint)
+                val loaded = cloudFunctions.fetchArtistDetail(artistId, artistNameHint)
+                _detail.value = loaded
+                if (!artistId.startsWith("bc:") && loaded.name.isNotBlank()) {
+                    _tourDates.value = runCatching {
+                        cloudFunctions.fetchArtistTourDates(loaded.name)
+                    }.getOrDefault(emptyList())
+                }
             } catch (_: Exception) {
                 _catalogError.value = true
             }

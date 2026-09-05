@@ -252,6 +252,12 @@ internal fun parseResolvedArtistByNameResponse(
 internal fun parseArtistIdByNameResponse(data: Map<String, Any?>?, name: String): String? =
     parseResolvedArtistByNameResponse(data, name)?.id
 
+@Suppress("UNCHECKED_CAST")
+internal fun parseArtistTourDatesResponse(data: Map<String, Any?>?): List<ArtistTourDate> =
+    (data?.get("dates") as? List<Map<String, Any?>>)
+        ?.mapNotNull { ArtistTourDate.fromMap(it) }
+        ?: emptyList()
+
 // ── Artist / Album / Director destination-page parsers ───────────────────────
 // Pure map→model parsers for the six destination callables, kept top-level so
 // they can be unit-tested without mocking FirebaseFunctions (same pattern as
@@ -1620,6 +1626,14 @@ class CloudFunctionsDataSource @Inject constructor(
             ?: throw Exception("Invalid getArtistDetail response")
         artistDetailCache[artistId] = System.currentTimeMillis() to detail
         return detail
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun fetchArtistTourDates(artistName: String): List<ArtistTourDate> {
+        val result = functions.getHttpsCallable("getArtistTourDates")
+            .call(mapOf("artistName" to artistName))
+            .await()
+        return parseArtistTourDatesResponse(result.getData() as? Map<String, Any?>)
     }
 
     @Suppress("UNCHECKED_CAST")

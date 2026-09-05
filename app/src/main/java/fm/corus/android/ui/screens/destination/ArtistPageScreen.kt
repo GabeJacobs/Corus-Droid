@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -74,6 +75,7 @@ import fm.corus.android.R
 import fm.corus.android.data.model.AlbumSummary
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MusicVideo
+import fm.corus.android.data.model.ArtistTourDate
 import fm.corus.android.domain.CatalogPlaybackOrigin
 import fm.corus.android.domain.toQueuedTrack
 import androidx.activity.compose.BackHandler
@@ -111,6 +113,9 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import fm.corus.android.ui.theme.CorusSpacing
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /** Localized "{Album|Single|Compilation} · {year}" caption for a rail cover. */
 @Composable
@@ -177,6 +182,7 @@ fun ArtistPageScreen(
     val uniquePosterCount by viewModel.uniquePosterCount.collectAsState()
     val isPostsLoading by viewModel.isPostsLoading.collectAsState()
     val postsError by viewModel.postsError.collectAsState()
+    val tourDates by viewModel.tourDates.collectAsState()
     val recentShareContacts by viewModel.recentShareContacts.collectAsState()
     val shareSearchResults by viewModel.shareSearchResults.collectAsState()
     val isShareSearching by viewModel.isShareSearching.collectAsState()
@@ -190,6 +196,7 @@ fun ArtistPageScreen(
     var showAllPopular by remember { mutableStateOf(false) }
     // The music-video card the user tapped — its full video plays inline.
     var activeVideo by remember { mutableStateOf<MusicVideo?>(null) }
+    var showAllTourDates by remember { mutableStateOf(false) }
 
     val artistName = detail?.name?.takeIf { it.isNotBlank() } ?: nameHint
     val heroImage = detail?.imageUrl ?: imageUrlHint
@@ -728,6 +735,36 @@ fun ArtistPageScreen(
                 }
             }
 
+            // ── Ticketmaster tour dates — immediately above music videos. ──
+            if (tourDates.isNotEmpty()) {
+                item {
+                    DestinationSectionHeader(
+                        title = stringResource(R.string.destination_tour_dates),
+                        onSeeAll = if (tourDates.size > 4 && !showAllTourDates) {
+                            { showAllTourDates = true }
+                        } else null,
+                    )
+                }
+                val visibleTourDates = if (showAllTourDates) tourDates else tourDates.take(4)
+                items(visibleTourDates.size) { index ->
+                    ArtistTourDateRow(
+                        show = visibleTourDates[index],
+                        onClick = {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(visibleTourDates[index].url)))
+                            }
+                        },
+                    )
+                    if (index < visibleTourDates.lastIndex) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 76.dp),
+                            color = CorusColors.Divider,
+                            thickness = 0.5.dp,
+                        )
+                    }
+                }
+            }
+
             // ── Music videos rail — below the social content by design (posts
             //    are the differentiator; videos are the end-of-page delighter). ──
             if (matchedVideos.isNotEmpty()) {
@@ -863,6 +900,44 @@ fun ArtistPageScreen(
                 onAnalyticsLog = { method -> viewModel.analyticsService.logArtistShared(artistId, method) },
             )
         }
+    }
+}
+
+@Composable
+private fun ArtistTourDateRow(show: ArtistTourDate, onClick: () -> Unit) {
+    val parsed = remember(show.date) { runCatching { LocalDate.parse(show.date) }.getOrNull() }
+    val month = parsed?.format(DateTimeFormatter.ofPattern("MMM", Locale.getDefault()))?.uppercase() ?: ""
+    val day = parsed?.dayOfMonth?.toString() ?: ""
+    val location = listOf(show.city, show.region).filter { it.isNotBlank() }.joinToString(", ")
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+    ) {
+        Column(modifier = Modifier.width(44.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(month, style = CorusFont.captionMedium, color = CorusColors.Accent)
+            Text(day, style = CorusFont.stat, color = CorusColors.Text)
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = show.venue.ifBlank { show.name },
+                style = CorusFont.bodyMedium,
+                color = CorusColors.Text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = location.ifBlank { show.name },
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Icon(Icons.Filled.OpenInNew, contentDescription = null, tint = CorusColors.Secondary, modifier = Modifier.size(16.dp))
     }
 }
 
