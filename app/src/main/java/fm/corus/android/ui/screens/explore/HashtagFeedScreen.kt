@@ -246,7 +246,7 @@ fun HashtagFeedScreen(
                                         // a Spotify playlist (the explainer keeps quick vs all).
                                         // Checked before the full-export chooser so YT Music
                                         // never lands on it.
-                                        showYouTubeMusicPlaylistExplainer = true
+                                        if (fm.corus.android.domain.youtubeMusicIntegrationEnabled()) { viewModel.generateHashtagPlaylist(hashtag) } else { showYouTubeMusicPlaylistExplainer = true }
                                     } else if (shouldOfferHashtagFullExport(totalCount)) {
                                         // >75 eligible songs → quick-vs-all chooser, which also
                                         // folds in the Spotify/SoundCloud caveat (no stacked popups).
@@ -256,7 +256,7 @@ fun HashtagFeedScreen(
                                         // directly); Apple Music / Deezer and SoundCloud-on-
                                         // Spotify still get the alert.
                                         val hasSoundCloud = posts.any { it.isTrack && it.track.source == TrackSource.SOUNDCLOUD }
-                                        if (shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
+                                        if (shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud, fm.corus.android.domain.youtubeMusicIntegrationEnabled())) {
                                             showPlaylistAlert = true
                                         } else {
                                             viewModel.generateHashtagPlaylist(hashtag)

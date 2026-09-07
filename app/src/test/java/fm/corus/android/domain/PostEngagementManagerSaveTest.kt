@@ -43,6 +43,7 @@ class PostEngagementManagerSaveTest {
         remoteConfig = mock(),
         analyticsService = mock(),
         saveChangedEvent = saveEvent,
+        youtubeMusicService = mock(),
         spotifySaveAutoAdd = mock(),
         reviewPromptManager = mock(),
     )

@@ -405,7 +405,7 @@ fun OtherProfileScreen(
                                         } else if (musicService == fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
                                             // No YouTube Music playlist export yet — explain, then
                                             // offer a Spotify playlist (explainer keeps quick vs all).
-                                            showYouTubeMusicPlaylistExplainer = true
+                                            if (fm.corus.android.domain.youtubeMusicIntegrationEnabled()) { viewModel.generatePlaylist(userId, playlistSource) } else { showYouTubeMusicPlaylistExplainer = true }
                                         } else if (fm.corus.android.domain.shouldOfferProfileFullExport(
                                                 selectedSegment, profile?.trackCount, profile?.likesCount, profile?.savesCount ?: 0,
                                             )
@@ -416,7 +416,7 @@ fun OtherProfileScreen(
                                             // Deezer and SoundCloud-on-Spotify get the alert.
                                             val hasSoundCloud = playlistSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
                                                 && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-                                            if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
+                                            if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud, fm.corus.android.domain.youtubeMusicIntegrationEnabled())) {
                                                 showPlaylistAlert = true
                                             } else {
                                                 viewModel.generatePlaylist(userId, playlistSource)
@@ -1023,7 +1023,7 @@ fun OtherProfileScreen(
                                             clubPlaylistTrialContext = fm.corus.android.domain.PlaylistTrialField.OtherProfile
                                             showClubOffer = true
                                         } else if (musicService == fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
-                                            showYouTubeMusicPlaylistExplainer = true
+                                            if (fm.corus.android.domain.youtubeMusicIntegrationEnabled()) { viewModel.generatePlaylist(userId, playlistSource) } else { showYouTubeMusicPlaylistExplainer = true }
                                         } else if (fm.corus.android.domain.shouldOfferProfileFullExport(
                                                 selectedSegment, profile?.trackCount, profile?.likesCount, profile?.savesCount ?: 0,
                                             )
@@ -1032,7 +1032,7 @@ fun OtherProfileScreen(
                                         } else {
                                             val hasSoundCloud = playlistSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
                                                 && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-                                            if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
+                                            if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud, fm.corus.android.domain.youtubeMusicIntegrationEnabled())) {
                                                 showPlaylistAlert = true
                                             } else {
                                                 viewModel.generatePlaylist(userId, playlistSource)

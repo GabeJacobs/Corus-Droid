@@ -100,6 +100,7 @@ class NowPlayingManagerSpotifyNaturalEndAdoptTest {
             mock<CloudFunctionsDataSource>(),
             preferencesDataStore,
             userRepository,
+            mock(),
             musicServicePreference,
             mock(),
             mock(),

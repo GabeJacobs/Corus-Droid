@@ -489,13 +489,13 @@ fun FeedScreen(
                     // Apple Music / Deezer have no native playlist path on Android,
                     // so they always produce a Spotify playlist and show the Spotify
                     // warning every time (never the explainer).
-                    fm.corus.android.domain.usesSpotifyFallback(musicService) ->
+                    fm.corus.android.domain.usesSpotifyFallback(musicService, fm.corus.android.domain.youtubeMusicIntegrationEnabled()) ->
                         showPlaylistAlert = true
                     // TIDAL / Spotify export natively and leave Corus — the first
                     // such tap gets a one-time explainer for free users. After that,
                     // Spotify still shows the SoundCloud-skip notice when applicable.
                     hasConfirmedFeedPlaylist || hasFullAccess -> {
-                        if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
+                        if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud, fm.corus.android.domain.youtubeMusicIntegrationEnabled())) {
                             showPlaylistAlert = true
                         } else {
                             viewModel.generateFeedPlaylist()
@@ -1636,7 +1636,7 @@ fun FeedScreen(
                     onClick = {
                         viewModel.markFeedPlaylistConfirmed()
                         val hasSoundCloud = posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-                        if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
+                        if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud, fm.corus.android.domain.youtubeMusicIntegrationEnabled())) {
                             showPlaylistAlert = true
                         } else {
                             viewModel.generateFeedPlaylist()

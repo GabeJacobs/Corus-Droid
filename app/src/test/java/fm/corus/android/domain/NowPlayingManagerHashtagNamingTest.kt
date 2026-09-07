@@ -46,6 +46,7 @@ class NowPlayingManagerHashtagNamingTest {
     fun `matches the backend's spotify playlist naming`() {
         val manager = NowPlayingManager(
             context, mock(), preferencesDataStore, userRepository,
+            mock(),
             mock(), mock(), mock<TidalPlaylistService>(),
             mock(), mock(), mock(),
             mock(), mock(), mock(),
