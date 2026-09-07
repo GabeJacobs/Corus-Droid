@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="youtube_sync_title">保存した曲をYouTube Musicと同期</string>
+    <string name="youtube_sync_title">保存した曲をプレイリストに追加</string>
     <string name="youtube_sync_description">Corusで保存した曲は「Corus Saved Songs」プレイリストに追加されます。</string>
     <string name="youtube_connect">YouTube Musicに接続</string>
     <string name="youtube_disconnect">YouTube Musicとの接続を解除</string>

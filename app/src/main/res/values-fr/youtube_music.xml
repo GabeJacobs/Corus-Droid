@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="youtube_sync_title">Synchroniser les titres enregistrés avec YouTube Music</string>
+    <string name="youtube_sync_title">Ajouter les titres enregistrés à la playlist</string>
     <string name="youtube_sync_description">Les titres que vous enregistrez dans Corus sont ajoutés à votre playlist ‘Corus Saved Songs’.</string>
     <string name="youtube_connect">Connecter YouTube Music</string>
     <string name="youtube_disconnect">Déconnecter YouTube Music</string>

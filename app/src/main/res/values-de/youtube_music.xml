@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="youtube_sync_title">Gespeicherte Songs mit YouTube Music synchronisieren</string>
+    <string name="youtube_sync_title">Gespeicherte Songs zur Playlist hinzufügen</string>
     <string name="youtube_sync_description">Songs, die du in Corus speicherst, werden deiner Playlist ‘Corus Saved Songs’ hinzugefügt.</string>
     <string name="youtube_connect">YouTube Music verbinden</string>
     <string name="youtube_disconnect">YouTube Music trennen</string>

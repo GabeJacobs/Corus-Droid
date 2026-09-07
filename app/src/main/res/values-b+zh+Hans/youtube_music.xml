@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="youtube_sync_title">将已保存的歌曲同步到YouTube Music</string>
+    <string name="youtube_sync_title">将已保存的歌曲添加到播放列表</string>
     <string name="youtube_sync_description">你在Corus保存的歌曲会添加到‘Corus Saved Songs’播放列表。</string>
     <string name="youtube_connect">连接YouTube Music</string>
     <string name="youtube_disconnect">断开YouTube Music连接</string>
