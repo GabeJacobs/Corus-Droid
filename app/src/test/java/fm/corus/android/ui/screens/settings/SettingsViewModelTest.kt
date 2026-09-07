@@ -57,6 +57,7 @@ class SettingsViewModelTest {
         mock<MusicServicePreference>(),
         subscriptionRepository,
         preferencesDataStore,
+        mock(),
         remoteConfig,
         analyticsService,
         nowPlayingManager,
@@ -184,6 +185,7 @@ class SettingsViewModelTest {
                 on { isVerified } doReturn MutableStateFlow(false)
             },
             prefsStore,
+            mock(),
             remoteConfig,
             analyticsService,
             nowPlayingManager,

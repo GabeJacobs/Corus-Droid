@@ -15,8 +15,8 @@ import fm.corus.android.data.model.MusicService
  * - **Spotify** only shows the alert to warn that SoundCloud tracks (which can't
  *   go in a Spotify playlist) will be skipped.
  */
-fun shouldShowSpotifyPlaylistAlert(service: MusicService, hasSoundCloud: Boolean): Boolean =
-    usesSpotifyFallback(service) || (service == MusicService.SPOTIFY && hasSoundCloud)
+fun shouldShowSpotifyPlaylistAlert(service: MusicService, hasSoundCloud: Boolean, youtubeEnabled: Boolean = false): Boolean =
+    usesSpotifyFallback(service, youtubeEnabled) || (service == MusicService.SPOTIFY && hasSoundCloud)
 
 const val SPOTIFY_PLAYLIST_ALERT_TITLE = "Generate Spotify Playlist?"
 
@@ -77,10 +77,10 @@ fun playlistExportChooserMessage(
  * explainer. TIDAL and Spotify export natively, so they get the one-time
  * explainer instead.
  */
-fun usesSpotifyFallback(service: MusicService): Boolean =
+fun usesSpotifyFallback(service: MusicService, youtubeEnabled: Boolean = false): Boolean =
     service == MusicService.APPLE_MUSIC ||
         service == MusicService.DEEZER ||
-        service == MusicService.YOUTUBE_MUSIC
+        (service == MusicService.YOUTUBE_MUSIC && !youtubeEnabled)
 
 /**
  * Eligible-song count for the playlist source the given profile tab maps to,
@@ -118,3 +118,5 @@ fun shouldOfferProfileFullExport(
  * posts when it actually builds the playlist).
  */
 fun shouldOfferHashtagFullExport(totalCount: Int): Boolean = totalCount > 75
+
+fun youtubeMusicIntegrationEnabled(): Boolean = com.google.firebase.remoteconfig.FirebaseRemoteConfig.getInstance().getBoolean("youtube_music_integration_enabled")

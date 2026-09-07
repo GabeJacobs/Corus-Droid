@@ -62,6 +62,7 @@ class NowPlayingManagerQueueReorderTest {
             mock(),
             mock(),
             mock(),
+            mock(),
         )
 
     @Before

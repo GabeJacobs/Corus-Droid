@@ -67,6 +67,7 @@ class PostEngagementManager @Inject constructor(
     private val remoteConfig: RemoteConfigService,
     private val analyticsService: AnalyticsService,
     private val saveChangedEvent: SaveChangedEvent,
+    private val youtubeMusicService: YouTubeMusicService,
     private val spotifySaveAutoAdd: SpotifySaveAutoAdd,
     private val reviewPromptManager: ReviewPromptManager,
 ) {
@@ -344,6 +345,7 @@ class PostEngagementManager @Inject constructor(
                         // branch below). Silently no-ops when the flag/toggle
                         // are off or the post isn't resolvable on Spotify.
                         spotifySaveAutoAdd.handleSaved(post)
+                        scope.launch { youtubeMusicService.saved(post.id) }
                     }
                 } else {
                     val newCount = postRepository.unsavePost(userId, postId)

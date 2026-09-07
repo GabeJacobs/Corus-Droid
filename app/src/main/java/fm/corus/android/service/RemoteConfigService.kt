@@ -204,6 +204,9 @@ class RemoteConfigService @Inject constructor(
     /// playlist export falls back to Spotify, exactly like Deezer. Defaults to
     /// FALSE so a build that ships before launch shows no change to any user until
     /// the key is flipped on in Remote Config. Mirrors iOS/web `youtube_music_enabled`.
+    val youtubeMusicIntegrationEnabled: Boolean
+        get() = flagWithDefault("youtube_music_integration_enabled", false)
+
     val youtubeMusicEnabled: Boolean
         get() = flagWithDefault("youtube_music_enabled", false)
 

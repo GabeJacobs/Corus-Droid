@@ -291,6 +291,7 @@ class NowPlayingManager @Inject constructor(
     private val cloudFunctions: CloudFunctionsDataSource,
     private val preferencesDataStore: PreferencesDataStore,
     private val userRepository: UserRepository,
+    private val youtubeMusicService: YouTubeMusicService,
     private val musicServicePreference: MusicServicePreference,
     private val tidalAuthService: TidalAuthService,
     private val tidalPlaylistService: TidalPlaylistService,
@@ -1310,6 +1311,10 @@ class NowPlayingManager @Inject constructor(
         // TIDAL users get the playlist on their own account, built client-side
         // from the backend's resolved track list (mirrors iOS). Apple Music /
         // Deezer have no client-side path on Android and are blocked at the UI.
+        if (musicServicePreference.current.value == MusicService.YOUTUBE_MUSIC && youtubeMusicService.enabled) {
+            generateYouTubePlaylist("generateFeedPlaylist", mapOf("newReleasesOnly" to newReleasesOnly, "feedMode" to feedMode, "sessionToken" to (sessionToken ?: "")), PlaylistTrialField.Feed)
+            return
+        }
         if (musicServicePreference.current.value == MusicService.TIDAL) {
             generateFeedPlaylistTidal(newReleasesOnly, feedMode, sessionToken)
             return
@@ -1358,6 +1363,10 @@ class NowPlayingManager @Inject constructor(
         // Lifts the backend's 75-track snapshot cap to export the whole source.
         fullExport: Boolean = false,
     ) {
+        if (musicServicePreference.current.value == MusicService.YOUTUBE_MUSIC && youtubeMusicService.enabled) {
+            generateYouTubePlaylist("generateProfilePlaylist", mapOf("userId" to userId, "source" to source.wire), if (isOwnProfile) PlaylistTrialField.OwnProfile else PlaylistTrialField.OtherProfile)
+            return
+        }
         if (musicServicePreference.current.value == MusicService.TIDAL) {
             generateProfilePlaylistTidal(userId, source, isOwnProfile, fullExport)
             return
@@ -1407,6 +1416,10 @@ class NowPlayingManager @Inject constructor(
         // Lifts the backend's 75-track snapshot cap to export the whole tag.
         fullExport: Boolean = false,
     ) {
+        if (musicServicePreference.current.value == MusicService.YOUTUBE_MUSIC && youtubeMusicService.enabled) {
+            generateYouTubePlaylist("generateHashtagPlaylist", mapOf("hashtag" to hashtag), PlaylistTrialField.Hashtag)
+            return
+        }
         if (musicServicePreference.current.value == MusicService.TIDAL) {
             generateHashtagPlaylistTidal(hashtag, fullExport)
             return
@@ -1460,6 +1473,22 @@ class NowPlayingManager @Inject constructor(
 
     /** TIDAL id lookups per concurrent batch (each lookup is a callable). */
     private val tidalResolveBatch = 5
+
+    private suspend fun generateYouTubePlaylist(name: String, params: Map<String, Any>, trial: PlaylistTrialField) {
+        if (_isGeneratingPlaylist.value) return
+        _isGeneratingPlaylist.value = true
+        try {
+            val result = youtubeMusicService.generate(name, params)
+            if (result["code"] == "PAYWALL") { requestPlaylistPaywall(trial); return }
+            if (result["error"] == true) { _playlistError.value = result["message"] as? String; return }
+            handleTrialConsumedIfNeeded(result["trialConsumed"] == true, trial)
+            val url = result["playlistWebURL"] as? String ?: error("Playlist URL missing.")
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            val skipped = (result["skippedCount"] as? Number)?.toInt() ?: 0
+            if (skipped > 0) ToastManager.show("$skipped songs could not be matched on YouTube Music.")
+        } catch (e: Exception) { _playlistError.value = e.localizedMessage ?: "YouTube export failed." }
+        finally { _isGeneratingPlaylist.value = false }
+    }
 
     private suspend fun generateFeedPlaylistTidal(
         newReleasesOnly: Boolean,

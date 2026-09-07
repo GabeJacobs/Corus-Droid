@@ -16,6 +16,12 @@ import org.junit.Test
 class PlaylistGateTest {
 
     @Test
+    fun youtubeConnectionBypassesSpotifyFallbackWhenEnabled() {
+        assertFalse(usesSpotifyFallback(MusicService.YOUTUBE_MUSIC, youtubeEnabled = true))
+        assertFalse(shouldShowSpotifyPlaylistAlert(MusicService.YOUTUBE_MUSIC, hasSoundCloud = true, youtubeEnabled = true))
+    }
+
+    @Test
     fun `tidal never shows the alert`() {
         assertFalse(shouldShowSpotifyPlaylistAlert(MusicService.TIDAL, hasSoundCloud = false))
         assertFalse(shouldShowSpotifyPlaylistAlert(MusicService.TIDAL, hasSoundCloud = true))

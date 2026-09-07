@@ -33,6 +33,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var subscriptionRepository: SubscriptionRepository
     @Inject lateinit var analyticsService: AnalyticsService
     @Inject lateinit var spotifyPlaybackService: SpotifyPlaybackService
+    @Inject lateinit var youtubeMusicService: fm.corus.android.domain.YouTubeMusicService
     @Inject lateinit var spotifyLibraryAuthService: SpotifyLibraryAuthService
 
     override fun attachBaseContext(newBase: Context) {
@@ -44,6 +45,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        youtubeMusicService.attach(this)
         handleSpotifyAuthRedirect(intent)
         handleNotificationIntent(intent)
         handleWebLinkIntent(intent)
@@ -73,12 +75,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        lifecycleScope.launch { youtubeMusicService.flush() }
         fm.corus.android.domain.SpotifyConnectContext.setActivity(this)
     }
 
     override fun onPause() {
         fm.corus.android.domain.SpotifyConnectContext.setActivity(null)
         super.onPause()
+    }
+
+    override fun onDestroy() {
+        youtubeMusicService.detach()
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {

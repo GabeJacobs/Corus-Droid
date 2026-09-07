@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="youtube_sync_title">Sincronizar canciones guardadas con YouTube Music</string>
+    <string name="youtube_sync_description">Las canciones que guardas en Corus se añaden a tu playlist ‘Corus Saved Songs’.</string>
+    <string name="youtube_connect">Conectar YouTube Music</string>
+    <string name="youtube_disconnect">Desconectar YouTube Music</string>
+    <string name="youtube_reconnect_hint">Si el acceso a Google caduca, vuelve a conectarte para sincronizar las canciones pendientes.</string>
+</resources>

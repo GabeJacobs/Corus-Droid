@@ -408,6 +408,41 @@ fun SettingsScreen(
                 )
             }
 
+            if (musicService == MusicService.YOUTUBE_MUSIC && settingsViewModel.youtubeMusicService.enabled) {
+                val youtube = settingsViewModel.youtubeMusicService
+                var sync by remember { mutableStateOf(youtube.syncEnabled) }
+                var busy by remember { mutableStateOf(false) }
+                val youtubeScope = androidx.compose.runtime.rememberCoroutineScope()
+                SettingsToggleRow(
+                    icon = Icons.Filled.LibraryAdd,
+                    title = stringResource(R.string.youtube_sync_title),
+                    subtitle = stringResource(R.string.youtube_sync_description),
+                    checked = sync,
+                    onCheckedChange = { value ->
+                        if (!busy) {
+                            busy = true
+                            youtubeScope.launch {
+                                try { youtube.setSync(value); sync = value }
+                                catch (e: Exception) { fm.corus.android.ui.components.ToastManager.show(e.localizedMessage ?: "YouTube connection failed.") }
+                                finally { busy = false }
+                            }
+                        }
+                    },
+                )
+                Text(stringResource(R.string.youtube_reconnect_hint), style = MaterialTheme.typography.bodySmall)
+                androidx.compose.material3.TextButton(enabled = !busy, onClick = {
+                    busy = true
+                    youtubeScope.launch {
+                        try { youtube.accessToken(true, force = true); youtube.flush() }
+                        catch (e: Exception) { fm.corus.android.ui.components.ToastManager.show(e.localizedMessage ?: "YouTube connection failed.") }
+                        finally { busy = false }
+                    }
+                }) { Text(stringResource(R.string.youtube_connect)) }
+                androidx.compose.material3.TextButton(enabled = !busy, onClick = { youtube.disconnect(); sync = false }) {
+                    Text(stringResource(R.string.youtube_disconnect))
+                }
+            }
+
             SettingsToggleRow(
                 icon = Icons.Filled.GpsFixed,
                 title = stringResource(R.string.settings_row_feed_follows_now_playing_title),

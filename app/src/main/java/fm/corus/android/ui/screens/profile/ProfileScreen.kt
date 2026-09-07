@@ -323,7 +323,7 @@ fun ProfileScreen(
             clubPlaylistTrialContext = fm.corus.android.domain.PlaylistTrialField.OwnProfile
             showClubOffer = true
         } else if (musicService == fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
-            showYouTubeMusicPlaylistExplainer = true
+            if (fm.corus.android.domain.youtubeMusicIntegrationEnabled()) { viewModel.generatePlaylist(playlistSource) } else { showYouTubeMusicPlaylistExplainer = true }
         } else if (fm.corus.android.domain.shouldOfferProfileFullExport(
                 selectedSegment, profile?.trackCount, profile?.likesCount, profile?.savesCount ?: 0,
             )
@@ -332,7 +332,7 @@ fun ProfileScreen(
         } else {
             val hasSoundCloud = playlistSource == CloudFunctionsDataSource.ProfilePlaylistSource.Posts
                 && posts.any { it.isTrack && it.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD }
-            if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud)) {
+            if (fm.corus.android.domain.shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud, fm.corus.android.domain.youtubeMusicIntegrationEnabled())) {
                 showPlaylistAlert = true
             } else {
                 viewModel.generatePlaylist(playlistSource)

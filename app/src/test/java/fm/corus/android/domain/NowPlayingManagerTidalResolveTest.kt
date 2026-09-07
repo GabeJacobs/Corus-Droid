@@ -62,6 +62,7 @@ class NowPlayingManagerTidalResolveTest {
         }
         val manager = NowPlayingManager(
             context, cloudFunctions, preferencesDataStore, userRepository,
+            mock(),
             mock(), mock(), mock<TidalPlaylistService>(),
             mock(), mock(), mock(),
             mock(), mock(), mock(),
@@ -81,6 +82,7 @@ class NowPlayingManagerTidalResolveTest {
         }
         val manager = NowPlayingManager(
             context, cloudFunctions, preferencesDataStore, userRepository,
+            mock(),
             mock(), mock(), mock<TidalPlaylistService>(),
             mock(), mock(), mock(),
             mock(), mock(), mock(),
