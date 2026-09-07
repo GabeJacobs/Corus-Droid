@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="youtube_sync_title">저장한 곡을 YouTube Music과 동기화</string>
+    <string name="youtube_sync_title">저장한 곡을 플레이리스트에 추가</string>
     <string name="youtube_sync_description">Corus에 저장한 곡이 ‘Corus Saved Songs’ 플레이리스트에 추가됩니다.</string>
     <string name="youtube_connect">YouTube Music 연결</string>
     <string name="youtube_disconnect">YouTube Music 연결 해제</string>

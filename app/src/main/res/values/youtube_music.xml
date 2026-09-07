@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="youtube_sync_title">Sync saved songs to YouTube Music</string>
+    <string name="youtube_sync_title">Add Saved Songs to Playlist</string>
     <string name="youtube_sync_description">Songs you save in Corus are added to your ‘Corus Saved Songs’ playlist.</string>
     <string name="youtube_connect">Connect YouTube Music</string>
     <string name="youtube_disconnect">Disconnect YouTube Music</string>
