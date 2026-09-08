@@ -42,6 +42,7 @@ class YouTubeMusicService @Inject constructor(
     private var tokenUid: String? = null
     private var expires = 0L
     val enabled get() = remoteConfig.youtubeMusicIntegrationEnabled
+    val isConnected get() = auth.currentUser?.uid?.let { preferences.contains("$it.channel") } ?: false
     val syncEnabled get() = auth.currentUser?.uid?.let { preferences.getBoolean("$it.sync", false) } ?: false
 
     fun attach(activity: ComponentActivity) {
