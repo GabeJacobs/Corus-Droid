@@ -32,6 +32,7 @@ enum class PaywallSource(val subtitle: String, val analyticsName: String) {
     FAVORITE_LIMIT("Unlock unlimited favorites.", "favorite_people_cap"),
     SETTINGS("Support Corus. Get Perks.", "settings"),
     NEW_RELEASE_FILTER("Unlock new release feeds.", "new_release_filter"),
+    TASTE_DISCOVERY("Find your kind of people. Explore your full taste match list and discover what you have in common.", "taste_discovery"),
     TASTE_MATCHES(
         "Get an always-fresh feed of music and film from people who match your taste.",
         "taste_matches",

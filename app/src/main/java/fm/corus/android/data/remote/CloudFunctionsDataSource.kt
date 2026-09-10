@@ -1859,7 +1859,7 @@ class CloudFunctionsDataSource @Inject constructor(
      *  auth; pass the prior page's nextCursor to load the next 15. */
     @Suppress("UNCHECKED_CAST")
     suspend fun getTasteMatchesPage(limit: Int = 15, cursor: String? = null): TasteMatchesPage {
-        val params = mutableMapOf<String, Any>("limit" to limit.coerceIn(1, 30))
+        val params = mutableMapOf<String, Any>("limit" to limit.coerceIn(1, 30), "discoveryVersion" to 1)
         cursor?.let { params["cursor"] = it }
         val result = withTimeout(SUGGESTED_USERS_TIMEOUT_MS) {
             functions.getHttpsCallable("getTasteMatchesPage").call(params).await()
@@ -1867,7 +1867,12 @@ class CloudFunctionsDataSource @Inject constructor(
         val data = result.getData() as? Map<String, Any?>
             ?: return TasteMatchesPage(emptyList(), null, false)
         val rows = data["users"] as? List<Map<String, Any?>> ?: emptyList()
+        val access = data["discovery"] as? Map<String, Any?>
         return TasteMatchesPage(
+            discovery = fm.corus.android.data.model.TasteDiscoveryAccess(access?.get("variant") as? String ?: "off", access?.get("locked") as? Boolean ?: false,
+                (access?.get("remainingCount") as? Number)?.toInt()?.takeIf { it > 0 },
+                (access?.get("teaserArtwork") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
+                access?.get("teaserAvatarURL") as? String),
             matches = parseUserRows(rows).filter { !it.user.isBot },
             nextCursor = data["nextCursor"] as? String,
             hasMore = data["hasMore"] as? Boolean ?: false,

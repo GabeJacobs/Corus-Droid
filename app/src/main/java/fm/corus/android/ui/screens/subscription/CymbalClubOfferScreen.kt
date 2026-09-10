@@ -658,6 +658,7 @@ fun CymbalClubOfferSheet(
             // otherwise the source's default subtitle ("Remove posting limits").
             val trial = trialDurationText(context, selectedPackage)
             val subtitleText = when {
+                source == PaywallSource.TASTE_DISCOVERY -> stringResource(R.string.taste_discovery_subtitle)
                 source == PaywallSource.POST_LIMIT && trial != null ->
                     context.getString(R.string.club_subtitle_post_limit_trial_format, trial)
                 source == PaywallSource.PLAYLIST_LIMIT && playlistTrialContext != null ->
@@ -688,6 +689,11 @@ fun CymbalClubOfferSheet(
             ) {
                 // Source-specific perk leads when present, since it's the reason the
                 // user opened the paywall (e.g. the favorites cap).
+                if (source == PaywallSource.TASTE_DISCOVERY) {
+                    FeatureRow(text = stringResource(R.string.taste_discovery_perk)) {
+                        VennDiagramIcon(size = 20.dp, color = CorusColors.Accent, shadedIntersection = true)
+                    }
+                }
                 if (source == PaywallSource.FAVORITE_LIMIT) {
                     FeatureRow(icon = Icons.Filled.Star, text = stringResource(R.string.club_feature_favorites))
                 }

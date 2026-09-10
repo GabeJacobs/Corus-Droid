@@ -155,10 +155,17 @@ data class SuggestedUserMatch(
 }
 
 /** One page of the live, cursor-paginated taste-matches list. */
+@kotlinx.serialization.Serializable
+data class TasteDiscoveryAccess(
+    val variant: String = "off", val locked: Boolean = false,
+    val remainingCount: Int? = null, val teaserArtwork: List<String> = emptyList(), val teaserAvatarURL: String? = null,
+)
+
 data class TasteMatchesPage(
     val matches: List<SuggestedUserMatch>,
     val nextCursor: String?,
     val hasMore: Boolean,
+    val discovery: TasteDiscoveryAccess = TasteDiscoveryAccess(),
 )
 
 data class CymbalMessagingSettings(

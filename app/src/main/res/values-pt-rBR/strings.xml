@@ -1478,4 +1478,10 @@
         <item quantity="one">Teste grátis · %1$d dia restante</item>
         <item quantity="other">Teste grátis · %1$d dias restantes</item>
     </plurals>
+    <string name="taste_discovery_title">Explore todos os seus matches</string>
+    <string name="taste_discovery_body">Veja todos os seus matches</string>
+    <string name="taste_discovery_cta">Desbloquear com Club</string>
+    <string name="taste_discovery_subtitle">Encontre sua turma. Explore todos os seus matches e descubra o que vocês têm em comum.</string>
+    <string name="taste_discovery_perk">Sua lista completa de matches</string>
+    <plurals name="taste_discovery_remaining"><item quantity="one">Mais %d match de gosto</item><item quantity="other">Mais %d matches de gosto</item></plurals>
 </resources>

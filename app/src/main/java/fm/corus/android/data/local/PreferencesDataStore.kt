@@ -1,5 +1,7 @@
 package fm.corus.android.data.local
 
+import fm.corus.android.data.model.TasteDiscoveryAccess
+
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -96,6 +98,7 @@ private data class PersistedTasteMatchesPageWrapper(
     val nextCursor: String? = null,
     val hasMore: Boolean = false,
     val matches: List<PersistedSuggestedMatch>,
+    val discovery: TasteDiscoveryAccess = TasteDiscoveryAccess(),
 )
 
 @Serializable
@@ -1117,15 +1120,17 @@ class PreferencesDataStore @Inject constructor(
     // page (matches + cursor + hasMore + fetchedAt) so the rail can paint and
     // resume paging instantly on open. Matches iOS CachedTasteMatchesPage.
 
-    private fun tasteMatchesPageKey(userId: String) = stringPreferencesKey("tasteMatchesPage_$userId")
+    private fun tasteMatchesPageKey(userId: String) = stringPreferencesKey("tasteMatchesPage_discovery_v1_$userId")
 
     suspend fun persistTasteMatchesPage(
         matches: List<SuggestedUserMatch>,
         nextCursor: String?,
         hasMore: Boolean,
         userId: String,
+        discovery: TasteDiscoveryAccess = TasteDiscoveryAccess(),
     ) {
         val wrapper = PersistedTasteMatchesPageWrapper(
+            discovery = discovery,
             fetchedAt = System.currentTimeMillis(),
             nextCursor = nextCursor,
             hasMore = hasMore,
@@ -1140,6 +1145,7 @@ class PreferencesDataStore @Inject constructor(
         val nextCursor: String?,
         val hasMore: Boolean,
         val fetchedAt: Long,
+        val discovery: TasteDiscoveryAccess = TasteDiscoveryAccess(),
     )
 
     /**
@@ -1158,6 +1164,7 @@ class PreferencesDataStore @Inject constructor(
                 nextCursor = wrapper.nextCursor,
                 hasMore = wrapper.hasMore,
                 fetchedAt = wrapper.fetchedAt,
+                discovery = wrapper.discovery,
             )
         } catch (_: Exception) {
             null

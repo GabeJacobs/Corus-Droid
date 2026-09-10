@@ -1,5 +1,7 @@
 package fm.corus.android.data.repository
 
+import fm.corus.android.data.model.TasteDiscoveryAccess
+
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import fm.corus.android.data.local.PreferencesDataStore
@@ -52,6 +54,7 @@ class UserRepository @Inject constructor(
         val matches: List<SuggestedUserMatch>,
         val nextCursor: String?,
         val hasMore: Boolean,
+        val discovery: TasteDiscoveryAccess = TasteDiscoveryAccess(),
     )
     @Volatile private var tasteMatchesFirstPageCache: CacheEntry<CachedTasteMatchesFirstPage>? = null
 
@@ -526,6 +529,7 @@ class UserRepository @Inject constructor(
         val nextCursor: String?,
         val hasMore: Boolean,
         val fetchedAt: Long,
+        val discovery: TasteDiscoveryAccess = TasteDiscoveryAccess(),
     )
 
     /** Loads the in-memory holder, hydrating it from DataStore on a cold start.
@@ -536,7 +540,7 @@ class UserRepository @Inject constructor(
         val persisted = preferencesDataStore.loadTasteMatchesPageAsync(userId) ?: return null
         if (persisted.matches.isEmpty()) return null
         val entry = CacheEntry(
-            CachedTasteMatchesFirstPage(userId, persisted.matches, persisted.nextCursor, persisted.hasMore),
+            CachedTasteMatchesFirstPage(userId, persisted.matches, persisted.nextCursor, persisted.hasMore, persisted.discovery),
             persisted.fetchedAt,
         )
         tasteMatchesFirstPageCache = entry
@@ -559,6 +563,7 @@ class UserRepository @Inject constructor(
             nextCursor = entry.value.nextCursor,
             hasMore = entry.value.hasMore,
             fetchedAt = entry.fetchedAt,
+            discovery = entry.value.discovery,
         )
     }
 
@@ -575,9 +580,9 @@ class UserRepository @Inject constructor(
     suspend fun cacheTasteMatchesFirstPage(page: fm.corus.android.data.model.TasteMatchesPage) {
         val uid = auth.currentUser?.uid ?: return
         tasteMatchesFirstPageCache = CacheEntry(
-            CachedTasteMatchesFirstPage(uid, page.matches, page.nextCursor, page.hasMore),
+            CachedTasteMatchesFirstPage(uid, page.matches, page.nextCursor, page.hasMore, page.discovery),
         )
-        preferencesDataStore.persistTasteMatchesPage(page.matches, page.nextCursor, page.hasMore, uid)
+        preferencesDataStore.persistTasteMatchesPage(page.matches, page.nextCursor, page.hasMore, uid, page.discovery)
     }
 
     /** Drops the first-page cache (memory + DataStore) so a taste change forces a

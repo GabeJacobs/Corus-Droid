@@ -78,9 +78,17 @@ fun SuggestedUsersListScreen(
     onBack: () -> Unit = {},
     /** Segmented Search + Taste Matches feed available, first page loaded,
      *  and more than 3 matches. Mirrors iOS TasteMatchesListView. */
+    discoveryLocked: Boolean = false,
+    discoveryAccess: fm.corus.android.data.model.TasteDiscoveryAccess = fm.corus.android.data.model.TasteDiscoveryAccess(),
     showTasteMatchesFeedCta: Boolean = false,
     onTasteMatchesFeedCta: () -> Unit = {},
 ) {
+    var showDiscoveryPaywall by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    if (showDiscoveryPaywall) {
+        fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet(
+            source = fm.corus.android.ui.screens.subscription.PaywallSource.TASTE_DISCOVERY,
+            onDismiss = { showDiscoveryPaywall = false }, onPurchaseSuccess = onRefresh)
+    }
     val resolvedTitle = title ?: stringResource(fm.corus.android.R.string.suggested_users_default_title)
     val context = LocalContext.current
     Scaffold(
@@ -149,7 +157,12 @@ fun SuggestedUsersListScreen(
                 verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                if (showTasteMatchesFeedCta) {
+                if (discoveryLocked) {
+                    item(span = { GridItemSpan(maxLineSpan) }, key = "taste_discovery_club") {
+                        fm.corus.android.ui.components.TasteDiscoveryClubCard(access = discoveryAccess, onClick = { showDiscoveryPaywall = true }, modifier = Modifier.width(200.dp))
+                    }
+                }
+                if (showTasteMatchesFeedCta && !discoveryLocked) {
                     item(span = { GridItemSpan(maxLineSpan) }, key = "taste_matches_feed_cta") {
                         TasteMatchesFeedCta(onClick = onTasteMatchesFeedCta)
                     }
@@ -242,7 +255,12 @@ fun SuggestedUsersListScreen(
                 verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                if (showTasteMatchesFeedCta) {
+                if (discoveryLocked) {
+                    item(span = { GridItemSpan(maxLineSpan) }, key = "taste_discovery_club") {
+                        fm.corus.android.ui.components.TasteDiscoveryClubCard(access = discoveryAccess, onClick = { showDiscoveryPaywall = true }, modifier = Modifier.width(200.dp))
+                    }
+                }
+                if (showTasteMatchesFeedCta && !discoveryLocked) {
                     item(span = { GridItemSpan(maxLineSpan) }, key = "taste_matches_feed_cta") {
                         TasteMatchesFeedCta(onClick = onTasteMatchesFeedCta)
                     }

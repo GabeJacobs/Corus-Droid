@@ -14,6 +14,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import fm.corus.android.data.model.TasteDiscoveryAccess
+import fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet
+import fm.corus.android.ui.screens.subscription.PaywallSource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -76,11 +81,19 @@ fun HorizontalTasteMatchesRail(
     trailingAction: (@Composable () -> Unit)? = null,
     viewModel: TasteMatchesRailViewModel = hiltViewModel(),
 ) {
+    val discovery by viewModel.discovery.collectAsState()
+    var showPaywall by remember { mutableStateOf(false) }
+    if (showPaywall) {
+        CymbalClubOfferSheet(source = PaywallSource.TASTE_DISCOVERY,
+            onDismiss = { showPaywall = false },
+            onPurchaseSuccess = { viewModel.reloadDiscovery(); onSeeAll?.invoke() })
+    }
     val matches by viewModel.matches.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val endReached by viewModel.endReached.collectAsState()
     val isFilling by viewModel.isFilling.collectAsState()
     val isActive = LocalContainingTabSelected.current
+    LaunchedEffect(isActive, discovery) { if (isActive) viewModel.logDiscoveryExposure() }
 
     LaunchedEffect(isActive) {
         if (!isActive) return@LaunchedEffect
@@ -92,8 +105,8 @@ fun HorizontalTasteMatchesRail(
 
     // The subset the rail actually renders. Under the "Unfollowed" filter we drop
     // people the viewer already follows; otherwise show everything loaded.
-    val visibleMatches = remember(matches, filterUnfollowed, followedIds) {
-        if (!filterUnfollowed) matches
+    val visibleMatches = remember(matches, filterUnfollowed, followedIds, discovery) {
+        if (!filterUnfollowed || discovery.locked) matches
         else matches.filter { it.user.id !in followedIds }
     }
 
@@ -140,8 +153,8 @@ fun HorizontalTasteMatchesRail(
             icon = "sparkles",
             title = "TASTE MATCHES",
             showSeeAll = onSeeAll != null,
-            onSeeAll = onSeeAll ?: {},
-            trailingAction = trailingAction,
+            onSeeAll = { if (discovery.locked) showPaywall = true else onSeeAll?.invoke() },
+            trailingAction = if (discovery.locked) null else trailingAction,
         )
 
         // isLoading starts true so this row is reserved on the first Search
@@ -164,6 +177,9 @@ fun HorizontalTasteMatchesRail(
                         onFollowTap = { onFollowTap(match.user) },
                         modifier = Modifier.width(cardWidth),
                     )
+                }
+                if (discovery.locked) {
+                    item("club") { TasteDiscoveryClubCard(access = discovery, onClick = { showPaywall = true }, modifier = Modifier.width(cardWidth)) }
                 }
                 if (isLoading) {
                     item("loading") {
@@ -232,7 +248,11 @@ private fun SkeletonRow(cardWidth: androidx.compose.ui.unit.Dp) {
 @HiltViewModel
 class TasteMatchesRailViewModel @Inject constructor(
     private val userRepository: UserRepository,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: android.content.Context? = null,
 ) : ViewModel() {
+
+    private val _discovery = MutableStateFlow(TasteDiscoveryAccess())
+    val discovery = _discovery.asStateFlow()
 
     private val _matches = MutableStateFlow<List<SuggestedUserMatch>>(emptyList())
     val matches: StateFlow<List<SuggestedUserMatch>> = _matches.asStateFlow()
@@ -266,7 +286,16 @@ class TasteMatchesRailViewModel @Inject constructor(
     private var loadFailed = false
 
     fun loadInitial() {
-        if (hasLoadedInitial) return
+        if (hasLoadedInitial) {
+            viewModelScope.launch {
+                val cached = userRepository.getCachedTasteMatchesFirstPage()
+                if (cached != null && cached.discovery != _discovery.value) {
+                    applyFirstPage(cached.matches, cached.nextCursor, cached.hasMore, cached.discovery)
+                }
+                if (!_isLoading.value && !userRepository.isTasteMatchesCacheFresh()) revalidateFirstPage()
+            }
+            return
+        }
         hasLoadedInitial = true
         viewModelScope.launch {
             // Stale-while-revalidate: paint the cached first page instantly (no
@@ -274,7 +303,7 @@ class TasteMatchesRailViewModel @Inject constructor(
             // (no usable cache) shows the shimmer.
             val cached = userRepository.getCachedTasteMatchesFirstPage()
             if (cached != null) {
-                applyFirstPage(cached.matches, cached.nextCursor, cached.hasMore)
+                applyFirstPage(cached.matches, cached.nextCursor, cached.hasMore, cached.discovery)
                 // Skip the refresh while the cache is still fresh so rapid re-opens
                 // of Search don't re-hit the callable.
                 if (!userRepository.isTasteMatchesCacheFresh()) {
@@ -295,7 +324,8 @@ class TasteMatchesRailViewModel @Inject constructor(
 
     /** Resets the visible list to exactly [pageMatches] (the first page). Used to
      *  paint the cache and to reconcile after a background refresh. */
-    private fun applyFirstPage(pageMatches: List<SuggestedUserMatch>, nextCursor: String?, hasMore: Boolean) {
+    private fun applyFirstPage(pageMatches: List<SuggestedUserMatch>, nextCursor: String?, hasMore: Boolean, discovery: TasteDiscoveryAccess) {
+        _discovery.value = discovery
         loadedIds.clear()
         loadedIds.addAll(pageMatches.map { it.user.id })
         _matches.value = pageMatches
@@ -326,8 +356,8 @@ class TasteMatchesRailViewModel @Inject constructor(
         // Reconcile the visible list only if the user hasn't paged deeper;
         // otherwise the cache write above is enough and their scrolled content is
         // left untouched.
-        if (!pagedBeyondFirst) {
-            applyFirstPage(page.matches, page.nextCursor, page.hasMore)
+        if (!pagedBeyondFirst || _discovery.value != page.discovery) {
+            applyFirstPage(page.matches, page.nextCursor, page.hasMore, page.discovery)
         }
     }
 
@@ -335,6 +365,23 @@ class TasteMatchesRailViewModel @Inject constructor(
      *  gate in [loadInitial]. */
     @androidx.annotation.VisibleForTesting
     internal suspend fun revalidateFirstPageForTest() = revalidateFirstPage()
+
+    fun reloadDiscovery() {
+        viewModelScope.launch {
+            userRepository.invalidateTasteMatchesCache()
+            hasLoadedInitial = false; cursor = null; loadedIds.clear()
+            _matches.value = emptyList(); _endReached.value = false
+            loadInitial()
+        }
+    }
+    fun logDiscoveryExposure() {
+        val access = _discovery.value
+        if (access.variant == "off") return
+        val analytics = com.google.firebase.analytics.FirebaseAnalytics.getInstance(appContext ?: return)
+        analytics.logEvent("taste_discovery_exposed", android.os.Bundle().apply {
+            putString("experiment", "taste_discovery_v1"); putString("variant", access.variant); putBoolean("locked", access.locked)
+        })
+    }
 
     fun loadMore() {
         if (_isLoading.value || _endReached.value) return
@@ -384,6 +431,8 @@ class TasteMatchesRailViewModel @Inject constructor(
                 return
             }
             loadFailed = false
+            if (page.discovery.locked) { _matches.value = emptyList(); loadedIds.clear() }
+            _discovery.value = page.discovery
             if (page.matches.isEmpty()) {
                 _endReached.value = true
                 return

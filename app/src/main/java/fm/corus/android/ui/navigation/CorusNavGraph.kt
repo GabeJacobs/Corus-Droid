@@ -1158,10 +1158,13 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         val followedIds by viewModel.followedIds.collectAsState()
         val filterUnfollowed by viewModel.filterUnfollowed.collectAsState()
         val isFilling by viewModel.isFilling.collectAsState()
+        val discovery by viewModel.discovery.collectAsState()
         val remoteConfig = rememberRemoteConfig()
 
         SuggestedUsersListScreen(
-            matches = suggestions,
+            matches = if (discovery.locked) allSuggestions else suggestions,
+            discoveryLocked = discovery.locked,
+            discoveryAccess = discovery,
             title = route.title,
             useRowLayout = route.useRowLayout,
             source = route.source,
@@ -1174,7 +1177,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             // Toggle available for the taste-matches list once the viewer follows
             // anyone. Mirrors iOS TasteMatchesListView (toolbar filter shown when
             // currentUserFollowingIds is non-empty).
-            showFilterToggle = route.source == "tasteMatches" && followedIds.isNotEmpty(),
+            showFilterToggle = !discovery.locked && route.source == "tasteMatches" && followedIds.isNotEmpty(),
             filterUnfollowed = filterUnfollowed,
             onSetFilterUnfollowed = { viewModel.setTasteMatchFilter(it) },
             isFilling = isFilling,

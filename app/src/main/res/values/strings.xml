@@ -1520,4 +1520,10 @@
     </plurals>
     <string name="post_success_others_done">Done</string>
     <string name="post_success_others_kicker">Corus set!</string>
+    <string name="taste_discovery_title">Explore all your matches</string>
+    <string name="taste_discovery_body">See all your taste matches</string>
+    <string name="taste_discovery_cta">Unlock with Club</string>
+    <string name="taste_discovery_subtitle">Find your kind of people. Explore your full taste match list and discover what you have in common.</string>
+    <string name="taste_discovery_perk">Your full taste match list</string>
+    <plurals name="taste_discovery_remaining"><item quantity="one">%d more taste match</item><item quantity="other">%d more taste matches</item></plurals>
 </resources>

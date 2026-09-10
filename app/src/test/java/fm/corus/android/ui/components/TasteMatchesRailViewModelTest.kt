@@ -315,4 +315,34 @@ class TasteMatchesRailViewModelTest {
             assertTrue("fill capped at 10 pages", call - afterInitial <= 10)
             assertFalse(vm.isFilling.value)
         }
+
+    @Test
+    fun `B keeps server access metadata and cannot paginate the preview`() = runTest(testDispatcher) {
+        val preview = page(listOf("a", "b", "c", "d", "e"), null, false).copy(
+            discovery = fm.corus.android.data.model.TasteDiscoveryAccess("b", true))
+        whenever(userRepository.getTasteMatchesPage(anyOrNull(), any())).thenReturn(preview)
+        val vm = vm()
+        vm.loadInitial(); advanceUntilIdle()
+        assertTrue(vm.discovery.value.locked)
+        assertEquals("b", vm.discovery.value.variant)
+        vm.loadMore(); advanceUntilIdle()
+        verify(userRepository, times(1)).getTasteMatchesPage(anyOrNull(), any())
+        verify(userRepository).cacheTasteMatchesFirstPage(preview)
+    }
+
+    @Test
+    fun `purchase refresh replaces preview and resumes full pagination`() = runTest(testDispatcher) {
+        val preview = page(listOf("a", "b", "c", "d", "e"), null, false).copy(
+            discovery = fm.corus.android.data.model.TasteDiscoveryAccess("b", true))
+        val full = page(listOf("a", "b", "c", "d", "e", "f"), "next", true).copy(
+            discovery = fm.corus.android.data.model.TasteDiscoveryAccess("b", false))
+        whenever(userRepository.getTasteMatchesPage(anyOrNull(), any())).thenReturn(preview, full)
+        val vm = vm()
+        vm.loadInitial(); advanceUntilIdle()
+        vm.reloadDiscovery(); advanceUntilIdle()
+        verify(userRepository).invalidateTasteMatchesCache()
+        assertFalse(vm.discovery.value.locked)
+        assertFalse(vm.endReached.value)
+        assertEquals(6, vm.matches.value.size)
+    }
 }

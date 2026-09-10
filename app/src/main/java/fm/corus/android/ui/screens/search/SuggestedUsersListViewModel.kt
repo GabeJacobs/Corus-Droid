@@ -112,9 +112,18 @@ class SuggestedUsersListViewModel @Inject constructor(
 
     /** Fetch one page of the live taste-matches list, advancing the cursor and
      *  hasMore from the backend response (not page-size heuristics). */
+    private val _discovery = MutableStateFlow(fm.corus.android.data.model.TasteDiscoveryAccess())
+    val discovery = _discovery.asStateFlow()
+
     private suspend fun loadTasteMatchesPage(reset: Boolean): List<SuggestedUserMatch> {
         if (reset) tmCursor = null
         val page = userRepository.getTasteMatchesPage(cursor = tmCursor, limit = 15)
+        if (reset) userRepository.cacheTasteMatchesFirstPage(page)
+        if (page.discovery.locked) _suggestions.value = emptyList()
+        _discovery.value = page.discovery
+        if (reset && page.discovery.variant != "off") {
+            analyticsService.logEvent("taste_discovery_exposed", mapOf("experiment" to "taste_discovery_v1", "variant" to page.discovery.variant, "locked" to page.discovery.locked))
+        }
         tmCursor = page.nextCursor
         _hasMore.value = page.hasMore
         return page.matches
