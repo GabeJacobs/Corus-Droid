@@ -1495,4 +1495,7 @@
     <string name="club_onboarding_renewal">Renova automaticamente no preço do plano selecionado após qualquer teste grátis. Cancele quando quiser.</string>
     <string name="club_onboarding_yearly_billed">Cobrado a %1$s/ano.</string>
     <string name="club_feature_unlimited_saves">Salvamentos ilimitados</string>
+    <string name="map_cluster_invite_copy">Faça sua comunidade crescer. Convide seus amigos para entrar no Corus.</string>
+    <string name="map_cluster_invite_action">Convidar amigos</string>
+    <string name="map_all_communities">Todas as comunidades</string>
 </resources>

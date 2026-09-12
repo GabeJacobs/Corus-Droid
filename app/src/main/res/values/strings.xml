@@ -1537,4 +1537,7 @@
     <string name="club_onboarding_skip">Maybe later</string>
     <string name="club_onboarding_renewal">Auto-renews at the selected plan price after any free trial. Cancel anytime.</string>
     <string name="club_onboarding_yearly_billed">Billed at %1$s/yr.</string>
+    <string name="map_cluster_invite_copy">Grow your cluster. Invite your friends to join Corus.</string>
+    <string name="map_cluster_invite_action">Invite friends</string>
+    <string name="map_all_communities">All communities</string>
 </resources>

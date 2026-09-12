@@ -103,11 +103,7 @@ fun CityMapView(cities: List<MapCitySummary>, filter: String, selected: MapCity?
     LaunchedEffect(map, cities, filter, playing?.cityId, activeCity?.cityId, playbackMode, styleReady, viewportRevision) {
         val m = map ?: return@LaunchedEffect
         if (styleReady == 0) return@LaunchedEffect
-        val bounds = m.projection.visibleRegion.latLngBounds
-        val overview = bounds.latitudeNorth - bounds.latitudeSouth > 1
-        val visible = cities.filter { summary ->
-            (summary.facets[filter]?.count ?: 0) > 0 && (!overview || activeCity == null || summary.city.cityId == activeCity.cityId || LatLng(summary.city.latitude,summary.city.longitude).distanceTo(LatLng(activeCity.latitude,activeCity.longitude)) >= 25_000)
-        }
+        val visible = cities.filter { (it.facets[filter]?.count ?: 0) > 0 }
         visible.forEach { retainedFaces[it.city.cityId] = stableMapFaces(retainedFaces[it.city.cityId].orEmpty(), it.facets[filter]?.previews.orEmpty()) }
         val ids = visible.map { it.city.cityId }.toSet()
         markers.keys.toList().filterNot { it in ids }.forEach { id -> markers.remove(id)?.let(m::removeMarker); signatures.remove(id) }

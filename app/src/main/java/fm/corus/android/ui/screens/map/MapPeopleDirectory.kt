@@ -37,6 +37,7 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
         }
     }
     LazyColumn(state = listState, contentPadding = PaddingValues(16.dp)) {
+        item { MapCommunityPicker(state.cities, state.selectedCommunityId, model::community) }
         item { OutlinedTextField(search, { search = it }, placeholder = { Text(parityCopy("Search cities or countries")) }, modifier = Modifier.fillMaxWidth()) }
         filtered.forEach { summary ->
             val city = summary.city; val closed = city.cityId in collapsed
@@ -44,10 +45,10 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
                 Row(Modifier.fillMaxWidth().clickable { collapsed = ArrayList(if (closed) collapsed - city.cityId else collapsed + city.cityId) }.padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) { Text(city.cityName, style = CorusFont.bodyMedium); Text("${city.regionName} · ${city.countryCode}", style = CorusFont.caption, color = CorusColors.Secondary) }
                     Text("${summary.facets[state.filter]?.count ?: 0}", color = CorusColors.Secondary)
-                    if(city.cityId == state.ownCity?.cityId) {
-                        var chat by remember(city.cityId) { mutableStateOf<MapChatStatus?>(null) }
+                    run {
+                        var chat by remember(city.cityId, state.currentDeviceCityId) { mutableStateOf<MapChatStatus?>(null) }
                         var loading by remember(city.cityId) { mutableStateOf(true) }
-                        LaunchedEffect(city.cityId) { try { chat = model.repository.chat(city.cityId) } catch(e: Exception) { if(e is kotlinx.coroutines.CancellationException) throw e } finally { loading=false } }
+                        LaunchedEffect(city.cityId, state.currentDeviceCityId) { loading=true; chat=null; try { chat = model.repository.chat(city.cityId, state.currentDeviceCityId) } catch(e: Exception) { if(e is kotlinx.coroutines.CancellationException) throw e } finally { loading=false } }
                         if(loading) CircularProgressIndicator(Modifier.padding(horizontal=8.dp).size(20.dp))
                         else chat?.takeIf { it.member || it.canJoin }?.let { value -> FilledTonalButton(onClick = { onChat(city,value) }, contentPadding = PaddingValues(horizontal=10.dp,vertical=0.dp), modifier=Modifier.padding(start=8.dp)) { Text(parityCopy(if(value.member) "Open chat" else "Join chat"), style=CorusFont.caption) } }
                     }
@@ -66,6 +67,10 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
                 if (city.cityId in state.listErrors) item { TextButton(onClick = { model.loadList(city, next = page?.cursor != null) }) { Text(parityCopy("Retry loading people")) } }
                 else if (city.cityId in state.listLoading) item { Box(Modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(20.dp)) } }
                 else if (page?.cursor != null) item(key = "next:${city.cityId}:${page.cursor}") { LaunchedEffect(page.cursor) { model.loadList(city, next = true) }; TextButton(onClick = { model.loadList(city, next = true) }) { Text(parityCopy("Load more people")) } }
+                else if (canInviteMapCluster(state, city, page, city.cityId in state.listLoading,
+                    city.cityId in state.listErrors, model.repository.currentUserId)) {
+                    item(key = "invite:${city.cityId}") { MapClusterInviteFooter() }
+                }
             }
         }
         if (filtered.isEmpty()) item { Text(parityCopy("No people to show for this filter."), Modifier.padding(vertical = 24.dp)) }

@@ -1476,4 +1476,7 @@
     <string name="club_onboarding_renewal">무료 체험 후 선택한 요금제로 자동 갱신됩니다. 언제든 취소할 수 있습니다.</string>
     <string name="club_onboarding_yearly_billed">연 %1$s 결제.</string>
     <string name="club_feature_unlimited_saves">무제한 저장</string>
+    <string name="map_cluster_invite_copy">커뮤니티를 키워 보세요. 친구들을 Corus에 초대하세요.</string>
+    <string name="map_cluster_invite_action">친구 초대</string>
+    <string name="map_all_communities">모든 커뮤니티</string>
 </resources>

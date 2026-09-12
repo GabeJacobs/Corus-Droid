@@ -121,6 +121,30 @@ fun MapExploreScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     DisposableEffect(Unit) { onDispose { listener?.let(locationManager::removeUpdates) } }
+    LaunchedEffect(Unit) { while (true) { delay(30000); model.expireDeviceCity() } }
+    DisposableEffect(lifecycleOwner, locationManager) {
+        val observerLocation = object : LocationListener {
+            override fun onLocationChanged(location: Location) { model.updateDeviceCity(location) }
+            override fun onProviderDisabled(provider: String) { model.clearDeviceCity() }
+        }
+        fun stopLocation() { locationManager.removeUpdates(observerLocation); model.clearDeviceCity() }
+        fun startLocation() {
+            stopLocation()
+            if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) return
+            try {
+                val provider = if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) LocationManager.GPS_PROVIDER else LocationManager.NETWORK_PROVIDER
+                locationManager.requestLocationUpdates(provider, 60000L, 0f, observerLocation, Looper.getMainLooper())
+            } catch (_: SecurityException) { model.clearDeviceCity() }
+        }
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) startLocation()
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) stopLocation()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) startLocation()
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer); stopLocation() }
+    }
+
     LaunchedEffect(state.ownAudience, state.ownCity) { audience = if (state.ownCity != null) state.ownAudience else model.repository.savedAudience(); chosenCity = state.ownCity }
     LaunchedEffect(listState, state.selected?.cityId, state.people) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.mapNotNull { row -> state.people.getOrNull(row.index)?.user?.id } }
@@ -251,6 +275,7 @@ fun MapExploreScreen(
                         val peopleCount = cities.firstOrNull { it.city.cityId == city.cityId }?.facets?.get(state.filter)?.count ?: 0
                         val country = java.util.Locale("", city.countryCode).displayCountry.ifBlank { city.countryCode }
                         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                            MapCommunityPicker(state.cities, state.selectedCommunityId, model::community)
                             Text(city.cityName, style = CorusFont.bodyMedium, maxLines = 1)
                             Text("${city.regionName}, $country · $peopleCount ${if (peopleCount == 1) "person" else "people"}", style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
@@ -260,7 +285,7 @@ fun MapExploreScreen(
                         if (state.chatLoading) Box(Modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(20.dp)) }
                         else {
                             FilledTonalButton(onClick = { model.start("listen", emptySet(), city.cityId) }, enabled = !state.busy, modifier = Modifier.weight(1f)) { Text(parityCopy("Listen")) }
-                            state.chat?.takeIf { it.member || it.canJoin }?.let { chat -> Button(onClick = { if (chat.member) onChat(chat.threadId) else requestLocation { model.join(city, it, onChat) } }, modifier = Modifier.weight(1f), enabled = !state.busy) { Text(if (chat.member) "Open chat" else "Join chat") } }
+                            state.chat?.takeIf { showMapChat(city.cityId, state.currentDeviceCityId, it) }?.let { chat -> Button(onClick = { if (chat.member) onChat(chat.threadId) else requestLocation { model.join(city, it, onChat) } }, modifier = Modifier.weight(1f), enabled = !state.busy) { Text(if (chat.member) "Open chat" else "Join chat") } }
                         }
                     }
                     LazyColumn(state = listState, contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
@@ -279,6 +304,10 @@ fun MapExploreScreen(
                             }; HorizontalDivider(color = CorusColors.Divider)
                         }
                         if (state.more != null) item { TextButton(onClick = { model.more() }, enabled = !state.peopleLoading) { Text(parityCopy("Load more people")) } }
+                        else if (canInviteMapCluster(state, city, MapPeoplePage(state.people, state.more, state.peopleReachedEnd),
+                            state.peopleLoading, state.error != null, model.repository.currentUserId)) {
+                            item(key = "invite:${city.cityId}") { MapClusterInviteFooter() }
+                        }
                     }
                 }
             }

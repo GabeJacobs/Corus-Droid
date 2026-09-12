@@ -1349,4 +1349,7 @@
     <string name="club_onboarding_renewal">無料トライアル終了後、選択したプランの料金で自動更新されます。いつでもキャンセルできます。</string>
     <string name="club_onboarding_yearly_billed">年額 %1$s。</string>
     <string name="club_feature_unlimited_saves">保存数無制限</string>
+    <string name="map_cluster_invite_copy">コミュニティを広げよう。友達をCorusに招待しましょう。</string>
+    <string name="map_cluster_invite_action">友達を招待</string>
+    <string name="map_all_communities">すべてのコミュニティ</string>
 </resources>

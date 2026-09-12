@@ -1476,4 +1476,7 @@
     <string name="club_onboarding_renewal">免费试用结束后将按所选套餐价格自动续订。可随时取消。</string>
     <string name="club_onboarding_yearly_billed">按年收费 %1$s。</string>
     <string name="club_feature_unlimited_saves">无限收藏</string>
+    <string name="map_cluster_invite_copy">壮大你的社区。邀请好友加入 Corus。</string>
+    <string name="map_cluster_invite_action">邀请好友</string>
+    <string name="map_all_communities">所有社区</string>
 </resources>

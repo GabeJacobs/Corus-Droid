@@ -1486,4 +1486,7 @@
     <string name="club_onboarding_renewal">Se renueva automáticamente al precio del plan elegido después de cualquier prueba gratis. Cancela cuando quieras.</string>
     <string name="club_onboarding_yearly_billed">Facturado a %1$s/año.</string>
     <string name="club_feature_unlimited_saves">Guardados ilimitados</string>
+    <string name="map_cluster_invite_copy">Haz crecer tu comunidad. Invita a tus amigos a unirse a Corus.</string>
+    <string name="map_cluster_invite_action">Invitar amigos</string>
+    <string name="map_all_communities">Todas las comunidades</string>
 </resources>

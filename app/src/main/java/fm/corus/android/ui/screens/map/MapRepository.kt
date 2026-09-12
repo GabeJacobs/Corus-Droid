@@ -67,6 +67,7 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
             val result = functions.getHttpsCallable(name).call(payload).await().getData() as? Map<String, Any?> ?: error("Invalid response")
             check(auth.currentUser?.uid == uid) { "Account changed." }
             if (name.startsWith("getMap")) event("request_finished", "directory", "success", durationMs = android.os.SystemClock.elapsedRealtime()-started)
+            if (name in listOf("resolveMapCity", "searchMapCities", "getMapCitySummaries", "getMapCityPeople")) requireMapCommunityVersion(result)
             return result
         } catch (error: Exception) {
             if (name.startsWith("getMap")) event("request_finished", "directory", "error", durationMs = android.os.SystemClock.elapsedRealtime()-started)
@@ -74,16 +75,16 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
         }
     }
     @Suppress("UNCHECKED_CAST")
-    suspend fun cities(following: List<String>, taste: List<String>): List<MapCitySummary> {
+    suspend fun cities(following: List<String>, taste: List<String>, selectedCommunityId: String? = null): List<MapCitySummary> {
         val out = linkedMapOf<String, MapCitySummary>(); var cursor: String? = null; val seen = mutableSetOf<String>()
         do {
-            val response = call("getMapCitySummaries", mapOf("followingIds" to following, "tasteIds" to taste, "cursor" to cursor))
+            val response = call("getMapCitySummaries", mapOf("followingIds" to following, "tasteIds" to taste, "cursor" to cursor, "selectedCommunityId" to selectedCommunityId))
             (response["cities"] as? List<Map<String, Any?>>).orEmpty().forEach { d ->
                 val city = MapCity.decode(d)
                 val facets = (d["facets"] as? Map<String, Map<String, Any?>>).orEmpty().mapValues { (_, f) ->
-                    MapFacet((f["count"] as? Number)?.toInt() ?: 0, (f["previews"] as? List<Map<String, Any?>>).orEmpty().map { person(it + city.payload()) })
+                    MapFacet((f["count"] as? Number)?.toInt() ?: 0, (f["previews"] as? List<Map<String, Any?>>).orEmpty().map { person(it + city.payload()) }, f["includesViewer"] == true)
                 }
-                out[city.cityId] = MapCitySummary(city, facets)
+                out[city.cityId] = MapCitySummary(city, facets, (d["parentCommunity"] as? Map<String, Any?>)?.let(MapCity::decode), (d["subdivisions"] as? List<Map<String, Any?>>).orEmpty().map(MapCity::decode))
             }
             cursor = response["nextCursor"] as? String
             check(cursor == null || seen.add(cursor!!)) { "Couldn’t load more cities. Please try again." }
@@ -91,15 +92,15 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
         return out.values.toList()
     }
     @Suppress("UNCHECKED_CAST")
-    suspend fun people(city: MapCity, filter: String, following: List<String>, taste: List<String>, cursor: String? = null): MapPeoplePage {
-        val response = call("getMapCityPeople", mapOf("cityId" to city.cityId, "filter" to filter, "followingIds" to following, "tasteIds" to taste, "cursor" to cursor))
+    suspend fun people(city: MapCity, filter: String, following: List<String>, taste: List<String>, cursor: String? = null, selectedCommunityId: String? = null): MapPeoplePage {
+        val response = call("getMapCityPeople", mapOf("cityId" to city.cityId, "filter" to filter, "followingIds" to following, "tasteIds" to taste, "cursor" to cursor, "selectedCommunityId" to selectedCommunityId))
         return MapPeoplePage((response["people"] as? List<Map<String, Any?>>).orEmpty().map { person(it + city.payload()) }, response["nextCursor"] as? String)
     }
     @Suppress("UNCHECKED_CAST")
     private fun person(d: Map<String, Any?>): MapPerson {
         val uid = d["uid"] as? String ?: ""
         val canonical = d["user"] as? Map<String, Any?>
-        return MapPerson(MapCity.decode(d), CymbalUser.fromMap(uid, canonical ?: d))
+        return MapPerson(MapCity.decode(d), CymbalUser.fromMap(uid, canonical ?: d), (d["updatedAt"] as? Number)?.toLong() ?: 0)
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -114,10 +115,10 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
         db.collection("map_presence").document(user.id).set(city.payload() + mapOf("uid" to user.id, "username" to user.username, "displayName" to user.displayName, "bio" to user.bio, "avatarURL" to (user.avatarURL ?: ""), "avatarThumbURL" to (user.avatarThumbURL ?: ""), "audience" to audience, "source" to source, "updatedAt" to FieldValue.serverTimestamp()), com.google.firebase.firestore.SetOptions.merge()).await()
     }
     suspend fun stopSharing() { val uid = auth.currentUser?.uid ?: return; db.collection("map_presence").document(uid).delete().await() }
-    suspend fun chat(cityId: String): MapChatStatus { val d = call("getCityChat", mapOf("cityId" to cityId)); return MapChatStatus(d["threadId"] as? String ?: "", d["isMember"] == true, d["canJoin"] == true) }
+    suspend fun chat(cityId: String, currentCityId: String? = null): MapChatStatus { val d = call("getCityChat", mapOf("cityId" to cityId, "currentCityId" to currentCityId)); return MapChatStatus(d["threadId"] as? String ?: "", d["isMember"] == true, d["canJoin"] == true) }
     suspend fun join(city: MapCity, location: Location): String {
-        check(resolve(location).cityId == city.cityId) { "You need to be in this city to join. Existing memberships stay available when you travel." }
-        return call("joinCityChat", mapOf("cityId" to city.cityId, "location" to mapOf("cityId" to city.cityId, "latitude" to location.latitude, "longitude" to location.longitude, "accuracy" to location.accuracy, "timestamp" to location.time)))["threadId"] as? String ?: error("Couldn’t join city chat.")
+        val resolved = resolve(location)
+        return call("joinCityChat", mapOf("cityId" to city.cityId, "location" to mapOf("cityId" to resolved.cityId, "latitude" to location.latitude, "longitude" to location.longitude, "accuracy" to location.accuracy, "timestamp" to location.time)))["threadId"] as? String ?: error("Couldn’t join city chat.")
     }
     @Suppress("UNCHECKED_CAST")
     suspend fun posts(userId: String, mode: String, beforeMs: Long? = null): List<CymbalPost> = (call("getProfilePosts", mapOf("userId" to userId, "pageSize" to 15, "beforeMs" to beforeMs, "mediaType" to if (mode == "listen") "track" else "movie"))["posts"] as? List<Map<String, Any?>>).orEmpty().map(CymbalPost::fromCloudData)

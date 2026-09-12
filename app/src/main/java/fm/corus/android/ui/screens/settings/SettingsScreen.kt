@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.settings
 
+import fm.corus.android.ui.components.shareCorusInvite
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -312,20 +314,11 @@ fun SettingsScreen(
             // ── Section: Invite ──
             SectionHeader(stringResource(R.string.settings_section_invite))
 
-            val inviteShareText = stringResource(R.string.settings_share_app_text)
-            val inviteShareChooser = stringResource(R.string.settings_share_app_chooser)
             SettingsNavRow(
                 icon = Icons.Filled.PersonAdd,
                 title = stringResource(R.string.settings_row_invite_friends),
                 subtitle = stringResource(R.string.settings_row_invite_friends_subtitle),
-                onClick = {
-                    val sendIntent = android.content.Intent().apply {
-                        action = android.content.Intent.ACTION_SEND
-                        putExtra(android.content.Intent.EXTRA_TEXT, inviteShareText)
-                        type = "text/plain"
-                    }
-                    context.startActivity(android.content.Intent.createChooser(sendIntent, inviteShareChooser))
-                },
+                onClick = { context.shareCorusInvite() },
             )
 
             SettingsNavRow(
