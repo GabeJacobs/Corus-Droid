@@ -2,6 +2,7 @@ package fm.corus.android.ui.components
 
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.ShareRecipient
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.domain.EngagementState
 import fm.corus.android.service.AnalyticsService
@@ -17,8 +18,8 @@ interface PostMenuActions {
     val remoteConfig: RemoteConfigService
     val analyticsService: AnalyticsService
 
-    val shareSearchResults: StateFlow<List<CymbalUser>>
-    val recentShareContacts: StateFlow<List<CymbalUser>>
+    val shareSearchResults: StateFlow<List<ShareRecipient>>
+    val recentShareContacts: StateFlow<List<ShareRecipient>>
     val isShareSearching: StateFlow<Boolean>
     val isLoadingShareContacts: StateFlow<Boolean>
 

@@ -6,6 +6,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -95,6 +98,14 @@ fun ThreadListScreen(
     isTabRoot: Boolean = false,
     viewModel: ThreadListViewModel = hiltViewModel(),
 ) {
+    val pinError by viewModel.pinError.collectAsState()
+    if (pinError != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissPinError,
+            text = { Text(pinError.orEmpty()) },
+            confirmButton = { TextButton(onClick = viewModel::dismissPinError) { Text(stringResource(android.R.string.ok)) } },
+        )
+    }
     val threads by viewModel.threads.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
@@ -111,7 +122,7 @@ fun ThreadListScreen(
     val searchChats = remember(threads, inboxSearchText, inboxSearchResults) {
         when {
             inboxSearchText.isBlank() -> threads
-            inboxSearchResults != null -> inboxSearchResults!!.threads.filter { inboxThreadMatchesName(it, inboxSearchText) }
+            inboxSearchResults != null -> inboxSearchResults!!.threads.map { result -> result.copy(isPinned = threads.firstOrNull { it.id == result.id }?.isPinned ?: result.isPinned) }.filter { inboxThreadMatchesName(it, inboxSearchText) }
             else -> filterInboxChats(threads, inboxSearchText)
         }
     }
@@ -253,6 +264,7 @@ fun ThreadListScreen(
                                 ThreadRow(
                                     thread = thread,
                                     onClick = { onThreadTap(thread.id, thread.otherUserId) },
+                                onPin = { viewModel.togglePin(thread) },
                                     membersById = groupMembersById,
                                     currentUserId = viewModel.currentUserId,
                                 )
@@ -277,6 +289,7 @@ fun ThreadListScreen(
                             ThreadRow(
                                 thread = thread,
                                 onClick = { onThreadTap(thread.id, thread.otherUserId) },
+                                    onPin = { viewModel.togglePin(thread) },
                                 membersById = groupMembersById,
                                 currentUserId = viewModel.currentUserId,
                             )
@@ -824,12 +837,27 @@ private fun highlightedQuery(text: String, query: String): androidx.compose.ui.t
 }
 
 @Composable
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 private fun ThreadRow(
     thread: CymbalThread,
     onClick: () -> Unit,
+    onPin: () -> Unit,
     membersById: Map<String, CymbalUser> = emptyMap(),
     currentUserId: String? = null,
 ) {
+    var showActions by remember { mutableStateOf(false) }
+    if (showActions) {
+        AlertDialog(
+            onDismissRequest = { showActions = false },
+            title = { Text(stringResource(R.string.messaging_conversation_actions)) },
+            confirmButton = {
+                TextButton(onClick = { showActions = false; onPin() }) {
+                    Text(stringResource(if (thread.isPinned) R.string.messaging_unpin_conversation else R.string.messaging_pin_conversation))
+                }
+            },
+            dismissButton = { TextButton(onClick = { showActions = false }) { Text(stringResource(android.R.string.cancel)) } },
+        )
+    }
     val context = LocalContext.current
     val isGroup = thread.isGroup
     val otherMembers = if (isGroup) {
@@ -856,7 +884,7 @@ private fun ThreadRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = { showActions = true }, onLongClickLabel = stringResource(R.string.messaging_conversation_actions))
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -864,15 +892,15 @@ private fun ThreadRow(
             UserAvatarView(
                 avatarURL = thread.groupPhotoURL,
                 displayName = title,
-                size = CorusSpacing.avatarMedium,
+                size = 56.dp,
             )
         } else if (isGroup) {
-            StackedGroupAvatar(members = otherMembers, size = CorusSpacing.avatarMedium)
+            StackedGroupAvatar(members = otherMembers, size = 56.dp)
         } else {
             UserAvatarView(
                 avatarURL = thread.otherUser?.avatarURL,
                 displayName = thread.otherUser?.displayName,
-                size = CorusSpacing.avatarMedium,
+                size = 56.dp,
             )
         }
 
@@ -882,7 +910,7 @@ private fun ThreadRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = title,
-                    style = CorusFont.username,
+                    style = CorusFont.username.copy(fontSize = 17.sp),
                     color = CorusColors.Text,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -903,6 +931,10 @@ private fun ThreadRow(
             )
         }
 
+        if (thread.isPinned) {
+            Icon(Icons.Filled.PushPin, contentDescription = stringResource(R.string.messaging_pinned_conversation),
+                tint = CorusColors.Secondary, modifier = Modifier.padding(start = 8.dp).size(16.dp))
+        }
         if (thread.unreadCount > 0) {
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
             Badge(containerColor = CorusColors.Accent) {

@@ -293,6 +293,7 @@ class NowPlayingManager @Inject constructor(
     private val userRepository: UserRepository,
     private val youtubeMusicService: YouTubeMusicService,
     private val musicServicePreference: MusicServicePreference,
+    private val audiomackAuthService: AudiomackAuthService,
     private val tidalAuthService: TidalAuthService,
     private val tidalPlaylistService: TidalPlaylistService,
     private val remoteConfigService: RemoteConfigService,
@@ -303,6 +304,7 @@ class NowPlayingManager @Inject constructor(
     private val playbackModePromptManager: PlaybackModePromptManager,
     private val hapticManager: HapticManager,
     private val analyticsService: fm.corus.android.service.AnalyticsService,
+    private val bandcampPlaybackService: fm.corus.android.data.remote.BandcampPlaybackService,
 ) {
     companion object {
         /**
@@ -461,13 +463,16 @@ class NowPlayingManager @Inject constructor(
     private var externalSpotifyTrackURI: String? = null
     private var externalSpotifyUserPaused = false
     private var externalSpotifyPositionJob: Job? = null
+    private var externalSpotifyHydrateJob: Job? = null
+    private var externalSpotifyHydrateGeneration = 0
 
     /** Catalog track for external Spotify playback — mini-player tap → song page. */
     fun externalSpotifyCymbalTrack(): CymbalTrack? = externalSpotifyCachedTrack
 
     val currentSourcePostId: String? get() = _state.value.sourcePostId
+    private var isAudiomackFullPlayback = false
     val isPreviewMode: Boolean
-        get() = _state.value.hasActiveTrack && !isSpotifyConnectPlaying && player != null
+        get() = _state.value.hasActiveTrack && !isSpotifyConnectPlaying && !isAudiomackFullPlayback && player != null
 
     /** Upgrade the current feed preview to in-app full playback (mini-player toggle). */
     suspend fun upgradeCurrentPreviewToFullSong() {
@@ -741,6 +746,7 @@ class NowPlayingManager @Inject constructor(
     fun showsFullSongPlayingOverlay(service: MusicService): Boolean {
         if (_isResolvingSpotify.value) return false
         return when (service) {
+            MusicService.AUDIOMACK -> isAudiomackFullPlayback && _state.value.isPlaying
             MusicService.SPOTIFY -> {
                 val spotifyActive = isSpotifyConnectPlaying || isExternalSpotifyListening
                 spotifyActive && _state.value.isPlaying
@@ -762,6 +768,7 @@ class NowPlayingManager @Inject constructor(
         }
         if (isPreviewMode) return false
         return when (service) {
+            MusicService.AUDIOMACK -> isAudiomackFullPlayback
             MusicService.SPOTIFY -> isSpotifyConnectPlaying || isExternalSpotifyListening
             else -> false
         }
@@ -780,12 +787,14 @@ class NowPlayingManager @Inject constructor(
         get() {
             if (isPreviewMode) return false
             return when (musicServicePreference.current.value) {
-                MusicService.SPOTIFY -> isSpotifyConnectPlaying || isExternalSpotifyListening
+                MusicService.AUDIOMACK -> isAudiomackFullPlayback
+            MusicService.SPOTIFY -> isSpotifyConnectPlaying || isExternalSpotifyListening
                 else -> false
             }
         }
 
     private fun shouldChainFullPlaybackOnSkip(preferPreviewOnNext: Boolean): Boolean {
+        if(musicServicePreference.current.value == MusicService.AUDIOMACK && remoteConfigService.audiomackStreamingEnabled)return true
         if (preferPreviewOnNext) return false
         return preferencesDataStore.effectivePlayFullSongsSync()
     }
@@ -1089,6 +1098,7 @@ class NowPlayingManager @Inject constructor(
     }
 
     private fun computeHasNext(): Boolean {
+        if (MapPlaybackOwner.current?.trackId == _state.value.trackId && MapPlaybackOwner.current != null) return true
         val idx = currentQueueIndex ?: return false
         return idx + 1 < queue.size || queueHasMore
     }
@@ -1765,7 +1775,8 @@ class NowPlayingManager @Inject constructor(
     val currentTrackId: String? get() = _state.value.trackId
 
     /** Play a track that's part of a queue — enables autoplay and the mini-player next button. */
-    suspend fun play(track: QueuedTrack, queue: List<QueuedTrack>) {
+    suspend fun play(track: QueuedTrack, queue: List<QueuedTrack>, mapOwned: Boolean = false) {
+        if (!mapOwned) MapPlaybackOwner.yield()
         queueOrderPinnedByUser = false
         val preserved = snapshotUserQueuedUpNext()
         this.queue = queue
@@ -1858,7 +1869,10 @@ class NowPlayingManager @Inject constructor(
         soundcloudId: String? = null,
         soundcloudPermalinkUrl: String? = null,
         audiomackUrl: String? = null,
+        notOnSpotify: Boolean = false,
+        bandcampUrl: String? = null,
     ) {
+        MapPlaybackOwner.yield()
         // Single-track path: clear any queued context so hasNext is false.
         queue = emptyList()
         currentQueueIndex = null
@@ -1880,6 +1894,8 @@ class NowPlayingManager @Inject constructor(
                 soundcloudId = soundcloudId,
                 soundcloudPermalinkUrl = soundcloudPermalinkUrl,
                 audiomackUrl = audiomackUrl,
+                bandcampUrl = bandcampUrl,
+                notOnSpotify = notOnSpotify,
             ),
         )
     }
@@ -1938,7 +1954,13 @@ class NowPlayingManager @Inject constructor(
         // Resolve playback URL.
         //   SoundCloud → fetch a fresh signed HLS URL (short-lived, never cached on the post).
         //   Spotify/Apple → use the 30s preview URL (looked up server-side via Apple Music).
-        val resolvedUrl = when (track.source) {
+        var resolvedBandcampPage = track.bandcampUrl
+        val fullAudiomack = if(SongPlayRouting.wantsAudiomackFullSong(track.source, musicServicePreference.current.value, remoteConfigService.audiomackStreamingEnabled)) {
+            try { audiomackAuthService.stream(track) }
+            catch(e: Exception) { if(e is kotlinx.coroutines.CancellationException) throw e; ToastManager.show(e.message ?: "Couldn’t play Audiomack."); null }
+        } else null
+        if(generation != playGeneration) return
+        val resolvedUrl = fullAudiomack ?: when (track.source) {
             TrackSource.SOUNDCLOUD -> track.soundcloudId?.let { resolveSoundCloudStream(it) }
             // Audiomack: prefer denormalized previewUrl (stamped at search/
             // createPost). Fall back to resolveAudiomackPreview when missing —
@@ -1961,7 +1983,7 @@ class NowPlayingManager @Inject constructor(
                 bandcampId = bandcampIdFromTrackId(trackId),
                 name = track.trackName,
                 artist = track.artistName,
-            )?.first
+            )?.also { resolved -> resolvedBandcampPage = resolved.second ?: resolvedBandcampPage }?.first
             else -> track.previewUrl?.takeIf { it.isNotBlank() }
                 ?: previewCache[trackId]
                 ?: lookupPreviewUrl(
@@ -1995,7 +2017,7 @@ class NowPlayingManager @Inject constructor(
         }
 
         // Cache for future taps
-        previewCache[trackId] = resolvedUrl
+        if (fullAudiomack == null) previewCache[trackId] = resolvedUrl
 
         // Quick Next can bump [playGeneration] after URL resolve — don't let the
         // outgoing track's confirm overwrite the staged next identity/pill.
@@ -2006,6 +2028,7 @@ class NowPlayingManager @Inject constructor(
         // MediaSessionService binds its internal controller on first
         // attach, and a freshly-built session isn't auto-reattached, so
         // releasing kills the system media notification permanently.
+        isAudiomackFullPlayback = fullAudiomack != null
         currentTrackIsSoundCloud = track.source == TrackSource.SOUNDCLOUD
         val mediaItem = MediaItem.Builder()
             .setUri(resolvedUrl)
@@ -2049,7 +2072,7 @@ class NowPlayingManager @Inject constructor(
             source = track.source,
             soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
             audiomackUrl = track.audiomackUrl,
-            bandcampUrl = track.bandcampUrl,
+            bandcampUrl = resolvedBandcampPage,
             catalogOrigin = track.catalogOrigin,
             notOnSpotify = track.notOnSpotify,
         )
@@ -2144,9 +2167,9 @@ class NowPlayingManager @Inject constructor(
         artist: String,
     ): Pair<String, String?>? {
         return try {
-            val resolved = withContext(Dispatchers.IO) {
+            val resolved = bandcampPlaybackService.resolve(bandcampUrl, bandcampId, name, artist) { page ->
                 cloudFunctions.resolveBandcampPreview(
-                    bandcampUrl = bandcampUrl,
+                    bandcampUrl = page,
                     bandcampId = bandcampId,
                     name = name,
                     artist = artist,
@@ -2154,9 +2177,11 @@ class NowPlayingManager @Inject constructor(
             }
             android.util.Log.i(
                 "NowPlaying",
-                "resolveBandcampPreview OK id=$bandcampId url=${resolved?.first?.take(60)}…",
+                "resolveBandcampPreview id=$bandcampId playable=${resolved != null}",
             )
             resolved
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.w("NowPlaying", "resolveBandcampPreview FAILED id=$bandcampId msg=${e.message}", e)
             null
@@ -2173,6 +2198,7 @@ class NowPlayingManager @Inject constructor(
      *   so chrome/audio handoff is not held ~320ms.
      */
     fun skipToNext(preferPreviewOnNext: Boolean = false, immediate: Boolean = false) {
+        if (MapPlaybackOwner.advance(_state.value.trackId)) return
         // iOS skipToNext: lock / background skips staging delays so Spotify
         // isn't left playing a stale native-queue track while we wait for feed chrome.
         val skipStaging = immediate || shouldSkipSpotifyFeedAdvanceStaging()
@@ -2198,6 +2224,7 @@ class NowPlayingManager @Inject constructor(
      * seconds → Android ms).
      */
     fun skipToPreviousOrRestart() {
+        if (MapPlaybackOwner.previous(_state.value.trackId)) return
         val positionMs = ScrubberClock.time.value
         val idx = currentQueueIndex
         if (shouldRestartInsteadOfSkipPrevious(positionMs, idx)) {
@@ -2324,6 +2351,7 @@ class NowPlayingManager @Inject constructor(
      * fetch the next page and advance once it arrives.
      */
     private fun advanceToNext(immediate: Boolean = false) {
+        if (MapPlaybackOwner.advance(_state.value.trackId)) return
         val idx = currentQueueIndex ?: return
         val localNext = queue.getOrNull(idx + 1)
         if (localNext != null) {
@@ -2437,6 +2465,7 @@ class NowPlayingManager @Inject constructor(
      * spinner/pill. Mirrors iOS `isPlaying` didSet.
      */
     private fun onPlaybackBecamePlaying(trackId: String?) {
+        MapPlaybackOwner.started(trackId)
         val stagedTarget = _stagedFeedSkipPillTrackId.value
         val outgoingConfirmDuringStagedSkip =
             stagedTarget != null && trackId != stagedTarget
@@ -2935,6 +2964,7 @@ class NowPlayingManager @Inject constructor(
         mediaSession = null
         player?.release()
         player = null
+        isAudiomackFullPlayback = false
         if (foregroundServiceStarted) {
             context.stopService(Intent(context, CorusPlaybackService::class.java))
             foregroundServiceStarted = false
@@ -3914,6 +3944,10 @@ class NowPlayingManager @Inject constructor(
     }
 
     private fun clearExternalSpotifyListening() {
+        externalSpotifyHydrateGeneration++
+        externalSpotifyHydrateJob?.cancel()
+        externalSpotifyHydrateJob = null
+        _isHydratingExternalSpotify.value = false
         if (!isExternalSpotifyListening) return
         externalSpotifyCachedTrack = null
         externalSpotifyTrackURI = null
@@ -3930,7 +3964,10 @@ class NowPlayingManager @Inject constructor(
     }
 
     /** Hydrate and show whatever Spotify is playing — every Spotify song has a Corus song page. */
-    private suspend fun adoptExternalSpotifyPlayback(spotifyURI: String) {
+    private suspend fun adoptExternalSpotifyPlayback(
+        spotifyURI: String,
+        playerStateIsFresh: Boolean = false,
+    ) {
         val trackId = spotifyURI.removePrefix("spotify:track:")
             .takeIf { spotifyURI.startsWith("spotify:track:") } ?: return
 
@@ -3944,7 +3981,7 @@ class NowPlayingManager @Inject constructor(
         player?.pause()
 
         val svc = spotifyPlaybackService
-        if (svc.isConnected) {
+        if (svc.isConnected && !playerStateIsFresh) {
             svc.refreshState()
         }
 
@@ -3972,80 +4009,143 @@ class NowPlayingManager @Inject constructor(
         // from App Remote (iOS clearSpotifyScrubberHold after adopt). Using the
         // incoming URI as holdFrom would pin the scrubber at 0 forever.
         beginSpotifyScrubberHoldAtZero(externalSpotifyTrackURI)
+        externalSpotifyHydrateGeneration++
+        val hydrateGeneration = externalSpotifyHydrateGeneration
+        externalSpotifyHydrateJob?.cancel()
         _isHydratingExternalSpotify.value = true
-        try {
-            val appRemoteMeta = svc.appRemoteDisplayMetadata()
-            var track = withContext(Dispatchers.IO) {
-                runCatching { spotifyRepository.getTrack(trackId) }.getOrNull()
-            }
-            if (track == null) {
-                val meta = appRemoteMeta ?: svc.appRemoteDisplayMetadata()
-                if (meta != null) {
-                    val durationMs = maxOf(0, (svc.durationSeconds.value * 1000).toInt())
-                    track = CymbalTrack(
-                        id = trackId,
-                        name = meta.name,
-                        artistName = meta.artistName,
-                        albumName = meta.albumName,
-                        albumArtURL = meta.albumArtURL,
-                        albumArtLargeURL = meta.albumArtURL,
-                        spotifyURI = spotifyURI,
-                        spotifyWebURL = "https://open.spotify.com/track/$trackId",
-                        durationMs = durationMs,
-                    )
-                }
-            } else if (track.albumArtURL.isNullOrBlank()) {
-                // Web API sometimes omits images; App Remote still has cover art.
-                val art = (appRemoteMeta ?: svc.appRemoteDisplayMetadata())?.albumArtURL
-                if (!art.isNullOrBlank()) {
-                    track = track.copy(albumArtURL = art, albumArtLargeURL = art)
-                }
-            }
-            if (track == null) return
-
-            externalSpotifyCachedTrack = track
-            externalSpotifyTrackURI = spotifyURI
-            _isExternalSpotifyListening.value = true
-            isSpotifyConnectPlaying = false
-            externalSpotifyUserPaused = false
-            currentQueueIndex = null
-
-            _state.value = NowPlayingState(
-                trackId = track.id,
-                trackName = track.name,
-                artistName = track.artistName,
-                albumArtURL = track.albumArtURL,
-                albumArtLargeURL = track.albumArtLargeURL ?: track.albumArtURL,
-                spotifyURI = track.spotifyURI,
-                spotifyWebURL = track.spotifyWebURL,
-                isrc = track.isrc,
-                // iOS sets isPlaying = true after external adopt (App Remote may
-                // briefly report paused during handoff).
-                isPlaying = true,
-                source = TrackSource.SPOTIFY,
-                hasNext = false,
+        val appRemoteMeta = svc.appRemoteDisplayMetadata()
+        val provisionalTrack = appRemoteMeta?.let { meta ->
+            CymbalTrack(
+                id = trackId,
+                name = meta.name,
+                artistName = meta.artistName,
+                albumName = meta.albumName,
+                albumArtURL = meta.albumArtURL,
+                albumArtLargeURL = meta.albumArtURL,
+                spotifyURI = spotifyURI,
+                spotifyWebURL = "https://open.spotify.com/track/$trackId",
+                durationMs = maxOf(0, (svc.durationSeconds.value * 1000).toInt()),
             )
-            // iOS: clear hold, seed anchor + ScrubberClock from App Remote position.
-            clearSpotifyScrubberHold()
-            val positionSec = maxOf(0.0, svc.positionSeconds.value)
-            val durationSec = when {
-                svc.durationSeconds.value > 0 -> svc.durationSeconds.value
-                track.durationMs > 0 -> track.durationMs / 1000.0
-                else -> 0.0
-            }
-            syncSpotifyScrubAnchor(positionSec)
-            if (durationSec > 0) {
-                ScrubberClock.update((positionSec * 1000).toLong(), (durationSec * 1000).toLong())
-            } else {
-                ScrubberClock.snapTime((positionSec * 1000).toLong())
-            }
-            // Do NOT keep a live App Remote session for external mirroring —
-            // that IPC path hitchs feed scroll until the next Corus-owned play.
-            clearExternalSpotifyAppRemoteSession()
-            startExternalSpotifyTimePolling()
-        } finally {
+        }
+
+        // App Remote already gave us trustworthy identity and artwork. Publish
+        // it before the catalog request so the outgoing song never lingers.
+        if (provisionalTrack != null) {
+            applyExternalSpotifyPlayback(provisionalTrack, spotifyURI, svc)
             _isHydratingExternalSpotify.value = false
         }
+
+        externalSpotifyHydrateJob = managerScope.launch {
+            try {
+                var track = withContext(Dispatchers.IO) {
+                    runCatching { spotifyRepository.getTrack(trackId) }.getOrNull()
+                }
+                if (track == null) {
+                    val meta = appRemoteMeta ?: svc.appRemoteDisplayMetadata()
+                    if (meta != null) {
+                        val durationMs = maxOf(0, (svc.durationSeconds.value * 1000).toInt())
+                        track = CymbalTrack(
+                            id = trackId,
+                            name = meta.name,
+                            artistName = meta.artistName,
+                            albumName = meta.albumName,
+                            albumArtURL = meta.albumArtURL,
+                            albumArtLargeURL = meta.albumArtURL,
+                            spotifyURI = spotifyURI,
+                            spotifyWebURL = "https://open.spotify.com/track/$trackId",
+                            durationMs = durationMs,
+                        )
+                    }
+                } else if (track.albumArtURL.isNullOrBlank()) {
+                    // Web API sometimes omits images; App Remote still has cover art.
+                    val art = (appRemoteMeta ?: svc.appRemoteDisplayMetadata())?.albumArtURL
+                    if (!art.isNullOrBlank()) {
+                        track = track.copy(albumArtURL = art, albumArtLargeURL = art)
+                    }
+                }
+                if (track == null) return@launch
+
+                if (externalSpotifyHydrateGeneration != hydrateGeneration ||
+                    spotifyCorusPlayIntentInFlight()
+                ) return@launch
+
+                if (provisionalTrack != null &&
+                    isExternalSpotifyListening &&
+                    externalSpotifyTrackURI == spotifyURI
+                ) {
+                    // Identity is already correct. Enrich without resetting the
+                    // scrubber, playback state, or transport session.
+                    externalSpotifyCachedTrack = track
+                    _state.value = _state.value.copy(
+                        trackName = track.name,
+                        artistName = track.artistName,
+                        albumArtURL = track.albumArtURL ?: provisionalTrack.albumArtURL,
+                        albumArtLargeURL = track.albumArtLargeURL
+                            ?: track.albumArtURL
+                            ?: provisionalTrack.albumArtLargeURL,
+                        spotifyWebURL = track.spotifyWebURL.ifEmpty { provisionalTrack.spotifyWebURL },
+                        isrc = track.isrc,
+                    )
+                } else {
+                    applyExternalSpotifyPlayback(track, spotifyURI, svc)
+                }
+            } finally {
+                if (externalSpotifyHydrateGeneration == hydrateGeneration) {
+                    _isHydratingExternalSpotify.value = false
+                    externalSpotifyHydrateJob = null
+                }
+            }
+        }
+    }
+
+    @VisibleForTesting
+    internal suspend fun testingAdoptExternalSpotifyPlayback(
+        spotifyURI: String,
+        playerStateIsFresh: Boolean = false,
+    ) = adoptExternalSpotifyPlayback(spotifyURI, playerStateIsFresh)
+
+    private fun applyExternalSpotifyPlayback(
+        track: CymbalTrack,
+        spotifyURI: String,
+        svc: SpotifyPlaybackService,
+    ) {
+        externalSpotifyCachedTrack = track
+        externalSpotifyTrackURI = spotifyURI
+        _isExternalSpotifyListening.value = true
+        isSpotifyConnectPlaying = false
+        externalSpotifyUserPaused = false
+        currentQueueIndex = null
+
+        _state.value = NowPlayingState(
+            trackId = track.id,
+            trackName = track.name,
+            artistName = track.artistName,
+            albumArtURL = track.albumArtURL,
+            albumArtLargeURL = track.albumArtLargeURL ?: track.albumArtURL,
+            spotifyURI = track.spotifyURI,
+            spotifyWebURL = track.spotifyWebURL,
+            isrc = track.isrc,
+            isPlaying = true,
+            source = TrackSource.SPOTIFY,
+            hasNext = false,
+        )
+        clearSpotifyScrubberHold()
+        val positionSec = maxOf(0.0, svc.positionSeconds.value)
+        val durationSec = when {
+            svc.durationSeconds.value > 0 -> svc.durationSeconds.value
+            track.durationMs > 0 -> track.durationMs / 1000.0
+            else -> 0.0
+        }
+        syncSpotifyScrubAnchor(positionSec)
+        if (durationSec > 0) {
+            ScrubberClock.update((positionSec * 1000).toLong(), (durationSec * 1000).toLong())
+        } else {
+            ScrubberClock.snapTime((positionSec * 1000).toLong())
+        }
+        // Do not retain App Remote while mirroring external Spotify; doing so
+        // causes feed-scroll IPC hitches and can interfere with Spotify controls.
+        clearExternalSpotifyAppRemoteSession()
+        startExternalSpotifyTimePolling()
     }
 
     private suspend fun reconcileExternalSpotifyOnForeground() {
@@ -4066,7 +4166,7 @@ class NowPlayingManager @Inject constructor(
                     return@withBriefExternalSpotifyConnection true
                 }
                 if (remote.isPlaying.value || isExternalSpotifyListening) {
-                    adoptExternalSpotifyPlayback(uri)
+                    adoptExternalSpotifyPlayback(uri, playerStateIsFresh = true)
                 } else {
                     _state.value = _state.value.copy(isPlaying = false)
                 }
@@ -4077,12 +4177,8 @@ class NowPlayingManager @Inject constructor(
 
         if (svc.isConnected) {
             svc.refreshState()
-        } else if (spotifyAuthService.cachedAccessToken() != null) {
-            svc.trySilentReconnectIfNeeded()
-            delay(500)
-            if (svc.isConnected) {
-                svc.refreshState()
-            }
+        } else if (svc.attemptSilentReconnect()) {
+            svc.refreshState()
         }
 
         val uri = svc.currentTrackUri.value?.takeIf { it.isNotEmpty() } ?: run {
@@ -4105,7 +4201,7 @@ class NowPlayingManager @Inject constructor(
         }
 
         if (svc.isPlaying.value || isExternalSpotifyListening) {
-            adoptExternalSpotifyPlayback(uri)
+            adoptExternalSpotifyPlayback(uri, playerStateIsFresh = true)
         } else if (isExternalSpotifyListening) {
             _state.value = _state.value.copy(isPlaying = false)
         }

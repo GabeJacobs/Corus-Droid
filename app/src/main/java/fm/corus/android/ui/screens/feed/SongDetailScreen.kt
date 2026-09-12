@@ -1236,6 +1236,7 @@ private fun serviceColor(service: MusicService): Color = when (service) {
     MusicService.TIDAL -> CorusColors.Tidal
     MusicService.YOUTUBE_MUSIC -> CorusColors.YouTubeMusicRed
     MusicService.DEEZER -> CorusColors.DeezerPurple
+    MusicService.AUDIOMACK -> Color(0xFFFFA000)
 }
 
 /**

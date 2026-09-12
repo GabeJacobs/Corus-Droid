@@ -18,6 +18,9 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 enum class PaywallSource(val subtitle: String, val analyticsName: String) {
+    MAP("See taste matches near you on the map.", "map"),
+    MAP_LISTEN("Keep listening around the world. Unlock unlimited Listen Mode with Corus Club.", "map_listen"),
+    MAP_WATCH("Keep discovering films. Unlock unlimited Watch Mode with Corus Club.", "map_watch"),
     DEFAULT("Support Corus. Get Perks.", "default"),
     VINYL_PICKER("Customize your vinyl and more.", "vinyl_picker"),
     FRAME_PICKER("Customize your frame and more.", "frame_picker"),
@@ -25,6 +28,8 @@ enum class PaywallSource(val subtitle: String, val analyticsName: String) {
     SPIN_PICKER("Make your vinyl spin and more.", "spin_picker"),
     STYLE_PICKER("Customize your profile style and more.", "style_picker"),
     POST_LIMIT("Unlock all features. Support Corus.", "post_limit"),
+    ONBOARDING("Discover from real people you match with. Support an independent community.", "onboarding"),
+    THIRD_POST("Discover from real people you match with. Support an independent community.", "third_post"),
     FIRST_POST("Support Corus. Get Perks.", "first_post"),
     TENTH_POST("Support Corus. Get Perks.", "tenth_post"),
     PLAYLIST_LIMIT("Unlock playlist generation.", "playlist_limit"),
@@ -85,10 +90,16 @@ class CymbalClubViewModel @Inject constructor(
     // every sheet presentation would log/attribute as `default`.
     fun logPaywallShown(source: PaywallSource = this.source) {
         analyticsService.logPaywallShown(source.analyticsName, defaultPlan)
+        if (source == PaywallSource.ONBOARDING) {
+            analyticsService.logOnboardingClubOfferShown()
+        }
     }
 
-    fun logPaywallDismissed() {
+    fun logPaywallDismissed(source: PaywallSource = this.source, method: String? = null) {
         analyticsService.logPaywallDismissed()
+        if (source == PaywallSource.ONBOARDING && method != null) {
+            analyticsService.logOnboardingClubOfferSkipped(method)
+        }
     }
 
     fun purchase(activity: Activity, pkg: Package, planName: String, source: PaywallSource = this.source) {
@@ -106,6 +117,9 @@ class CymbalClubViewModel @Inject constructor(
                 when (outcome) {
                     is PurchaseOutcome.Success -> {
                         analyticsService.logPurchaseCompleted(planName, source.analyticsName)
+                        if (source == PaywallSource.ONBOARDING) {
+                            analyticsService.logOnboardingClubOfferSubscribed(planName)
+                        }
                         _purchaseResult.value = PurchaseResult.Success
                     }
                     is PurchaseOutcome.Cancelled -> {

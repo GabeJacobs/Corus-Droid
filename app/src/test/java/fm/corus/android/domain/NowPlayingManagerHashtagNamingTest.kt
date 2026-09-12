@@ -47,10 +47,11 @@ class NowPlayingManagerHashtagNamingTest {
         val manager = NowPlayingManager(
             context, mock(), preferencesDataStore, userRepository,
             mock(),
-            mock(), mock(), mock<TidalPlaylistService>(),
+            mock(), org.mockito.kotlin.mock(), mock(), mock<TidalPlaylistService>(),
             mock(), mock(), mock(),
             mock(), mock(), mock(),
             mock(), mock(),
+            bandcampPlaybackService = org.mockito.kotlin.mock(),
         )
 
         val (title, description) = manager.hashtagPlaylistNaming("indierock")

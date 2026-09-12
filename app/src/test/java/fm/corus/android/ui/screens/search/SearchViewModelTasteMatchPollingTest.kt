@@ -92,6 +92,9 @@ class SearchViewModelTasteMatchPollingTest {
         Dispatchers.setMain(testDispatcher)
         logMock = mockStatic(Log::class.java)
         firestoreDataSource = mock()
+        kotlinx.coroutines.runBlocking {
+            whenever(firestoreDataSource.fetchMyTasteSeedPicks(any())).thenReturn(emptyList())
+        }
         // Default viewer clears the post threshold, so the fetch + cold-start poll
         // run; the below-threshold path is covered by its own tests.
         authRepository = mock {
@@ -120,6 +123,35 @@ class SearchViewModelTasteMatchPollingTest {
         remoteConfigService = mock()
         analyticsService = mock()
         nowPlayingManager = mock()
+    }
+
+    @Test
+    fun `quiz matches are visible before Search starts network work`() = runTest(testDispatcher) {
+        whenever(cloudFunctions.cachedOnboardingTasteMatches("viewer")).thenReturn(listOf(tasteMatch))
+        val vm = createViewModel()
+        assertEquals(listOf(tasteMatch), vm.seedTasteMatches.value)
+        verify(userRepository, never()).getSuggestedUsers(any(), any())
+    }
+
+    @Test
+    fun `initial load reads quiz despite missing marker and refresh replaces it`() = runTest(testDispatcher) {
+        whenever(authRepository.userProfile).thenReturn(viewerWith(0))
+        val picks = listOf(mapOf<String, Any?>("artistName" to "Dolly Parton"))
+        whenever(firestoreDataSource.fetchMyTasteSeedPicks("viewer")).thenReturn(picks)
+        whenever(cloudFunctions.getOnboardingTasteMatches(picks)).thenReturn(
+            fm.corus.android.data.remote.OnboardingTasteMatchesResult(users = listOf(tasteMatch))
+        )
+        val vm = createViewModel()
+        vm.loadInitialData()
+        advanceUntilIdle()
+        assertEquals(listOf(tasteMatch), vm.seedTasteMatches.value)
+        assertFalse(vm.isSuggestedLoading.value)
+        whenever(cloudFunctions.getOnboardingTasteMatches(picks)).thenReturn(
+            fm.corus.android.data.remote.OnboardingTasteMatchesResult()
+        )
+        vm.loadInitialData(forceRefresh = true)
+        advanceUntilIdle()
+        assertTrue(vm.seedTasteMatches.value.isEmpty())
     }
 
     @After

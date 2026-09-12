@@ -362,6 +362,7 @@ fun SettingsScreen(
                 settingsViewModel.tidalEnabled,
                 settingsViewModel.youtubeMusicEnabled,
                 settingsViewModel.deezerEnabled,
+                settingsViewModel.audiomackStreamingEnabled,
             ) {
                 buildList {
                     add(MusicService.SPOTIFY)
@@ -370,19 +371,27 @@ fun SettingsScreen(
                     if (settingsViewModel.tidalEnabled) add(MusicService.TIDAL)
                     if (settingsViewModel.youtubeMusicEnabled) add(MusicService.YOUTUBE_MUSIC)
                     if (settingsViewModel.deezerEnabled) add(MusicService.DEEZER)
+                    if (settingsViewModel.audiomackStreamingEnabled) add(MusicService.AUDIOMACK)
                     // Apple Music is intentionally last on Android.
                     add(MusicService.APPLE_MUSIC)
                 }
             }
+            val audiomackScope = androidx.compose.runtime.rememberCoroutineScope()
+            val audiomackContext = androidx.compose.ui.platform.LocalContext.current
+            val audiomackConnected by settingsViewModel.audiomackAuthService.connected.collectAsState()
+            var audiomackBusy by remember { mutableStateOf(false) }
+            fun connectAudiomack() { audiomackScope.launch { audiomackBusy = true; try { settingsViewModel.audiomackAuthService.connect(audiomackContext) } catch (e: Exception) { fm.corus.android.ui.components.ToastManager.show(e.message ?: "Couldn’t connect Audiomack.") } finally { audiomackBusy = false } } }
+            androidx.compose.runtime.LaunchedEffect(musicService) { if(musicService == MusicService.AUDIOMACK && settingsViewModel.audiomackStreamingEnabled) settingsViewModel.audiomackAuthService.refresh() }
             DropdownSettingsRow(
                 icon = Icons.Filled.MusicNote,
                 title = stringResource(R.string.settings_row_music_service),
                 selected = musicService,
                 options = musicServiceOptions,
                 labelFor = { it.displayLabel },
-                onSelect = { settingsViewModel.setMusicService(it) },
+                onSelect = { settingsViewModel.setMusicService(it); if(it == MusicService.AUDIOMACK && !audiomackConnected) connectAudiomack() },
             )
 
+            if(musicService == MusicService.AUDIOMACK && settingsViewModel.audiomackStreamingEnabled) TextButton(enabled = !audiomackBusy, onClick = { if(audiomackConnected) audiomackScope.launch { try { settingsViewModel.audiomackAuthService.disconnect() } catch(e: Exception) { fm.corus.android.ui.components.ToastManager.show(e.message ?: "Couldn’t disconnect Audiomack.") } } else connectAudiomack() }) { Text(if(audiomackConnected) fm.corus.android.ui.components.parityCopy("Disconnect") + " Audiomack" else fm.corus.android.ui.components.parityCopy("Connect Audiomack")) }
             if (musicService == MusicService.YOUTUBE_MUSIC && settingsViewModel.youtubeMusicService.enabled) {
                 val youtube = settingsViewModel.youtubeMusicService
                 var connected by remember { mutableStateOf(youtube.isConnected) }

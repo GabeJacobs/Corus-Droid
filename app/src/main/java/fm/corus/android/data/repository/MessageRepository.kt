@@ -17,6 +17,7 @@ import java.util.Date
 import java.util.concurrent.ConcurrentHashMap
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirebaseStorageDataSource
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -111,13 +112,31 @@ class MessageRepository @Inject constructor(
         limit: Int = 30,
         startAfter: Long? = null,
     ): CloudFunctionsDataSource.ThreadListPage {
-        return cloudFunctions.listThreadsPage(userId, limit, startAfter)
+        return cloudFunctions.listThreadsPage(userId, limit, startAfter, includePinned = true)
     }
 
     /** Searches the caller's full DM history server-side (not just loaded threads). */
     suspend fun searchThreads(userId: String, query: String, limit: Int = 30): InboxSearchResult {
         return cloudFunctions.searchThreads(userId, query, limit)
     }
+
+    suspend fun setThreadPinned(threadId: String, isPinned: Boolean) =
+        cloudFunctions.setThreadPinned(threadId, isPinned)
+
+    /** Share destination keys are emitted only by ShareRecipient. */
+    suspend fun resolveShareThread(userId: String, destinationId: String): String =
+        if (destinationId.startsWith("group:")) destinationId.removePrefix("group:")
+        else getOrCreateThread(userId, destinationId)
+
+    suspend fun searchShareRecipients(userId: String, query: String, users: UserRepository): List<fm.corus.android.data.model.ShareRecipient> =
+        kotlinx.coroutines.coroutineScope {
+            val people = async { users.searchUsers(query, includeFollowed = true) }
+            val groups = searchThreads(userId, query, 100).threads
+                .filter { fm.corus.android.data.model.groupMatchesShareQuery(it, query) }
+                .sortedByDescending { it.lastMessageAt }
+                .map { fm.corus.android.data.model.ShareRecipient(group = it.copy(members = it.members.filter { member -> member.id != userId })) }
+            groups + people.await().map { fm.corus.android.data.model.ShareRecipient(user = it) }
+        }
 
     suspend fun listMessages(threadId: String, limit: Int = 50, lastTimestamp: Long? = null): List<CymbalMessage> {
         return cloudFunctions.listMessages(threadId, limit, lastTimestamp)
@@ -356,6 +375,9 @@ class MessageRepository @Inject constructor(
         _leftThreads.tryEmit(threadId)
     }
 
+    suspend fun cityChatNotifications(threadId: String, mode: String? = null) = cloudFunctions.cityChatNotifications(threadId, mode)
+    suspend fun renameCity(cityId: String, name: String) = cloudFunctions.renameCity(cityId, name)
+    suspend fun deleteCityChatMessage(threadId: String, messageId: String) = cloudFunctions.deleteCityChatMessage(threadId, messageId)
     suspend fun renameGroup(threadId: String, name: String) = cloudFunctions.renameGroup(threadId, name)
 
     suspend fun setGroupPhoto(threadId: String, photoURL: String) = cloudFunctions.setGroupPhoto(threadId, photoURL)
@@ -390,6 +412,8 @@ class MessageRepository @Inject constructor(
     /** Live group metadata from the `threads/{threadId}` root doc, so the thread
      *  screen knows it's a group plus its name/photo/members/creator. */
     data class GroupThreadInfo(
+        val cityChatId: String? = null,
+        val cityName: String? = null,
         val isGroup: Boolean,
         val name: String?,
         val photoURL: String?,
@@ -410,6 +434,8 @@ class MessageRepository @Inject constructor(
                 val memberIds = (data["participantIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
                 trySend(
                     GroupThreadInfo(
+                        cityChatId = data["cityChatId"] as? String,
+                        cityName = data["cityName"] as? String,
                         isGroup = data["type"] == "group",
                         name = data["name"] as? String,
                         photoURL = data["photoURL"] as? String,
@@ -506,6 +532,17 @@ class MessageRepository @Inject constructor(
      * re-subscribes, except on an [InboxSubscriptionRefused], which says so.
      */
     fun listenToThreadSummaries(userId: String, limit: Long): Flow<List<CymbalThread>> = callbackFlow {
+        var recent: List<CymbalThread>? = null
+        var pinned: List<CymbalThread> = emptyList()
+        fun publish() { recent?.let { trySend((it + pinned).distinctBy { row -> row.id }) } }
+        val pinsRegistration = firestore.collection("users_v2").document(userId).collection("threads")
+            .whereEqualTo("isPinned", true)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) { close(subscriptionFailure(error)); return@addSnapshotListener }
+                if (snapshot == null) return@addSnapshotListener
+                pinned = snapshot.documents.mapNotNull { doc -> doc.data?.let { parseThreadSummary(doc.id, it).copy(isOutsideRecentWindow = true) } }
+                publish()
+            }
         val registration = firestore
             .collection("users_v2")
             .document(userId)
@@ -519,9 +556,10 @@ class MessageRepository @Inject constructor(
                     val data = doc.data ?: return@mapNotNull null
                     parseThreadSummary(doc.id, data)
                 }
-                trySend(summaries)
+                recent = summaries
+                publish()
             }
-        awaitClose { registration.remove() }
+        awaitClose { registration.remove(); pinsRegistration.remove() }
     }
 
     private fun subscriptionFailure(error: FirebaseFirestoreException): Throwable =
@@ -555,6 +593,7 @@ class MessageRepository @Inject constructor(
             memberIds = memberIds,
             createdBy = data["createdBy"] as? String,
             blocked = data["blocked"] == true,
+            isPinned = data["isPinned"] == true,
             updatedAt = (data["updatedAt"] as? Timestamp)?.toDate(),
         )
     }

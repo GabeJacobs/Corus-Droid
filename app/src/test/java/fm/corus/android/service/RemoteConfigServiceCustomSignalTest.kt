@@ -1,6 +1,7 @@
 package fm.corus.android.service
 
 import android.content.Context
+import android.content.SharedPreferences
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.remoteconfig.CustomSignals
@@ -10,6 +11,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -24,8 +26,13 @@ import org.mockito.kotlin.whenever
  */
 class RemoteConfigServiceCustomSignalTest {
 
-    private fun service(remoteConfig: FirebaseRemoteConfig) =
-        RemoteConfigService(remoteConfig, mock<FirebaseAuth>(), mock<Context>())
+    private fun service(remoteConfig: FirebaseRemoteConfig): RemoteConfigService {
+        val prefs = mock<SharedPreferences>()
+        val context = mock<Context> {
+            on { getSharedPreferences(any(), any()) } doReturn prefs
+        }
+        return RemoteConfigService(remoteConfig, mock<FirebaseAuth>(), context)
+    }
 
     @Test
     fun `setCurrentUserSignal forwards a signed-in uid to setCustomSignals`() = runTest {

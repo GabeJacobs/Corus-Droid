@@ -520,7 +520,7 @@
     <string name="search_trending_films_title">Films en tendance</string>
     <string name="search_trending_hashtags_title">Hashtags en tendance</string>
     <string name="search_trending_artists_title">Artistes en tendance</string>
-    <string name="search_new_release_albums_title">Nouveaux titres</string>
+    <string name="search_new_release_albums_title">Nouveautés</string>
     <string name="search_new_release_albums_list_title">Nouveaux titres</string>
     <string name="search_nothing_new_releases">Pas encore de nouveaux titres</string>
     <string name="search_new_release_films_title">Nouveautés</string>
@@ -1422,7 +1422,7 @@
     <string name="destination_album_pause">Pause</string>
     <string name="destination_album_play">Lecture</string>
     <string name="feed_playlist_first_time_body">Corus transforme ton fil en playlist et l’ouvre dans %1$s. Les membres Club peuvent générer à tout moment.</string>
-    <string name="feed_taste_matches_trial_banner_preview">Essai gratuit du fil Taste Matches</string>
+    <string name="feed_taste_matches_trial_banner_preview">Vous découvrez le fil Taste Matches</string>
     <string name="full_player_post">Publier</string>
     <string name="full_player_queue_done">OK</string>
     <string name="full_player_queue_edit">Modifier</string>
@@ -1480,4 +1480,10 @@
         <item quantity="one">Essai gratuit · %1$d jour restant</item>
         <item quantity="other">Essai gratuit · %1$d jours restants</item>
     </plurals>
+    <string name="club_onboarding_title">Profite au maximum de Corus</string>
+    <string name="club_onboarding_subtitle">Découvre du contenu de vraies personnes avec qui tu as des affinités. Soutiens une communauté indépendante.</string>
+    <string name="club_onboarding_skip">Peut-être plus tard</string>
+    <string name="club_onboarding_renewal">Renouvellement automatique au tarif sélectionné après tout essai gratuit. Annule à tout moment.</string>
+    <string name="club_onboarding_yearly_billed">Facturé %1$s/an.</string>
+    <string name="club_feature_unlimited_saves">Enregistrements illimités</string>
 </resources>

@@ -124,6 +124,11 @@ class AnalyticsService @Inject constructor(
      */
     fun logOnboardingCompleted(tasteOnboarding: Boolean) =
         logEvent("onboarding_completed", mapOf("taste_onboarding" to if (tasteOnboarding) "on" else "off"))
+    fun logOnboardingClubOfferShown() = logEvent("onboarding_club_offer_shown")
+    fun logOnboardingClubOfferSkipped(method: String) =
+        logEvent("onboarding_club_offer_skipped", mapOf("method" to method))
+    fun logOnboardingClubOfferSubscribed(plan: String) =
+        logEvent("onboarding_club_offer_subscribed", mapOf("plan" to plan))
     fun logContactsSynced(matchCount: Int) = logEvent("contacts_synced", mapOf("match_count" to matchCount))
     fun logContactsSyncSkipped() = logEvent("contacts_sync_skipped")
     fun logSyncContactsTapped() = logEvent("sync_contacts_tapped")

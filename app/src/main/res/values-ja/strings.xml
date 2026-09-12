@@ -468,7 +468,7 @@
     <string name="search_trending_films_title">トレンドの映画</string>
     <string name="search_trending_hashtags_title">トレンドのハッシュタグ</string>
     <string name="search_trending_artists_title">トレンドのアーティスト</string>
-    <string name="search_new_release_albums_title">新曲</string>
+    <string name="search_new_release_albums_title">新作</string>
     <string name="search_new_release_albums_list_title">新曲</string>
     <string name="search_nothing_new_releases">まだ新曲がありません</string>
     <string name="search_new_release_films_title">新作</string>
@@ -1286,7 +1286,7 @@
     <string name="destination_album_pause">一時停止</string>
     <string name="destination_album_play">再生</string>
     <string name="feed_playlist_first_time_body">Corus があなたのフィードをプレイリストにして %1$s で開きます。Club メンバーはいつでも生成できます。</string>
-    <string name="feed_taste_matches_trial_banner_preview">Taste Matches フィードの無料トライアル</string>
+    <string name="feed_taste_matches_trial_banner_preview">Taste Matchesフィードをプレビュー中</string>
     <string name="full_player_post">投稿</string>
     <string name="full_player_queue_done">完了</string>
     <string name="full_player_queue_edit">編集</string>
@@ -1343,4 +1343,10 @@
         <item quantity="one">無料トライアル · 残り %1$d 日</item>
         <item quantity="other">無料トライアル · 残り %1$d 日</item>
     </plurals>
+    <string name="club_onboarding_title">Corusをもっと楽しもう</string>
+    <string name="club_onboarding_subtitle">あなたと相性の合うリアルな人たちのコンテンツを発見。独立したコミュニティを支援してください。</string>
+    <string name="club_onboarding_skip">あとで</string>
+    <string name="club_onboarding_renewal">無料トライアル終了後、選択したプランの料金で自動更新されます。いつでもキャンセルできます。</string>
+    <string name="club_onboarding_yearly_billed">年額 %1$s。</string>
+    <string name="club_feature_unlimited_saves">保存数無制限</string>
 </resources>

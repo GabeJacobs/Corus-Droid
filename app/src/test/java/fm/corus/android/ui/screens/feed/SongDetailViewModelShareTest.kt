@@ -73,12 +73,12 @@ class SongDetailViewModelShareTest {
 
     @Test
     fun `sendTrackToUser sends a sharedTrack message on the created thread`() = runTest {
-        whenever(messageRepository.getOrCreateThread(eq("me"), eq("friend"))).doReturn("thread1")
+        whenever(messageRepository.resolveShareThread(eq("me"), eq("friend"))).doReturn("thread1")
 
         viewModel.sendTrackToUser("friend", track, "  check this out  ")
         advanceUntilIdle()
 
-        verify(messageRepository).getOrCreateThread("me", "friend")
+        verify(messageRepository).resolveShareThread("me", "friend")
         verify(messageRepository).sendSharedTrackMessage(
             threadId = eq("thread1"),
             fromUserId = eq("me"),
@@ -95,7 +95,7 @@ class SongDetailViewModelShareTest {
         viewModel.sendTrackToUser("friend", track, "hi")
         advanceUntilIdle()
 
-        verify(messageRepository, never()).getOrCreateThread(any(), any())
+        verify(messageRepository, never()).resolveShareThread(any(), any())
         verify(messageRepository, never()).sendSharedTrackMessage(any(), any(), any(), any(), anyOrNull())
     }
 
@@ -112,20 +112,20 @@ class SongDetailViewModelShareTest {
     @Test
     fun `searchShareUsers debounces and publishes results`() = runTest {
         val results = listOf(CymbalUser(id = "u1", username = "alice", displayName = "Alice"))
-        whenever(userRepository.searchUsers(eq("ali"), any(), any())).doReturn(results)
+        whenever(messageRepository.searchShareRecipients(eq("me"), eq("ali"), eq(userRepository))).doReturn(results.map { fm.corus.android.data.model.ShareRecipient(user = it) })
 
         viewModel.searchShareUsers("ali")
         advanceUntilIdle()
 
-        assertEquals(results, viewModel.shareSearchResults.first())
+        assertEquals(results, viewModel.shareSearchResults.first().map { it.user })
         assertTrue(!viewModel.isShareSearching.first())
     }
 
     @Test
     fun `loadRecentShareContacts uses recent DMs and skips share ranking and follow graph`() = runTest {
         val threads = listOf(
-            CymbalThread(id = "t1", otherUser = CymbalUser(id = "u1", username = "u1", displayName = "U1")),
-            CymbalThread(id = "t2", otherUser = CymbalUser(id = "u2", username = "u2", displayName = "U2")),
+            CymbalThread(id = "t1", lastMessageFromUserId = "me", lastMessageAt = java.util.Date(200), otherUser = CymbalUser(id = "u1", username = "u1", displayName = "U1")),
+            CymbalThread(id = "t2", lastMessageFromUserId = "me", lastMessageAt = java.util.Date(100), otherUser = CymbalUser(id = "u2", username = "u2", displayName = "U2")),
         )
         whenever(messageRepository.listThreads(eq("me"))).doReturn(threads)
 
@@ -140,20 +140,20 @@ class SongDetailViewModelShareTest {
     }
 
     @Test
-    fun `loadRecentShareContacts does not reshuffle contacts already on screen`() = runTest {
+    fun `loadRecentShareContacts refreshes recents on each presentation`() = runTest {
         whenever(messageRepository.listThreads(eq("me"))).doReturn(
-            listOf(CymbalThread(id = "t1", otherUser = CymbalUser(id = "u1", username = "u1", displayName = "U1"))),
+            listOf(CymbalThread(id = "t1", lastMessageFromUserId = "me", lastMessageAt = java.util.Date(200), otherUser = CymbalUser(id = "u1", username = "u1", displayName = "U1"))),
         )
 
         viewModel.loadRecentShareContacts()
         advanceUntilIdle()
 
         whenever(messageRepository.listThreads(eq("me"))).doReturn(
-            listOf(CymbalThread(id = "t2", otherUser = CymbalUser(id = "u2", username = "u2", displayName = "U2"))),
+            listOf(CymbalThread(id = "t2", lastMessageFromUserId = "me", lastMessageAt = java.util.Date(100), otherUser = CymbalUser(id = "u2", username = "u2", displayName = "U2"))),
         )
         viewModel.loadRecentShareContacts()
         advanceUntilIdle()
 
-        assertEquals(listOf("u1"), viewModel.recentShareContacts.first().map { it.id })
+        assertEquals(listOf("u2"), viewModel.recentShareContacts.first().map { it.id })
     }
 }

@@ -120,6 +120,9 @@ fun MainTabScreen(
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(CorusTab.FEED) }
     var showCompose by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(showCompose) {
+        if (showCompose) viewModel.beginPostMilestoneSession()
+    }
     var composeMovieMode by rememberSaveable { mutableStateOf(false) }
     var postSuccessOthers by remember { mutableStateOf<PostSuccessOthersPayload?>(null) }
     var showPostSuccessOthers by remember { mutableStateOf(false) }
@@ -533,6 +536,7 @@ fun MainTabScreen(
         if (showMilestonePaywall) {
             LaunchedEffect(Unit) {
                 clubOfferSource = when (milestonePaywallSource) {
+                    MilestonePaywallSource.THIRD_POST -> PaywallSource.THIRD_POST
                     MilestonePaywallSource.FIRST_POST -> PaywallSource.FIRST_POST
                     MilestonePaywallSource.TENTH_POST -> PaywallSource.TENTH_POST
                     null -> PaywallSource.DEFAULT

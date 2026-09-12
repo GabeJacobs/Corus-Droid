@@ -41,7 +41,7 @@ import kotlinx.coroutines.launch
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalTrack
-import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.ShareRecipient
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import fm.corus.android.ui.theme.CorusFont
@@ -125,8 +125,8 @@ private fun logShareMethod(
 @Composable
 fun ShareMediaSheet(
     subject: ShareMediaSubject,
-    recentContacts: List<CymbalUser>,
-    searchResults: List<CymbalUser>,
+    recentContacts: List<ShareRecipient>,
+    searchResults: List<ShareRecipient>,
     isSearching: Boolean,
     isLoadingContacts: Boolean,
     onSearchQueryChange: (String) -> Unit,
@@ -388,8 +388,8 @@ private fun ShareSheetDragIndicator() {
 @Composable
 private fun RecipientPickerShareMediaSheet(
     subject: ShareMediaSubject,
-    recentContacts: List<CymbalUser>,
-    searchResults: List<CymbalUser>,
+    recentContacts: List<ShareRecipient>,
+    searchResults: List<ShareRecipient>,
     isSearching: Boolean,
     isLoadingContacts: Boolean,
     onSearchQueryChange: (String) -> Unit,
@@ -401,14 +401,14 @@ private fun RecipientPickerShareMediaSheet(
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     var searchQuery by remember { mutableStateOf("") }
-    var selectedUser by remember { mutableStateOf<CymbalUser?>(null) }
+    var selectedUser by remember { mutableStateOf<ShareRecipient?>(null) }
     var messageText by remember { mutableStateOf("") }
     var showCopied by remember { mutableStateOf(false) }
     var isSearchFocused by remember { mutableStateOf(false) }
     // A recipient chosen from search results is pinned to the front of the recents
     // grid so the selection stays visible (with a checkmark) once the query clears —
     // otherwise a searched-for, non-recent recipient would vanish from the sheet.
-    var pinnedUser by remember { mutableStateOf<CymbalUser?>(null) }
+    var pinnedUser by remember { mutableStateOf<ShareRecipient?>(null) }
 
     val isSearchActive = isSearchFocused || searchQuery.isNotBlank()
 

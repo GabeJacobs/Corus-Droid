@@ -52,6 +52,7 @@ class NowPlayingManagerQueueReorderTest {
             preferencesDataStore,
             userRepository,
             mock(),
+            mock(), org.mockito.kotlin.mock(),
             mock(),
             mock(),
             mock(),
@@ -62,7 +63,7 @@ class NowPlayingManagerQueueReorderTest {
             mock(),
             mock(),
             mock(),
-            mock(),
+            bandcampPlaybackService = org.mockito.kotlin.mock(),
         )
 
     @Before

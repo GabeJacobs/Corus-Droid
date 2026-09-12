@@ -252,6 +252,7 @@ fun SearchNavGraph(
     ) {
         composable<SearchTabRoute> {
             SearchScreen(
+                onNavigateToMap = { navController.navigate(MapExploreRoute) },
                 scrollToTopTrigger = scrollToTopTrigger,
                 onNavigateToUser = { user ->
                     navController.navigate(
@@ -421,6 +422,7 @@ fun ProfileNavGraph(
                 onNavigateToProfileFeed = { userId, username, postId, segment ->
                     navController.navigate(ProfileFeedRoute(userId, username, segment, postId))
                 },
+                onNavigateToPost = { navController.navigate(PostDetailRoute(it)) },
                 onNavigateToClub = { navController.navigate(CymbalClubOfferRoute()) },
                 onOpenCompose = onOpenCompose,
                 onNavigateToArtist = if (artistPagesEnabled) { { route -> navController.navigate(route) } } else null,
@@ -1030,9 +1032,21 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         )
     }
 
+    composable<MapExploreRoute> {
+        fm.corus.android.ui.screens.map.MapExploreScreen(
+            onComments = { navController.navigate(SinglePostCommentsRoute(it)) },
+            onRepost = { mainTabViewModel.setRepostOriginalPost(it) },
+            onBack = { navController.popBackStack() },
+            onUser = { navController.navigate(it.toOtherProfileRoute()) },
+            onPost = { navController.navigate(PostDetailRoute(it.id)) },
+            onChat = { navController.navigate(MessageThreadRoute(it, "")) },
+            onPaywall = { navController.navigate(CymbalClubOfferRoute(it)) },
+        )
+    }
     composable<SearchRoute> {
         CompositionLocalProvider(LocalSkipImageRevealWhenCached provides true) {
         SearchScreen(
+            onNavigateToMap = { navController.navigate(MapExploreRoute) },
             onNavigateToUser = { user -> navController.navigate(user.toOtherProfileRoute()) },
             onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
             onNavigateToFilm = { route -> navController.navigate(route) },

@@ -156,6 +156,7 @@ fun ProfileScreen(
     onNavigateToEditProfile: (String) -> Unit = {},
     onNavigateToFollowList: (String, Boolean, String, Int, Int) -> Unit = { _, _, _, _, _ -> },
     onNavigateToProfileFeed: (userId: String, username: String, postId: String, segment: Int) -> Unit = { _, _, _, _ -> },
+    onNavigateToPost: (String) -> Unit = {},
     onNavigateToClub: () -> Unit = {},
     onOpenCompose: (String) -> Unit = {},
     onNavigateToArtist: ((ArtistPageRoute) -> Unit)? = null,
@@ -670,6 +671,10 @@ fun ProfileScreen(
                     }
                 }
             }
+        }
+
+        item(span = { GridItemSpan(3) }, key = "trophies") {
+            TrophyCase(currentProfile, onPost = onNavigateToPost)
         }
 
         item(span = { GridItemSpan(3) }, key = "bio") {

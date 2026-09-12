@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.messaging
 
+import androidx.compose.material.icons.filled.Delete
+import fm.corus.android.domain.CityChatPolicy
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -638,6 +640,7 @@ private fun ClosedThread(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MessageThreadScreen(
     threadId: String,
@@ -683,6 +686,11 @@ fun MessageThreadScreen(
     val membersById by viewModel.membersById.collectAsState()
     val resolvedThreadId by viewModel.resolvedThreadId.collectAsState()
     val isGroup = groupInfo?.isGroup == true
+    val isCityChat = !groupInfo?.cityChatId.isNullOrBlank()
+    val cityBlocked by viewModel.blockedUserIds.collectAsState()
+    val cityActionError by viewModel.cityActionError.collectAsState()
+    var cityWelcome by remember { mutableStateOf(false) }
+    LaunchedEffect(groupInfo?.cityChatId, liveWindowReady) { if (liveWindowReady && isCityChat) cityWelcome = viewModel.claimCityWelcome() }
     var showGroupInfo by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val draftStore = remember { DMDraftStore(context) }
@@ -704,6 +712,9 @@ fun MessageThreadScreen(
     var readerFollowingLatest by remember(threadId) { mutableStateOf(true) }
     var olderPageArmedByUserScroll by remember(threadId) { mutableStateOf(false) }
     var showInitialLoadingIndicator by remember(threadId) { mutableStateOf(false) }
+    var reportTarget by remember { mutableStateOf<CymbalMessage?>(null) }
+    var blockTarget by remember { mutableStateOf<String?>(null) }
+    var deleteTarget by remember { mutableStateOf<String?>(null) }
     var reactionTarget by remember { mutableStateOf<CymbalMessage?>(null) }
     // The group message whose "Reactions" list bottom sheet is open, if any.
     var reactionsSheetMessage by remember { mutableStateOf<CymbalMessage?>(null) }
@@ -1046,6 +1057,7 @@ fun MessageThreadScreen(
                 // older message is at index+1; the newer one at index-1.
                 val older = messages.getOrNull(index + 1)
                 val newer = messages.getOrNull(index - 1)
+                if (isCityChat && message.fromUserId in cityBlocked) { Text("Message from a blocked account", Modifier.fillMaxWidth().padding(16.dp), color = CorusColors.Secondary); return@itemsIndexed }
                 val mine = message.fromUserId == viewModel.currentUserId
                 val incomingInGroup = isGroup && !mine && !message.isSystem
                 val sender = if (incomingInGroup) membersById[message.fromUserId] else null
@@ -1589,6 +1601,7 @@ fun MessageThreadScreen(
                 reactionTarget = null
             },
             onEdit = if (
+                !isCityChat &&
                 reactionTarget!!.fromUserId == viewModel.currentUserId &&
                 reactionTarget!!.type == MessageType.TEXT &&
                 (System.currentTimeMillis() - reactionTarget!!.createdAt.time) < EDIT_WINDOW_MS
@@ -1602,11 +1615,26 @@ fun MessageThreadScreen(
                     reactionTarget = null
                 }
             } else null,
-            onReport = { reactionTarget = null },
-            onBlock = { reactionTarget = null },
+            onDelete = if (CityChatPolicy.canDeleteMessages(groupInfo?.cityChatId,viewModel.currentUserId)) { { deleteTarget = reactionTarget?.id;reactionTarget = null } } else null,
+            onReport = { reportTarget = reactionTarget; reactionTarget = null },
+            onBlock = { blockTarget = reactionTarget?.fromUserId; reactionTarget = null },
             onDismiss = { reactionTarget = null },
         )
     }
+
+    reportTarget?.let { target ->
+        ModalBottomSheet(onDismissRequest = { reportTarget = null }) {
+        fm.corus.android.ui.components.ReportSheet(contentType = fm.corus.android.ui.components.ReportContentType.MESSAGE,
+            contentId = target.id, threadId = threadId, contentAuthorId = target.fromUserId,
+            authRepository = viewModel.authRepository, userRepository = viewModel.userRepository, analyticsService = viewModel.analyticsService,
+            onDismiss = { reportTarget = null })
+    } }
+    blockTarget?.let { target -> AlertDialog(onDismissRequest = { blockTarget = null }, title = { Text("Block this person?") }, text = { Text("Their messages will be hidden for you.") },
+        confirmButton = { TextButton(onClick = { viewModel.blockSender(target); blockTarget = null }) { Text("Block") } }, dismissButton = { TextButton(onClick = { blockTarget = null }) { Text("Cancel") } }) }
+    deleteTarget?.let { target -> AlertDialog(onDismissRequest = { deleteTarget = null }, title = { Text("Delete message?") }, text = { Text("This message will be removed from the city chat.") },
+        confirmButton = { TextButton(onClick = { viewModel.deleteCityMessage(target); deleteTarget = null }) { Text("Delete") } }, dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Cancel") } }) }
+    if (cityActionError != null) AlertDialog(onDismissRequest = viewModel::clearCityActionError, text = { Text(cityActionError.orEmpty()) }, confirmButton = { TextButton(onClick = viewModel::clearCityActionError) { Text("OK") } })
+    if (cityWelcome) AlertDialog(onDismissRequest = { cityWelcome = false }, title = { Text("Community chat") }, text = { Column { Text("This is a place for people in ${groupInfo?.cityName ?: groupInfo?.name.orEmpty()} to connect."); TextButton(onClick = { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://corus.fm/community-guidelines"))) }) { Text("Be respectful and follow our community guidelines.") } } }, confirmButton = { TextButton(onClick = { cityWelcome = false }) { Text("Got it") } })
 
     // Group info sheet
     val gi = groupInfo
@@ -1656,6 +1684,7 @@ private fun ReactionOverlay(
     onReply: () -> Unit,
     onCopy: () -> Unit,
     onEdit: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
     onReport: () -> Unit,
     onBlock: () -> Unit,
     onDismiss: () -> Unit,
@@ -1711,6 +1740,7 @@ private fun ReactionOverlay(
                 modifier = Modifier.widthIn(min = 220.dp),
             ) {
                 Column {
+                    if (onDelete != null) ActionMenuItem(icon = Icons.Filled.Delete, label = "Delete message", tint = CorusColors.Error, onClick = onDelete)
                     if (onEdit != null) {
                         ActionMenuItem(
                             icon = Icons.Filled.Edit,

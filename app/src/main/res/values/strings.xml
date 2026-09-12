@@ -613,7 +613,7 @@
     <string name="search_trending_hashtags_title">Trending hashtags</string>
     <string name="search_trending_artists_title">Trending artists</string>
     <string name="search_trending_albums_title">Trending albums</string>
-    <string name="search_new_release_albums_title">New songs</string>
+    <string name="search_new_release_albums_title">New releases</string>
     <string name="search_new_release_albums_list_title">New songs</string>
     <string name="search_nothing_new_releases">No new songs yet</string>
     <string name="search_new_release_films_title">New releases</string>
@@ -1249,6 +1249,7 @@
     <string name="playlist_trial_suffix_hashtag">Club members can generate anytime.</string>
     <string name="club_subtitle_settings">Support Corus. Get Perks.</string>
     <string name="club_feature_unlimited">Unlimited posts</string>
+    <string name="club_feature_unlimited_saves">Unlimited saves</string>
     <string name="club_feature_favorites">Unlimited favorites</string>
     <string name="club_feature_verified">Custom profile badge</string>
     <string name="club_feature_customization">Profile customization</string>
@@ -1274,7 +1275,7 @@
     <string name="feed_taste_matches_paywall_trial_body">Try Corus Club free for 2 weeks and see posts from people who share your taste.</string>
     <string name="feed_taste_matches_paywall_trial_cta">Unlock</string>
     <!-- Free-trial in-feed banner (taste_matches_free_trial RC) -->
-    <string name="feed_taste_matches_trial_banner_preview">Free trial of Taste Matches feed</string>
+    <string name="feed_taste_matches_trial_banner_preview">You’re previewing the Taste Matches feed</string>
     <plurals name="feed_taste_matches_trial_banner_active">
         <item quantity="one">Free trial · %1$d day left</item>
         <item quantity="other">Free trial · %1$d days left</item>
@@ -1520,10 +1521,20 @@
     </plurals>
     <string name="post_success_others_done">Done</string>
     <string name="post_success_others_kicker">Corus set!</string>
+    <string name="messaging_conversation_actions">Conversation actions</string>
+    <string name="messaging_pin_conversation">Pin conversation</string>
+    <string name="messaging_unpin_conversation">Unpin conversation</string>
+    <string name="messaging_pinned_conversation">Pinned conversation</string>
     <string name="taste_discovery_title">Explore all your matches</string>
     <string name="taste_discovery_body">See all your taste matches</string>
-    <string name="taste_discovery_cta">Unlock with Club</string>
+    <string name="taste_discovery_cta">Unlock</string>
     <string name="taste_discovery_subtitle">Find your kind of people. Explore your full taste match list and discover what you have in common.</string>
-    <string name="taste_discovery_perk">Your full taste match list</string>
-    <plurals name="taste_discovery_remaining"><item quantity="one">%d more taste match</item><item quantity="other">%d more taste matches</item></plurals>
+    <string name="taste_discovery_perk">See all Taste Matches</string>
+    <plurals name="taste_discovery_remaining"><item quantity="one">You have %d more match</item><item quantity="other">You have %d more matches</item></plurals>
+    <string name="taste_discovery_card_subtitle">See them all with Corus Club.</string>
+    <string name="club_onboarding_title">Get the most out of Corus</string>
+    <string name="club_onboarding_subtitle">Discover from real people you match with. Support an independent community.</string>
+    <string name="club_onboarding_skip">Maybe later</string>
+    <string name="club_onboarding_renewal">Auto-renews at the selected plan price after any free trial. Cancel anytime.</string>
+    <string name="club_onboarding_yearly_billed">Billed at %1$s/yr.</string>
 </resources>

@@ -44,9 +44,11 @@ fun InlineYouTubePlayer(
     showControls: Boolean = false,
     // Fired when the video finishes, so the card can drop back to the poster.
     onEnded: () -> Unit = {},
+    onStarted: () -> Unit = {},
 ) {
     // Keep the latest callback without re-creating the WebView each recomposition.
     val currentOnEnded by rememberUpdatedState(onEnded)
+    val currentOnStarted by rememberUpdatedState(onStarted)
     AndroidView(
         modifier = modifier,
         factory = { context ->
@@ -70,6 +72,8 @@ fun InlineYouTubePlayer(
                 isVerticalScrollBarEnabled = false
                 isHorizontalScrollBarEnabled = false
                 addJavascriptInterface(object {
+                    @JavascriptInterface
+                    fun onStarted() { Handler(Looper.getMainLooper()).post { currentOnStarted() } }
                     @JavascriptInterface
                     fun onEnded() {
                         // Runs on a binder thread; hop to main for Compose state.
@@ -204,6 +208,7 @@ private fun embedHTML(videoID: String, autoplay: Boolean, muted: Boolean, showCo
               var state = (d.event === 'infoDelivery' && d.info) ? d.info.playerState
                         : (d.event === 'onStateChange') ? d.info : undefined;
               // YT.PlayerState.ENDED === 0
+              if (state === 1 && window.AndroidTrailer) { window.AndroidTrailer.onStarted(); }
               if (state === 0 && window.AndroidTrailer) { window.AndroidTrailer.onEnded(); }
             });
             frame.addEventListener('load', function() {

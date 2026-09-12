@@ -1051,7 +1051,7 @@
     <string name="search_trending_films_title">Filmes em alta</string>
     <string name="search_trending_hashtags_title">Hashtags em alta</string>
     <string name="search_trending_artists_title">Artistas em alta</string>
-    <string name="search_new_release_albums_title">Músicas novas</string>
+    <string name="search_new_release_albums_title">Lançamentos</string>
     <string name="search_new_release_albums_list_title">Músicas novas</string>
     <string name="search_nothing_new_releases">Ainda não há músicas novas</string>
     <string name="search_new_release_films_title">Lançamentos</string>
@@ -1420,7 +1420,7 @@
     <string name="destination_album_pause">Pausar</string>
     <string name="destination_album_play">Reproduzir</string>
     <string name="feed_playlist_first_time_body">O Corus vai transformar seu feed em uma playlist e abrir no %1$s. Membros do Club podem gerar a qualquer momento.</string>
-    <string name="feed_taste_matches_trial_banner_preview">Teste grátis do feed Taste Matches</string>
+    <string name="feed_taste_matches_trial_banner_preview">Você está experimentando o feed Taste Matches</string>
     <string name="full_player_post">Postar</string>
     <string name="full_player_queue_done">Concluído</string>
     <string name="full_player_queue_edit">Editar</string>
@@ -1478,10 +1478,21 @@
         <item quantity="one">Teste grátis · %1$d dia restante</item>
         <item quantity="other">Teste grátis · %1$d dias restantes</item>
     </plurals>
+    <string name="messaging_conversation_actions">Ações da conversa</string>
+    <string name="messaging_pin_conversation">Fixar conversa</string>
+    <string name="messaging_unpin_conversation">Desafixar conversa</string>
+    <string name="messaging_pinned_conversation">Conversa fixada</string>
     <string name="taste_discovery_title">Explore todos os seus matches</string>
     <string name="taste_discovery_body">Veja todos os seus matches</string>
-    <string name="taste_discovery_cta">Desbloquear com Club</string>
+    <string name="taste_discovery_cta">Desbloquear</string>
     <string name="taste_discovery_subtitle">Encontre sua turma. Explore todos os seus matches e descubra o que vocês têm em comum.</string>
-    <string name="taste_discovery_perk">Sua lista completa de matches</string>
-    <plurals name="taste_discovery_remaining"><item quantity="one">Mais %d match de gosto</item><item quantity="other">Mais %d matches de gosto</item></plurals>
+    <string name="taste_discovery_perk">Veja todos os Taste Matches</string>
+    <plurals name="taste_discovery_remaining"><item quantity="one">Você tem mais %d match</item><item quantity="other">Você tem mais %d matches</item></plurals>
+    <string name="taste_discovery_card_subtitle">Veja todos com o Corus Club.</string>
+    <string name="club_onboarding_title">Aproveite ao máximo o Corus</string>
+    <string name="club_onboarding_subtitle">Descubra conteúdos de pessoas reais com quem você combina. Apoie uma comunidade independente.</string>
+    <string name="club_onboarding_skip">Talvez mais tarde</string>
+    <string name="club_onboarding_renewal">Renova automaticamente no preço do plano selecionado após qualquer teste grátis. Cancele quando quiser.</string>
+    <string name="club_onboarding_yearly_billed">Cobrado a %1$s/ano.</string>
+    <string name="club_feature_unlimited_saves">Salvamentos ilimitados</string>
 </resources>

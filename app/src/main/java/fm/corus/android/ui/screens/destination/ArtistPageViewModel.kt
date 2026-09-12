@@ -10,6 +10,7 @@ import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.ArtistDetail
 import fm.corus.android.data.model.ArtistTourDate
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.ShareRecipient
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.UserLite
 import fm.corus.android.data.remote.CloudFunctionsDataSource
@@ -22,7 +23,7 @@ import fm.corus.android.domain.SongPlayRouting
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.ToastManager
-import fm.corus.android.ui.screens.feed.loadRecentDmShareContacts
+import fm.corus.android.ui.screens.feed.loadRecentShareRecipients
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -74,11 +75,11 @@ class ArtistPageViewModel @Inject constructor(
     // shares an *artist*: DMs send a `sharedArtist` message deep-linking to this
     // page. Recents are the most recent people you've DMed.
 
-    private val _shareSearchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
-    val shareSearchResults: StateFlow<List<CymbalUser>> = _shareSearchResults.asStateFlow()
+    private val _shareSearchResults = MutableStateFlow<List<ShareRecipient>>(emptyList())
+    val shareSearchResults: StateFlow<List<ShareRecipient>> = _shareSearchResults.asStateFlow()
 
-    private val _recentShareContacts = MutableStateFlow<List<CymbalUser>>(emptyList())
-    val recentShareContacts: StateFlow<List<CymbalUser>> = _recentShareContacts.asStateFlow()
+    private val _recentShareContacts = MutableStateFlow<List<ShareRecipient>>(emptyList())
+    val recentShareContacts: StateFlow<List<ShareRecipient>> = _recentShareContacts.asStateFlow()
 
     private val _isShareSearching = MutableStateFlow(false)
     val isShareSearching: StateFlow<Boolean> = _isShareSearching.asStateFlow()
@@ -90,10 +91,9 @@ class ArtistPageViewModel @Inject constructor(
 
     fun loadRecentShareContacts() {
         val userId = authRepository.currentUserId ?: return
-        loadRecentDmShareContacts(
+        loadRecentShareRecipients(
             userId = userId,
             messageRepository = messageRepository,
-            currentContacts = _recentShareContacts.value,
             setContacts = { _recentShareContacts.value = it },
             setLoading = { _isLoadingShareContacts.value = it },
             scope = viewModelScope,
@@ -109,11 +109,14 @@ class ArtistPageViewModel @Inject constructor(
             return
         }
         shareSearchJob?.cancel()
+        _shareSearchResults.value = emptyList()
         shareSearchJob = viewModelScope.launch {
             _isShareSearching.value = true
             delay(250)
             try {
-                _shareSearchResults.value = userRepository.searchUsers(trimmed, includeFollowed = true)
+                _shareSearchResults.value = messageRepository.searchShareRecipients(authRepository.currentUserId ?: return@launch, trimmed, userRepository)
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
             } catch (_: Exception) {
                 _shareSearchResults.value = emptyList()
             }
@@ -125,7 +128,7 @@ class ArtistPageViewModel @Inject constructor(
         val currentUserId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             try {
-                val threadId = messageRepository.getOrCreateThread(currentUserId, userId)
+                val threadId = messageRepository.resolveShareThread(currentUserId, userId)
                 messageRepository.sendSharedArtistMessage(
                     threadId = threadId,
                     fromUserId = currentUserId,
@@ -226,6 +229,6 @@ class ArtistPageViewModel @Inject constructor(
         const val PAGE_SIZE = 15
 
         /** Recent posts shown inline before "See all" (matches web's inlinePostsCap). */
-        const val INLINE_POSTS_CAP = 6
+        const val INLINE_POSTS_CAP = 4
     }
 }

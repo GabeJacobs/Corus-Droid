@@ -520,7 +520,7 @@
     <string name="search_trending_films_title">인기 영화</string>
     <string name="search_trending_hashtags_title">인기 해시태그</string>
     <string name="search_trending_artists_title">인기 아티스트</string>
-    <string name="search_new_release_albums_title">새 노래</string>
+    <string name="search_new_release_albums_title">신작</string>
     <string name="search_new_release_albums_list_title">새 노래</string>
     <string name="search_nothing_new_releases">아직 새 노래가 없어요</string>
     <string name="search_new_release_films_title">신작</string>
@@ -1413,7 +1413,7 @@
     <string name="destination_album_pause">일시정지</string>
     <string name="destination_album_play">재생</string>
     <string name="feed_playlist_first_time_body">Corus가 피드를 플레이리스트로 만들어 %1$s에서 열어요. Club 멤버는 언제든 생성할 수 있어요.</string>
-    <string name="feed_taste_matches_trial_banner_preview">Taste Matches 피드 무료 체험</string>
+    <string name="feed_taste_matches_trial_banner_preview">Taste Matches 피드 미리 보기 중</string>
     <string name="full_player_post">게시</string>
     <string name="full_player_queue_done">완료</string>
     <string name="full_player_queue_edit">편집</string>
@@ -1470,4 +1470,10 @@
         <item quantity="one">무료 체험 · %1$d일 남음</item>
         <item quantity="other">무료 체험 · %1$d일 남음</item>
     </plurals>
+    <string name="club_onboarding_title">Corus를 최대한 활용하세요</string>
+    <string name="club_onboarding_subtitle">취향이 맞는 실제 사람들의 콘텐츠를 발견하세요. 독립적인 커뮤니티를 지원해 주세요.</string>
+    <string name="club_onboarding_skip">나중에</string>
+    <string name="club_onboarding_renewal">무료 체험 후 선택한 요금제로 자동 갱신됩니다. 언제든 취소할 수 있습니다.</string>
+    <string name="club_onboarding_yearly_billed">연 %1$s 결제.</string>
+    <string name="club_feature_unlimited_saves">무제한 저장</string>
 </resources>

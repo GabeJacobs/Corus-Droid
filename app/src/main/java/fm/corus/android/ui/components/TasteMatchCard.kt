@@ -185,12 +185,7 @@ fun TasteMatchCard(
                         )
                     }
 
-                    // Same priority as buildFlavorText, but the count-based fallback
-                    // resolves through localized plurals (taste_card_* — shared with
-                    // web's locale files) instead of hardcoded English.
-                    val flavorText = subtitle?.takeIf { it.isNotBlank() }
-                        ?: buildSharedNamesSubtitle(matchData)
-                        ?: localizedBestMatchLabel(matchData)
+                    val flavorText = buildFlavorText(subtitle, matchData)
                     if (!flavorText.isNullOrBlank()) {
                         Text(
                             text = flavorText,
@@ -201,7 +196,7 @@ fun TasteMatchCard(
                             maxLines = subtitleLines,
                             overflow = TextOverflow.Ellipsis,
                         )
-                    }
+                    } else { Text(" ", style = CorusFont.caption, minLines = subtitleLines, maxLines = subtitleLines) }
                 }
             }
 
@@ -297,7 +292,7 @@ private fun GridTile(url: String?, modifier: Modifier = Modifier) {
  *   1. Explicit `subtitle` override (Popular = "X followers",
  *      Mutual Connections = "@x, @y +N").
  *   2. Shared artist/director names (list format).
- *   3. Song/film match count ("2 song matches" / "1 film match").
+ *   Missing names preserve the subtitle space without a numeric placeholder.
  *
  *  There is intentionally NO `artistsInCommonCount` fallback. A bare
  *  "N artists in common" with no names is a stale-index ghost — the overlap
@@ -310,7 +305,7 @@ internal fun buildFlavorText(
 ): String? =
     subtitle?.takeIf { it.isNotBlank() }
         ?: buildSharedNamesSubtitle(matchData)
-        ?: buildBestMatchLabel(matchData)
+
 
 /** Comma-joined artist + director names (deduped, order-preserving) the viewer
  *  *actually shares* with this user. Mirrors iOS `sharedNames`. Returns null if
@@ -331,64 +326,4 @@ internal fun buildSharedNamesSubtitle(
         if (name.isNotEmpty() && seen.add(name.lowercase())) names.add(name)
     }
     return names.takeIf { it.isNotEmpty() }?.joinToString(", ")
-}
-
-/** Localized mirror of [buildBestMatchLabel]: identical priority order, but
- *  each label resolves through the taste_card_* plurals (all 9 locales, same
- *  strings as web). [buildFlavorText] keeps the pure English version for
- *  unit tests; the composable renders this one. */
-@Composable
-private fun localizedBestMatchLabel(
-    matchData: fm.corus.android.data.model.MusicMatchData?,
-): String? {
-    if (matchData == null) return null
-    val totalTracks = matchData.totalSharedTracks
-    val totalMovies = matchData.totalSharedMovies
-
-    if (totalTracks > 0 && totalMovies > 0) {
-        return if (totalMovies > totalTracks) {
-            pluralStringResource(fm.corus.android.R.plurals.taste_card_film_matches, totalMovies, totalMovies)
-        } else {
-            pluralStringResource(fm.corus.android.R.plurals.taste_card_song_matches, totalTracks, totalTracks)
-        }
-    }
-    if (totalTracks > 0) {
-        return pluralStringResource(fm.corus.android.R.plurals.taste_card_song_matches, totalTracks, totalTracks)
-    }
-    if (matchData.sharedArtists > 0) {
-        return pluralStringResource(fm.corus.android.R.plurals.taste_card_artist_matches, matchData.sharedArtists, matchData.sharedArtists)
-    }
-    if (totalMovies > 0) {
-        return pluralStringResource(fm.corus.android.R.plurals.taste_card_film_matches, totalMovies, totalMovies)
-    }
-    if (matchData.sharedDirectors > 0) {
-        return pluralStringResource(fm.corus.android.R.plurals.taste_card_director_matches, matchData.sharedDirectors, matchData.sharedDirectors)
-    }
-    if (matchData.adjacentArtists > 0) {
-        return stringResource(fm.corus.android.R.string.taste_card_similar_taste)
-    }
-    return null
-}
-
-/** Count-based fallback label. Mirrors iOS `bestMatchLabel`. */
-private fun buildBestMatchLabel(
-    matchData: fm.corus.android.data.model.MusicMatchData?,
-): String? {
-    if (matchData == null) return null
-    val totalTracks = matchData.totalSharedTracks
-    val totalMovies = matchData.totalSharedMovies
-
-    if (totalTracks > 0 && totalMovies > 0) {
-        return if (totalMovies > totalTracks) {
-            if (totalMovies == 1) "1 film match" else "$totalMovies film matches"
-        } else {
-            if (totalTracks == 1) "1 song match" else "$totalTracks song matches"
-        }
-    }
-    if (totalTracks > 0) return if (totalTracks == 1) "1 song match" else "$totalTracks song matches"
-    if (matchData.sharedArtists > 0) return if (matchData.sharedArtists == 1) "1 artist match" else "${matchData.sharedArtists} artist matches"
-    if (totalMovies > 0) return if (totalMovies == 1) "1 film match" else "$totalMovies film matches"
-    if (matchData.sharedDirectors > 0) return if (matchData.sharedDirectors == 1) "1 director match" else "${matchData.sharedDirectors} director matches"
-    if (matchData.adjacentArtists > 0) return "similar taste"
-    return null
 }

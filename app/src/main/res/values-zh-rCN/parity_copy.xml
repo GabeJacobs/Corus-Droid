@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="parity_da39a3ee5e6b" formatted="false"></string>
+    <string name="parity_b858cb282617" formatted="false"> </string>
+    <string name="parity_d3dacf895c16" formatted="false"> · </string>
+    <string name="parity_99e693f8cd0c" formatted="false">%@</string>
+    <string name="parity_16070acfe083" formatted="false">%lld</string>
+    <string name="parity_d3bc9a378daa" formatted="false">、</string>
+    <string name="parity_b6589fc6ab0d" formatted="false">0</string>
+    <string name="parity_9a78211436f6" formatted="false">@</string>
+    <string name="parity_dfb4c9a14bad" formatted="false">专辑</string>
+    <string name="parity_6a72085653e4" formatted="false">全部</string>
+    <string name="parity_29207dfdb31a" formatted="false">所有消息</string>
+    <string name="parity_253657df34e4" formatted="false">Corus上的所有人都可以看到你所在的城市。</string>
+    <string name="parity_cdf9bbefc769" formatted="false">不限地点</string>
+    <string name="parity_6c3f3d320363" formatted="false">艺人</string>
+    <string name="parity_b52b36b7269f" formatted="false">返回</string>
+    <string name="parity_ca41295be45f" formatted="false">返回搜索</string>
+    <string name="parity_4784eb5bdae1" formatted="false">蓝色扎染</string>
+    <string name="parity_4a7fdd8c1742" formatted="false">书籍</string>
+    <string name="parity_f96944302348" formatted="false">Brat绿</string>
+    <string name="parity_77dfd2135f4d" formatted="false">取消</string>
+    <string name="parity_5aff5a1f6aa7" formatted="false">你可以随时更改。</string>
+    <string name="parity_f5b6616663ea" formatted="false">Channel Orange</string>
+    <string name="parity_a4fc7971cb42" formatted="false">Choose a city</string>
+    <string name="parity_51dc1092be23" formatted="false">Claim artist page</string>
+    <string name="parity_512c233088e1" formatted="false">Claim this artist page</string>
+    <string name="parity_67300d0fed7c" formatted="false">清除搜索</string>
+    <string name="parity_bbfa773e5a63" formatted="false">关闭</string>
+    <string name="parity_fce06e20e5f7" formatted="false">评论</string>
+    <string name="parity_c2f4d4164ba5" formatted="false">社区聊天</string>
+    <string name="parity_aad755de4295" formatted="false">合辑</string>
+    <string name="parity_9885182153f7" formatted="false">连接 Audiomack</string>
+    <string name="parity_726a1ceebd2e" formatted="false">Contact email</string>
+    <string name="parity_16994bdea573" formatted="false">Corus地图</string>
+    <string name="parity_a0e7a6a02cc2" formatted="false">棉花糖</string>
+    <string name="parity_5c419b5daae2" formatted="false">自定义资料徽章</string>
+    <string name="parity_b4fd6c51ed0f" formatted="false">Depression Cherry</string>
+    <string name="parity_19a4b0a062c8" formatted="false">音乐作品</string>
+    <string name="parity_ed28e0686e12" formatted="false">Disconnect</string>
+    <string name="parity_c4b871e217c3" formatted="false">发现与你品味相投的真实用户的内容。支持独立社区。</string>
+    <string name="parity_e9b450d14bc2" formatted="false">完成</string>
+    <string name="parity_5a140248c0bb" formatted="false">不分享。你仍然可以浏览。</string>
+    <string name="parity_c756f6af1f03" formatted="false">所有人</string>
+    <string name="parity_2f5ac9fb4c6f" formatted="false">探索Corus地图</string>
+    <string name="parity_3a03d227b2f2" formatted="false">导出播放列表</string>
+    <string name="parity_0137b9ad82f9" formatted="false">关注</string>
+    <string name="parity_f0de6c8aaa3f" formatted="false">已关注</string>
+    <string name="parity_b9aec1112810" formatted="false">电影</string>
+    <string name="parity_08f45c68e588" formatted="false">按城市寻找用户</string>
+    <string name="parity_ae0c45f79178" formatted="false">Find your kind of people. Explore your full taste match list and discover what you have in common.</string>
+    <string name="parity_90eeb1008380" formatted="false">已关注</string>
+    <string name="parity_3f66052a107e" formatted="false">From</string>
+    <string name="parity_eeb692087d62" formatted="false">Full name</string>
+    <string name="parity_f69ff6e8d889" formatted="false">银河</string>
+    <string name="parity_42e01b33038c" formatted="false">尽享 Corus</string>
+    <string name="parity_5b8027fa0e81" formatted="false">知道了</string>
+    <string name="parity_323d2167a2f2" formatted="false">群聊</string>
+    <string name="parity_d88e57bb0db6" formatted="false">How can we verify your connection to this artist?</string>
+    <string name="parity_1b4c8b6a463c" formatted="false">冰蓝</string>
+    <string name="parity_5d6f27fadf8c" formatted="false">分享后，其他人只能看到你的城市，而不是街道或实时位置。你可以随时更改。</string>
+    <string name="parity_02a7e31a3140" formatted="false">加入聊天</string>
+    <string name="parity_0167dbfec9ad" formatted="false">加入Club</string>
+    <string name="parity_a17525e135dd" formatted="false">加入 Corus Club</string>
+    <string name="parity_61453a62e3b0" formatted="false">继续发现电影。加入Corus Club，解锁无限观看模式。</string>
+    <string name="parity_e1a462a5938c" formatted="false">继续聆听世界各地的音乐。加入Corus Club，解锁无限收听模式。</string>
+    <string name="parity_21b98d7b5820" formatted="false">最后一首免费歌曲 · 了解Club</string>
+    <string name="parity_dfbdf908e6f2" formatted="false">最后一个免费预告片 · 了解Club</string>
+    <string name="parity_75c88f3a0072" formatted="false">薰衣草</string>
+    <string name="parity_c7e02c95fe85" formatted="false">赞</string>
+    <string name="parity_e9f009d9df80" formatted="false">赞</string>
+    <string name="parity_1af3aa5c3fea" formatted="false">Link to an official page that supports your role and explain your affiliation (at least 20 characters). Please don’t include passwords or identity documents. Your details will be sent privately to the Corus team for review.</string>
+    <string name="parity_014bcd654c60" formatted="false">Links</string>
+    <string name="parity_a1fffaaafb7c" formatted="false">列表</string>
+    <string name="parity_c518fb067439" formatted="false">收听</string>
+    <string name="parity_820020256535" formatted="false">收听模式</string>
+    <string name="parity_36262d2bbd0a" formatted="false">Listen preview · %lld songs left · Explore Club</string>
+    <string name="parity_dfe60ca92e8c" formatted="false">加载更多</string>
+    <string name="parity_ff35c3fdb683" formatted="false">加载更多用户</string>
+    <string name="parity_c32673783563" formatted="false">正在加载用户…</string>
+    <string name="parity_d0611fff32c6" formatted="false">Loading tour dates</string>
+    <string name="parity_33ce417454bf" formatted="false">加载中…</string>
+    <string name="parity_ab478f3efc84" formatted="false">地图</string>
+    <string name="parity_cd710fcc23c7" formatted="false">招牌</string>
+    <string name="parity_27ad1d833422" formatted="false">以后再说</string>
+    <string name="parity_1dbdcfefae45" formatted="false">仅提及</string>
+    <string name="parity_18e8d200b5cf" formatted="false">Merch</string>
+    <string name="parity_12b87dbbadf8" formatted="false">Merch &amp; vinyl</string>
+    <string name="parity_d1af6c07c8e7" formatted="false">发消息、见面，或一起去看演出。</string>
+    <string name="parity_d31edb7b8a94" formatted="false">按月</string>
+    <string name="parity_4bab2d8fe13f" formatted="false">更多</string>
+    <string name="parity_131260cbfbb0" formatted="false">音乐</string>
+    <string name="parity_b9e78ced88a4" formatted="false">已静音</string>
+    <string name="parity_1ed2e7b50fa1" formatted="false">新建私信</string>
+    <string name="parity_3cdd02963c71" formatted="false">新发行</string>
+    <string name="parity_bc981983e7f5" formatted="false">下一个</string>
+    <string name="parity_da87f33ccd24" formatted="false">下一个城市</string>
+    <string name="parity_4bfc194b68a3" formatted="false">下一页</string>
+    <string name="parity_6683bd1a6bb4" formatted="false">还没有电影</string>
+    <string name="parity_c758598ebf50" formatted="false">由你决定何时让别人看到。</string>
+    <string name="parity_1ed0d88c7eb5" formatted="false">此筛选条件下没有用户。</string>
+    <string name="parity_b7bbf3d235d6" formatted="false">暂无奖杯</string>
+    <string name="parity_612eb3c64c41" formatted="false">未找到用户</string>
+    <string name="parity_e45714907316" formatted="false">暂不</string>
+    <string name="parity_753a22b2eb61" formatted="false">通知</string>
+    <string name="parity_9ce3bd4224c8" formatted="false">好</string>
+    <string name="parity_e3de5ab0ca4c" formatted="false">关闭</string>
+    <string name="parity_11546013dc6e" formatted="false">仅你关注的账号。</string>
+    <string name="parity_d2104ca30455" formatted="false">打开聊天</string>
+    <string name="parity_13f64eb8ae6e" formatted="false">橙色扎染</string>
+    <string name="parity_9d572da10245" formatted="false">桃粉</string>
+    <string name="parity_38be27f3fd1c" formatted="false">其他人可以在你选择的城市找到你。</string>
+    <string name="parity_d01d900383e4" formatted="false">照片</string>
+    <string name="parity_54076359fdc7" formatted="false">粉</string>
+    <string name="parity_5d12bd53552c" formatted="false">播放</string>
+    <string name="parity_83a6fd7b7878" formatted="false">请重试。</string>
+    <string name="parity_9bc2c5b3f52e" formatted="false">热门</string>
+    <string name="parity_4702964a2944" formatted="false">发布你的第一部电影</string>
+    <string name="parity_f58d094c6ad7" formatted="false">发布你的第一首歌</string>
+    <string name="parity_50f94286ba30" formatted="false">上一个</string>
+    <string name="parity_c21c3d0c6b59" formatted="false">上一个城市</string>
+    <string name="parity_81f547195bef" formatted="false">上一页</string>
+    <string name="parity_ff4fc0276e96" formatted="false">个人资料</string>
+    <string name="parity_8624339e6a12" formatted="false">资料个性化</string>
+    <string name="parity_4da96e42bf43" formatted="false">紫色扎染</string>
+    <string name="parity_5690d9243775" formatted="false">最新帖子</string>
+    <string name="parity_98dd47501acb" formatted="false">转发</string>
+    <string name="parity_8adb8b29a148" formatted="false">Represent this artist? Share a few details so we can review your request to claim this page.</string>
+    <string name="parity_43dc47b2550f" formatted="false">Request submitted</string>
+    <string name="parity_9f5cd8a2e880" formatted="false">重试</string>
+    <string name="parity_e3fe3e9ea782" formatted="false">重新加载用户</string>
+    <string name="parity_c3f104d13657" formatted="false">Role</string>
+    <string name="parity_efc007a393f6" formatted="false">保存</string>
+    <string name="parity_fa2984b367b8" formatted="false">保存更改</string>
+    <string name="parity_ae7e887517b0" formatted="false">正在保存...</string>
+    <string name="parity_bce06414177f" formatted="false">搜索</string>
+    <string name="parity_9e867d1a518b" formatted="false">搜索 KLIPY</string>
+    <string name="parity_8008bef0fc1f" formatted="false">Search cities</string>
+    <string name="parity_04142689eeeb" formatted="false">搜索城市或国家</string>
+    <string name="parity_4579de70a18f" formatted="false">搜索电影</string>
+    <string name="parity_9de9debbfd35" formatted="false">搜索歌曲</string>
+    <string name="parity_8d232b28b92f" formatted="false">搜索用户名</string>
+    <string name="parity_c510d6c04c09" formatted="false">查看更多</string>
+    <string name="parity_017b94f9a480" formatted="false">在地图上找到附近与你音乐和电影品味相投的人。</string>
+    <string name="parity_09ca55ca52d2" formatted="false">分享</string>
+    <string name="parity_94023f5a4a52" formatted="false">再分享一部电影</string>
+    <string name="parity_31fab0859db4" formatted="false">分享城市，而不是精确位置。</string>
+    <string name="parity_5926c3235507" formatted="false">Shop official store</string>
+    <string name="parity_4c852b26d1b7" formatted="false">收起</string>
+    <string name="parity_25911d48e023" formatted="false">显示更多</string>
+    <string name="parity_9e2001f83002" formatted="false">Show trophies</string>
+    <string name="parity_8c123a5c30ec" formatted="false">在个人资料中显示奖杯</string>
+    <string name="parity_dd1186892a2f" formatted="false">单曲</string>
+    <string name="parity_02ff65909856" formatted="false">Sold out</string>
+    <string name="parity_9a3ea0598e7f" formatted="false">出错了。请重试。</string>
+    <string name="parity_0e45aee6e595" formatted="false">Stop sharing</string>
+    <string name="parity_8a9051c61379" formatted="false">Submit request</string>
+    <string name="parity_5f7df6ce6b18" formatted="false">Submitting a request does not automatically verify you or give you control of the artist page.</string>
+    <string name="parity_25bdf9860e96" formatted="false">Submitting…</string>
+    <string name="parity_f9aa190b1c8b" formatted="false">品味匹配</string>
+    <string name="parity_f035d9bdea71" formatted="false">品味匹配动态</string>
+    <string name="parity_27338a83d773" formatted="false">一个让%@的人们相互联系的地方。</string>
+    <string name="parity_6c50d32835d2" formatted="false">Tour dates</string>
+    <string name="parity_e4fc40926893" formatted="false">取消赞</string>
+    <string name="parity_29a7a1e058da" formatted="false">无限发布</string>
+    <string name="parity_4cb955a437ea" formatted="false">无限收藏</string>
+    <string name="parity_8d6779fdd977" formatted="false">Upcoming shows</string>
+    <string name="parity_03128bed9062" formatted="false">Verification</string>
+    <string name="parity_7e06a4c7c4de" formatted="false">查看地图</string>
+    <string name="parity_d91ebf5887cf" formatted="false">Watch</string>
+    <string name="parity_0c1b3cced072" formatted="false">观看模式</string>
+    <string name="parity_00ec7c4bb4f0" formatted="false">最近看了什么好片吗？</string>
+    <string name="parity_3525761a57be" formatted="false">Watch preview · %lld trailers left · Explore Club</string>
+    <string name="parity_ed7a37f4f2d4" formatted="false">在 YouTube 上观看预告片</string>
+    <string name="parity_7cc4c50bed35" formatted="false">你在听什么？</string>
+    <string name="parity_1b527ff0e65e" formatted="false">谁可以看到你的城市</string>
+    <string name="parity_7622eb5aa42d" formatted="false">按年</string>
+    <string name="parity_3526f607bcd4" formatted="false">黄</string>
+    <string name="parity_a6252b66904c" formatted="false">Your details</string>
+    <string name="parity_a1a5b173e056" formatted="false">你的帖子</string>
+    <string name="parity_12de88176aaf" formatted="false">粉丝</string>
+    <string name="parity_09322a111202" formatted="false">粉丝</string>
+    <string name="parity_6cbf68c50f73" formatted="false">关注</string>
+    <string name="parity_e7c95b4c2824" formatted="false">更多</string>
+</resources>

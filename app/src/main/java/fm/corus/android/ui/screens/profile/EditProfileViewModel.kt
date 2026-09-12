@@ -49,6 +49,11 @@ class EditProfileViewModel @Inject constructor(
     private val _username = MutableStateFlow("")
     val username: StateFlow<String> = _username.asStateFlow()
 
+    private val _showTrophies = MutableStateFlow(true)
+    val showTrophies = _showTrophies.asStateFlow()
+    val canEditTrophies get() = trophyViewerAllowed(authRepository.currentUserId, remoteConfigService.trophyCaseDisabled)
+    fun updateShowTrophies(value: Boolean) { if (canEditTrophies) _showTrophies.value = value }
+
     private val _bio = MutableStateFlow("")
     val bio: StateFlow<String> = _bio.asStateFlow()
 
@@ -133,6 +138,7 @@ class EditProfileViewModel @Inject constructor(
                 if (user != null) {
                     _displayName.value = user.displayName
                     _username.value = user.username
+                    _showTrophies.value = user.showTrophies
                     _bio.value = user.bio
                     _website.value = user.website ?: ""
                     _tabPreferences.value = user.tabPreferences(booksEnabled)
@@ -260,6 +266,7 @@ class EditProfileViewModel @Inject constructor(
             return _displayName.value != p.displayName ||
                     _username.value != p.username ||
                     _bio.value != p.bio ||
+                    _showTrophies.value != p.showTrophies ||
                     _website.value != (p.website ?: "") ||
                     tabsDiffer(p)
         }
@@ -314,6 +321,7 @@ class EditProfileViewModel @Inject constructor(
                 if (_username.value != p.username) fields["username"] = _username.value
                 // searchTokens are regenerated server-side by
                 // regenerateSearchTokensOnUserWrite within ~1s of this update.
+                if (canEditTrophies && _showTrophies.value != p.showTrophies) fields["showTrophies"] = _showTrophies.value
                 if (_bio.value != p.bio) fields["bio"] = _bio.value
                 if (_website.value != (p.website ?: "")) fields["website"] = _website.value
                 if (tabsDiffer(p)) {

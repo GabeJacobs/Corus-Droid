@@ -98,13 +98,13 @@ class TasteMatchCardSubtitleTest {
     }
 
     @Test
-    fun `flavor text falls back to match count when names absent`() {
+    fun `flavor text reserves empty subtitle when shared names are absent`() {
         val data = MusicMatchData(
             sharedArtists = 3,
             sharedTrackPreviews = listOf(preview("The White Octave")),
         )
 
-        assertEquals("3 artist matches", buildFlavorText(null, data))
+        assertNull(buildFlavorText(null, data))
     }
 
     @Test

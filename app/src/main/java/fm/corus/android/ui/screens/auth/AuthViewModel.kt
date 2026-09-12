@@ -70,6 +70,7 @@ class AuthViewModel @Inject constructor(
         data object SignedOut : AuthState()
         data object NeedsOnboarding : AuthState()
         data object NeedsSocialSetup : AuthState()
+        data object OnboardingClubOffer : AuthState()
         data object SignedIn : AuthState()
     }
 
@@ -626,6 +627,14 @@ class AuthViewModel @Inject constructor(
     }
 
     fun finishSocialSetup() {
+        if (remoteConfigService.onboardingClubOfferEnabled && !subscriptionRepository.hasFullAccess) {
+            _authState.value = AuthState.OnboardingClubOffer
+            return
+        }
+        finishAfterClubOffer()
+    }
+
+    fun finishAfterClubOffer() {
         // Auth never re-fires here — the user is already signed in from
         // onboarding — so the Activity badge listener must start now.
         // Skipping push permission does not affect this; the red bubble

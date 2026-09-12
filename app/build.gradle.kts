@@ -107,6 +107,7 @@ android {
 }
 
 dependencies {
+    implementation("org.maplibre.gl:android-sdk:11.11.0")
     // Compose BOM
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)

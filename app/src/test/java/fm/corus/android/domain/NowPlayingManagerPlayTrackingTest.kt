@@ -51,7 +51,9 @@ class NowPlayingManagerPlayTrackingTest {
     }
 
     private fun newManager(): NowPlayingManager =
-        NowPlayingManager(context, cloudFunctions, preferencesDataStore, userRepository, mock(), mock(), mock(), mock(), mock(), mock(), mock(), mock(), mock(), mock(), mock(), mock())
+        NowPlayingManager(context, cloudFunctions, preferencesDataStore, userRepository, mock(), mock(), org.mockito.kotlin.mock(), mock(), mock(), mock(), mock(), mock(), mock(), mock(), mock(), mock(), mock(),
+            bandcampPlaybackService = org.mockito.kotlin.mock(),
+        )
 
     private fun NowPlayingManager.recordPlayIfNeeded(postId: String?) {
         val m = NowPlayingManager::class.java

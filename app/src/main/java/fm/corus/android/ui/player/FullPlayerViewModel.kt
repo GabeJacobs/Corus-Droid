@@ -9,6 +9,7 @@ import fm.corus.android.R
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.ShareRecipient
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
@@ -20,7 +21,7 @@ import fm.corus.android.domain.NowPlayingState
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.ui.components.ToastManager
-import fm.corus.android.ui.screens.feed.loadRecentDmShareContacts
+import fm.corus.android.ui.screens.feed.loadRecentShareRecipients
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -502,11 +503,11 @@ class FullPlayerViewModel @Inject constructor(
     // Same recipient-picker plumbing as SongDetailViewModel — DMs send a
     // `sharedTrack` message that deep-links to the song page.
 
-    private val _shareSearchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
-    val shareSearchResults: StateFlow<List<CymbalUser>> = _shareSearchResults.asStateFlow()
+    private val _shareSearchResults = MutableStateFlow<List<ShareRecipient>>(emptyList())
+    val shareSearchResults: StateFlow<List<ShareRecipient>> = _shareSearchResults.asStateFlow()
 
-    private val _recentShareContacts = MutableStateFlow<List<CymbalUser>>(emptyList())
-    val recentShareContacts: StateFlow<List<CymbalUser>> = _recentShareContacts.asStateFlow()
+    private val _recentShareContacts = MutableStateFlow<List<ShareRecipient>>(emptyList())
+    val recentShareContacts: StateFlow<List<ShareRecipient>> = _recentShareContacts.asStateFlow()
 
     private val _isShareSearching = MutableStateFlow(false)
     val isShareSearching: StateFlow<Boolean> = _isShareSearching.asStateFlow()
@@ -518,10 +519,9 @@ class FullPlayerViewModel @Inject constructor(
 
     fun loadRecentShareContacts() {
         val userId = authRepository.currentUserId ?: return
-        loadRecentDmShareContacts(
+        loadRecentShareRecipients(
             userId = userId,
             messageRepository = messageRepository,
-            currentContacts = _recentShareContacts.value,
             setContacts = { _recentShareContacts.value = it },
             setLoading = { _isLoadingShareContacts.value = it },
             scope = viewModelScope,
@@ -537,11 +537,14 @@ class FullPlayerViewModel @Inject constructor(
             return
         }
         shareSearchJob?.cancel()
+        _shareSearchResults.value = emptyList()
         shareSearchJob = viewModelScope.launch {
             _isShareSearching.value = true
             delay(250)
             try {
-                _shareSearchResults.value = userRepository.searchUsers(trimmed, includeFollowed = true)
+                _shareSearchResults.value = messageRepository.searchShareRecipients(authRepository.currentUserId ?: return@launch, trimmed, userRepository)
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
             } catch (_: Exception) {
                 _shareSearchResults.value = emptyList()
             }
@@ -553,7 +556,7 @@ class FullPlayerViewModel @Inject constructor(
         val currentUserId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             try {
-                val threadId = messageRepository.getOrCreateThread(currentUserId, userId)
+                val threadId = messageRepository.resolveShareThread(currentUserId, userId)
                 messageRepository.sendSharedTrackMessage(
                     threadId = threadId,
                     fromUserId = currentUserId,

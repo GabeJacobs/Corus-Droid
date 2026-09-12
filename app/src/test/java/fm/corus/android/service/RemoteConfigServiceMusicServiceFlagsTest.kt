@@ -1,6 +1,7 @@
 package fm.corus.android.service
 
 import android.content.Context
+import android.content.SharedPreferences
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.FirebaseRemoteConfigValue
@@ -29,8 +30,13 @@ import org.mockito.kotlin.whenever
  */
 class RemoteConfigServiceMusicServiceFlagsTest {
 
-    private fun service(remoteConfig: FirebaseRemoteConfig) =
-        RemoteConfigService(remoteConfig, mock<FirebaseAuth>(), mock<Context>())
+    private fun service(remoteConfig: FirebaseRemoteConfig): RemoteConfigService {
+        val prefs = mock<SharedPreferences>()
+        val context = mock<Context> {
+            on { getSharedPreferences(any(), any()) } doReturn prefs
+        }
+        return RemoteConfigService(remoteConfig, mock<FirebaseAuth>(), context)
+    }
 
     private fun configValue(sourceValue: Int, bool: Boolean): FirebaseRemoteConfigValue =
         mock {

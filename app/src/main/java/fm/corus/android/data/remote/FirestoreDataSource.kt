@@ -1683,13 +1683,9 @@ class FirestoreDataSource @Inject constructor(
      *  matcher callable accepts. Empty when the user never took the quiz. */
     @Suppress("UNCHECKED_CAST")
     suspend fun fetchMyTasteSeedPicks(uid: String): List<Map<String, Any?>> {
-        return try {
-            val doc = firestore.collection("users_v2").document(uid)
-                .collection("private").document("tasteSeed").get().await()
-            (doc.data?.get("picks") as? List<Map<String, Any?>>) ?: emptyList()
-        } catch (e: Exception) {
-            emptyList()
-        }
+        val doc = firestore.collection("users_v2").document(uid)
+            .collection("private").document("tasteSeed").get().await()
+        return (doc.data?.get("picks") as? List<Map<String, Any?>>) ?: emptyList()
     }
 
     @Suppress("UNCHECKED_CAST")

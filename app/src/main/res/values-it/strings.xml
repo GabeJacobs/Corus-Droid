@@ -520,7 +520,7 @@
     <string name="search_trending_films_title">Film di tendenza</string>
     <string name="search_trending_hashtags_title">Hashtag di tendenza</string>
     <string name="search_trending_artists_title">Artisti di tendenza</string>
-    <string name="search_new_release_albums_title">Nuove canzoni</string>
+    <string name="search_new_release_albums_title">Nuove uscite</string>
     <string name="search_new_release_albums_list_title">Nuove canzoni</string>
     <string name="search_nothing_new_releases">Ancora nessuna nuova canzone</string>
     <string name="search_new_release_films_title">Nuove uscite</string>
@@ -1422,7 +1422,7 @@
     <string name="destination_album_pause">Pausa</string>
     <string name="destination_album_play">Riproduci</string>
     <string name="feed_playlist_first_time_body">Corus trasforma il tuo feed in una playlist e la apre in %1$s. I membri Club possono generare in qualsiasi momento.</string>
-    <string name="feed_taste_matches_trial_banner_preview">Prova gratuita del feed Taste Matches</string>
+    <string name="feed_taste_matches_trial_banner_preview">Stai provando il feed Taste Matches</string>
     <string name="full_player_post">Pubblica</string>
     <string name="full_player_queue_done">Fatto</string>
     <string name="full_player_queue_edit">Modifica</string>
@@ -1480,4 +1480,10 @@
         <item quantity="one">Prova gratuita · %1$d giorno rimasto</item>
         <item quantity="other">Prova gratuita · %1$d giorni rimasti</item>
     </plurals>
+    <string name="club_onboarding_title">Ottieni il massimo da Corus</string>
+    <string name="club_onboarding_subtitle">Scopri contenuti di persone vere con cui hai affinità. Sostieni una community indipendente.</string>
+    <string name="club_onboarding_skip">Forse più tardi</string>
+    <string name="club_onboarding_renewal">Si rinnova automaticamente al prezzo del piano selezionato dopo qualsiasi prova gratuita. Annulla quando vuoi.</string>
+    <string name="club_onboarding_yearly_billed">Fatturato a %1$s/anno.</string>
+    <string name="club_feature_unlimited_saves">Salvataggi illimitati</string>
 </resources>

@@ -553,6 +553,11 @@ class UserRepository @Inject constructor(
      * [TASTE_MATCHES_MAX_AGE_MS]). The user is resolved from the signed-in auth
      * uid, matching iOS `getCachedTasteMatchesFirstPage`.
      */
+    fun takePreparedOnboardingTastePage(): fm.corus.android.data.model.TasteMatchesPage? {
+        val uid = auth.currentUser?.uid ?: return null
+        return cloudFunctions.takePreparedOnboardingTastePage(uid)
+    }
+
     suspend fun getCachedTasteMatchesFirstPage(): CachedTasteMatchesPage? {
         val uid = auth.currentUser?.uid ?: return null
         val entry = loadTasteMatchesFirstPageCache(uid) ?: return null

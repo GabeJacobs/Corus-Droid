@@ -9,7 +9,8 @@ enum class MusicService(val value: String) {
     APPLE_MUSIC("appleMusic"),
     TIDAL("tidal"),
     YOUTUBE_MUSIC("youtubeMusic"),
-    DEEZER("deezer");
+    DEEZER("deezer"),
+    AUDIOMACK("audiomack");
 
     val displayLabel: String
         get() = when (this) {
@@ -18,6 +19,7 @@ enum class MusicService(val value: String) {
             TIDAL -> "TIDAL"
             YOUTUBE_MUSIC -> "YouTube Music"
             DEEZER -> "Deezer"
+            AUDIOMACK -> "Audiomack"
         }
 
     companion object {

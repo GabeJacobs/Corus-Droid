@@ -30,9 +30,11 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    @Inject lateinit var mapDeviceCityRefresh: fm.corus.android.ui.screens.map.MapDeviceCityRefresh
     @Inject lateinit var subscriptionRepository: SubscriptionRepository
     @Inject lateinit var analyticsService: AnalyticsService
     @Inject lateinit var spotifyPlaybackService: SpotifyPlaybackService
+    @Inject lateinit var audiomackAuthService: fm.corus.android.domain.AudiomackAuthService
     @Inject lateinit var youtubeMusicService: fm.corus.android.domain.YouTubeMusicService
     @Inject lateinit var spotifyLibraryAuthService: SpotifyLibraryAuthService
 
@@ -46,6 +48,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         youtubeMusicService.attach(this)
+        handleAudiomackAuthRedirect(intent)
         handleSpotifyAuthRedirect(intent)
         handleNotificationIntent(intent)
         handleWebLinkIntent(intent)
@@ -53,6 +56,7 @@ class MainActivity : ComponentActivity() {
 
         lifecycle.addObserver(LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME && FirebaseAuth.getInstance().currentUser != null) {
+                lifecycleScope.launch { mapDeviceCityRefresh.refresh() }
                 lifecycleScope.launch {
                     subscriptionRepository.checkStatus()
                     // Catches the time-rolloff case: user posted N times, left
@@ -92,6 +96,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        handleAudiomackAuthRedirect(intent)
         handleSpotifyAuthRedirect(intent)
         handleNotificationIntent(intent)
         handleWebLinkIntent(intent)
@@ -103,6 +108,13 @@ class MainActivity : ComponentActivity() {
         if (requestCode == SpotifyConnectContext.AUTH_REQUEST_CODE) {
             SpotifyConnectContext.deliverAuthorizationResult(resultCode, data)
         }
+    }
+
+    private fun handleAudiomackAuthRedirect(intent: Intent?) {
+        val uri = intent?.data ?: return
+        if(uri.scheme != "corus" || uri.host != "audiomack-auth") return
+        intent.data = null
+        lifecycleScope.launch { try { audiomackAuthService.finish(uri) } catch(e: Exception) { if(e is kotlinx.coroutines.CancellationException) throw e; fm.corus.android.ui.components.ToastManager.show(e.message ?: "Couldn’t connect Audiomack.") } }
     }
 
     private fun handleSpotifyAuthRedirect(intent: Intent?) {

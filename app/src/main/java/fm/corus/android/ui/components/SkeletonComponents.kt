@@ -1348,7 +1348,7 @@ fun SkeletonMessageThreadRow() {
         // Circle avatar (48dp — avatarMedium)
         Box(
             modifier = Modifier
-                .size(CorusSpacing.avatarMedium)
+                .size(56.dp)
                 .clip(CircleShape)
                 .background(CorusColors.Skeleton)
         )

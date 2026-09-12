@@ -44,6 +44,33 @@ class TasteMatchesRailViewModelTest {
         userRepository = mock()
     }
 
+    @Test
+    fun `prepared onboarding page supplies five cards and lock before any load`() = runTest(testDispatcher) {
+        val approved = TasteMatchesPage(
+            matches = (1..5).map { match("allowed-$it") }, nextCursor = null, hasMore = false,
+            discovery = fm.corus.android.data.model.TasteDiscoveryAccess(variant = "b", locked = true, remainingCount = 23),
+        )
+        whenever(userRepository.takePreparedOnboardingTastePage()).thenReturn(approved)
+        val vm = TasteMatchesRailViewModel(userRepository)
+        assertTrue(vm.hasResolvedDiscovery.value)
+        assertTrue(vm.discovery.value.locked)
+        assertEquals(23, vm.discovery.value.remainingCount)
+        assertEquals(approved.matches, vm.matches.value)
+        assertFalse(vm.isLoading.value)
+        advanceUntilIdle()
+        verify(userRepository).cacheTasteMatchesFirstPage(approved)
+    }
+
+    @Test
+    fun `missing prepared access remains unresolved until a page succeeds`() = runTest(testDispatcher) {
+        val vm = TasteMatchesRailViewModel(userRepository)
+        assertFalse(vm.hasResolvedDiscovery.value)
+        whenever(userRepository.getTasteMatchesPage(cursor = anyOrNull(), limit = any())).thenReturn(page(listOf("allowed"), null, false))
+        vm.loadInitial()
+        advanceUntilIdle()
+        assertTrue(vm.hasResolvedDiscovery.value)
+    }
+
     @After
     fun tearDown() {
         Dispatchers.resetMain()

@@ -50,7 +50,9 @@ class NowPlayingManagerFeedQueueTest {
     }
 
     private fun newManager(): NowPlayingManager =
-        NowPlayingManager(context, cloudFunctions, preferencesDataStore, userRepository, mock(), mock(), mock(), mock(), mock(), mock(), mock(), mock(), mock(), mock(), mock(), mock())
+        NowPlayingManager(context, cloudFunctions, preferencesDataStore, userRepository, mock(), mock(), org.mockito.kotlin.mock(), mock(), mock(), mock(), mock(), mock(), mock(), mock(), mock(), mock(), mock(),
+            bandcampPlaybackService = org.mockito.kotlin.mock(),
+        )
 
     @Before
     fun setUp() { Dispatchers.setMain(testDispatcher) }

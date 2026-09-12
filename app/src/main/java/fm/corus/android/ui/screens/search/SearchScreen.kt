@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.search
 
+import fm.corus.android.ui.screens.destination.CatalogTrackRow
+
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -176,6 +178,7 @@ fun SearchScreen(
     onNavigateToAlbum: (fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit = {},
     onNavigateToDirector: (fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit = {},
     onNavigateToTrending: (String) -> Unit = {},
+    onNavigateToMap: () -> Unit = {},
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
     val userResults by viewModel.userSearchResults.collectAsState()
@@ -613,7 +616,7 @@ fun SearchScreen(
                     when (SearchTab.entries.getOrElse(page) { SearchTab.USERS }) {
                     SearchTab.USERS -> {
                         SuggestedUsersContent(
-                            listState = usersListState,
+                            onNavigateToMap = onNavigateToMap,                            listState = usersListState,
                             musicMatchUsers = musicMatchUsers,
                             seedTasteMatches = seedTasteMatches,
                             filterUnfollowedMatches = filterUnfollowedMatches,
@@ -677,6 +680,7 @@ fun SearchScreen(
                                     )
                                 }
                                 compactTrendingAlbumsSection(
+            nowPlaying = viewModel.nowPlayingManager,
                                     albums = trendingAlbums,
                                     isLoading = isTrendingAlbumsLoading,
                                     showRank = true,
@@ -688,6 +692,7 @@ fun SearchScreen(
                                     onSeeAll = { onNavigateToTrending("albums") },
                                 )
                                 compactTrendingAlbumsSection(
+            nowPlaying = viewModel.nowPlayingManager,
                                     albums = newReleaseAlbums,
                                     isLoading = isNewReleaseAlbumsLoading,
                                     showRank = false,
@@ -851,7 +856,7 @@ fun SearchScreen(
                         }
                     } else if (unifiedSearchEnabled) {
                         UnifiedZeroStateContent(
-                            listState = unifiedZeroListState,
+                            onNavigateToMap = onNavigateToMap,                            listState = unifiedZeroListState,
                             musicMatchUsers = musicMatchUsers,
                             seedTasteMatches = seedTasteMatches,
                             filterUnfollowedMatches = filterUnfollowedMatches,
@@ -1248,6 +1253,7 @@ private fun RecentHashtagMedia() {
 
 @Composable
 private fun SuggestedUsersContent(
+    onNavigateToMap: () -> Unit,
     listState: LazyListState = rememberLazyListState(),
     musicMatchUsers: List<SuggestedUserMatch>,
     seedTasteMatches: List<SuggestedUserMatch>,
@@ -1299,6 +1305,7 @@ private fun SuggestedUsersContent(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = CorusSpacing.xxs),
     ) {
+        item(key = "corus_map_preview") { fm.corus.android.ui.screens.map.MapPreviewEntry(onNavigateToMap) }
         contactsSections(
             contactsSyncStatus = contactsSyncStatus,
             isSyncingContacts = isSyncingContacts,
@@ -1474,11 +1481,9 @@ private fun LazyListScope.tasteMatchesSections(
     // Always present the section: real cards when we have matches, a skeleton
     // while we're still loading/polling, and a short explainer whenever a user
     // has no taste matches yet so the slot reads as "coming soon" rather than
-    // missing. A viewer below the post threshold skips the skeleton entirely
-    // (the ViewModel also skips their fetch and poll), so they reach the
-    // explainer immediately instead of shimmering through a scan that can't
-    // produce matches.
-    if (musicMatchUsers.isNotEmpty()) {
+    // missing. Even below the post threshold, wait for the saved quiz check
+    // before declaring an empty result. Cached quiz cards remain visible.
+    if (musicMatchUsers.isNotEmpty() || seedTasteMatches.isNotEmpty()) {
         item {
             // Paginated rail backed by getTasteMatchesPage — pages the FULL
             // strength-ranked list (not the capped top-15 preview), so the
@@ -1490,6 +1495,8 @@ private fun LazyListScope.tasteMatchesSections(
             val tasteFilterCd = stringResource(fm.corus.android.R.string.search_cd_filter_taste_matches)
             val tasteMatchesTitle = stringResource(fm.corus.android.R.string.search_taste_matches_title)
             HorizontalTasteMatchesRail(
+                refreshKey = musicMatchUsers.hashCode(),
+                initialMatches = seedTasteMatches.ifEmpty { musicMatchUsers },
                 followedIds = allFollowedIds,
                 filterUnfollowed = filterUnfollowedMatches,
                 onClearFilter = { onSetFilterUnfollowed(false) },
@@ -1520,7 +1527,7 @@ private fun LazyListScope.tasteMatchesSections(
             )
             Spacer(modifier = Modifier.height(CorusSpacing.sm))
         }
-    } else if ((isSuggestedLoading || isTasteMatchPolling) && !belowTasteMatchThreshold) {
+    } else if ((isSuggestedLoading || isTasteMatchPolling) && seedTasteMatches.isEmpty()) {
         item {
             SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.R.string.search_section_taste_matches))
         }
@@ -1535,7 +1542,7 @@ private fun LazyListScope.tasteMatchesSections(
             }
             Spacer(modifier = Modifier.height(CorusSpacing.sm))
         }
-    } else if (tasteMatchLoadFailed) {
+    } else if (tasteMatchLoadFailed && seedTasteMatches.isEmpty()) {
         // Failed/timed-out load with nothing to show: hide the section entirely
         // rather than implying the user has no taste matches. It reappears on the
         // next successful load (or the cold-start poll recovering).
@@ -1854,55 +1861,11 @@ private fun LazyListScope.compactTrendingSongsSection(
             },
         )
     }
-    // Horizontal slider of art tiles (web's compact strip, but scrollable to
-    // reach the full loaded list). Rank sits on the art; post counts stay
-    // on the See-all list.
     item {
-        LazyRow(
-            modifier = Modifier.fillMaxWidth().deferToInnerHorizontalScroll(),
-            contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
-            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-        ) {
-            if (isLoading) {
-                items(4) {
-                    Box(
-                        modifier = Modifier
-                            .size(120.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(CorusColors.CardBackground),
-                    )
-                }
-            } else {
-                items(songs, key = { "ts-${it.track.id}" }) { song ->
-                    Column(
-                        modifier = Modifier
-                            .width(120.dp)
-                            .clickable { onSongTap(song.track) },
-                    ) {
-                        // Large art first: the small thumb is sized for list
-                        // rows and upscales blurry at tile size.
-                        Box {
-                            ShimmerAsyncImage(
-                                model = song.track.albumArtLargeURL ?: song.track.albumArtURL,
-                                contentDescription = "${song.rank}. ${song.track.name}",
-                                modifier = Modifier.size(120.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                contentScale = ContentScale.Crop,
-                            )
-                            TrendingTileRankBadge(
-                                rank = song.rank,
-                                modifier = Modifier.align(Alignment.TopStart),
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                        Text(song.track.name, style = CorusFont.captionMedium, color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(song.track.artistName, style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-            }
-        }
+        val expanded by viewModel.discoveryExpanded.collectAsState()
+        ExpandableDiscoverySongs(songs.map { it.track }, isLoading, nowPlaying, expanded = "trending" in expanded, onToggle = { viewModel.toggleDiscoveryExpanded("trending") }, ranked = true, onSong = onSongTap)
     }
-    item { Spacer(modifier = Modifier.height(CorusSpacing.sm)) }
+
 }
 
 /** Compact trending-films strip: header + horizontal posters + See all.
@@ -2172,8 +2135,19 @@ private fun LazyListScope.compactTrendingAlbumsSection(
     icon: String,
     onAlbumTap: (TrendingAlbum) -> Unit,
     onSeeAll: () -> Unit,
+    nowPlaying: fm.corus.android.domain.NowPlayingManager,
 ) {
     if (!isLoading && albums.isEmpty()) return
+    if (!showRank) {
+        item {
+            SectionHeader(icon = icon, title = stringResource(titleRes).uppercase(), showSeeAll = true, onSeeAll = onSeeAll)
+            val expanded by viewModel.discoveryExpanded.collectAsState()
+            ExpandableDiscoverySongs(albums.mapNotNull { it.asSongTrack() }, isLoading, nowPlaying, expanded = "new-releases" in expanded, onToggle = { viewModel.toggleDiscoveryExpanded("new-releases") }) { track ->
+                albums.firstOrNull { it.trackId == track.id }?.let(onAlbumTap)
+            }
+        }
+        return
+    }
     item {
         CompactTrendingAlbumsRail(
             albums = albums,
@@ -2354,6 +2328,7 @@ private fun LazyListScope.compactTrendingArtistsSection(
  */
 @Composable
 private fun UnifiedZeroStateContent(
+    onNavigateToMap: () -> Unit,
     listState: LazyListState,
     musicMatchUsers: List<SuggestedUserMatch>,
     seedTasteMatches: List<SuggestedUserMatch>,
@@ -2421,6 +2396,7 @@ private fun UnifiedZeroStateContent(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = CorusSpacing.xxs),
     ) {
+        item(key = "corus_map_preview") { fm.corus.android.ui.screens.map.MapPreviewEntry(onNavigateToMap) }
         contactsSections(
             contactsSyncStatus = contactsSyncStatus,
             isSyncingContacts = isSyncingContacts,
@@ -2456,6 +2432,7 @@ private fun UnifiedZeroStateContent(
             onSeeAll = { onNavigateToTrending("songs") },
         )
         compactTrendingAlbumsSection(
+            nowPlaying = viewModel.nowPlayingManager,
             albums = trendingAlbums,
             isLoading = isTrendingAlbumsLoading,
             showRank = true,
@@ -2467,6 +2444,7 @@ private fun UnifiedZeroStateContent(
             onSeeAll = { onNavigateToTrending("albums") },
         )
         compactTrendingAlbumsSection(
+            nowPlaying = viewModel.nowPlayingManager,
             albums = newReleaseAlbums,
             isLoading = isNewReleaseAlbumsLoading,
             showRank = false,
@@ -2935,7 +2913,7 @@ private fun NoContactMatchesCard() {
  * so it reads as "coming soon" rather than a broken/empty rail.
  */
 @Composable
-private fun TasteMatchesEmptyCard() {
+internal fun TasteMatchesEmptyCard() {
     val shape = RoundedCornerShape(CorusSpacing.cornerRadiusLarge)
     Box(
         modifier = Modifier
@@ -2961,6 +2939,7 @@ internal fun SectionHeader(
     showSeeAll: Boolean = false,
     onSeeAll: () -> Unit = {},
     trailingAction: (@Composable () -> Unit)? = null,
+    seeAllLabel: String? = null,
 ) {
     Row(
         modifier = Modifier
@@ -3023,7 +3002,7 @@ internal fun SectionHeader(
         Spacer(modifier = Modifier.weight(1f))
         if (showSeeAll) {
             Text(
-                stringResource(fm.corus.android.R.string.search_see_all),
+                seeAllLabel ?: stringResource(fm.corus.android.R.string.search_see_all),
                 style = CorusFont.captionMedium,
                 color = CorusColors.Accent,
                 modifier = Modifier.clickable(onClick = onSeeAll),
@@ -3243,19 +3222,9 @@ internal fun TrendingSongsContent(
         LazyColumn(state = listState, modifier = modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
             item { header() }
             itemsIndexed(songs) { index, song ->
-                TrendingSongRow(
-                    song = song,
-                    nowPlaying = nowPlaying,
-                    queue = queue,
-                    onClick = {
-                        // Stage for song-detail play so Next still walks the chart.
-                        nowPlaying.stageCatalogQueue(queue)
-                        onSongTap(song.track)
-                    },
-                )
-                if (index < songs.lastIndex) {
-                    HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = CorusColors.Divider, thickness = 0.5.dp)
-                }
+                CatalogTrackRow(discovery = true, discoveryRank = index + 1, track = song.track, nowPlaying = nowPlaying, queue = queue,
+                    onRowTap = { nowPlaying.stageCatalogQueue(queue); onSongTap(song.track) }, onPreviewStarted = {})
+
             }
         }
     }
@@ -4546,5 +4515,35 @@ private fun HashtagFollowPill(
         modifier = Modifier.height(30.dp),
     ) {
         Text(text = label, style = CorusFont.buttonSmall)
+    }
+}
+
+@Composable
+private fun ExpandableDiscoverySongs(
+    tracks: List<CymbalTrack>, loading: Boolean,
+    nowPlaying: fm.corus.android.domain.NowPlayingManager,
+    expanded: Boolean, onToggle: () -> Unit, ranked: Boolean = false,
+    onSong: (CymbalTrack) -> Unit,
+) {
+    val queue = remember(tracks) { tracks.filter { it.source != TrackSource.TIDAL && it.source != TrackSource.DEEZER }.map { it.toQueuedTrack() } }
+    Column {
+        if (loading) repeat(3) { SkeletonTrendingSongRow() }
+        else {
+            tracks.take(3).forEach { track ->
+                CatalogTrackRow(discovery = true, discoveryRank = if (ranked) tracks.indexOf(track) + 1 else null, track = track, nowPlaying = nowPlaying, queue = queue,
+                    onRowTap = { nowPlaying.stageCatalogQueue(queue); onSong(track) }, onPreviewStarted = {})
+            }
+            androidx.compose.animation.AnimatedVisibility(visible = expanded,
+                enter = androidx.compose.animation.expandVertically(animationSpec = androidx.compose.animation.core.tween(200)),
+                exit = androidx.compose.animation.shrinkVertically(animationSpec = androidx.compose.animation.core.tween(200))) {
+                Column { tracks.drop(3).take(7).forEach { track ->
+                    CatalogTrackRow(discovery = true, discoveryRank = if (ranked) tracks.indexOf(track) + 1 else null, track = track, nowPlaying = nowPlaying, queue = queue,
+                        onRowTap = { nowPlaying.stageCatalogQueue(queue); onSong(track) }, onPreviewStarted = {})
+                } }
+            }
+            if (tracks.size > 3) TextButton(onClick = onToggle, modifier = Modifier.padding(horizontal = CorusSpacing.sm)) {
+                Text(stringResource(if (expanded) fm.corus.android.R.string.parity_show_less else fm.corus.android.R.string.parity_see_more), color = CorusColors.Secondary)
+            }
+        }
     }
 }

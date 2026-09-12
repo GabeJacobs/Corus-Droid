@@ -39,6 +39,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -77,7 +78,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -1206,7 +1206,6 @@ fun FeedScreen(
                     if (isSelected && showTasteMatchesTrialBanner) {
                         item(key = "taste_matches_trial_banner", contentType = "taste_matches_trial_banner") {
                             TasteMatchesTrialBanner(
-                                trial = tasteMatchesTrial!!,
                                 onClick = { viewModel.onTasteMatchesBannerTapped() },
                             )
                         }
@@ -2286,52 +2285,44 @@ private fun TasteMatchesNoMatchesYet(onPost: () -> Unit) {
 }
 
 /**
- * Small blue tappable banner above the live Taste Matches feed for a free
- * (non-full-access) viewer on the `taste_matches_free_trial` path. "preview"
- * (haven't hit the cold-start post threshold, clock not started) reads
- * "Free trial of Taste Matches feed"; "trial" (clock running) reads
- * "Free trial · X days left". Tapping opens the Club paywall (source
- * `taste_matches_banner`); expiry itself is handled by the existing
- * gated:"paywall" empty state, not this banner. Mirrors iOS/web.
+ * Shows the same preview copy before and during the timed trial.
+ * Tapping opens the Club paywall; the server handles trial expiry.
  */
 @Composable
-private fun TasteMatchesTrialBanner(
-    trial: fm.corus.android.data.remote.TasteMatchesTrial,
-    onClick: () -> Unit,
-) {
-    val text = if (trial.phase == "trial") {
-        pluralStringResource(
-            R.plurals.feed_taste_matches_trial_banner_active,
-            trial.daysRemaining ?: 0,
-            trial.daysRemaining ?: 0,
-        )
-    } else {
-        stringResource(R.string.feed_taste_matches_trial_banner_preview)
-    }
+private fun TasteMatchesTrialBanner(onClick: () -> Unit) {
+    val text = stringResource(R.string.feed_taste_matches_trial_banner_preview)
     // Full-bleed square strip (no rounded corners) — matches iOS/web.
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(CorusColors.Accent)
             .clickable(onClick = onClick)
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
     ) {
-        VennDiagramIcon(size = 14.dp, color = Color.White, shadedIntersection = true)
-        Spacer(modifier = Modifier.width(CorusSpacing.xs))
-        Text(
-            text = text,
-            style = CorusFont.captionMedium,
-            color = Color.White,
-            maxLines = 1,
-            modifier = Modifier.weight(1f),
-        )
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = Color.White.copy(alpha = 0.8f),
-            modifier = Modifier.size(18.dp),
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
+        ) {
+            VennDiagramIcon(size = 14.dp, color = Color.White, shadedIntersection = true)
+            Text(text = text, style = CorusFont.captionMedium, color = Color.White)
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
+        ) {
+            Text(
+                text = stringResource(R.string.settings_row_join_club),
+                style = CorusFont.captionMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = Color.White,
+            )
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(14.dp),
+            )
+        }
     }
 }
 

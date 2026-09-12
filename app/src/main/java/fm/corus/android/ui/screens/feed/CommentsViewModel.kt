@@ -17,6 +17,7 @@ import fm.corus.android.data.model.KlipyGif
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.ShareRecipient
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.HashtagSuggestion
 import fm.corus.android.data.repository.AuthRepository
@@ -1062,11 +1063,11 @@ class CommentsViewModel @Inject constructor(
 
     // ── Post menu actions (share, report, block, etc) ──
 
-    private val _shareSearchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
-    override val shareSearchResults: StateFlow<List<CymbalUser>> = _shareSearchResults.asStateFlow()
+    private val _shareSearchResults = MutableStateFlow<List<ShareRecipient>>(emptyList())
+    override val shareSearchResults: StateFlow<List<ShareRecipient>> = _shareSearchResults.asStateFlow()
 
-    private val _recentShareContacts = MutableStateFlow<List<CymbalUser>>(emptyList())
-    override val recentShareContacts: StateFlow<List<CymbalUser>> = _recentShareContacts.asStateFlow()
+    private val _recentShareContacts = MutableStateFlow<List<ShareRecipient>>(emptyList())
+    override val recentShareContacts: StateFlow<List<ShareRecipient>> = _recentShareContacts.asStateFlow()
 
     private val _isShareSearching = MutableStateFlow(false)
     override val isShareSearching: StateFlow<Boolean> = _isShareSearching.asStateFlow()
@@ -1098,10 +1099,9 @@ class CommentsViewModel @Inject constructor(
 
     override fun loadRecentShareContacts() {
         val userId = authRepository.currentUserId ?: return
-        loadRecentDmShareContacts(
+        loadRecentShareRecipients(
             userId = userId,
             messageRepository = messageRepository,
-            currentContacts = _recentShareContacts.value,
             setContacts = { _recentShareContacts.value = it },
             setLoading = { _isLoadingShareContacts.value = it },
             scope = viewModelScope,
@@ -1118,11 +1118,14 @@ class CommentsViewModel @Inject constructor(
         }
 
         shareSearchJob?.cancel()
+        _shareSearchResults.value = emptyList()
         shareSearchJob = viewModelScope.launch {
             _isShareSearching.value = true
             delay(250)
             try {
-                _shareSearchResults.value = userRepository.searchUsers(trimmed, includeFollowed = true)
+                _shareSearchResults.value = messageRepository.searchShareRecipients(authRepository.currentUserId ?: return@launch, trimmed, userRepository)
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
             } catch (_: Exception) {
                 _shareSearchResults.value = emptyList()
             }
@@ -1134,7 +1137,7 @@ class CommentsViewModel @Inject constructor(
         val currentUserId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             try {
-                val threadId = messageRepository.getOrCreateThread(currentUserId, userId)
+                val threadId = messageRepository.resolveShareThread(currentUserId, userId)
                 messageRepository.sendSharedPostMessage(
                     threadId = threadId,
                     fromUserId = currentUserId,

@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -89,6 +91,12 @@
                 <data android:scheme="corus" android:host="spotify-auth" />
             </intent-filter>
 
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="corus" android:host="audiomack-auth" />
+            </intent-filter>
             <!-- Universal link: https://corus.fm — the public pages, every one of
                  which has a screen in the app (see DeepLinkHandler.parsePublicUrl;
                  the shapes themselves are owned by Corus-Web

@@ -25,6 +25,9 @@ class RemoteConfigService @Inject constructor(
     private val auth: FirebaseAuth,
     @ApplicationContext private val context: Context,
 ) {
+    private val _revision = MutableStateFlow(0)
+    val revision = _revision.asStateFlow()
+
     init {
         // Apply in-app defaults the moment this service is constructed. This is a
         // purely local operation (no network), so unlike fetchAndActivate() it is
@@ -33,6 +36,14 @@ class RemoteConfigService @Inject constructor(
         // until the network fetch's setDefaultsAsync lands, which on a fresh signup
         // silently dropped the flag-gated TIDAL/Deezer cards from the player picker.
         remoteConfig.setDefaultsAsync(DEFAULTS)
+        remoteConfig.addOnConfigUpdateListener(object : com.google.firebase.remoteconfig.ConfigUpdateListener {
+            override fun onUpdate(update: com.google.firebase.remoteconfig.ConfigUpdate) {
+                remoteConfig.activate().addOnSuccessListener { cacheFeedFlags(); _revision.value += 1 }
+            }
+            override fun onError(error: com.google.firebase.remoteconfig.FirebaseRemoteConfigException) {
+                Log.w("RemoteConfig", "Realtime update unavailable; keeping activated config", error)
+            }
+        })
     }
 
     /// Dev override store. SharedPreferences-backed so toggles persist
@@ -57,6 +68,7 @@ class RemoteConfigService @Inject constructor(
     /// otherwise the last value we persisted (so feed-gated UI renders correctly
     /// before the disk-cached config loads / a fetch completes).
     private fun feedFlag(key: String): Boolean {
+        if (BuildConfig.DEBUG && devPrefs.contains(key)) return devPrefs.getBoolean(key, false)
         val value = remoteConfig.getValue(key)
         return if (value.source == FirebaseRemoteConfig.VALUE_SOURCE_REMOTE) {
             value.asBoolean()
@@ -72,6 +84,7 @@ class RemoteConfigService @Inject constructor(
     /// which silently drops flag-gated UI. Defaults are applied locally in init(),
     /// so the window is small, but the picker must be correct from its first frame.
     private fun flagWithDefault(key: String, default: Boolean): Boolean {
+        if (BuildConfig.DEBUG && devPrefs.contains(key)) return devPrefs.getBoolean(key, default)
         val value = remoteConfig.getValue(key)
         return if (value.source == FirebaseRemoteConfig.VALUE_SOURCE_STATIC) {
             default
@@ -204,6 +217,11 @@ class RemoteConfigService @Inject constructor(
     /// playlist export falls back to Spotify, exactly like Deezer. Defaults to
     /// FALSE so a build that ships before launch shows no change to any user until
     /// the key is flipped on in Remote Config. Mirrors iOS/web `youtube_music_enabled`.
+    val audiomackStreamingEnabled: Boolean get() = flagWithDefault("audiomack_streaming_enabled", false)
+    val mapEnabled: Boolean get() = flagWithDefault("map_enabled", false)
+    val artistMerchEnabled: Boolean get() = flagWithDefault("artist_merch_enabled", false)
+    val trophyCaseDisabled: Boolean get() = flagWithDefault("trophy_case_disabled", false)
+
     val youtubeMusicIntegrationEnabled: Boolean
         get() = flagWithDefault("youtube_music_integration_enabled", false)
 
@@ -415,6 +433,19 @@ class RemoteConfigService @Inject constructor(
     /// Init-race-safe feedFlag path: a fresh signup reaches SocialSetupFlow
     /// right after install, and the flow must branch correctly on its very
     /// first frame.
+    val onboardingClubOfferEnabled: Boolean
+        get() = feedFlag("onboarding_club_offer_enabled")
+
+    private val clubOfferState get() = context.getSharedPreferences("onboarding_club_offer", Context.MODE_PRIVATE)
+
+    fun claimThirdPostOffer(total: Int): Boolean {
+        val uid = auth.currentUser?.uid ?: return false
+        val key = "third_post.$uid"
+        if (!onboardingClubOfferEnabled || total < 3 || clubOfferState.getBoolean(key, false)) return false
+        clubOfferState.edit().putBoolean(key, true).apply()
+        return true
+    }
+
     val onboardingTasteMatchEnabled: Boolean
         get() = feedFlag("onboarding_taste_match_enabled")
 
@@ -622,6 +653,7 @@ class RemoteConfigService @Inject constructor(
                     remoteConfig.fetchAndActivate().await()
                 }
                 cacheFeedFlags()
+                _revision.value += 1
                 logValues(activated)
             } catch (e: Exception) {
                 Log.w("RemoteConfig", "fetchAndActivate failed", e)
@@ -662,6 +694,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("notification_filters_enabled", remoteConfig.getBoolean("notification_filters_enabled"))
             .putBoolean("books_enabled", remoteConfig.getBoolean("books_enabled"))
             .putBoolean("feed_switch_hint_enabled", remoteConfig.getBoolean("feed_switch_hint_enabled"))
+            .putBoolean("onboarding_club_offer_enabled", remoteConfig.getBoolean("onboarding_club_offer_enabled"))
             .putBoolean("onboarding_taste_match_enabled", remoteConfig.getBoolean("onboarding_taste_match_enabled"))
             .putBoolean("taste_matches_enabled", remoteConfig.getBoolean("taste_matches_enabled"))
             .putBoolean("taste_matches_tester", remoteConfig.getBoolean("taste_matches_tester"))
@@ -723,6 +756,9 @@ class RemoteConfigService @Inject constructor(
         /// fetchAndActivate(). Single source of truth — keep in sync with the
         /// server template and the iOS/web defaults.
         private val DEFAULTS: Map<String, Any> = mapOf(
+            "map_enabled" to false,
+            "artist_merch_enabled" to false,
+            "trophy_case_disabled" to false,
             "movie_mode" to true,
             "maintenance_mode" to false,
             "instagram_share_enabled" to true,
@@ -782,6 +818,7 @@ class RemoteConfigService @Inject constructor(
             // Default FALSE in code — the server-side param defaults true (web
             // is live) with an Android app-id condition forcing false; the
             // in-code default keeps the flow dark even before the first fetch.
+            "onboarding_club_offer_enabled" to false,
             "onboarding_taste_match_enabled" to false,
             "email_otp_auth_enabled" to false,
             "feed_switch_hint_min_session" to 1L,

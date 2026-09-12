@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.messaging
 
+import fm.corus.android.domain.CityChatPolicy
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -62,16 +63,20 @@ internal fun mergeMessagePages(
 @HiltViewModel
 class MessageThreadViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
-    private val authRepository: AuthRepository,
-    private val userRepository: UserRepository,
+    val authRepository: AuthRepository,
+    val userRepository: UserRepository,
     private val exploreRepository: ExploreRepository,
     private val postRepository: fm.corus.android.data.repository.PostRepository,
     private val remoteConfigService: RemoteConfigService,
     private val gifRepository: fm.corus.android.data.repository.GifRepository,
     val nowPlayingManager: fm.corus.android.domain.NowPlayingManager,
-    private val analyticsService: fm.corus.android.service.AnalyticsService,
+    val analyticsService: fm.corus.android.service.AnalyticsService,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
+    fun blockSender(userId: String) {
+        val viewer = currentUserId ?: return
+        viewModelScope.launch { try { userRepository.blockUser(viewer, userId) } catch (e: Exception) { _cityActionError.value = e.message ?: "Couldn’t block this person." } }
+    }
     private val messageLocalStore = MessageLocalStore(context)
 
     val gifSupport: Boolean
@@ -437,7 +442,7 @@ class MessageThreadViewModel @Inject constructor(
         if (cached.isGroup) {
             if (_groupInfo.value == null) {
                 _groupInfo.value = MessageRepository.GroupThreadInfo(
-                    isGroup = true,
+                    cityChatId = cached.cityChatId, cityName = cached.cityName,                    isGroup = true,
                     name = cached.groupName,
                     photoURL = cached.groupPhotoURL,
                     memberIds = cached.memberIds,
@@ -637,17 +642,37 @@ class MessageThreadViewModel @Inject constructor(
 
     // ── Group actions (driven by the Group Info sheet) ──
 
+    val blockedUserIds = userRepository.blockedIds
+    private val _cityActionError = MutableStateFlow<String?>(null)
+    val cityActionError = _cityActionError.asStateFlow()
+    fun clearCityActionError() { _cityActionError.value = null }
+    suspend fun cityNotifications(mode: String? = null): String = messageRepository.cityChatNotifications(currentThreadId ?: error("Open a chat first"), mode)
+    fun claimCityWelcome(): Boolean {
+        val uid = currentUserId ?: return false; val thread = currentThreadId ?: return false
+        if (_groupInfo.value?.cityChatId.isNullOrBlank()) return false
+        val prefs = context.getSharedPreferences("city_chat_welcome", Context.MODE_PRIVATE); val key = "$uid.$thread"
+        if (prefs.getBoolean(key, false)) return false
+        prefs.edit().putBoolean(key, true).apply(); return true
+    }
+    fun deleteCityMessage(messageId: String) {
+        if (!CityChatPolicy.canDeleteMessages(_groupInfo.value?.cityChatId, currentUserId)) return
+        val id = currentThreadId ?: return
+        viewModelScope.launch { try { messageRepository.deleteCityChatMessage(id, messageId) } catch (e: Exception) { _cityActionError.value = e.message ?: "Couldn’t delete message" } }
+    }
     fun renameGroup(name: String) {
+        if (!CityChatPolicy.canEditIdentity(_groupInfo.value?.cityChatId, currentUserId)) return
         val id = currentThreadId ?: return
         viewModelScope.launch {
             try {
-                messageRepository.renameGroup(id, name.trim())
+                val city = _groupInfo.value?.cityChatId
+                if (city != null) messageRepository.renameCity(city, name.trim()) else messageRepository.renameGroup(id, name.trim())
                 analyticsService.logGroupRenamed(id)
             } catch (_: Exception) {}
         }
     }
 
     fun setGroupPhoto(url: String) {
+        if (!CityChatPolicy.canEditIdentity(_groupInfo.value?.cityChatId, currentUserId)) return
         val id = currentThreadId ?: return
         viewModelScope.launch {
             try {
@@ -658,6 +683,7 @@ class MessageThreadViewModel @Inject constructor(
     }
 
     fun addGroupMembers(users: List<fm.corus.android.data.model.CymbalUser>) {
+        if (!CityChatPolicy.canAddMembers(_groupInfo.value?.cityChatId)) return
         val id = currentThreadId ?: return
         if (users.isEmpty()) return
         val userIds = users.map { it.id }
@@ -756,6 +782,7 @@ class MessageThreadViewModel @Inject constructor(
 
     /** Begin editing one of the caller's own text messages. Mutually exclusive with reply. */
     fun startEditing(message: CymbalMessage) {
+        if (!CityChatPolicy.canEditMessages(_groupInfo.value?.cityChatId)) return
         _replyToMessage.value = null
         _editingMessage.value = message
         clearMentions()
@@ -773,6 +800,7 @@ class MessageThreadViewModel @Inject constructor(
      * re-opens so the user can retry.
      */
     fun editMessage(threadId: String, newText: String) {
+        if (!CityChatPolicy.canEditMessages(_groupInfo.value?.cityChatId)) { _editingMessage.value = null; return }
         val target = _editingMessage.value ?: return
         val resolvedId = currentThreadId ?: threadId
         val trimmed = newText.trim()

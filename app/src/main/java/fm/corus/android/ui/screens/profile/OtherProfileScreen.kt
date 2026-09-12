@@ -913,6 +913,7 @@ fun OtherProfileScreen(
                         }
                     }
 
+                    TrophyCase(currentProfile, onPost = onNavigateToPost)
                     val hasUserInfo = currentProfile.bio.isNotBlank() ||
                         !currentProfile.website.isNullOrBlank()
 

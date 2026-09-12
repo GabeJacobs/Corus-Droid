@@ -7,6 +7,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.ShareRecipient
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.remote.CloudFunctionsDataSource
@@ -25,7 +26,7 @@ import fm.corus.android.domain.FullSongPlayCoordinator
 import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.ui.screens.feed.applyCommentDeleteToPosts
 import fm.corus.android.ui.screens.feed.applyCommentEditToPosts
-import fm.corus.android.ui.screens.feed.loadRecentDmShareContacts
+import fm.corus.android.ui.screens.feed.loadRecentShareRecipients
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.PostMenuActions
@@ -148,11 +149,11 @@ class ProfileFeedViewModel @Inject constructor(
     private val PAGE_SIZE = 15
 
     // ── Share search state ──
-    private val _shareSearchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
-    override val shareSearchResults: StateFlow<List<CymbalUser>> = _shareSearchResults.asStateFlow()
+    private val _shareSearchResults = MutableStateFlow<List<ShareRecipient>>(emptyList())
+    override val shareSearchResults: StateFlow<List<ShareRecipient>> = _shareSearchResults.asStateFlow()
 
-    private val _recentShareContacts = MutableStateFlow<List<CymbalUser>>(emptyList())
-    override val recentShareContacts: StateFlow<List<CymbalUser>> = _recentShareContacts.asStateFlow()
+    private val _recentShareContacts = MutableStateFlow<List<ShareRecipient>>(emptyList())
+    override val recentShareContacts: StateFlow<List<ShareRecipient>> = _recentShareContacts.asStateFlow()
 
     private val _isShareSearching = MutableStateFlow(false)
     override val isShareSearching: StateFlow<Boolean> = _isShareSearching.asStateFlow()
@@ -571,10 +572,9 @@ class ProfileFeedViewModel @Inject constructor(
 
     override fun loadRecentShareContacts() {
         val userId = authRepository.currentUserId ?: return
-        loadRecentDmShareContacts(
+        loadRecentShareRecipients(
             userId = userId,
             messageRepository = messageRepository,
-            currentContacts = _recentShareContacts.value,
             setContacts = { _recentShareContacts.value = it },
             setLoading = { _isLoadingShareContacts.value = it },
             scope = viewModelScope,
@@ -591,11 +591,14 @@ class ProfileFeedViewModel @Inject constructor(
         }
 
         shareSearchJob?.cancel()
+        _shareSearchResults.value = emptyList()
         shareSearchJob = viewModelScope.launch {
             _isShareSearching.value = true
             delay(250)
             try {
-                _shareSearchResults.value = userRepository.searchUsers(trimmed, includeFollowed = true)
+                _shareSearchResults.value = messageRepository.searchShareRecipients(authRepository.currentUserId ?: return@launch, trimmed, userRepository)
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
             } catch (_: Exception) {
                 _shareSearchResults.value = emptyList()
             }
@@ -607,7 +610,7 @@ class ProfileFeedViewModel @Inject constructor(
         val currentUserId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             try {
-                val threadId = messageRepository.getOrCreateThread(currentUserId, userId)
+                val threadId = messageRepository.resolveShareThread(currentUserId, userId)
                 messageRepository.sendSharedPostMessage(
                     threadId = threadId,
                     fromUserId = currentUserId,

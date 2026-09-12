@@ -103,8 +103,10 @@ class SubscriptionRepositoryTest {
     }
 
     @Test
-    fun `hard cap constant is 250 in a 6h window`() {
-        assertEquals(250, SubscriptionRepository.DAILY_POST_LIMIT_HARD)
+    fun `hard cap constant is 400 in a 6h window`() {
+        // Keep this in sync with the accepted iOS 1.6.8 SubscriptionService
+        // and the backend hard-cap rule.
+        assertEquals(400, SubscriptionRepository.DAILY_POST_LIMIT_HARD)
         assertEquals(6L * 60L * 60L * 1000L, SubscriptionRepository.HARD_CAP_WINDOW_MS)
     }
 
@@ -288,8 +290,11 @@ class SubscriptionRepositoryTest {
             CloudFunctionsDataSource.CheckCanPostResult(canPost = true, recentCount = 0, recentCountHard = 0, dailyLimit = 3)
         )
 
-        repo.refreshPostLimitIfNeeded(now = 1_000_000L)
-        repo.refreshPostLimitIfNeeded(now = 1_000_000L + SubscriptionRepository.POST_LIMIT_REFRESH_THROTTLE_MS + 1)
+        // Use the real-clock domain used by refreshPostLimit(), rather than a
+        // synthetic past timestamp that is discarded after the first refresh.
+        val now = System.currentTimeMillis()
+        repo.refreshPostLimitIfNeeded(now = now)
+        repo.refreshPostLimitIfNeeded(now = now + SubscriptionRepository.POST_LIMIT_REFRESH_THROTTLE_MS + 1)
 
         verify(cloudFunctions, org.mockito.kotlin.times(2)).checkCanPost()
     }

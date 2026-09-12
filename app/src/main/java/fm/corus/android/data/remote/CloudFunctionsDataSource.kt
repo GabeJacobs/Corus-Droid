@@ -381,6 +381,12 @@ class CloudFunctionsDataSource @Inject constructor(
     private val remoteConfigService: RemoteConfigService,
     private val auth: FirebaseAuth,
 ) {
+    suspend fun audiomackLinkOutUrl(name: String, artist: String, isrc: String?): String? {
+        val uid = auth.currentUser?.uid ?: return null
+        val result = functions.getHttpsCallable("audiomackLookup").call(mapOf("name" to name, "artist" to artist, "isrc" to isrc)).await().getData() as? Map<*, *> ?: return null
+        if(auth.currentUser?.uid != uid) return null
+        return (result["audiomackUrl"] as? String)?.takeIf { android.net.Uri.parse(it).scheme == "https" }
+    }
     // ── Email OTP auth ──
 
     suspend fun sendEmailOtpCode(email: String) {
@@ -623,11 +629,13 @@ class CloudFunctionsDataSource @Inject constructor(
         pageSize: Int = 15,
         mediaType: String? = null,
     ): ProfileData {
+        val viewer = auth.currentUser?.uid
         val params = mutableMapOf<String, Any>("userId" to userId, "pageSize" to pageSize)
         mediaType?.let { params["mediaType"] = it }
         val result = functions.getHttpsCallable("getProfileData").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: return ProfileData(null, emptyList())
 
+        if(viewer == auth.currentUser?.uid)fm.corus.android.domain.ProfileTrophySummary.remember(viewer,userId,(data["trophyCount"] as? Number)?.toInt())
         val userMap = data["user"] as? Map<String, Any?>
         val user = userMap?.let { CymbalUser.fromMap(it["id"] as? String ?: "", it) }
         val postDicts = data["posts"] as? List<Map<String, Any?>> ?: emptyList()
@@ -1036,11 +1044,12 @@ class CloudFunctionsDataSource @Inject constructor(
     )
 
     @Suppress("UNCHECKED_CAST")
-    suspend fun listThreadsPage(userId: String, limit: Int = 30, startAfter: Long? = null): ThreadListPage {
+    suspend fun listThreadsPage(userId: String, limit: Int = 30, startAfter: Long? = null, includePinned: Boolean = false): ThreadListPage {
         val params = mutableMapOf<String, Any>(
             "userId" to userId,
             "limit" to limit,
             "sortBy" to "lastMessageAt",
+            "includePinned" to includePinned,
         )
         startAfter?.let { params["startAfter"] = it }
         val result = functions.getHttpsCallable("listThreads").call(params).await()
@@ -1054,6 +1063,10 @@ class CloudFunctionsDataSource @Inject constructor(
 
     suspend fun listThreads(userId: String): List<CymbalThread> =
         listThreadsPage(userId).threads
+
+    suspend fun setThreadPinned(threadId: String, isPinned: Boolean) {
+        functions.getHttpsCallable("setThreadPinned").call(mapOf("threadId" to threadId, "isPinned" to isPinned)).await()
+    }
 
     /**
      * Server-side DM inbox search. The inbox paginates threads in, so the local
@@ -1284,6 +1297,15 @@ class CloudFunctionsDataSource @Inject constructor(
     suspend fun leaveGroup(threadId: String) {
         functions.getHttpsCallable("leaveGroup").call(mapOf("threadId" to threadId)).await()
     }
+
+    suspend fun cityChatNotifications(threadId: String, mode: String? = null): String {
+        val args = mutableMapOf<String, Any>("threadId" to threadId)
+        mode?.let { args["mode"] = it }
+        val data = functions.getHttpsCallable("setCityChatNotifications").call(args).await().getData() as? Map<*, *>
+        return data?.get("mode") as? String ?: error("Couldn’t load notifications")
+    }
+    suspend fun renameCity(cityId: String, name: String) { functions.getHttpsCallable("renameCity").call(mapOf("cityId" to cityId, "name" to name)).await() }
+    suspend fun deleteCityChatMessage(threadId: String, messageId: String) { functions.getHttpsCallable("deleteCityChatMessage").call(mapOf("threadId" to threadId, "messageId" to messageId)).await() }
 
     suspend fun renameGroup(threadId: String, name: String) {
         functions.getHttpsCallable("renameGroup").call(
@@ -1888,6 +1910,21 @@ class CloudFunctionsDataSource @Inject constructor(
      * [fm.corus.android.data.model.quizPicksToTastePicks] payload. Mirrors web
      * `getOnboardingTasteMatches` (lib/firestore/onboarding-taste.ts).
      */
+    // User-scoped session handoff; never used to skip Search's network refresh.
+    private val onboardingTasteMatches = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, List<SuggestedUserMatch>>>()
+
+    private val preparedOnboardingTastePages = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, TasteMatchesPage>>()
+
+    fun takePreparedOnboardingTastePage(uid: String): TasteMatchesPage? {
+        val entry = preparedOnboardingTastePages.remove(uid) ?: return null
+        return entry.second.takeIf { System.currentTimeMillis() - entry.first < 60_000 }
+    }
+
+    fun cachedOnboardingTasteMatches(uid: String): List<SuggestedUserMatch>? {
+        val cached = onboardingTasteMatches[uid] ?: return null
+        return cached.second.takeIf { System.currentTimeMillis() - cached.first < 86_400_000 }
+    }
+
     @Suppress("UNCHECKED_CAST")
     suspend fun getOnboardingTasteMatches(
         picks: List<Map<String, Any?>>,
@@ -1895,6 +1932,7 @@ class CloudFunctionsDataSource @Inject constructor(
         minSharedArtists: Int = 1,
     ): OnboardingTasteMatchesResult {
         if (picks.isEmpty()) return OnboardingTasteMatchesResult()
+        val viewerId = auth.currentUser?.uid
         val result = withTimeout(SUGGESTED_USERS_TIMEOUT_MS) {
             functions.getHttpsCallable("getOnboardingTasteMatches").call(
                 mapOf(
@@ -1904,7 +1942,20 @@ class CloudFunctionsDataSource @Inject constructor(
                 )
             ).await()
         }
-        return parseOnboardingTasteMatchesResponse(result.getData() as? Map<String, Any?>)
+        val parsed = parseOnboardingTasteMatchesResponse(result.getData() as? Map<String, Any?>)
+        if (viewerId != null && auth.currentUser?.uid == viewerId) {
+            onboardingTasteMatches[viewerId] = System.currentTimeMillis() to parsed.users
+        }
+        try {
+            val page = getTasteMatchesPage()
+            if (viewerId != null && auth.currentUser?.uid == viewerId) {
+                preparedOnboardingTastePages[viewerId] = System.currentTimeMillis() to page
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            // Search retries with a skeleton; quiz suggestions remain usable.
+        }
+        return parsed
     }
 
     @Suppress("UNCHECKED_CAST")

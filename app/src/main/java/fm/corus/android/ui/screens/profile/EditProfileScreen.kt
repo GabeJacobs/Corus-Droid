@@ -66,6 +66,7 @@ fun EditProfileScreen(
     val displayName by viewModel.displayName.collectAsState()
     val username by viewModel.username.collectAsState()
     val bio by viewModel.bio.collectAsState()
+    val showTrophies by viewModel.showTrophies.collectAsState()
     val website by viewModel.website.collectAsState()
     val tabPreferences by viewModel.tabPreferences.collectAsState()
     val usernameState by viewModel.usernameState.collectAsState()
@@ -76,7 +77,7 @@ fun EditProfileScreen(
     val profile by viewModel.profile.collectAsState()
 
     // Derive canSave reactively from collected states so Compose can observe changes
-    val canSave = remember(displayName, username, bio, website, tabPreferences, profile, usernameState, isSaving) {
+    val canSave = remember(displayName, username, bio, showTrophies, website, tabPreferences, profile, usernameState, isSaving) {
         val p = profile ?: return@remember false
         val booksEnabled = viewModel.booksEnabled
         val original = p.tabPreferences(booksEnabled)
@@ -88,6 +89,7 @@ fun EditProfileScreen(
         val hasChanges = displayName != p.displayName ||
                 username != p.username ||
                 bio != p.bio ||
+                showTrophies != p.showTrophies ||
                 website != (p.website ?: "") ||
                 tabsChanged
         if (!hasChanges) return@remember false
@@ -296,6 +298,12 @@ fun EditProfileScreen(
 
             // Bio field — counter lives inside the same box as iOS so it
             // never overlaps the typed text and doesn't add extra section space.
+            if (viewModel.canEditTrophies) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(fm.corus.android.ui.components.parityCopy("Show trophies on profile"), Modifier.weight(1f))
+                    Switch(checked = showTrophies, onCheckedChange = viewModel::updateShowTrophies)
+                }
+            }
             BioEditField(
                 value = bio,
                 onValueChange = { viewModel.updateBio(it) },

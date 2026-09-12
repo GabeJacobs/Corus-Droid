@@ -554,6 +554,8 @@ internal fun DestinationPostRow(
 @Composable
 internal fun CatalogTrackRow(
     track: CymbalTrack,
+    discovery: Boolean = false,
+    discoveryRank: Int? = null,
     nowPlaying: NowPlayingManager,
     /** null → 52dp art leading (artist Popular); non-null → this 1-based
      *  number leading (album tracklist). */
@@ -634,11 +636,12 @@ internal fun CatalogTrackRow(
             if (isPlayingThis) R.string.song_detail_cd_pause_preview
             else R.string.song_detail_cd_play_preview
         )
+        if (discoveryRank != null) Text("$discoveryRank", modifier = Modifier.width(20.dp), color = CorusColors.Secondary, style = CorusFont.caption)
         if (number == null) {
             // 52dp album art with a persistent play/pause overlay badge.
             Box(
                 modifier = Modifier
-                    .size(52.dp)
+                    .size(if (discovery) 48.dp else 52.dp)
                     .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
                     .clickable(onClick = togglePlay),
             ) {
@@ -648,7 +651,7 @@ internal fun CatalogTrackRow(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                 )
-                Box(
+                if (!discovery || isPlayingThis || isLoadingThis) Box(
                     modifier = Modifier
                         .align(Alignment.Center)
                         .size(24.dp)
@@ -726,7 +729,7 @@ internal fun CatalogTrackRow(
             )
             // Artist "Popular" rows keep the full "{album} · {year}" here; the
             // share count lives in the trailing slot now (people glyph + N).
-            val subtitle = catalogRowSubtitle(track, number)
+            val subtitle = if (discovery) track.artistName else catalogRowSubtitle(track, number)
             if (subtitle.isNotBlank()) {
                 Text(
                     text = subtitle,
@@ -743,7 +746,7 @@ internal fun CatalogTrackRow(
         // Album (numbered) rows stay blank when unshared; artist rows fall back to
         // the duration (catalogRowShowsDuration).
         val sharedCount = catalogRowSharedCount(corusStats)
-        val showsDuration = catalogRowShowsDuration(number, track.durationMs)
+        val showsDuration = !discovery && catalogRowShowsDuration(number, track.durationMs)
         if (rowTapPlays) {
             // Navigation lives here on numbered rows: duration/shared + chevron
             // cluster, mirroring the posted-by rows' timestamp + chevron. Padding

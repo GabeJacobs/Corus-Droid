@@ -1092,8 +1092,17 @@ class SpotifyPlaybackService @Inject constructor(
                 cont.invokeOnCancellation { finished = true }
                 remote.playerApi.getPlayerState().apply {
                     setResultCallback { state ->
-                        state?.let { scope.launch { applyPlayerState(it) } }
-                        finish(success = true)
+                        // A refresh is only "fresh" once its returned state has
+                        // been applied. Finishing first lets foreground callers
+                        // read the previous track for another event-loop turn.
+                        if (state == null) {
+                            finish(success = true)
+                        } else {
+                            scope.launch {
+                                applyPlayerState(state)
+                                finish(success = true)
+                            }
+                        }
                     }
                     setErrorCallback { error ->
                         finish(

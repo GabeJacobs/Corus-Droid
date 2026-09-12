@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="parity_da39a3ee5e6b" formatted="false"></string>
+    <string name="parity_b858cb282617" formatted="false"> </string>
+    <string name="parity_d3dacf895c16" formatted="false"> · </string>
+    <string name="parity_99e693f8cd0c" formatted="false">%@</string>
+    <string name="parity_16070acfe083" formatted="false">%lld</string>
+    <string name="parity_d3bc9a378daa" formatted="false">, </string>
+    <string name="parity_b6589fc6ab0d" formatted="false">0</string>
+    <string name="parity_9a78211436f6" formatted="false">@</string>
+    <string name="parity_dfb4c9a14bad" formatted="false">앨범</string>
+    <string name="parity_6a72085653e4" formatted="false">전체</string>
+    <string name="parity_29207dfdb31a" formatted="false">모든 메시지</string>
+    <string name="parity_253657df34e4" formatted="false">Corus의 모든 사람이 내 도시를 볼 수 있어요.</string>
+    <string name="parity_cdf9bbefc769" formatted="false">어디든</string>
+    <string name="parity_6c3f3d320363" formatted="false">아티스트</string>
+    <string name="parity_b52b36b7269f" formatted="false">뒤로</string>
+    <string name="parity_ca41295be45f" formatted="false">검색으로 돌아가기</string>
+    <string name="parity_4784eb5bdae1" formatted="false">블루 타이다이</string>
+    <string name="parity_4a7fdd8c1742" formatted="false">책</string>
+    <string name="parity_f96944302348" formatted="false">브랫 그린</string>
+    <string name="parity_77dfd2135f4d" formatted="false">취소</string>
+    <string name="parity_5aff5a1f6aa7" formatted="false">언제든 변경할 수 있어요.</string>
+    <string name="parity_f5b6616663ea" formatted="false">Channel Orange</string>
+    <string name="parity_a4fc7971cb42" formatted="false">Choose a city</string>
+    <string name="parity_51dc1092be23" formatted="false">Claim artist page</string>
+    <string name="parity_512c233088e1" formatted="false">Claim this artist page</string>
+    <string name="parity_67300d0fed7c" formatted="false">검색 지우기</string>
+    <string name="parity_bbfa773e5a63" formatted="false">닫기</string>
+    <string name="parity_fce06e20e5f7" formatted="false">댓글</string>
+    <string name="parity_c2f4d4164ba5" formatted="false">커뮤니티 채팅</string>
+    <string name="parity_aad755de4295" formatted="false">컴필레이션</string>
+    <string name="parity_9885182153f7" formatted="false">Audiomack 연결</string>
+    <string name="parity_726a1ceebd2e" formatted="false">Contact email</string>
+    <string name="parity_16994bdea573" formatted="false">Corus 지도</string>
+    <string name="parity_a0e7a6a02cc2" formatted="false">솜사탕</string>
+    <string name="parity_5c419b5daae2" formatted="false">맞춤 프로필 배지</string>
+    <string name="parity_b4fd6c51ed0f" formatted="false">Depression Cherry</string>
+    <string name="parity_19a4b0a062c8" formatted="false">디스코그래피</string>
+    <string name="parity_ed28e0686e12" formatted="false">Disconnect</string>
+    <string name="parity_c4b871e217c3" formatted="false">취향이 맞는 실제 사람들의 콘텐츠를 발견하세요. 독립적인 커뮤니티를 지원해 주세요.</string>
+    <string name="parity_e9b450d14bc2" formatted="false">완료</string>
+    <string name="parity_5a140248c0bb" formatted="false">공유하지 않아도 둘러볼 수 있어요.</string>
+    <string name="parity_c756f6af1f03" formatted="false">모두</string>
+    <string name="parity_2f5ac9fb4c6f" formatted="false">Corus 지도 둘러보기</string>
+    <string name="parity_3a03d227b2f2" formatted="false">플레이리스트 내보내기</string>
+    <string name="parity_0137b9ad82f9" formatted="false">팔로우</string>
+    <string name="parity_f0de6c8aaa3f" formatted="false">팔로잉</string>
+    <string name="parity_b9aec1112810" formatted="false">영화</string>
+    <string name="parity_08f45c68e588" formatted="false">도시별로 사람 찾기</string>
+    <string name="parity_ae0c45f79178" formatted="false">Find your kind of people. Explore your full taste match list and discover what you have in common.</string>
+    <string name="parity_90eeb1008380" formatted="false">팔로잉</string>
+    <string name="parity_3f66052a107e" formatted="false">From</string>
+    <string name="parity_eeb692087d62" formatted="false">Full name</string>
+    <string name="parity_f69ff6e8d889" formatted="false">갤럭시</string>
+    <string name="parity_42e01b33038c" formatted="false">Corus를 최대한 활용하세요</string>
+    <string name="parity_5b8027fa0e81" formatted="false">확인</string>
+    <string name="parity_323d2167a2f2" formatted="false">그룹 채팅</string>
+    <string name="parity_d88e57bb0db6" formatted="false">How can we verify your connection to this artist?</string>
+    <string name="parity_1b4c8b6a463c" formatted="false">아이시 블루</string>
+    <string name="parity_5d6f27fadf8c" formatted="false">공유하면 다른 사람에게는 도시만 표시돼요. 거리나 실시간 위치는 표시되지 않으며 언제든 변경할 수 있어요.</string>
+    <string name="parity_02a7e31a3140" formatted="false">채팅 참여</string>
+    <string name="parity_0167dbfec9ad" formatted="false">Club 가입</string>
+    <string name="parity_a17525e135dd" formatted="false">Corus Club 가입</string>
+    <string name="parity_61453a62e3b0" formatted="false">계속해서 영화를 발견해 보세요. Corus Club으로 시청 모드를 무제한 이용하세요.</string>
+    <string name="parity_e1a462a5938c" formatted="false">계속해서 전 세계의 음악을 들어보세요. Corus Club으로 듣기 모드를 무제한 이용하세요.</string>
+    <string name="parity_21b98d7b5820" formatted="false">마지막 무료 곡 · Club 알아보기</string>
+    <string name="parity_dfbdf908e6f2" formatted="false">마지막 무료 예고편 · Club 알아보기</string>
+    <string name="parity_75c88f3a0072" formatted="false">라벤더</string>
+    <string name="parity_c7e02c95fe85" formatted="false">좋아요</string>
+    <string name="parity_e9f009d9df80" formatted="false">좋아요</string>
+    <string name="parity_1af3aa5c3fea" formatted="false">Link to an official page that supports your role and explain your affiliation (at least 20 characters). Please don’t include passwords or identity documents. Your details will be sent privately to the Corus team for review.</string>
+    <string name="parity_014bcd654c60" formatted="false">Links</string>
+    <string name="parity_a1fffaaafb7c" formatted="false">목록</string>
+    <string name="parity_c518fb067439" formatted="false">듣기</string>
+    <string name="parity_820020256535" formatted="false">듣기 모드</string>
+    <string name="parity_36262d2bbd0a" formatted="false">Listen preview · %lld songs left · Explore Club</string>
+    <string name="parity_dfe60ca92e8c" formatted="false">더 불러오기</string>
+    <string name="parity_ff35c3fdb683" formatted="false">더 많은 사람 불러오기</string>
+    <string name="parity_c32673783563" formatted="false">사람 불러오는 중…</string>
+    <string name="parity_d0611fff32c6" formatted="false">Loading tour dates</string>
+    <string name="parity_33ce417454bf" formatted="false">불러오는 중…</string>
+    <string name="parity_ab478f3efc84" formatted="false">지도</string>
+    <string name="parity_cd710fcc23c7" formatted="false">마키</string>
+    <string name="parity_27ad1d833422" formatted="false">나중에</string>
+    <string name="parity_1dbdcfefae45" formatted="false">멘션만</string>
+    <string name="parity_18e8d200b5cf" formatted="false">Merch</string>
+    <string name="parity_12b87dbbadf8" formatted="false">Merch &amp; vinyl</string>
+    <string name="parity_d1af6c07c8e7" formatted="false">메시지를 나누고 만나거나 함께 공연에 가보세요.</string>
+    <string name="parity_d31edb7b8a94" formatted="false">월간</string>
+    <string name="parity_4bab2d8fe13f" formatted="false">더 보기</string>
+    <string name="parity_131260cbfbb0" formatted="false">음악</string>
+    <string name="parity_b9e78ced88a4" formatted="false">알림 끔</string>
+    <string name="parity_1ed2e7b50fa1" formatted="false">새 메시지</string>
+    <string name="parity_3cdd02963c71" formatted="false">신작</string>
+    <string name="parity_bc981983e7f5" formatted="false">다음</string>
+    <string name="parity_da87f33ccd24" formatted="false">다음 도시</string>
+    <string name="parity_4bfc194b68a3" formatted="false">다음 페이지</string>
+    <string name="parity_6683bd1a6bb4" formatted="false">아직 영화가 없어요</string>
+    <string name="parity_c758598ebf50" formatted="false">직접 선택하기 전에는 누구에게도 표시되지 않아요.</string>
+    <string name="parity_1ed0d88c7eb5" formatted="false">이 필터에 해당하는 사람이 없어요.</string>
+    <string name="parity_b7bbf3d235d6" formatted="false">아직 트로피가 없어요</string>
+    <string name="parity_612eb3c64c41" formatted="false">사용자를 찾을 수 없어요</string>
+    <string name="parity_e45714907316" formatted="false">나중에</string>
+    <string name="parity_753a22b2eb61" formatted="false">알림</string>
+    <string name="parity_9ce3bd4224c8" formatted="false">확인</string>
+    <string name="parity_e3de5ab0ca4c" formatted="false">끔</string>
+    <string name="parity_11546013dc6e" formatted="false">내가 팔로우하는 계정만 볼 수 있어요.</string>
+    <string name="parity_d2104ca30455" formatted="false">채팅 열기</string>
+    <string name="parity_13f64eb8ae6e" formatted="false">오렌지 타이다이</string>
+    <string name="parity_9d572da10245" formatted="false">피치</string>
+    <string name="parity_38be27f3fd1c" formatted="false">선택한 도시에서 다른 사람들이 나를 찾을 수 있어요.</string>
+    <string name="parity_d01d900383e4" formatted="false">사진</string>
+    <string name="parity_54076359fdc7" formatted="false">핑크</string>
+    <string name="parity_5d12bd53552c" formatted="false">재생</string>
+    <string name="parity_83a6fd7b7878" formatted="false">다시 시도해 주세요.</string>
+    <string name="parity_9bc2c5b3f52e" formatted="false">인기</string>
+    <string name="parity_4702964a2944" formatted="false">첫 영화 게시하기</string>
+    <string name="parity_f58d094c6ad7" formatted="false">첫 곡 게시하기</string>
+    <string name="parity_50f94286ba30" formatted="false">이전</string>
+    <string name="parity_c21c3d0c6b59" formatted="false">이전 도시</string>
+    <string name="parity_81f547195bef" formatted="false">이전 페이지</string>
+    <string name="parity_ff4fc0276e96" formatted="false">프로필</string>
+    <string name="parity_8624339e6a12" formatted="false">프로필 꾸미기</string>
+    <string name="parity_4da96e42bf43" formatted="false">퍼플 타이다이</string>
+    <string name="parity_5690d9243775" formatted="false">최근 게시물</string>
+    <string name="parity_98dd47501acb" formatted="false">리포스트</string>
+    <string name="parity_8adb8b29a148" formatted="false">Represent this artist? Share a few details so we can review your request to claim this page.</string>
+    <string name="parity_43dc47b2550f" formatted="false">Request submitted</string>
+    <string name="parity_9f5cd8a2e880" formatted="false">다시 시도</string>
+    <string name="parity_e3fe3e9ea782" formatted="false">사람 불러오기 다시 시도</string>
+    <string name="parity_c3f104d13657" formatted="false">Role</string>
+    <string name="parity_efc007a393f6" formatted="false">저장</string>
+    <string name="parity_fa2984b367b8" formatted="false">변경 사항 저장</string>
+    <string name="parity_ae7e887517b0" formatted="false">저장 중...</string>
+    <string name="parity_bce06414177f" formatted="false">검색</string>
+    <string name="parity_9e867d1a518b" formatted="false">KLIPY 검색</string>
+    <string name="parity_8008bef0fc1f" formatted="false">Search cities</string>
+    <string name="parity_04142689eeeb" formatted="false">도시 또는 국가 검색</string>
+    <string name="parity_4579de70a18f" formatted="false">영화 검색</string>
+    <string name="parity_9de9debbfd35" formatted="false">곡 검색</string>
+    <string name="parity_8d232b28b92f" formatted="false">사용자 이름 검색</string>
+    <string name="parity_c510d6c04c09" formatted="false">더 보기</string>
+    <string name="parity_017b94f9a480" formatted="false">지도에서 음악과 영화 취향이 맞는 가까운 사람들을 찾아보세요.</string>
+    <string name="parity_09ca55ca52d2" formatted="false">공유</string>
+    <string name="parity_94023f5a4a52" formatted="false">다른 영화 공유하기</string>
+    <string name="parity_31fab0859db4" formatted="false">정확한 위치 대신 도시를 공유하세요.</string>
+    <string name="parity_5926c3235507" formatted="false">Shop official store</string>
+    <string name="parity_4c852b26d1b7" formatted="false">간략히 보기</string>
+    <string name="parity_25911d48e023" formatted="false">더 보기</string>
+    <string name="parity_9e2001f83002" formatted="false">Show trophies</string>
+    <string name="parity_8c123a5c30ec" formatted="false">프로필에 트로피 표시</string>
+    <string name="parity_dd1186892a2f" formatted="false">싱글</string>
+    <string name="parity_02ff65909856" formatted="false">Sold out</string>
+    <string name="parity_9a3ea0598e7f" formatted="false">문제가 발생했어요. 다시 시도해 주세요.</string>
+    <string name="parity_0e45aee6e595" formatted="false">Stop sharing</string>
+    <string name="parity_8a9051c61379" formatted="false">Submit request</string>
+    <string name="parity_5f7df6ce6b18" formatted="false">Submitting a request does not automatically verify you or give you control of the artist page.</string>
+    <string name="parity_25bdf9860e96" formatted="false">Submitting…</string>
+    <string name="parity_f9aa190b1c8b" formatted="false">취향 매치</string>
+    <string name="parity_f035d9bdea71" formatted="false">취향 매치 피드</string>
+    <string name="parity_27338a83d773" formatted="false">%@의 사람들이 소통하는 공간입니다.</string>
+    <string name="parity_6c50d32835d2" formatted="false">Tour dates</string>
+    <string name="parity_e4fc40926893" formatted="false">좋아요 취소</string>
+    <string name="parity_29a7a1e058da" formatted="false">무제한 게시물</string>
+    <string name="parity_4cb955a437ea" formatted="false">무제한 저장</string>
+    <string name="parity_8d6779fdd977" formatted="false">Upcoming shows</string>
+    <string name="parity_03128bed9062" formatted="false">Verification</string>
+    <string name="parity_7e06a4c7c4de" formatted="false">지도 보기</string>
+    <string name="parity_d91ebf5887cf" formatted="false">Watch</string>
+    <string name="parity_0c1b3cced072" formatted="false">시청 모드</string>
+    <string name="parity_00ec7c4bb4f0" formatted="false">최근에 좋은 거 봤나요?</string>
+    <string name="parity_3525761a57be" formatted="false">Watch preview · %lld trailers left · Explore Club</string>
+    <string name="parity_ed7a37f4f2d4" formatted="false">YouTube에서 예고편 보기</string>
+    <string name="parity_7cc4c50bed35" formatted="false">무엇을 듣고 있나요?</string>
+    <string name="parity_1b527ff0e65e" formatted="false">내 도시를 볼 수 있는 사람</string>
+    <string name="parity_7622eb5aa42d" formatted="false">연간</string>
+    <string name="parity_3526f607bcd4" formatted="false">옐로</string>
+    <string name="parity_a6252b66904c" formatted="false">Your details</string>
+    <string name="parity_a1a5b173e056" formatted="false">내 게시물</string>
+    <string name="parity_12de88176aaf" formatted="false">팔로워</string>
+    <string name="parity_09322a111202" formatted="false">팔로워</string>
+    <string name="parity_6cbf68c50f73" formatted="false">팔로잉</string>
+    <string name="parity_e7c95b4c2824" formatted="false">더 보기</string>
+</resources>

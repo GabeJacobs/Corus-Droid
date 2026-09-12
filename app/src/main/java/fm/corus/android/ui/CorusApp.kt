@@ -103,6 +103,12 @@ fun CorusApp(
                     AuthViewModel.AuthState.NeedsOnboarding -> {
                         OnboardingScreen()
                     }
+                    AuthViewModel.AuthState.OnboardingClubOffer -> {
+                        fm.corus.android.ui.screens.subscription.CymbalClubOfferScreen(
+                            sourceOverride = fm.corus.android.ui.screens.subscription.PaywallSource.ONBOARDING,
+                            onBack = { viewModel.finishAfterClubOffer() },
+                        )
+                    }
                     AuthViewModel.AuthState.NeedsSocialSetup -> {
                         SocialSetupFlow(onFinished = { viewModel.finishSocialSetup() })
                     }

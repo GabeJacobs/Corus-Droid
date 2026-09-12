@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.Brush
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
@@ -57,8 +58,8 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 
 // --- Trial detection helpers ---
 
-private fun trialDurationText(context: Context, pkg: Package?): String? {
-    val freeTrialOption = pkg?.product?.subscriptionOptions?.freeTrial ?: return null
+private fun trialDurationText(context: Context, pkg: Package?, useDefaultOption: Boolean = false): String? {
+    val freeTrialOption = (if (useDefaultOption) pkg?.product?.defaultOption else pkg?.product?.subscriptionOptions?.freeTrial) ?: return null
     val freePhase = freeTrialOption.freePhase ?: return null
     return formatPeriod(context, freePhase.billingPeriod)
 }
@@ -75,20 +76,20 @@ private fun formatPeriod(context: Context, period: Period): String? {
     }
 }
 
-private fun ctaText(context: Context, selectedPackage: Package?, isClubMember: Boolean): String {
+private fun ctaText(context: Context, selectedPackage: Package?, isClubMember: Boolean, useDefaultOption: Boolean = false): String {
     if (isClubMember) return context.getString(R.string.club_cta_member)
-    val trial = trialDurationText(context, selectedPackage)
+    val trial = trialDurationText(context, selectedPackage, useDefaultOption)
     return if (trial != null) context.getString(R.string.club_cta_try_free_format, trial) else context.getString(R.string.club_cta_join)
 }
 
-private fun monthlyDetailText(context: Context, pkg: Package?, price: String): String {
-    val trial = trialDurationText(context, pkg)
+private fun monthlyDetailText(context: Context, pkg: Package?, price: String, useDefaultOption: Boolean = false): String {
+    val trial = trialDurationText(context, pkg, useDefaultOption)
     return if (trial != null) context.getString(R.string.club_monthly_detail_trial_format, trial, price)
     else context.getString(R.string.club_monthly_detail_billed_format, price)
 }
 
-private fun yearlyDetailText(context: Context, pkg: Package?, price: String, monthlyEquivalent: String): String {
-    val trial = trialDurationText(context, pkg)
+private fun yearlyDetailText(context: Context, pkg: Package?, price: String, monthlyEquivalent: String, useDefaultOption: Boolean = false): String {
+    val trial = trialDurationText(context, pkg, useDefaultOption)
     return if (trial != null) context.getString(R.string.club_yearly_detail_trial_format, trial, price)
     else context.getString(R.string.club_yearly_detail_only_format, monthlyEquivalent)
 }
@@ -165,7 +166,10 @@ internal fun ColumnScope.CenteredScrollRegion(
 fun CymbalClubOfferScreen(
     viewModel: CymbalClubViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
+    sourceOverride: PaywallSource? = null,
 ) {
+    val source = sourceOverride ?: viewModel.source
+    val isOnboarding = source == PaywallSource.ONBOARDING
     val packages by viewModel.packages.collectAsState()
     val isPurchasing by viewModel.isPurchasing.collectAsState()
     val purchaseResult by viewModel.purchaseResult.collectAsState()
@@ -175,6 +179,7 @@ fun CymbalClubOfferScreen(
     val activity = context.findActivity()
 
     var selectedPlan by remember { mutableStateOf(viewModel.defaultPlan) }
+    var userSelectedPlan by remember { mutableStateOf(false) }
 
     val monthlyPackage = packages.firstOrNull { it.identifier == "\$rc_monthly" }
     val yearlyPackage = packages.firstOrNull { it.identifier == "\$rc_annual" }
@@ -185,7 +190,23 @@ fun CymbalClubOfferScreen(
     // be set — clear it so each presentation starts clean.
     LaunchedEffect(Unit) {
         viewModel.clearError()
-        viewModel.logPaywallShown()
+        viewModel.logPaywallShown(source)
+    }
+
+    LaunchedEffect(isClubMember) {
+        if (isOnboarding && isClubMember) onBack()
+    }
+    LaunchedEffect(packages) {
+        if (packages.isNotEmpty() && (!userSelectedPlan || selectedPackage == null)) {
+            if (selectedPackage == null) selectedPlan = if (monthlyPackage != null) "monthly" else "yearly"
+            if (isOnboarding && trialDurationText(context, if (selectedPlan == "yearly") yearlyPackage else monthlyPackage, true) == null) {
+                if (trialDurationText(context, monthlyPackage, true) != null) selectedPlan = "monthly"
+                else if (trialDurationText(context, yearlyPackage, true) != null) selectedPlan = "yearly"
+            }
+        }
+    }
+    androidx.activity.compose.BackHandler(enabled = isOnboarding) {
+        if (!isPurchasing) { viewModel.logPaywallDismissed(source, "system_back"); onBack() }
     }
 
     // Handle purchase result
@@ -220,7 +241,7 @@ fun CymbalClubOfferScreen(
                 title = {},
                 actions = {
                     IconButton(onClick = {
-                        viewModel.logPaywallDismissed()
+                        viewModel.logPaywallDismissed(source, if (isOnboarding) "close" else null)
                         onBack()
                     }) {
                         Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.club_cd_close), tint = CorusColors.Secondary)
@@ -245,11 +266,11 @@ fun CymbalClubOfferScreen(
             // ── Scrollable header + features ──
             CenteredScrollRegion(verticalPadding = CorusSpacing.xl) {
                 // Spinning vinyl record
-                fm.corus.android.ui.components.CymbalClubVinyl(size = 140.dp)
+                fm.corus.android.ui.components.CymbalClubVinyl(size = if (isOnboarding) 96.dp else 140.dp)
 
                 Spacer(modifier = Modifier.height(CorusSpacing.xl))
 
-                if (viewModel.source == PaywallSource.POST_LIMIT) {
+                if (source == PaywallSource.POST_LIMIT) {
                     Text(
                         text = stringResource(R.string.club_post_limit_eyebrow),
                         style = CorusFont.caption.copy(
@@ -264,8 +285,8 @@ fun CymbalClubOfferScreen(
                 // Feature eyebrow when arriving from Taste Matches (menu tap or the
                 // in-feed free-trial banner) — names the perk in the brand color,
                 // mirroring the cold-start eyebrow.
-                if (viewModel.source == PaywallSource.TASTE_MATCHES ||
-                    viewModel.source == PaywallSource.TASTE_MATCHES_BANNER
+                if (source == PaywallSource.TASTE_MATCHES ||
+                    source == PaywallSource.TASTE_MATCHES_BANNER
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -286,7 +307,9 @@ fun CymbalClubOfferScreen(
                 }
 
                 Text(
-                    text = stringResource(R.string.club_title),
+                    text = if (isOnboarding) stringResource(R.string.club_onboarding_title) else stringResource(R.string.club_title),
+                    textAlign = if (isOnboarding) TextAlign.Center else TextAlign.Unspecified,
+                    modifier = if (isOnboarding) Modifier.padding(horizontal = CorusSpacing.lg) else Modifier,
                     style = CorusFont.appTitle,
                     color = CorusColors.Text,
                 )
@@ -295,11 +318,19 @@ fun CymbalClubOfferScreen(
 
                 // Post-limit: surface the trial with its duration when available,
                 // otherwise the source's default subtitle ("Remove posting limits").
-                val trial = trialDurationText(context, selectedPackage)
-                val subtitleText = if (viewModel.source == PaywallSource.POST_LIMIT && trial != null)
+                val trial = trialDurationText(context, selectedPackage, source == PaywallSource.ONBOARDING || source == PaywallSource.THIRD_POST)
+                if (isOnboarding && trial != null) {
+                    Text(
+                        text = context.getString(R.string.club_cta_try_free_format, trial),
+                        style = CorusFont.bodyMedium,
+                        color = CorusColors.Accent,
+                        modifier = Modifier.padding(vertical = CorusSpacing.sm),
+                    )
+                }
+                val subtitleText = if (source == PaywallSource.POST_LIMIT && trial != null)
                     context.getString(R.string.club_subtitle_post_limit_trial_format, trial)
                 else
-                    viewModel.source.subtitle
+                    if (isOnboarding) stringResource(R.string.club_onboarding_subtitle) else source.subtitle
 
                 Text(
                     text = subtitleText,
@@ -328,25 +359,31 @@ fun CymbalClubOfferScreen(
                         }
                     }
                     FeatureRow(icon = Icons.Filled.Brush, text = stringResource(R.string.club_feature_customization))
-                    FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
-                    if (musicService != fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
+                    if (isOnboarding) {
+                        FeatureRow(icon = Icons.Filled.Bookmark, text = stringResource(R.string.club_feature_unlimited_saves))
+                    } else {
+                        FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
+                    }
+                    if (!isOnboarding && musicService != fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
                         FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
                     }
                     FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
-                    if (!tasteMatchesEnabled) {
+                    if (!isOnboarding && !tasteMatchesEnabled) {
                         FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
                     }
                 }
 
                 Spacer(modifier = Modifier.height(CorusSpacing.md))
 
-                Text(
-                    text = stringResource(R.string.club_disclaimer),
-                    style = CorusFont.caption,
-                    color = CorusColors.Secondary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
-                )
+                if (!isOnboarding) {
+                    Text(
+                        text = stringResource(R.string.club_disclaimer),
+                        style = CorusFont.caption,
+                        color = CorusColors.Secondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
+                    )
+                }
             }
 
             // ── Pinned bottom: plan cards, CTA, footer (always visible) ──
@@ -366,24 +403,26 @@ fun CymbalClubOfferScreen(
                         .padding(horizontal = CorusSpacing.xl),
                     horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                 ) {
-                    val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: "$3.99"
-                    val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: "$29.99"
+                    val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: if (isOnboarding) "—" else "$3.99"
+                    val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: if (isOnboarding) "—" else "$29.99"
                     val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 29.99) / 12)}"
 
                     PlanCard(
                         label = stringResource(R.string.club_plan_monthly),
                         price = stringResource(R.string.club_plan_monthly_price_format, monthlyPrice),
-                        detail = monthlyDetailText(context, monthlyPackage, monthlyPrice),
+                        detail = monthlyDetailText(context, monthlyPackage, monthlyPrice, source == PaywallSource.ONBOARDING || source == PaywallSource.THIRD_POST),
                         isSelected = selectedPlan == "monthly",
-                        onClick = { selectedPlan = "monthly" },
+                        onClick = { userSelectedPlan = true; selectedPlan = "monthly" },
                         modifier = Modifier.weight(1f),
                     )
                     PlanCard(
                         label = stringResource(R.string.club_plan_yearly),
                         price = stringResource(R.string.club_plan_yearly_price_format, yearlyPrice),
-                        detail = yearlyDetailText(context, yearlyPackage, yearlyPrice, yearlyMonthly),
+                        detail = if (isOnboarding && trialDurationText(context, yearlyPackage, true) == null)
+                            context.getString(R.string.club_onboarding_yearly_billed, yearlyPrice)
+                        else yearlyDetailText(context, yearlyPackage, yearlyPrice, yearlyMonthly, source == PaywallSource.ONBOARDING || source == PaywallSource.THIRD_POST),
                         isSelected = selectedPlan == "yearly",
-                        onClick = { selectedPlan = "yearly" },
+                        onClick = { userSelectedPlan = true; selectedPlan = "yearly" },
                         modifier = Modifier.weight(1f),
                         badge = savingsBadge(monthlyPackage, yearlyPackage),
                     )
@@ -408,7 +447,7 @@ fun CymbalClubOfferScreen(
                 Button(
                     onClick = {
                         if (activity != null && selectedPackage != null) {
-                            viewModel.purchase(activity, selectedPackage!!, selectedPlan)
+                            viewModel.purchase(activity, selectedPackage!!, selectedPlan, source)
                         }
                     },
                     enabled = !isPurchasing && selectedPackage != null && !isClubMember,
@@ -430,13 +469,28 @@ fun CymbalClubOfferScreen(
                         )
                     } else {
                         Text(
-                            text = ctaText(context, selectedPackage, isClubMember),
+                            text = ctaText(context, selectedPackage, isClubMember, source == PaywallSource.ONBOARDING || source == PaywallSource.THIRD_POST),
                             style = CorusFont.button,
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(CorusSpacing.md))
+
+                if (isOnboarding && selectedPackage != null) {
+                    Text(
+                        text = stringResource(R.string.club_onboarding_renewal),
+                        style = CorusFont.caption,
+                        color = CorusColors.Secondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+                    )
+                }
+                if (isOnboarding) {
+                    TextButton(onClick = { viewModel.logPaywallDismissed(source, "maybe_later"); onBack() }, enabled = !isPurchasing) {
+                        Text(stringResource(R.string.club_onboarding_skip), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                    }
+                }
 
                 // Restore purchases + links
                 Row(
@@ -495,6 +549,14 @@ fun CymbalClubOfferSheet(
     val monthlyPackage = packages.firstOrNull { it.identifier == "\$rc_monthly" }
     val yearlyPackage = packages.firstOrNull { it.identifier == "\$rc_annual" }
     val selectedPackage = if (selectedPlan == "yearly") yearlyPackage else monthlyPackage
+
+    LaunchedEffect(packages) {
+        if (selectedPackage == null) {
+            if (monthlyPackage != null) selectedPlan = "monthly"
+            else if (yearlyPackage != null) selectedPlan = "yearly"
+        }
+    }
+
 
     // Log paywall shown on first composition. The view model is scoped to the
     // host screen, so a stale error from a previous presentation would still
@@ -656,7 +718,7 @@ fun CymbalClubOfferSheet(
 
             // Post-limit: surface the trial with its duration when available,
             // otherwise the source's default subtitle ("Remove posting limits").
-            val trial = trialDurationText(context, selectedPackage)
+            val trial = trialDurationText(context, selectedPackage, source == PaywallSource.ONBOARDING || source == PaywallSource.THIRD_POST)
             val subtitleText = when {
                 source == PaywallSource.TASTE_DISCOVERY -> stringResource(R.string.taste_discovery_subtitle)
                 source == PaywallSource.POST_LIMIT && trial != null ->
@@ -697,7 +759,7 @@ fun CymbalClubOfferSheet(
                 if (source == PaywallSource.FAVORITE_LIMIT) {
                     FeatureRow(icon = Icons.Filled.Star, text = stringResource(R.string.club_feature_favorites))
                 }
-                if (tasteMatchesEnabled) {
+                if (source != PaywallSource.TASTE_DISCOVERY && tasteMatchesEnabled) {
                     FeatureRow(text = stringResource(R.string.club_feature_taste_matches)) {
                         VennDiagramIcon(size = 20.dp, color = CorusColors.Accent, shadedIntersection = true)
                     }
@@ -753,7 +815,7 @@ fun CymbalClubOfferSheet(
                 PlanCard(
                     label = stringResource(R.string.club_plan_monthly),
                     price = stringResource(R.string.club_plan_monthly_price_format, monthlyPrice),
-                    detail = monthlyDetailText(context, monthlyPackage, monthlyPrice),
+                    detail = monthlyDetailText(context, monthlyPackage, monthlyPrice, source == PaywallSource.ONBOARDING || source == PaywallSource.THIRD_POST),
                     isSelected = selectedPlan == "monthly",
                     onClick = { selectedPlan = "monthly" },
                     modifier = Modifier.weight(1f),
@@ -761,7 +823,7 @@ fun CymbalClubOfferSheet(
                 PlanCard(
                     label = stringResource(R.string.club_plan_yearly),
                     price = stringResource(R.string.club_plan_yearly_price_format, yearlyPrice),
-                    detail = yearlyDetailText(context, yearlyPackage, yearlyPrice, yearlyMonthly),
+                    detail = yearlyDetailText(context, yearlyPackage, yearlyPrice, yearlyMonthly, source == PaywallSource.ONBOARDING || source == PaywallSource.THIRD_POST),
                     isSelected = selectedPlan == "yearly",
                     onClick = { selectedPlan = "yearly" },
                     modifier = Modifier.weight(1f),
@@ -809,7 +871,7 @@ fun CymbalClubOfferSheet(
                     )
                 } else {
                     Text(
-                        text = ctaText(context, selectedPackage, isClubMember),
+                        text = ctaText(context, selectedPackage, isClubMember, source == PaywallSource.ONBOARDING || source == PaywallSource.THIRD_POST),
                         style = CorusFont.button,
                     )
                 }

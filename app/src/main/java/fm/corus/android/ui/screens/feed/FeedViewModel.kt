@@ -9,6 +9,7 @@ import android.util.Log
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalThread
+import fm.corus.android.data.model.ShareRecipient
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.FeedDecade
 import fm.corus.android.data.model.FeedFilter
@@ -673,11 +674,11 @@ class FeedViewModel @Inject constructor(
     val hasFullAccess = subscriptionRepository.hasFullAccessFlow
 
     // ── Share search state ──
-    private val _shareSearchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
-    override val shareSearchResults: StateFlow<List<CymbalUser>> = _shareSearchResults.asStateFlow()
+    private val _shareSearchResults = MutableStateFlow<List<ShareRecipient>>(emptyList())
+    override val shareSearchResults: StateFlow<List<ShareRecipient>> = _shareSearchResults.asStateFlow()
 
-    private val _recentShareContacts = MutableStateFlow<List<CymbalUser>>(emptyList())
-    override val recentShareContacts: StateFlow<List<CymbalUser>> = _recentShareContacts.asStateFlow()
+    private val _recentShareContacts = MutableStateFlow<List<ShareRecipient>>(emptyList())
+    override val recentShareContacts: StateFlow<List<ShareRecipient>> = _recentShareContacts.asStateFlow()
 
     private val _isShareSearching = MutableStateFlow(false)
     override val isShareSearching: StateFlow<Boolean> = _isShareSearching.asStateFlow()
@@ -1512,10 +1513,9 @@ class FeedViewModel @Inject constructor(
 
     override fun loadRecentShareContacts() {
         val userId = authRepository.currentUserId ?: return
-        loadRecentDmShareContacts(
+        loadRecentShareRecipients(
             userId = userId,
             messageRepository = messageRepository,
-            currentContacts = _recentShareContacts.value,
             setContacts = { _recentShareContacts.value = it },
             setLoading = { _isLoadingShareContacts.value = it },
             scope = viewModelScope,
@@ -1532,11 +1532,14 @@ class FeedViewModel @Inject constructor(
         }
 
         shareSearchJob?.cancel()
+        _shareSearchResults.value = emptyList()
         shareSearchJob = viewModelScope.launch {
             _isShareSearching.value = true
             delay(250)
             try {
-                _shareSearchResults.value = userRepository.searchUsers(trimmed, includeFollowed = true)
+                _shareSearchResults.value = messageRepository.searchShareRecipients(authRepository.currentUserId ?: return@launch, trimmed, userRepository)
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
             } catch (_: Exception) {
                 _shareSearchResults.value = emptyList()
             }
@@ -1548,7 +1551,7 @@ class FeedViewModel @Inject constructor(
         val currentUserId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             try {
-                val threadId = messageRepository.getOrCreateThread(currentUserId, userId)
+                val threadId = messageRepository.resolveShareThread(currentUserId, userId)
                 messageRepository.sendSharedPostMessage(
                     threadId = threadId,
                     fromUserId = currentUserId,
@@ -1684,59 +1687,24 @@ class FeedViewModel @Inject constructor(
 /** Max contacts shown in the share sheet grid. */
 const val SHARE_CONTACTS_CAP = 20
 
-/**
- * Share-sheet recents: most recent 1:1 DM partners, inbox order.
- * Painted once — never replaced while the sheet is on screen, so cells
- * can't move under a tap.
- */
-fun recentDmShareContacts(
-    threads: List<CymbalThread>,
-    cap: Int = SHARE_CONTACTS_CAP,
-): List<CymbalUser> {
-    val seen = mutableSetOf<String>()
-    val contacts = mutableListOf<CymbalUser>()
-    for (thread in threads) {
-        if (thread.isGroup) continue
-        val user = thread.otherUser ?: continue
-        if (user.id.isNotEmpty() && seen.add(user.id)) {
-            contacts.add(user)
-            if (contacts.size >= cap) break
-        }
-    }
-    return contacts
-}
-
-fun cachedRecentDmShareContacts(
+/** Refresh on every presentation; a newly created group must be immediately shareable. */
+fun loadRecentShareRecipients(
     userId: String,
     messageRepository: MessageRepository,
-    cap: Int = SHARE_CONTACTS_CAP,
-): List<CymbalUser>? {
-    val threads = messageRepository.cachedInbox?.takeIf { it.userId == userId }?.threads ?: return null
-    return recentDmShareContacts(threads, cap).takeIf { it.isNotEmpty() }
-}
-
-fun loadRecentDmShareContacts(
-    userId: String,
-    messageRepository: MessageRepository,
-    currentContacts: List<CymbalUser>,
-    setContacts: (List<CymbalUser>) -> Unit,
+    setContacts: (List<ShareRecipient>) -> Unit,
     setLoading: (Boolean) -> Unit,
     scope: CoroutineScope,
 ) {
-    if (currentContacts.isNotEmpty()) {
-        setLoading(false)
-        return
-    }
-    cachedRecentDmShareContacts(userId, messageRepository)?.let { cached ->
-        setContacts(cached)
-        setLoading(false)
-        return
-    }
     setLoading(true)
     scope.launch {
         try {
-            setContacts(recentDmShareContacts(messageRepository.listThreads(userId)))
+            val threads = messageRepository.listThreads(userId).map { thread ->
+                thread.copy(members = thread.members.filter { it.id != userId })
+            }
+            setContacts(fm.corus.android.data.model.recentShareRecipients(threads))
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
         } catch (_: Exception) { }
-        setLoading(false)
+        finally { setLoading(false) }
     }
 }

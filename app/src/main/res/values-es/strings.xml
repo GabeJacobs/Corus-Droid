@@ -520,7 +520,7 @@
     <string name="search_trending_films_title">Películas en tendencia</string>
     <string name="search_trending_hashtags_title">Hashtags en tendencia</string>
     <string name="search_trending_artists_title">Artistas en tendencia</string>
-    <string name="search_new_release_albums_title">Canciones nuevas</string>
+    <string name="search_new_release_albums_title">Novedades</string>
     <string name="search_new_release_albums_list_title">Canciones nuevas</string>
     <string name="search_nothing_new_releases">Aún no hay canciones nuevas</string>
     <string name="search_new_release_films_title">Nuevos estrenos</string>
@@ -1422,7 +1422,7 @@
     <string name="destination_album_pause">Pausa</string>
     <string name="destination_album_play">Reproducir</string>
     <string name="feed_playlist_first_time_body">Corus convertirá tu feed en una playlist y la abrirá en %1$s. Los miembros del Club pueden generar en cualquier momento.</string>
-    <string name="feed_taste_matches_trial_banner_preview">Prueba gratis del feed Taste Matches</string>
+    <string name="feed_taste_matches_trial_banner_preview">Estás probando el feed de Taste Matches</string>
     <string name="full_player_post">Publicar</string>
     <string name="full_player_queue_done">Listo</string>
     <string name="full_player_queue_edit">Editar</string>
@@ -1480,4 +1480,10 @@
         <item quantity="one">Prueba gratis · %1$d día restante</item>
         <item quantity="other">Prueba gratis · %1$d días restantes</item>
     </plurals>
+    <string name="club_onboarding_title">Sácale el máximo provecho a Corus</string>
+    <string name="club_onboarding_subtitle">Descubre contenido de personas reales con las que encajas. Apoya una comunidad independiente.</string>
+    <string name="club_onboarding_skip">Quizás más tarde</string>
+    <string name="club_onboarding_renewal">Se renueva automáticamente al precio del plan elegido después de cualquier prueba gratis. Cancela cuando quieras.</string>
+    <string name="club_onboarding_yearly_billed">Facturado a %1$s/año.</string>
+    <string name="club_feature_unlimited_saves">Guardados ilimitados</string>
 </resources>

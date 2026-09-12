@@ -82,6 +82,10 @@ class SearchViewModel @Inject constructor(
     val nowPlayingManager: NowPlayingManager,
     private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
+    private val _discoveryExpanded = kotlinx.coroutines.flow.MutableStateFlow<Set<String>>(emptySet())
+    val discoveryExpanded = _discoveryExpanded.asStateFlow()
+    fun toggleDiscoveryExpanded(section: String) { _discoveryExpanded.value = _discoveryExpanded.value.let { if (section in it) it - section else it + section } }
+
 
     /** True when the most recent [search] threw AND the current tab is empty. */
     private val _searchHasError = MutableStateFlow(false)
@@ -235,8 +239,14 @@ class SearchViewModel @Inject constructor(
         // the skeleton suppression flips live (e.g. the moment their 2nd post
         // lands while they're on Search).
         viewModelScope.launch {
+            var previousPostCount: Int? = null
             authRepository.userProfile.collect { profile ->
                 _belowTasteMatchThreshold.value = isBelowTasteMatchThreshold(profile)
+                val count = profile?.cymbalCount
+                if (previousPostCount != null && count != previousPostCount && hasStartedInitialLoad) {
+                    loadInitialData(forceRefresh = true)
+                }
+                previousPostCount = count
             }
         }
         viewModelScope.launch {
@@ -663,9 +673,10 @@ class SearchViewModel @Inject constructor(
     // happens, re-run the onboarding matcher on the saved seed and render the
     // same list they saw during signup. Viewer-side only; clears naturally
     // once real (post-based) matches exist.
-    private val _seedTasteMatches = MutableStateFlow<List<SuggestedUserMatch>>(emptyList())
+    private val _seedTasteMatches = MutableStateFlow<List<SuggestedUserMatch>>(
+        authRepository.currentUserId?.let { cloudFunctions.cachedOnboardingTasteMatches(it) } ?: emptyList()
+    )
     val seedTasteMatches: StateFlow<List<SuggestedUserMatch>> = _seedTasteMatches.asStateFlow()
-    private var seedFallbackAttempted = false
 
     private val _isSuggestedLoading = MutableStateFlow(true)
     val isSuggestedLoading: StateFlow<Boolean> = _isSuggestedLoading.asStateFlow()
@@ -752,6 +763,7 @@ class SearchViewModel @Inject constructor(
 
     private var hasSeededBrowse = false
     private var hasStartedInitialLoad = false
+    private var lastSuggestionsRefresh = 0L
 
     /**
      * Last-session Search browse snapshot — no network. Call as soon as the
@@ -760,6 +772,7 @@ class SearchViewModel @Inject constructor(
      */
     fun seedBrowseCache() {
         val uid = authRepository.currentUserId ?: return
+        cloudFunctions.cachedOnboardingTasteMatches(uid)?.let { _seedTasteMatches.value = it }
         if (hasSeededBrowse) return
         hasSeededBrowse = true
         viewModelScope.launch {
@@ -771,7 +784,7 @@ class SearchViewModel @Inject constructor(
             val cached = userRepository.peekPersistedSuggestions(uid)
             if (!cached.isNullOrEmpty() && _suggestedMatches.value.isEmpty()) {
                 _suggestedMatches.value = cached
-                _isSuggestedLoading.value = false
+                _isSuggestedLoading.value = cached.none { it.hasTasteMatch() }
             }
         }
         viewModelScope.launch { hydrateBrowseSnapshot(uid) }
@@ -779,14 +792,20 @@ class SearchViewModel @Inject constructor(
 
     fun loadInitialData(forceRefresh: Boolean = false) {
         val uid = authRepository.currentUserId ?: return
-        if (!forceRefresh && hasStartedInitialLoad) return
+        if (!forceRefresh && hasStartedInitialLoad && System.currentTimeMillis() - lastSuggestionsRefresh < 60_000) return
+        lastSuggestionsRefresh = System.currentTimeMillis()
         hasStartedInitialLoad = true
+        _isSuggestedLoading.value = true
+        authRepository.currentUserId?.let { uid ->
+            cloudFunctions.cachedOnboardingTasteMatches(uid)?.let { _seedTasteMatches.value = it }
+        }
         seedBrowseCache()
         // Fetch taste matches and mutual connections (Firestore) in parallel,
         // then merge them — matching how iOS loads suggestions. Taste matches go
-        // through the repository's 4h cache (warmed from DataStore at sign-in) so
-        // repeat opens render instantly; pull-to-refresh forces a fresh fetch.
+        // through a fresh request while the cached cards remain visible.
+        // Re-entry is throttled to a minute; explicit refresh bypasses it.
         viewModelScope.launch {
+            if (forceRefresh) userRepository.invalidateTasteMatchesCache()
             // Below the post threshold the viewer can't have taste matches yet, so
             // skip the expensive suggest scan and treat it as a successful empty
             // result (emptyList, not null) — the explainer renders, no skeleton.
@@ -800,7 +819,7 @@ class SearchViewModel @Inject constructor(
                     try {
                         // null (not empty) signals a failed/timed-out load so the UI can
                         // distinguish "couldn't load" from "loaded, genuinely no matches".
-                        userRepository.getSuggestedUsers(uid, forceRefresh = forceRefresh)
+                        userRepository.getSuggestedUsers(uid, forceRefresh = true)
                     } catch (e: Exception) {
                         Log.e("SearchVM", "Failed to load suggested users", e)
                         null
@@ -889,7 +908,7 @@ class SearchViewModel @Inject constructor(
                 // are time-bounded so the awaits cannot hang).
                 _isSuggestedLoading.value = false
             }
-            pollTasteMatchesIfMissing(uid)
+            if (!_tasteMatchLoadFailed.value) pollTasteMatchesIfMissing(uid)
         }
         viewModelScope.launch {
             try {
@@ -999,24 +1018,18 @@ class SearchViewModel @Inject constructor(
 
     private fun SuggestedUserMatch.hasTasteMatch(): Boolean = isTasteMatch
 
-    /** One attempt per session: read the saved quiz seed and re-run the
-     *  onboarding matcher on it. Gated on users_v2.tasteSeedCount so the
-     *  overwhelming majority of users (no quiz seed) never pay the read. */
-    private fun loadSeedFallbackMatchesIfNeeded() {
-        if (seedFallbackAttempted) return
+    /** Keep the initial loader active until the saved quiz has been checked.
+     * Revalidate on refresh; the profile marker may lag quiz completion. */
+    private suspend fun loadSeedFallbackMatchesIfNeeded() {
         val uid = authRepository.currentUserId ?: return
-        if ((authRepository.userProfile.value?.tasteSeedCount ?: 0) <= 0) return
-        seedFallbackAttempted = true
-        viewModelScope.launch {
-            try {
-                val picks = firestoreDataSource.fetchMyTasteSeedPicks(uid)
-                if (picks.isEmpty()) return@launch
-                val result = cloudFunctions.getOnboardingTasteMatches(picks)
-                _seedTasteMatches.value = result.users
-                Log.d("SearchVM", "Seed fallback matches: ${result.users.size}")
-            } catch (e: Exception) {
-                Log.e("SearchVM", "Seed fallback failed", e)
-            }
+        try {
+            val picks = firestoreDataSource.fetchMyTasteSeedPicks(uid)
+            val matches = if (picks.isEmpty()) emptyList() else cloudFunctions.getOnboardingTasteMatches(picks).users
+            if (authRepository.currentUserId == uid) _seedTasteMatches.value = matches
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            _tasteMatchLoadFailed.value = true
+            Log.e("SearchVM", "Seed fallback failed", e)
         }
     }
 

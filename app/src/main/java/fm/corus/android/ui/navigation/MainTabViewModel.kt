@@ -29,6 +29,7 @@ import javax.inject.Inject
 
 enum class MilestonePaywallSource {
     FIRST_POST,
+    THIRD_POST,
     TENTH_POST,
 }
 
@@ -334,7 +335,18 @@ class MainTabViewModel @Inject constructor(
         analyticsService.logPostSuccessOthersDismissed(method)
     }
 
+    private var milestoneComposeStartCount: Int? = null
+
+    fun beginPostMilestoneSession() {
+        milestoneComposeStartCount = subscriptionRepository.totalPostCount.value
+    }
+
     fun checkPostMilestonePaywall() {
+        if (remoteConfigService.onboardingClubOfferEnabled) {
+            val startCount = milestoneComposeStartCount ?: return
+            if (subscriptionRepository.totalPostCount.value <= startCount) return
+            milestoneComposeStartCount = null
+        }
         if (subscriptionRepository.hasFullAccess) return
 
         viewModelScope.launch {
@@ -342,7 +354,12 @@ class MainTabViewModel @Inject constructor(
             val totalCount = subscriptionRepository.totalPostCount.value
 
             // 1st post today — show first-post paywall if not seen
-            if (todayCount == 1 && !preferencesDataStore.hasSeenFirstPostPaywall.first()) {
+            if (remoteConfigService.claimThirdPostOffer(totalCount)) {
+                _milestonePaywallSource.value = MilestonePaywallSource.THIRD_POST
+                _showMilestonePaywall.value = true
+                return@launch
+            }
+            if (!remoteConfigService.onboardingClubOfferEnabled && todayCount == 1 && !preferencesDataStore.hasSeenFirstPostPaywall.first()) {
                 preferencesDataStore.setHasSeenFirstPostPaywall()
                 _milestonePaywallSource.value = MilestonePaywallSource.FIRST_POST
                 _showMilestonePaywall.value = true

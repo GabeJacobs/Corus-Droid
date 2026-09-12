@@ -54,7 +54,7 @@ internal fun visibleInboxRows(
     isBanned: (String) -> Boolean,
 ): List<CymbalThread> = threads.filter {
     mayShowThread(it, blockedIds, isBanned) && hasDisplayableInboxPeer(it)
-}
+}.sortedWith(compareByDescending<CymbalThread> { it.isPinned }.thenByDescending { it.lastMessageAt }.thenByDescending { it.id })
 
 /** Result of folding a live inbox snapshot into the loaded list. */
 internal data class LiveThreadMerge(
@@ -96,6 +96,7 @@ internal fun applyLiveThreadUpdates(
                 lastMessageAt = lt.lastMessageAt,
                 lastMessageFromUserId = lt.lastMessageFromUserId,
                 unreadCount = lt.unreadCount,
+                isPinned = lt.isPinned,
                 // Reflect group edits (rename / new photo / membership) made here
                 // or by another member. The live mirror carries the new name/photo
                 // and memberIds but not the resolved member profiles, so keep those.
@@ -109,8 +110,8 @@ internal fun applyLiveThreadUpdates(
         } else {
             // Live window is `updatedAt`. Opening an old thread must not insert
             // it into a last-message list; a new message still may.
-            val oldestLoaded = byId.values.minOfOrNull { it.lastMessageAt.time }
-            if (oldestLoaded == null || lt.lastMessageAt.time >= oldestLoaded) {
+            val oldestLoaded = byId.values.filter { !it.isPinned }.minOfOrNull { it.lastMessageAt.time }
+            if (lt.isPinned || oldestLoaded == null || lt.lastMessageAt.time >= oldestLoaded) {
                 newThreads.add(lt)
             }
         }
@@ -126,8 +127,9 @@ internal fun applyLiveThreadUpdates(
     // word entirely. A short snapshot is the exception: it holds every thread the
     // user has, so anything missing from it is gone whatever its timestamps say.
     val liveIds = live.map { it.id }.toSet()
-    val snapshotComplete = live.size < pageSize
-    val windowFloor = live.mapNotNull { it.updatedAt?.time }.minOrNull()
+    val recentWindow = live.filterNot { it.isOutsideRecentWindow }
+    val snapshotComplete = recentWindow.size < pageSize
+    val windowFloor = recentWindow.mapNotNull { it.updatedAt?.time }.minOrNull()
     if (live.isNotEmpty()) {
         val kept = byId.filterValues { t ->
             val updated = t.updatedAt?.time
@@ -175,6 +177,25 @@ class ThreadListViewModel @Inject constructor(
         visibleInboxRows(threads, userRepository.blockedIds.value) {
             userRepository.isUserBannedLocally(it)
         }
+
+    private val _pinError = MutableStateFlow<String?>(null)
+    val pinError = _pinError.asStateFlow()
+    fun dismissPinError() { _pinError.value = null }
+    private val pinRequests = mutableSetOf<String>()
+    fun togglePin(thread: CymbalThread) {
+        val uid = authRepository.currentUserId ?: return
+        if (!pinRequests.add(thread.id)) return
+        viewModelScope.launch {
+            try {
+                val desired = !thread.isPinned
+                messageRepository.setThreadPinned(thread.id, desired)
+                if (authRepository.currentUserId != uid) return@launch
+                publishThreads(_threads.value.map { if (it.id == thread.id) it.copy(isPinned = desired) else it })
+            } catch (error: Exception) {
+                _pinError.value = error.localizedMessage ?: "Couldn’t update conversation"
+            } finally { pinRequests.remove(thread.id) }
+        }
+    }
 
     private val _threads = MutableStateFlow(visible(seededInbox?.threads ?: emptyList()))
     val threads: StateFlow<List<CymbalThread>> = _threads.asStateFlow()

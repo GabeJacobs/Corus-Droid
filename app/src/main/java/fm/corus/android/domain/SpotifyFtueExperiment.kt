@@ -72,7 +72,7 @@ object SpotifyFtueExperiment {
                     }
                 }
             }
-            MusicService.TIDAL, MusicService.YOUTUBE_MUSIC, MusicService.DEEZER ->
+            MusicService.AUDIOMACK, MusicService.TIDAL, MusicService.YOUTUBE_MUSIC, MusicService.DEEZER ->
                 SpotifyFtueAssignment(
                     variant = SpotifyFtueVariant.INELIGIBLE,
                     alwaysPlayFullSongs = false,

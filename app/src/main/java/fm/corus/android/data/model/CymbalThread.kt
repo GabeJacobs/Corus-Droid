@@ -14,6 +14,11 @@ data class CymbalThread(
     // Group fields (present when isGroup). Direct threads leave these defaulted,
     // so existing 1:1 constructors/parsers are unaffected.
     val isGroup: Boolean = false,
+    val cityChatId: String? = null,
+    val cityName: String? = null,
+    val isPinned: Boolean = false,
+    /** Listener-only metadata: this row must not lower the recent window's pruning boundary. */
+    val isOutsideRecentWindow: Boolean = false,
     val groupName: String? = null,
     val groupPhotoURL: String? = null,
     val memberIds: List<String> = emptyList(),
@@ -60,6 +65,9 @@ data class CymbalThread(
                 lastMessageFromUserId = data["lastMessageFromUserId"] as? String,
                 unreadCount = (data["unreadCount"] as? Number)?.toInt() ?: 0,
                 isGroup = isGroup,
+                cityChatId = data["cityChatId"] as? String,
+                cityName = data["cityName"] as? String,
+                isPinned = data["isPinned"] == true,
                 // Callables use name/photoURL; mirror docs use groupName/groupPhotoURL.
                 groupName = (data["name"] ?: data["groupName"]) as? String,
                 groupPhotoURL = (data["photoURL"] ?: data["groupPhotoURL"]) as? String,

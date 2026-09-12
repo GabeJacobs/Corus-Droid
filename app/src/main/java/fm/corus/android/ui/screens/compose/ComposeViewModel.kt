@@ -1303,6 +1303,7 @@ class ComposeViewModel @Inject constructor(
                 previewUrl = track.previewUrl,
                 isrc = track.isrc,
                 source = track.source,
+                bandcampUrl = track.bandcampUrl,
                 soundcloudId = track.soundcloudId,
                 soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
             )

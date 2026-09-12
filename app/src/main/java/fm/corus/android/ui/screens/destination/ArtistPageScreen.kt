@@ -774,6 +774,8 @@ fun ArtistPageScreen(
                 }
             }
 
+            item { ArtistMerchSection(artistId, artistName.orEmpty()) }
+
             // ── Music videos rail — below the social content by design (posts
             //    are the differentiator; videos are the end-of-page delighter). ──
             if (matchedVideos.isNotEmpty()) {

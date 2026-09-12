@@ -49,7 +49,7 @@ import androidx.compose.ui.unit.dp
 import com.valentinilk.shimmer.shimmer
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
-import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.ShareRecipient
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -58,8 +58,8 @@ import fm.corus.android.ui.theme.CorusSpacing
 @Composable
 fun SharePostSheet(
     post: CymbalPost,
-    recentContacts: List<CymbalUser>,
-    searchResults: List<CymbalUser>,
+    recentContacts: List<ShareRecipient>,
+    searchResults: List<ShareRecipient>,
     isSearching: Boolean,
     isLoadingContacts: Boolean,
     instagramShareEnabled: Boolean,
@@ -73,7 +73,7 @@ fun SharePostSheet(
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     var searchQuery by remember { mutableStateOf("") }
-    var selectedUser by remember { mutableStateOf<CymbalUser?>(null) }
+    var selectedUser by remember { mutableStateOf<ShareRecipient?>(null) }
     var messageText by remember { mutableStateOf("") }
     var showCopied by remember { mutableStateOf(false) }
     var isSearchFocused by remember { mutableStateOf(false) }
@@ -81,7 +81,7 @@ fun SharePostSheet(
     // A recipient chosen from search results is pinned to the front of the recents
     // grid so the selection stays visible (with a checkmark) once the query clears —
     // otherwise a searched-for, non-recent recipient would vanish from the sheet.
-    var pinnedUser by remember { mutableStateOf<CymbalUser?>(null) }
+    var pinnedUser by remember { mutableStateOf<ShareRecipient?>(null) }
 
     val isSearchActive = isSearchFocused || searchQuery.isNotBlank()
 
@@ -416,7 +416,7 @@ internal fun SkeletonShareContactsGrid() {
 
 @Composable
 internal fun ShareContactCell(
-    user: CymbalUser,
+    user: ShareRecipient,
     isSelected: Boolean,
     onClick: () -> Unit,
 ) {
@@ -425,7 +425,7 @@ internal fun ShareContactCell(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box {
-            UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = 72.dp)
+            ShareRecipientAvatar(user, 72.dp)
             if (isSelected) {
                 Box(
                     modifier = Modifier
@@ -459,7 +459,7 @@ internal fun ShareContactCell(
 
 @Composable
 internal fun ShareUserRow(
-    user: CymbalUser,
+    user: ShareRecipient,
     isSelected: Boolean,
     onClick: () -> Unit,
 ) {
@@ -470,7 +470,7 @@ internal fun ShareUserRow(
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = CorusSpacing.avatarMedium)
+        ShareRecipientAvatar(user, 56.dp)
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
             UsernameWithFlair(
@@ -482,7 +482,10 @@ internal fun ShareUserRow(
                 style = CorusFont.username,
                 color = CorusColors.Text,
             )
-            Text(user.displayName, style = CorusFont.caption, color = CorusColors.Secondary)
+            Text(
+                user.group?.let { stringResource(R.string.messaging_group_member_count, it.memberIds.size) } ?: user.displayName,
+                style = CorusFont.caption, color = CorusColors.Secondary,
+            )
         }
         if (isSelected) {
             Icon(
@@ -641,5 +644,15 @@ internal fun isWhatsAppAvailable(context: Context): Boolean {
         true
     } catch (_: PackageManager.NameNotFoundException) {
         false
+    }
+}
+
+@Composable
+private fun ShareRecipientAvatar(recipient: ShareRecipient, size: Dp) {
+    val group = recipient.group
+    if (group != null && group.groupPhotoURL == null) {
+        fm.corus.android.ui.screens.messaging.StackedGroupAvatar(members = group.members, size = size)
+    } else {
+        UserAvatarView(avatarURL = recipient.avatarURL, displayName = recipient.displayName, size = size)
     }
 }

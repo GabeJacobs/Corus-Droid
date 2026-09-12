@@ -11,6 +11,10 @@ import fm.corus.android.service.RemoteConfigService
  * across feed, detail, search, and comment attachment surfaces.
  */
 object SongPlayRouting {
+    /** Selecting the flagged Audiomack provider explicitly opts into full playback. */
+    fun wantsAudiomackFullSong(source: TrackSource, service: MusicService, enabled: Boolean): Boolean =
+        enabled && service == MusicService.AUDIOMACK && source != TrackSource.SOUNDCLOUD && source != TrackSource.BANDCAMP
+
     /** True when a play tap should go to MusicKit full-song playback (iOS only). */
     fun wantsFullSong(
         source: TrackSource,
@@ -181,6 +185,7 @@ object SongPlayRouting {
         return when (service) {
             MusicService.SPOTIFY -> SpotifyPlaybackService.isSpotifyAppInstalled(context)
             // TIDAL full streaming is iOS-only until an Android player ships.
+            MusicService.AUDIOMACK -> remoteConfig.audiomackStreamingEnabled
             MusicService.TIDAL, MusicService.APPLE_MUSIC, MusicService.DEEZER, MusicService.YOUTUBE_MUSIC -> false
         }
     }
@@ -191,7 +196,7 @@ object SongPlayRouting {
     fun nativeAppInstalled(context: Context, service: MusicService): Boolean =
         when (service) {
             MusicService.SPOTIFY -> SpotifyPlaybackService.isSpotifyAppInstalled(context)
-            MusicService.TIDAL, MusicService.DEEZER, MusicService.YOUTUBE_MUSIC -> true
+            MusicService.AUDIOMACK, MusicService.TIDAL, MusicService.DEEZER, MusicService.YOUTUBE_MUSIC -> true
             MusicService.APPLE_MUSIC -> false
         }
 }

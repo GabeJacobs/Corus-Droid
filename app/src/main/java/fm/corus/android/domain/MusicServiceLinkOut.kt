@@ -75,6 +75,7 @@ object MusicServiceLinkOut {
         MusicService.TIDAL -> R.drawable.tidal_logo
         MusicService.YOUTUBE_MUSIC -> R.drawable.youtube_music_logo
         MusicService.DEEZER -> R.drawable.deezer_logo
+        MusicService.AUDIOMACK -> R.drawable.audiomack_mark
     }
 
     /**
@@ -141,6 +142,7 @@ object MusicServiceLinkOut {
         cloud: CloudFunctionsDataSource,
     ): String? = when (service) {
         MusicService.SPOTIFY -> null
+        MusicService.AUDIOMACK -> cloud.audiomackLinkOutUrl(name, artist, isrc)
         MusicService.APPLE_MUSIC -> cached(appleCache, trackId) { cloud.appleMusicLinkOutUrl(name, artist, isrc, trackId) }
         MusicService.TIDAL -> cached(tidalCache, trackId) { cloud.tidalLinkOutUrl(name, artist, isrc, trackId) }
         // YouTube Music resolves entirely client-side (a search URL), so it never

@@ -8,6 +8,7 @@ import androidx.test.core.app.ApplicationProvider
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.remote.CloudFunctionsDataSource
+import fm.corus.android.data.repository.SpotifyRepository
 import fm.corus.android.data.repository.UserRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -51,6 +52,7 @@ class NowPlayingManagerSpotifyNaturalEndAdoptTest {
     private val positionSeconds = MutableStateFlow(0.0)
     private val durationSeconds = MutableStateFlow(0.0)
     private lateinit var spotifyPlaybackService: SpotifyPlaybackService
+    private val spotifyRepository = mock<SpotifyRepository>()
     private val musicServicePreference = mock<MusicServicePreference> {
         on { current } doReturn MutableStateFlow(MusicService.SPOTIFY)
     }
@@ -101,18 +103,49 @@ class NowPlayingManagerSpotifyNaturalEndAdoptTest {
             preferencesDataStore,
             userRepository,
             mock(),
-            musicServicePreference,
+            musicServicePreference, org.mockito.kotlin.mock(),
             mock(),
             mock(),
             mock(),
             spotifyPlaybackService,
             mock(),
+            spotifyRepository,
             mock(),
             mock(),
             mock(),
             mock(),
-            mock(),
+            bandcampPlaybackService = org.mockito.kotlin.mock(),
         ).also { it.skipConnectKeepAlive = true }
+
+    @Test
+    fun externalSpotifyPublishesFreshAppRemoteIdentityBeforeCatalogHydration() =
+        runTest(testDispatcher) {
+            val manager = newManager()
+            val uri = "spotify:track:external-fast"
+            whenever(spotifyPlaybackService.isConnected).thenReturn(true)
+            whenever(spotifyPlaybackService.appRemoteDisplayMetadata()).thenReturn(
+                SpotifyPlaybackService.AppRemoteDisplayMetadata(
+                    name = "Current Spotify Song",
+                    artistName = "Current Artist",
+                    albumName = "Current Album",
+                    albumArtURL = "https://image/current.jpg",
+                ),
+            )
+            durationSeconds.value = 180.0
+
+            manager.testingAdoptExternalSpotifyPlayback(uri, playerStateIsFresh = true)
+
+            assertEquals("external-fast", manager.state.value.trackId)
+            assertEquals("Current Spotify Song", manager.state.value.trackName)
+            assertEquals("Current Artist", manager.state.value.artistName)
+            assertEquals("https://image/current.jpg", manager.state.value.albumArtURL)
+            assertTrue(manager.state.value.isPlaying)
+            assertTrue(manager.isExternalSpotifyListening)
+            assertFalse(manager.isHydratingExternalSpotify.value)
+            verify(spotifyPlaybackService, never()).refreshState()
+
+            manager.stop()
+        }
 
     private fun track(id: String, name: String = id) = QueuedTrack(
         trackId = id,

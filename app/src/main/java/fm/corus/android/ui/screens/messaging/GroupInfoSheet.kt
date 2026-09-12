@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.messaging
 
+import fm.corus.android.domain.CityChatPolicy
 import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -71,7 +72,9 @@ internal fun GroupInfoSheet(
     // needs (see CorusDraggableSheet).
     var cropBitmap by remember { mutableStateOf<Bitmap?>(null) }
     val currentUserId = viewModel.currentUserId
-    val isCreator = groupInfo.createdBy == currentUserId
+    val isCity = !groupInfo.cityChatId.isNullOrBlank()
+    val canEditIdentity = CityChatPolicy.canEditIdentity(groupInfo.cityChatId,currentUserId)
+    val isCreator = if (isCity) currentUserId == CityChatPolicy.OWNER else groupInfo.createdBy == currentUserId
     val memberIds = groupInfo.memberIds
     val otherMembers = memberIds.filter { it != currentUserId }.mapNotNull { membersById[it] }
 
@@ -170,7 +173,7 @@ internal fun GroupInfoSheet(
                     modifier = Modifier
                         .size(84.dp)
                         .clip(CircleShape)
-                        .clickable(enabled = !uploadingPhoto) { launchPhotoPicker() },
+                        .clickable(enabled = !uploadingPhoto && canEditIdentity) { launchPhotoPicker() },
                     contentAlignment = Alignment.Center,
                 ) {
                     when {
@@ -198,7 +201,7 @@ internal fun GroupInfoSheet(
                 )
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
-                Row(horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg)) {
+                if (canEditIdentity) Row(horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg)) {
                     Text(
                         stringResource(id = R.string.messaging_group_change_name),
                         style = CorusFont.body, color = CorusColors.Accent,
@@ -210,7 +213,7 @@ internal fun GroupInfoSheet(
                     Text(
                         stringResource(id = R.string.messaging_group_change_photo),
                         style = CorusFont.body, color = CorusColors.Accent,
-                        modifier = Modifier.clickable(enabled = !uploadingPhoto) { launchPhotoPicker() },
+                        modifier = Modifier.clickable(enabled = !uploadingPhoto && canEditIdentity) { launchPhotoPicker() },
                     )
                 }
                 Spacer(modifier = Modifier.height(CorusSpacing.xs))
@@ -227,7 +230,7 @@ internal fun GroupInfoSheet(
             // Add people — gated on the RC flag like the inbox create entry
             // (mirrors web group-info), so an existing group still opens when the
             // flag is off but can't be expanded.
-            if (viewModel.groupMessagingEnabled) {
+            if (viewModel.groupMessagingEnabled && !isCity) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -245,6 +248,8 @@ internal fun GroupInfoSheet(
                     Text(stringResource(id = R.string.messaging_group_add_people), style = CorusFont.body, color = CorusColors.Text)
                 }
             }
+
+            if (isCity) CityChatNotificationRow(viewModel)
 
             // Member list
             LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -289,7 +294,7 @@ internal fun GroupInfoSheet(
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { confirmLeave = true }
+                    .clickable(enabled = CityChatPolicy.canLeave(groupInfo.cityChatId,currentUserId)) { confirmLeave = true }
                     .padding(vertical = CorusSpacing.md),
             )
         }

@@ -65,12 +65,12 @@ class FilmDetailViewModelShareTest {
 
     @Test
     fun `sendFilmToUser sends a sharedFilm message on the created thread`() = runTest {
-        whenever(messageRepository.getOrCreateThread(eq("me"), eq("friend"))).doReturn("thread1")
+        whenever(messageRepository.resolveShareThread(eq("me"), eq("friend"))).doReturn("thread1")
 
         viewModel.sendFilmToUser("friend", movie, "  loved it  ")
         advanceUntilIdle()
 
-        verify(messageRepository).getOrCreateThread("me", "friend")
+        verify(messageRepository).resolveShareThread("me", "friend")
         verify(messageRepository).sendSharedFilmMessage(
             threadId = eq("thread1"),
             fromUserId = eq("me"),
@@ -87,6 +87,6 @@ class FilmDetailViewModelShareTest {
         viewModel.sendFilmToUser("friend", movie, "x")
         advanceUntilIdle()
 
-        verify(messageRepository, never()).getOrCreateThread(any(), any())
+        verify(messageRepository, never()).resolveShareThread(any(), any())
     }
 }

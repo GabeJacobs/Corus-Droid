@@ -185,6 +185,7 @@ class PostRepository @Inject constructor(
             if (voiceNoteURL != null) put("voiceNoteURL", voiceNoteURL)
         }
         val result = cloudFunctions.createPost(effective)
+        fm.corus.android.domain.MapPostChanges.changed()
         // A new post changes the viewer's taste, so the suggested + taste-matches
         // rails' cached first pages are now stale — drop both so the next open
         // fetches fresh. Mirrors iOS ComposeView.invalidateSuggestedMatchesCache().
@@ -194,6 +195,7 @@ class PostRepository @Inject constructor(
 
     suspend fun updateCaption(postId: String, caption: String, hashtags: List<String>) {
         firestoreDataSource.updateCaption(postId, caption, hashtags)
+        fm.corus.android.domain.MapPostChanges.changed()
     }
 
     suspend fun createNotification(
@@ -211,7 +213,7 @@ class PostRepository @Inject constructor(
 
     suspend fun deletePost(postId: String, userId: String) {
         val cachedTimestamp = postCache[postId]?.timestamp
-        firestoreDataSource.deletePost(postId, userId)
+        try { firestoreDataSource.deletePost(postId, userId) } finally { fm.corus.android.domain.MapPostChanges.changed() }
         postCache.remove(postId)
         subscriptionRepository.decrementPostCount(cachedTimestamp)
         // Deleting a post also changes the viewer's taste — drop both rails'

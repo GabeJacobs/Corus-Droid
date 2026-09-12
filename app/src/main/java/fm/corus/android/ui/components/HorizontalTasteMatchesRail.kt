@@ -77,11 +77,14 @@ fun HorizontalTasteMatchesRail(
     /** Clears the "Unfollowed" filter back to "All". Wired to the followed-all
      *  empty state's "Show all" action; mirrors the iOS rail. */
     onClearFilter: () -> Unit = {},
+    refreshKey: Int = 0,
+    initialMatches: List<SuggestedUserMatch> = emptyList(),
     onSeeAll: (() -> Unit)? = null,
     trailingAction: (@Composable () -> Unit)? = null,
     viewModel: TasteMatchesRailViewModel = hiltViewModel(),
 ) {
     val discovery by viewModel.discovery.collectAsState()
+    val hasResolvedDiscovery by viewModel.hasResolvedDiscovery.collectAsState()
     var showPaywall by remember { mutableStateOf(false) }
     if (showPaywall) {
         CymbalClubOfferSheet(source = PaywallSource.TASTE_DISCOVERY,
@@ -92,10 +95,11 @@ fun HorizontalTasteMatchesRail(
     val isLoading by viewModel.isLoading.collectAsState()
     val endReached by viewModel.endReached.collectAsState()
     val isFilling by viewModel.isFilling.collectAsState()
+    val loadFailed by viewModel.loadFailed.collectAsState()
     val isActive = LocalContainingTabSelected.current
     LaunchedEffect(isActive, discovery) { if (isActive) viewModel.logDiscoveryExposure() }
 
-    LaunchedEffect(isActive) {
+    LaunchedEffect(isActive, refreshKey) {
         if (!isActive) return@LaunchedEffect
         if (viewModel.matches.value.isEmpty()) {
             delay(CorusMotion.SEARCH_LIVE_LOAD_DELAY_MS)
@@ -105,9 +109,18 @@ fun HorizontalTasteMatchesRail(
 
     // The subset the rail actually renders. Under the "Unfollowed" filter we drop
     // people the viewer already follows; otherwise show everything loaded.
-    val visibleMatches = remember(matches, filterUnfollowed, followedIds, discovery) {
-        if (!filterUnfollowed || discovery.locked) matches
-        else matches.filter { it.user.id !in followedIds }
+    val displayedMatches = when {
+        !hasResolvedDiscovery -> emptyList()
+        !discovery.locked -> {
+            val known = initialMatches.associateBy { it.user.id }
+            val repaired = matches.mapNotNull { match -> if(buildSharedNamesSubtitle(match.matchData) != null) match else known[match.user.id] }
+            repaired.ifEmpty { initialMatches }
+        }
+        else -> matches
+    }
+    val visibleMatches = remember(displayedMatches, filterUnfollowed, followedIds, discovery) {
+        if (!filterUnfollowed || discovery.locked) displayedMatches
+        else displayedMatches.filter { it.user.id !in followedIds }
     }
 
     // When the toggle flips to "Unfollowed", set isFilling synchronously (via the
@@ -160,7 +173,7 @@ fun HorizontalTasteMatchesRail(
         // isLoading starts true so this row is reserved on the first Search
         // frame — otherwise the header paints alone until fetchPage flips the
         // flag (after SEARCH_LIVE_LOAD_DELAY_MS) and the rail jumps down.
-        if (matches.isEmpty() && isLoading) {
+        if (displayedMatches.isEmpty() && isLoading) {
             SkeletonRow(cardWidth = cardWidth)
         } else if (visibleMatches.isNotEmpty()) {
             LazyRow(
@@ -196,10 +209,13 @@ fun HorizontalTasteMatchesRail(
                     }
                 }
             }
+        } else if (displayedMatches.isEmpty() && endReached && !isFilling && !loadFailed) {
+            // The paginated result can be empty even when Search found preview matches.
+            fm.corus.android.ui.screens.search.TasteMatchesEmptyCard()
         } else if (filterUnfollowed && isFilling) {
             // Still paging through followed matches to surface unfollowed ones.
             SkeletonRow(cardWidth = cardWidth)
-        } else if (filterUnfollowed && matches.isNotEmpty()) {
+        } else if (filterUnfollowed && displayedMatches.isNotEmpty()) {
             // Exhausted the list and you follow all of your matches.
             FollowedAllState(onShowAll = onClearFilter)
         }
@@ -251,6 +267,8 @@ class TasteMatchesRailViewModel @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: android.content.Context? = null,
 ) : ViewModel() {
 
+    private val _hasResolvedDiscovery = MutableStateFlow(false)
+    val hasResolvedDiscovery = _hasResolvedDiscovery.asStateFlow()
     private val _discovery = MutableStateFlow(TasteDiscoveryAccess())
     val discovery = _discovery.asStateFlow()
 
@@ -283,7 +301,15 @@ class TasteMatchesRailViewModel @Inject constructor(
     /** Set when the most recent [fetchPage] threw (as opposed to returning an
      *  empty page). Lets the cold-start path unlatch and retry rather than
      *  latching an empty rail after a transient failure. */
-    private var loadFailed = false
+    private val _loadFailed = MutableStateFlow(false)
+    val loadFailed: StateFlow<Boolean> = _loadFailed.asStateFlow()
+
+    init {
+        userRepository.takePreparedOnboardingTastePage()?.let { page ->
+            applyFirstPage(page.matches, page.nextCursor, page.hasMore, page.discovery)
+            viewModelScope.launch { userRepository.cacheTasteMatchesFirstPage(page) }
+        }
+    }
 
     fun loadInitial() {
         if (hasLoadedInitial) {
@@ -315,7 +341,7 @@ class TasteMatchesRailViewModel @Inject constructor(
             fetchPage()
             // A failed first page with nothing loaded shouldn't latch: unlatch so
             // the next appearance silently retries instead of showing an empty rail.
-            if (loadFailed && _matches.value.isEmpty()) {
+            if (_loadFailed.value && _matches.value.isEmpty()) {
                 hasLoadedInitial = false
                 _isLoading.value = true
             }
@@ -326,6 +352,7 @@ class TasteMatchesRailViewModel @Inject constructor(
      *  paint the cache and to reconcile after a background refresh. */
     private fun applyFirstPage(pageMatches: List<SuggestedUserMatch>, nextCursor: String?, hasMore: Boolean, discovery: TasteDiscoveryAccess) {
         _discovery.value = discovery
+        _hasResolvedDiscovery.value = true
         loadedIds.clear()
         loadedIds.addAll(pageMatches.map { it.user.id })
         _matches.value = pageMatches
@@ -426,13 +453,14 @@ class TasteMatchesRailViewModel @Inject constructor(
             val page = runCatching {
                 userRepository.getTasteMatchesPage(cursor = cursor, limit = pageSize)
             }.getOrElse {
-                loadFailed = true
+                _loadFailed.value = true
                 _endReached.value = true
                 return
             }
-            loadFailed = false
+            _loadFailed.value = false
             if (page.discovery.locked) { _matches.value = emptyList(); loadedIds.clear() }
             _discovery.value = page.discovery
+            _hasResolvedDiscovery.value = true
             if (page.matches.isEmpty()) {
                 _endReached.value = true
                 return

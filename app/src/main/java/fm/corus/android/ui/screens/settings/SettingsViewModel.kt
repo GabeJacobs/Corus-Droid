@@ -30,6 +30,7 @@ class SettingsViewModel @Inject constructor(
     private val subscriptionRepository: SubscriptionRepository,
     private val preferencesDataStore: PreferencesDataStore,
     val youtubeMusicService: fm.corus.android.domain.YouTubeMusicService,
+    val audiomackAuthService: fm.corus.android.domain.AudiomackAuthService,
     private val remoteConfigService: RemoteConfigService,
     private val analyticsService: AnalyticsService,
     private val nowPlayingManager: NowPlayingManager,
@@ -50,6 +51,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     /** Whether the TIDAL option should appear in the music-service picker. */
+    val audiomackStreamingEnabled get() = remoteConfigService.audiomackStreamingEnabled
     val tidalEnabled: Boolean
         get() = remoteConfigService.tidalEnabled
 

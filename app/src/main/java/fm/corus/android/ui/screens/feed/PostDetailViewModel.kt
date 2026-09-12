@@ -8,6 +8,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.ShareRecipient
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
@@ -53,6 +54,8 @@ class PostDetailViewModel @Inject constructor(
     private val playbackModePromptManager: fm.corus.android.domain.PlaybackModePromptManager,
     @ApplicationContext private val context: Context,
 ) : ViewModel(), PostMenuActions {
+
+    val saveCapEvents get() = engagementManager.saveCapEvents
 
     override suspend fun fetchBackCover(postId: String): String? {
         return postRepository.fetchBackCover(postId)
@@ -144,11 +147,11 @@ class PostDetailViewModel @Inject constructor(
     val currentUserId: String? get() = authRepository.currentUserId
 
     // ── Share search state ──
-    private val _shareSearchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
-    override val shareSearchResults: StateFlow<List<CymbalUser>> = _shareSearchResults.asStateFlow()
+    private val _shareSearchResults = MutableStateFlow<List<ShareRecipient>>(emptyList())
+    override val shareSearchResults: StateFlow<List<ShareRecipient>> = _shareSearchResults.asStateFlow()
 
-    private val _recentShareContacts = MutableStateFlow<List<CymbalUser>>(emptyList())
-    override val recentShareContacts: StateFlow<List<CymbalUser>> = _recentShareContacts.asStateFlow()
+    private val _recentShareContacts = MutableStateFlow<List<ShareRecipient>>(emptyList())
+    override val recentShareContacts: StateFlow<List<ShareRecipient>> = _recentShareContacts.asStateFlow()
 
     private val _isShareSearching = MutableStateFlow(false)
     override val isShareSearching: StateFlow<Boolean> = _isShareSearching.asStateFlow()
@@ -160,12 +163,15 @@ class PostDetailViewModel @Inject constructor(
 
     private var listeningPostId: String? = null
 
-    fun loadPost(postId: String) {
+    private var loadPostGeneration = 0
+    fun loadPost(postId: String, includeComments: Boolean = true) {
+        val generation = ++loadPostGeneration
         val userId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             _isLoading.value = true
             try {
                 val loadedPost = postRepository.getPostDetail(postId, userId)
+                if (generation != loadPostGeneration || authRepository.currentUserId != userId) return@launch
                 _post.value = loadedPost
                 if (loadedPost != null) {
                     engagementManager.initState(
@@ -186,8 +192,10 @@ class PostDetailViewModel @Inject constructor(
                     engagementManager.checkSaveStatuses(listOf(loadedPost.id), userId)
                 }
                 // Load comments
-                val loadedComments = postRepository.getComments(postId)
-                _comments.value = loadedComments
+                if (includeComments) {
+                    val loadedComments = postRepository.getComments(postId)
+                    if (generation == loadPostGeneration && authRepository.currentUserId == userId) _comments.value = loadedComments
+                }
             } catch (_: Exception) { }
             _isLoading.value = false
         }
@@ -289,6 +297,7 @@ class PostDetailViewModel @Inject constructor(
                     soundcloudId = post.track.soundcloudId,
                     soundcloudPermalinkUrl = post.track.soundcloudPermalinkUrl,
                     audiomackUrl = post.track.audiomackUrl,
+                    notOnSpotify = post.track.notOnSpotify,
                 )
             },
             scope = viewModelScope,
@@ -315,10 +324,9 @@ class PostDetailViewModel @Inject constructor(
 
     override fun loadRecentShareContacts() {
         val userId = authRepository.currentUserId ?: return
-        loadRecentDmShareContacts(
+        loadRecentShareRecipients(
             userId = userId,
             messageRepository = messageRepository,
-            currentContacts = _recentShareContacts.value,
             setContacts = { _recentShareContacts.value = it },
             setLoading = { _isLoadingShareContacts.value = it },
             scope = viewModelScope,
@@ -335,11 +343,14 @@ class PostDetailViewModel @Inject constructor(
         }
 
         shareSearchJob?.cancel()
+        _shareSearchResults.value = emptyList()
         shareSearchJob = viewModelScope.launch {
             _isShareSearching.value = true
             delay(250)
             try {
-                _shareSearchResults.value = userRepository.searchUsers(trimmed, includeFollowed = true)
+                _shareSearchResults.value = messageRepository.searchShareRecipients(authRepository.currentUserId ?: return@launch, trimmed, userRepository)
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
             } catch (_: Exception) {
                 _shareSearchResults.value = emptyList()
             }
@@ -351,7 +362,7 @@ class PostDetailViewModel @Inject constructor(
         val currentUserId = authRepository.currentUserId ?: return
         viewModelScope.launch {
             try {
-                val threadId = messageRepository.getOrCreateThread(currentUserId, userId)
+                val threadId = messageRepository.resolveShareThread(currentUserId, userId)
                 messageRepository.sendSharedPostMessage(
                     threadId = threadId,
                     fromUserId = currentUserId,
