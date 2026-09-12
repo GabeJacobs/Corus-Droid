@@ -75,7 +75,10 @@ fun MapArtworkFan(
         label = "City artwork fan",
     )
     if (point == null) return
-    Box(Modifier.offset { IntOffset((point.x - 22*density).roundToInt(), (point.y - 131*density).roundToInt()) }.size(44.dp,66.dp)) {
+    // The MapLibre marker is center-anchored. Keep the fan just above the
+    // faces, matching iOS's -66pt overlay rather than floating a full marker
+    // height above the city cluster.
+    Box(Modifier.offset { IntOffset((point.x - 22*density).roundToInt(), (point.y - 94*density).roundToInt()) }.size(44.dp,66.dp)) {
         (if (resolvedKey == key) covers else emptyList()).forEachIndexed { index, bitmap ->
             val spread = index - (covers.size-1)/2f
             Image(bitmap.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop,

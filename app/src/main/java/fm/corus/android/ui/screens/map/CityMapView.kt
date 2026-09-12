@@ -10,12 +10,14 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.core.content.res.ResourcesCompat
 import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import coil3.request.allowHardware
 import coil3.toBitmap
 import fm.corus.android.ui.theme.LocalCorusDarkTheme
+import fm.corus.android.R
 import kotlinx.coroutines.launch
 import org.maplibre.android.MapLibre
 import org.maplibre.android.annotations.IconFactory
@@ -93,7 +95,10 @@ fun CityMapView(cities: List<MapCitySummary>, filter: String, selected: MapCity?
     }
     LaunchedEffect(activeCity?.cityId, viewportRevision) { map?.let { updateFanPosition(it) } }
     LaunchedEffect(map, dark) {
-        map?.setStyle("https://tiles.openfreemap.org/styles/${if (dark) "dark" else "positron"}") { styleReady++ }
+        // `positron` and `dark` are intentionally muted cartographic styles.
+        // iOS uses Apple Maps' standard, colored map, so use OpenFreeMap's
+        // Liberty standard style in both themes rather than a grayscale base.
+        map?.setStyle("https://tiles.openfreemap.org/styles/liberty") { styleReady++ }
     }
     LaunchedEffect(map, cities, filter, playing?.cityId, activeCity?.cityId, playbackMode, styleReady, viewportRevision) {
         val m = map ?: return@LaunchedEffect
@@ -111,8 +116,17 @@ fun CityMapView(cities: List<MapCitySummary>, filter: String, selected: MapCity?
             val active = summary.city.cityId == playing?.cityId
             val label = "${if (active) if (playbackMode == "watch") "▣ " else "♫ " else ""}${summary.city.cityName}"
             val faces = retainedFaces[summary.city.cityId].orEmpty()
-            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 13 * density; typeface = Typeface.DEFAULT_BOLD }
-            val width = max(paint.measureText(label) + 24 * density, 100 * density).toInt()
+            // Markers are rendered into a bitmap, so Compose typography cannot
+            // reach them automatically. Load Corus's Nunito face explicitly to
+            // keep city labels aligned with the rest of the app and iOS parity.
+            val clusterTypeface = ResourcesCompat.getFont(context, R.font.nunito)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                textSize = 13 * density
+                typeface = Typeface.create(clusterTypeface ?: Typeface.DEFAULT, Typeface.BOLD)
+            }
+            // Match iOS's content-sized city capsule. The old 100dp minimum
+            // made short names such as Brooklyn look detached from their faces.
+            val width = max(paint.measureText(label) + 20 * density, 76 * density).toInt()
             val faceSize = 34 * density; val faceTop = 8*density; val labelTop = 48*density
             val height = (labelTop + 30*density).toInt()
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888); val canvas = Canvas(bitmap)

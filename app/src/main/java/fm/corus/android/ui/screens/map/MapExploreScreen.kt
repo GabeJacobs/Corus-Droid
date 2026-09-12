@@ -16,6 +16,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
@@ -37,6 +38,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
@@ -47,6 +50,7 @@ import fm.corus.android.ui.components.InlineYouTubePlayer
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,6 +75,8 @@ fun MapExploreScreen(
     LaunchedEffect(view) { model.repository.event("view_changed", view) }
     var browsingCityId by rememberSaveable { mutableStateOf<String?>(null) }
     var expanded by rememberSaveable { mutableStateOf(false) }
+    var citySheetVisible by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     var audience by rememberSaveable { mutableStateOf("off") }
     var pendingMode by rememberSaveable { mutableStateOf("listen") }
     var countries by remember { mutableStateOf(model.selectedCountries) }
@@ -122,22 +128,80 @@ fun MapExploreScreen(
     }
     LaunchedEffect(query) { model.search(query) }
     LaunchedEffect(state.paywall) { state.paywall?.let { model.dismissPaywall(); onPaywall(it) } }
-    BackHandler(dialog.isNotEmpty() || state.selected != null || state.mode != null) { when { dialog.isNotEmpty() -> { if (dialog != "intro" && dialog != "confirm" && !state.busy) dialog = "" }; state.selected != null -> model.closeCity(); else -> model.stop() } }
+    LaunchedEffect(state.selected?.cityId) { citySheetVisible = state.selected != null }
+    fun dismissCitySheet() {
+        if (!citySheetVisible) return
+        citySheetVisible = false
+        scope.launch {
+            // Let the sheet finish its exit before clearing the selected pin so
+            // the map and city marker keep their geometry during the motion.
+            delay(180)
+            model.closeCity()
+        }
+    }
+    BackHandler(dialog.isNotEmpty() || state.selected != null || state.mode != null) { when { dialog.isNotEmpty() -> { if (dialog != "intro" && dialog != "confirm" && !state.busy) dialog = "" }; state.selected != null -> dismissCitySheet(); else -> model.stop() } }
     if (!model.enabled) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { TextButton(onClick = onBack) { Text(parityCopy("Back to Search")) } }; return }
     Box(Modifier.fillMaxSize().background(CorusColors.Background)) {
         CityMapView(state.cities, state.filter, state.selected, state.playing?.city, Modifier.fillMaxSize(), sessionKey = state.sessionKey, showArtwork = view == "map", playbackMode = state.mode, loadLatest = model.repository::latest, anchor = if (state.ownPresenceReady) mapFocusCity(cities, state.filter, state.ownCity)?.city else null, initialCamera = model.savedCamera, onCameraChanged = { model.savedCamera = it }, browsing = browsingCityId?.let { id -> cities.firstOrNull { it.city.cityId == id }?.city }) { browsingCityId = it.cityId; model.select(it) }
-        Row(Modifier.fillMaxWidth().statusBarsPadding().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            FilledTonalIconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
-            Row(Modifier.weight(1f).clip(CircleShape).background(CorusColors.Background).horizontalScroll(rememberScrollState()).padding(3.dp)) {
+        // Mirror the map's existing iOS chrome: individual compact filter
+        // pills, then a small sharing status and map/list control. This leaves
+        // the map itself as the focus instead of turning the header into a
+        // large segmented toolbar.
+        Column(
+            Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                FilledTonalIconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                Row(
+                    Modifier.weight(1f).horizontalScroll(rememberScrollState()).padding(start = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                 listOf("all" to "Everyone", "following" to "Following", "tasteMatches" to "Taste Matches").forEach { (value, label) ->
-                    FilterChip(selected = state.filter == value, onClick = {
-                        val accepted = value != state.filter && (value != "tasteMatches" || fullAccess)
-                        model.filter(value)
-                        if (accepted) hapticView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
-                    }, label = { Text(parityCopy(label), style = CorusFont.caption) })
+                    val selected = state.filter == value
+                    TextButton(
+                        onClick = {
+                            val accepted = value != state.filter && (value != "tasteMatches" || fullAccess)
+                            model.filter(value)
+                            if (accepted) hapticView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                        },
+                        modifier = Modifier
+                            .heightIn(min = 36.dp)
+                            .then(if (!selected) Modifier.border(1.dp, CorusColors.Divider, CircleShape) else Modifier),
+                        shape = CircleShape,
+                        colors = ButtonDefaults.textButtonColors(
+                            containerColor = if (selected) CorusColors.Accent else androidx.compose.ui.graphics.Color.Transparent,
+                            contentColor = if (selected) androidx.compose.ui.graphics.Color.White else CorusColors.Secondary,
+                        ),
+                    ) {
+                        Text(parityCopy(label), style = CorusFont.caption, maxLines = 1)
+                    }
+                }
                 }
             }
-            FilledTonalIconButton(onClick = { dialog = "audience" }) { Icon(Icons.Default.LocationOn, "Who can see your city") }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                val sharedCity = state.ownCity
+                if (sharedCity == null) {
+                    TextButton(onClick = { dialog = "audience" }) { Text(parityCopy("Share your city"), style = CorusFont.caption, color = CorusColors.Accent) }
+                } else {
+                    Text(parityCopy("Sharing: ${sharedCity.cityName}, ${sharedCity.regionName}"), style = CorusFont.caption, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { dialog = "audience" }) { Text(parityCopy("Change"), style = CorusFont.caption, color = CorusColors.Accent) }
+                }
+                Spacer(Modifier.weight(1f))
+                Surface(shape = CircleShape, color = CorusColors.CardBackground) {
+                    Row(Modifier.padding(2.dp)) {
+                        listOf("map" to "Map", "list" to "List").forEach { (value, label) ->
+                            val selected = view == value
+                            TextButton(
+                                onClick = { if (view != value) { view = value; hapticView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK) } },
+                                shape = CircleShape,
+                                colors = ButtonDefaults.textButtonColors(containerColor = if (selected) CorusColors.Accent else androidx.compose.ui.graphics.Color.Transparent, contentColor = if (selected) androidx.compose.ui.graphics.Color.White else CorusColors.Secondary),
+                                modifier = Modifier.heightIn(min = 32.dp),
+                            ) { Text(parityCopy(label), style = CorusFont.caption) }
+                        }
+                    }
+                }
+            }
         }
         if (state.loading) CircularProgressIndicator(Modifier.align(Alignment.Center))
         if (!state.loading && cities.isEmpty()) Surface(Modifier.align(Alignment.Center).padding(24.dp), shape = RoundedCornerShape(20.dp)) { Column(Modifier.padding(20.dp)) { Text(parityCopy("No people to show for this filter.")); TextButton(onClick = { model.refresh() }) { Text(parityCopy("Retry")) } } }
@@ -156,20 +220,41 @@ fun MapExploreScreen(
             }
         }
         if (state.selected == null && state.playing == null) Row(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilledTonalButton(onClick = { view = if (view == "map") "list" else "map"; hapticView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK) }) { Text(parityCopy(if (view == "map") "List" else "Map")) }
             FilledTonalButton(onClick = { pendingMode = "listen"; dialog = "countries" }) { Icon(Icons.Default.Headphones, null); Text(parityCopy(" ") + parityCopy("Listen")) }
             FilledTonalButton(onClick = { pendingMode = "watch"; dialog = "countries" }) { Icon(Icons.Default.Movie, null); Text(parityCopy(" ") + parityCopy("Watch")) }
         }
         state.selected?.takeIf { state.playing == null }?.let { city ->
-            Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(if (expanded) .9f else .52f), color = CorusColors.Background, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp), shadowElevation = 12.dp) {
+            // This must live in a Dialog window: MainTabScreen draws the
+            // mini-player and tab bar after this NavHost, so an in-tree sheet
+            // would incorrectly slip underneath both pieces of app chrome.
+            Dialog(
+                onDismissRequest = ::dismissCitySheet,
+                properties = DialogProperties(
+                    usePlatformDefaultWidth = false,
+                    decorFitsSystemWindows = false,
+                    dismissOnClickOutside = true,
+                ),
+            ) {
+            AnimatedVisibility(
+                visible = citySheetVisible,
+                enter = slideInVertically(animationSpec = tween(220)) { it / 3 } + fadeIn(tween(180)),
+                exit = slideOutVertically(animationSpec = tween(180)) { it / 3 } + fadeOut(tween(140)),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+            Surface(Modifier.fillMaxWidth().fillMaxHeight(if (expanded) .9f else .52f), color = CorusColors.Background, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp), shadowElevation = 12.dp) {
                 Column {
                     Box(Modifier.fillMaxWidth().height(28.dp).pointerInput(Unit) { detectVerticalDragGestures { _, amount -> expanded = amount < 0 } }.clickable { expanded = !expanded }, contentAlignment = Alignment.Center) { Box(Modifier.size(36.dp, 4.dp).clip(CircleShape).background(CorusColors.Secondary.copy(alpha = .4f))) }
                     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         fun step(delta: Int) { val i = cities.indexOfFirst { it.city.cityId == city.cityId }; if (cities.isNotEmpty()) model.select(cities[(i + delta + cities.size) % cities.size].city) }
                         IconButton(onClick = { step(-1) }) { Icon(Icons.Default.ChevronLeft, "Previous city") }
-                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) { Text(city.cityName, style = CorusFont.bodyMedium, maxLines = 1); Text("${city.regionName} · ${city.countryCode} · ${cities.firstOrNull { it.city.cityId == city.cityId }?.facets?.get(state.filter)?.count ?: 0}", style = CorusFont.caption, color = CorusColors.Secondary) }
+                        val peopleCount = cities.firstOrNull { it.city.cityId == city.cityId }?.facets?.get(state.filter)?.count ?: 0
+                        val country = java.util.Locale("", city.countryCode).displayCountry.ifBlank { city.countryCode }
+                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(city.cityName, style = CorusFont.bodyMedium, maxLines = 1)
+                            Text("${city.regionName}, $country · $peopleCount ${if (peopleCount == 1) "person" else "people"}", style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                         IconButton(onClick = { step(1) }) { Icon(Icons.Default.ChevronRight, "Next city") }
-                        IconButton(onClick = { model.closeCity() }) { Icon(Icons.Default.Close, "Close city") }
                     }
                     Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (state.chatLoading) Box(Modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(20.dp)) }
@@ -184,13 +269,21 @@ fun MapExploreScreen(
                             val post = state.posts[person.user.id]
                             Row(Modifier.fillMaxWidth().clickable { onUser(person.user) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 AsyncImage(model = person.user.avatarThumbURL ?: person.user.avatarURL, contentDescription = null, modifier = Modifier.size(44.dp).clip(CircleShape))
-                                Column(Modifier.weight(1f)) { UsernameWithFlair(username = person.user.username, isVerified = person.user.isVerified, isClubMember = person.user.isClubMember, flairStyle = person.user.flairStyle, isBot = person.user.isBot, showAtPrefix = true); Text(post?.let { if (it.isMovie) it.movieTitle.orEmpty() else it.track.name } ?: person.user.bio.ifBlank { person.user.displayName }, style = CorusFont.caption, color = CorusColors.Secondary, minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                                Column(Modifier.weight(1f)) {
+                                    UsernameWithFlair(username = person.user.username, isVerified = person.user.isVerified, isClubMember = person.user.isClubMember, flairStyle = person.user.flairStyle, isBot = person.user.isBot, showAtPrefix = true)
+                                    Text(parityCopy("Latest post"), style = CorusFont.caption, color = CorusColors.Tertiary)
+                                    Text(post?.let { if (it.isMovie) it.movieTitle.orEmpty() else it.track.name } ?: person.user.bio.ifBlank { person.user.displayName }, style = CorusFont.caption, color = CorusColors.Secondary, minLines = 1, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                }
                                 AsyncImage(model = post?.displayImageURL, contentDescription = null, modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)))
+                                Icon(Icons.Default.ChevronRight, contentDescription = "View profile", tint = CorusColors.Tertiary)
                             }; HorizontalDivider(color = CorusColors.Divider)
                         }
                         if (state.more != null) item { TextButton(onClick = { model.more() }, enabled = !state.peopleLoading) { Text(parityCopy("Load more people")) } }
                     }
                 }
+            }
+            }
+            }
             }
         }
         state.playing?.let { item ->
@@ -260,7 +353,15 @@ fun MapExploreScreen(
                 }
                 "confirm" -> item { Text(chosenCity?.cityName.orEmpty(), style = CorusFont.songTitleLarge); Text(parityCopy("Share your city, not your exact location.")); Button(onClick = { chosenCity?.let { model.share(it, audience, "device") { dialog = "" } } }) { Text(parityCopy("Done")) }; TextButton(onClick = { dialog = "city" }) { Text(parityCopy("Choose a city")) } }
                 "countries" -> {
-                    item { Text(parityCopy(if (pendingMode == "listen") "Listen Mode" else "Watch Mode"), style = CorusFont.songTitleLarge); FilterChip(selected = countries.isEmpty(), onClick = { countries = emptySet() }, label = { Text(parityCopy("Anywhere")) }) }
+                    item {
+                        Text(parityCopy(if (pendingMode == "listen") "Listen Mode" else "Watch Mode"), style = CorusFont.songTitleLarge)
+                        Text(
+                            parityCopy(if (pendingMode == "listen") "Listen to music posted by people in the countries you choose." else "Watch films posted by people in the countries you choose."),
+                            color = CorusColors.Secondary,
+                            modifier = Modifier.padding(top = 6.dp, bottom = 12.dp),
+                        )
+                        FilterChip(selected = countries.isEmpty(), onClick = { countries = emptySet() }, label = { Text(parityCopy(if (pendingMode == "listen") "Anywhere · music posted by people around the world" else "Anywhere · films posted by people around the world")) })
+                    }
                     items(cities.map { it.city.countryCode }.distinct().sorted()) { code -> Row(Modifier.fillMaxWidth().clickable { countries = if (code in countries) countries - code else countries + code }, verticalAlignment = Alignment.CenterVertically) { Checkbox(checked = code in countries, onCheckedChange = { countries = if (code in countries) countries - code else countries + code }); Text(java.util.Locale("", code).displayCountry) } }
                     item { Button(onClick = { model.start(pendingMode, countries); dialog = "" }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text(parityCopy(if (pendingMode == "listen") "Listen" else "Watch")) } }
                 }
