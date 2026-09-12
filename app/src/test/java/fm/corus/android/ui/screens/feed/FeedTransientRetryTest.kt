@@ -42,9 +42,8 @@ import org.mockito.kotlin.wheneverBlocking
  * Regression: a feed load that fails while the device reads online must NOT
  * flash "Something's off." On a doze cold-start the first callable often throws
  * (App Check still minting, DNS still dead after wake) even on strong wifi —
- * the exact blip a manual "Retry" clears. Keep the skeleton up and retry;
- * the error panel is reserved for a genuine offline failure after the
- * connectivity grace.
+ * the exact blip a manual "Retry" clears. Keep the skeleton through bounded
+ * retries, then surface the retry panel if the connection still cannot serve.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class FeedTransientRetryTest {
@@ -372,5 +371,30 @@ class FeedTransientRetryTest {
             assertFalse(viewModel.lastLoadFailed.value)
             assertTrue(viewModel.hasLoaded.value)
             assertEquals(listOf("p1"), viewModel.posts.value.map { it.id })
+        }
+
+    @Test
+    fun `visible online failure surfaces after the final retry wave`() =
+        runTest(testDispatcher) {
+            var calls = 0
+            wheneverBlocking {
+                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+            }.doSuspendableAnswer {
+                calls++
+                throw RuntimeException("dns remains unavailable")
+            }
+
+            val viewModel = vm(connected = true)
+            advanceUntilIdle()
+            viewModel.onFeedStarted()
+            viewModel.loadFeed()
+            advanceUntilIdle()
+
+            // Initial wave plus exactly one additional visible recovery wave.
+            assertEquals(10, calls)
+            assertTrue(viewModel.lastLoadFailed.value)
+            assertTrue(viewModel.hasLoaded.value)
+            assertFalse(viewModel.isLoading.value)
+            assertFalse(viewModel.isRefreshing.value)
         }
 }

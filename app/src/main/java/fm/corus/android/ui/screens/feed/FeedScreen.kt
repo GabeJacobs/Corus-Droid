@@ -842,13 +842,11 @@ fun FeedScreen(
                 }
             }
 
-            // Offline empty state. Shown only after retries are exhausted AND
-            // the device is actually offline — an "online" failure (Wi-Fi
-            // associated, DNS still dead after a doze wake) stays on the
-            // skeleton until it recovers. Copy still keys off live
-            // connectivity so a later flip to online mid-panel isn't a
-            // wifi-blame. Mirrors iOS FeedView.offlineEmptyState.
-            isSelected && posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && lastLoadFailed && !isConnected -> {
+            // Connection empty state. It appears after the bounded retry path
+            // is exhausted. Connectivity can still say "online" while DNS or
+            // routing is broken, so use the generic error copy in that case
+            // instead of leaving the feed on a skeleton forever.
+            isSelected && posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && lastLoadFailed -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()

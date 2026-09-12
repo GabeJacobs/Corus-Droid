@@ -103,17 +103,23 @@ private const val FEED_PAGE_CACHE_TTL_MS = 5 * 60 * 1000L
 private const val FEED_TRANSIENT_RETRY_BACKOFF_MS = 1200L
 
 /** How many times an online feed load is retried silently before we either
- *  start another wave (feed visible) or hold the skeleton (backgrounded).
+ *  start one final wave (feed visible) or hold the skeleton (backgrounded).
  *  A cold start after the OS killed the process can leave App Check / DNS
  *  unready for several seconds. These retries span ~12s (1.2+2.4+3.6+4.8).
- *  The error panel is reserved for a genuine offline failure, not an
- *  "online" warm-up blip that a tap on Retry would clear. */
+ *  A visible feed gets one extra wave for a genuine warm-up blip. If that also
+ *  fails, the retry panel prevents a stale connectivity signal from leaving
+ *  the user on a skeleton forever. */
 private const val FEED_TRANSIENT_MAX_RETRIES = 4
 
-/** Pause between retry waves while the feed is on screen and the device
- *  still reads online. Long enough that we aren't hammering a cold
- *  Functions instance; short enough that a wake-from-doze DNS recovery
- *  still feels like part of the initial load. */
+/** Maximum number of additional retry waves for a visible, apparently-online
+ *  feed. A ConnectivityManager association does not guarantee usable DNS or
+ *  routing, so this must stay bounded. */
+private const val FEED_ONLINE_MAX_ADDITIONAL_RETRY_WAVES = 1
+
+/** Pause before the final retry wave while the feed is on screen and the
+ *  device still reads online. Long enough that we aren't hammering a cold
+ *  Functions instance; short enough that a wake-from-doze DNS recovery still
+ *  feels like part of the initial load. */
 private const val FEED_ONLINE_RETRY_WAVE_GAP_MS = 4000L
 
 /** How many of those retries fire even when the connectivity flag reads offline.
@@ -926,7 +932,11 @@ class FeedViewModel @Inject constructor(
         loadFeed(refresh = true)
     }
 
-    private suspend fun loadFeedSuspending(refresh: Boolean, attempt: Int = 0) {
+    private suspend fun loadFeedSuspending(
+        refresh: Boolean,
+        attempt: Int = 0,
+        retryWave: Int = 0,
+    ) {
         val userId = authRepository.currentUserId ?: return
 
         if (refresh) {
@@ -1183,25 +1193,37 @@ class FeedViewModel @Inject constructor(
                 _posts.value.isEmpty()
             ) {
                 delay(FEED_TRANSIENT_RETRY_BACKOFF_MS * (attempt + 1))
-                loadFeedSuspending(refresh = true, attempt = attempt + 1)
+                loadFeedSuspending(
+                    refresh = true,
+                    attempt = attempt + 1,
+                    retryWave = retryWave,
+                )
                 return
             }
             _lastLoadFailed.value = true
             if (useRanked) _forYouLoadFailed.value = true
             if (_posts.value.isEmpty() && isConnected.value) {
-                if (feedVisible) {
-                    // Still on screen, radio still looks online — another wave
-                    // with the skeleton held (loading flags stay set).
+                if (feedVisible && retryWave < FEED_ONLINE_MAX_ADDITIONAL_RETRY_WAVES) {
+                    // Still on screen and this is the first exhausted wave:
+                    // give a waking radio one last chance before surfacing the
+                    // existing retry panel. Connectivity can be associated
+                    // while DNS is unusable, so never retry without a bound.
                     delay(FEED_ONLINE_RETRY_WAVE_GAP_MS)
-                    loadFeedSuspending(refresh = true, attempt = 0)
+                    loadFeedSuspending(
+                        refresh = true,
+                        attempt = 0,
+                        retryWave = retryWave + 1,
+                    )
                     return
                 }
-                // Backgrounded during a doze cold-start: hold the skeleton
-                // ([hasLoaded] stays false) so the later foreground is a
-                // resume, not an error flash. onFeedStarted() picks this up.
-                _isLoading.value = false
-                _isRefreshing.value = false
-                return
+                if (!feedVisible) {
+                    // Backgrounded during a doze cold-start: hold the skeleton
+                    // ([hasLoaded] stays false) so the later foreground is a
+                    // resume, not an error flash. onFeedStarted() picks this up.
+                    _isLoading.value = false
+                    _isRefreshing.value = false
+                    return
+                }
             }
         }
 
