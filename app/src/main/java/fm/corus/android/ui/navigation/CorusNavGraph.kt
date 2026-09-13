@@ -6,11 +6,13 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.window.DialogProperties
 import fm.corus.android.ui.components.LocalSkipImageRevealWhenCached
 import fm.corus.android.R
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.dialog
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.toRoute
 import fm.corus.android.ui.screens.explore.HashtagFeedScreen
@@ -969,7 +971,11 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         )
     }
 
-    composable<CymbalClubOfferRoute> {
+    // Present above MainTabScreen's player and navigation overlays, outside the
+    // tab content's bounds. Keep the originating screen on the back stack.
+    dialog<CymbalClubOfferRoute>(
+        dialogProperties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
         CymbalClubOfferScreen(
             onBack = { navController.safePopBackStack() },
         )

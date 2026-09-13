@@ -11,6 +11,8 @@ val localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localProperties.load(localPropertiesFile.inputStream())
 }
+val mapKitJsToken = providers.gradleProperty("mapKitJsToken").orNull
+    ?: localProperties.getProperty("mapkit.js.token", "")
 
 val versionPropsFile = rootProject.file("version.properties")
 val versionProps = Properties()
@@ -71,6 +73,14 @@ android {
                 "FIREBASE_EMULATOR_HOST",
                 "\"${localProperties.getProperty("firebase.emulator.host", "")}\""
             )
+            // MapKit JS tokens are public browser tokens, but they are short
+            // lived. Keep the local QA token out of source control; releases
+            // take their current token from Firebase Remote Config instead.
+            buildConfigField(
+                "String",
+                "MAPKIT_JS_TOKEN",
+                "\"$mapKitJsToken\""
+            )
         }
         release {
             isMinifyEnabled = true
@@ -78,6 +88,7 @@ android {
             signingConfig = signingConfigs.getByName("release")
             buildConfigField("String", "APP_CHECK_DEBUG_TOKEN", "\"\"")
             buildConfigField("String", "FIREBASE_EMULATOR_HOST", "\"\"")
+            buildConfigField("String", "MAPKIT_JS_TOKEN", "\"\"")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -107,7 +118,6 @@ android {
 }
 
 dependencies {
-    implementation("org.maplibre.gl:android-sdk:11.11.0")
     // Compose BOM
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)

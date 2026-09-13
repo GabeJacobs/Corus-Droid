@@ -643,6 +643,12 @@ class MessageThreadViewModel @Inject constructor(
     // ── Group actions (driven by the Group Info sheet) ──
 
     val blockedUserIds = userRepository.blockedIds
+    val groupBlocksReady = userRepository.blockedIdsLoaded
+    val groupBlocksFailed = userRepository.blockedIdsLoadFailed
+    fun retryGroupBlocks() {
+        val uid = currentUserId ?: return
+        viewModelScope.launch { userRepository.prefetchBlockedSet(uid) }
+    }
     private val _cityActionError = MutableStateFlow<String?>(null)
     val cityActionError = _cityActionError.asStateFlow()
     fun clearCityActionError() { _cityActionError.value = null }

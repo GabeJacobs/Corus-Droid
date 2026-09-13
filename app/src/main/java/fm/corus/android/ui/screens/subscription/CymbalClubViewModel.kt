@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 enum class PaywallSource(val subtitle: String, val analyticsName: String) {
-    MAP("See taste matches near you on the map.", "map"),
+    MAP("See taste matches near you on the map — people who share your music and film taste.", "map"),
     MAP_LISTEN("Keep listening around the world. Unlock unlimited Listen Mode with Corus Club.", "map_listen"),
     MAP_WATCH("Keep discovering films. Unlock unlimited Watch Mode with Corus Club.", "map_watch"),
     DEFAULT("Support Corus. Get Perks.", "default"),

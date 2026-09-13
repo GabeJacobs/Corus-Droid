@@ -1478,5 +1478,10 @@
     <string name="club_feature_unlimited_saves">무제한 저장</string>
     <string name="map_cluster_invite_copy">커뮤니티를 키워 보세요. 친구들을 Corus에 초대하세요.</string>
     <string name="map_cluster_invite_action">친구 초대</string>
+    <string name="messaging_blocked_message">차단된 메시지</string>
+    <string name="messaging_show_blocked_message">표시</string>
+    <string name="messaging_group_block_warning">차단한 사람의 메시지는 숨겨집니다. 함께 속한 그룹에서는 차단한 사람이 내 메시지를 볼 수 있습니다.</string>
+    <string name="messaging_group_options">그룹 옵션</string>
     <string name="map_all_communities">모든 커뮤니티</string>
+    <string name="map_finding_city">도시를 찾는 중</string>
 </resources>

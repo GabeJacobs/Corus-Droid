@@ -1488,5 +1488,10 @@
     <string name="club_feature_unlimited_saves">Salvataggi illimitati</string>
     <string name="map_cluster_invite_copy">Fai crescere la tua community. Invita i tuoi amici a unirsi a Corus.</string>
     <string name="map_cluster_invite_action">Invita amici</string>
+    <string name="messaging_blocked_message">Messaggio bloccato</string>
+    <string name="messaging_show_blocked_message">Mostra</string>
+    <string name="messaging_group_block_warning">I messaggi bloccati sono nascosti per te. Le persone che blocchi potrebbero ancora vedere i tuoi messaggi nei gruppi in comune.</string>
+    <string name="messaging_group_options">Opzioni del gruppo</string>
     <string name="map_all_communities">Tutte le community</string>
+    <string name="map_finding_city">Ricerca della tua città</string>
 </resources>

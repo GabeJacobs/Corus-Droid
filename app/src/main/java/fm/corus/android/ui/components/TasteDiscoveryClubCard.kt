@@ -22,7 +22,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import fm.corus.android.ui.theme.CorusFont
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import fm.corus.android.R
 import fm.corus.android.data.model.TasteDiscoveryAccess
@@ -55,15 +54,13 @@ fun TasteDiscoveryClubCard(onClick: () -> Unit, modifier: Modifier = Modifier, a
         Column(Modifier.matchParentSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)).clickable(
             interactionSource = remember { MutableInteractionSource() }, indication = null, role = Role.Button, onClick = onClick).padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            val count = access.remainingCount?.takeIf { it > 0 }
             Column(Modifier.fillMaxWidth().weight(1f).padding(horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically)) {
             Box(Modifier.size(48.dp).background(MaterialTheme.colorScheme.surface, CircleShape), contentAlignment = Alignment.Center) {
                 Icon(Icons.Filled.Lock, contentDescription = null, tint = CorusColors.Accent, modifier = Modifier.size(22.dp))
             }
-            Text(if (count != null) pluralStringResource(R.plurals.taste_discovery_remaining, count, count) else stringResource(R.string.taste_discovery_title),
+            Text(stringResource(R.string.taste_discovery_locked_card_label),
                 style = CorusFont.buttonSmall, textAlign = TextAlign.Center)
-            Text(stringResource(R.string.taste_discovery_card_subtitle), style = CorusFont.caption, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
             }
             Text(stringResource(R.string.taste_discovery_cta), color = Color.White, style = CorusFont.buttonSmall, textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().height(32.dp).background(CorusColors.Accent, RoundedCornerShape(50)).wrapContentHeight(Alignment.CenterVertically))

@@ -80,6 +80,10 @@ class UserRepository @Inject constructor(
     // Cached blocked set (people I blocked). Settings / Unblock uses this.
     private val _blockedIds = MutableStateFlow<Set<String>>(emptySet())
     val blockedIds: StateFlow<Set<String>> = _blockedIds.asStateFlow()
+    private val _blockedIdsLoaded = MutableStateFlow(false)
+    val blockedIdsLoaded = _blockedIdsLoaded.asStateFlow()
+    private val _blockedIdsLoadFailed = MutableStateFlow(false)
+    val blockedIdsLoadFailed = _blockedIdsLoadFailed.asStateFlow()
 
     // People who blocked me. Combined with blockedIds for content hiding.
     private val _blockedByIds = MutableStateFlow<Set<String>>(emptySet())
@@ -130,12 +134,20 @@ class UserRepository @Inject constructor(
     }
 
     suspend fun prefetchBlockedSet(userId: String) {
+        _blockedIdsLoadFailed.value = false
+        try {
         coroutineScope {
             val blocked = async { firestoreDataSource.fetchBlockedIds(userId) }
             val blockedBy = async { firestoreDataSource.fetchBlockedByIds(userId) }
             _blockedIds.value = blocked.await()
+            _blockedIdsLoaded.value = true
             _blockedByIds.value = blockedBy.await()
             publishHidden()
+        }
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            _blockedIdsLoadFailed.value = true
         }
     }
 
@@ -816,6 +828,8 @@ class UserRepository @Inject constructor(
         _followingIds.value = emptySet()
         _followingLoaded.value = false
         _blockedIds.value = emptySet()
+        _blockedIdsLoaded.value = false
+        _blockedIdsLoadFailed.value = false
         _blockedByIds.value = emptySet()
         _hiddenUserIds.value = emptySet()
         _mutedIds.value = emptySet()

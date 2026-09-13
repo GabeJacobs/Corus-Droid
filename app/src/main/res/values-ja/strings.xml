@@ -1351,5 +1351,10 @@
     <string name="club_feature_unlimited_saves">保存数無制限</string>
     <string name="map_cluster_invite_copy">コミュニティを広げよう。友達をCorusに招待しましょう。</string>
     <string name="map_cluster_invite_action">友達を招待</string>
+    <string name="messaging_blocked_message">ブロックしたメッセージ</string>
+    <string name="messaging_show_blocked_message">表示</string>
+    <string name="messaging_group_block_warning">ブロックした相手のメッセージは非表示になります。共通のグループでは、ブロックした相手にあなたのメッセージが表示される場合があります。</string>
+    <string name="messaging_group_options">グループの設定</string>
     <string name="map_all_communities">すべてのコミュニティ</string>
+    <string name="map_finding_city">あなたの都市を検索中</string>
 </resources>

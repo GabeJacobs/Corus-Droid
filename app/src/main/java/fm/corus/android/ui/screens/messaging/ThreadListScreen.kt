@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Send
@@ -113,6 +114,8 @@ fun ThreadListScreen(
     val inboxSearchResults by viewModel.inboxSearchResults.collectAsState()
     val isSearchingInbox by viewModel.isSearchingInbox.collectAsState()
     val groupMembersById by viewModel.groupMembersById.collectAsState()
+    val blockedGroupAuthors by viewModel.blockedGroupAuthorIds.collectAsState()
+    val groupBlocksReady by viewModel.groupBlocksReady.collectAsState()
     var showNewMessagePicker by remember { mutableStateOf(false) }
     var isCreatingThread by remember { mutableStateOf(false) }
     var inboxSearchText by remember { mutableStateOf("") }
@@ -126,11 +129,11 @@ fun ThreadListScreen(
             else -> filterInboxChats(threads, inboxSearchText)
         }
     }
-    val searchMessages = remember(threads, inboxSearchText, inboxSearchResults, viewModel.currentUserId) {
+    val searchMessages = remember(threads, inboxSearchText, inboxSearchResults, viewModel.currentUserId, blockedGroupAuthors, groupBlocksReady) {
         when {
             inboxSearchText.isBlank() -> emptyList()
-            inboxSearchResults != null -> inboxSearchResults!!.messages
-            else -> filterInboxMessagePreviews(threads, inboxSearchText).map { InboxMessageHit.preview(it) }
+            inboxSearchResults != null -> inboxSearchResults!!.messages.filter { (!it.thread.isGroup || groupBlocksReady) && !isBlockedGroupAuthor(it.thread.isGroup, it.fromUserId, blockedGroupAuthors) }
+            else -> filterInboxMessagePreviews(threads, inboxSearchText).filter { (!it.isGroup || groupBlocksReady) && !isBlockedGroupAuthor(it.isGroup, it.lastMessageFromUserId, blockedGroupAuthors) }.map { InboxMessageHit.preview(it) }
         }
     }
     val searchHasHits = searchChats.isNotEmpty() || searchMessages.isNotEmpty()
@@ -231,7 +234,8 @@ fun ThreadListScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.Send,
                             contentDescription = null,
-                            modifier = Modifier.size(40.dp),
+                            // Match the Messages tab's iOS-style up-right plane.
+                            modifier = Modifier.size(40.dp).rotate(-45f),
                             tint = CorusColors.Tertiary,
                         )
                         Text(
@@ -262,6 +266,8 @@ fun ThreadListScreen(
                             }
                             items(searchChats, key = { "chat-${it.id}" }) { thread ->
                                 ThreadRow(
+                                    blockedAuthors = blockedGroupAuthors,
+                                    blocksReady = groupBlocksReady,
                                     thread = thread,
                                     onClick = { onThreadTap(thread.id, thread.otherUserId) },
                                 onPin = { viewModel.togglePin(thread) },
@@ -287,6 +293,8 @@ fun ThreadListScreen(
                     } else {
                         items(threads, key = { it.id }) { thread ->
                             ThreadRow(
+                                blockedAuthors = blockedGroupAuthors,
+                                    blocksReady = groupBlocksReady,
                                 thread = thread,
                                 onClick = { onThreadTap(thread.id, thread.otherUserId) },
                                     onPin = { viewModel.togglePin(thread) },
@@ -840,6 +848,8 @@ private fun highlightedQuery(text: String, query: String): androidx.compose.ui.t
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 private fun ThreadRow(
     thread: CymbalThread,
+    blockedAuthors: Set<String> = emptySet(),
+    blocksReady: Boolean = true,
     onClick: () -> Unit,
     onPin: () -> Unit,
     membersById: Map<String, CymbalUser> = emptyMap(),
@@ -870,8 +880,10 @@ private fun ThreadRow(
     }
     // In groups, prefix the sender's first name for other people's messages;
     // system events already carry full text.
-    val preview = if (isGroup && thread.lastMessageType == MessageType.SYSTEM) {
+    val preview = if (isGroup && !blocksReady) "…" else if (isGroup && thread.lastMessageType == MessageType.SYSTEM) {
         GroupSystemMessages.localize(thread.lastMessageText, context)
+    } else if (isBlockedGroupAuthor(isGroup, thread.lastMessageFromUserId, blockedAuthors)) {
+        stringResource(R.string.messaging_blocked_message)
     } else if (isGroup) {
         val fromId = thread.lastMessageFromUserId
         val sender = if (fromId != null && fromId != currentUserId) membersById[fromId] else null

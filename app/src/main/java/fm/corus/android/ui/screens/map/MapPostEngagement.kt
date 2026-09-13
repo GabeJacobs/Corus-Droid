@@ -30,12 +30,12 @@ fun MapPostEngagement(post: CymbalPost, onComments: () -> Unit, onRepost: (Cymba
     val loading by model.isLoadingShareContacts.collectAsState()
     var shareTarget by remember { mutableStateOf<CymbalPost?>(null) }
     LaunchedEffect(post.id) { model.loadPost(post.id, includeComments = false) }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceEvenly) {
-        TextButton(onClick = { model.toggleLike(post.id) }) { Icon(if (engagement?.isLiked == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Like", tint = if (engagement?.isLiked == true) CorusColors.Accent else CorusColors.Secondary); Text(" ${engagement?.likeCount ?: post.likeCount}") }
-        TextButton(onClick = onComments) { Icon(Icons.Default.ChatBubbleOutline, "Comments"); Text(" ${engagement?.commentCount ?: post.commentCount}") }
-        IconButton(onClick = { onRepost(post) }) { Icon(Icons.Default.Repeat, "Repost") }
-        IconButton(onClick = { model.loadRecentShareContacts(); shareTarget = post }) { Icon(Icons.Default.Share, "Share") }
-        IconButton(onClick = { model.toggleSave(post.id) }) { Icon(if (engagement?.isSaved == true) Icons.Default.Bookmark else Icons.Default.BookmarkBorder, "Save") }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+        TextButton(onClick = { model.toggleLike(post.id) }, contentPadding = PaddingValues(0.dp), colors = ButtonDefaults.textButtonColors(contentColor = CorusColors.Text)) { Icon(if (engagement?.isLiked == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Like", tint = if (engagement?.isLiked == true) CorusColors.Accent else CorusColors.Text); Text(" ${engagement?.likeCount ?: post.likeCount}") }
+        TextButton(onClick = onComments, contentPadding = PaddingValues(0.dp), colors = ButtonDefaults.textButtonColors(contentColor = CorusColors.Text)) { Icon(Icons.Default.ChatBubbleOutline, "Comments", tint = CorusColors.Text); Text(" ${engagement?.commentCount ?: post.commentCount}") }
+        IconButton(onClick = { onRepost(post) }) { Icon(Icons.Default.Repeat, "Repost", tint = CorusColors.Text) }
+        IconButton(onClick = { model.loadRecentShareContacts(); shareTarget = post }) { Icon(Icons.Default.Share, "Share", tint = CorusColors.Text) }
+        IconButton(onClick = { model.toggleSave(post.id) }) { Icon(if (engagement?.isSaved == true) Icons.Default.Bookmark else Icons.Default.BookmarkBorder, "Save", tint = CorusColors.Text) }
     }
     shareTarget?.let { tapped -> SharePostSheet(post = tapped, recentContacts = recent, searchResults = results, isSearching = searching, isLoadingContacts = loading, instagramShareEnabled = model.remoteConfig.instagramShareEnabled, sheetState = rememberModalBottomSheetState(), onSearchQueryChange = model::searchShareUsers, onSendToUser = { user, message -> model.sendPostToUser(user, tapped, message); shareTarget = null }, onRepost = { shareTarget = null; onRepost(tapped) }, onDismiss = { shareTarget = null }) }
 }

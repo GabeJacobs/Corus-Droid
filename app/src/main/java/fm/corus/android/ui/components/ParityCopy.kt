@@ -7,6 +7,7 @@ import fm.corus.android.R
 /** Accepted iOS 1.6.8 display copy, using Android's active resource locale. */
 @Composable
 fun parityCopy(text: String): String = when (text) {
+    "Finding your city" -> stringResource(R.string.map_finding_city)
     "" -> stringResource(R.string.parity_da39a3ee5e6b)
     " " -> stringResource(R.string.parity_b858cb282617)
     " · " -> stringResource(R.string.parity_d3dacf895c16)

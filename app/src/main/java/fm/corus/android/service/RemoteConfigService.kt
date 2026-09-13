@@ -27,6 +27,9 @@ class RemoteConfigService @Inject constructor(
 ) {
     private val _revision = MutableStateFlow(0)
     val revision = _revision.asStateFlow()
+    private val _initialFetchComplete = MutableStateFlow(false)
+    /** Search waits for this instead of composing a partial flag-gated home. */
+    val initialFetchComplete = _initialFetchComplete.asStateFlow()
 
     init {
         // Apply in-app defaults the moment this service is constructed. This is a
@@ -126,6 +129,16 @@ class RemoteConfigService @Inject constructor(
 
     val maintenanceMessage: String
         get() = remoteConfig.getString("maintenance_message")
+
+    /**
+     * Public, short-lived MapKit JS credential for Android's Apple Maps
+     * WebView. Remote Config lets us rotate it before expiry without an app
+     * release. Debug may use a developer-local token instead.
+     */
+    val mapKitJsToken: String
+        get() = BuildConfig.MAPKIT_JS_TOKEN.ifBlank {
+            remoteConfig.getString("mapkit_js_token")
+        }
 
     val dailyPostLimitEnabled: Boolean
         get() = remoteConfig.getBoolean("daily_post_limit_enabled")
@@ -664,6 +677,7 @@ class RemoteConfigService @Inject constructor(
                 if (!initialFetchGate.isCompleted) {
                     initialFetchGate.complete(Unit)
                 }
+                _initialFetchComplete.value = true
             }
         }
     }
@@ -760,6 +774,7 @@ class RemoteConfigService @Inject constructor(
         /// server template and the iOS/web defaults.
         private val DEFAULTS: Map<String, Any> = mapOf(
             "map_enabled" to false,
+            "mapkit_js_token" to "",
             "artist_merch_enabled" to false,
             "trophy_case_disabled" to false,
             "movie_mode" to true,

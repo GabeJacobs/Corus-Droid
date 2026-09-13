@@ -153,6 +153,9 @@ class ThreadListViewModel @Inject constructor(
     private val analyticsService: fm.corus.android.service.AnalyticsService,
 ) : ViewModel() {
 
+    val blockedGroupAuthorIds = userRepository.blockedIds
+    val groupBlocksReady = userRepository.blockedIdsLoaded
+
     val groupMessagingEnabled: Boolean
         get() = remoteConfigService.groupMessagingEnabled
 

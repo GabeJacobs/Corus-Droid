@@ -17,6 +17,7 @@ import fm.corus.android.ui.theme.CorusFont
 @Composable
 fun MapPreviewEntry(onOpen: () -> Unit, model: MapExploreViewModel = hiltViewModel()) {
     val revision by model.remote.revision.collectAsState()
+    val mapKitToken = model.remote.mapKitJsToken
     if (!model.enabled) return
     val state by model.state.collectAsState()
     val focus = mapFocusCity(state.cities, "all", state.ownCity)
@@ -27,7 +28,7 @@ fun MapPreviewEntry(onOpen: () -> Unit, model: MapExploreViewModel = hiltViewMod
         }
         Box(Modifier.fillMaxWidth().height(148.dp).clip(RoundedCornerShape(16.dp))) {
             if (state.loading) CircularProgressIndicator(Modifier.align(Alignment.Center))
-            else CityMapView(state.cities, "all", null, null, anchor = if (state.ownPresenceReady) focus?.city else null, modifier = Modifier.fillMaxSize(), compact = true, onCity = {})
+            else CityMapView(state.cities, "all", null, null, anchor = if (state.ownPresenceReady) focus?.city else null, modifier = Modifier.fillMaxSize(), compact = true, mapKitToken = mapKitToken, onCity = {})
             Box(Modifier.matchParentSize().clickable(onClick = onOpen))
         }
     }

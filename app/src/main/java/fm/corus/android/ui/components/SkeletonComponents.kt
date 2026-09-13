@@ -438,7 +438,9 @@ fun SkeletonProfileView(
 ) {
     val isWideHeader = LocalConfiguration.current.screenWidthDp >= 400
     val headerHPad = if (isWideHeader) 28.dp else CorusSpacing.xl
-    val headerAvatarSize = if (isWideHeader) CorusSpacing.avatarLarge else 68.dp
+    // Both loaded profile headers render their avatar at 88dp. Keep the
+    // placeholder identical so the header does not reflow when data arrives.
+    val headerAvatarSize = 88.dp
     val avatarHPad = headerHPad + 8.dp
     val usernameStartPad = avatarHPad
     val usernameEndPad = avatarHPad
@@ -619,7 +621,8 @@ fun SkeletonProfileWithAvatar(
 ) {
     val isWideHeader = LocalConfiguration.current.screenWidthDp >= 400
     val headerHPad = if (isWideHeader) 28.dp else CorusSpacing.xl
-    val headerAvatarSize = if (isWideHeader) CorusSpacing.avatarLarge else 68.dp
+    // Matches ProfileScreen and OtherProfileScreen's loaded header avatar.
+    val headerAvatarSize = 88.dp
     val avatarHPad = headerHPad + 8.dp
     val usernameStartPad = avatarHPad
     val usernameEndPad = avatarHPad

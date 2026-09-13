@@ -686,6 +686,7 @@ fun UsernameWithFlair(
     flairIconSize: Dp = 14.dp,
     flairAssetSize: Dp = 18.dp,
     flairYOffset: Dp = 0.dp,
+    flairSpacing: Dp = 4.dp,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -704,7 +705,7 @@ fun UsernameWithFlair(
         if ((isClubMember || isVerified) && !isBot) {
             val flair = flairStyle
             if (flair != FlairStyle.NONE) {
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(flairSpacing))
                 if (flair.usesAssetImage) {
                     // Default 18dp, not 14: the logo artwork carries its own
                     // transparent margin, so at the icon size it reads visibly

@@ -248,6 +248,25 @@ class MapExploreViewModel @Inject constructor(
             done(); refresh()
         } finally { updateState { it.copy(busy = false) } }
     }
+    // Sharing outlives map filter/selection changes and must not borrow playback's busy state.
+    fun resolveAndShare(location: Location, audience: String, onShared: (MapCity) -> Unit = {}, done: () -> Unit) = viewModelScope.launch {
+        try {
+            check(auth.currentUser?.uid == uid)
+            val city = repository.resolve(location)
+            check(auth.currentUser?.uid == uid)
+            val user = mutable.value.user ?: throw IllegalStateException("Couldn’t load your profile. Please try again.")
+            repository.share(user, city, audience, "device")
+            repository.event("sharing_saved", value = "device")
+            if (auth.currentUser?.uid == uid) onShared(city)
+            refresh()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (auth.currentUser?.uid == uid) updateState { it.copy(error = e.message ?: "Please try again.") }
+        } finally {
+            done()
+        }
+    }
     fun resolve(location: Location, done: (MapCity) -> Unit) = launch { done(repository.resolve(location)) }
     fun join(city: MapCity, location: Location, done: (String) -> Unit) = launch { done(repository.join(city, location)) }
     fun returnedFromPaywall() { if (!fullAccess) pendingAction = null }

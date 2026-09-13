@@ -29,7 +29,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -285,7 +287,7 @@ fun CymbalClubOfferScreen(
                 // Feature eyebrow when arriving from Taste Matches (menu tap or the
                 // in-feed free-trial banner) — names the perk in the brand color,
                 // mirroring the cold-start eyebrow.
-                if (source == PaywallSource.TASTE_MATCHES ||
+                if (source == PaywallSource.MAP || source == PaywallSource.TASTE_MATCHES ||
                     source == PaywallSource.TASTE_MATCHES_BANNER
                 ) {
                     Row(
@@ -608,6 +610,15 @@ fun CymbalClubOfferSheet(
     // navigation bar (navigationBarsPadding reserves the gesture/button-bar
     // inset, since a ModalBottomSheet only insets its top edge).
     val maxSheetHeight = bottomSheetMaxHeight()
+    // Mirrors iOS: this explanatory sentence is supplementary. It appears only
+    // when the primary sheet content and purchase controls leave it enough room.
+    val density = LocalDensity.current
+    var closeHeightPx by remember(source) { mutableIntStateOf(0) }
+    var primaryContentHeightPx by remember(source) { mutableIntStateOf(0) }
+    var purchaseControlsHeightPx by remember(source) { mutableIntStateOf(0) }
+    val disclaimerFits = with(density) {
+        maxSheetHeight.roundToPx() - closeHeightPx - primaryContentHeightPx - purchaseControlsHeightPx - (CorusSpacing.md * 2).roundToPx() >= 80.dp.roundToPx()
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -619,7 +630,8 @@ fun CymbalClubOfferSheet(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(end = CorusSpacing.md),
+                .padding(end = CorusSpacing.md)
+                .onSizeChanged { closeHeightPx = it.height },
             contentAlignment = Alignment.TopEnd,
         ) {
             IconButton(onClick = {
@@ -643,9 +655,15 @@ fun CymbalClubOfferSheet(
                 .weight(1f, fill = false)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(vertical = CorusSpacing.md),
+            .padding(vertical = CorusSpacing.md),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onSizeChanged { primaryContentHeightPx = it.height },
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
             // Spinning vinyl record
             fm.corus.android.ui.components.CymbalClubVinyl(size = 120.dp)
 
@@ -666,7 +684,7 @@ fun CymbalClubOfferSheet(
             // Feature eyebrow when arriving from Taste Matches (menu tap or the
             // in-feed free-trial banner) — names the perk in the brand color
             // (mirrors the full-screen paywall + iOS).
-            if (source == PaywallSource.TASTE_MATCHES || source == PaywallSource.TASTE_MATCHES_BANNER) {
+            if (source == PaywallSource.MAP || source == PaywallSource.TASTE_MATCHES || source == PaywallSource.TASTE_MATCHES_BANNER) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -782,14 +800,17 @@ fun CymbalClubOfferSheet(
             }
 
             Spacer(modifier = Modifier.height(CorusSpacing.sm))
+            }
 
-            Text(
-                text = stringResource(R.string.club_disclaimer),
-                style = CorusFont.caption,
-                color = CorusColors.Secondary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
-            )
+            if (source != PaywallSource.ONBOARDING && disclaimerFits) {
+                Text(
+                    text = stringResource(R.string.club_disclaimer),
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = CorusSpacing.xxl),
+                )
+            }
         }
 
         // ── Pinned bottom: plan cards, CTA, footer (always visible) ──
@@ -799,7 +820,8 @@ fun CymbalClubOfferSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = CorusSpacing.xl),
+                .padding(top = CorusSpacing.xl)
+                .onSizeChanged { purchaseControlsHeightPx = it.height },
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(

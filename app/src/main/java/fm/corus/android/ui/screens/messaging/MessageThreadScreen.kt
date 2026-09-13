@@ -687,7 +687,14 @@ fun MessageThreadScreen(
     val resolvedThreadId by viewModel.resolvedThreadId.collectAsState()
     val isGroup = groupInfo?.isGroup == true
     val isCityChat = !groupInfo?.cityChatId.isNullOrBlank()
-    val cityBlocked by viewModel.blockedUserIds.collectAsState()
+    val groupBlocked by viewModel.blockedUserIds.collectAsState()
+    val groupBlocksReady by viewModel.groupBlocksReady.collectAsState()
+    val groupBlocksFailed by viewModel.groupBlocksFailed.collectAsState()
+    val waitingForGroupBlocks = (isGroup || threadId.startsWith("grp_")) && !groupBlocksReady
+    var revealedBlockedMessages by remember(resolvedThreadId, groupBlocked) { mutableStateOf(emptySet<String>()) }
+    val hasBlockedGroupContent = isGroup && groupBlocked.isNotEmpty() && (
+        groupInfo?.memberIds?.any { it in groupBlocked } == true || messages.any { it.fromUserId in groupBlocked }
+    )
     val cityActionError by viewModel.cityActionError.collectAsState()
     var cityWelcome by remember { mutableStateOf(false) }
     LaunchedEffect(groupInfo?.cityChatId, liveWindowReady) { if (liveWindowReady && isCityChat) cityWelcome = viewModel.claimCityWelcome() }
@@ -791,6 +798,10 @@ fun MessageThreadScreen(
 
     // Likewise when a reply begins, focus the composer and raise the keyboard
     // (iOS focuses the field on reply; Android didn't).
+    LaunchedEffect(groupBlocked) {
+        if (isBlockedGroupAuthor(isGroup, replyToMessage?.fromUserId, groupBlocked)) viewModel.setReplyTo(null)
+        if (isBlockedGroupAuthor(isGroup, reactionTarget?.fromUserId, groupBlocked)) reactionTarget = null
+    }
     LaunchedEffect(replyToMessage) {
         if (replyToMessage != null) {
             composerFocusRequester.requestFocus()
@@ -1037,6 +1048,13 @@ fun MessageThreadScreen(
 
         HorizontalDivider(color = CorusColors.Divider)
 
+        if (hasBlockedGroupContent) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.xs)) {
+                Text(stringResource(R.string.messaging_group_block_warning), style = CorusFont.caption, color = CorusColors.Secondary)
+                TextButton(onClick = { showGroupInfo = true }) { Text(stringResource(R.string.messaging_group_options)) }
+            }
+        }
+
         val bubbleHaptics = LocalHapticManager.current
         // Messages
         Box(
@@ -1052,12 +1070,11 @@ fun MessageThreadScreen(
             reverseLayout = true,
             contentPadding = PaddingValues(vertical = CorusSpacing.sm),
         ) {
-            itemsIndexed(messages, key = { _, m -> m.id }) { index, message ->
+            itemsIndexed(if (waitingForGroupBlocks) emptyList() else messages, key = { _, m -> m.id }) { index, message ->
                 // messages is newest-first (reverseLayout). The chronologically
                 // older message is at index+1; the newer one at index-1.
                 val older = messages.getOrNull(index + 1)
                 val newer = messages.getOrNull(index - 1)
-                if (isCityChat && message.fromUserId in cityBlocked) { Text("Message from a blocked account", Modifier.fillMaxWidth().padding(16.dp), color = CorusColors.Secondary); return@itemsIndexed }
                 val mine = message.fromUserId == viewModel.currentUserId
                 val incomingInGroup = isGroup && !mine && !message.isSystem
                 val sender = if (incomingInGroup) membersById[message.fromUserId] else null
@@ -1068,9 +1085,9 @@ fun MessageThreadScreen(
                 val senderMissing = incomingInGroup && groupInfo != null &&
                     message.fromUserId !in (groupInfo?.memberIds ?: emptyList())
                 val showSenderLabel = incomingInGroup &&
-                    (older == null || older.isSystem || older.fromUserId != message.fromUserId)
+                    (older == null || older.isSystem || older.fromUserId != message.fromUserId || collapseGroupMessage(isGroup, older.fromUserId, older.isSystem, groupBlocked, older.id in revealedBlockedMessages))
                 val showAvatar = incomingInGroup &&
-                    (newer == null || newer.isSystem || newer.fromUserId != message.fromUserId)
+                    (newer == null || newer.isSystem || newer.fromUserId != message.fromUserId || collapseGroupMessage(isGroup, newer.fromUserId, newer.isSystem, groupBlocked, newer.id in revealedBlockedMessages))
                 val deletedAccountLabel = stringResource(id = R.string.messaging_thread_deleted_account)
                 val replyName = if (isGroup && message.replyToUserId != null && !mine)
                     membersById[message.replyToUserId]?.username
@@ -1098,7 +1115,14 @@ fun MessageThreadScreen(
                             )
                         )
                     }
-                    if (message.isSystem) {
+                    if (collapseGroupMessage(isGroup, message.fromUserId, message.isSystem, groupBlocked, message.id in revealedBlockedMessages)) {
+                        Row(Modifier.padding(horizontal = CorusSpacing.md), verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(R.string.messaging_blocked_message), style = CorusFont.caption, color = CorusColors.Secondary)
+                            TextButton(onClick = { revealedBlockedMessages = revealedBlockedMessages + message.id }) {
+                                Text(stringResource(R.string.messaging_show_blocked_message))
+                            }
+                        }
+                    } else if (message.isSystem) {
                         GroupSystemRow(GroupSystemMessages.localize(message.text ?: "", context))
                     } else {
                         MessageBubble(
@@ -1121,6 +1145,8 @@ fun MessageThreadScreen(
                             showSenderLabel = showSenderLabel,
                             showAvatar = showAvatar,
                             replyName = replyName,
+                            hideReply = isBlockedGroupAuthor(isGroup, message.replyToUserId, groupBlocked),
+                            blockedGroupAuthors = if (isGroup) groupBlocked else emptySet(),
                             onSenderTap = { sender?.id?.let { onNavigateToProfile(it) } },
                             onLongPress = {
                                 bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
@@ -1234,7 +1260,9 @@ fun MessageThreadScreen(
                 )
             }
 
-            if (showInitialLoadingIndicator && messages.isEmpty()) {
+            if (waitingForGroupBlocks && groupBlocksFailed) {
+                OfflineRetryState(modifier = Modifier.align(Alignment.Center), onRetry = { viewModel.retryGroupBlocks() })
+            } else if (waitingForGroupBlocks || (showInitialLoadingIndicator && messages.isEmpty())) {
                 CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center),
                     color = CorusColors.Accent,
@@ -1827,6 +1855,8 @@ private fun MessageBubble(
     showSenderLabel: Boolean = false,
     showAvatar: Boolean = false,
     replyName: String? = null,
+    hideReply: Boolean = false,
+    blockedGroupAuthors: Set<String> = emptySet(),
     onSenderTap: () -> Unit = {},
     onLongPress: () -> Unit,
     onDoubleTap: () -> Unit,
@@ -2024,7 +2054,7 @@ private fun MessageBubble(
                 // Quoted reply context, inside the bubble
                 if (message.replyToText != null) {
                     val isOwnQuote = message.replyToUserId == currentUserId
-                    val authorName = if (isOwnQuote) stringResource(id = R.string.messaging_thread_you)
+                    val authorName = if (hideReply) "" else if (isOwnQuote) stringResource(id = R.string.messaging_thread_you)
                                      else replyName ?: otherUsername
                     val accentBarColor = if (isFromCurrentUser) Color.White.copy(alpha = 0.6f)
                                          else CorusColors.Accent.copy(alpha = 0.6f)
@@ -2051,7 +2081,7 @@ private fun MessageBubble(
                                 )
                             }
                             Text(
-                                text = message.replyToText ?: "",
+                                text = if (hideReply) stringResource(R.string.messaging_blocked_message) else message.replyToText ?: "",
                                 style = CorusFont.caption,
                                 color = quotedTextColor,
                                 maxLines = 1,
@@ -2205,6 +2235,7 @@ private fun MessageBubble(
                 // and deep-links to post detail on tap.
                 if (message.type == MessageType.SHARED_POST) {
                     SharedPostContent(
+                        blockedAuthors = blockedGroupAuthors,
                         postId = message.sharedPostId.orEmpty(),
                         isFromCurrentUser = isFromCurrentUser,
                         resolvePost = resolvePost,
@@ -2509,6 +2540,7 @@ private fun SharedTrackContent(
 @Composable
 private fun SharedPostContent(
     postId: String,
+    blockedAuthors: Set<String> = emptySet(),
     isFromCurrentUser: Boolean,
     resolvePost: suspend (String) -> CymbalPost?,
     onNavigate: () -> Unit,
@@ -2516,6 +2548,11 @@ private fun SharedPostContent(
     var post by remember(postId) { mutableStateOf<CymbalPost?>(null) }
     LaunchedEffect(postId) {
         if (postId.isNotBlank()) post = resolvePost(postId)
+    }
+
+    if (post?.user?.id in blockedAuthors) {
+        Text(stringResource(R.string.messaging_blocked_message), style = CorusFont.caption, color = CorusColors.Secondary)
+        return
     }
 
     val textColor = if (isFromCurrentUser) Color.White else CorusColors.Text

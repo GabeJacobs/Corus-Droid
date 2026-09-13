@@ -180,6 +180,14 @@ fun SearchScreen(
     onNavigateToTrending: (String) -> Unit = {},
     onNavigateToMap: () -> Unit = {},
 ) {
+    val remoteConfigReady by viewModel.remoteConfigReady.collectAsState()
+    // A fresh install has no activated Remote Config values. Waiting here keeps
+    // flag-gated search sections (including Corus Map) from appearing a beat
+    // after the rest of Search has already rendered.
+    if (!remoteConfigReady) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        return
+    }
     val searchQuery by viewModel.searchQuery.collectAsState()
     val userResults by viewModel.userSearchResults.collectAsState()
     val songSearchResults by viewModel.songSearchResults.collectAsState()

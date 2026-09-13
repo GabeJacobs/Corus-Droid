@@ -1478,5 +1478,10 @@
     <string name="club_feature_unlimited_saves">无限收藏</string>
     <string name="map_cluster_invite_copy">壮大你的社区。邀请好友加入 Corus。</string>
     <string name="map_cluster_invite_action">邀请好友</string>
+    <string name="messaging_blocked_message">已屏蔽的消息</string>
+    <string name="messaging_show_blocked_message">显示</string>
+    <string name="messaging_group_block_warning">已屏蔽的消息会对你隐藏。被你屏蔽的人仍可能在共同群组中看到你的消息。</string>
+    <string name="messaging_group_options">群组选项</string>
     <string name="map_all_communities">所有社区</string>
+    <string name="map_finding_city">正在查找你所在的城市</string>
 </resources>

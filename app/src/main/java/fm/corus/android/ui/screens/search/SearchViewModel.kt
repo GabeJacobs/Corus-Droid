@@ -82,6 +82,7 @@ class SearchViewModel @Inject constructor(
     val nowPlayingManager: NowPlayingManager,
     private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
+    val remoteConfigReady = remoteConfigService.initialFetchComplete
     private val _discoveryExpanded = kotlinx.coroutines.flow.MutableStateFlow<Set<String>>(emptySet())
     val discoveryExpanded = _discoveryExpanded.asStateFlow()
     fun toggleDiscoveryExpanded(section: String) { _discoveryExpanded.value = _discoveryExpanded.value.let { if (section in it) it - section else it + section } }
