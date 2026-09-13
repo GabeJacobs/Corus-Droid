@@ -36,8 +36,9 @@ class PostRepository @Inject constructor(
         onePerFollower: Boolean = false,
         mediaType: MediaType? = null,
         newReleasesOnly: Boolean = false,
+        energyLevel: String? = null,
     ): CloudFunctionsDataSource.FeedPage {
-        return cloudFunctions.getFeedPage(userId, pageSize, lastTimestamp, onePerFollower, mediaType, newReleasesOnly)
+        return cloudFunctions.getFeedPage(userId, pageSize, lastTimestamp, onePerFollower, mediaType, newReleasesOnly, energyLevel)
             .also { cachePosts(it.posts) }
     }
 
@@ -47,8 +48,9 @@ class PostRepository @Inject constructor(
         lastTimestamp: Long? = null,
         mediaType: MediaType? = null,
         newReleasesOnly: Boolean = false,
+        energyLevel: String? = null,
     ): CloudFunctionsDataSource.FeedPage {
-        return cloudFunctions.getFavoritesFeedPage(userId, pageSize, lastTimestamp, mediaType, newReleasesOnly)
+        return cloudFunctions.getFavoritesFeedPage(userId, pageSize, lastTimestamp, mediaType, newReleasesOnly, energyLevel)
             .also { cachePosts(it.posts) }
     }
 
@@ -63,10 +65,11 @@ class PostRepository @Inject constructor(
         scope: String = "trending",
         isRefresh: Boolean = false,
         releaseDecade: Int? = null,
+        energyLevel: String? = null,
     ): CloudFunctionsDataSource.ForYouFeedPage {
         return cloudFunctions.getForYouFeed(
             userId, pageSize, sessionToken, pageIndex, seenPostIds, mediaType, newReleasesOnly, scope, isRefresh,
-            releaseDecade,
+            releaseDecade, energyLevel,
         ).also { cachePosts(it.posts) }
     }
 

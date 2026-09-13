@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feed_energy_low">低</string>
+    <string name="feed_energy_medium">中</string>
+    <string name="feed_energy_high">高</string>
+    <string name="feed_filter_energy">能量</string>
+    <string name="feed_energy_any">不限能量级别</string>
+    <string name="feed_energy_intro_title">能量筛选是一项实验性功能</string>
+    <string name="feed_energy_intro_message">Corus 会根据音频特征估算歌曲给人的能量感。有些歌曲的实际感受可能与你的预期不同，尚未分类的歌曲不会显示。</string>
+    <string name="feed_energy_show_all">显示所有能量级别</string>
+    <string name="feed_energy_classified_only">仅显示已分类的歌曲。</string>
+    <string name="feed_energy_empty_favorites">你收藏的用户分享的已分类歌曲中，暂时没有符合这些筛选条件的歌曲。请尝试其他能量级别，或稍后再来看看。</string>
+    <string name="feed_energy_empty_following">你或你关注的人分享的已分类歌曲中，暂时没有符合这些筛选条件的歌曲。请尝试其他能量级别，或稍后再来看看。</string>
+    <string name="feed_energy_empty_matches">与你品味相近的人分享的已分类歌曲中，暂时没有符合这些筛选条件的歌曲。请尝试其他能量级别，或稍后再来看看。</string>
+    <string name="feed_energy_empty_trending">目前没有符合这些筛选条件的已分类歌曲。请尝试其他能量级别，或清除其他筛选条件。</string>
+    <string name="feed_energy_empty_low">这里暂时没有低能量音乐</string>
+    <string name="feed_energy_empty_medium">这里暂时没有中等能量音乐</string>
+    <string name="feed_energy_empty_high">这里暂时没有高能量音乐</string>
+    <string name="feed_energy_got_it">知道了</string>
+</resources>

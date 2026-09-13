@@ -106,7 +106,10 @@ class FeedMediaTypeFilterTest {
         cloudFunctions = mock()
         tmdbApiService = mock()
         nowPlayingManager = mock()
-        remoteConfig = mock()
+        remoteConfig = mock {
+            on { revision } doReturn MutableStateFlow(0)
+            on { forceTasteMatchesPaywallFlow } doReturn MutableStateFlow(false)
+        }
         analyticsService = mock()
         postCreationEvent = mock {
             on { events } doReturn MutableSharedFlow()
@@ -155,7 +158,7 @@ class FeedMediaTypeFilterTest {
 
     @Test
     fun `loadFeed forwards active mediaType filter to backend`() = runTest(testDispatcher) {
-        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull()))
             .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
 
         val viewModel = vm()
@@ -176,12 +179,13 @@ class FeedMediaTypeFilterTest {
             onePerFollower = any(),
             mediaType = eq(MediaType.MOVIE),
             newReleasesOnly = eq(false),
+            energyLevel = anyOrNull(),
         )
     }
 
     @Test
     fun `setFeedMediaFilter resets pagination so new filter fetches from the top`() = runTest(testDispatcher) {
-        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull()))
             .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
 
         val viewModel = vm()
@@ -200,12 +204,13 @@ class FeedMediaTypeFilterTest {
             onePerFollower = any(),
             mediaType = anyOrNull(),
             newReleasesOnly = any(),
+            energyLevel = anyOrNull(),
         )
     }
 
     @Test
     fun `Music - New Releases forwards mediaType=TRACK and newReleasesOnly=true`() = runTest(testDispatcher) {
-        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull()))
             .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
 
         val viewModel = vm()
@@ -222,12 +227,13 @@ class FeedMediaTypeFilterTest {
             onePerFollower = any(),
             mediaType = eq(MediaType.TRACK),
             newReleasesOnly = eq(true),
+            energyLevel = anyOrNull(),
         )
     }
 
     @Test
     fun `Film - New Releases forwards mediaType=MOVIE and newReleasesOnly=true`() = runTest(testDispatcher) {
-        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull()))
             .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
 
         val viewModel = vm()
@@ -242,12 +248,13 @@ class FeedMediaTypeFilterTest {
             onePerFollower = any(),
             mediaType = eq(MediaType.MOVIE),
             newReleasesOnly = eq(true),
+            energyLevel = anyOrNull(),
         )
     }
 
     @Test
     fun `setFeedFilter logs feed_filter_changed with canonical analytics value`() = runTest(testDispatcher) {
-        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull()))
             .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
 
         val viewModel = vm()
@@ -259,7 +266,7 @@ class FeedMediaTypeFilterTest {
 
     @Test
     fun `setFeedFilter does not log when filter is unchanged`() = runTest(testDispatcher) {
-        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull()))
             .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
 
         val viewModel = vm()
@@ -283,7 +290,7 @@ class FeedMediaTypeFilterTest {
 
     @Test
     fun `setFeedMode flips isRefreshing in the same frame it empties the feed`() = runTest(testDispatcher) {
-        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull()))
             .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
 
         val viewModel = vm()
@@ -303,7 +310,7 @@ class FeedMediaTypeFilterTest {
 
     @Test
     fun `setFeedFilter flips isRefreshing in the same frame it empties the feed`() = runTest(testDispatcher) {
-        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull()))
             .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
 
         val viewModel = vm()
@@ -329,7 +336,7 @@ class FeedMediaTypeFilterTest {
 
     @Test
     fun `All clears both mediaType and newReleasesOnly`() = runTest(testDispatcher) {
-        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull()))
             .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
 
         val viewModel = vm()
@@ -346,14 +353,15 @@ class FeedMediaTypeFilterTest {
             onePerFollower = any(),
             mediaType = eq(null),
             newReleasesOnly = eq(false),
+            energyLevel = anyOrNull(),
         )
     }
 
     @Test
     fun `setFeedFilter restores a previously loaded page from cache`() = runTest(testDispatcher) {
-        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), eq(null), any()))
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), eq(null), any(), energyLevel = anyOrNull()))
             .doReturn(CloudFunctionsDataSource.FeedPage(listOf(post("all1")), false))
-        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), eq(MediaType.TRACK), any()))
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), eq(MediaType.TRACK), any(), energyLevel = anyOrNull()))
             .doReturn(CloudFunctionsDataSource.FeedPage(listOf(post("music1")), false))
 
         val viewModel = vm()
@@ -377,12 +385,13 @@ class FeedMediaTypeFilterTest {
             onePerFollower = any(),
             mediaType = eq(null),
             newReleasesOnly = eq(false),
+            energyLevel = anyOrNull(),
         )
     }
 
     @Test
     fun `setFeedFilter persists the selection so it survives a restart`() = runTest(testDispatcher) {
-        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull()))
             .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
 
         val viewModel = vm()
@@ -410,7 +419,7 @@ class FeedMediaTypeFilterTest {
 
     @Test
     fun `restores persisted filter on init and applies it to the first feed load`() = runTest(testDispatcher) {
-        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any()))
+        whenever(postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull()))
             .doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
         // Simulate a prior session that had selected "Music only".
         savedFeedFilter.value = FeedFilter.MUSIC.name
@@ -429,6 +438,7 @@ class FeedMediaTypeFilterTest {
             onePerFollower = any(),
             mediaType = eq(MediaType.TRACK),
             newReleasesOnly = eq(false),
+            energyLevel = anyOrNull(),
         )
     }
 

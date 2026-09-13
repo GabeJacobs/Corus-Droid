@@ -87,7 +87,10 @@ class FeedModeResyncOnLateResolveTest {
         cloudFunctions = mock()
         tmdbApiService = mock()
         nowPlayingManager = mock()
-        remoteConfig = mock()
+        remoteConfig = mock {
+            on { revision } doReturn MutableStateFlow(0)
+            on { forceTasteMatchesPaywallFlow } doReturn MutableStateFlow(false)
+        }
         analyticsService = mock()
         postCreationEvent = mock { on { events } doReturn MutableSharedFlow() }
         postDeletionEvent = mock { on { events } doReturn MutableSharedFlow() }
@@ -148,11 +151,12 @@ class FeedModeResyncOnLateResolveTest {
         runTest(testDispatcher) {
             whenever(remoteConfig.trendingFeedEnabled).doReturn(true)
             wheneverBlocking {
-                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull())
             }.doReturn(CloudFunctionsDataSource.FeedPage(emptyList(), false))
             wheneverBlocking {
                 postRepository.getForYouFeed(
                     any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
+                    energyLevel = anyOrNull(),
                 )
             }.doReturn(CloudFunctionsDataSource.ForYouFeedPage(emptyList(), false, "tok", false))
 
@@ -163,7 +167,7 @@ class FeedModeResyncOnLateResolveTest {
             viewModel.loadFeed()
             advanceUntilIdle()
             verifyBlocking(postRepository) {
-                getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+                getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull())
             }
 
             // The persisted mode lands late — collector must re-sync to Trending.
@@ -175,6 +179,7 @@ class FeedModeResyncOnLateResolveTest {
                 getForYouFeed(
                     any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(),
                     eq("trending"), any(), anyOrNull(),
+                    energyLevel = anyOrNull(),
                 )
             }
         }
@@ -186,6 +191,7 @@ class FeedModeResyncOnLateResolveTest {
             wheneverBlocking {
                 postRepository.getForYouFeed(
                     any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
+                    energyLevel = anyOrNull(),
                 )
             }.doReturn(CloudFunctionsDataSource.ForYouFeedPage(emptyList(), false, "tok", false))
 
@@ -200,7 +206,7 @@ class FeedModeResyncOnLateResolveTest {
 
             // The chronological Following feed must never be fetched.
             verifyBlocking(postRepository, never()) {
-                getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+                getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull())
             }
         }
 }

@@ -11,6 +11,7 @@ import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalThread
 import fm.corus.android.data.model.ShareRecipient
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.FeedEnergy
 import fm.corus.android.data.model.FeedDecade
 import fm.corus.android.data.model.FeedFilter
 import fm.corus.android.data.model.MediaType
@@ -273,6 +274,18 @@ class FeedViewModel @Inject constructor(
     )
     val feedFilter: StateFlow<FeedFilter> = _feedFilter.asStateFlow()
 
+    private val _feedEnergy = MutableStateFlow(FeedEnergy.fromStored(preferencesDataStore.feedEnergySeed(authRepository.currentUserId)))
+    private fun effectiveFeedEnergy(): FeedEnergy? = if (remoteConfig.feedEnergyFilterEnabled) _feedEnergy.value else null
+    val feedEnergy = combine(_feedEnergy, remoteConfig.revision) { energy, _ ->
+        if (remoteConfig.feedEnergyFilterEnabled) energy else null
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, effectiveFeedEnergy())
+    private val _showEnergyIntroduction = MutableStateFlow(false)
+    val showEnergyIntroduction = _showEnergyIntroduction.asStateFlow()
+    fun dismissEnergyIntroduction() {
+        preferencesDataStore.markEnergyIntroductionSeen(authRepository.currentUserId)
+        _showEnergyIntroduction.value = false
+    }
+
     private val _feedDecade = MutableStateFlow(
         FeedDecade.fromStored(preferencesDataStore.feedDecadeSyncSeed())
     )
@@ -289,10 +302,10 @@ class FeedViewModel @Inject constructor(
     // For the new-releases filter we additionally apply a client-side
     // defense-in-depth check using `isNewRelease()` so the user never sees a
     // post that crossed the threshold mid-flight.
-    val filteredPosts: StateFlow<List<CymbalPost>> = combine(_posts, _feedFilter, userRepository.hiddenUserIds) { posts, filter, hidden ->
+    val filteredPosts: StateFlow<List<CymbalPost>> = combine(_posts, _feedFilter, userRepository.hiddenUserIds, feedEnergy) { posts, filter, hidden, energy ->
         val visible = posts
             .filter { post ->
-                post.user.id !in hidden &&
+                (energy == null || energy.matches(post)) && post.user.id !in hidden &&
                     (post.repostedFromUserId.isNullOrEmpty() || post.repostedFromUserId !in hidden)
             }
             .map { post ->
@@ -479,7 +492,7 @@ class FeedViewModel @Inject constructor(
 
     private fun feedRequestSignature(mode: String = feedMode.value): String {
         val decade = decadeApplicableTo(mode, _feedDecade.value) ?: 0
-        return "$mode|${_feedFilter.value.name}|$decade"
+        return "$mode|${_feedFilter.value.name}|$decade|${effectiveFeedEnergy()?.value.orEmpty()}"
     }
 
     private fun applyFeedSignatureChange(from: String, to: String) {
@@ -511,7 +524,7 @@ class FeedViewModel @Inject constructor(
 
     private fun freshCachedPosts(mode: String): List<CymbalPost> {
         val snap = feedPageCache[feedRequestSignature(mode)] ?: return emptyList()
-        return if (snap.isFresh()) snap.posts else emptyList()
+        return if (snap.isFresh()) snap.posts.filter { effectiveFeedEnergy()?.matches(it) != false } else emptyList()
     }
 
     private fun evictExpiredFeedPages() {
@@ -611,8 +624,8 @@ class FeedViewModel @Inject constructor(
         // `appliedFeedSignature` is empty until the first mode/filter change,
         // so first paint still shows whatever loadFeed / restore already wrote.
         if (appliedFeedSignature.isEmpty() || appliedFeedSignature == feedRequestSignature(mode)) {
-            if (cached.isEmpty()) return _posts.value
-            if (_posts.value.any { live -> cached.any { it.id == live.id } }) return _posts.value
+            if (cached.isEmpty()) return _posts.value.filter { effectiveFeedEnergy()?.matches(it) != false }
+            if (_posts.value.any { live -> cached.any { it.id == live.id } }) return _posts.value.filter { effectiveFeedEnergy()?.matches(it) != false }
         }
         return cached
     }
@@ -718,6 +731,15 @@ class FeedViewModel @Inject constructor(
     val followingLoaded: StateFlow<Boolean> = userRepository.followingLoaded
 
     init {
+        viewModelScope.launch {
+            remoteConfig.revision.collect {
+                val next = feedRequestSignature()
+                if (appliedFeedSignature.isNotEmpty() && appliedFeedSignature != next) {
+                    applyFeedSignatureChange(appliedFeedSignature, next)
+                }
+                if (!remoteConfig.feedEnergyFilterEnabled) _showEnergyIntroduction.value = false
+            }
+        }
         viewModelScope.launch {
             val uid = authRepository.currentUserId ?: return@launch
             runCatching { userRepository.fetchUserProfile(uid) }
@@ -954,6 +976,9 @@ class FeedViewModel @Inject constructor(
         // fetches, which used to load Recent instead of the user's chosen
         // ranked feed. A ranked mode can only have been persisted while its
         // flag was on.
+        val requestSignature = feedRequestSignature()
+        appliedFeedSignature = requestSignature
+        val requestedEnergy = effectiveFeedEnergy()
         val mode = feedMode.value
         lastLoadedMode = mode
         val useRanked = mode == "trending" || mode == "tasteMatches"
@@ -994,6 +1019,7 @@ class FeedViewModel @Inject constructor(
                     seenPostIds = forYouSeenIds.toList(),
                     mediaType = _feedFilter.value.mediaType,
                     newReleasesOnly = _feedFilter.value.newReleasesOnly,
+                    energyLevel = requestedEnergy?.value,
                     scope = rankedScope,
                     // Pull-to-refresh (refresh=true) → boost recency so the
                     // newest posts lead. First load / pagination doesn't.
@@ -1009,7 +1035,7 @@ class FeedViewModel @Inject constructor(
                 // with that Taste Matches cursor and splice its posts in. The
                 // posts-level guard further down is too late for these writes, so
                 // bail here before touching any shared ranked state. Mirrors iOS.
-                if (feedMode.value != mode) return
+                if (feedRequestSignature() != requestSignature) return
                 // Taste Matches gate: a {gated:...} response carries no posts and
                 // drives the cold-start / paywall screen instead of the feed.
                 if (mode == "tasteMatches") {
@@ -1032,7 +1058,7 @@ class FeedViewModel @Inject constructor(
                     if (forYouPage.gated != null) {
                         // Gated → no live feed. Paywall may carry teaser posts
                         // for the frosted lock overlay; other gates stay empty.
-                        if (feedMode.value != mode) return
+                        if (feedRequestSignature() != requestSignature) return
                         _posts.value = if (forYouPage.gated == "paywall") forYouPage.posts else emptyList()
                         _hasMore.value = false
                         _tasteMatchesTrial.value = null
@@ -1096,6 +1122,7 @@ class FeedViewModel @Inject constructor(
                     lastTimestamp = if (refresh) null else lastTimestamp,
                     mediaType = _feedFilter.value.mediaType,
                     newReleasesOnly = _feedFilter.value.newReleasesOnly,
+                    energyLevel = requestedEnergy?.value,
                 )
                 newPosts = page.posts
                 pageHasMore = page.hasMore
@@ -1106,6 +1133,7 @@ class FeedViewModel @Inject constructor(
                     lastTimestamp = if (refresh) null else lastTimestamp,
                     mediaType = _feedFilter.value.mediaType,
                     newReleasesOnly = _feedFilter.value.newReleasesOnly,
+                    energyLevel = requestedEnergy?.value,
                 )
                 newPosts = page.posts
                 pageHasMore = page.hasMore
@@ -1136,7 +1164,7 @@ class FeedViewModel @Inject constructor(
             // the UI now — applying these posts would flash the wrong feed
             // (e.g. show Following posts while Trending is selected). The newer
             // task resets the loading flags on its own completion.
-            if (feedMode.value != mode) return
+            if (feedRequestSignature() != requestSignature) return
 
             if (refresh) {
                 _posts.value = newPosts
@@ -1170,6 +1198,7 @@ class FeedViewModel @Inject constructor(
             // false-error class of bug we fixed in search. Always rethrow.
             throw e
         } catch (e: Exception) {
+            if (feedRequestSignature() != requestSignature) return
             // android.util.Log is not mocked in JVM unit tests; never let
             // diagnostics abort the retry / error-surface path.
             runCatching {
@@ -1227,13 +1256,29 @@ class FeedViewModel @Inject constructor(
             }
         }
 
+        if (feedRequestSignature() != requestSignature) return
         _isLoading.value = false
         _isRefreshing.value = false
         _hasLoaded.value = true
     }
 
+    fun setFeedEnergy(energy: FeedEnergy?, trackTap: Boolean = true) {
+        if (!remoteConfig.feedEnergyFilterEnabled) return
+        if (trackTap) analyticsService.logFeedEnergyFilterTapped(energy?.value ?: "any", feedMode.value)
+        if (energy == effectiveFeedEnergy()) return
+        val oldSig = feedRequestSignature()
+        _feedEnergy.value = energy
+        preferencesDataStore.setFeedEnergy(authRepository.currentUserId, energy?.value)
+        if (energy != null) {
+            _feedFilter.value = FeedFilter.MUSIC
+            viewModelScope.launch { preferencesDataStore.setFeedFilter(FeedFilter.MUSIC.name) }
+            if (!preferencesDataStore.hasSeenEnergyIntroduction(authRepository.currentUserId)) _showEnergyIntroduction.value = true
+        }
+        applyFeedSignatureChange(oldSig, feedRequestSignature())
+    }
+
     fun setFeedFilter(filter: FeedFilter) {
-        if (_feedFilter.value == filter) return
+        if (_feedFilter.value == filter && !(filter == FeedFilter.ALL && effectiveFeedEnergy() != null)) return
         if (filter.newReleasesOnly && remoteConfig.newReleaseFilterClubOnly && !subscriptionRepository.hasFullAccess) {
             _newReleaseFilterPaywall.value = PaywallSource.NEW_RELEASE_FILTER
             return
@@ -1241,6 +1286,10 @@ class FeedViewModel @Inject constructor(
         analyticsService.logFeedFilterChanged(filter.analyticsValue)
         val oldSig = feedRequestSignature()
         _feedFilter.value = filter
+        if (filter == FeedFilter.ALL || filter.mediaType == MediaType.MOVIE) {
+            _feedEnergy.value = null
+            preferencesDataStore.setFeedEnergy(authRepository.currentUserId, null)
+        }
         // Persist so the selection survives an app restart (mirrors iOS).
         viewModelScope.launch { preferencesDataStore.setFeedFilter(filter.name) }
         if (filter.newReleasesOnly && _feedDecade.value != null) {

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feed_energy_low">低</string>
+    <string name="feed_energy_medium">中</string>
+    <string name="feed_energy_high">高</string>
+    <string name="feed_filter_energy">エネルギー</string>
+    <string name="feed_energy_any">すべてのエネルギーレベル</string>
+    <string name="feed_energy_intro_title">エネルギーフィルターは試験的な機能です</string>
+    <string name="feed_energy_intro_message">Corusは音声の特徴から、曲がどれくらいエネルギッシュに感じられるかを推定します。予想と異なる印象の曲が含まれることがあります。まだ分類されていない曲は表示されません。</string>
+    <string name="feed_energy_show_all">すべてのエネルギーレベルを表示</string>
+    <string name="feed_energy_classified_only">分類済みの曲のみ表示されます。</string>
+    <string name="feed_energy_empty_favorites">お気に入りのユーザーが共有した分類済みの曲には、まだこのフィルターに一致するものがありません。別のエネルギーレベルを試すか、しばらくしてから確認してください。</string>
+    <string name="feed_energy_empty_following">あなたやフォロー中のユーザーが共有した分類済みの曲には、まだこのフィルターに一致するものがありません。別のエネルギーレベルを試すか、しばらくしてから確認してください。</string>
+    <string name="feed_energy_empty_matches">好みが似ているユーザーが共有した分類済みの曲には、まだこのフィルターに一致するものがありません。別のエネルギーレベルを試すか、しばらくしてから確認してください。</string>
+    <string name="feed_energy_empty_trending">現在、このフィルターに一致する分類済みの曲はありません。別のエネルギーレベルを試すか、ほかのフィルターを解除してください。</string>
+    <string name="feed_energy_empty_low">エネルギーが低い曲はまだありません</string>
+    <string name="feed_energy_empty_medium">エネルギーが中程度の曲はまだありません</string>
+    <string name="feed_energy_empty_high">エネルギーが高い曲はまだありません</string>
+    <string name="feed_energy_got_it">了解</string>
+</resources>

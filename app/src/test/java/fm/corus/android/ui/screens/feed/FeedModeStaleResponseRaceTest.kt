@@ -91,7 +91,10 @@ class FeedModeStaleResponseRaceTest {
         cloudFunctions = mock()
         tmdbApiService = mock()
         nowPlayingManager = mock()
-        remoteConfig = mock()
+        remoteConfig = mock {
+            on { revision } doReturn MutableStateFlow(0)
+            on { forceTasteMatchesPaywallFlow } doReturn MutableStateFlow(false)
+        }
         analyticsService = mock()
         postCreationEvent = mock { on { events } doReturn MutableSharedFlow() }
         postDeletionEvent = mock { on { events } doReturn MutableSharedFlow() }
@@ -159,7 +162,7 @@ class FeedModeStaleResponseRaceTest {
             // mimicking a slow response that lands after the mode has changed.
             val gate = CompletableDeferred<Unit>()
             wheneverBlocking {
-                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull())
             }.doSuspendableAnswer {
                 gate.await()
                 CloudFunctionsDataSource.FeedPage(followingPosts, false)
@@ -167,6 +170,7 @@ class FeedModeStaleResponseRaceTest {
             wheneverBlocking {
                 postRepository.getForYouFeed(
                     any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
+                    energyLevel = anyOrNull(),
                 )
             }.doReturn(CloudFunctionsDataSource.ForYouFeedPage(trendingPosts, false, "tok", false))
 
@@ -228,6 +232,7 @@ class FeedModeStaleResponseRaceTest {
             wheneverBlocking {
                 postRepository.getForYouFeed(
                     any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
+                    energyLevel = anyOrNull(),
                 )
             }.doSuspendableAnswer {
                 val sessionToken = it.getArgument<String?>(2)
@@ -280,4 +285,42 @@ class FeedModeStaleResponseRaceTest {
                 viewModel.posts.value.map { it.id },
             )
         }
+    @Test
+    fun `late high energy response cannot overwrite low energy posts or cursor`() = runTest(testDispatcher) {
+        whenever(remoteConfig.feedEnergyFilterEnabled).doReturn(true)
+        whenever(remoteConfig.trendingFeedEnabled).doReturn(true)
+        modeFlow.value = "trending"
+        val pendingHigh = CompletableDeferred<Unit>()
+        val high = post("high").copy(energyLevel = "high")
+        val low = post("low").copy(energyLevel = "low")
+        val low2 = post("low2").copy(energyLevel = "low")
+        wheneverBlocking {
+            postRepository.getForYouFeed(any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(), anyOrNull())
+        }.doSuspendableAnswer {
+            val energy = it.getArgument<String?>(10)
+            val token = it.getArgument<String?>(2)
+            when {
+                energy == "high" -> {
+                    pendingHigh.await()
+                    CloudFunctionsDataSource.ForYouFeedPage(listOf(high), true, "high-token", false)
+                }
+                token == "high-token" -> CloudFunctionsDataSource.ForYouFeedPage(listOf(high), false, "high-token", false)
+                token == "low-token" -> CloudFunctionsDataSource.ForYouFeedPage(listOf(low2), false, "low-token", false)
+                else -> CloudFunctionsDataSource.ForYouFeedPage(listOf(low), true, "low-token", false)
+            }
+        }
+        val viewModel = vm()
+        advanceUntilIdle()
+        viewModel.setFeedEnergy(fm.corus.android.data.model.FeedEnergy.HIGH)
+        advanceUntilIdle()
+        viewModel.setFeedEnergy(fm.corus.android.data.model.FeedEnergy.LOW)
+        advanceUntilIdle()
+        assertEquals(listOf("low"), viewModel.filteredPosts.value.map { it.id })
+        pendingHigh.complete(Unit)
+        advanceUntilIdle()
+        viewModel.loadFeed()
+        advanceUntilIdle()
+        assertEquals(listOf("low", "low2"), viewModel.filteredPosts.value.map { it.id })
+    }
+
 }

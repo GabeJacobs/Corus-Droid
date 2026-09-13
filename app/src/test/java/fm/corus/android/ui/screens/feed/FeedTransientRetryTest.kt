@@ -88,6 +88,7 @@ class FeedTransientRetryTest {
         cloudFunctions = mock()
         nowPlayingManager = mock()
         remoteConfig = mock {
+            on { revision } doReturn MutableStateFlow(0)
             on { forceTasteMatchesPaywallFlow } doReturn MutableStateFlow(false)
             on { forceTasteMatchesPaywall } doReturn false
         }
@@ -151,7 +152,7 @@ class FeedTransientRetryTest {
         runTest(testDispatcher) {
             var calls = 0
             wheneverBlocking {
-                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull())
             }.doSuspendableAnswer {
                 calls++
                 // First attempt fails (cold-start token blip); the retry succeeds.
@@ -176,7 +177,7 @@ class FeedTransientRetryTest {
         runTest(testDispatcher) {
             var calls = 0
             wheneverBlocking {
-                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull())
             }.doSuspendableAnswer {
                 calls++
                 // Waking from a long sleep, the process was killed and this is a
@@ -208,7 +209,7 @@ class FeedTransientRetryTest {
         runTest(testDispatcher) {
             var calls = 0
             wheneverBlocking {
-                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull())
             }.doSuspendableAnswer {
                 calls++
                 throw RuntimeException("server still unreachable")
@@ -236,7 +237,7 @@ class FeedTransientRetryTest {
         runTest(testDispatcher) {
             var calls = 0
             wheneverBlocking {
-                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull())
             }.doSuspendableAnswer {
                 calls++
                 // Waking the phone, the app cold-starts before the Wi-Fi radio has
@@ -266,7 +267,7 @@ class FeedTransientRetryTest {
         runTest(testDispatcher) {
             var calls = 0
             wheneverBlocking {
-                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull())
             }.doSuspendableAnswer {
                 calls++
                 throw RuntimeException("no network")
@@ -291,7 +292,7 @@ class FeedTransientRetryTest {
         runTest(testDispatcher) {
             var calls = 0
             wheneverBlocking {
-                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull())
             }.doSuspendableAnswer {
                 calls++
                 // First wave: every attempt fails (DNS dead while the phone is
@@ -325,7 +326,7 @@ class FeedTransientRetryTest {
         runTest(testDispatcher) {
             var calls = 0
             wheneverBlocking {
-                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull())
             }.doSuspendableAnswer {
                 calls++
                 CloudFunctionsDataSource.FeedPage(listOf(post("p1")), false)
@@ -349,7 +350,7 @@ class FeedTransientRetryTest {
         runTest(testDispatcher) {
             var calls = 0
             wheneverBlocking {
-                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull())
             }.doSuspendableAnswer {
                 calls++
                 // First wave (5 attempts) fails; the user is looking at the
@@ -378,7 +379,7 @@ class FeedTransientRetryTest {
         runTest(testDispatcher) {
             var calls = 0
             wheneverBlocking {
-                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any())
+                postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull())
             }.doSuspendableAnswer {
                 calls++
                 throw RuntimeException("dns remains unavailable")

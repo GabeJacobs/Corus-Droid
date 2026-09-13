@@ -109,6 +109,7 @@ import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.FeedEnergy
 import fm.corus.android.data.model.FeedDecade
 import fm.corus.android.data.model.FeedFilter
 import fm.corus.android.data.model.MediaType
@@ -216,6 +217,10 @@ fun FeedScreen(
     val feedMode by viewModel.feedMode.collectAsState()
     val feedDecade: Int? = viewModel.appliedFeedDecade.collectAsState().value
     val showDecadeFilter = viewModel.isDecadeFilterVisible(feedMode)
+    val energyConfigRevision by viewModel.remoteConfig.revision.collectAsState()
+    val feedEnergy by viewModel.feedEnergy.collectAsState()
+    val showEnergyFilter = remember(energyConfigRevision) { viewModel.remoteConfig.feedEnergyFilterEnabled }
+    val showEnergyIntroduction by viewModel.showEnergyIntroduction.collectAsState()
     val followingUserIds by viewModel.followingUserIds.collectAsState()
     val followingLoaded by viewModel.followingLoaded.collectAsState()
     val forYouLoadFailed by viewModel.forYouLoadFailed.collectAsState()
@@ -478,6 +483,9 @@ fun FeedScreen(
             showDecadeFilter = showDecadeFilter,
             feedDecade = feedDecade,
             onSetDecade = { viewModel.setFeedDecade(it) },
+            showEnergyFilter = showEnergyFilter,
+            feedEnergy = feedEnergy,
+            onSetEnergy = { viewModel.setFeedEnergy(it) },
             onGeneratePlaylist = {
                 if (viewModel.shouldPaywallFeedPlaylist()) {
                     clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT
@@ -897,6 +905,14 @@ fun FeedScreen(
                         )
                     }
                     Spacer(modifier = Modifier.height(CorusSpacing.xxl))
+                }
+            }
+
+            isSelected && posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && feedEnergy != null -> {
+                Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+                    ChromeInset()
+                    if (includeHeader) header()
+                    FeedEnergyEmptyState(energy = feedEnergy!!, mode = feedMode, onClear = { viewModel.setFeedEnergy(null, trackTap = false) })
                 }
             }
 
@@ -1589,6 +1605,19 @@ fun FeedScreen(
             post = post,
             onDismiss = { filmInfoPost = null },
             fetchMovieDetails = { movieId -> viewModel.fetchMovieDetails(movieId) },
+        )
+    }
+
+    if (showEnergyFilter && showEnergyIntroduction) {
+        fm.corus.android.ui.components.CorusPromptOverlay(
+            visible = true,
+            title = stringResource(R.string.feed_energy_intro_title),
+            message = stringResource(R.string.feed_energy_intro_message),
+            onDismiss = { viewModel.dismissEnergyIntroduction() },
+            buttons = listOf(fm.corus.android.ui.components.CorusPromptButton(
+                label = stringResource(R.string.feed_energy_got_it),
+                onClick = { viewModel.dismissEnergyIntroduction() },
+            )),
         )
     }
 
@@ -2592,6 +2621,9 @@ internal fun FeedHeader(
     showDecadeFilter: Boolean = false,
     feedDecade: Int? = null,
     onSetDecade: (Int?) -> Unit = {},
+    showEnergyFilter: Boolean = false,
+    feedEnergy: FeedEnergy? = null,
+    onSetEnergy: (FeedEnergy?) -> Unit = {},
     trendingFeedEnabled: Boolean = false,
     favoritesEnabled: Boolean = false,
     favoritesCount: Int = 0,
@@ -2696,6 +2728,7 @@ internal fun FeedHeader(
             }
             Box {
                 var decadeDrillIn by remember { mutableStateOf(false) }
+                var energyDrillIn by remember { mutableStateOf(false) }
                 Box(
                     modifier = Modifier
                         .size(CorusSpacing.composePlusSide)
@@ -2704,6 +2737,7 @@ internal fun FeedHeader(
                             indication = null,
                             onClick = {
                                 decadeDrillIn = false
+                                energyDrillIn = false
                                 onFilterMenuExpandedChange(true)
                             },
                         ),
@@ -2742,7 +2776,21 @@ internal fun FeedHeader(
                     val decadeGroupLabel =
                         if (feedDecade == null) decadeName
                         else "$decadeName · ${FeedDecade.label(feedDecade)}"
-                    if (decadeDrillIn && showDecadeFilter) {
+                    if (energyDrillIn && showEnergyFilter) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.feed_filter_energy)) },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null) },
+                            onClick = { energyDrillIn = false })
+                        HorizontalDivider()
+                        DropdownMenuItem(text = { Text(stringResource(R.string.feed_energy_any)) },
+                            trailingIcon = if (feedEnergy == null) activeCheckmark else null,
+                            onClick = { onSetEnergy(null); onFilterMenuExpandedChange(false) })
+                        HorizontalDivider()
+                        FeedEnergy.entries.forEach { energy ->
+                            DropdownMenuItem(text = { Text(stringResource(energy.labelRes)) },
+                                trailingIcon = if (feedEnergy == energy) activeCheckmark else null,
+                                onClick = { onSetEnergy(energy); onFilterMenuExpandedChange(false) })
+                        }
+                    } else if (decadeDrillIn && showDecadeFilter) {
                         DropdownMenuItem(
                             text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2838,6 +2886,19 @@ internal fun FeedHeader(
                                 onClick = { decadeDrillIn = true },
                             )
                         }
+                        if (showEnergyFilter) {
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text(if (feedEnergy == null) stringResource(R.string.feed_filter_energy) else "${stringResource(R.string.feed_filter_energy)} · ${stringResource(feedEnergy.labelRes)}") },
+                                trailingIcon = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (feedEnergy != null) activeCheckmark()
+                                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = CorusColors.Secondary, modifier = Modifier.size(18.dp))
+                                    }
+                                },
+                                onClick = { energyDrillIn = true },
+                            )
+                        }
                     }
                 }
             }
@@ -2865,6 +2926,30 @@ internal fun FeedHeader(
                 }
             }
         }
+        }
+    }
+}
+
+@Composable
+internal fun FeedEnergyEmptyState(energy: FeedEnergy, mode: String, onClear: () -> Unit) {
+    val message = when (mode) {
+        "following" -> R.string.feed_energy_empty_following
+        "favorites" -> R.string.feed_energy_empty_favorites
+        "tasteMatches" -> R.string.feed_energy_empty_matches
+        else -> R.string.feed_energy_empty_trending
+    }
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = CorusSpacing.xl), horizontalAlignment = Alignment.CenterHorizontally) {
+        Spacer(Modifier.height(60.dp))
+        Icon(Icons.Filled.MusicNote, contentDescription = null, tint = CorusColors.Tertiary, modifier = Modifier.size(36.dp))
+        Spacer(Modifier.height(CorusSpacing.md))
+        Text(stringResource(energy.emptyTitleRes), style = CorusFont.songTitle, color = CorusColors.Secondary, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(CorusSpacing.xs))
+        Text(stringResource(message), style = CorusFont.body, color = CorusColors.Tertiary, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(CorusSpacing.md))
+        Text(stringResource(R.string.feed_energy_classified_only), style = CorusFont.body, color = CorusColors.Tertiary, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(CorusSpacing.lg))
+        Button(onClick = onClear, colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent), shape = RoundedCornerShape(CorusSpacing.pillCornerRadius)) {
+            Text(stringResource(R.string.feed_energy_show_all), style = CorusFont.button, color = CorusColors.Background)
         }
     }
 }

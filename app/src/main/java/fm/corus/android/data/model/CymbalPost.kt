@@ -38,6 +38,8 @@ data class CymbalPost(
      *  `null` for posts from followed users and for direct-Firestore reads. */
     val injectedByHashtag: String? = null,
 
+    val energyLevel: String? = null,
+
     // Movie support
     val mediaType: MediaType = MediaType.TRACK,
     val movieId: String? = null,
@@ -276,6 +278,7 @@ data class CymbalPost(
             val timestamp = if (timestampMs != null) Date(timestampMs.toLong()) else Date()
 
             return CymbalPost(
+                energyLevel = FeedEnergy.fromStored(data["energyLevel"] as? String)?.value,
                 id = data["id"] as? String ?: "",
                 user = user,
                 track = track,

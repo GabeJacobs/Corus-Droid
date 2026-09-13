@@ -426,6 +426,7 @@ class CloudFunctionsDataSource @Inject constructor(
         onePerFollower: Boolean = false,
         mediaType: MediaType? = null,
         newReleasesOnly: Boolean = false,
+        energyLevel: String? = null,
     ): FeedPage {
         val params = mutableMapOf<String, Any>(
             "userId" to userId,
@@ -435,6 +436,7 @@ class CloudFunctionsDataSource @Inject constructor(
         lastTimestamp?.let { params["beforeMs"] = it }
         mediaType?.let { params["mediaType"] = it.value }
         if (newReleasesOnly) params["newReleasesOnly"] = true
+        energyLevel?.let { params["energyLevel"] = it }
 
         val result = functions.getHttpsCallable("getFeedPage").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: return FeedPage(emptyList(), false)
@@ -460,6 +462,7 @@ class CloudFunctionsDataSource @Inject constructor(
         lastTimestamp: Long? = null,
         mediaType: MediaType? = null,
         newReleasesOnly: Boolean = false,
+        energyLevel: String? = null,
     ): FeedPage {
         val params = mutableMapOf<String, Any>(
             "userId" to userId,
@@ -468,6 +471,7 @@ class CloudFunctionsDataSource @Inject constructor(
         lastTimestamp?.let { params["beforeMs"] = it }
         mediaType?.let { params["mediaType"] = it.value }
         if (newReleasesOnly) params["newReleasesOnly"] = true
+        energyLevel?.let { params["energyLevel"] = it }
 
         val result = functions.getHttpsCallable("getFavoritesFeedPage").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: return FeedPage(emptyList(), false)
@@ -521,6 +525,7 @@ class CloudFunctionsDataSource @Inject constructor(
         scope: String = "trending",
         isRefresh: Boolean = false,
         releaseDecade: Int? = null,
+        energyLevel: String? = null,
     ): ForYouFeedPage {
         val params = mutableMapOf<String, Any>(
             "userId" to userId,
@@ -535,6 +540,7 @@ class CloudFunctionsDataSource @Inject constructor(
         }
         mediaType?.let { params["mediaType"] = it.value }
         if (newReleasesOnly) params["newReleasesOnly"] = true
+        energyLevel?.let { params["energyLevel"] = it }
         releaseDecade?.let { params["releaseDecade"] = it }
 
         val result = functions.getHttpsCallable("getForYouFeed").call(params).await()

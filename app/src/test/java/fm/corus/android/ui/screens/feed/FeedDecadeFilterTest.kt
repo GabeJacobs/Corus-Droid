@@ -99,6 +99,8 @@ class FeedDecadeFilterTest {
         tmdbApiService = mock()
         nowPlayingManager = mock()
         remoteConfig = mock {
+            on { revision } doReturn MutableStateFlow(0)
+            on { forceTasteMatchesPaywallFlow } doReturn MutableStateFlow(false)
             on { trendingFeedEnabled } doReturn true
             on { feedDecadeFilterEnabled } doReturn true
         }
@@ -108,6 +110,7 @@ class FeedDecadeFilterTest {
         wheneverBlocking {
             postRepository.getForYouFeed(
                 any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
+                energyLevel = anyOrNull(),
             )
         }.doReturn(CloudFunctionsDataSource.ForYouFeedPage(emptyList(), false, "tok", false))
     }
@@ -169,6 +172,7 @@ class FeedDecadeFilterTest {
                     scope = eq("trending"),
                     isRefresh = any(),
                     releaseDecade = eq(1990),
+                    energyLevel = anyOrNull(),
                 )
             }
         }
@@ -191,6 +195,7 @@ class FeedDecadeFilterTest {
                 scope = eq("trending"),
                 isRefresh = any(),
                 releaseDecade = isNull(),
+                energyLevel = anyOrNull(),
             )
         }
     }
@@ -222,6 +227,7 @@ class FeedDecadeFilterTest {
                     scope = any(),
                     isRefresh = any(),
                     releaseDecade = eq(1990),
+                    energyLevel = anyOrNull(),
                 )
             }
         }
@@ -251,6 +257,7 @@ class FeedDecadeFilterTest {
                     scope = any(),
                     isRefresh = any(),
                     releaseDecade = eq(1990),
+                    energyLevel = anyOrNull(),
                 )
             }
         }
@@ -292,6 +299,7 @@ class FeedDecadeFilterTest {
                     scope = eq("trending"),
                     isRefresh = any(),
                     releaseDecade = eq(1990),
+                    energyLevel = anyOrNull(),
                 )
             }
             verifyBlocking(preferencesDataStore) { setFeedFilter(eq("MUSIC")) }
@@ -322,6 +330,7 @@ class FeedDecadeFilterTest {
                 scope = eq("trending"),
                 isRefresh = any(),
                 releaseDecade = isNull(),
+                energyLevel = anyOrNull(),
             )
         }
     }
@@ -411,6 +420,7 @@ class FeedDecadeFilterTest {
                     scope = eq("trending"),
                     isRefresh = any(),
                     releaseDecade = isNull(),
+                    energyLevel = anyOrNull(),
                 )
             }
         }
@@ -438,6 +448,7 @@ class FeedDecadeFilterTest {
                     scope = eq("trending"),
                     isRefresh = any(),
                     releaseDecade = eq(1970),
+                    energyLevel = anyOrNull(),
                 )
             }
         }

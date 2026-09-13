@@ -1,8 +1,8 @@
 package fm.corus.android.ui.screens.feed
 
-import fm.corus.android.data.model.CymbalPost
-import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.FeedEnergy
+import fm.corus.android.data.model.FeedFilter
 import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.TMDBApiService
@@ -11,7 +11,6 @@ import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.NowPlayingManager
-import fm.corus.android.domain.PostCreated
 import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
@@ -36,22 +35,17 @@ import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doReturn
-import org.mockito.kotlin.doSuspendableAnswer
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.isNull
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.whenever
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.verifyBlocking
 import org.mockito.kotlin.wheneverBlocking
+import org.mockito.kotlin.whenever
 
-/**
- * Regression: creating a post while sitting on the Taste Matches "no matches
- * yet" empty state must surface a freshly-matched feed WITHOUT a manual
- * pull-to-refresh. The just-posted artist/director can now overlap someone
- * else's taste, but the server rebuilds that overlap from an async trigger, so
- * the feed polls the ranked endpoint until it serves (or gives up and settles
- * back on the empty state). Before the fix a post on this state did nothing —
- * the user was stranded on "no matches yet" and wrongly assumed they had none.
- */
 @OptIn(ExperimentalCoroutinesApi::class)
-class FeedTasteMatchesRematchOnPostTest {
+class FeedEnergyFilterTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -65,28 +59,30 @@ class FeedTasteMatchesRematchOnPostTest {
     private lateinit var nowPlayingManager: NowPlayingManager
     private lateinit var remoteConfig: RemoteConfigService
     private lateinit var analyticsService: AnalyticsService
+    private lateinit var postCreationEvent: PostCreationEvent
     private lateinit var postDeletionEvent: PostDeletionEvent
     private lateinit var preferencesDataStore: fm.corus.android.data.local.PreferencesDataStore
-
-    // Post-creation bus we drive directly so the test can fire a "posted" event.
-    private val postEvents = MutableSharedFlow<PostCreated>(extraBufferCapacity = 1)
-    private val postCreationEvent: PostCreationEvent = mock { on { events } doReturn postEvents }
-
-    private val modeFlow = MutableStateFlow("tasteMatches")
-
-    // When true the ranked endpoint serves matches; when false it returns the
-    // gated "noMatchesYet" response (posted enough, but no shared taste yet).
-    private var serving = false
-
-    private fun user(id: String) = CymbalUser(id = id, username = id, displayName = id)
-    private fun track() = CymbalTrack(id = "t1", name = "n", artistName = "a", albumName = "al")
-    private fun post(id: String) = CymbalPost(id = id, user = user("poster"), track = track())
-
-    private val matchedPosts = listOf(post("m1"), post("m2"))
+    private lateinit var storedDecade: MutableStateFlow<String>
+    private lateinit var storedMode: MutableStateFlow<String>
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
+        storedDecade = MutableStateFlow("")
+        storedMode = MutableStateFlow("trending")
+        preferencesDataStore = mock {
+            on { feedFollowsNowPlaying } doReturn MutableStateFlow(true)
+            on { feedFilter } doReturn MutableStateFlow("ALL")
+            on { feedFilterSyncSeed() } doReturn "ALL"
+            on { feedMode } doReturn storedMode
+            on { feedModeSyncSeed() } doReturn "trending"
+            on { feedDecade } doReturn storedDecade
+            on { feedDecadeSyncSeed() } doReturn ""
+            on { forYouSeenIdsJson } doReturn MutableStateFlow("[]")
+            on { hasTappedAlbumArt } doReturn MutableStateFlow(false)
+            on { hasConfirmedFeedPlaylist } doReturn MutableStateFlow(false)
+            on { playFullSongs } doReturn MutableStateFlow(false)
+        }
         postRepository = mock()
         authRepository = mock {
             on { currentUserId } doReturn "user1"
@@ -106,39 +102,19 @@ class FeedTasteMatchesRematchOnPostTest {
         remoteConfig = mock {
             on { revision } doReturn MutableStateFlow(0)
             on { forceTasteMatchesPaywallFlow } doReturn MutableStateFlow(false)
+            on { trendingFeedEnabled } doReturn true
+            on { feedDecadeFilterEnabled } doReturn true
+            on { feedEnergyFilterEnabled } doReturn true
         }
         analyticsService = mock()
+        postCreationEvent = mock { on { events } doReturn MutableSharedFlow() }
         postDeletionEvent = mock { on { events } doReturn MutableSharedFlow() }
-        preferencesDataStore = mock {
-            on { feedFollowsNowPlaying } doReturn MutableStateFlow(true)
-            on { feedFilter } doReturn MutableStateFlow("ALL")
-            on { feedMode } doReturn modeFlow
-            on { feedModeSyncSeed() } doReturn "tasteMatches"
-            on { forYouSeenIdsJson } doReturn MutableStateFlow("[]")
-            on { hasTappedAlbumArt } doReturn MutableStateFlow(false)
-            on { hasConfirmedFeedPlaylist } doReturn MutableStateFlow(false)
-            on { playFullSongs } doReturn MutableStateFlow(false)
-            on { feedFilterSyncSeed() } doReturn "ALL"
-            on { feedDecadeSyncSeed() } doReturn ""
-        }
-        whenever(remoteConfig.tasteMatchesEnabled).doReturn(true)
-
-        // The ranked endpoint answers by the `serving` flag: gated no-matches
-        // until a post shifts the viewer's taste, then a served page.
         wheneverBlocking {
             postRepository.getForYouFeed(
                 any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
                 energyLevel = anyOrNull(),
             )
-        }.doSuspendableAnswer {
-            if (serving) {
-                CloudFunctionsDataSource.ForYouFeedPage(matchedPosts, false, "tok", false)
-            } else {
-                CloudFunctionsDataSource.ForYouFeedPage(
-                    emptyList(), false, "", false, "noMatchesYet", 6, 3,
-                )
-            }
-        }
+        }.doReturn(CloudFunctionsDataSource.ForYouFeedPage(emptyList(), false, "tok", false))
     }
 
     @After
@@ -177,56 +153,71 @@ class FeedTasteMatchesRematchOnPostTest {
     )
 
     @Test
-    fun `posting flips the no-matches-yet feed to a served feed without pull-to-refresh`() =
-        runTest(testDispatcher) {
-            val viewModel = vm()
-            advanceUntilIdle()
-            viewModel.loadFeed()
-            advanceUntilIdle()
-
-            // Baseline: server says posted-enough-but-no-shared-taste.
-            assertEquals(
-                FeedViewModel.TasteMatchesGate.NoMatchesYet,
-                viewModel.tasteMatchesGate.value,
-            )
-            assertTrue(viewModel.posts.value.isEmpty())
-
-            // The user posts from the empty state; that post now shares taste
-            // with someone, so the next ranked fetch serves matches.
-            serving = true
-            postEvents.emit(PostCreated(MediaType.TRACK))
-            advanceUntilIdle()
-
-            // Feed auto-refreshed into the served matches — no manual refresh.
-            assertEquals(matchedPosts.map { it.id }, viewModel.posts.value.map { it.id })
-            assertNull(viewModel.tasteMatchesGate.value)
-            // Loading skeleton released once the feed served.
-            assertFalse(viewModel.tasteMatchesSeeding.value)
+    fun `selecting energy uses music and forwards energy with the decade`() = runTest(testDispatcher) {
+        val viewModel = vm()
+        advanceUntilIdle()
+        viewModel.setFeedDecade(1990)
+        advanceUntilIdle()
+        viewModel.setFeedEnergy(FeedEnergy.LOW)
+        advanceUntilIdle()
+        assertEquals(FeedFilter.MUSIC, viewModel.feedFilter.value)
+        assertEquals(FeedEnergy.LOW, viewModel.feedEnergy.value)
+        verifyBlocking(postRepository) {
+            getForYouFeed(any(), any(), anyOrNull(), any(), any(), eq(MediaType.TRACK), eq(false), eq("trending"), any(), eq(1990), eq("low"))
         }
+        verify(analyticsService).logFeedEnergyFilterTapped("low", "trending")
+        assertTrue(viewModel.showEnergyIntroduction.value)
+        viewModel.dismissEnergyIntroduction()
+        assertFalse(viewModel.showEnergyIntroduction.value)
+        verify(preferencesDataStore).markEnergyIntroductionSeen("user1")
+    }
 
     @Test
-    fun `posting that still yields no matches settles back on the empty state`() =
-        runTest(testDispatcher) {
-            val viewModel = vm()
-            advanceUntilIdle()
-            viewModel.loadFeed()
-            advanceUntilIdle()
+    fun `any energy preserves music and films clear energy`() = runTest(testDispatcher) {
+        val viewModel = vm()
+        advanceUntilIdle()
+        viewModel.setFeedEnergy(FeedEnergy.HIGH)
+        advanceUntilIdle()
+        viewModel.setFeedEnergy(null)
+        advanceUntilIdle()
+        assertEquals(FeedFilter.MUSIC, viewModel.feedFilter.value)
+        assertNull(viewModel.feedEnergy.value)
+        viewModel.setFeedEnergy(FeedEnergy.LOW)
+        advanceUntilIdle()
+        viewModel.setFeedFilter(FeedFilter.FILM)
+        advanceUntilIdle()
+        assertNull(viewModel.feedEnergy.value)
+    }
 
-            assertEquals(
-                FeedViewModel.TasteMatchesGate.NoMatchesYet,
-                viewModel.tasteMatchesGate.value,
-            )
-
-            // Post something nobody else shares: the bounded poll must exhaust
-            // and quietly restore the "no matches yet" state (no hung skeleton).
-            postEvents.emit(PostCreated(MediaType.TRACK))
-            advanceUntilIdle()
-
-            assertEquals(
-                FeedViewModel.TasteMatchesGate.NoMatchesYet,
-                viewModel.tasteMatchesGate.value,
-            )
-            assertTrue(viewModel.posts.value.isEmpty())
-            assertFalse(viewModel.tasteMatchesSeeding.value)
+    @Test
+    fun `remote kill switch ignores a persisted selection`() = runTest(testDispatcher) {
+        whenever(preferencesDataStore.feedEnergySeed("user1")).doReturn("high")
+        whenever(remoteConfig.feedEnergyFilterEnabled).doReturn(false)
+        val viewModel = vm()
+        viewModel.loadFeed()
+        advanceUntilIdle()
+        assertNull(viewModel.feedEnergy.value)
+        assertFalse(viewModel.showEnergyIntroduction.value)
+        verifyBlocking(postRepository) {
+            getForYouFeed(any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(), isNull())
         }
+    }
+
+    @Test
+    fun `live kill switch clears narrowing and reloads without energy`() = runTest(testDispatcher) {
+        val revision = MutableStateFlow(0)
+        whenever(remoteConfig.revision).doReturn(revision)
+        val viewModel = vm()
+        advanceUntilIdle()
+        viewModel.setFeedEnergy(FeedEnergy.MEDIUM)
+        advanceUntilIdle()
+        whenever(remoteConfig.feedEnergyFilterEnabled).doReturn(false)
+        revision.value++
+        advanceUntilIdle()
+        assertNull(viewModel.feedEnergy.value)
+        assertFalse(viewModel.showEnergyIntroduction.value)
+        verifyBlocking(postRepository) {
+            getForYouFeed(any(), any(), anyOrNull(), any(), any(), eq(MediaType.TRACK), any(), any(), any(), anyOrNull(), isNull())
+        }
+    }
 }

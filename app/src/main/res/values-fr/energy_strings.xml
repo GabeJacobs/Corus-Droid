@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feed_energy_low">Faible</string>
+    <string name="feed_energy_medium">Moyenne</string>
+    <string name="feed_energy_high">Élevée</string>
+    <string name="feed_filter_energy">Énergie</string>
+    <string name="feed_energy_any">Tous les niveaux d’énergie</string>
+    <string name="feed_energy_intro_title">Les filtres d’énergie sont expérimentaux</string>
+    <string name="feed_energy_intro_message">Corus estime l’énergie ressentie d’un morceau à partir de ses caractéristiques audio. Certains morceaux peuvent donner une impression différente de celle attendue, et ceux que nous n’avons pas encore classés n’apparaîtront pas.</string>
+    <string name="feed_energy_show_all">Afficher tous les niveaux d’énergie</string>
+    <string name="feed_energy_classified_only">Seuls les morceaux classés apparaissent.</string>
+    <string name="feed_energy_empty_favorites">Aucun morceau classé de tes favoris ne correspond encore à ces filtres. Essaie un autre niveau d’énergie ou reviens bientôt.</string>
+    <string name="feed_energy_empty_following">Aucun morceau classé partagé par toi ou les personnes que tu suis ne correspond encore à ces filtres. Essaie un autre niveau d’énergie ou reviens bientôt.</string>
+    <string name="feed_energy_empty_matches">Aucun morceau classé des personnes aux goûts similaires aux tiens ne correspond encore à ces filtres. Essaie un autre niveau d’énergie ou reviens bientôt.</string>
+    <string name="feed_energy_empty_trending">Aucun morceau classé ne correspond à ces filtres pour le moment. Essaie un autre niveau d’énergie ou retire un autre filtre.</string>
+    <string name="feed_energy_empty_low">Pas encore de musique à faible énergie ici</string>
+    <string name="feed_energy_empty_medium">Pas encore de musique à énergie moyenne ici</string>
+    <string name="feed_energy_empty_high">Pas encore de musique à énergie élevée ici</string>
+    <string name="feed_energy_got_it">Compris</string>
+</resources>

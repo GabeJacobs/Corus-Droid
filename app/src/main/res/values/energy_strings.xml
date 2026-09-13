@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feed_energy_low">Low</string>
+    <string name="feed_energy_medium">Medium</string>
+    <string name="feed_energy_high">High</string>
+    <string name="feed_filter_energy">Energy</string>
+    <string name="feed_energy_any">Any Energy</string>
+    <string name="feed_energy_intro_title">Energy filters are experimental</string>
+    <string name="feed_energy_intro_message">Corus estimates how energetic a song feels from its audio characteristics. Some songs may feel different than expected, and songs we haven’t classified won’t appear.</string>
+    <string name="feed_energy_show_all">Show all energy levels</string>
+    <string name="feed_energy_classified_only">Only classified songs appear.</string>
+    <string name="feed_energy_empty_favorites">No classified songs from your favorites match these filters yet. Try another energy level or check back soon.</string>
+    <string name="feed_energy_empty_following">No classified songs from you or the people you follow match these filters yet. Try another energy level or check back soon.</string>
+    <string name="feed_energy_empty_matches">No classified songs from your taste matches fit these filters yet. Try another energy level or check back soon.</string>
+    <string name="feed_energy_empty_trending">No classified songs match these filters right now. Try another energy level or clear another filter.</string>
+    <string name="feed_energy_empty_low">No low energy music here yet</string>
+    <string name="feed_energy_empty_medium">No medium energy music here yet</string>
+    <string name="feed_energy_empty_high">No high energy music here yet</string>
+    <string name="feed_energy_got_it">Got it</string>
+</resources>

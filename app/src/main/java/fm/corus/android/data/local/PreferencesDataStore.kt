@@ -890,6 +890,20 @@ class PreferencesDataStore @Inject constructor(
         context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
             .getString(FEED_FILTER_SYNC_KEY, null) ?: "ALL"
 
+    fun feedEnergySeed(uid: String?): String? =
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE).getString("feed_energy.$uid", null)
+
+    fun setFeedEnergy(uid: String?, value: String?) {
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE).edit().putString("feed_energy.$uid", value).apply()
+    }
+
+    fun hasSeenEnergyIntroduction(uid: String?): Boolean =
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE).getBoolean("feedEnergyIntroduction.v1.$uid", false)
+
+    fun markEnergyIntroductionSeen(uid: String?) {
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE).edit().putBoolean("feedEnergyIntroduction.v1.$uid", true).apply()
+    }
+
     val feedDecade: Flow<String> = dataStore.data.map { prefs ->
         (prefs[FEED_DECADE] ?: "").also { mirrorFeedDecadeSync(it) }
     }

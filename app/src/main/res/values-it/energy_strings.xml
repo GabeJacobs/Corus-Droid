@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feed_energy_low">Bassa</string>
+    <string name="feed_energy_medium">Media</string>
+    <string name="feed_energy_high">Alta</string>
+    <string name="feed_filter_energy">Energia</string>
+    <string name="feed_energy_any">Qualsiasi livello di energia</string>
+    <string name="feed_energy_intro_title">I filtri di energia sono sperimentali</string>
+    <string name="feed_energy_intro_message">Corus stima quanto è energico un brano in base alle sue caratteristiche audio. Alcuni brani potrebbero trasmettere sensazioni diverse da quelle previste e quelli che non abbiamo ancora classificato non verranno mostrati.</string>
+    <string name="feed_energy_show_all">Mostra tutti i livelli di energia</string>
+    <string name="feed_energy_classified_only">Vengono mostrati solo i brani classificati.</string>
+    <string name="feed_energy_empty_favorites">Nessun brano classificato dei tuoi preferiti corrisponde ancora a questi filtri. Prova un altro livello di energia o torna presto.</string>
+    <string name="feed_energy_empty_following">Nessun brano classificato condiviso da te o dalle persone che segui corrisponde ancora a questi filtri. Prova un altro livello di energia o torna presto.</string>
+    <string name="feed_energy_empty_matches">Nessun brano classificato delle persone con gusti simili ai tuoi corrisponde ancora a questi filtri. Prova un altro livello di energia o torna presto.</string>
+    <string name="feed_energy_empty_trending">Al momento nessun brano classificato corrisponde a questi filtri. Prova un altro livello di energia o rimuovi un altro filtro.</string>
+    <string name="feed_energy_empty_low">Qui non c’è ancora musica a bassa energia</string>
+    <string name="feed_energy_empty_medium">Qui non c’è ancora musica a media energia</string>
+    <string name="feed_energy_empty_high">Qui non c’è ancora musica ad alta energia</string>
+    <string name="feed_energy_got_it">Ho capito</string>
+</resources>

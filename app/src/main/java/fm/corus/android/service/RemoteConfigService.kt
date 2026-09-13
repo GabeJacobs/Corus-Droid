@@ -553,6 +553,9 @@ class RemoteConfigService @Inject constructor(
     val repostersListEnabled: Boolean
         get() = remoteConfig.getBoolean("reposters_list_enabled")
 
+    val feedEnergyFilterEnabled: Boolean
+        get() = remoteConfig.getBoolean("feed_energy_filter_enabled")
+
     val feedDecadeFilterEnabled: Boolean
         get() = feedFlag("feed_decade_filter_enabled")
 
@@ -824,6 +827,7 @@ class RemoteConfigService @Inject constructor(
             "feed_switch_hint_min_session" to 1L,
             "feed_switch_hint_max_impressions" to 3L,
             "reposters_list_enabled" to false,
+            "feed_energy_filter_enabled" to false,
             "feed_decade_filter_enabled" to false,
             "spotify_library_save_enabled" to false,
             "spotify_ftue_variant" to "b",

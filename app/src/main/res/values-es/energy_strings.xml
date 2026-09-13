@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feed_energy_low">Baja</string>
+    <string name="feed_energy_medium">Media</string>
+    <string name="feed_energy_high">Alta</string>
+    <string name="feed_filter_energy">Energía</string>
+    <string name="feed_energy_any">Cualquier nivel de energía</string>
+    <string name="feed_energy_intro_title">Los filtros de energía son experimentales</string>
+    <string name="feed_energy_intro_message">Corus estima la energía que transmite una canción a partir de sus características de audio. Algunas canciones pueden sentirse diferentes de lo esperado, y las que aún no hemos clasificado no aparecerán.</string>
+    <string name="feed_energy_show_all">Mostrar todos los niveles de energía</string>
+    <string name="feed_energy_classified_only">Solo aparecen canciones clasificadas.</string>
+    <string name="feed_energy_empty_favorites">Todavía no hay canciones clasificadas de tus favoritos que coincidan con estos filtros. Prueba otro nivel de energía o vuelve pronto.</string>
+    <string name="feed_energy_empty_following">Todavía no hay canciones clasificadas tuyas ni de las personas que sigues que coincidan con estos filtros. Prueba otro nivel de energía o vuelve pronto.</string>
+    <string name="feed_energy_empty_matches">Todavía no hay canciones clasificadas de personas con gustos similares a los tuyos que coincidan con estos filtros. Prueba otro nivel de energía o vuelve pronto.</string>
+    <string name="feed_energy_empty_trending">No hay canciones clasificadas que coincidan con estos filtros en este momento. Prueba otro nivel de energía o quita otro filtro.</string>
+    <string name="feed_energy_empty_low">Todavía no hay música de baja energía aquí</string>
+    <string name="feed_energy_empty_medium">Todavía no hay música de energía media aquí</string>
+    <string name="feed_energy_empty_high">Todavía no hay música de alta energía aquí</string>
+    <string name="feed_energy_got_it">Entendido</string>
+</resources>

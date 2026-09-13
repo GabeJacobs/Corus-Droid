@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feed_energy_low">Niedrig</string>
+    <string name="feed_energy_medium">Mittel</string>
+    <string name="feed_energy_high">Hoch</string>
+    <string name="feed_filter_energy">Energie</string>
+    <string name="feed_energy_any">Alle Energiestufen</string>
+    <string name="feed_energy_intro_title">Energiefilter sind experimentell</string>
+    <string name="feed_energy_intro_message">Corus schätzt anhand der Audioeigenschaften ein, wie energiegeladen ein Song wirkt. Manche Songs können anders wirken als erwartet. Songs, die wir noch nicht eingeordnet haben, werden nicht angezeigt.</string>
+    <string name="feed_energy_show_all">Alle Energiestufen anzeigen</string>
+    <string name="feed_energy_classified_only">Es werden nur eingeordnete Songs angezeigt.</string>
+    <string name="feed_energy_empty_favorites">Noch passen keine eingeordneten Songs deiner Favoriten zu diesen Filtern. Probiere eine andere Energiestufe oder schau bald wieder vorbei.</string>
+    <string name="feed_energy_empty_following">Noch passen keine eingeordneten Songs von dir oder den Personen, denen du folgst, zu diesen Filtern. Probiere eine andere Energiestufe oder schau bald wieder vorbei.</string>
+    <string name="feed_energy_empty_matches">Noch passen keine eingeordneten Songs von Personen mit ähnlichem Musikgeschmack zu diesen Filtern. Probiere eine andere Energiestufe oder schau bald wieder vorbei.</string>
+    <string name="feed_energy_empty_trending">Zurzeit passen keine eingeordneten Songs zu diesen Filtern. Probiere eine andere Energiestufe oder entferne einen anderen Filter.</string>
+    <string name="feed_energy_empty_low">Hier gibt es noch keine Musik mit niedriger Energie</string>
+    <string name="feed_energy_empty_medium">Hier gibt es noch keine Musik mit mittlerer Energie</string>
+    <string name="feed_energy_empty_high">Hier gibt es noch keine Musik mit hoher Energie</string>
+    <string name="feed_energy_got_it">Verstanden</string>
+</resources>

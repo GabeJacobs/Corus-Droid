@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feed_energy_low">Baixa</string>
+    <string name="feed_energy_medium">Média</string>
+    <string name="feed_energy_high">Alta</string>
+    <string name="feed_filter_energy">Energia</string>
+    <string name="feed_energy_any">Qualquer nível de energia</string>
+    <string name="feed_energy_intro_title">Os filtros de energia são experimentais</string>
+    <string name="feed_energy_intro_message">O Corus estima a energia que uma música transmite com base nas características do áudio. Algumas músicas podem passar uma sensação diferente da esperada, e as que ainda não classificamos não aparecerão.</string>
+    <string name="feed_energy_show_all">Mostrar todos os níveis de energia</string>
+    <string name="feed_energy_classified_only">Só aparecem músicas classificadas.</string>
+    <string name="feed_energy_empty_favorites">Ainda não há músicas classificadas dos seus favoritos que correspondam a esses filtros. Experimente outro nível de energia ou volte em breve.</string>
+    <string name="feed_energy_empty_following">Ainda não há músicas classificadas suas ou das pessoas que você segue que correspondam a esses filtros. Experimente outro nível de energia ou volte em breve.</string>
+    <string name="feed_energy_empty_matches">Ainda não há músicas classificadas de pessoas com gostos parecidos com os seus que correspondam a esses filtros. Experimente outro nível de energia ou volte em breve.</string>
+    <string name="feed_energy_empty_trending">Nenhuma música classificada corresponde a esses filtros no momento. Experimente outro nível de energia ou remova outro filtro.</string>
+    <string name="feed_energy_empty_low">Ainda não há músicas de baixa energia aqui</string>
+    <string name="feed_energy_empty_medium">Ainda não há músicas de energia média aqui</string>
+    <string name="feed_energy_empty_high">Ainda não há músicas de alta energia aqui</string>
+    <string name="feed_energy_got_it">Entendi</string>
+</resources>
