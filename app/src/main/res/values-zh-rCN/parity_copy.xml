@@ -65,7 +65,6 @@
     <string name="parity_61453a62e3b0" formatted="false">继续发现电影。加入Corus Club，解锁无限观看模式。</string>
     <string name="parity_e1a462a5938c" formatted="false">继续聆听世界各地的音乐。加入Corus Club，解锁无限收听模式。</string>
     <string name="parity_21b98d7b5820" formatted="false">最后一首免费歌曲 · 了解Club</string>
-    <string name="parity_dfbdf908e6f2" formatted="false">最后一个免费预告片 · 了解Club</string>
     <string name="parity_75c88f3a0072" formatted="false">薰衣草</string>
     <string name="parity_c7e02c95fe85" formatted="false">赞</string>
     <string name="parity_e9f009d9df80" formatted="false">赞</string>
@@ -170,7 +169,6 @@
     <string name="parity_d91ebf5887cf" formatted="false">Watch</string>
     <string name="parity_0c1b3cced072" formatted="false">观看模式</string>
     <string name="parity_00ec7c4bb4f0" formatted="false">最近看了什么好片吗？</string>
-    <string name="parity_3525761a57be" formatted="false">Watch preview · %lld trailers left · Explore Club</string>
     <string name="parity_ed7a37f4f2d4" formatted="false">在 YouTube 上观看预告片</string>
     <string name="parity_7cc4c50bed35" formatted="false">你在听什么？</string>
     <string name="parity_1b527ff0e65e" formatted="false">谁可以看到你的城市</string>

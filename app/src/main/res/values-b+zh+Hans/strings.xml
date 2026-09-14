@@ -1471,7 +1471,7 @@
         <item quantity="other">免费试用 · 剩余 %1$d 天</item>
     </plurals>
     <string name="club_onboarding_title">尽享 Corus</string>
-    <string name="club_onboarding_subtitle">发现与你品味相投的真实用户的内容。支持独立社区。</string>
+    <string name="club_onboarding_subtitle">解锁所有功能，与品味相投的人建立联系。</string>
     <string name="club_onboarding_skip">以后再说</string>
     <string name="club_onboarding_renewal">免费试用结束后将按所选套餐价格自动续订。可随时取消。</string>
     <string name="club_onboarding_yearly_billed">按年收费 %1$s。</string>
@@ -1484,4 +1484,8 @@
     <string name="messaging_group_options">群组选项</string>
     <string name="map_all_communities">所有社区</string>
     <string name="map_finding_city">正在查找你所在的城市</string>
+    <string name="map_listen_mode_preview">聆听模式预览 · 探索 Corus Club</string>
+    <string name="map_watch_mode_preview">观看模式预览 · 探索 Corus Club</string>
+    <string name="club_feature_unlimited_playlists">无限导出歌单</string>
+    <string name="club_feature_unlock_all_taste_matches">解锁所有品味匹配</string>
 </resources>

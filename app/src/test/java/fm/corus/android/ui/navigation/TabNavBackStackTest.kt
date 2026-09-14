@@ -1,6 +1,7 @@
 package fm.corus.android.ui.navigation
 
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -9,6 +10,15 @@ import org.junit.Test
  * chevron used to pop Search's start destination and leave a blank tab body.
  */
 class TabNavBackStackTest {
+    @Test fun selectedSearchRootEmitsScrollWhileFirstSelectionDoesNot() {
+        assertEquals(TabReselectAction.SELECT_ONLY, tabReselectAction(false, true, true))
+        assertEquals(TabReselectAction.SCROLL_TO_TOP, tabReselectAction(true, true, true))
+    }
+
+    @Test fun selectedSearchSubscreenPopsBeforeAnyScrollAction() {
+        assertEquals(TabReselectAction.POP_TO_START, tabReselectAction(true, true, false))
+        assertEquals(TabReselectAction.RESTORE_START, tabReselectAction(true, false, false))
+    }
 
     @Test
     fun `in-app back does not pop when already at tab root`() {

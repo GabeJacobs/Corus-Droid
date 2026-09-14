@@ -1097,8 +1097,8 @@ class NowPlayingManager @Inject constructor(
         )
     }
 
-    private fun computeHasNext(): Boolean {
-        if (MapPlaybackOwner.current?.trackId == _state.value.trackId && MapPlaybackOwner.current != null) return true
+    private fun computeHasNext(activeTrackId: String? = _state.value.trackId): Boolean {
+        if (MapPlaybackOwner.canAdvance(activeTrackId)) return true
         val idx = currentQueueIndex ?: return false
         return idx + 1 < queue.size || queueHasMore
     }
@@ -2074,7 +2074,11 @@ class NowPlayingManager @Inject constructor(
             isrc = track.isrc,
             isPlaying = true,
             sourcePostId = track.sourcePostId,
-            hasNext = computeHasNext(),
+            // This state mutation changes the active identity. Evaluate the
+            // Map-owned continuation against that incoming track, not the old
+            // StateFlow value; the audio engine queue is intentionally only
+            // one item during Map Listen mode.
+            hasNext = computeHasNext(trackId),
             source = track.source,
             soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
             audiomackUrl = track.audiomackUrl,
@@ -3078,7 +3082,10 @@ class NowPlayingManager @Inject constructor(
             spotifyURI = pending.spotifyURI,
             spotifyWebURL = pending.spotifyWebURL,
             isrc = pending.isrc,
-            hasNext = computeHasNext(),
+            // Map Listen owns continuation beyond this deliberately
+            // single-item engine queue. Match against the incoming Spotify
+            // identity rather than the previous StateFlow track.
+            hasNext = computeHasNext(pending.trackId),
             isPlaying = false,
         )
         currentQueueIndex = resolveQueueIndex(pending.trackId, pending.sourcePostId)

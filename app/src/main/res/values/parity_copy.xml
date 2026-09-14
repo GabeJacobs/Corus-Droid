@@ -65,7 +65,6 @@
     <string name="parity_61453a62e3b0" formatted="false">Keep discovering films. Unlock unlimited Watch Mode with Corus Club.</string>
     <string name="parity_e1a462a5938c" formatted="false">Keep listening around the world. Unlock unlimited Listen Mode with Corus Club.</string>
     <string name="parity_21b98d7b5820" formatted="false">Last free song · Explore Club</string>
-    <string name="parity_dfbdf908e6f2" formatted="false">Last free trailer · Explore Club</string>
     <string name="parity_75c88f3a0072" formatted="false">Lavender</string>
     <string name="parity_c7e02c95fe85" formatted="false">Like</string>
     <string name="parity_e9f009d9df80" formatted="false">Likes</string>
@@ -170,7 +169,6 @@
     <string name="parity_d91ebf5887cf" formatted="false">Watch</string>
     <string name="parity_0c1b3cced072" formatted="false">Watch Mode</string>
     <string name="parity_00ec7c4bb4f0" formatted="false">Watch anything good lately?</string>
-    <string name="parity_3525761a57be" formatted="false">Watch preview · %lld trailers left · Explore Club</string>
     <string name="parity_ed7a37f4f2d4" formatted="false">Watch trailer on YouTube</string>
     <string name="parity_7cc4c50bed35" formatted="false">What are you listening to?</string>
     <string name="parity_1b527ff0e65e" formatted="false">Who can see your city</string>

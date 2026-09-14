@@ -20,6 +20,8 @@ import javax.inject.Singleton
 
 @Singleton
 class MapRepository @Inject constructor(@ApplicationContext context: Context, private val auth: FirebaseAuth, private val db: FirebaseFirestore, private val functions: FirebaseFunctions, private val analytics: fm.corus.android.service.AnalyticsService) {
+    private val appContext = context.applicationContext
+    fun text(@androidx.annotation.StringRes id: Int): String = appContext.getString(id)
     fun event(action: String, mode: String = "map", value: String? = null, count: Int? = null, durationMs: Long? = null) {
         analytics.logEvent("map_event", buildMap {
             put("action", action); put("mode", mode)
@@ -66,11 +68,11 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
         try {
             val result = functions.getHttpsCallable(name).call(payload).await().getData() as? Map<String, Any?> ?: error("Invalid response")
             check(auth.currentUser?.uid == uid) { "Account changed." }
-            if (name.startsWith("getMap")) event("request_finished", "directory", "success", durationMs = android.os.SystemClock.elapsedRealtime()-started)
+            if (name.startsWith("getMap")) event("request_finished", if (name == "getMapCityPeople") "people" else "directory", "success", count = (result["people"] as? List<*>)?.size ?: (result["cities"] as? List<*>)?.size, durationMs = android.os.SystemClock.elapsedRealtime()-started)
             if (name in listOf("resolveMapCity", "searchMapCities", "getMapCitySummaries", "getMapCityPeople")) requireMapCommunityVersion(result)
             return result
         } catch (error: Exception) {
-            if (name.startsWith("getMap")) event("request_finished", "directory", "error", durationMs = android.os.SystemClock.elapsedRealtime()-started)
+            if (name.startsWith("getMap")) event("request_finished", if (name == "getMapCityPeople") "people" else "directory", "error", durationMs = android.os.SystemClock.elapsedRealtime()-started)
             throw error
         }
     }

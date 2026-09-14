@@ -78,6 +78,7 @@ import fm.corus.android.domain.NotificationFilterVisibility
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.LocalContainingTabSelected
+import fm.corus.android.ui.components.LocalBottomBarHeight
 import fm.corus.android.ui.components.CommentAttachmentPendingChip
 import fm.corus.android.ui.components.FrostedHeaderOverlay
 import fm.corus.android.ui.components.rememberImmersiveHeaderState
@@ -88,6 +89,8 @@ import fm.corus.android.ui.components.SkeletonNotificationRow
 import fm.corus.android.ui.components.SongFilmPickerSheet
 import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.UserAvatarView
+import fm.corus.android.ui.components.blockTouchPassthrough
+import fm.corus.android.ui.components.liftAboveReservedChrome
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusMotion
@@ -95,6 +98,7 @@ import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.util.DateUtils
 import fm.corus.android.ui.util.PushNotificationPermission
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun NotificationsScreen(
     viewModel: NotificationsViewModel = hiltViewModel(),
@@ -446,10 +450,25 @@ fun NotificationsScreen(
             val replyPendingSong by viewModel.replyPendingSong.collectAsState()
             val replyPendingFilm by viewModel.replyPendingFilm.collectAsState()
             val replyPendingGif by viewModel.replyPendingGif.collectAsState()
+            val isImeVisible = WindowInsets.isImeVisible
+            var replyImeWasVisible by remember(replyingTo!!.id) { mutableStateOf(false) }
+            var preserveReplyForAttachmentFlow by remember(replyingTo!!.id) { mutableStateOf(false) }
             var showReplySongFilmPicker by remember { mutableStateOf(false) }
             var replyPickerInitialMode by remember { mutableStateOf(PickerMode.SONG) }
             var showReplyAttachmentMenu by remember { mutableStateOf(false) }
             var showReplyGifPicker by remember { mutableStateOf(false) }
+
+            // Match iOS: once this reply has presented the keyboard, dismissing
+            // the keyboard is the cancel action and removes the composer too.
+            LaunchedEffect(isImeVisible) {
+                if (isImeVisible) {
+                    replyImeWasVisible = true
+                    preserveReplyForAttachmentFlow = false
+                } else if (replyImeWasVisible && !preserveReplyForAttachmentFlow) {
+                    viewModel.setReplyingToNotification(null)
+                    viewModel.clearReplyAttachment()
+                }
+            }
 
             if (showReplySongFilmPicker) {
                 SongFilmPickerSheet(
@@ -490,31 +509,31 @@ fun NotificationsScreen(
                     if (viewModel.gifSupport) {
                         showReplyAttachmentMenu = true
                     } else {
+                        preserveReplyForAttachmentFlow = true
                         replyPickerInitialMode = PickerMode.SONG
                         showReplySongFilmPicker = true
                     }
                 },
                 onAttachmentMenuDismiss = { showReplyAttachmentMenu = false },
                 onAttachSong = {
+                    preserveReplyForAttachmentFlow = true
                     showReplyAttachmentMenu = false
                     replyPickerInitialMode = PickerMode.SONG
                     showReplySongFilmPicker = true
                 },
                 onAttachFilm = {
+                    preserveReplyForAttachmentFlow = true
                     showReplyAttachmentMenu = false
                     replyPickerInitialMode = PickerMode.FILM
                     showReplySongFilmPicker = true
                 },
                 onAttachGif = {
+                    preserveReplyForAttachmentFlow = true
                     showReplyAttachmentMenu = false
                     showReplyGifPicker = true
                 },
                 onClearAttachment = { viewModel.clearReplyAttachment() },
                 onSend = { text -> viewModel.sendReply(text) },
-                onCancel = {
-                    viewModel.setReplyingToNotification(null)
-                    viewModel.clearReplyAttachment()
-                },
             )
         }
 
@@ -1129,7 +1148,6 @@ private fun InlineReplyBar(
     onAttachGif: () -> Unit = {},
     onClearAttachment: () -> Unit = {},
     onSend: (String) -> Unit,
-    onCancel: () -> Unit,
 ) {
     var text by rememberSaveable(replyingTo.id) { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
@@ -1140,12 +1158,24 @@ private fun InlineReplyBar(
 
     val hasAttachment = pendingSong != null || pendingFilm != null || pendingGif != null
     val canSend = (text.trim().isNotEmpty() || hasAttachment) && !isSending
+    val composerBottomInset = with(LocalDensity.current) {
+        liftAboveReservedChrome(
+            ime = WindowInsets.ime.getBottom(this).toDp(),
+            reservedChrome = LocalBottomBarHeight.current,
+        )
+    }
 
     Column(
         modifier = modifier
             .fillMaxWidth()
+            // MainTabScreen already keeps this screen above its persistent bottom
+            // chrome. Apply only the part of the IME that extends beyond that
+            // reservation so the composer meets the keyboard with no dead strip.
+            .padding(bottom = composerBottomInset)
             .background(CorusColors.Background)
-            .imePadding(),
+            // The composer overlays the notification list, so its full surface
+            // must own pointer input rather than letting taps hit a row beneath it.
+            .blockTouchPassthrough(),
     ) {
         HorizontalDivider(color = CorusColors.Divider)
 
@@ -1176,14 +1206,14 @@ private fun InlineReplyBar(
                     modifier = Modifier
                         .size(32.dp)
                         .clip(CircleShape)
-                        .background(CorusColors.CommentAttachmentPlus.copy(alpha = 0.15f))
+                        .background(CorusColors.Accent)
                         .clickable(enabled = !hasAttachment) { onAttachmentClick() },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         Icons.Filled.Add,
                         contentDescription = stringResource(R.string.comment_attachment_attach),
-                        tint = CorusColors.CommentAttachmentPlus,
+                        tint = Color.White,
                         modifier = Modifier.size(20.dp),
                     )
                 }
@@ -1243,18 +1273,6 @@ private fun InlineReplyBar(
                 )
             }
             Spacer(modifier = Modifier.width(CorusSpacing.md))
-            Text(
-                text = stringResource(id = R.string.common_cancel),
-                style = CorusFont.body.copy(
-                    fontSize = 14.sp,
-                    color = CorusColors.Accent,
-                ),
-                modifier = Modifier
-                    .clip(RoundedCornerShape(4.dp))
-                    .clickable(onClick = onCancel)
-                    .padding(horizontal = CorusSpacing.sm, vertical = 4.dp),
-            )
-            Spacer(modifier = Modifier.width(CorusSpacing.sm))
             Box(
                 modifier = Modifier
                     .size(32.dp)

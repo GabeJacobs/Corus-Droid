@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.map
 
+import fm.corus.android.R
 import fm.corus.android.ui.components.parityCopy
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -25,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import coil3.compose.AsyncImage
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.data.model.CymbalUser
@@ -57,7 +59,7 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
             ) {
                 Icon(
                     Icons.Default.Search,
-                    contentDescription = "Search",
+                    contentDescription = stringResource(R.string.map_cd_search),
                     tint = CorusColors.Secondary,
                     modifier = Modifier.size(20.dp),
                 )
@@ -81,7 +83,7 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
                 }
                 if (search.isNotEmpty()) {
                     IconButton(onClick = { search = "" }, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Close, "Clear search", tint = CorusColors.Tertiary, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Close, stringResource(R.string.map_cd_clear_search), tint = CorusColors.Tertiary, modifier = Modifier.size(16.dp))
                     }
                 }
             }
@@ -126,7 +128,7 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
                             }
                         }
                     }
-                    Icon(if (closed) Icons.Default.ChevronRight else Icons.Default.ExpandMore, if (closed) "Expand city" else "Collapse city")
+                    Icon(if (closed) Icons.Default.ChevronRight else Icons.Default.ExpandMore, stringResource(if (closed) R.string.map_cd_expand_city else R.string.map_cd_collapse_city))
                 }
                 if (!closed) LaunchedEffect(city.cityId, state.filter) { model.loadList(city) }
             }

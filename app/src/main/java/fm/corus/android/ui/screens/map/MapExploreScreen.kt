@@ -39,6 +39,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -64,9 +69,10 @@ fun MapExploreScreen(
     onComments: (String) -> Unit, onRepost: (CymbalPost) -> Unit,
     model: MapExploreViewModel = hiltViewModel(),
 ) {
+    val openedAt = remember { android.os.SystemClock.elapsedRealtime() }
     DisposableEffect(model) {
         model.repository.event("opened")
-        onDispose { model.repository.event("closed") }
+        onDispose { model.repository.event("closed", durationMs = android.os.SystemClock.elapsedRealtime() - openedAt) }
     }
     val state by model.state.collectAsState()
     val fullAccess by model.subscription.hasFullAccessFlow.collectAsState()
@@ -81,7 +87,9 @@ fun MapExploreScreen(
     var sharingAnchorFrozen by remember { mutableStateOf(false) }
     var sharingAnchor by remember { mutableStateOf<MapCity?>(null) }
     var view by rememberSaveable { mutableStateOf("map") }
-    LaunchedEffect(view) { model.repository.event("view_changed", view) }
+    LaunchedEffect(view) { model.repository.event("view_changed", mode = view) }
+    var introWasShown by remember { mutableStateOf(false) }
+    LaunchedEffect(dialog) { if (dialog == "intro") { introWasShown = true; model.repository.event("intro_shown") } else if (introWasShown) { introWasShown = false; model.repository.event("intro_dismissed") } }
     var browsingCityId by rememberSaveable { mutableStateOf<String?>(null) }
     var expanded by rememberSaveable { mutableStateOf(false) }
     var citySheetVisible by remember { mutableStateOf(false) }
@@ -100,15 +108,23 @@ fun MapExploreScreen(
     // sheet. Keeping its source here preserves the contextual copy while the
     // presentation, rounded top corners, and legal footer stay consistent.
     var mapPaywallSource by rememberSaveable { mutableStateOf<PaywallSource?>(null) }
-    fun showMapPaywall(source: String) {
+    fun showMapPaywall(source: String, entryPoint: String? = null) {
         mapPaywallSource = when (source) {
             "MAP" -> PaywallSource.MAP
             else -> PaywallSource.entries.firstOrNull { it.name == source }
         }
         // Preserve the app-level route only for a genuinely unknown source.
         if (mapPaywallSource == null) onPaywall(source)
+        else model.repository.event(
+            "paywall_opened",
+            mode = if (source == "MAP_WATCH") "watch" else if (source == "MAP_LISTEN") "listen" else "map",
+            value = entryPoint ?: if (source == "MAP") "taste_matches" else "limit",
+        )
     }
     val scope = rememberCoroutineScope()
+    fun openUser(user: CymbalUser) { model.repository.event("profile_opened", state.mode ?: "map"); onUser(user) }
+    fun openPost(post: CymbalPost) { model.repository.event("post_opened", state.mode ?: "map"); onPost(post) }
+    fun openChat(threadId: String) { model.repository.event("message_opened", state.mode ?: "map"); onChat(threadId) }
     var audience by rememberSaveable { mutableStateOf("off") }
     var pendingMode by rememberSaveable { mutableStateOf("listen") }
     var countries by remember { mutableStateOf(model.selectedCountries) }
@@ -117,6 +133,7 @@ fun MapExploreScreen(
     var countryQuery by rememberSaveable { mutableStateOf("") }
     var chosenCity by remember { mutableStateOf<MapCity?>(null) }
     var locationAction by remember { mutableStateOf<((Location) -> Unit)?>(null) }
+    var locationAttempt by remember { mutableIntStateOf(0) }
     val listState = rememberLazyListState()
     val cities = state.cities.filter { (it.facets[state.filter]?.count ?: 0) > 0 }
     var sharedCityFocus by remember { mutableStateOf<MapCity?>(null) }
@@ -156,6 +173,11 @@ fun MapExploreScreen(
     val browsingCity = cities.firstOrNull { it.city.cityId == browsingCityId }?.city ?: mapFocusCity(cities, state.filter, state.ownCity)?.city
     val locationManager = remember { context.getSystemService(Context.LOCATION_SERVICE) as LocationManager }
     var listener by remember { mutableStateOf<LocationListener?>(null) }
+    fun applyLocationPresentation(presentation: CityLocationPresentation) {
+        resolvingCity = presentation.resolving
+        dialog = if (presentation.recoverySheet) "location" else ""
+        model.error(presentation.genericError)
+    }
     fun locate() {
         val hasFine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val hasCoarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -164,9 +186,10 @@ fun MapExploreScreen(
             listener?.let(locationManager::removeUpdates)
             listener = null
             locationAction = null
-            resolvingCity = false
-            dialog = "location"
-            model.error("We couldn’t determine your city. Try again when location is available.")
+            // The recovery sheet is the single error surface for a location
+            // failure. A generic alert behind it is both redundant and
+            // visually broken on Material's modal stack.
+            applyLocationPresentation(cityLocationFailed())
         }
         if (!hasFine && !hasCoarse) {
             fail("City location requested without permission")
@@ -178,10 +201,7 @@ fun MapExploreScreen(
             // other devices an approximate grant cannot subscribe to GPS, even
             // when the GPS provider is enabled. Prefer the permitted network
             // provider and use GPS only as a precise-location fallback.
-            val providers = buildList {
-                if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) add(LocationManager.NETWORK_PROVIDER)
-                if (hasFine && locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) add(LocationManager.GPS_PROVIDER)
-            }
+            val providers = cityLocationProviders(locationManager.getProviders(true).toSet(), hasFine)
             if (providers.isEmpty()) {
                 fail("No permitted location provider enabled for city sharing")
                 return
@@ -195,8 +215,8 @@ fun MapExploreScreen(
                 locationAction = null
                 return
             }
-            val provider = providers.first()
-            Log.i("MapLocation", "Requesting city location from $provider (fine=$hasFine, coarse=$hasCoarse)")
+            locationAttempt++
+            Log.i("MapLocation", "Requesting city location from ${providers.joinToString()} (attempt=$locationAttempt, fine=$hasFine, coarse=$hasCoarse)")
             val next = object : LocationListener {
                 override fun onLocationChanged(location: Location) {
                     locationManager.removeUpdates(this)
@@ -206,19 +226,26 @@ fun MapExploreScreen(
                 }
             }
             listener = next
-            locationManager.requestSingleUpdate(provider, next, Looper.getMainLooper())
+            // Subscribe to every permitted city-level provider and accept the
+            // first fix. In particular, a newly granted network provider can
+            // need a warm-up cycle on Samsung devices. GPS remains excluded
+            // under an approximate-only grant.
+            providers.forEach { provider ->
+                locationManager.requestLocationUpdates(provider, 0L, 0f, next, Looper.getMainLooper())
+            }
         } catch (error: SecurityException) { fail("City location provider rejected granted permission", error) }
         catch (error: Exception) { fail("City location request failed", error) }
     }
-    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result -> if (result.values.any { it }) locate() else { resolvingCity = false; dialog = "location"; model.error("Allow location to share your city.") } }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result -> if (result.values.any { it }) locate() else { locationAction = null; applyLocationPresentation(cityLocationFailed()) } }
     fun requestLocation(sharing: Boolean = false, action: (Location) -> Unit) {
         if (resolvingCity) return
         model.error(null)
         if (sharing) {
             sharingAnchor = mapFocusCity(cities, state.filter, state.ownCity)?.city
             sharingAnchorFrozen = true
-            resolvingCity = true
+            applyLocationPresentation(cityLocationStarted())
         }
+        locationAttempt = 0
         locationAction = action
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) locate()
@@ -226,8 +253,19 @@ fun MapExploreScreen(
     }
     LaunchedEffect(listener) {
         val request = listener ?: return@LaunchedEffect
-        delay(20_000)
-        if (listener === request) { Log.w("MapLocation", "Timed out waiting for city location"); locationManager.removeUpdates(request); listener = null; locationAction = null; resolvingCity = false; dialog = "location"; model.error("We couldn’t determine your city. Try again when location is available.") }
+        delay(CITY_LOCATION_ATTEMPT_TIMEOUT_MS)
+        if (listener === request) {
+            locationManager.removeUpdates(request)
+            listener = null
+            if (shouldWarmUpCityLocation(locationAttempt)) {
+                Log.i("MapLocation", "City provider still warming; retrying without asking the user")
+                locate()
+            } else {
+                Log.w("MapLocation", "Timed out waiting for city location after $locationAttempt attempts")
+                locationAction = null
+                applyLocationPresentation(cityLocationFailed())
+            }
+        }
     }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -239,7 +277,7 @@ fun MapExploreScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    DisposableEffect(Unit) { onDispose { listener?.let(locationManager::removeUpdates) } }
+    DisposableEffect(Unit) { onDispose { listener?.let(locationManager::removeUpdates); listener = null; locationAction = null; resolvingCity = false } }
     LaunchedEffect(Unit) { while (true) { delay(30000); model.expireDeviceCity() } }
     DisposableEffect(lifecycleOwner, locationManager) {
         val observerLocation = object : LocationListener {
@@ -326,20 +364,23 @@ fun MapExploreScreen(
     BackHandler(mapPaywallSource != null || dialog.isNotEmpty() || state.selected != null || state.mode != null) { when { mapPaywallSource != null -> mapPaywallSource = null; dialog.isNotEmpty() -> { if (dialog != "intro" && dialog != "confirm" && !state.busy) dialog = "" }; state.selected != null -> dismissCitySheet(); else -> model.stop() } }
     if (!model.enabled) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { TextButton(onClick = onBack) { Text(parityCopy("Back to Search")) } }; return }
     Box(Modifier.fillMaxSize().background(CorusColors.Background).onSizeChanged { mapViewportHeightPx = it.height }) {
-        if (view == "map") CityMapView(state.cities, state.filter, state.selected, state.playing?.city, Modifier.fillMaxSize(), sessionKey = state.sessionKey, showArtwork = true, playbackMode = state.mode, playingUserId = state.playing?.post?.user?.id, loadLatest = model.repository::latest, mapKitToken = mapKitToken, focusOverride = sharedCityFocus ?: listeningExitFocus.takeIf { state.mode == null }, focusRevision = shareFocusRevision + citySheetFocusRevision + playbackFocusRevision, focusInVisibleMap = state.playing != null || (citySheetVisible && state.selected != null), citySheetOpen = citySheetVisible && state.selected != null && state.playing == null, mapTopInsetFraction = if (mapViewportHeightPx > 0) mapHeaderHeightPx.toFloat() / mapViewportHeightPx else 0f, mapBottomOcclusionFraction = if (state.playing != null && mapViewportHeightPx > 0 && playbackCardHeightPx > 0) playbackCardHeightPx.toFloat() / mapViewportHeightPx else if (expanded) .9f else .52f, anchor = if (sharingAnchorFrozen) sharingAnchor else if (state.ownPresenceReady) mapFocusCity(cities, state.filter, state.ownCity)?.city else null, initialCamera = model.savedCamera, onCameraChanged = { model.savedCamera = it }, browsing = browsingCityId?.let { id -> cities.firstOrNull { it.city.cityId == id }?.city }) { browsingCityId = it.cityId; listeningExitFocus = null; openCitySheet(it) }
+        if (view == "map") CityMapView(state.cities, state.filter, state.selected, state.playing?.city, Modifier.fillMaxSize(), sessionKey = state.sessionKey, selectedPeople = state.people, showArtwork = true, playbackMode = state.mode, playingUserId = state.playing?.post?.user?.id, loadLatest = model.repository::latest, mapKitToken = mapKitToken, focusOverride = sharedCityFocus ?: listeningExitFocus.takeIf { state.mode == null }, focusRevision = shareFocusRevision + citySheetFocusRevision + playbackFocusRevision, focusInVisibleMap = state.playing != null || (citySheetVisible && state.selected != null), citySheetOpen = citySheetVisible && state.selected != null && state.playing == null, mapTopInsetFraction = if (mapViewportHeightPx > 0) mapHeaderHeightPx.toFloat() / mapViewportHeightPx else 0f, mapBottomOcclusionFraction = if (state.playing != null && mapViewportHeightPx > 0 && playbackCardHeightPx > 0) playbackCardHeightPx.toFloat() / mapViewportHeightPx else if (expanded) .9f else .52f, anchor = if (sharingAnchorFrozen) sharingAnchor else if (state.ownPresenceReady) mapFocusCity(cities, state.filter, state.ownCity)?.city else null, initialCamera = model.savedCamera, onCameraChanged = { model.savedCamera = it }, browsing = browsingCityId?.let { id -> cities.firstOrNull { it.city.cityId == id }?.city }) { browsingCityId = it.cityId; listeningExitFocus = null; openCitySheet(it) }
         // iOS keeps all controls in one compact, opaque three-row header.
         Column(
             Modifier.fillMaxWidth().background(CorusColors.Background).statusBarsPadding()
-                .padding(start = 16.dp, top = 10.dp, end = 16.dp, bottom = 4.dp)
+                // Keep the resting header's small breathing room, but let the
+                // resolving banner meet the map edge-to-edge like iOS. The
+                // banner owns its balanced internal vertical padding.
+                .padding(top = 10.dp, bottom = if (resolvingCity) 0.dp else 4.dp)
                 .onSizeChanged { mapHeaderHeightPx = it.height },
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Box(Modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.Center) {
-                IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart).size(48.dp), colors = IconButtonDefaults.iconButtonColors(containerColor = androidx.compose.ui.graphics.Color.Transparent)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", modifier = Modifier.size(24.dp)) }
+            Box(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
+                IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart).size(48.dp), colors = IconButtonDefaults.iconButtonColors(containerColor = androidx.compose.ui.graphics.Color.Transparent)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(fm.corus.android.R.string.map_cd_back), modifier = Modifier.size(24.dp)) }
                 Text(parityCopy("Map"), style = CorusFont.songTitleLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 IconButton(
                     enabled = !resolvingCity,
-                    onClick = { audience = if (state.ownCity != null) state.ownAudience else model.repository.savedAudience(); dialog = "audience" },
+                    onClick = { audience = if (state.ownCity != null) state.ownAudience else model.repository.savedAudience(); model.repository.event("audience_picker_opened"); dialog = "audience" },
                     modifier = Modifier.align(Alignment.CenterEnd).size(48.dp),
                     colors = IconButtonDefaults.iconButtonColors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                 ) {
@@ -356,31 +397,46 @@ fun MapExploreScreen(
                     )
                 }
             }
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 listOf("all" to "All", "following" to "Following", "tasteMatches" to "Taste matches").forEach { (value, label) ->
                     val selected = state.filter == value
-                    TextButton(onClick = {
+                    val selectFilter = {
                         if (value == "tasteMatches" && !fullAccess) {
                             // Open the shared bottom-sheet offer directly. This avoids
                             // navigating through the full-screen Club destination.
-                            mapPaywallSource = PaywallSource.MAP
+                            showMapPaywall("MAP")
                             model.filter(value)
                         } else {
                             val accepted = value != state.filter
                             model.filter(value)
                             if (accepted) hapticView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
                         }
-                    }, modifier = Modifier.then(if (!selected) Modifier.border(1.dp, CorusColors.Divider, CircleShape) else Modifier).height(if (selected) 38.dp else 36.dp), shape = CircleShape, contentPadding = PaddingValues(horizontal = 13.dp), colors = ButtonDefaults.textButtonColors(containerColor = if (selected) CorusColors.Accent else androidx.compose.ui.graphics.Color.Transparent, contentColor = if (selected) androidx.compose.ui.graphics.Color.White else CorusColors.Secondary)) { Text(parityCopy(label), style = CorusFont.caption, maxLines = 1) }
+                    }
+                    // Foundation expands a small clickable target to Android's
+                    // minimum touch size without making the visual pill/header
+                    // tall. Keep explicit button and selection semantics.
+                    Box(
+                        Modifier.height((if (selected) MAP_FILTER_SELECTED_HEIGHT_DP else MAP_FILTER_UNSELECTED_HEIGHT_DP).dp)
+                            .clip(CircleShape)
+                            .background(if (selected) CorusColors.Accent else androidx.compose.ui.graphics.Color.Transparent)
+                            .then(if (!selected) Modifier.border(1.dp, CorusColors.Divider, CircleShape) else Modifier)
+                            .semantics { this.selected = selected }
+                            .clickable(role = Role.Button, onClickLabel = parityCopy(label), onClick = selectFilter)
+                            .padding(horizontal = 13.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(parityCopy(label), style = CorusFont.caption, color = if (selected) androidx.compose.ui.graphics.Color.White else CorusColors.Secondary, maxLines = 1)
+                    }
                 }
             }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.weight(1f).padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     val sharedCity = state.ownCity?.takeIf { state.ownAudience != "off" }
                     if (sharedCity != null) {
-                        Text("${parityCopy("Sharing:")} ${sharedCity.cityName}", modifier = Modifier.weight(1f, fill = false), style = CorusFont.captionMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${stringResource(fm.corus.android.R.string.map_sharing_label)} ${sharedCity.cityName}", modifier = Modifier.weight(1f, fill = false), style = CorusFont.captionMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     TextButton(
-                        onClick = { audience = if (sharedCity != null) state.ownAudience else model.repository.savedAudience(); dialog = "audience" },
+                        onClick = { audience = if (sharedCity != null) state.ownAudience else model.repository.savedAudience(); model.repository.event("audience_picker_opened"); dialog = "audience" },
                         contentPadding = PaddingValues(horizontal = if (sharedCity == null) 0.dp else 6.dp),
                     ) {
                         Text(parityCopy(if (sharedCity == null) "Share your city" else "Change"), style = CorusFont.captionMedium, color = CorusColors.Accent, maxLines = 1)
@@ -391,20 +447,9 @@ fun MapExploreScreen(
                 } }
             }
             if (resolvingCity) {
-                Row(Modifier.fillMaxWidth().background(CorusColors.CardBackground, RoundedCornerShape(12.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(Modifier.fillMaxWidth().background(CorusColors.CardBackground).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     CircularProgressIndicator(Modifier.size(16.dp), color = CorusColors.Accent, strokeWidth = 2.dp)
                     Text(parityCopy("Finding your city"), style = CorusFont.caption)
-                }
-            }
-        }
-        state.playing?.takeIf { !fullAccess && view == "map" && state.mode == "watch" }?.let {
-            val mode = state.mode ?: "listen"
-            val remaining = state.preview.remaining(mode)
-            Surface(onClick = { mapPaywallSource = if (mode == "listen") PaywallSource.MAP_LISTEN else PaywallSource.MAP_WATCH }, modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = if (resolvingCity) 210.dp else 158.dp).fillMaxWidth(), color = CorusColors.Accent) {
-                Row(Modifier.padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Icon(if (mode == "listen") Icons.Default.Headphones else Icons.Default.Movie, null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(20.dp))
-                    Text(if (remaining == 0) parityCopy(if (mode == "listen") "Last free song · Explore Club" else "Last free trailer · Explore Club") else parityCopy(if (mode == "listen") "Listen preview · %lld songs left · Explore Club" else "Watch preview · %lld trailers left · Explore Club").replace("%lld", remaining.toString()), style = CorusFont.caption, color = androidx.compose.ui.graphics.Color.White, modifier = Modifier.weight(1f))
-                    Icon(Icons.Default.ChevronRight, null, tint = androidx.compose.ui.graphics.Color.White)
                 }
             }
         }
@@ -415,21 +460,21 @@ fun MapExploreScreen(
             // only adds mini-player height while it is actually visible. A
             // fixed extra inset here made the directory end above a phantom
             // player and clipped its footer action.
-            Surface(Modifier.fillMaxSize().padding(top = if (resolvingCity) 218.dp else 166.dp), color = CorusColors.Background) {
-                MapPeopleDirectory(cities, state, model, onUser) { city, chat -> if(chat.member) onChat(chat.threadId) else requestLocation { model.join(city,it,onChat) } }
+            Surface(Modifier.fillMaxSize().padding(top = if (resolvingCity) 200.dp else 166.dp), color = CorusColors.Background) {
+                MapPeopleDirectory(cities, state, model, ::openUser) { city, chat -> if(chat.member) openChat(chat.threadId) else requestLocation { model.join(city,it,::openChat) } }
             }
         }
         if (state.selected == null && state.playing == null && view == "map" && browsingCity != null) Surface(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 76.dp), shape = CircleShape, color = CorusColors.CardBackground.copy(alpha = .88f), shadowElevation = 4.dp) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 fun browse(delta: Int) { val i = cities.indexOfFirst { it.city.cityId == browsingCity.cityId }; browsingCityId = cities[(i + delta + cities.size) % cities.size].city.cityId }
-                IconButton(onClick = { browse(-1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronLeft, "Previous city") }
+                IconButton(onClick = { browse(-1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronLeft, stringResource(fm.corus.android.R.string.map_cd_previous_city)) }
                 TextButton(onClick = { openCitySheet(browsingCity) }) { Text(browsingCity.cityName, color = CorusColors.Text, maxLines = 1, modifier = Modifier.widthIn(max = 180.dp)) }
-                IconButton(onClick = { browse(1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronRight, "Next city") }
+                IconButton(onClick = { browse(1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronRight, stringResource(fm.corus.android.R.string.map_cd_next_city)) }
             }
         }
         if (state.selected == null && state.playing == null && view == "map") Row(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MapGlassModeButton("Listen", Icons.Default.Headphones) { pendingMode = "listen"; dialog = "countries" }
-            MapGlassModeButton("Watch", Icons.Default.Movie) { pendingMode = "watch"; dialog = "countries" }
+            MapGlassModeButton("Listen", Icons.Default.Headphones) { pendingMode = "listen"; model.repository.event("picker_opened", "listen"); dialog = "countries" }
+            MapGlassModeButton("Watch", Icons.Default.Movie) { pendingMode = "watch"; model.repository.event("picker_opened", "watch"); dialog = "countries" }
         }
         state.selected?.takeIf { state.playing == null }?.let { city ->
             // Keep the directory in the map hierarchy. Unlike a Dialog, this
@@ -476,21 +521,21 @@ fun MapExploreScreen(
                     ) { Box(Modifier.size(36.dp, 4.dp).clip(CircleShape).background(CorusColors.Secondary.copy(alpha = .4f))) }
                     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         fun step(delta: Int) { val i = cities.indexOfFirst { it.city.cityId == city.cityId }; if (cities.isNotEmpty()) openCitySheet(cities[(i + delta + cities.size) % cities.size].city) }
-                        IconButton(onClick = { step(-1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronLeft, "Previous city") }
+                        IconButton(onClick = { step(-1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronLeft, stringResource(fm.corus.android.R.string.map_cd_previous_city)) }
                         val peopleCount = cities.firstOrNull { it.city.cityId == city.cityId }?.facets?.get(state.filter)?.count ?: 0
                         val country = java.util.Locale("", city.countryCode).displayCountry.ifBlank { city.countryCode }
                         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(city.cityName, style = CorusFont.bodyMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold), maxLines = 1)
-                            Text("${city.regionName}, $country · $peopleCount ${if (peopleCount == 1) "person" else "people"}", style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${city.regionName}, $country · ${pluralStringResource(fm.corus.android.R.plurals.map_people_count, peopleCount, peopleCount)}", style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        IconButton(onClick = { step(1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronRight, "Next city") }
+                        IconButton(onClick = { step(1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronRight, stringResource(fm.corus.android.R.string.map_cd_next_city)) }
                     }
                     Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         // Keep a confirmed chat action visible while a background
                         // eligibility refresh is in flight. The city did not change,
                         // so dropping it causes a distracting Open chat flicker.
                         FilledTonalButton(onClick = { model.start("listen", emptySet(), city.cityId) }, enabled = !state.busy, modifier = Modifier.weight(1f).height(44.dp), colors = ButtonDefaults.filledTonalButtonColors(containerColor = CorusColors.Accent.copy(alpha = .12f), contentColor = CorusColors.Accent)) { Icon(Icons.Default.Headphones, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(parityCopy("Listen"), style = CorusFont.bodyMedium) }
-                        state.chat?.takeIf { showMapChat(city.cityId, state.currentDeviceCityId, it) }?.let { chat -> Button(onClick = { if (chat.member) onChat(chat.threadId) else requestLocation { model.join(city, it, onChat) } }, modifier = Modifier.weight(1f), enabled = !state.busy) { Text(if (chat.member) "Open chat" else "Join chat") } }
+                        state.chat?.takeIf { showMapChat(city.cityId, state.currentDeviceCityId, it) }?.let { chat -> Button(onClick = { if (chat.member) openChat(chat.threadId) else requestLocation { model.join(city, it, ::openChat) } }, modifier = Modifier.weight(1f), enabled = !state.busy) { Text(stringResource(if (chat.member) fm.corus.android.R.string.map_open_chat else fm.corus.android.R.string.map_join_chat)) } }
                     }
                     LazyColumn(state = listState, contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
                         if (state.peopleLoading && state.people.isEmpty()) {
@@ -499,15 +544,18 @@ fun MapExploreScreen(
                         }
                         items(state.people, key = { it.user.id }) { person ->
                             val post = state.posts[person.user.id]
-                            Row(Modifier.fillMaxWidth().clickable { onUser(person.user) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            val rowLayout = mapPersonRowLayout(post != null)
+                            Row(Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(fm.corus.android.R.string.map_cd_view_profile), role = androidx.compose.ui.semantics.Role.Button) { openUser(person.user) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 AsyncImage(model = person.user.avatarThumbURL ?: person.user.avatarURL, contentDescription = null, modifier = Modifier.size(44.dp).clip(CircleShape))
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     UsernameWithFlair(username = person.user.username, isVerified = person.user.isVerified, isClubMember = person.user.isClubMember, flairStyle = person.user.flairStyle, isBot = person.user.isBot, showAtPrefix = true, flairYOffset = (-1).dp, flairSpacing = 2.dp)
-                                    Text(parityCopy("Latest post"), style = CorusFont.caption, color = CorusColors.Secondary)
-                                    Text(post?.let { if (it.isMovie) it.movieTitle.orEmpty() else listOf(it.track.name, it.track.artistName).filter { value -> value.isNotBlank() }.joinToString(" · ") } ?: person.user.displayName, style = CorusFont.captionMedium, color = if (post != null) CorusColors.Text else CorusColors.Secondary, minLines = 1, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    if (rowLayout == MapPersonRowLayout.LATEST_POST && post != null) {
+                                        Text(stringResource(fm.corus.android.R.string.map_latest_post), style = CorusFont.caption, color = CorusColors.Secondary)
+                                        Text(if (post.isMovie) post.movieTitle.orEmpty() else listOf(post.track.name, post.track.artistName).filter { value -> value.isNotBlank() }.joinToString(" · "), style = CorusFont.captionMedium, color = CorusColors.Text, minLines = 1, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    }
                                 }
-                                AsyncImage(model = post?.displayImageURL, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)))
-                                Icon(Icons.Default.ChevronRight, contentDescription = "View profile", tint = CorusColors.Tertiary)
+                                if (rowLayout == MapPersonRowLayout.LATEST_POST && post != null) AsyncImage(model = post.displayImageURL, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)))
+                                Icon(Icons.Default.ChevronRight, contentDescription = stringResource(fm.corus.android.R.string.map_cd_view_profile), tint = CorusColors.Tertiary)
                             }; HorizontalDivider(color = CorusColors.Divider)
                         }
                         if (state.more != null) item { TextButton(onClick = { model.more() }, enabled = !state.peopleLoading) { Text(parityCopy("Load more people")) } }
@@ -521,35 +569,49 @@ fun MapExploreScreen(
             }
         }
         state.playing?.let { item ->
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            val watchCardMaxHeight = with(density) {
+                mapWatchCardMaxHeight(mapViewportHeightPx.toDp().value.toInt(), mapHeaderHeightPx.toDp().value.toInt()).dp
+            }
+            val listenCardMaxHeight = with(density) {
+                mapPlaybackCardMaxHeight(mapViewportHeightPx.toDp().value.toInt(), mapHeaderHeightPx.toDp().value.toInt(), MAP_LISTEN_CARD_MAX_HEIGHT_DP).dp
+            }
             // Keep the close affordance in the card's rounded corner. It is a
             // plain muted icon, like iOS, rather than a floating circular control.
             Box(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                    .heightIn(max = if (state.mode == "watch") 560.dp else 480.dp)
-                    .padding(horizontal = 12.dp, vertical = 20.dp)
+                    .heightIn(max = if (state.mode == "watch") watchCardMaxHeight else listenCardMaxHeight)
+                    .padding(horizontal = MAP_PLAYBACK_CARD_HORIZONTAL_SCREEN_INSET_DP.dp, vertical = 20.dp)
                     .onSizeChanged { playbackCardHeightPx = it.height },
             ) {
             Surface(
                 // Leave the entire 32dp close affordance above the trailer,
                 // plus a small visual gap, rather than overlapping its corner.
-                modifier = Modifier.fillMaxWidth().padding(top = 38.dp),
-                shape = RoundedCornerShape(22.dp),
-                color = CorusColors.CardBackground.copy(alpha = .92f),
+                modifier = Modifier.fillMaxWidth().padding(top = MAP_PLAYBACK_CLOSE_RESERVE_DP.dp),
+                shape = RoundedCornerShape(MAP_PLAYBACK_CARD_CORNER_RADIUS_DP.dp),
+                color = CorusColors.CardBackground.copy(alpha = MAP_PLAYBACK_CARD_SURFACE_ALPHA),
                 shadowElevation = 12.dp,
             ) {
-                Box {
-                LazyColumn {
-                    if (!fullAccess && state.mode == "listen") item {
-                        val remaining = state.preview.remaining("listen")
-                        Surface(onClick = { mapPaywallSource = PaywallSource.MAP_LISTEN }, modifier = Modifier.fillMaxWidth(), color = CorusColors.Accent) { Row(Modifier.padding(horizontal = 18.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) { Icon(Icons.Default.Headphones, null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(20.dp)); Text(if (remaining == 0) parityCopy("Last free song · Explore Club") else parityCopy("Listen preview · %lld songs left · Explore Club").replace("%lld", remaining.toString()), style = CorusFont.caption, color = androidx.compose.ui.graphics.Color.White, modifier = Modifier.weight(1f)); Icon(Icons.Default.ChevronRight, null, tint = androidx.compose.ui.graphics.Color.White) } }
+                Column {
+                if (!fullAccess) {
+                    val watchMode = state.mode == "watch"
+                    LaunchedEffect(watchMode) { model.repository.event("preview_banner_shown", if (watchMode) "watch" else "listen", count = state.preview.remaining(if (watchMode) "watch" else "listen")) }
+                    Surface(onClick = { showMapPaywall(if (watchMode) "MAP_WATCH" else "MAP_LISTEN", entryPoint = "banner") }, modifier = Modifier.fillMaxWidth(), color = CorusColors.Accent) {
+                        Row(Modifier.padding(horizontal = 18.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Icon(if (watchMode) Icons.Default.Movie else Icons.Default.Headphones, null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(20.dp))
+                            Text(stringResource(if (watchMode) fm.corus.android.R.string.map_watch_mode_preview else fm.corus.android.R.string.map_listen_mode_preview), style = CorusFont.caption, color = androidx.compose.ui.graphics.Color.White, modifier = Modifier.weight(1f))
+                            Icon(Icons.Default.ChevronRight, null, tint = androidx.compose.ui.graphics.Color.White)
+                        }
                     }
+                }
+                LazyColumn(modifier = if (state.mode == "watch") Modifier.weight(1f) else Modifier) {
                     if (state.mode == "watch" && !state.blocked) item { val id = fm.corus.android.ui.components.youTubeVideoID(item.post.trailerURL); if (id != null) key(item.post.id) { InlineYouTubePlayer(videoID = id, modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f), showControls = true, onEnded = { model.ended(item.post.id) }, onStarted = { model.started(item.post.id, "watch") }) } }
                     item {
                         AnimatedContent(targetState = item.post, contentKey = { it.id }, transitionSpec = {
                             val duration = if(android.animation.ValueAnimator.areAnimatorsEnabled()) 160 else 0
                             (fadeIn(tween(duration)) + scaleIn(tween(duration), initialScale = .985f)) togetherWith (fadeOut(tween(duration)) + scaleOut(tween(duration), targetScale = .985f))
                         }, label = "mapPostTransition") { animatedPost -> Column {
-                        Row(Modifier.fillMaxWidth().clickable { onUser(animatedPost.user) }.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(Modifier.fillMaxWidth().clickable { openUser(animatedPost.user) }.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             AsyncImage(model = animatedPost.user.avatarURL, contentDescription = null, modifier = Modifier.size(36.dp).clip(CircleShape))
                             Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                                 UsernameWithFlair(username = animatedPost.user.username, isVerified = animatedPost.user.isVerified, isClubMember = animatedPost.user.isClubMember, flairStyle = animatedPost.user.flairStyle, isBot = animatedPost.user.isBot, showAtPrefix = true)
@@ -558,7 +620,7 @@ fun MapExploreScreen(
                             }
                         }
                         HorizontalDivider(Modifier.padding(horizontal = 20.dp), color = CorusColors.Divider)
-                        Column(Modifier.fillMaxWidth().clickable { onPost(animatedPost) }.padding(horizontal = 20.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Column(Modifier.fillMaxWidth().clickable { openPost(animatedPost) }.padding(horizontal = 20.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 if (animatedPost.isTrack) AsyncImage(model = animatedPost.displayImageURL, contentDescription = null, modifier = Modifier.size(60.dp).clip(RoundedCornerShape(8.dp)))
                                 Column(Modifier.weight(1f)) {
@@ -566,31 +628,23 @@ fun MapExploreScreen(
                                     Text(if (animatedPost.isMovie) animatedPost.directorName.orEmpty() else animatedPost.track.artistName, color = CorusColors.Secondary, style = CorusFont.caption, maxLines = 1)
                                 }
                             }
-                            animatedPost.caption?.takeIf { it.isNotBlank() }?.let { Text(it, maxLines = 3, color = CorusColors.Secondary, style = CorusFont.caption) }
+                            animatedPost.caption?.takeIf { it.isNotBlank() }?.let { Text(it, maxLines = if (state.mode == "watch") MAP_WATCH_CAPTION_MAX_LINES else 3, overflow = TextOverflow.Ellipsis, color = CorusColors.Secondary, style = CorusFont.caption) }
                         }
                         } }
-                        MapPostEngagement(item.post, onComments = { onComments(item.post.id) }, onRepost = onRepost, onPaywall = { mapPaywallSource = PaywallSource.SAVE_LIMIT }, onCatalog = { onPost(item.post) })
-                        if (state.mode == "watch") {
-                            Row(
-                                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                            ) {
-                                IconButton(
-                                    onClick = { model.previous() },
-                                    enabled = state.historyIndex > 0 && !state.busy,
-                                    modifier = Modifier.size(38.dp),
-                                ) {
-                                    Icon(Icons.Default.SkipPrevious, "Previous trailer", modifier = Modifier.size(23.dp))
-                                }
-                                IconButton(
-                                    onClick = { model.next() },
-                                    enabled = !state.busy,
-                                    modifier = Modifier.size(38.dp),
-                                ) {
-                                    Icon(Icons.Default.SkipNext, "Next trailer", modifier = Modifier.size(23.dp))
-                                }
-                            }
+                        MapPostEngagement(item.post, onComments = { model.repository.event("post_opened", state.mode ?: "map", "comments"); onComments(item.post.id) }, onRepost = onRepost, onPaywall = { mapPaywallSource = PaywallSource.SAVE_LIMIT }, onCatalog = { model.repository.event("post_opened", state.mode ?: "map", "catalog"); onPost(item.post) }, onAnalytics = { model.repository.event("engagement_tapped", state.mode ?: "map", it) })
+                    }
+                }
+                if (state.mode == "watch") {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = MAP_WATCH_NAVIGATION_TOP_PADDING_DP.dp, bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        IconButton(onClick = { model.previous() }, enabled = state.historyIndex > 0 && !state.busy, modifier = Modifier.size(MAP_WATCH_NAVIGATION_TARGET_DP.dp)) {
+                            Icon(Icons.Default.SkipPrevious, stringResource(fm.corus.android.R.string.map_cd_previous_trailer), modifier = Modifier.size(23.dp))
+                        }
+                        IconButton(onClick = { model.next(true) }, enabled = !state.busy, modifier = Modifier.size(MAP_WATCH_NAVIGATION_TARGET_DP.dp)) {
+                            Icon(Icons.Default.SkipNext, stringResource(fm.corus.android.R.string.map_cd_next_trailer), modifier = Modifier.size(23.dp))
                         }
                     }
                 }
@@ -598,21 +652,29 @@ fun MapExploreScreen(
             }
             IconButton(
                 onClick = { model.stop() },
-                modifier = Modifier.align(Alignment.TopEnd).padding(end = 8.dp).size(32.dp),
+                modifier = Modifier.align(Alignment.TopEnd)
+                    .offset(x = MAP_PLAYBACK_CLOSE_TARGET_TRAILING_OVERHANG_DP.dp)
+                    .size(MAP_PLAYBACK_CLOSE_TARGET_DP.dp),
                 colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = CorusColors.CardBackground.copy(alpha = .82f),
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
                     contentColor = CorusColors.Secondary,
                 ),
             ) {
-                Icon(
-                    Icons.Default.Close,
-                    if (state.mode == "watch") "Stop watching" else "Stop listening",
-                    modifier = Modifier.size(17.dp),
-                )
+                Box(
+                    Modifier.align(Alignment.TopCenter).size(MAP_PLAYBACK_CLOSE_VISUAL_DP.dp)
+                        .background(CorusColors.CardBackground.copy(alpha = .82f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Default.Close,
+                        parityCopy("Close"),
+                        modifier = Modifier.size(17.dp),
+                    )
+                }
             }
             }
         }
-        state.error?.let { message -> AlertDialog(onDismissRequest = { model.error(null) }, title = { Text("Please try again") }, text = { Text(message) }, confirmButton = { TextButton(onClick = { model.error(null) }) { Text(parityCopy("OK")) } }) }
+        state.error?.let { message -> AlertDialog(onDismissRequest = { model.error(null) }, title = { Text(stringResource(fm.corus.android.R.string.map_please_try_again)) }, text = { Text(message) }, confirmButton = { TextButton(onClick = { model.error(null) }) { Text(parityCopy("OK")) } }) }
     }
     val sharingSheet = rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = { value -> value != SheetValue.Hidden || (dialog != "intro" && dialog != "confirm" && !state.busy) })
     val clubOfferSheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -649,14 +711,14 @@ fun MapExploreScreen(
                 "audience" -> {
                     item { Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(parityCopy("Who can see your city"), style = CorusFont.songTitleLarge)
-                        Text(parityCopy("People see your city, never your street or a live pin. Change this anytime."), style = CorusFont.caption, color = CorusColors.Secondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        Text(stringResource(fm.corus.android.R.string.map_privacy_audience), style = CorusFont.caption, color = CorusColors.Secondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     } }
                     listOf(
                         Triple("everyone", "Everyone", "Anyone on Corus can see your city."),
                         Triple("following", "People I follow", "Only accounts you follow can see your city."),
                         Triple("off", "No one", "Stay private while you explore the map."),
                     ).forEach { (value, title, subtitle) -> item {
-                        MapAudienceOption(value, title, subtitle, audience == value) { audience = value }
+                        MapAudienceOption(value, title, subtitle, audience == value) { audience = value; model.repository.event("audience_selected", value = value) }
                     } }
                     item { MapSheetPrimaryButton(onClick = { model.repository.rememberAudience(audience); if (audience == "off") model.stopSharing { dialog = "" } else {
                         // Sharing is always device-derived: permission, visible resolving
@@ -669,16 +731,16 @@ fun MapExploreScreen(
                 }
                 "location" -> item { Column(Modifier.fillMaxWidth().padding(vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Box(Modifier.size(64.dp).clip(CircleShape).background(CorusColors.Accent.copy(alpha = .14f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.LocationOn, null, tint = CorusColors.Accent, modifier = Modifier.size(30.dp)) }
-                    Text(parityCopy("Location needed to share"), style = CorusFont.songTitleLarge)
-                    Text(parityCopy("Corus uses your location only to determine your city. We never show your exact location."), style = CorusFont.caption, color = CorusColors.Secondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    MapSheetPrimaryButton(onClick = { dialog = ""; requestLocation(sharing = true) { location -> model.resolveAndShare(location, audience, onShared = ::focusSharedCity) { resolvingCity = false } } }) { Text(parityCopy("Try again")) }
-                    TextButton(onClick = { model.repository.rememberAudience("off"); model.stopSharing { dialog = "" } }) { Text(parityCopy("Don’t share my city")) }
+                    Text(stringResource(fm.corus.android.R.string.map_location_needed), style = CorusFont.songTitleLarge)
+                    Text(stringResource(fm.corus.android.R.string.map_privacy_location), style = CorusFont.caption, color = CorusColors.Secondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    MapSheetPrimaryButton(onClick = { dialog = ""; requestLocation(sharing = true) { location -> model.resolveAndShare(location, audience, onShared = ::focusSharedCity) { resolvingCity = false } } }) { Text(stringResource(fm.corus.android.R.string.map_try_again)) }
+                    TextButton(onClick = { model.repository.rememberAudience("off"); model.stopSharing { dialog = "" } }) { Text(stringResource(fm.corus.android.R.string.map_dont_share)) }
                 } }
                 "countries" -> {
                     item {
                         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                             Text(parityCopy(if (pendingMode == "listen") "Listen Mode" else "Watch Mode"), style = CorusFont.songTitleLarge)
-                            Surface(onClick = { dialog = "" }, modifier = Modifier.align(Alignment.CenterStart).size(46.dp), shape = CircleShape, color = CorusColors.CardBackground) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Close, "Close") } }
+                            Surface(onClick = { dialog = "" }, modifier = Modifier.align(Alignment.CenterStart).size(46.dp), shape = CircleShape, color = CorusColors.CardBackground) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Close, parityCopy("Close")) } }
                         }
                         Text(parityCopy(if (pendingMode == "listen") "Listen to music posted by people in the countries you choose." else "Watch films posted by people in the countries you choose."), style = CorusFont.bodyMedium, color = CorusColors.Secondary, modifier = Modifier.padding(top = 20.dp, bottom = 16.dp))
                         // Match iOS: Anywhere is a complete selection, not a
@@ -695,7 +757,7 @@ fun MapExploreScreen(
                                 Icon(Icons.Default.ChevronRight, null, tint = CorusColors.Tertiary)
                             }
                         }
-                        Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text(parityCopy("Countries"), style = CorusFont.bodyMedium, color = CorusColors.Secondary); TextButton(onClick = { countries = cities.map { it.city.countryCode }.toSet() }, modifier = Modifier.height(32.dp), contentPadding = PaddingValues(horizontal = 4.dp)) { Text(parityCopy("Select Multiple"), style = CorusFont.caption, color = CorusColors.Accent) } }
+                        Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text(stringResource(fm.corus.android.R.string.map_countries), style = CorusFont.bodyMedium, color = CorusColors.Secondary); TextButton(onClick = { countries = cities.map { it.city.countryCode }.toSet() }, modifier = Modifier.height(32.dp), contentPadding = PaddingValues(horizontal = 4.dp)) { Text(stringResource(fm.corus.android.R.string.map_select_multiple), style = CorusFont.caption, color = CorusColors.Accent) } }
                     }
                     items(cities.map { it.city.countryCode }.distinct().sorted().filter { java.util.Locale("", it).displayCountry.contains(countryQuery, true) }) { code ->
                         val count = cities.filter { it.city.countryCode == code }.sumOf { it.facets[state.filter]?.count ?: 0 }
@@ -706,7 +768,7 @@ fun MapExploreScreen(
                             if (countries.isNotEmpty()) Checkbox(checked = code in countries, onCheckedChange = null) else Icon(Icons.Default.ChevronRight, null, tint = CorusColors.Tertiary)
                         }; HorizontalDivider(color = CorusColors.Divider)
                     }
-                    item { OutlinedTextField(value = countryQuery, onValueChange = { countryQuery = it }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp), leadingIcon = { Icon(Icons.Default.Search, null) }, placeholder = { Text(parityCopy("Search countries")) }, singleLine = true) }
+                    item { OutlinedTextField(value = countryQuery, onValueChange = { countryQuery = it }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp), leadingIcon = { Icon(Icons.Default.Search, null) }, placeholder = { Text(stringResource(fm.corus.android.R.string.map_search_countries)) }, singleLine = true) }
                 }
                 }
             }

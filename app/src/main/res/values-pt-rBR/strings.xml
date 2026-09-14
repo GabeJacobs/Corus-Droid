@@ -1490,7 +1490,7 @@
     <plurals name="taste_discovery_remaining"><item quantity="one">Você tem mais %d match</item><item quantity="other">Você tem mais %d matches</item></plurals>
     <string name="taste_discovery_card_subtitle">Veja todos com o Corus Club.</string>
     <string name="club_onboarding_title">Aproveite ao máximo o Corus</string>
-    <string name="club_onboarding_subtitle">Descubra conteúdos de pessoas reais com quem você combina. Apoie uma comunidade independente.</string>
+    <string name="club_onboarding_subtitle">Desbloqueie todos os recursos e conecte-se com pessoas que compartilham seu gosto.</string>
     <string name="club_onboarding_skip">Talvez mais tarde</string>
     <string name="club_onboarding_renewal">Renova automaticamente no preço do plano selecionado após qualquer teste grátis. Cancele quando quiser.</string>
     <string name="club_onboarding_yearly_billed">Cobrado a %1$s/ano.</string>
@@ -1503,4 +1503,8 @@
     <string name="messaging_group_options">Opções do grupo</string>
     <string name="map_all_communities">Todas as comunidades</string>
     <string name="map_finding_city">Encontrando sua cidade</string>
+    <string name="map_listen_mode_preview">Prévia do modo Ouvir · Conheça o Corus Club</string>
+    <string name="map_watch_mode_preview">Prévia do modo Assistir · Conheça o Corus Club</string>
+    <string name="club_feature_unlimited_playlists">Exporte playlists ilimitadas</string>
+    <string name="club_feature_unlock_all_taste_matches">Desbloqueie todas as combinações de gosto</string>
 </resources>

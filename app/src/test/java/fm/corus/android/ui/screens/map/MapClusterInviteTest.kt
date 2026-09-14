@@ -3,6 +3,9 @@ import fm.corus.android.data.model.CymbalUser
 import org.junit.Assert.*
 import org.junit.Test
 class MapClusterInviteTest {
+    @Test fun invitationFooterUsesSmallCushionBeyondNavigationInset() {
+        assertEquals(8, MAP_CLUSTER_INVITE_BOTTOM_CUSHION_DP)
+    }
     private val city = MapCity("brooklyn", "Brooklyn", "NY", "US", 40.6, -73.9)
     private val user = CymbalUser("viewer", "gabe", "Gabe")
     private val person = MapPerson(city, user)

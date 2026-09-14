@@ -1481,7 +1481,7 @@
         <item quantity="other">Prueba gratis · %1$d días restantes</item>
     </plurals>
     <string name="club_onboarding_title">Sácale el máximo provecho a Corus</string>
-    <string name="club_onboarding_subtitle">Descubre contenido de personas reales con las que encajas. Apoya una comunidad independiente.</string>
+    <string name="club_onboarding_subtitle">Desbloquea todas las funciones y conecta con personas que comparten tus gustos.</string>
     <string name="club_onboarding_skip">Quizás más tarde</string>
     <string name="club_onboarding_renewal">Se renueva automáticamente al precio del plan elegido después de cualquier prueba gratis. Cancela cuando quieras.</string>
     <string name="club_onboarding_yearly_billed">Facturado a %1$s/año.</string>
@@ -1494,4 +1494,8 @@
     <string name="messaging_group_options">Opciones del grupo</string>
     <string name="map_all_communities">Todas las comunidades</string>
     <string name="map_finding_city">Buscando tu ciudad</string>
+    <string name="map_listen_mode_preview">Vista previa del modo Escuchar · Explora Corus Club</string>
+    <string name="map_watch_mode_preview">Vista previa del modo Ver · Explora Corus Club</string>
+    <string name="club_feature_unlimited_playlists">Exportar playlists ilimitadas</string>
+    <string name="club_feature_unlock_all_taste_matches">Desbloquea todas las coincidencias de gustos</string>
 </resources>

@@ -797,18 +797,17 @@ fun MainTabScreen(
                         showClubOffer = true
                     }
                 } else {
-                    if (tab == selectedTab) {
-                        val navController = navControllers[tab]!!
-                        // popBackStack(start) can return true even when already
-                        // at root, which skipped scroll-to-top. Only pop when
-                        // there's a screen above the tab root. An empty
-                        // NavHost (start dest was popped) remounts the root
-                        // instead of scrolling a screen that isn't composed.
-                        if (navController.currentDestination == null) {
-                            navController.restoreStartIfEmpty()
-                        } else if (navController.previousBackStackEntry != null) {
-                            navController.popToStart()
-                        } else {
+                    val navController = navControllers[tab]!!
+                    val startDestinationId = runCatching { navController.graph.startDestinationId }.getOrDefault(0)
+                    when (tabReselectAction(
+                        alreadySelected = tab == selectedTab,
+                        hasCurrentDestination = navController.currentDestination != null,
+                        isAtStartDestination = startDestinationId != 0 && navController.currentDestination?.id == startDestinationId,
+                    )) {
+                        TabReselectAction.SELECT_ONLY -> Unit
+                        TabReselectAction.RESTORE_START -> navController.restoreStartIfEmpty()
+                        TabReselectAction.POP_TO_START -> navController.popToStart()
+                        TabReselectAction.SCROLL_TO_TOP -> {
                             when (tab) {
                                 CorusTab.FEED -> feedScrollToTop.intValue++
                                 CorusTab.EXPLORE -> searchScrollToTop.intValue++

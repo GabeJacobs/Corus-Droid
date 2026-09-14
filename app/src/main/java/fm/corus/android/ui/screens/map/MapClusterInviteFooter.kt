@@ -19,6 +19,8 @@ import fm.corus.android.ui.components.shareCorusInvite
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 
+internal const val MAP_CLUSTER_INVITE_BOTTOM_CUSHION_DP = 8
+
 internal fun canInviteMapCluster(
     state: MapScreenState, city: MapCity, page: MapPeoplePage?,
     loading: Boolean, failed: Boolean, viewerId: String?,
@@ -41,7 +43,9 @@ internal fun canInviteMapCluster(
 internal fun MapClusterInviteFooter() {
     val context = LocalContext.current
     Column(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 20.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp)
+            .padding(top = 20.dp, bottom = MAP_CLUSTER_INVITE_BOTTOM_CUSHION_DP.dp)
+            .navigationBarsPadding(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {

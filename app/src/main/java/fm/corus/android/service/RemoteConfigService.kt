@@ -534,28 +534,6 @@ class RemoteConfigService @Inject constructor(
             return remoteConfig.getBoolean("comment_controls_on_posts")
         }
 
-    /**
-     * DEBUG-only: force the Taste Matches expired-trial lock so testers and
-     * Club members can preview the in-feed paywall on their own account.
-     * Server still fetches Matches (teaser posts sit behind the frost).
-     * Never read in release.
-     */
-    private val _forceTasteMatchesPaywall = MutableStateFlow(
-        BuildConfig.DEBUG &&
-            context.getSharedPreferences("corus_dev_flags", Context.MODE_PRIVATE)
-                .getBoolean("force_taste_matches_paywall", false),
-    )
-    val forceTasteMatchesPaywallFlow: StateFlow<Boolean> = _forceTasteMatchesPaywall.asStateFlow()
-
-    var forceTasteMatchesPaywall: Boolean
-        get() = BuildConfig.DEBUG && _forceTasteMatchesPaywall.value
-        set(value) {
-            if (!BuildConfig.DEBUG) return
-            if (_forceTasteMatchesPaywall.value == value) return
-            devPrefs.edit().putBoolean("force_taste_matches_paywall", value).apply()
-            _forceTasteMatchesPaywall.value = value
-        }
-
     /// Master gate for the "who reposted this" list: long-press the repost count
     /// on a post to open a sheet of the people who reposted it, each row tapping
     /// through to that person's repost. OFF = the repost button only opens

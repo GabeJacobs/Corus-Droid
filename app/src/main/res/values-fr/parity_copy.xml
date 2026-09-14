@@ -65,7 +65,6 @@
     <string name="parity_61453a62e3b0" formatted="false">Continuez à découvrir des films. Débloquez le mode vidéo illimité avec Corus Club.</string>
     <string name="parity_e1a462a5938c" formatted="false">Continuez à écouter le monde entier. Débloquez le mode écoute illimité avec Corus Club.</string>
     <string name="parity_21b98d7b5820" formatted="false">Dernier morceau gratuit · Découvrir Club</string>
-    <string name="parity_dfbdf908e6f2" formatted="false">Dernière bande-annonce gratuite · Découvrir Club</string>
     <string name="parity_75c88f3a0072" formatted="false">Lavande</string>
     <string name="parity_c7e02c95fe85" formatted="false">J\'aime</string>
     <string name="parity_e9f009d9df80" formatted="false">J\'aime</string>
@@ -170,7 +169,6 @@
     <string name="parity_d91ebf5887cf" formatted="false">Watch</string>
     <string name="parity_0c1b3cced072" formatted="false">Mode vidéo</string>
     <string name="parity_00ec7c4bb4f0" formatted="false">Tu as vu quelque chose de bien récemment ?</string>
-    <string name="parity_3525761a57be" formatted="false">Watch preview · %lld trailers left · Explore Club</string>
     <string name="parity_ed7a37f4f2d4" formatted="false">Voir la bande-annonce sur YouTube</string>
     <string name="parity_7cc4c50bed35" formatted="false">Qu\'est-ce que tu écoutes ?</string>
     <string name="parity_1b527ff0e65e" formatted="false">Qui peut voir votre ville</string>

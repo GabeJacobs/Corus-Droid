@@ -51,6 +51,20 @@ internal fun canPopTabBackStack(hasPreviousEntry: Boolean): Boolean = hasPreviou
 internal fun shouldRestoreTabStart(hasCurrentDestination: Boolean): Boolean =
     !hasCurrentDestination
 
+internal enum class TabReselectAction { SELECT_ONLY, RESTORE_START, POP_TO_START, SCROLL_TO_TOP }
+
+/** A graph entry is not a screen above root; compare destination IDs instead. */
+internal fun tabReselectAction(
+    alreadySelected: Boolean,
+    hasCurrentDestination: Boolean,
+    isAtStartDestination: Boolean,
+): TabReselectAction = when {
+    !alreadySelected -> TabReselectAction.SELECT_ONLY
+    !hasCurrentDestination -> TabReselectAction.RESTORE_START
+    !isAtStartDestination -> TabReselectAction.POP_TO_START
+    else -> TabReselectAction.SCROLL_TO_TOP
+}
+
 /**
  * Watches a tab [NavHost] and remounts its start destination if the back stack
  * is emptied (system-back double-fire, or an unguarded pop of the tab root).

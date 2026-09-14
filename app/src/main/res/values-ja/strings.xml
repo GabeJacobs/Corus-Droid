@@ -1344,7 +1344,7 @@
         <item quantity="other">無料トライアル · 残り %1$d 日</item>
     </plurals>
     <string name="club_onboarding_title">Corusをもっと楽しもう</string>
-    <string name="club_onboarding_subtitle">あなたと相性の合うリアルな人たちのコンテンツを発見。独立したコミュニティを支援してください。</string>
+    <string name="club_onboarding_subtitle">すべての機能をアンロックして、好みを共有する人たちとつながろう。</string>
     <string name="club_onboarding_skip">あとで</string>
     <string name="club_onboarding_renewal">無料トライアル終了後、選択したプランの料金で自動更新されます。いつでもキャンセルできます。</string>
     <string name="club_onboarding_yearly_billed">年額 %1$s。</string>
@@ -1357,4 +1357,8 @@
     <string name="messaging_group_options">グループの設定</string>
     <string name="map_all_communities">すべてのコミュニティ</string>
     <string name="map_finding_city">あなたの都市を検索中</string>
+    <string name="map_listen_mode_preview">リッスンモードのプレビュー · Corus Clubを見る</string>
+    <string name="map_watch_mode_preview">視聴モードのプレビュー · Corus Clubを見る</string>
+    <string name="club_feature_unlimited_playlists">プレイリストを無制限に書き出す</string>
+    <string name="club_feature_unlock_all_taste_matches">すべてのテイストマッチをアンロック</string>
 </resources>

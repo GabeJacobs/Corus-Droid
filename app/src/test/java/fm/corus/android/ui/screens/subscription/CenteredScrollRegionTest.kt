@@ -21,17 +21,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Regression test for the Club paywall's empty-space bug.
+ * Regression tests for the Club paywall's flexible top region.
  *
- * The header + features region used to be a plain scrolling Column, which
- * top-aligns its content. On a tall phone (Pixel 9 Pro) that dumped ~250dp of
- * slack into a single dead gap between the disclaimer and the plan cards, while
- * the vinyl sat jammed against the top. [CenteredScrollRegion] min-height-matches
- * the region to its viewport so the slack splits evenly above and below, matching
- * iOS's `.frame(minHeight: proxy.size.height, alignment: .center)`.
- *
- * The centering must not come at the cost of short screens: content taller than
- * the viewport still has to scroll from the top rather than center (and clip).
+ * Content taller than the viewport must still retain its full scrollable height.
  */
 @RunWith(RobolectricTestRunner::class)
 // Vanilla Application so Robolectric doesn't boot CorusApplication (which
@@ -55,7 +47,7 @@ class CenteredScrollRegionTest {
                     .height(viewportHeight)
                     .fillMaxWidth(),
             ) {
-                CenteredScrollRegion(verticalPadding = 0.dp) {
+                CenteredScrollRegion(verticalPadding = 0.dp) { _ ->
                     Box(
                         modifier = Modifier
                             .height(contentHeight)
@@ -74,26 +66,14 @@ class CenteredScrollRegionTest {
     }
 
     @Test
-    fun `content shorter than the viewport is centered, not top-aligned`() {
-        // Pixel 9 Pro is ~923dp tall; the header block is nowhere near that.
+    fun `content shorter than the viewport starts at the top without blank space`() {
         setRegion(viewportHeight = 923.dp, contentHeight = 400.dp)
 
         val content = composeRule.onNodeWithTag("content").getUnclippedBoundsInRoot()
         val pinned = composeRule.onNodeWithTag("pinned").getUnclippedBoundsInRoot()
 
-        // The region spans from the root's top down to the pinned bar.
-        val gapAbove = content.top.value
-        val gapBelow = pinned.top.value - content.bottom.value
-
-        assertEquals(
-            "Slack should split evenly above/below the content; " +
-                "above=${gapAbove}dp below=${gapBelow}dp",
-            gapAbove,
-            gapBelow,
-            1.5f,
-        )
-        // Guard the actual bug: top-alignment would leave gapAbove == 0.
-        assertTrue("Content should not be jammed against the top", gapAbove > 100f)
+        assertEquals(0f, content.top.value, 0.5f)
+        assertTrue("Remaining slack stays below the content", pinned.top.value > content.bottom.value)
     }
 
     @Test

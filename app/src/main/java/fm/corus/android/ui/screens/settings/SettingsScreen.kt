@@ -202,8 +202,6 @@ fun SettingsScreen(
     val settingsScope = rememberCoroutineScope()
     val feedFollowsNowPlaying by settingsViewModel.feedFollowsNowPlaying.collectAsState()
     val alwaysPlayFullSongs by settingsViewModel.alwaysPlayFullSongs.collectAsState()
-    val forceTasteMatchesPaywall by settingsViewModel.forceTasteMatchesPaywall.collectAsState()
-
     val notificationSettings by notificationSettingsViewModel.settings.collectAsState()
     val hasRequestedPush by notificationSettingsViewModel.hasRequestedPushPermission.collectAsState()
     LaunchedEffect(Unit) { notificationSettingsViewModel.load() }
@@ -704,17 +702,6 @@ fun SettingsScreen(
                     label = stringResource(R.string.settings_social_discord),
                     url = "https://discord.gg/mXzt8NDCWD",
                     context = context,
-                )
-            }
-
-            if (BuildConfig.DEBUG) {
-                SectionHeader("Developer")
-                SettingsToggleRow(
-                    icon = Icons.Filled.Lock,
-                    title = "Preview Taste Matches lock",
-                    subtitle = "Shows the expired-trial overlay on the Matches tab, even if you are Club or a tester.",
-                    checked = forceTasteMatchesPaywall,
-                    onCheckedChange = { settingsViewModel.setForceTasteMatchesPaywall(it) },
                 )
             }
 

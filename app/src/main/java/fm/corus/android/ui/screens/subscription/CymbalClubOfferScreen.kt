@@ -49,6 +49,22 @@ import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.bottomSheetMaxHeight
 import fm.corus.android.domain.PlaylistTrialField
 
+internal object ClubOnboardingPaywallContract {
+    val vinylSize = 112.dp
+    val exportBenefitMinimumContentHeight = 440.dp
+    val closeTapTargetSize = 48.dp
+
+    fun benefitStringResources(supportsPlaylistExport: Boolean, contentHeight: Dp): List<Int> = buildList {
+        add(R.string.club_feature_unlock_all_taste_matches)
+        add(R.string.club_feature_customization)
+        add(R.string.club_feature_unlimited_saves)
+        if (supportsPlaylistExport && contentHeight >= exportBenefitMinimumContentHeight) {
+            add(R.string.club_feature_unlimited_playlists)
+        }
+        add(R.string.club_feature_support)
+    }
+}
+
 // Inside a ModalBottomSheet, LocalContext.current is a ContextWrapper around the
 // Activity, not the Activity itself, so a direct `as? Activity` cast returns null
 // and purchase() never fires. Walk the wrapper chain to find the host Activity.
@@ -126,14 +142,9 @@ private fun playlistLimitSubtitle(context: PlaylistTrialField?): String {
  * The FULL-SCREEN paywall's flexible middle region: the header + feature list,
  * sitting between the close button and the pinned plan cards / CTA.
  *
- * A full-screen paywall can't shrink to its content the way the bottom sheet does,
- * so its leftover space is CENTERED rather than pinned to the top — matching iOS
- * (`.frame(minHeight: proxy.size.height, alignment: .center)`). A plain scrolling
- * Column top-aligns instead, so on a tall phone every spare pixel pools into one
- * dead gap between the disclaimer and the plan cards. The min-height match is what
- * gives Arrangement.Center something to center within — a scrolling Column is
- * otherwise only as tall as its content. Taller-than-viewport content still
- * scrolls normally, so short screens are unaffected.
+ * The column min-height-matches its viewport, but content starts at the top. This
+ * avoids manufacturing a large gap above the vinyl on tall phones while retaining
+ * overflow scrolling for compact screens and large accessibility text.
  *
  * (The sheet variant instead wraps its height to the content, so it needs no
  * centering — see CymbalClubOfferSheet.)
@@ -141,22 +152,36 @@ private fun playlistLimitSubtitle(context: PlaylistTrialField?): String {
 @Composable
 internal fun ColumnScope.CenteredScrollRegion(
     verticalPadding: Dp,
-    content: @Composable ColumnScope.() -> Unit,
+    content: @Composable ColumnScope.(availableHeight: Dp) -> Unit,
 ) {
     BoxWithConstraints(
         modifier = Modifier
             .weight(1f)
             .fillMaxWidth(),
     ) {
+        val availableHeight = maxHeight
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .heightIn(min = maxHeight)
                 .padding(vertical = verticalPadding),
-            verticalArrangement = Arrangement.Center,
+            verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally,
-            content = content,
+        ) { content(availableHeight) }
+    }
+}
+
+@Composable
+internal fun ClubCloseButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    IconButton(
+        onClick = onClick,
+        modifier = modifier.size(ClubOnboardingPaywallContract.closeTapTargetSize),
+    ) {
+        Icon(
+            Icons.Filled.Close,
+            contentDescription = stringResource(R.string.club_cd_close),
+            tint = CorusColors.Secondary,
         )
     }
 }
@@ -237,23 +262,8 @@ fun CymbalClubOfferScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {},
-                actions = {
-                    IconButton(onClick = {
-                        viewModel.logPaywallDismissed(source, if (isOnboarding) "close" else null)
-                        onBack()
-                    }) {
-                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.club_cd_close), tint = CorusColors.Secondary)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
-                windowInsets = WindowInsets(0, 0, 0, 0),
-            )
-        },
-    ) { padding ->
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold { padding ->
         // Two-zone layout (mirrors iOS): the header + features scroll in a
         // flexible region, while the plan cards, CTA, and footer links are
         // PINNED to the bottom so "Restore Purchases" / "Terms" / "Privacy" are
@@ -266,9 +276,11 @@ fun CymbalClubOfferScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // ── Scrollable header + features ──
-            CenteredScrollRegion(verticalPadding = CorusSpacing.xl) {
+            CenteredScrollRegion(verticalPadding = CorusSpacing.sm) { availableHeight ->
                 // Spinning vinyl record
-                fm.corus.android.ui.components.CymbalClubVinyl(size = if (isOnboarding) 96.dp else 140.dp)
+                fm.corus.android.ui.components.CymbalClubVinyl(
+                    size = if (isOnboarding) ClubOnboardingPaywallContract.vinylSize else 140.dp,
+                )
 
                 Spacer(modifier = Modifier.height(CorusSpacing.xl))
 
@@ -356,13 +368,18 @@ fun CymbalClubOfferScreen(
                     verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                 ) {
                     if (tasteMatchesEnabled) {
-                        FeatureRow(text = stringResource(R.string.club_feature_taste_matches)) {
+                        FeatureRow(text = stringResource(if (isOnboarding) R.string.club_feature_unlock_all_taste_matches else R.string.club_feature_taste_matches)) {
                             VennDiagramIcon(size = 20.dp, color = CorusColors.Accent, shadedIntersection = true)
                         }
                     }
                     FeatureRow(icon = Icons.Filled.Brush, text = stringResource(R.string.club_feature_customization))
                     if (isOnboarding) {
                         FeatureRow(icon = Icons.Filled.Bookmark, text = stringResource(R.string.club_feature_unlimited_saves))
+                        if (musicService != fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC &&
+                            availableHeight >= ClubOnboardingPaywallContract.exportBenefitMinimumContentHeight
+                        ) {
+                            FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_unlimited_playlists))
+                        }
                     } else {
                         FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
                     }
@@ -517,6 +534,21 @@ fun CymbalClubOfferScreen(
                 Spacer(modifier = Modifier.height(CorusSpacing.lg))
             }
         }
+        }
+
+        // Overlay the close action instead of reserving a full app-bar row. The
+        // status-bar inset keeps it below Samsung status icons, while the normal
+        // page margin keeps the 48dp target away from the physical screen edge.
+        ClubCloseButton(
+            onClick = {
+                viewModel.logPaywallDismissed(source, if (isOnboarding) "close" else null)
+                onBack()
+            },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(top = 4.dp, end = CorusSpacing.lg),
+        )
     }
 }
 

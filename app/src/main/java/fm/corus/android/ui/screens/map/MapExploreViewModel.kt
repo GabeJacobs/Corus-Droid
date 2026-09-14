@@ -116,6 +116,8 @@ class MapExploreViewModel @Inject constructor(
     private var endedPost: String? = null
     private var prefetchedPost: Pair<String, Deferred<Result<CymbalPost?>>>? = null
     private var ownedPlayback: MapPlaybackOwner.Owner? = null
+    private var sessionStartedAtMs: Long? = null
+    private var selectionRequestedAtMs: Long? = null
     val enabled get() = remote.mapEnabled && uid != null && auth.currentUser?.uid == uid
     val fullAccess get() = subscription.hasFullAccess
     init {
@@ -176,7 +178,7 @@ class MapExploreViewModel @Inject constructor(
         generation++; updateState { it.copy(filter = value, selected = null, people = emptyList(), listPages = emptyMap(), listLoading = emptySet(), listErrors = emptySet()) }
     }
     fun select(city: MapCity) {
-        repository.event("city_opened")
+        repository.event("city_opened", count = mutable.value.cities.firstOrNull { it.city.cityId == city.cityId }?.facets?.get(mutable.value.filter)?.count)
         if (mutable.value.mode != null) stop()
         val gen = ++generation
         val chatRequest = ++chatRequestGeneration
@@ -193,7 +195,7 @@ class MapExploreViewModel @Inject constructor(
             val page = repository.people(city, mutable.value.filter, following, taste, selectedCommunityId = mutable.value.selectedCommunityId)
             val people = sortedMapPeople(page.people)
             val posts = repository.latest(people.take(8).map { it.user.id })
-            if (gen == generation) updateState { it.copy(people = people, posts = posts, peopleLoading = false, more = page.cursor, peopleReachedEnd = page.reachedEnd) }
+            if (gen == generation) { updateState { it.copy(people = people, posts = posts, peopleLoading = false, more = page.cursor, peopleReachedEnd = page.reachedEnd) }; repository.event("directory_ready", "city", count = people.size) }
         }
     }
     fun loadList(city: MapCity, next: Boolean = false) = launch {
@@ -222,6 +224,7 @@ class MapExploreViewModel @Inject constructor(
     fun more() = launch {
         val s = mutable.value; val city = s.selected ?: return@launch; val cursor = s.more ?: return@launch; val gen = generation
         updateState { it.copy(peopleLoading = true) }
+        repository.event("load_more_tapped", "city")
         val page = repository.people(city, s.filter, following, taste, cursor, s.selectedCommunityId)
         val posts = repository.latest(page.people.map { it.user.id })
         if (gen == generation) updateState { it.copy(people = sortedMapPeople(it.people + page.people), posts = it.posts + posts, more = page.cursor.takeUnless { next -> next == cursor }, peopleReachedEnd = page.reachedEnd, peopleLoading = false) }
@@ -253,7 +256,7 @@ class MapExploreViewModel @Inject constructor(
             if (gen == searchGeneration) updateState { it.copy(searchResults = result) }
         }
     }
-    fun stopSharing(done: () -> Unit) = launch { repository.stopSharing(); ownPresenceChanged(null); done() }
+    fun stopSharing(done: () -> Unit) = launch { try { repository.stopSharing(); repository.event("sharing_stopped"); ownPresenceChanged(null); done() } catch (e: Exception) { repository.event("sharing_failed", value = "stop"); throw e } }
     fun share(city: MapCity, audience: String, source: String, done: () -> Unit) = launch {
         val user = mutable.value.user ?: throw IllegalStateException("Couldn’t load your profile. Please try again.")
         updateState { it.copy(busy = true) }
@@ -261,7 +264,8 @@ class MapExploreViewModel @Inject constructor(
             repository.share(user, city, audience, source)
             repository.event("sharing_saved", value = source)
             done(); refresh()
-        } finally { updateState { it.copy(busy = false) } }
+        } catch (e: Exception) { repository.event("sharing_failed", value = source); throw e }
+        finally { updateState { it.copy(busy = false) } }
     }
     // Sharing outlives map filter/selection changes and must not borrow playback's busy state.
     fun resolveAndShare(location: Location, audience: String, onShared: (MapCity) -> Unit = {}, done: () -> Unit) = viewModelScope.launch {
@@ -277,6 +281,7 @@ class MapExploreViewModel @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            repository.event("sharing_failed", value = "device")
             if (auth.currentUser?.uid == uid) updateState { it.copy(error = e.message ?: "Please try again.") }
         } finally {
             done()
@@ -289,7 +294,8 @@ class MapExploreViewModel @Inject constructor(
     fun start(mode: String, countryCodes: Set<String>, cityId: String? = null): kotlinx.coroutines.Job = launch {
         if (advanceBusy || mutable.value.busy) return@launch
         val requestedGeneration = generation
-        repository.event("playback_requested", mode, count = countryCodes.size)
+        val scopeValue = if (cityId != null) "city" else if (countryCodes.isEmpty()) "anywhere" else "countries"
+        repository.event("playback_requested", mode, value = scopeValue, count = countryCodes.size)
         updateState { it.copy(busy = true, error = null) }
         val usage = if (fullAccess) mutable.value.preview else repository.preparePreview()
         if (requestedGeneration != generation || !enabled) return@launch
@@ -299,28 +305,29 @@ class MapExploreViewModel @Inject constructor(
         directoryJob?.cancel(); directoryJob = null; directoryExtended = false
         round = 0; roundFound = false; pool.clear(); shownPosts.clear(); postHistories.clear()
         prefetchedPost?.second?.cancel(); prefetchedPost = null
-        val selected = mutable.value.cities.filter { (it.facets[mutable.value.filter]?.count ?: 0) > 0 && if (cityId != null) it.city.cityId == cityId else countryCodes.isEmpty() || it.city.countryCode in countryCodes }
+        val selected = mutable.value.cities.filter {
+            (it.facets[mutable.value.filter]?.count ?: 0) > 0 &&
+                mapPlaybackLocationIncludes(it.city, cityId, countryCodes)
+        }
         pendingCities = selected.toMutableList(); rosterCursor = null; rosterCursors.clear()
         // The open city sheet has already loaded its people and their latest
         // visible posts. Start with that exact roster so a tap on Listen never
         // waits for a second directory request before considering the person
         // the user just saw. Do not use the denormalized playable flag as an
         // exclusion: it can be stale, while profile history is authoritative.
-        val sheetPeople = mutable.value.selected?.takeIf { it.cityId == cityId }
-            ?.let { mutable.value.people }
-            .orEmpty()
-            // A one-person city must still be playable. Listen Mode may play
-            // the signed-in user's own posted music; Watch keeps its existing
-            // other-people-only behavior.
-            .filter { mode == "listen" || it.user.id != uid }
+        val sheetPeople = mapInitialPlaybackCandidates(
+            cities = selected,
+            filter = mutable.value.filter,
+            selectedCityId = cityId,
+            selectedCityPeople = mutable.value.selected?.takeIf { it.cityId == cityId }?.let { mutable.value.people }.orEmpty(),
+            viewerId = uid,
+            mode = mode,
+        )
             .shuffled()
-            .map { person ->
-                val city = selected.firstOrNull { summary -> summary.city.cityId == person.city.cityId }?.city
-                    ?: person.city
-                city to person
-            }
         sheetPeople.forEach { pool[it.second.user.id] = it }
         candidates = sheetPeople; nextCandidate = 0; history.clear(); endedPost = null
+        sessionStartedAtMs = android.os.SystemClock.elapsedRealtime()
+        repository.event("session_started", mode, value = scopeValue, count = selected.sumOf { it.facets[mutable.value.filter]?.count ?: 0 })
         updateState { it.copy(mode = mode, selected = null, busy = false, playing = null, historyIndex = -1, blocked = false, sessionKey = it.sessionKey + 1) }
         next()
     }
@@ -358,20 +365,22 @@ class MapExploreViewModel @Inject constructor(
             }
         }
     }
-    fun next() {
+    fun next(userInitiated: Boolean = false) {
         if (advanceBusy) return
         val mode = mutable.value.mode ?: return
         if (!fullAccess && mutable.value.preview.remaining(mode) == 0) {
             pendingAction = { next() }; player.pause(); updateState { it.copy(blocked = true, paywall = if (mode == "listen") "MAP_LISTEN" else "MAP_WATCH") }; return
         }
         advanceBusy = true
+        if (userInitiated) repository.event("next_tapped", mode)
+        selectionRequestedAtMs = android.os.SystemClock.elapsedRealtime()
         val gen = generation
         launch {
             updateState { it.copy(busy = true, error = null) }
             try {
                 if (mutable.value.historyIndex < history.lastIndex) {
                     val index = mutable.value.historyIndex + 1; val item = history[index]
-                    updateState { it.copy(playing = item, historyIndex = index) }; play(item, mode); return@launch
+                    updateState { it.copy(playing = item, historyIndex = index) }; repository.event("post_selected", mode, "history", durationMs = android.os.SystemClock.elapsedRealtime() - (selectionRequestedAtMs ?: android.os.SystemClock.elapsedRealtime())); play(item, mode); return@launch
                 }
                 if (mode == "watch" && round == 0) {
                     while (gen == generation && enabled && pendingCities.isNotEmpty()) loadDirectoryPage(gen, mode)
@@ -406,6 +415,7 @@ class MapExploreViewModel @Inject constructor(
                     nextCandidate++
                     val item = MapPlaybackItem(city.copy(cityName=canonicalCities[city.cityId]?.cityName ?: city.cityName), post.copy(user = person.user)); history.add(item)
                     updateState { it.copy(playing = item, historyIndex = history.lastIndex) }
+                    repository.event("post_selected", mode, "next", durationMs = android.os.SystemClock.elapsedRealtime() - (selectionRequestedAtMs ?: android.os.SystemClock.elapsedRealtime()))
                     play(item, mode)
                     prefetchNext(mode, gen)
                     if (mode == "listen") extendListeningDirectory(gen)
@@ -415,7 +425,8 @@ class MapExploreViewModel @Inject constructor(
                 // No map-owned item ever started, so do not pause or discard the
                 // user's existing player. End Listen Mode before presenting the
                 // error so the normal map marker and app chrome are restored.
-                stop(error = "No more posts to play for this selection.")
+                repository.event("playback_unavailable", mode, if (history.isEmpty()) "error_or_empty" else "exhausted")
+                stop(error = repository.text(fm.corus.android.R.string.map_no_more_posts))
             } finally { if (gen == generation) { advanceBusy = false; updateState { it.copy(busy = false) } } }
         }
     }
@@ -466,9 +477,9 @@ class MapExploreViewModel @Inject constructor(
     private suspend fun play(item: MapPlaybackItem, mode: String) {
         endedPost = null
         MapPlaybackOwner.current = null
-        if (mode == "watch") { player.pause(); ownedPlayback = MapPlaybackOwner.Owner(item.post.id, { next() }, { started(item.post.id, mode) }, { stop(pausePlayer = false) }, { previous() }); MapPlaybackOwner.current = ownedPlayback; return }
+        if (mode == "watch") { player.pause(); ownedPlayback = MapPlaybackOwner.Owner(item.post.id, { next(true) }, { started(item.post.id, mode) }, { stop(pausePlayer = false) }, { previous() }); MapPlaybackOwner.current = ownedPlayback; return }
         val track = item.post.toQueuedTrack()
-        ownedPlayback = MapPlaybackOwner.Owner(track.trackId, { next() }, { started(item.post.id, mode) }, { stop(pausePlayer = false) }, { previous() })
+        ownedPlayback = MapPlaybackOwner.Owner(track.trackId, { next(true) }, { started(item.post.id, mode) }, { stop(pausePlayer = false) }, { previous() })
         MapPlaybackOwner.current = ownedPlayback
         val queue = listOf(track)
         // Enter Map listening through the same routing used by feed/catalog
@@ -486,11 +497,13 @@ class MapExploreViewModel @Inject constructor(
         if (advanceBusy) return@launch
         val i = mutable.value.historyIndex - 1
         if (i < 0) return@launch
-        val stored = history[i]; val item = stored.copy(city = stored.city.copy(cityName = canonicalCities[stored.city.cityId]?.cityName ?: stored.city.cityName)); updateState { it.copy(playing = item, historyIndex = i, blocked = false) }; play(item, mutable.value.mode ?: "listen")
+        val stored = history[i]; val item = stored.copy(city = stored.city.copy(cityName = canonicalCities[stored.city.cityId]?.cityName ?: stored.city.cityName)); updateState { it.copy(playing = item, historyIndex = i, blocked = false) }; repository.event("post_selected", mutable.value.mode ?: "listen", "history"); play(item, mutable.value.mode ?: "listen")
     }
     fun ended(id: String) { if (endedPost == id || mutable.value.playing?.post?.id != id) return; repository.event("playback_completed", mutable.value.mode ?: "listen"); endedPost = id; next() }
     fun started(id: String, mode: String) { if (auth.currentUser?.uid == uid && !fullAccess && mutable.value.playing?.post?.id == id) updateState { it.copy(preview = repository.record(mode, id, it.preview)) } }
     fun stop(pausePlayer: Boolean = true, error: String? = null) {
+        mutable.value.mode?.let { repository.event("session_stopped", it, durationMs = sessionStartedAtMs?.let { start -> android.os.SystemClock.elapsedRealtime() - start }) }
+        sessionStartedAtMs = null
         directoryJob?.cancel()
         directoryJob = null
         prefetchedPost?.second?.cancel()

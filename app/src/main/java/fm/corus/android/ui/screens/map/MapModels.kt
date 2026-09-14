@@ -27,6 +27,8 @@ data class MapCitySummary(val city: MapCity, val facets: Map<String, MapFacet>, 
 data class MapPeoplePage(val people: List<MapPerson>, val cursor: String?, val reachedEnd: Boolean = cursor == null)
 data class MapChatStatus(val threadId: String, val member: Boolean, val canJoin: Boolean)
 data class MapPlaybackItem(val city: MapCity, val post: CymbalPost)
+internal enum class MapPersonRowLayout { USERNAME_ONLY, LATEST_POST }
+internal fun mapPersonRowLayout(hasPost: Boolean) = if (hasPost) MapPersonRowLayout.LATEST_POST else MapPersonRowLayout.USERNAME_ONLY
 data class MapPreviewUsage(val listen: Set<String> = emptySet(), val watch: Set<String> = emptySet()) {
     fun ids(mode: String) = if (mode == "listen") listen else watch
     fun remaining(mode: String) = (10 - ids(mode).size).coerceAtLeast(0)

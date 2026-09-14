@@ -27,6 +27,8 @@ data class CymbalPost(
     val repostedFromUserId: String? = null,
     val repostedFromUsername: String? = null,
     val repostCount: Int = 0,
+    /** Number of times this post has been sent through Corus. */
+    val sendCount: Int = 0,
     /** Number of users who have this post saved. Denormalized aggregate kept in
      *  sync server-side by the onSaveCreated / onSaveDeleted triggers. The
      *  who-saved list stays private; only this count is exposed. Server-only —
@@ -302,6 +304,7 @@ data class CymbalPost(
                 repostedFromUserId = data["repostedFromUserId"] as? String,
                 repostedFromUsername = data["repostedFromUsername"] as? String,
                 repostCount = (data["repostCount"] as? Number)?.toInt() ?: 0,
+                sendCount = ((data["sendCount"] as? Number)?.toInt() ?: 0).coerceAtLeast(0),
                 saveCount = ((data["saveCount"] as? Number)?.toInt() ?: 0).coerceAtLeast(0),
                 injectedByHashtag = (data["injectedByHashtag"] as? String)?.ifEmpty { null },
                 mediaType = mediaType,

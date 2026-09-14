@@ -4,6 +4,7 @@ package fm.corus.android.domain
 object MapPlaybackOwner {
     data class Owner(val trackId: String, val next: () -> Unit, val started: () -> Unit, val abandoned: () -> Unit = {}, val previous: (() -> Unit)? = null)
     var current: Owner? = null
+    fun canAdvance(trackId: String?): Boolean = current?.trackId == trackId
     fun yield() { val owner = current; current = null; owner?.abandoned?.invoke() }
     fun previous(trackId: String?): Boolean { val owner = current ?: return false; if (owner.trackId != trackId || owner.previous == null) return false; owner.previous.invoke(); return true }
     fun advance(trackId: String?): Boolean { val owner = current ?: return false; if (owner.trackId != trackId) return false; owner.next(); return true }

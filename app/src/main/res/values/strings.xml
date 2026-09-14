@@ -1249,13 +1249,15 @@
     <string name="playlist_trial_suffix_hashtag">Club members can generate anytime.</string>
     <string name="club_subtitle_settings">Support Corus. Get Perks.</string>
     <string name="club_feature_unlimited">Unlimited posts</string>
-    <string name="club_feature_unlimited_saves">Unlimited saves</string>
+<string name="club_feature_unlimited_saves">Unlimited saves</string>
+    <string name="club_feature_unlimited_playlists">Export unlimited playlists</string>
     <string name="club_feature_favorites">Unlimited favorites</string>
     <string name="club_feature_verified">Custom profile badge</string>
     <string name="club_feature_customization">Profile customization</string>
     <string name="club_feature_playlists">Export playlists</string>
     <string name="club_feature_support">Keep Corus ad-free</string>
     <string name="club_feature_taste_matches">Taste Matches feed</string>
+    <string name="club_feature_unlock_all_taste_matches">Unlock all Taste Matches</string>
     <string name="club_disclaimer">Corus is proudly ad-free. Club members help keep Corus independent and sustainable.</string>
     <!-- Taste Matches cold-start (premium feed, not enough posts yet) -->
     <string name="feed_taste_matches_coldstart_title">What are 3 songs or films you love?</string>
@@ -1535,7 +1537,7 @@
     <string name="taste_discovery_locked_card_label">View all your taste matches</string>
     <string name="taste_discovery_locked_card_trial">Free trial available</string>
     <string name="club_onboarding_title">Get the most out of Corus</string>
-    <string name="club_onboarding_subtitle">Discover from real people you match with. Support an independent community.</string>
+    <string name="club_onboarding_subtitle">Unlock every feature and connect with people who share your taste.</string>
     <string name="club_onboarding_skip">Maybe later</string>
     <string name="club_onboarding_renewal">Auto-renews at the selected plan price after any free trial. Cancel anytime.</string>
     <string name="club_onboarding_yearly_billed">Billed at %1$s/yr.</string>
@@ -1548,4 +1550,6 @@
     <string name="map_all_communities">All communities</string>
     <string name="map_unavailable">Apple Maps is unavailable. Please try again later.</string>
     <string name="map_finding_city">Finding your city</string>
+    <string name="map_listen_mode_preview">Listen mode preview · Explore Corus Club</string>
+    <string name="map_watch_mode_preview">Watch mode preview · Explore Corus Club</string>
 </resources>

@@ -817,20 +817,6 @@ class FeedViewModel @Inject constructor(
         // Auto-retry the feed when the network returns if the previous load
         // failed and the screen has no posts to show. Mirrors iOS FeedView's
         // reconnect handler.
-        // DEBUG Settings toggle: overlay the expired-trial lock on Matches
-        // without needing an expired free account. Keep fetched posts so the
-        // frosted peek still renders.
-        viewModelScope.launch {
-            remoteConfig.forceTasteMatchesPaywallFlow.collect { force ->
-                if (feedMode.value != "tasteMatches") return@collect
-                if (force) {
-                    _tasteMatchesGate.value = TasteMatchesGate.Paywall
-                    subscriptionRepository.fetchOfferings()
-                } else if (_tasteMatchesGate.value is TasteMatchesGate.Paywall) {
-                    loadFeed(refresh = true)
-                }
-            }
-        }
         viewModelScope.launch {
             isConnected.collect { connected ->
                 if (connected && _lastLoadFailed.value && _posts.value.isEmpty()) {
@@ -1067,10 +1053,6 @@ class FeedViewModel @Inject constructor(
                         _isLoading.value = false
                         _isRefreshing.value = false
                         _hasLoaded.value = true
-                        if (remoteConfig.forceTasteMatchesPaywall) {
-                            _tasteMatchesGate.value = TasteMatchesGate.Paywall
-                            subscriptionRepository.fetchOfferings()
-                        }
                         return
                     }
                     // Un-gated (served) response: mirror the free-trial banner
@@ -1078,12 +1060,6 @@ class FeedViewModel @Inject constructor(
                     // viewers, RC off, or once the trial expired (that path
                     // returns gated:"paywall" above instead).
                     _tasteMatchesTrial.value = forYouPage.trial
-                    // DEBUG preview: testers/Club still get a served feed —
-                    // keep those posts under the frosted lock.
-                    if (remoteConfig.forceTasteMatchesPaywall) {
-                        _tasteMatchesGate.value = TasteMatchesGate.Paywall
-                        subscriptionRepository.fetchOfferings()
-                    }
                 }
                 if (forYouPage.sessionToken != (forYouSessionToken ?: "") && forYouPage.sessionToken.isNotEmpty()) {
                     forYouSessionToken = forYouPage.sessionToken

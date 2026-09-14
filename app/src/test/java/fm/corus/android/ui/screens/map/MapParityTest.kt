@@ -77,6 +77,8 @@ class MapParityTest {
     @Test fun transportOwnershipDoesNotInterceptAnotherTrack() {
         var advances = 0; var abandoned = false
         MapPlaybackOwner.current = MapPlaybackOwner.Owner("map-track", { advances++ }, {}, { abandoned = true })
+        assertTrue(MapPlaybackOwner.canAdvance("map-track"))
+        assertFalse(MapPlaybackOwner.canAdvance("other-track"))
         assertFalse(MapPlaybackOwner.advance("other-track"))
         assertTrue(MapPlaybackOwner.advance("map-track")); assertEquals(1, advances)
         MapPlaybackOwner.yield(); assertTrue(abandoned); assertNull(MapPlaybackOwner.current)
