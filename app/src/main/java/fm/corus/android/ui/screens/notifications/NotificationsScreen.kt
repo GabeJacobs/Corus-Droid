@@ -63,6 +63,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.PopupProperties
 import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
@@ -506,10 +507,12 @@ fun NotificationsScreen(
                 gifSupport = viewModel.gifSupport,
                 showAttachmentMenu = showReplyAttachmentMenu,
                 onAttachmentClick = {
+                    // Arm this before opening either the type menu or a picker:
+                    // presenting either can hide the IME in the same frame.
+                    preserveReplyForAttachmentFlow = true
                     if (viewModel.gifSupport) {
                         showReplyAttachmentMenu = true
                     } else {
-                        preserveReplyForAttachmentFlow = true
                         replyPickerInitialMode = PickerMode.SONG
                         showReplySongFilmPicker = true
                     }
@@ -1221,6 +1224,9 @@ private fun InlineReplyBar(
                     DropdownMenu(
                         expanded = showAttachmentMenu,
                         onDismissRequest = onAttachmentMenuDismiss,
+                        // Match iOS Menu: opening attachment choices must not
+                        // steal focus from the reply field or dismiss the IME.
+                        properties = PopupProperties(focusable = false),
                     ) {
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.comment_attachment_gif)) },
