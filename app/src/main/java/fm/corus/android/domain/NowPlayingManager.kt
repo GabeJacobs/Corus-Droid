@@ -1786,6 +1786,12 @@ class NowPlayingManager @Inject constructor(
         this.loadMoreQueue = null
         restoreUserQueuedUpNext(preserved)
         playInternal(track)
+        // Map playback owns Next outside the one-item audio queue. playInternal
+        // publishes the new NowPlayingState after it has checked hasNext, so
+        // refresh after its track ID is current and the map owner can match.
+        // This keeps Mini Player Next enabled for a one-person city’s older
+        // posts, just as it is on iOS.
+        publishHasNextIfChanged()
     }
 
     /**

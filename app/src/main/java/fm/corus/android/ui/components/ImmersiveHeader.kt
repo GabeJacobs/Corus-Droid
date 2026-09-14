@@ -26,7 +26,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -183,6 +185,13 @@ internal fun Modifier.extendIntoStatusBar(extraTopPx: Int): Modifier =
     }
 
 val LocalBottomBarHeight = compositionLocalOf { 0.dp }
+
+/**
+ * Native iOS sheets sit above the app's persistent player and tab chrome.
+ * Map owns the city-directory sheet, while MainTabScreen owns that chrome, so
+ * this shared presentation state lets the chrome yield while the sheet is up.
+ */
+val LocalMapCitySheetPresented = compositionLocalOf<MutableState<Boolean>> { mutableStateOf(false) }
 
 fun liftAboveReservedChrome(ime: Dp, reservedChrome: Dp): Dp =
     (ime - reservedChrome).coerceAtLeast(0.dp)

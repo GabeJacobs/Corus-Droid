@@ -1,6 +1,8 @@
 package fm.corus.android.ui.components
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.border
@@ -17,19 +19,37 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import fm.corus.android.ui.theme.CorusFont
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.R
 import fm.corus.android.data.model.TasteDiscoveryAccess
+import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.ui.theme.CorusColors
+import javax.inject.Inject
 
 @Composable
-fun TasteDiscoveryClubCard(onClick: () -> Unit, modifier: Modifier = Modifier, access: TasteDiscoveryAccess = TasteDiscoveryAccess()) {
-    Box(modifier.clip(RoundedCornerShape(20.dp)).border(0.5.dp, CorusColors.Secondary.copy(alpha = 0.15f), RoundedCornerShape(20.dp))) {
+fun TasteDiscoveryClubCard(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    access: TasteDiscoveryAccess = TasteDiscoveryAccess(),
+    viewModel: TasteDiscoveryClubCardViewModel = hiltViewModel(),
+) {
+    val hasIntroTrial by viewModel.hasIntroTrial.collectAsState()
+    val cardShape = RoundedCornerShape(20.dp)
+    Box(
+        modifier
+            .shadow(elevation = 2.dp, shape = cardShape, ambientColor = Color.Black.copy(alpha = 0.04f))
+            .clip(cardShape)
+            .border(0.5.dp, CorusColors.Secondary.copy(alpha = 0.15f), cardShape),
+    ) {
         Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(8.dp).blur(6.dp).clearAndSetSemantics { },
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Column(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(12.dp)), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -61,9 +81,28 @@ fun TasteDiscoveryClubCard(onClick: () -> Unit, modifier: Modifier = Modifier, a
             }
             Text(stringResource(R.string.taste_discovery_locked_card_label),
                 style = CorusFont.buttonSmall, textAlign = TextAlign.Center)
+            if (hasIntroTrial) {
+                Text(
+                    stringResource(R.string.taste_discovery_locked_card_trial),
+                    color = CorusColors.Secondary,
+                    style = CorusFont.captionMedium,
+                    textAlign = TextAlign.Center,
+                )
+            }
             }
             Text(stringResource(R.string.taste_discovery_cta), color = Color.White, style = CorusFont.buttonSmall, textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().height(32.dp).background(CorusColors.Accent, RoundedCornerShape(50)).wrapContentHeight(Alignment.CenterVertically))
         }
+    }
+}
+
+@HiltViewModel
+class TasteDiscoveryClubCardViewModel @Inject constructor(
+    subscriptionRepository: SubscriptionRepository,
+) : ViewModel() {
+    val hasIntroTrial = subscriptionRepository.hasClubIntroTrial
+
+    init {
+        subscriptionRepository.fetchOfferings()
     }
 }

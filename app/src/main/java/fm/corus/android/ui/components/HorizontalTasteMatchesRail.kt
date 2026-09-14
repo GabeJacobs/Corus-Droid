@@ -192,7 +192,13 @@ fun HorizontalTasteMatchesRail(
                     )
                 }
                 if (discovery.locked) {
-                    item("club") { TasteDiscoveryClubCard(access = discovery, onClick = { showPaywall = true }, modifier = Modifier.width(cardWidth)) }
+                    item("club") {
+                        TasteDiscoveryClubCard(
+                            access = discovery,
+                            onClick = { showPaywall = true },
+                            modifier = Modifier.width(cardWidth),
+                        )
+                    }
                 }
                 if (isLoading) {
                     item("loading") {

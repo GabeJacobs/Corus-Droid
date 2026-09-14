@@ -23,7 +23,11 @@ internal fun canInviteMapCluster(
     state: MapScreenState, city: MapCity, page: MapPeoplePage?,
     loading: Boolean, failed: Boolean, viewerId: String?,
 ): Boolean {
-    if (viewerId.isNullOrBlank() || state.user?.id != viewerId || !state.ownPresenceReady ||
+    // The map may finish its own-presence and people-page reads before the
+    // independent profile request fills `state.user`. The presence/page checks
+    // below are the authoritative proof that this is the viewer's own, fully
+    // loaded community; do not hide the invite action during that race.
+    if (viewerId.isNullOrBlank() || !state.ownPresenceReady ||
         state.ownAudience !in listOf("everyone", "following") || state.ownCity?.cityId != city.cityId ||
         state.loading || state.error != null || loading || failed || page == null ||
         page.cursor != null || !page.reachedEnd || page.people.isEmpty()) return false

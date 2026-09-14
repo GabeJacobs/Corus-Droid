@@ -71,6 +71,7 @@ import fm.corus.android.ui.components.FullScreenPhotoViewer
 import fm.corus.android.ui.components.ChromeLoadingHud
 import fm.corus.android.ui.components.MiniPlayerBar
 import fm.corus.android.ui.components.LocalBottomBarHeight
+import fm.corus.android.ui.components.LocalMapCitySheetPresented
 import fm.corus.android.ui.components.LocalContentHaze
 import fm.corus.android.ui.components.blockTouchPassthrough
 import dev.chrisbanes.haze.HazeState
@@ -404,6 +405,8 @@ fun MainTabScreen(
     // Seed with a typical bar height so park math is sane before first measure.
     var tabBarHeightPx by remember { mutableStateOf(with(density) { 90.dp.toPx() }) }
     var miniHeightPx by remember { mutableStateOf(with(density) { CorusSpacing.miniPlayerMinHeight.toPx() }) }
+    val mapCitySheetPresented = remember { mutableStateOf(false) }
+    val citySheetOpen by mapCitySheetPresented
 
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
     val isHydratingExternalSpotify by viewModel.nowPlayingManager.isHydratingExternalSpotify.collectAsState()
@@ -424,7 +427,7 @@ fun MainTabScreen(
 
     val livePlayerExpansion = if (showsMiniPlayer) playerExpansion.liveExpansion() else 0f
     val bottomChromeHeight = with(density) {
-        tabBarHeightPx.toDp() +
+        if (citySheetOpen) 0.dp else tabBarHeightPx.toDp() +
             if (showsMiniPlayer && playerSurfaceReady) miniHeightPx.toDp() else 0.dp
     }
 
@@ -456,6 +459,7 @@ fun MainTabScreen(
           CompositionLocalProvider(
               LocalBottomBarHeight provides
                   (if (FrostedBottomBar) bottomChromeHeight else 0.dp),
+              LocalMapCitySheetPresented provides mapCitySheetPresented,
               LocalContentHaze provides (if (FrostedBottomBar) bottomHaze else null),
           ) {
             // Keep all tab NavHosts alive but only show the selected one.
@@ -548,7 +552,7 @@ fun MainTabScreen(
     }
 
     // Expanding now-playing sheet (above tab content, below tab bar).
-    if (showsMiniPlayer) {
+    if (showsMiniPlayer && !citySheetOpen) {
         ExpandingPlayerHost(
             expansionState = playerExpansion,
             parkInsetPx = tabBarHeightPx.coerceAtLeast(1f),
@@ -747,7 +751,7 @@ fun MainTabScreen(
     }
 
     // Tab bar — topmost chrome when collapsed; slides off as the player expands.
-    Column(
+    if (!citySheetOpen) Column(
         modifier = Modifier
             .align(Alignment.BottomCenter)
             .fillMaxWidth()

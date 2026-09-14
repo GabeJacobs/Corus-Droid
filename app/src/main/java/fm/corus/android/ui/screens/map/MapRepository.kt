@@ -100,7 +100,13 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
     private fun person(d: Map<String, Any?>): MapPerson {
         val uid = d["uid"] as? String ?: ""
         val canonical = d["user"] as? Map<String, Any?>
-        return MapPerson(MapCity.decode(d), CymbalUser.fromMap(uid, canonical ?: d), (d["updatedAt"] as? Number)?.toLong() ?: 0)
+        return MapPerson(
+            city = MapCity.decode(d),
+            user = CymbalUser.fromMap(uid, canonical ?: d),
+            updatedAt = (d["updatedAt"] as? Number)?.toLong() ?: 0,
+            hasPlayableMusic = d["hasPlayableMusic"] as? Boolean,
+            latestPlayableTrackPostId = (d["latestPlayableTrackPostId"] as? String)?.takeIf(String::isNotBlank),
+        )
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -122,6 +128,12 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
     }
     @Suppress("UNCHECKED_CAST")
     suspend fun posts(userId: String, mode: String, beforeMs: Long? = null): List<CymbalPost> = (call("getProfilePosts", mapOf("userId" to userId, "pageSize" to 15, "beforeMs" to beforeMs, "mediaType" to if (mode == "listen") "track" else "movie"))["posts"] as? List<Map<String, Any?>>).orEmpty().map(CymbalPost::fromCloudData)
+    @Suppress("UNCHECKED_CAST")
+    suspend fun post(postId: String): CymbalPost? {
+        if (postId.isBlank()) return null
+        val data = call("getPostDetail", mapOf("postId" to postId))["post"] as? Map<String, Any?> ?: return null
+        return CymbalPost.fromCloudData(data)
+    }
     @Suppress("UNCHECKED_CAST")
     suspend fun latest(ids: List<String>): Map<String, CymbalPost?> = latestMutex.withLock {
         val revision = fm.corus.android.domain.MapPostChanges.revisions.value

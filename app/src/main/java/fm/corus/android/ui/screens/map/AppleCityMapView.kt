@@ -42,10 +42,13 @@ internal fun AppleCityMapView(
     modifier: Modifier = Modifier,
     onCity: (MapCity) -> Unit,
     focusRevision: Int = 0,
+    focusInVisibleMap: Boolean = false,
     citySheetOpen: Boolean = false,
     mapTopInsetFraction: Float = 0f,
-    citySheetHeightFraction: Float = .52f,
+    mapBottomOcclusionFraction: Float = .52f,
     showArtwork: Boolean = false,
+    playbackMode: String? = null,
+    playingUserId: String? = null,
     loadLatest: (suspend (List<String>) -> Map<String, fm.corus.android.data.model.CymbalPost?>)? = null,
 ) {
     val context = LocalContext.current
@@ -57,27 +60,29 @@ internal fun AppleCityMapView(
     val dark = LocalCorusDarkTheme.current
     val currentCities by rememberUpdatedState(cities)
     val currentOnCity by rememberUpdatedState(onCity)
+    val currentLoadLatest by rememberUpdatedState(loadLatest)
     var artwork by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     val focusedFaces = cities.firstOrNull { it.city.cityId == focus?.cityId }
         ?.facets?.get(filter)?.previews.orEmpty()
-        .let { stableMapFaces(emptyList(), it).take(3) }
+        .let { faces -> stableMapFaces(emptyList(), faces).sortedByDescending { it.user.id == playingUserId }.take(3) }
     val artworkKey = "${focus?.cityId}:${focusedFaces.joinToString { it.user.id }}"
-    LaunchedEffect(artworkKey, showArtwork, loadLatest) {
+    LaunchedEffect(artworkKey, showArtwork) {
         artwork = emptyMap()
-        if (!showArtwork || focus == null || focusedFaces.isEmpty() || loadLatest == null) return@LaunchedEffect
+        if (!showArtwork || focus == null || focusedFaces.isEmpty() || currentLoadLatest == null) return@LaunchedEffect
         // iOS waits briefly before raising a focused cluster, preventing a fan
         // from flashing while someone is panning between cities.
         kotlinx.coroutines.delay(250)
-        val posts = runCatching { loadLatest(focusedFaces.map { it.user.id }) }.getOrDefault(emptyMap())
+        val posts = runCatching { currentLoadLatest?.invoke(focusedFaces.map { it.user.id }).orEmpty() }.getOrDefault(emptyMap())
         artwork = focusedFaces.mapNotNull { person ->
             posts[person.user.id]?.displayImageURL?.let { person.user.id to it }
         }.toMap()
     }
-    val payload = JSONObject(appleMapPayload(cities, filter, dark, focus, artwork))
+    val payload = JSONObject(appleMapPayload(cities, filter, dark, focus, artwork, playbackMode, playingUserId))
         .put("focusRevision", focusRevision)
+        .put("focusInVisibleMap", focusInVisibleMap)
         .put("citySheetOpen", citySheetOpen)
         .put("mapTopInsetFraction", mapTopInsetFraction)
-        .put("citySheetHeightFraction", citySheetHeightFraction)
+        .put("mapBottomOcclusionFraction", mapBottomOcclusionFraction)
         .toString()
 
     AndroidView(
@@ -156,11 +161,13 @@ internal fun AppleCityMapView(
 }
 
 private fun appleMapPayload(
-    cities: List<MapCitySummary>, filter: String, dark: Boolean, focus: MapCity?, artwork: Map<String, String>,
+    cities: List<MapCitySummary>, filter: String, dark: Boolean, focus: MapCity?, artwork: Map<String, String>, playbackMode: String?, playingUserId: String?,
 ): String {
     val visible = cities.filter { (it.facets[filter]?.count ?: 0) > 0 }
     return JSONObject().apply {
         put("dark", dark)
+        put("playbackMode", playbackMode ?: "")
+        put("playingUserId", playingUserId ?: "")
         put("focus", focus?.let { city -> JSONObject().apply {
             put("id", city.cityId)
             put("latitude", city.latitude)
@@ -178,6 +185,7 @@ private fun appleMapPayload(
                     put("faces", JSONArray().apply {
                         stableMapFaces(emptyList(), facet.previews).forEach { person ->
                             put(JSONObject().apply {
+                                put("id", person.user.id)
                                 put("name", person.user.displayName.ifBlank { person.user.username })
                                 put("avatar", person.user.avatarThumbURL ?: person.user.avatarURL ?: "")
                                 put("artwork", artwork[person.user.id] ?: "")
@@ -208,25 +216,34 @@ private fun appleMapHtml(token: String, compact: Boolean, fontData: String): Str
           .face + .face{margin-left:-12px}.face img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:contain;object-position:center;background:#d7e4f6}
           .art-fan{position:absolute;bottom:80px;left:50%;width:136px;height:66px;pointer-events:none;transform:translateX(-50%)}
           .art{position:absolute;left:45px;bottom:0;width:46px;height:46px;border-radius:11px;object-fit:cover;box-shadow:0 6px 10px rgba(0,0,0,.35);opacity:0;transform:translate(0,38px) scale(.45) rotate(0deg);transition:opacity .55s cubic-bezier(.2,.8,.25,1),transform .55s cubic-bezier(.2,.8,.25,1)}
+          /* The active Listen Mode pin is the iOS treatment: one larger
+             currently-playing cover over the avatar cluster and a blue pill. */
+          .art-fan.listening{bottom:91px}.art-fan.listening .art{left:38px;width:60px;height:60px;border-radius:12px}
           .art-fan.raised .art{opacity:1}
           .art-fan.raised .art{transform:translate(var(--fan-x),var(--fan-y)) scale(1) rotate(var(--fan-r))}
           .art-1{transition-delay:.055s}.art-2{transition-delay:.11s}
           .count{position:absolute;right:-15px;top:-9px;width:23px;height:23px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#6595ef;color:white;font-size:13px;line-height:23px;font-weight:800;font-variation-settings:"wght" 800;box-shadow:0 1px 3px #0002}
           .label{margin-top:6px;padding:5px 14px;border-radius:18px;background:#fff;color:#17202b;font-size:15px;line-height:18px;font-weight:600;font-variation-settings:"wght" 600;white-space:nowrap;box-shadow:0 2px 8px #0002}
+          .label.listening{display:flex;align-items:center;gap:7px;background:#6595ef;color:#fff}.label.listening svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
           .dark .label{background:#22252b;color:#fff}.dark .face{border-color:#22252b}
+          /* iOS uses smaller, tighter markers in the Search map preview
+             (`MapCityClusterPin(faceSize: 28)`). The full map keeps the
+             larger treatment above. */
+          .compact .faces{height:28px;min-width:28px}.compact .face{width:28px;height:28px;font-size:10px}.compact .face + .face{margin-left:-10px}.compact .count{right:-12px;top:-8px;min-width:20px;height:20px;font-size:11px;line-height:20px}.compact .label{margin-top:5px;padding:4px 10px;border-radius:16px;font-size:14px;line-height:17px}
         </style>
         <script async crossorigin src="https://cdn.apple-mapkit.com/mk/6.x.x/mapkit.core.js" data-callback="initMapKitLoaderV2" data-token="$escapedToken" data-libraries="map,annotations"></script>
         </head><body class="${if (compact) "compact" else ""}"><div id="map"></div><script>
         let map, kit, annotations=[];
         const interactive=$gestures;
+        const compact=${if (compact) "true" else "false"};
         function sizeMap(){const h=window.innerHeight||1;for(const el of [document.documentElement,document.body,document.getElementById('map')])el.style.height=h+'px';if(map&&map.region)map.region=map.region}window.addEventListener('resize',sizeMap);
         function initMapKitLoaderV2(){ sizeMap(); mapkit.load(['map','annotations']).then(function(k){ kit=k; map=new kit.Map('map',{mapType:kit.MapType.Standard,colorScheme:kit.ColorScheme.Light,showsPointsOfInterest:false,showsUserLocation:false,isScrollEnabled:interactive,isZoomEnabled:interactive,isRotationEnabled:false,showsZoomControl:false,showsMapTypeControl:false,region:{center:{latitude:38,longitude:-84},span:{latitudeDelta:45,longitudeDelta:70}}}); sizeMap(); window.CorusAppleMap.ready=true; window.CorusAppleMap.apply(); }).catch(function(){ document.body.dataset.error='true'; }); }
         // MapKit anchors custom annotations at their bottom center. The compact
         // marker is 68px tall plus its 9px badge overhang: a negative anchor
         // offset moves it down half
         // that visible height so the whole pin, not its bottom, is centered.
-        function marker(city){const b=document.createElement('button');b.className='city';b.type='button';b.onclick=function(){window.CorusAndroidMap.selectCity(city.id)};const faces=document.createElement('span');faces.className='faces';city.faces.forEach(function(person){const face=document.createElement('span');face.className='face';face.textContent=(person.name||'?').slice(0,1);if(person.avatar){const img=document.createElement('img');img.alt='';img.src=person.avatar;img.onerror=function(){img.remove()};face.appendChild(img)}faces.appendChild(face)});const count=document.createElement('span');count.className='count';count.textContent=city.count.toLocaleString();const badgeSize=Math.max(23,count.textContent.length*8+7);count.style.width=badgeSize+"px";count.style.height=badgeSize+"px";faces.appendChild(count);const label=document.createElement('span');label.className='label';label.textContent=city.name;const focused=interactive&&city.id===window.CorusAppleMap.data.focus?.id;const sheetFocused=focused&&window.CorusAppleMap.data.citySheetOpen;const arts=city.faces.filter(function(p){return p.artwork});if(focused&&arts.length){const fan=document.createElement('span');fan.className='art-fan';arts.slice(0,3).forEach(function(person,index){const spread=index-(arts.length-1)/2;const art=document.createElement('img');art.className='art';art.alt='';art.src=person.artwork;art.style.setProperty('--fan-x',(spread*36)+'px');art.style.setProperty('--fan-y',(Math.abs(spread)*10-4)+'px');art.style.setProperty('--fan-r',(spread*19)+'deg');fan.appendChild(art)});b.appendChild(fan);requestAnimationFrame(function(){void fan.offsetWidth;requestAnimationFrame(function(){setTimeout(function(){fan.classList.add('raised')},160)})})}b.append(faces,label);return new kit.Annotation({latitude:city.latitude,longitude:city.longitude},function(){return b},{calloutEnabled:false,animates:false,/* MapKit anchors at the label's baseline; lift its anchor so the visible avatar centers in the exposed map band. */anchorOffset:new DOMPoint(0,sheetFocused?-62:(interactive?0:-38.5))});}
-        window.CorusAppleMap={ready:false,data:{cities:[],dark:false,focus:null},lastFocus:null,update:function(data){this.data=data;this.apply()},apply:function(){if(!this.ready||!map)return;sizeMap();document.body.classList.toggle('dark',this.data.dark);annotations.forEach(function(a){map.removeAnnotation(a)});annotations=this.data.cities.map(marker);annotations.forEach(function(a){map.addAnnotation(a)});const focus=this.data.focus;if(focus&&this.lastFocus!==focus.id+":"+this.data.focusRevision){const animate=this.lastFocus!==null;this.lastFocus=focus.id+":"+this.data.focusRevision;const selected=this.data.citySheetOpen&&interactive;const latitudeDelta=selected?.6:(interactive?7:22);const longitudeDelta=selected?latitudeDelta*window.innerWidth/window.innerHeight/Math.max(.15,Math.cos(focus.latitude*Math.PI/180)):(interactive?10:34);/* Center the marker in the actual exposed band: below the Compose header and above the sheet. */const top=Math.max(0,Math.min(.8,this.data.mapTopInsetFraction||0));const sheet=Math.max(0,Math.min(.95,this.data.citySheetHeightFraction||.52));const offset=(sheet-top)/2;map.setRegionAnimated({center:{latitude:focus.latitude-(selected?latitudeDelta*offset:0),longitude:focus.longitude},span:{latitudeDelta:latitudeDelta,longitudeDelta:longitudeDelta}},animate)}}};
+        function marker(city){const b=document.createElement('button');b.className='city';b.type='button';b.onclick=function(){window.CorusAndroidMap.selectCity(city.id)};const faces=document.createElement('span');faces.className='faces';city.faces.forEach(function(person){const face=document.createElement('span');face.className='face';face.textContent=(person.name||'?').slice(0,1);if(person.avatar){const img=document.createElement('img');img.alt='';img.src=person.avatar;img.onerror=function(){img.remove()};face.appendChild(img)}faces.appendChild(face)});const count=document.createElement('span');count.className='count';count.textContent=city.count.toLocaleString();const badgeSize=Math.max(compact?20:23,count.textContent.length*8+(compact?6:7));count.style.width=badgeSize+"px";count.style.height=badgeSize+"px";faces.appendChild(count);const focused=interactive&&city.id===window.CorusAppleMap.data.focus?.id;const listening=focused&&window.CorusAppleMap.data.playbackMode==='listen';const sheetFocused=focused&&window.CorusAppleMap.data.citySheetOpen;const label=document.createElement('span');label.className='label'+(listening?' listening':'');if(listening){label.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v-3a8 8 0 0 1 16 0v3M4 14h3v5H4zM20 14h-3v5h3z"/></svg><span>'+city.name+'</span>'}else{label.textContent=city.name}const arts=city.faces.filter(function(p){return p.artwork&&(!listening||p.id===window.CorusAppleMap.data.playingUserId)});if(focused&&arts.length){const fan=document.createElement('span');fan.className='art-fan'+(listening?' listening':'');arts.slice(0,listening?1:3).forEach(function(person,index){const spread=index-(arts.length-1)/2;const art=document.createElement('img');art.className='art';art.alt='';art.src=person.artwork;art.style.setProperty('--fan-x',(spread*36)+'px');art.style.setProperty('--fan-y',(Math.abs(spread)*10-4)+'px');art.style.setProperty('--fan-r',(spread*19)+'deg');fan.appendChild(art)});b.appendChild(fan);requestAnimationFrame(function(){void fan.offsetWidth;requestAnimationFrame(function(){setTimeout(function(){fan.classList.add('raised')},160)})})}b.append(faces,label);/* MapKit anchors annotations at their bottom edge. Shift the focused marker down by its full visual stack so the visible cluster — not its label baseline — lands at map center. */const markerOffset=sheetFocused?-62:(focused?-88:(interactive?0:-38.5));return new kit.Annotation({latitude:city.latitude,longitude:city.longitude},function(){return b},{calloutEnabled:false,animates:false,anchorOffset:new DOMPoint(0,markerOffset)});}
+        window.CorusAppleMap={ready:false,data:{cities:[],dark:false,focus:null},lastFocus:null,lastMarkerKey:null,update:function(data){this.data=data;this.apply()},apply:function(){if(!this.ready||!map)return;sizeMap();document.body.classList.toggle('dark',this.data.dark);/* The Android surface must follow Corus' resolved theme just as SwiftUI's Map does. The old fixed Light scheme made a dark Android screen contain a bright map. */map.colorScheme=this.data.dark?kit.ColorScheme.Dark:kit.ColorScheme.Light;/* Opening a city sheet changes camera framing, not the marker. Recreating its DOM would discard decoded artwork and replay the fan animation. */const markerKey=JSON.stringify({cities:this.data.cities,dark:this.data.dark,focus:this.data.focus?.id||'',playbackMode:this.data.playbackMode||'',playingUserId:this.data.playingUserId||''});if(this.lastMarkerKey!==markerKey){this.lastMarkerKey=markerKey;annotations.forEach(function(a){map.removeAnnotation(a)});annotations=this.data.cities.map(marker);annotations.forEach(function(a){map.addAnnotation(a)})}const focus=this.data.focus;const top=Math.max(0,Math.min(.8,this.data.mapTopInsetFraction||0));const bottom=Math.max(0,Math.min(.95,this.data.mapBottomOcclusionFraction||0));const focusKey=focus&&focus.id+":"+this.data.focusRevision+":"+top.toFixed(4)+":"+bottom.toFixed(4);if(focus&&this.lastFocus!==focusKey){const animate=this.lastFocus!==null;this.lastFocus=focusKey;const visibleFocus=this.data.focusInVisibleMap&&interactive;const latitudeDelta=visibleFocus?.6:(interactive?7:22);const longitudeDelta=visibleFocus?latitudeDelta*window.innerWidth/window.innerHeight/Math.max(.15,Math.cos(focus.latitude*Math.PI/180)):(interactive?10:34);/* Center the cluster in the map band that remains visible between the Compose header and either the city sheet or listening card. Geometry is part of the camera key because the listening card is measured after its first frame. */const offset=(bottom-top)/2;map.setRegionAnimated({center:{latitude:focus.latitude-(visibleFocus?latitudeDelta*offset:0),longitude:focus.longitude},span:{latitudeDelta:latitudeDelta,longitudeDelta:longitudeDelta}},animate)}}};
         </script></body></html>
     """.trimIndent()
 }

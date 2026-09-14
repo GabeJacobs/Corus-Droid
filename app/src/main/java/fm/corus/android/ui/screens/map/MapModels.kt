@@ -9,7 +9,19 @@ data class MapCity(val cityId: String, val cityName: String, val regionName: Str
         fun decode(d: Map<String, Any?>) = MapCity(d["cityId"] as? String ?: "", d["cityName"] as? String ?: "", d["regionName"] as? String ?: "", d["countryCode"] as? String ?: "", (d["latitude"] as? Number)?.toDouble() ?: 0.0, (d["longitude"] as? Number)?.toDouble() ?: 0.0)
     }
 }
-data class MapPerson(val city: MapCity, val user: CymbalUser, val updatedAt: Long = 0)
+/**
+ * A city resident as returned by the map directory. The listening fields are
+ * deliberately part of this compact projection: the backend maintains the
+ * newest playable track pointer when a person posts, so Map can begin from
+ * the same post the iOS session does without re-querying profile history.
+ */
+data class MapPerson(
+    val city: MapCity,
+    val user: CymbalUser,
+    val updatedAt: Long = 0,
+    val hasPlayableMusic: Boolean? = null,
+    val latestPlayableTrackPostId: String? = null,
+)
 data class MapFacet(val count: Int, val previews: List<MapPerson>, val includesViewer: Boolean = false)
 data class MapCitySummary(val city: MapCity, val facets: Map<String, MapFacet>, val parentCommunity: MapCity? = null, val subdivisions: List<MapCity> = emptyList())
 data class MapPeoplePage(val people: List<MapPerson>, val cursor: String?, val reachedEnd: Boolean = cursor == null)

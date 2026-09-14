@@ -1532,7 +1532,8 @@
     <string name="taste_discovery_perk">See all Taste Matches</string>
     <plurals name="taste_discovery_remaining"><item quantity="one">You have %d more match</item><item quantity="other">You have %d more matches</item></plurals>
     <string name="taste_discovery_card_subtitle">See them all with Corus Club.</string>
-    <string name="taste_discovery_locked_card_label">View all your matches</string>
+    <string name="taste_discovery_locked_card_label">View all your taste matches</string>
+    <string name="taste_discovery_locked_card_trial">Free trial available</string>
     <string name="club_onboarding_title">Get the most out of Corus</string>
     <string name="club_onboarding_subtitle">Discover from real people you match with. Support an independent community.</string>
     <string name="club_onboarding_skip">Maybe later</string>

@@ -2,20 +2,27 @@ package fm.corus.android.ui.screens.map
 
 import fm.corus.android.ui.components.parityCopy
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -36,21 +43,88 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
             model.directoryScrollIndex = index; model.directoryScrollOffset = offset
         }
     }
-    LazyColumn(state = listState, contentPadding = PaddingValues(16.dp)) {
-        item { MapCommunityPicker(state.cities, state.selectedCommunityId, model::community) }
-        item { OutlinedTextField(search, { search = it }, placeholder = { Text(parityCopy("Search cities or countries")) }, modifier = Modifier.fillMaxWidth()) }
+    LazyColumn(
+        state = listState,
+        contentPadding = PaddingValues(start = 16.dp, top = 0.dp, end = 16.dp, bottom = 16.dp),
+    ) {
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(CorusColors.CardBackground, RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.Default.Search,
+                    contentDescription = "Search",
+                    tint = CorusColors.Secondary,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Box(Modifier.weight(1f)) {
+                    if (search.isEmpty()) {
+                        Text(
+                            parityCopy("Search cities or countries"),
+                            style = CorusFont.body,
+                            color = CorusColors.Tertiary,
+                        )
+                    }
+                    BasicTextField(
+                        value = search,
+                        onValueChange = { search = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                        singleLine = true,
+                        cursorBrush = SolidColor(CorusColors.Accent),
+                    )
+                }
+                if (search.isNotEmpty()) {
+                    IconButton(onClick = { search = "" }, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.Close, "Clear search", tint = CorusColors.Tertiary, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+        }
         filtered.forEach { summary ->
             val city = summary.city; val closed = city.cityId in collapsed
             item(key = "header:${city.cityId}") {
                 Row(Modifier.fillMaxWidth().clickable { collapsed = ArrayList(if (closed) collapsed - city.cityId else collapsed + city.cityId) }.padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text(city.cityName, style = CorusFont.bodyMedium); Text("${city.regionName} · ${city.countryCode}", style = CorusFont.caption, color = CorusColors.Secondary) }
-                    Text("${summary.facets[state.filter]?.count ?: 0}", color = CorusColors.Secondary)
+                    Column(Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(city.cityName, style = CorusFont.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Surface(color = CorusColors.CardBackground, shape = CircleShape) {
+                                Text(
+                                    "${summary.facets[state.filter]?.count ?: 0}",
+                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                                    style = CorusFont.caption,
+                                    color = CorusColors.Secondary,
+                                )
+                            }
+                        }
+                        Text("${city.regionName} · ${city.countryCode}", style = CorusFont.caption, color = CorusColors.Secondary)
+                    }
                     run {
                         var chat by remember(city.cityId, state.currentDeviceCityId) { mutableStateOf<MapChatStatus?>(null) }
                         var loading by remember(city.cityId) { mutableStateOf(true) }
                         LaunchedEffect(city.cityId, state.currentDeviceCityId) { loading=true; chat=null; try { chat = model.repository.chat(city.cityId, state.currentDeviceCityId) } catch(e: Exception) { if(e is kotlinx.coroutines.CancellationException) throw e } finally { loading=false } }
                         if(loading) CircularProgressIndicator(Modifier.padding(horizontal=8.dp).size(20.dp))
-                        else chat?.takeIf { it.member || it.canJoin }?.let { value -> FilledTonalButton(onClick = { onChat(city,value) }, contentPadding = PaddingValues(horizontal=10.dp,vertical=0.dp), modifier=Modifier.padding(start=8.dp)) { Text(parityCopy(if(value.member) "Open chat" else "Join chat"), style=CorusFont.caption) } }
+                        else chat?.takeIf { it.member || it.canJoin }?.let { value ->
+                            Button(
+                                onClick = { onChat(city, value) },
+                                modifier = Modifier.padding(start = 8.dp),
+                                shape = CircleShape,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = CorusColors.Accent,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                                ),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                            ) {
+                                Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(7.dp))
+                                Text(parityCopy(if (value.member) "Open chat" else "Join chat"), style = CorusFont.caption)
+                            }
+                        }
                     }
                     Icon(if (closed) Icons.Default.ChevronRight else Icons.Default.ExpandMore, if (closed) "Expand city" else "Collapse city")
                 }

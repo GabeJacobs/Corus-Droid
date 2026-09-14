@@ -919,21 +919,13 @@ private fun ThreadRow(
         Spacer(modifier = Modifier.width(CorusSpacing.md))
 
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = title,
-                    style = CorusFont.username.copy(fontSize = 17.sp),
-                    color = CorusColors.Text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = DateUtils.relativeTime(LocalContext.current, thread.lastMessageAt),
-                    style = CorusFont.timestamp,
-                    color = CorusColors.Secondary,
-                )
-            }
+            Text(
+                text = title,
+                style = CorusFont.username.copy(fontSize = 17.sp),
+                color = CorusColors.Text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             Text(
                 text = preview,
                 style = CorusFont.body,
@@ -942,6 +934,13 @@ private fun ThreadRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+
+        Text(
+            text = DateUtils.relativeTime(LocalContext.current, thread.lastMessageAt),
+            style = CorusFont.timestamp,
+            color = CorusColors.Secondary,
+            modifier = Modifier.padding(start = CorusSpacing.md),
+        )
 
         if (thread.isPinned) {
             Icon(Icons.Filled.PushPin, contentDescription = stringResource(R.string.messaging_pinned_conversation),

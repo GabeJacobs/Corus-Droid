@@ -349,6 +349,9 @@ fun NotificationsScreen(
                 else -> {
                     LazyColumn(
                         state = listState,
+                        contentPadding = PaddingValues(
+                            bottom = if (replyingTo != null) 64.dp else 0.dp,
+                        ),
                         modifier = Modifier
                             .fillMaxSize()
                             .alpha(contentAlpha)
@@ -474,6 +477,7 @@ fun NotificationsScreen(
             }
 
             InlineReplyBar(
+                modifier = Modifier.align(Alignment.BottomCenter),
                 replyingTo = replyingTo!!,
                 isSending = isSendingReply,
                 pendingSong = replyPendingSong,
@@ -1109,6 +1113,7 @@ private fun NotificationsEmptyState(
 
 @Composable
 private fun InlineReplyBar(
+    modifier: Modifier = Modifier,
     replyingTo: CymbalNotification,
     isSending: Boolean,
     pendingSong: CommentAttachedSong? = null,
@@ -1137,7 +1142,7 @@ private fun InlineReplyBar(
     val canSend = (text.trim().isNotEmpty() || hasAttachment) && !isSending
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .background(CorusColors.Background)
             .imePadding(),

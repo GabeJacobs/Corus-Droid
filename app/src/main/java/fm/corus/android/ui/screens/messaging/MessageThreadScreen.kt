@@ -11,6 +11,7 @@ import androidx.compose.animation.core.spring
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.draw.alpha
@@ -86,6 +87,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
 import com.valentinilk.shimmer.shimmer
@@ -144,6 +147,59 @@ private const val EDIT_WINDOW_MS = 15 * 60 * 1000L
 internal val REACTION_KEYS = listOf("heart", "laugh", "thumbsup", "wow", "cry", "fire")
 
 private val URL_REGEX = Regex("""https?://\S+""", RegexOption.IGNORE_CASE)
+
+/** Mirrors the city-chat welcome prompt on iOS: one centered sentence with a
+ * single linked phrase, followed by a full-width acknowledgement action. */
+@Composable
+private fun CommunityChatWelcomeDialog(cityName: String, onDismiss: () -> Unit, onOpenGuidelines: () -> Unit) {
+    val message = buildAnnotatedString {
+        append("This is a place for people in $cityName to connect. Be respectful and follow our ")
+        pushStringAnnotation(tag = "guidelines", annotation = "https://corus.fm/community-guidelines")
+        withStyle(SpanStyle(color = CorusColors.Accent, fontWeight = FontWeight.Medium)) {
+            append("community guidelines")
+        }
+        pop()
+        append(".")
+    }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp),
+            shape = RoundedCornerShape(28.dp),
+            color = CorusColors.CardBackground,
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 28.dp, vertical = 30.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = "Community chat",
+                    style = CorusFont.custom(weight = 800, size = 26),
+                    color = CorusColors.Text,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(22.dp))
+                Text(
+                    text = message,
+                    modifier = Modifier.clickable(onClick = onOpenGuidelines),
+                    style = CorusFont.custom(weight = 400, size = 17),
+                    color = CorusColors.Secondary,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 25.sp,
+                )
+                Spacer(Modifier.height(28.dp))
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    border = BorderStroke(2.dp, CorusColors.Accent),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = CorusColors.Accent),
+                ) {
+                    Text("Got it", style = CorusFont.custom(weight = 800, size = 18))
+                }
+            }
+        }
+    }
+}
 
 /** Short preview text for the message being replied to. Mirrors iOS replySnippet. */
 internal fun replyPreviewText(msg: CymbalMessage, context: android.content.Context): String {
@@ -1662,7 +1718,13 @@ fun MessageThreadScreen(
     deleteTarget?.let { target -> AlertDialog(onDismissRequest = { deleteTarget = null }, title = { Text("Delete message?") }, text = { Text("This message will be removed from the city chat.") },
         confirmButton = { TextButton(onClick = { viewModel.deleteCityMessage(target); deleteTarget = null }) { Text("Delete") } }, dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Cancel") } }) }
     if (cityActionError != null) AlertDialog(onDismissRequest = viewModel::clearCityActionError, text = { Text(cityActionError.orEmpty()) }, confirmButton = { TextButton(onClick = viewModel::clearCityActionError) { Text("OK") } })
-    if (cityWelcome) AlertDialog(onDismissRequest = { cityWelcome = false }, title = { Text("Community chat") }, text = { Column { Text("This is a place for people in ${groupInfo?.cityName ?: groupInfo?.name.orEmpty()} to connect."); TextButton(onClick = { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://corus.fm/community-guidelines"))) }) { Text("Be respectful and follow our community guidelines.") } } }, confirmButton = { TextButton(onClick = { cityWelcome = false }) { Text("Got it") } })
+    if (cityWelcome) CommunityChatWelcomeDialog(
+        cityName = groupInfo?.cityName ?: groupInfo?.name.orEmpty(),
+        onDismiss = { cityWelcome = false },
+        onOpenGuidelines = {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://corus.fm/community-guidelines")))
+        },
+    )
 
     // Group info sheet
     val gi = groupInfo

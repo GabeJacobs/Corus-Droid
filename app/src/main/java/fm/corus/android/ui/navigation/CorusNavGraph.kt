@@ -3,6 +3,7 @@ package fm.corus.android.ui.navigation
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.res.stringResource
@@ -1038,11 +1039,20 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         )
     }
 
-    composable<MapExploreRoute> {
+    composable<MapExploreRoute>(
+        // The Map contains an Android map surface, which can make the default
+        // route swap read as abrupt while it is being detached. Keep its
+        // outgoing frame visible through a short slide and fade back to Search.
+        popExitTransition = {
+            slideOutHorizontally(tween(320), targetOffsetX = { it }) + fadeOut(tween(220))
+        },
+    ) {
         fm.corus.android.ui.screens.map.MapExploreScreen(
-            onComments = { navController.navigate(SinglePostCommentsRoute(it)) },
+            // The listening card stays on the Map while the shared root sheet
+            // presents comments over it, matching the iOS interaction.
+            onComments = onShowComments,
             onRepost = { mainTabViewModel.setRepostOriginalPost(it) },
-            onBack = { navController.popBackStack() },
+            onBack = { navController.safePopBackStack() },
             onUser = { navController.navigate(it.toOtherProfileRoute()) },
             onPost = { navController.navigate(PostDetailRoute(it.id)) },
             onChat = { navController.navigate(MessageThreadRoute(it, "")) },
