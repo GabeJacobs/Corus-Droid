@@ -11,6 +11,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ChevronRight
@@ -22,6 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,6 +35,7 @@ import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
+import com.valentinilk.shimmer.shimmer
 
 @Composable
 fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, model: MapExploreViewModel, onUser: (CymbalUser) -> Unit, onChat: (MapCity, MapChatStatus) -> Unit) {
@@ -93,12 +97,12 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
             item(key = "header:${city.cityId}") {
                 Row(Modifier.fillMaxWidth().clickable { collapsed = ArrayList(if (closed) collapsed - city.cityId else collapsed + city.cityId) }.padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(city.cityName, style = CorusFont.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Surface(color = CorusColors.CardBackground, shape = CircleShape) {
                                 Text(
                                     "${summary.facets[state.filter]?.count ?: 0}",
-                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
                                     style = CorusFont.caption,
                                     color = CorusColors.Secondary,
                                 )
@@ -107,11 +111,8 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
                         Text("${city.regionName} · ${city.countryCode}", style = CorusFont.caption, color = CorusColors.Secondary)
                     }
                     run {
-                        var chat by remember(city.cityId, state.currentDeviceCityId) { mutableStateOf<MapChatStatus?>(null) }
-                        var loading by remember(city.cityId) { mutableStateOf(true) }
-                        LaunchedEffect(city.cityId, state.currentDeviceCityId) { loading=true; chat=null; try { chat = model.repository.chat(city.cityId, state.currentDeviceCityId) } catch(e: Exception) { if(e is kotlinx.coroutines.CancellationException) throw e } finally { loading=false } }
-                        if(loading) CircularProgressIndicator(Modifier.padding(horizontal=8.dp).size(20.dp))
-                        else chat?.takeIf { it.member || it.canJoin }?.let { value ->
+                        LaunchedEffect(city.cityId, state.currentDeviceCityId) { model.loadDirectoryChat(city.cityId) }
+                        state.directoryChats[city.cityId]?.takeIf { it.member || it.canJoin }?.let { value ->
                             Button(
                                 onClick = { onChat(city, value) },
                                 modifier = Modifier.padding(start = 8.dp),
@@ -135,13 +136,25 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
             if (!closed) {
                 val page = state.listPages[city.cityId]
                 items(page?.people.orEmpty(), key = { "${city.cityId}:${it.user.id}" }) { person ->
-                    Row(Modifier.fillMaxWidth().clickable { onUser(person.user) }.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    var appeared by rememberSaveable(city.cityId, person.user.id) { mutableStateOf(false) }
+                    LaunchedEffect(Unit) { appeared = true }
+                    val contentAlpha by animateFloatAsState(
+                        targetValue = if (appeared) 1f else 0f,
+                        animationSpec = tween(180),
+                        label = "mapDirectoryPersonFade",
+                    )
+                    Row(Modifier.fillMaxWidth().alpha(contentAlpha).clickable { onUser(person.user) }.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         AsyncImage(person.user.avatarThumbURL ?: person.user.avatarURL, contentDescription = null, modifier = Modifier.size(44.dp).clip(CircleShape))
                         Column(Modifier.weight(1f)) { UsernameWithFlair(username = person.user.username, isVerified = person.user.isVerified, isClubMember = person.user.isClubMember, flairStyle = person.user.flairStyle, isBot = person.user.isBot, showAtPrefix = true); Text(person.user.displayName, style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1); if (person.user.bio.isNotBlank()) Text(person.user.bio, style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     }
                 }
                 if (city.cityId in state.listErrors) item { TextButton(onClick = { model.loadList(city, next = page?.cursor != null) }) { Text(parityCopy("Retry loading people")) } }
-                else if (city.cityId in state.listLoading) item { Box(Modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(20.dp)) } }
+                else if (city.cityId in state.listLoading) {
+                    val skeletonCount = if (page == null) {
+                        (summary.facets[state.filter]?.count ?: 1).coerceIn(1, 3)
+                    } else 1
+                    items(skeletonCount, key = { "skeleton:${city.cityId}:$it" }) { MapDirectoryPersonSkeleton() }
+                }
                 else if (page?.cursor != null) item(key = "next:${city.cityId}:${page.cursor}") { LaunchedEffect(page.cursor) { model.loadList(city, next = true) }; TextButton(onClick = { model.loadList(city, next = true) }) { Text(parityCopy("Load more people")) } }
                 else if (canInviteMapCluster(state, city, page, city.cityId in state.listLoading,
                     city.cityId in state.listErrors, model.repository.currentUserId)) {
@@ -150,5 +163,22 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
             }
         }
         if (filtered.isEmpty()) item { Text(parityCopy("No people to show for this filter."), Modifier.padding(vertical = 24.dp)) }
+    }
+}
+
+/** Loading geometry matches a directory person row, so content can replace it without a jump. */
+@Composable
+private fun MapDirectoryPersonSkeleton() {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 10.dp).shimmer(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(44.dp).clip(CircleShape).background(CorusColors.Skeleton))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Box(Modifier.fillMaxWidth(.48f).height(18.dp).clip(RoundedCornerShape(4.dp)).background(CorusColors.Skeleton))
+            Box(Modifier.fillMaxWidth(.68f).height(14.dp).clip(RoundedCornerShape(4.dp)).background(CorusColors.Skeleton))
+            Box(Modifier.fillMaxWidth(.82f).height(14.dp).clip(RoundedCornerShape(4.dp)).background(CorusColors.Skeleton))
+        }
     }
 }

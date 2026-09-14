@@ -1344,11 +1344,11 @@ fun SkeletonMessageThreadRow() {
         modifier = Modifier
             .fillMaxWidth()
             .shimmer()
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
     ) {
-        // Circle avatar (48dp — avatarMedium)
+        // Circle avatar (matches the loaded 56dp thread avatar)
         Box(
             modifier = Modifier
                 .size(56.dp)
@@ -1364,14 +1364,14 @@ fun SkeletonMessageThreadRow() {
             Box(
                 modifier = Modifier
                     .width(100.dp)
-                    .height(13.dp)
+                    .height(12.dp)
                     .clip(RoundedCornerShape(4.dp))
                     .background(CorusColors.Skeleton)
             )
             Box(
                 modifier = Modifier
                     .width(160.dp)
-                    .height(11.dp)
+                    .height(10.dp)
                     .clip(RoundedCornerShape(4.dp))
                     .background(CorusColors.Skeleton)
             )
@@ -1381,7 +1381,7 @@ fun SkeletonMessageThreadRow() {
         Box(
             modifier = Modifier
                 .width(28.dp)
-                .height(10.dp)
+                .height(9.dp)
                 .clip(RoundedCornerShape(4.dp))
                 .background(CorusColors.Skeleton)
         )

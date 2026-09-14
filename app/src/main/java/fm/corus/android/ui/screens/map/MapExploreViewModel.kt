@@ -25,6 +25,7 @@ import javax.inject.Inject
 
 data class MapScreenState(
     val listPages: Map<String, MapPeoplePage> = emptyMap(), val listLoading: Set<String> = emptySet(), val listErrors: Set<String> = emptySet(),
+    val directoryChats: Map<String, MapChatStatus> = emptyMap(), val directoryChatsLoading: Set<String> = emptySet(),
     val selectedCommunityId: String? = null, val cities: List<MapCitySummary> = emptyList(), val selected: MapCity? = null,
     val people: List<MapPerson> = emptyList(), val posts: Map<String, CymbalPost?> = emptyMap(),
     val filter: String = "all", val loading: Boolean = true, val peopleLoading: Boolean = false,
@@ -53,7 +54,7 @@ class MapExploreViewModel @Inject constructor(
         generation++; refreshGeneration++
         updateState { it.copy(ownPresenceReady = true, ownSource = data?.get("source") as? String,
             ownAudience = data?.get("audience") as? String ?: "off", ownCity = data?.let(MapCity::decode),
-            peopleLoading = false, listLoading = emptySet()) }
+            peopleLoading = false, listLoading = emptySet(), directoryChats = emptyMap(), directoryChatsLoading = emptySet()) }
         refresh()
     }
     fun community(id: String?) {
@@ -64,7 +65,13 @@ class MapExploreViewModel @Inject constructor(
     private var deviceCityCheckedAt = 0L
     fun expireDeviceCity() { if (System.currentTimeMillis() - deviceCityCheckedAt > 90000) clearDeviceCity() }
     private var locationGeneration = 0
-    fun clearDeviceCity() { locationGeneration++; updateState { it.copy(currentDeviceCityId = null) }; refreshChat() }
+    fun clearDeviceCity() {
+        locationGeneration++
+        if (mutable.value.currentDeviceCityId != null) {
+            updateState { it.copy(currentDeviceCityId = null, directoryChats = emptyMap(), directoryChatsLoading = emptySet()) }
+        }
+        refreshChat()
+    }
     fun updateDeviceCity(location: Location) = launch {
         val request = ++locationGeneration
         if (kotlin.math.abs(System.currentTimeMillis() - location.time) > 90000 || location.accuracy < 0 || location.accuracy > 5000) {
@@ -74,7 +81,11 @@ class MapExploreViewModel @Inject constructor(
             val city = repository.resolve(location)
             if (request != locationGeneration) return@launch
             deviceCityCheckedAt = location.time
-            updateState { it.copy(currentDeviceCityId = city.cityId) }
+            if (mutable.value.currentDeviceCityId != city.cityId) {
+                updateState {
+                    it.copy(currentDeviceCityId = city.cityId, directoryChats = emptyMap(), directoryChatsLoading = emptySet())
+                }
+            }
             refreshChat()
             val s = mutable.value
             if (s.ownSource == "device" && s.ownCity != null && s.ownCity.cityId != city.cityId && s.ownAudience != "off") {
@@ -158,7 +169,29 @@ class MapExploreViewModel @Inject constructor(
         val user = users.fetchUserProfile(current)
         users.prefetchFollowingSet(current)
         following = users.followingIds.value.toList()
-        if (fullAccess) taste = users.getSuggestedUsers(current).filter { it.isTasteMatch }.map { it.user.id }
+        if (fullAccess) {
+            val cachedTaste = repository.cachedTasteMatchIds(current)
+            if (cachedTaste != null) taste = cachedTaste.ids
+            if (cachedTaste == null || !cachedTaste.isFresh) {
+                if (cachedTaste == null) {
+                    taste = repository.fetchTasteMatchIds(current)
+                } else {
+                    viewModelScope.launch {
+                        try {
+                            val refreshed = repository.fetchTasteMatchIds(current)
+                            if (auth.currentUser?.uid != current || request != refreshGeneration || refreshed == taste) return@launch
+                            taste = refreshed
+                            val refreshedCities = repository.cities(following, taste, mutable.value.selectedCommunityId)
+                            if (auth.currentUser?.uid == current && request == refreshGeneration) {
+                                updateState { it.copy(cities = refreshedCities, error = null) }
+                            }
+                        } catch (_: Exception) {
+                            // Keep the usable stale result; Retry performs another refresh.
+                        }
+                    }
+                }
+            }
+        } else taste = emptyList()
         val cities = repository.cities(following, taste, mutable.value.selectedCommunityId)
         if (request != refreshGeneration) return@launch
         if (auth.currentUser?.uid == current) updateState { it.copy(cities = cities.map { value -> canonicalCities[value.city.cityId]?.let { city -> value.copy(city=value.city.copy(cityName=city.cityName)) } ?: value }, loading = false, user = user, error = null) }
@@ -215,6 +248,32 @@ class MapExploreViewModel @Inject constructor(
         catch (_: Exception) { if (gen == generation) updateState { it.copy(listErrors = it.listErrors + key) } }
         finally { if (gen == generation) updateState { it.copy(listLoading = it.listLoading - key) } }
     }
+    fun loadDirectoryChat(cityId: String) {
+        val snapshot = mutable.value
+        if (!shouldLoadDirectoryChat(
+                hasStatus = cityId in snapshot.directoryChats,
+                isLoading = cityId in snapshot.directoryChatsLoading,
+            )
+        ) return
+        val currentDeviceCityId = snapshot.currentDeviceCityId
+        updateState { it.copy(directoryChatsLoading = it.directoryChatsLoading + cityId) }
+        viewModelScope.launch {
+            try {
+                val status = repository.chat(cityId, currentDeviceCityId)
+                if (auth.currentUser?.uid == uid && mutable.value.currentDeviceCityId == currentDeviceCityId) {
+                    updateState { it.copy(directoryChats = it.directoryChats + (cityId to status)) }
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // A city without a confirmed status simply has no chat action.
+            } finally {
+                if (mutable.value.currentDeviceCityId == currentDeviceCityId) {
+                    updateState { it.copy(directoryChatsLoading = it.directoryChatsLoading - cityId) }
+                }
+            }
+        }
+    }
     fun visiblePeople(ids: List<String>) = launch {
         val gen = generation
         val missing = ids.filter { it !in mutable.value.posts }
@@ -248,6 +307,39 @@ class MapExploreViewModel @Inject constructor(
         }
     }
     fun closeCity() { generation++; updateState { it.copy(selected = null) } }
+    /**
+     * Close the city presentation and carry already-known rosters into List.
+     * A map summary's previews are the complete page whenever their unique
+     * count reaches the facet count. The open sheet is stronger still: it has
+     * the fetched page and cursor, so switching surfaces must not request it
+     * again. Incrementing the generation here also retires any sheet request;
+     * clear its loading flags in the same state transaction.
+     */
+    fun prepareListAndCloseCity() {
+        val current = mutable.value
+        val seeded = current.cities.mapNotNull { summary ->
+            val facet = summary.facets[current.filter] ?: return@mapNotNull null
+            val people = sortedMapPeople(facet.previews)
+            if (people.size < facet.count) null
+            else summary.city.cityId to MapPeoplePage(people, cursor = null, reachedEnd = true)
+        }.toMap()
+        val selectedPage = current.selected?.takeIf { !current.peopleLoading }?.let { city ->
+            city.cityId to MapPeoplePage(
+                people = sortedMapPeople(current.people),
+                cursor = current.more,
+                reachedEnd = current.peopleReachedEnd,
+            )
+        }
+        if (current.selected != null) generation++
+        updateState {
+            it.copy(
+                selected = null,
+                peopleLoading = false,
+                listPages = seeded + it.listPages + listOfNotNull(selectedPage).toMap(),
+                listLoading = emptySet(),
+            )
+        }
+    }
     fun error(message: String?) { updateState { it.copy(error = message) } }
     fun search(text: String) {
         val gen = ++searchGeneration
@@ -289,7 +381,27 @@ class MapExploreViewModel @Inject constructor(
         }
     }
     fun resolve(location: Location, done: (MapCity) -> Unit) = launch { done(repository.resolve(location)) }
-    fun join(city: MapCity, location: Location, done: (String) -> Unit) = launch { done(repository.join(city, location)) }
+    fun join(city: MapCity, location: Location, done: (String) -> Unit) = launch {
+        val threadId = repository.join(city, location)
+        updateState { it.copy(directoryChats = it.directoryChats + (city.cityId to MapChatStatus(threadId, member = true, canJoin = true))) }
+        done(threadId)
+    }
+    fun beginMapSession() {
+        // The initial presence callback already performs the first refresh. Once
+        // presence is ready, each later Map entry explicitly refreshes the
+        // authoritative directory even when this device has not moved.
+        val shouldRefreshDirectory = mutable.value.ownPresenceReady
+        updateState {
+            it.copy(
+                listPages = emptyMap(),
+                listLoading = emptySet(),
+                listErrors = emptySet(),
+                directoryChats = emptyMap(),
+                directoryChatsLoading = emptySet(),
+            )
+        }
+        if (shouldRefreshDirectory) refresh()
+    }
     fun returnedFromPaywall() { if (!fullAccess) pendingAction = null }
     fun dismissPaywall() { updateState { it.copy(paywall = null) } }
     fun start(mode: String, countryCodes: Set<String>, cityId: String? = null): kotlinx.coroutines.Job = launch {

@@ -26,6 +26,7 @@ data class MapFacet(val count: Int, val previews: List<MapPerson>, val includesV
 data class MapCitySummary(val city: MapCity, val facets: Map<String, MapFacet>, val parentCommunity: MapCity? = null, val subdivisions: List<MapCity> = emptyList())
 data class MapPeoplePage(val people: List<MapPerson>, val cursor: String?, val reachedEnd: Boolean = cursor == null)
 data class MapChatStatus(val threadId: String, val member: Boolean, val canJoin: Boolean)
+internal fun shouldLoadDirectoryChat(hasStatus: Boolean, isLoading: Boolean): Boolean = !hasStatus && !isLoading
 data class MapPlaybackItem(val city: MapCity, val post: CymbalPost)
 internal enum class MapPersonRowLayout { USERNAME_ONLY, LATEST_POST }
 internal fun mapPersonRowLayout(hasPost: Boolean) = if (hasPost) MapPersonRowLayout.LATEST_POST else MapPersonRowLayout.USERNAME_ONLY
@@ -36,6 +37,21 @@ data class MapPreviewUsage(val listen: Set<String> = emptySet(), val watch: Set<
     fun merge(other: MapPreviewUsage) = MapPreviewUsage(listen + other.listen, watch + other.watch)
 }
 fun sortedMapPeople(people: List<MapPerson>) = people.groupBy { it.user.id }.values.map { rows -> rows.withIndex().maxWith(compareBy<IndexedValue<MapPerson>> { it.value.updatedAt }.thenBy { it.index }).value }.sortedWith(compareBy<MapPerson> { it.user.username.lowercase() }.thenBy { it.user.id })
+
+/** Mirrors iOS MapPresenceStore.groups: nearest shared city first, then stable ID order. */
+fun sortedMapCitiesNear(cities: List<MapCitySummary>, origin: MapCity?): List<MapCitySummary> =
+    cities.sortedWith { a, b ->
+        if (origin != null) {
+            fun distanceSquared(city: MapCity): Double {
+                val latitudeDelta = city.latitude - origin.latitude
+                val longitudeDelta = city.longitude - origin.longitude
+                return latitudeDelta * latitudeDelta + longitudeDelta * longitudeDelta
+            }
+            val distanceComparison = distanceSquared(a.city).compareTo(distanceSquared(b.city))
+            if (distanceComparison != 0) return@sortedWith distanceComparison
+        }
+        a.city.cityId.compareTo(b.city.cityId)
+    }
 
 fun stableMapFaces(previous: List<MapPerson>, candidates: List<MapPerson>): List<MapPerson> {
     val latest = candidates.associateBy { it.user.id }

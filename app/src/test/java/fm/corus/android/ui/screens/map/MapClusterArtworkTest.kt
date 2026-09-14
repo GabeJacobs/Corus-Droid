@@ -23,8 +23,10 @@ class MapClusterArtworkTest {
         val html = appleMapHtml("token", compact = false, fontData = "font")
         assertFalse(Regex("markerKey=JSON\\.stringify\\(\\{[^}]*citySheetOpen").containsMatchIn(html))
         assertTrue(html.contains("art.className='art art-'+index"))
-        assertTrue(html.contains("setTimeout(function(){fan.classList.add('raised')},35)"))
-        assertTrue(html.contains("const markerOffset=sheetFocused?-62"))
+        assertTrue(html.contains("if(fan.isConnected)fan.classList.add('raised')"))
+        assertTrue(html.contains("b.dataset.anchorOffset=String(interactive?0"))
+        assertTrue(html.contains("annotation.corusId=city.id"))
+        assertTrue(html.contains("updateMarker(annotation,city)"))
     }
 
     @Test fun selectedArtworkIsOneAndAQuarterAvatarDiametersWithoutMovingCenterline() {

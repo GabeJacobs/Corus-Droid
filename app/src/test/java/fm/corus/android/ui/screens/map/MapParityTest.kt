@@ -7,9 +7,48 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class MapParityTest {
-    @Test fun focusedCityHasRequiredMapKitDisplayPriority() {
+    @Test fun focusedCityIsTopmostWithoutHidingNearbyPreviewClusters() {
+        val html = appleMapHtml("token", compact = true, fontData = "font")
+        assertTrue(html.contains("const active=city.id===window.CorusAppleMap.data.focus?.id"))
+        assertTrue(html.contains("collisionMode:'none'"))
+        assertTrue(html.contains("annotation.selected=active"))
+        assertFalse(html.contains(".compact .city.active .label"))
+        assertTrue(html.contains("if(!compact||active)b.appendChild(label)"))
+        assertTrue(html.contains("interactive?0:(active?-38.5:-18)"))
+        assertFalse(html.contains("annotations.forEach(function(a){map.removeAnnotation(a)}"))
+        assertTrue(html.contains(".compact .city:not(.active){--cluster-opacity:.45}"))
+        assertTrue(html.contains("transform:scale(.84)"))
+        assertTrue(html.contains("transition:opacity .22s ease-in-out"))
+        assertTrue(html.contains("transition:transform .22s ease-in-out"))
+        assertTrue(html.contains("@keyframes cluster-in"))
+        assertTrue(html.contains("animation:cluster-in .22s ease-out both"))
+    }
+    @Test fun settledCameraSelectsNearestCityAndNotifiesCompose() {
+        fun summary(id: String, latitude: Double, longitude: Double) = MapCitySummary(
+            MapCity(id, id, "", "US", latitude, longitude),
+            mapOf("all" to MapFacet(1, emptyList())),
+        )
+        val cities = listOf(summary("brooklyn", 40.68, -73.94), summary("queens", 40.73, -73.79))
+        assertEquals("queens", nearestMapCity(cities, "all", 40.72, -73.80)?.cityId)
         val html = appleMapHtml("token", compact = false, fontData = "font")
-        assertTrue(html.contains("displayPriority:focused?1000:750"))
+        assertTrue(html.contains("map.addEventListener('region-change-end'"))
+        assertTrue(html.contains("window.CorusAndroidMap.cameraSettled"))
+        assertTrue(html.contains("const focusKey=focus&&this.data.focusRevision"))
+        assertFalse(html.contains("const focusKey=focus&&focus.id"))
+    }
+    @Test fun cityGroupsUseIosDistanceOrderWithStableFallback() {
+        fun summary(id: String, latitude: Double, longitude: Double) = MapCitySummary(
+            MapCity(id, id, "", "US", latitude, longitude),
+            mapOf("all" to MapFacet(1, emptyList())),
+        )
+        val brooklyn = MapCity("brooklyn", "Brooklyn", "NY", "US", 40.68, -73.94)
+        val cities = listOf(
+            summary("melbourne", -37.81, 144.96),
+            summary("boston", 42.36, -71.06),
+            summary("queens", 40.73, -73.79),
+        )
+        assertEquals(listOf("queens", "boston", "melbourne"), sortedMapCitiesNear(cities, brooklyn).map { it.city.cityId })
+        assertEquals(listOf("boston", "melbourne", "queens"), sortedMapCitiesNear(cities, null).map { it.city.cityId })
     }
     @Test fun cityFacesRetainTheirSlotsAcrossPageReordering() {
         val city = MapCity("c", "City", "", "US", 0.0, 0.0)
@@ -43,6 +82,11 @@ class MapParityTest {
             assertTrue(showMapChat("old", null, status))
             assertTrue(showMapChat("new", "new", status))
         }
+    }
+    @Test fun directoryChatStatusIsRetainedWhileFreshOrRefreshing() {
+        assertTrue(shouldLoadDirectoryChat(hasStatus = false, isLoading = false))
+        assertFalse(shouldLoadDirectoryChat(hasStatus = true, isLoading = false))
+        assertFalse(shouldLoadDirectoryChat(hasStatus = false, isLoading = true))
     }
     @Test fun sharingOffRemovesOwnerFromEveryLoadedSurfaceOnlyOnce() {
         val city = MapCity("own", "Own", "", "US", 1.0, 2.0)

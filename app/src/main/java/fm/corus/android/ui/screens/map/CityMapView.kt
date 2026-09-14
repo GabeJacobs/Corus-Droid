@@ -27,6 +27,7 @@ fun CityMapView(cities: List<MapCitySummary>, filter: String, selected: MapCity?
         selectedPeople = selectedPeople,
         modifier = modifier,
         onCity = onCity,
+        onCameraSettled = onCameraChanged,
         focusRevision = focusRevision,
         focusInVisibleMap = focusInVisibleMap,
         citySheetOpen = citySheetOpen,

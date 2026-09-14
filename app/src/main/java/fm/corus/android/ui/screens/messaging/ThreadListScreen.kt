@@ -897,7 +897,7 @@ private fun ThreadRow(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(onClick = onClick, onLongClick = { showActions = true }, onLongClickLabel = stringResource(R.string.messaging_conversation_actions))
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (isGroup && thread.groupPhotoURL != null) {
@@ -921,14 +921,14 @@ private fun ThreadRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = CorusFont.username.copy(fontSize = 17.sp),
+                style = CorusFont.username.copy(fontSize = 16.sp),
                 color = CorusColors.Text,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = preview,
-                style = CorusFont.body,
+                style = CorusFont.body.copy(fontSize = 14.sp),
                 color = CorusColors.Secondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -937,7 +937,7 @@ private fun ThreadRow(
 
         Text(
             text = DateUtils.relativeTime(LocalContext.current, thread.lastMessageAt),
-            style = CorusFont.timestamp,
+            style = CorusFont.timestamp.copy(fontSize = 11.sp),
             color = CorusColors.Secondary,
             modifier = Modifier.padding(start = CorusSpacing.md),
         )

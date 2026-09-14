@@ -12,3 +12,19 @@ fun mapFocusCity(cities: List<MapCitySummary>, filter: String, origin: MapCity?)
     }
     return visible.maxByOrNull { it.facets[filter]?.count ?: 0 }
 }
+
+/** Match iOS' settled-camera focus: select the cluster nearest the map center. */
+fun nearestMapCity(
+    cities: List<MapCitySummary>,
+    filter: String,
+    latitude: Double,
+    longitude: Double,
+): MapCity? = cities.asSequence()
+    .filter { (it.facets[filter]?.count ?: 0) > 0 }
+    .minByOrNull {
+        val longitudeDelta = ((it.city.longitude - longitude + 540.0) % 360.0) - 180.0
+        val x = longitudeDelta * kotlin.math.cos(Math.toRadians(latitude))
+        val y = it.city.latitude - latitude
+        x * x + y * y
+    }
+    ?.city

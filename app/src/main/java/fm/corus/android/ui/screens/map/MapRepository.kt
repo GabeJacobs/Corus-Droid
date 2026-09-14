@@ -20,6 +20,9 @@ import javax.inject.Singleton
 
 @Singleton
 class MapRepository @Inject constructor(@ApplicationContext context: Context, private val auth: FirebaseAuth, private val db: FirebaseFirestore, private val functions: FirebaseFunctions, private val analytics: fm.corus.android.service.AnalyticsService) {
+    data class TasteMatchIdsCache(val ids: List<String>, val fetchedAt: Long) {
+        val isFresh: Boolean get() = System.currentTimeMillis() - fetchedAt <= 15L * 60 * 1000
+    }
     private val appContext = context.applicationContext
     fun text(@androidx.annotation.StringRes id: Int): String = appContext.getString(id)
     fun event(action: String, mode: String = "map", value: String? = null, count: Int? = null, durationMs: Long? = null) {
@@ -30,6 +33,7 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
         })
     }
     private val preferences = context.getSharedPreferences("map_preview", Context.MODE_PRIVATE)
+    private val tasteMatchPreferences = context.getSharedPreferences("map_taste_matches", Context.MODE_PRIVATE)
     private val latestMutex = Mutex()
     private var latestOwner: String? = null
     private var latestRevision = -1L
@@ -37,6 +41,22 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
     fun savedAudience(): String = currentUserId?.let { preferences.getString("$it.audience", "everyone") } ?: "everyone"
     fun rememberAudience(value: String) { currentUserId?.let { preferences.edit().putString("$it.audience", value).apply() } }
     val currentUserId get() = auth.currentUser?.uid
+    fun cachedTasteMatchIds(uid: String): TasteMatchIdsCache? {
+        val fetchedAt = tasteMatchPreferences.getLong("$uid.fetchedAt", 0L)
+        if (fetchedAt <= 0L || System.currentTimeMillis() - fetchedAt > 24L * 60 * 60 * 1000) return null
+        return TasteMatchIdsCache(tasteMatchPreferences.getStringSet("$uid.ids", emptySet()).orEmpty().toList(), fetchedAt)
+    }
+    @Suppress("UNCHECKED_CAST")
+    suspend fun fetchTasteMatchIds(uid: String): List<String> {
+        check(auth.currentUser?.uid == uid)
+        val ids = (call("getMapTasteMatchIds")["ids"] as? List<*>)
+            .orEmpty().filterIsInstance<String>().distinct()
+        if (auth.currentUser?.uid == uid) tasteMatchPreferences.edit()
+            .putStringSet("$uid.ids", ids.toSet())
+            .putLong("$uid.fetchedAt", System.currentTimeMillis())
+            .apply()
+        return ids
+    }
     fun ownPresence(uid: String) = callbackFlow {
         val listener = db.collection("map_presence").document(uid).addSnapshotListener { snapshot, error ->
             if (error != null) { trySend(null); return@addSnapshotListener }

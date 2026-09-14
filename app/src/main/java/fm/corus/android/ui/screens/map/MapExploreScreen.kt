@@ -76,6 +76,7 @@ fun MapExploreScreen(
         model.repository.event("opened")
         onDispose { model.repository.event("closed", durationMs = android.os.SystemClock.elapsedRealtime() - openedAt) }
     }
+    LaunchedEffect(model) { model.beginMapSession() }
     val state by model.state.collectAsState()
     val fullAccess by model.subscription.hasFullAccessFlow.collectAsState()
     val revision by model.remote.revision.collectAsState()
@@ -137,7 +138,10 @@ fun MapExploreScreen(
     var locationAction by remember { mutableStateOf<((Location) -> Unit)?>(null) }
     var locationAttempt by remember { mutableIntStateOf(0) }
     val listState = rememberLazyListState()
-    val cities = state.cities.filter { (it.facets[state.filter]?.count ?: 0) > 0 }
+    val cities = sortedMapCitiesNear(
+        state.cities.filter { (it.facets[state.filter]?.count ?: 0) > 0 },
+        state.ownCity,
+    )
     var sharedCityFocus by remember { mutableStateOf<MapCity?>(null) }
     var shareFocusRevision by remember { mutableIntStateOf(0) }
     // Stopping Listen Mode clears [state.playing], but the map should remain
@@ -384,14 +388,52 @@ fun MapExploreScreen(
         scope.launch {
             // Let the sheet finish its exit before clearing the selected pin so
             // the map and city marker keep their geometry during the motion.
-            delay(180)
+            delay(220)
             model.closeCity()
         }
     }
     BackHandler(mapPaywallSource != null || dialog.isNotEmpty() || state.selected != null || state.mode != null) { when { mapPaywallSource != null -> mapPaywallSource = null; dialog.isNotEmpty() -> { if (dialog != "intro" && dialog != "confirm" && !state.busy) dialog = "" }; state.selected != null -> dismissCitySheet(); else -> model.stop() } }
     if (!model.enabled) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { TextButton(onClick = onBack) { Text(parityCopy("Back to Search")) } }; return }
     Box(Modifier.fillMaxSize().background(CorusColors.Background).onSizeChanged { mapViewportHeightPx = it.height }) {
-        if (view == "map") CityMapView(state.cities, state.filter, state.selected, state.playing?.city, Modifier.fillMaxSize(), sessionKey = state.sessionKey, selectedPeople = state.people, showArtwork = true, playbackMode = state.mode, playingUserId = state.playing?.post?.user?.id, loadLatest = model.repository::latest, mapKitToken = mapKitToken, focusOverride = sharedCityFocus ?: listeningExitFocus.takeIf { state.mode == null }, focusRevision = shareFocusRevision + citySheetFocusRevision + playbackFocusRevision, focusInVisibleMap = state.playing != null || (citySheetVisible && state.selected != null), citySheetOpen = citySheetVisible && state.selected != null && state.playing == null, mapTopInsetFraction = if (mapViewportHeightPx > 0) mapHeaderHeightPx.toFloat() / mapViewportHeightPx else 0f, mapBottomOcclusionFraction = if (state.playing != null && mapViewportHeightPx > 0 && playbackCardHeightPx > 0) playbackCardHeightPx.toFloat() / mapViewportHeightPx else if (expanded) .9f else .52f, anchor = if (sharingAnchorFrozen) sharingAnchor else if (state.ownPresenceReady) mapFocusCity(cities, state.filter, state.ownCity)?.city else null, initialCamera = model.savedCamera, onCameraChanged = { model.savedCamera = it }, browsing = browsingCityId?.let { id -> cities.firstOrNull { it.city.cityId == id }?.city }) { browsingCityId = it.cityId; listeningExitFocus = null; openCitySheet(it) }
+        if (view == "map") CityMapView(
+            cities = state.cities,
+            filter = state.filter,
+            selected = state.selected,
+            playing = state.playing?.city,
+            modifier = Modifier.fillMaxSize(),
+            sessionKey = state.sessionKey,
+            browsing = browsingCityId?.let { id -> cities.firstOrNull { it.city.cityId == id }?.city },
+            anchor = if (sharingAnchorFrozen) sharingAnchor else if (state.ownPresenceReady) mapFocusCity(cities, state.filter, state.ownCity)?.city else null,
+            selectedPeople = state.people,
+            initialCamera = model.savedCamera,
+            onCameraChanged = { position ->
+                model.savedCamera = position
+                if (state.selected == null && state.playing == null) {
+                    nearestMapCity(cities, state.filter, position.latitude, position.longitude)?.let { nearest ->
+                        if (browsingCityId != nearest.cityId) {
+                            browsingCityId = nearest.cityId
+                            listeningExitFocus = null
+                        }
+                    }
+                }
+            },
+            showArtwork = true,
+            playbackMode = state.mode,
+            playingUserId = state.playing?.post?.user?.id,
+            loadLatest = model.repository::latest,
+            mapKitToken = mapKitToken,
+            focusOverride = sharedCityFocus ?: listeningExitFocus.takeIf { state.mode == null },
+            focusRevision = shareFocusRevision + citySheetFocusRevision + playbackFocusRevision,
+            focusInVisibleMap = state.playing != null || (citySheetVisible && state.selected != null),
+            citySheetOpen = citySheetVisible && state.selected != null && state.playing == null,
+            mapTopInsetFraction = if (mapViewportHeightPx > 0) mapHeaderHeightPx.toFloat() / mapViewportHeightPx else 0f,
+            mapBottomOcclusionFraction = if (state.playing != null && mapViewportHeightPx > 0 && playbackCardHeightPx > 0) playbackCardHeightPx.toFloat() / mapViewportHeightPx else if (expanded) .9f else .52f,
+            onCity = {
+                browsingCityId = it.cityId
+                listeningExitFocus = null
+                openCitySheet(it)
+            },
+        )
         // iOS keeps all controls in one compact, opaque three-row header.
         Column(
             Modifier.fillMaxWidth().background(CorusColors.Background).statusBarsPadding()
@@ -470,7 +512,31 @@ fun MapExploreScreen(
                     }
                 }
                 Surface(shape = CircleShape, color = CorusColors.CardBackground) { Row(Modifier.padding(2.dp)) {
-                    listOf("map" to "Map", "list" to "List").forEach { (value, label) -> val selected = view == value; TextButton(onClick = { if (view != value) { view = value; hapticView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK) } }, shape = CircleShape, modifier = Modifier.height(28.dp).width(62.dp), contentPadding = PaddingValues(0.dp), colors = ButtonDefaults.textButtonColors(containerColor = if (selected) CorusColors.Accent else androidx.compose.ui.graphics.Color.Transparent, contentColor = if (selected) androidx.compose.ui.graphics.Color.White else CorusColors.Secondary)) { Text(parityCopy(label), style = CorusFont.caption) } }
+                    listOf("map" to "Map", "list" to "List").forEach { (value, label) -> val selected = view == value; TextButton(onClick = {
+                        if (view != value) {
+                            if (value == "list" && state.selected != null) {
+                                // Match iOS: changing to List dismisses the
+                                // selected-city sheet before mounting the
+                                // directory. Mounting it during the exit would
+                                // launch requests that closeCity invalidates.
+                                if (citySheetVisible) {
+                                    citySheetVisible = false
+                                    scope.launch {
+                                        delay(220)
+                                        model.prepareListAndCloseCity()
+                                        view = value
+                                    }
+                                } else {
+                                    model.prepareListAndCloseCity()
+                                    view = value
+                                }
+                            } else {
+                                if (value == "list") model.prepareListAndCloseCity()
+                                view = value
+                            }
+                            hapticView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                        }
+                    }, shape = CircleShape, modifier = Modifier.height(28.dp).width(62.dp), contentPadding = PaddingValues(0.dp), colors = ButtonDefaults.textButtonColors(containerColor = if (selected) CorusColors.Accent else androidx.compose.ui.graphics.Color.Transparent, contentColor = if (selected) androidx.compose.ui.graphics.Color.White else CorusColors.Secondary)) { Text(parityCopy(label), style = CorusFont.caption) } }
                 } }
             }
             if (resolvingCity) {
@@ -493,7 +559,11 @@ fun MapExploreScreen(
         }
         if (state.selected == null && state.playing == null && view == "map" && browsingCity != null) Surface(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 76.dp), shape = CircleShape, color = CorusColors.CardBackground.copy(alpha = .88f), shadowElevation = 4.dp) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                fun browse(delta: Int) { val i = cities.indexOfFirst { it.city.cityId == browsingCity.cityId }; browsingCityId = cities[(i + delta + cities.size) % cities.size].city.cityId }
+                fun browse(delta: Int) {
+                    val i = cities.indexOfFirst { it.city.cityId == browsingCity.cityId }
+                    browsingCityId = cities[(i + delta + cities.size) % cities.size].city.cityId
+                    citySheetFocusRevision++
+                }
                 IconButton(onClick = { browse(-1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronLeft, stringResource(fm.corus.android.R.string.map_cd_previous_city)) }
                 TextButton(onClick = { openCitySheet(browsingCity) }) { Text(browsingCity.cityName, color = CorusColors.Text, maxLines = 1, modifier = Modifier.widthIn(max = 180.dp)) }
                 IconButton(onClick = { browse(1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronRight, stringResource(fm.corus.android.R.string.map_cd_next_city)) }
