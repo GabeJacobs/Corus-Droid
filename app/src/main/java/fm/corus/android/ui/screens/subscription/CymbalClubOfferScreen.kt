@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -51,8 +52,15 @@ import fm.corus.android.domain.PlaylistTrialField
 
 internal object ClubOnboardingPaywallContract {
     val vinylSize = 112.dp
+    val headerVerticalPadding = 56.dp
     val exportBenefitMinimumContentHeight = 440.dp
     val closeTapTargetSize = 48.dp
+
+    fun renewalStringResource(hasTrial: Boolean): Int = if (hasTrial) {
+        R.string.club_onboarding_renewal
+    } else {
+        R.string.club_onboarding_renewal_no_trial
+    }
 
     fun benefitStringResources(supportsPlaylistExport: Boolean, contentHeight: Dp): List<Int> = buildList {
         add(R.string.club_feature_unlock_all_taste_matches)
@@ -76,10 +84,13 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 
 // --- Trial detection helpers ---
 
-private fun trialDurationText(context: Context, pkg: Package?, useDefaultOption: Boolean = false): String? {
-    val freeTrialOption = (if (useDefaultOption) pkg?.product?.defaultOption else pkg?.product?.subscriptionOptions?.freeTrial) ?: return null
-    val freePhase = freeTrialOption.freePhase ?: return null
-    return formatPeriod(context, freePhase.billingPeriod)
+private fun trialDurationText(
+    context: Context,
+    pkg: Package?,
+    useDefaultOption: Boolean = false,
+): String? {
+    val freeTrialOption = if (useDefaultOption) pkg?.product?.defaultOption else pkg?.product?.subscriptionOptions?.freeTrial
+    return freeTrialOption?.freePhase?.let { formatPeriod(context, it.billingPeriod) }
 }
 
 private fun formatPeriod(context: Context, period: Period): String? {
@@ -110,6 +121,11 @@ private fun yearlyDetailText(context: Context, pkg: Package?, price: String, mon
     val trial = trialDurationText(context, pkg, useDefaultOption)
     return if (trial != null) context.getString(R.string.club_yearly_detail_trial_format, trial, price)
     else context.getString(R.string.club_yearly_detail_only_format, monthlyEquivalent)
+}
+
+private fun onboardingPlanDetailText(context: Context, pkg: Package?, noTrialText: String): String {
+    val trial = trialDurationText(context, pkg, useDefaultOption = true)
+    return trial?.let { context.getString(R.string.club_plan_detail_trial_only, it) } ?: noTrialText
 }
 
 // Percent saved by the yearly plan vs. 12× the monthly plan, computed live from
@@ -207,6 +223,14 @@ fun CymbalClubOfferScreen(
 
     var selectedPlan by remember { mutableStateOf(viewModel.defaultPlan) }
     var userSelectedPlan by remember { mutableStateOf(false) }
+    var didLogOnboardingSkip by remember { mutableStateOf(false) }
+
+    val logDismissal: (String?) -> Unit = { method ->
+        if (!isOnboarding || !didLogOnboardingSkip) {
+            if (isOnboarding) didLogOnboardingSkip = true
+            viewModel.logPaywallDismissed(source, method)
+        }
+    }
 
     val monthlyPackage = packages.firstOrNull { it.identifier == "\$rc_monthly" }
     val yearlyPackage = packages.firstOrNull { it.identifier == "\$rc_annual" }
@@ -233,7 +257,10 @@ fun CymbalClubOfferScreen(
         }
     }
     androidx.activity.compose.BackHandler(enabled = isOnboarding) {
-        if (!isPurchasing) { viewModel.logPaywallDismissed(source, "system_back"); onBack() }
+        if (!isPurchasing) {
+            logDismissal("system_back")
+            onBack()
+        }
     }
 
     // Handle purchase result
@@ -276,7 +303,13 @@ fun CymbalClubOfferScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // ── Scrollable header + features ──
-            CenteredScrollRegion(verticalPadding = CorusSpacing.sm) { availableHeight ->
+            CenteredScrollRegion(
+                verticalPadding = if (isOnboarding) {
+                    ClubOnboardingPaywallContract.headerVerticalPadding
+                } else {
+                    CorusSpacing.sm
+                },
+            ) { availableHeight ->
                 // Spinning vinyl record
                 fm.corus.android.ui.components.CymbalClubVinyl(
                     size = if (isOnboarding) ClubOnboardingPaywallContract.vinylSize else 140.dp,
@@ -332,15 +365,11 @@ fun CymbalClubOfferScreen(
 
                 // Post-limit: surface the trial with its duration when available,
                 // otherwise the source's default subtitle ("Remove posting limits").
-                val trial = trialDurationText(context, selectedPackage, source == PaywallSource.ONBOARDING || source == PaywallSource.THIRD_POST)
-                if (isOnboarding && trial != null) {
-                    Text(
-                        text = context.getString(R.string.club_cta_try_free_format, trial),
-                        style = CorusFont.bodyMedium,
-                        color = CorusColors.Accent,
-                        modifier = Modifier.padding(vertical = CorusSpacing.sm),
-                    )
-                }
+                val trial = trialDurationText(
+                    context,
+                    selectedPackage,
+                    source == PaywallSource.ONBOARDING || source == PaywallSource.THIRD_POST,
+                )
                 val subtitleText = if (source == PaywallSource.POST_LIMIT && trial != null)
                     context.getString(R.string.club_subtitle_post_limit_trial_format, trial)
                 else
@@ -429,7 +458,15 @@ fun CymbalClubOfferScreen(
                     PlanCard(
                         label = stringResource(R.string.club_plan_monthly),
                         price = stringResource(R.string.club_plan_monthly_price_format, monthlyPrice),
-                        detail = monthlyDetailText(context, monthlyPackage, monthlyPrice, source == PaywallSource.ONBOARDING || source == PaywallSource.THIRD_POST),
+                        detail = if (isOnboarding) {
+                            onboardingPlanDetailText(
+                                context,
+                                monthlyPackage,
+                                context.getString(R.string.club_monthly_detail_billed_format, monthlyPrice),
+                            )
+                        } else {
+                            monthlyDetailText(context, monthlyPackage, monthlyPrice, source == PaywallSource.THIRD_POST)
+                        },
                         isSelected = selectedPlan == "monthly",
                         onClick = { userSelectedPlan = true; selectedPlan = "monthly" },
                         modifier = Modifier.weight(1f),
@@ -437,9 +474,15 @@ fun CymbalClubOfferScreen(
                     PlanCard(
                         label = stringResource(R.string.club_plan_yearly),
                         price = stringResource(R.string.club_plan_yearly_price_format, yearlyPrice),
-                        detail = if (isOnboarding && trialDurationText(context, yearlyPackage, true) == null)
-                            context.getString(R.string.club_onboarding_yearly_billed, yearlyPrice)
-                        else yearlyDetailText(context, yearlyPackage, yearlyPrice, yearlyMonthly, source == PaywallSource.ONBOARDING || source == PaywallSource.THIRD_POST),
+                        detail = if (isOnboarding) {
+                            onboardingPlanDetailText(
+                                context,
+                                yearlyPackage,
+                                context.getString(R.string.club_onboarding_yearly_billed, yearlyPrice),
+                            )
+                        } else {
+                            yearlyDetailText(context, yearlyPackage, yearlyPrice, yearlyMonthly, source == PaywallSource.THIRD_POST)
+                        },
                         isSelected = selectedPlan == "yearly",
                         onClick = { userSelectedPlan = true; selectedPlan = "yearly" },
                         modifier = Modifier.weight(1f),
@@ -498,16 +541,32 @@ fun CymbalClubOfferScreen(
 
                 if (isOnboarding && selectedPackage != null) {
                     Text(
-                        text = stringResource(R.string.club_onboarding_renewal),
+                        text = stringResource(
+                            ClubOnboardingPaywallContract.renewalStringResource(
+                                hasTrial = trialDurationText(context, selectedPackage, true) != null,
+                            ),
+                        ),
                         style = CorusFont.caption,
                         color = CorusColors.Secondary,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+                        maxLines = 1,
+                        softWrap = false,
                     )
                 }
                 if (isOnboarding) {
-                    TextButton(onClick = { viewModel.logPaywallDismissed(source, "maybe_later"); onBack() }, enabled = !isPurchasing) {
-                        Text(stringResource(R.string.club_onboarding_skip), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                    TextButton(
+                        onClick = {
+                            logDismissal("maybe_later")
+                            onBack()
+                        },
+                        enabled = !isPurchasing,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.club_onboarding_skip),
+                            style = CorusFont.bodyMedium,
+                            color = CorusColors.Secondary,
+                        )
                     }
                 }
 
@@ -530,8 +589,6 @@ fun CymbalClubOfferScreen(
                         Text(stringResource(R.string.club_privacy), style = CorusFont.caption, color = CorusColors.Secondary)
                     }
                 }
-
-                Spacer(modifier = Modifier.height(CorusSpacing.lg))
             }
         }
         }
@@ -541,7 +598,7 @@ fun CymbalClubOfferScreen(
         // page margin keeps the 48dp target away from the physical screen edge.
         ClubCloseButton(
             onClick = {
-                viewModel.logPaywallDismissed(source, if (isOnboarding) "close" else null)
+                logDismissal(if (isOnboarding) "close" else null)
                 onBack()
             },
             modifier = Modifier
@@ -1019,7 +1076,14 @@ private fun PlanCard(
             Spacer(modifier = Modifier.height(CorusSpacing.xs))
             Text(text = price, style = CorusFont.songTitleLarge, color = CorusColors.Text)
             Spacer(modifier = Modifier.height(CorusSpacing.xs))
-            Text(text = detail, style = CorusFont.caption, color = CorusColors.Secondary)
+            Text(
+                text = detail,
+                style = CorusFont.caption.copy(fontSize = androidx.compose.ui.unit.TextUnit(10f, androidx.compose.ui.unit.TextUnitType.Sp)),
+                color = CorusColors.Secondary,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
 
         // Badge overlay on top of card

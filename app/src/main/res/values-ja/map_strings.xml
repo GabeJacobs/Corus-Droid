@@ -1,1 +1,40 @@
-<resources><string name="map_unavailable">Apple Mapsを利用できません。後でもう一度お試しください。</string><string name="map_sharing_label">共有中:</string><string name="map_latest_post">最新の投稿</string><string name="map_privacy_audience">表示されるのは都市だけで、通りや現在地が公開されることはありません。いつでも変更できます。</string><string name="map_location_needed">共有には位置情報が必要です</string><string name="map_privacy_location">Corusは都市を特定するためだけに位置情報を使用します。正確な位置は表示しません。</string><string name="map_try_again">もう一度試す</string><string name="map_dont_share">都市を共有しない</string><string name="map_countries">国</string><string name="map_select_multiple">複数選択</string><string name="map_search_countries">国を検索</string><string name="map_open_chat">チャットを開く</string><string name="map_join_chat">チャットに参加</string><string name="map_please_try_again">もう一度お試しください</string><string name="map_no_more_posts">この選択で再生できる投稿はもうありません。</string><string name="map_cd_back">戻る</string><string name="map_cd_previous_city">前の都市</string><string name="map_cd_next_city">次の都市</string><string name="map_cd_view_profile">プロフィールを見る</string><string name="map_cd_previous_trailer">前の予告編</string><string name="map_cd_next_trailer">次の予告編</string><string name="map_cd_search">検索</string><string name="map_cd_clear_search">検索を消去</string><string name="map_cd_expand_city">都市を展開</string><string name="map_cd_collapse_city">都市を折りたたむ</string><string name="map_cd_like">いいね</string><string name="map_cd_comments">コメント</string><string name="map_cd_repost">再投稿</string><string name="map_cd_share">共有</string><string name="map_cd_save">保存</string><string name="map_cd_remove_saved">保存から削除</string><string name="map_cd_catalog">同じ投稿をした人を見る</string><plurals name="map_people_count"><item quantity="other">%1$d人</item></plurals></resources>
+<?xml version="1.0"?>
+<resources>
+  <string name="map_start">開始</string>
+  <string name="map_cd_start_selected_countries">選択した国で開始</string>
+  <string name="map_unavailable">Apple Maps&#x3092;&#x5229;&#x7528;&#x3067;&#x304D;&#x307E;&#x305B;&#x3093;&#x3002;&#x5F8C;&#x3067;&#x3082;&#x3046;&#x4E00;&#x5EA6;&#x304A;&#x8A66;&#x3057;&#x304F;&#x3060;&#x3055;&#x3044;&#x3002;</string>
+  <string name="map_sharing_label">&#x5171;&#x6709;&#x4E2D;:</string>
+  <string name="map_latest_post">&#x6700;&#x65B0;&#x306E;&#x6295;&#x7A3F;</string>
+  <string name="map_privacy_audience">&#x8868;&#x793A;&#x3055;&#x308C;&#x308B;&#x306E;&#x306F;&#x90FD;&#x5E02;&#x3060;&#x3051;&#x3067;&#x3001;&#x901A;&#x308A;&#x3084;&#x73FE;&#x5728;&#x5730;&#x304C;&#x516C;&#x958B;&#x3055;&#x308C;&#x308B;&#x3053;&#x3068;&#x306F;&#x3042;&#x308A;&#x307E;&#x305B;&#x3093;&#x3002;&#x3044;&#x3064;&#x3067;&#x3082;&#x5909;&#x66F4;&#x3067;&#x304D;&#x307E;&#x3059;&#x3002;</string>
+  <string name="map_location_needed">&#x5171;&#x6709;&#x306B;&#x306F;&#x4F4D;&#x7F6E;&#x60C5;&#x5831;&#x304C;&#x5FC5;&#x8981;&#x3067;&#x3059;</string>
+  <string name="map_privacy_location">Corus&#x306F;&#x90FD;&#x5E02;&#x3092;&#x7279;&#x5B9A;&#x3059;&#x308B;&#x305F;&#x3081;&#x3060;&#x3051;&#x306B;&#x4F4D;&#x7F6E;&#x60C5;&#x5831;&#x3092;&#x4F7F;&#x7528;&#x3057;&#x307E;&#x3059;&#x3002;&#x6B63;&#x78BA;&#x306A;&#x4F4D;&#x7F6E;&#x306F;&#x8868;&#x793A;&#x3057;&#x307E;&#x305B;&#x3093;&#x3002;</string>
+  <string name="map_try_again">&#x3082;&#x3046;&#x4E00;&#x5EA6;&#x8A66;&#x3059;</string>
+  <string name="map_dont_share">&#x90FD;&#x5E02;&#x3092;&#x5171;&#x6709;&#x3057;&#x306A;&#x3044;</string>
+  <string name="map_countries">&#x56FD;</string>
+  <string name="map_select_multiple">&#x8907;&#x6570;&#x9078;&#x629E;</string>
+  <string name="map_search_countries">&#x56FD;&#x3092;&#x691C;&#x7D22;</string>
+  <string name="map_open_chat">&#x30C1;&#x30E3;&#x30C3;&#x30C8;&#x3092;&#x958B;&#x304F;</string>
+  <string name="map_join_chat">&#x30C1;&#x30E3;&#x30C3;&#x30C8;&#x306B;&#x53C2;&#x52A0;</string>
+  <string name="map_please_try_again">&#x3082;&#x3046;&#x4E00;&#x5EA6;&#x304A;&#x8A66;&#x3057;&#x304F;&#x3060;&#x3055;&#x3044;</string>
+  <string name="map_no_more_posts">&#x3053;&#x306E;&#x9078;&#x629E;&#x3067;&#x518D;&#x751F;&#x3067;&#x304D;&#x308B;&#x6295;&#x7A3F;&#x306F;&#x3082;&#x3046;&#x3042;&#x308A;&#x307E;&#x305B;&#x3093;&#x3002;</string>
+  <string name="map_cd_back">&#x623B;&#x308B;</string>
+  <string name="map_cd_previous_city">&#x524D;&#x306E;&#x90FD;&#x5E02;</string>
+  <string name="map_cd_next_city">&#x6B21;&#x306E;&#x90FD;&#x5E02;</string>
+  <string name="map_cd_view_profile">&#x30D7;&#x30ED;&#x30D5;&#x30A3;&#x30FC;&#x30EB;&#x3092;&#x898B;&#x308B;</string>
+  <string name="map_cd_previous_trailer">&#x524D;&#x306E;&#x4E88;&#x544A;&#x7DE8;</string>
+  <string name="map_cd_next_trailer">&#x6B21;&#x306E;&#x4E88;&#x544A;&#x7DE8;</string>
+  <string name="map_cd_search">&#x691C;&#x7D22;</string>
+  <string name="map_cd_clear_search">&#x691C;&#x7D22;&#x3092;&#x6D88;&#x53BB;</string>
+  <string name="map_cd_expand_city">&#x90FD;&#x5E02;&#x3092;&#x5C55;&#x958B;</string>
+  <string name="map_cd_collapse_city">&#x90FD;&#x5E02;&#x3092;&#x6298;&#x308A;&#x305F;&#x305F;&#x3080;</string>
+  <string name="map_cd_like">&#x3044;&#x3044;&#x306D;</string>
+  <string name="map_cd_comments">&#x30B3;&#x30E1;&#x30F3;&#x30C8;</string>
+  <string name="map_cd_repost">&#x518D;&#x6295;&#x7A3F;</string>
+  <string name="map_cd_share">&#x5171;&#x6709;</string>
+  <string name="map_cd_save">&#x4FDD;&#x5B58;</string>
+  <string name="map_cd_remove_saved">&#x4FDD;&#x5B58;&#x304B;&#x3089;&#x524A;&#x9664;</string>
+  <string name="map_cd_catalog">&#x540C;&#x3058;&#x6295;&#x7A3F;&#x3092;&#x3057;&#x305F;&#x4EBA;&#x3092;&#x898B;&#x308B;</string>
+  <plurals name="map_people_count">
+    <item quantity="other">%1$d&#x4EBA;</item>
+  </plurals>
+</resources>

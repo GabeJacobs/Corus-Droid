@@ -649,7 +649,10 @@ fun ProfileScreen(
                             val statMod = Modifier.weight(1f)
                             StatItem(
                                 count = currentProfile.cymbalCount,
-                                label = stringResource(fm.corus.android.R.string.profile_stat_coruses),
+                                label = stringResource(
+                                    if (currentProfile.cymbalCount == 1) fm.corus.android.R.string.post_noun
+                                    else fm.corus.android.R.string.profile_stat_coruses,
+                                ),
                                 instagram = true,
                                 modifier = statMod,
                             )

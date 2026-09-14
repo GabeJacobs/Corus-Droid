@@ -1046,6 +1046,7 @@
     <string name="club_cta_try_free_format">Prueba gratis por %1$s</string>
     <string name="club_cta_join">Únete al Club</string>
     <string name="club_monthly_detail_trial_format">%1$s gratis, luego %2$s/mes</string>
+    <string name="club_plan_detail_trial_only">%1$s gratis</string>
     <string name="club_monthly_detail_billed_format">Se cobra %1$s/mes.</string>
     <string name="club_yearly_detail_trial_format">%1$s gratis, luego %2$s/año</string>
     <string name="club_yearly_detail_only_format">Solo %1$s/mes</string>
@@ -1483,7 +1484,8 @@
     <string name="club_onboarding_title">Sácale el máximo provecho a Corus</string>
     <string name="club_onboarding_subtitle">Desbloquea todas las funciones y conecta con personas que comparten tus gustos.</string>
     <string name="club_onboarding_skip">Quizás más tarde</string>
-    <string name="club_onboarding_renewal">Se renueva automáticamente al precio del plan elegido después de cualquier prueba gratis. Cancela cuando quieras.</string>
+    <string name="club_onboarding_renewal">Después se renueva automáticamente. Cancela cuando quieras.</string>
+    <string name="club_onboarding_renewal_no_trial">Se renueva automáticamente. Cancela cuando quieras.</string>
     <string name="club_onboarding_yearly_billed">Facturado a %1$s/año.</string>
     <string name="club_feature_unlimited_saves">Guardados ilimitados</string>
     <string name="map_cluster_invite_copy">Haz crecer tu comunidad. Invita a tus amigos a unirse a Corus.</string>

@@ -1045,6 +1045,7 @@
     <string name="club_cta_try_free_format">免费试用 %1$s</string>
     <string name="club_cta_join">加入 Club</string>
     <string name="club_monthly_detail_trial_format">免费 %1$s，之后 %2$s/月</string>
+    <string name="club_plan_detail_trial_only">免费 %1$s</string>
     <string name="club_monthly_detail_billed_format">按 %1$s/月收费。</string>
     <string name="club_yearly_detail_trial_format">免费 %1$s，之后 %2$s/年</string>
     <string name="club_yearly_detail_only_format">仅需 %1$s/月</string>
@@ -1473,7 +1474,8 @@
     <string name="club_onboarding_title">尽享 Corus</string>
     <string name="club_onboarding_subtitle">解锁所有功能，与品味相投的人建立联系。</string>
     <string name="club_onboarding_skip">以后再说</string>
-    <string name="club_onboarding_renewal">免费试用结束后将按所选套餐价格自动续订。可随时取消。</string>
+    <string name="club_onboarding_renewal">之后自动续订。可随时取消。</string>
+    <string name="club_onboarding_renewal_no_trial">自动续订。可随时取消。</string>
     <string name="club_onboarding_yearly_billed">按年收费 %1$s。</string>
     <string name="club_feature_unlimited_saves">无限收藏</string>
     <string name="map_cluster_invite_copy">壮大你的社区。邀请好友加入 Corus。</string>

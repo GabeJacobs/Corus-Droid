@@ -1292,6 +1292,7 @@
     <string name="club_cta_try_free_format">Try Free for %1$s</string>
     <string name="club_cta_join">Join the Club</string>
     <string name="club_monthly_detail_trial_format">%1$s free, then %2$s/mo</string>
+    <string name="club_plan_detail_trial_only">%1$s free</string>
     <string name="club_monthly_detail_billed_format">Billed at %1$s/mo.</string>
     <string name="club_yearly_detail_trial_format">%1$s free, then %2$s/yr</string>
     <string name="club_yearly_detail_only_format">Only %1$s/mo</string>
@@ -1539,7 +1540,8 @@
     <string name="club_onboarding_title">Get the most out of Corus</string>
     <string name="club_onboarding_subtitle">Unlock every feature and connect with people who share your taste.</string>
     <string name="club_onboarding_skip">Maybe later</string>
-    <string name="club_onboarding_renewal">Auto-renews at the selected plan price after any free trial. Cancel anytime.</string>
+    <string name="club_onboarding_renewal">Then auto-renews. Cancel anytime.</string>
+    <string name="club_onboarding_renewal_no_trial">Auto-renews. Cancel anytime.</string>
     <string name="club_onboarding_yearly_billed">Billed at %1$s/yr.</string>
     <string name="map_cluster_invite_copy">Grow your cluster. Invite your friends to join Corus.</string>
     <string name="map_cluster_invite_action">Invite friends</string>

@@ -933,6 +933,7 @@
     <string name="club_cta_try_free_format">%1$s 無料でお試し</string>
     <string name="club_cta_join">Club に参加</string>
     <string name="club_monthly_detail_trial_format">%1$s 無料、その後 %2$s/月</string>
+    <string name="club_plan_detail_trial_only">%1$s 無料</string>
     <string name="club_monthly_detail_billed_format">%1$s/月で請求されます。</string>
     <string name="club_yearly_detail_trial_format">%1$s 無料、その後 %2$s/年</string>
     <string name="club_yearly_detail_only_format">月額わずか %1$s</string>
@@ -1346,7 +1347,8 @@
     <string name="club_onboarding_title">Corusをもっと楽しもう</string>
     <string name="club_onboarding_subtitle">すべての機能をアンロックして、好みを共有する人たちとつながろう。</string>
     <string name="club_onboarding_skip">あとで</string>
-    <string name="club_onboarding_renewal">無料トライアル終了後、選択したプランの料金で自動更新されます。いつでもキャンセルできます。</string>
+    <string name="club_onboarding_renewal">その後自動更新。いつでもキャンセルできます。</string>
+    <string name="club_onboarding_renewal_no_trial">自動更新。いつでもキャンセルできます。</string>
     <string name="club_onboarding_yearly_billed">年額 %1$s。</string>
     <string name="club_feature_unlimited_saves">保存数無制限</string>
     <string name="map_cluster_invite_copy">コミュニティを広げよう。友達をCorusに招待しましょう。</string>

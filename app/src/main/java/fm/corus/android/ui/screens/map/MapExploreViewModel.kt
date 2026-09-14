@@ -89,7 +89,8 @@ class MapExploreViewModel @Inject constructor(
     private var canonicalJob: kotlinx.coroutines.Job? = null
     private val canonicalCities = mutableMapOf<String,MapCity>()
     var savedCamera: MapCameraPosition? = null
-    var selectedCountries: Set<String> = emptySet()
+    private val selectedCountryScopes = mutableMapOf<String, Set<String>>()
+    fun selectedCountries(mode: String): Set<String> = selectedCountryScopes[mode].orEmpty()
     var directorySearch = ""
     var directoryCollapsed: List<String> = emptyList()
     var directoryScrollIndex = 0
@@ -301,6 +302,7 @@ class MapExploreViewModel @Inject constructor(
         if (requestedGeneration != generation || !enabled) return@launch
         updateState { it.copy(preview = usage) }
         if (!fullAccess && usage.remaining(mode) == 0) { pendingAction = { start(mode, countryCodes, cityId) }; updateState { it.copy(paywall = if (mode == "listen") "MAP_LISTEN" else "MAP_WATCH", busy = false) }; return@launch }
+        selectedCountryScopes[mode] = if (cityId == null) countryCodes.map(String::uppercase).toSet() else emptySet()
         ++generation
         directoryJob?.cancel(); directoryJob = null; directoryExtended = false
         round = 0; roundFound = false; pool.clear(); shownPosts.clear(); postHistories.clear()

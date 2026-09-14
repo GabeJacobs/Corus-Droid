@@ -1,1 +1,41 @@
-<resources><string name="map_unavailable">Apple Maps ist nicht verfügbar. Bitte versuche es später erneut.</string><string name="map_sharing_label">Geteilt:</string><string name="map_latest_post">Neuester Beitrag</string><string name="map_privacy_audience">Andere sehen deine Stadt, niemals deine Straße oder einen Live-Standort. Du kannst dies jederzeit ändern.</string><string name="map_location_needed">Standort zum Teilen erforderlich</string><string name="map_privacy_location">Corus verwendet deinen Standort nur, um deine Stadt zu bestimmen. Dein genauer Standort wird nie angezeigt.</string><string name="map_try_again">Erneut versuchen</string><string name="map_dont_share">Meine Stadt nicht teilen</string><string name="map_countries">Länder</string><string name="map_select_multiple">Mehrere auswählen</string><string name="map_search_countries">Länder suchen</string><string name="map_open_chat">Chat öffnen</string><string name="map_join_chat">Chat beitreten</string><string name="map_please_try_again">Bitte erneut versuchen</string><string name="map_no_more_posts">Für diese Auswahl gibt es keine weiteren Beiträge.</string><string name="map_cd_back">Zurück</string><string name="map_cd_previous_city">Vorherige Stadt</string><string name="map_cd_next_city">Nächste Stadt</string><string name="map_cd_view_profile">Profil ansehen</string><string name="map_cd_previous_trailer">Vorheriger Trailer</string><string name="map_cd_next_trailer">Nächster Trailer</string><string name="map_cd_search">Suchen</string><string name="map_cd_clear_search">Suche löschen</string><string name="map_cd_expand_city">Stadt erweitern</string><string name="map_cd_collapse_city">Stadt einklappen</string><string name="map_cd_like">Gefällt mir</string><string name="map_cd_comments">Kommentare</string><string name="map_cd_repost">Reposten</string><string name="map_cd_share">Teilen</string><string name="map_cd_save">Speichern</string><string name="map_cd_remove_saved">Aus Gespeichert entfernen</string><string name="map_cd_catalog">Weitere Beiträge dazu anzeigen</string><plurals name="map_people_count"><item quantity="one">%1$d Person</item><item quantity="other">%1$d Personen</item></plurals></resources>
+<?xml version="1.0"?>
+<resources>
+  <string name="map_start">Starten</string>
+  <string name="map_cd_start_selected_countries">Mit ausgewählten Ländern starten</string>
+  <string name="map_unavailable">Apple Maps ist nicht verf&#xFC;gbar. Bitte versuche es sp&#xE4;ter erneut.</string>
+  <string name="map_sharing_label">Geteilt:</string>
+  <string name="map_latest_post">Neuester Beitrag</string>
+  <string name="map_privacy_audience">Andere sehen deine Stadt, niemals deine Stra&#xDF;e oder einen Live-Standort. Du kannst dies jederzeit &#xE4;ndern.</string>
+  <string name="map_location_needed">Standort zum Teilen erforderlich</string>
+  <string name="map_privacy_location">Corus verwendet deinen Standort nur, um deine Stadt zu bestimmen. Dein genauer Standort wird nie angezeigt.</string>
+  <string name="map_try_again">Erneut versuchen</string>
+  <string name="map_dont_share">Meine Stadt nicht teilen</string>
+  <string name="map_countries">L&#xE4;nder</string>
+  <string name="map_select_multiple">Mehrere ausw&#xE4;hlen</string>
+  <string name="map_search_countries">L&#xE4;nder suchen</string>
+  <string name="map_open_chat">Chat &#xF6;ffnen</string>
+  <string name="map_join_chat">Chat beitreten</string>
+  <string name="map_please_try_again">Bitte erneut versuchen</string>
+  <string name="map_no_more_posts">F&#xFC;r diese Auswahl gibt es keine weiteren Beitr&#xE4;ge.</string>
+  <string name="map_cd_back">Zur&#xFC;ck</string>
+  <string name="map_cd_previous_city">Vorherige Stadt</string>
+  <string name="map_cd_next_city">N&#xE4;chste Stadt</string>
+  <string name="map_cd_view_profile">Profil ansehen</string>
+  <string name="map_cd_previous_trailer">Vorheriger Trailer</string>
+  <string name="map_cd_next_trailer">N&#xE4;chster Trailer</string>
+  <string name="map_cd_search">Suchen</string>
+  <string name="map_cd_clear_search">Suche l&#xF6;schen</string>
+  <string name="map_cd_expand_city">Stadt erweitern</string>
+  <string name="map_cd_collapse_city">Stadt einklappen</string>
+  <string name="map_cd_like">Gef&#xE4;llt mir</string>
+  <string name="map_cd_comments">Kommentare</string>
+  <string name="map_cd_repost">Reposten</string>
+  <string name="map_cd_share">Teilen</string>
+  <string name="map_cd_save">Speichern</string>
+  <string name="map_cd_remove_saved">Aus Gespeichert entfernen</string>
+  <string name="map_cd_catalog">Weitere Beitr&#xE4;ge dazu anzeigen</string>
+  <plurals name="map_people_count">
+    <item quantity="one">%1$d Person</item>
+    <item quantity="other">%1$d Personen</item>
+  </plurals>
+</resources>

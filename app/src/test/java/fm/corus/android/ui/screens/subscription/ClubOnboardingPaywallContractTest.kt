@@ -48,6 +48,7 @@ class ClubOnboardingPaywallContractTest {
 
     @Test fun `artwork and close target meet layout contract`() {
         assertEquals(112.dp, ClubOnboardingPaywallContract.vinylSize)
+        assertEquals(56.dp, ClubOnboardingPaywallContract.headerVerticalPadding)
         assertTrue(ClubOnboardingPaywallContract.vinylSize < 140.dp)
 
         composeRule.setContent { Box { ClubCloseButton(onClick = {}) } }
@@ -67,6 +68,15 @@ class ClubOnboardingPaywallContractTest {
     }
 
     @Test fun `onboarding trial remains RevenueCat eligibility driven`() {
+        assertEquals(
+            R.string.club_onboarding_renewal,
+            ClubOnboardingPaywallContract.renewalStringResource(hasTrial = true),
+        )
+        assertEquals(
+            R.string.club_onboarding_renewal_no_trial,
+            ClubOnboardingPaywallContract.renewalStringResource(hasTrial = false),
+        )
+
         val source = File(
             "src/main/java/fm/corus/android/ui/screens/subscription/CymbalClubOfferScreen.kt",
         ).readText()
@@ -75,5 +85,26 @@ class ClubOnboardingPaywallContractTest {
         assertTrue(source.contains("trialDurationText(context, yearlyPackage, true)"))
         assertTrue(source.contains("R.string.club_cta_try_free_format"))
         assertTrue(source.contains("trial != null"))
+        assertFalse(source.contains("forceDebugTrial"))
+        assertFalse(source.contains("BuildConfig.DEBUG"))
+    }
+
+    @Test fun `onboarding analytics cover the iOS funnel without duplicate skips`() {
+        val screenSource = File(
+            "src/main/java/fm/corus/android/ui/screens/subscription/CymbalClubOfferScreen.kt",
+        ).readText()
+        val viewModelSource = File(
+            "src/main/java/fm/corus/android/ui/screens/subscription/CymbalClubViewModel.kt",
+        ).readText()
+
+        assertTrue(screenSource.contains("didLogOnboardingSkip"))
+        assertTrue(screenSource.contains("logDismissal(\"system_back\")"))
+        assertTrue(screenSource.contains("logDismissal(\"maybe_later\")"))
+        assertTrue(screenSource.contains("logDismissal(if (isOnboarding) \"close\" else null)"))
+        assertTrue(viewModelSource.contains("logOnboardingClubOfferShown()"))
+        assertTrue(viewModelSource.contains("logOnboardingClubOfferSkipped(method)"))
+        assertTrue(viewModelSource.contains("logOnboardingClubOfferSubscribed(planName)"))
+        assertTrue(viewModelSource.contains("logPurchaseStarted(planName, source.analyticsName)"))
+        assertTrue(viewModelSource.contains("logPurchaseCompleted(planName, source.analyticsName)"))
     }
 }

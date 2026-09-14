@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -127,8 +128,7 @@ fun MapExploreScreen(
     fun openChat(threadId: String) { model.repository.event("message_opened", state.mode ?: "map"); onChat(threadId) }
     var audience by rememberSaveable { mutableStateOf("off") }
     var pendingMode by rememberSaveable { mutableStateOf("listen") }
-    var countries by remember { mutableStateOf(model.selectedCountries) }
-    LaunchedEffect(countries) { model.selectedCountries = countries }
+    var countrySelection by remember { mutableStateOf(mapCountryPickerOpened(model.selectedCountries(pendingMode))) }
     var query by rememberSaveable { mutableStateOf("") }
     var countryQuery by rememberSaveable { mutableStateOf("") }
     var chosenCity by remember { mutableStateOf<MapCity?>(null) }
@@ -144,6 +144,13 @@ fun MapExploreScreen(
     // different city.
     var listeningExitFocus by remember { mutableStateOf<MapCity?>(null) }
     var previousPlaybackMode by remember { mutableStateOf<String?>(null) }
+    fun openCountryPicker(mode: String) {
+        pendingMode = mode
+        countrySelection = mapCountryPickerOpened(model.selectedCountries(mode))
+        countryQuery = ""
+        model.repository.event("picker_opened", mode)
+        dialog = "countries"
+    }
     fun openCitySheet(city: MapCity) {
         listeningExitFocus = null
         // Keep sheet visibility and the selected city in the same Compose
@@ -473,8 +480,8 @@ fun MapExploreScreen(
             }
         }
         if (state.selected == null && state.playing == null && view == "map") Row(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MapGlassModeButton("Listen", Icons.Default.Headphones) { pendingMode = "listen"; model.repository.event("picker_opened", "listen"); dialog = "countries" }
-            MapGlassModeButton("Watch", Icons.Default.Movie) { pendingMode = "watch"; model.repository.event("picker_opened", "watch"); dialog = "countries" }
+            MapGlassModeButton("Listen", Icons.Default.Headphones) { openCountryPicker("listen") }
+            MapGlassModeButton("Watch", Icons.Default.Movie) { openCountryPicker("watch") }
         }
         state.selected?.takeIf { state.playing == null }?.let { city ->
             // Keep the directory in the map hierarchy. Unlike a Dialog, this
@@ -741,31 +748,42 @@ fun MapExploreScreen(
                         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                             Text(parityCopy(if (pendingMode == "listen") "Listen Mode" else "Watch Mode"), style = CorusFont.songTitleLarge)
                             Surface(onClick = { dialog = "" }, modifier = Modifier.align(Alignment.CenterStart).size(46.dp), shape = CircleShape, color = CorusColors.CardBackground) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Close, parityCopy("Close")) } }
+                            if (countrySelection.isSelectingMultiple) TextButton(
+                                onClick = {
+                                    val selected = countrySelection.pendingCountryCodes
+                                    if (selected.isNotEmpty()) {
+                                        dialog = ""
+                                        model.start(pendingMode, selected)
+                                    }
+                                },
+                                enabled = countrySelection.canStart && !state.busy,
+                                modifier = Modifier.align(Alignment.CenterEnd).semantics {
+                                    contentDescription = context.getString(fm.corus.android.R.string.map_cd_start_selected_countries)
+                                },
+                            ) { Text(stringResource(fm.corus.android.R.string.map_start), style = CorusFont.bodyMedium) }
                         }
                         Text(parityCopy(if (pendingMode == "listen") "Listen to music posted by people in the countries you choose." else "Watch films posted by people in the countries you choose."), style = CorusFont.bodyMedium, color = CorusColors.Secondary, modifier = Modifier.padding(top = 20.dp, bottom = 16.dp))
                         // Match iOS: Anywhere is a complete selection, not a
                         // filter reset. It starts Listen/Watch Mode globally.
                         Surface(onClick = {
-                            countries = emptySet()
                             model.start(pendingMode, emptySet())
                             dialog = ""
                         }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = CorusColors.CardBackground) {
                             Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                                 Text("🌍", style = CorusFont.bodyMedium)
                                 Column(Modifier.weight(1f)) { Text(parityCopy("Anywhere"), style = CorusFont.bodyMedium); Text(parityCopy(if (pendingMode == "listen") "Music posted by people around the world." else "Films posted by people around the world."), style = CorusFont.caption, color = CorusColors.Secondary) }
-                                Text(cities.sumOf { it.facets[state.filter]?.count ?: 0 }.toString(), style = CorusFont.caption, color = CorusColors.Secondary)
                                 Icon(Icons.Default.ChevronRight, null, tint = CorusColors.Tertiary)
                             }
                         }
-                        Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text(stringResource(fm.corus.android.R.string.map_countries), style = CorusFont.bodyMedium, color = CorusColors.Secondary); TextButton(onClick = { countries = cities.map { it.city.countryCode }.toSet() }, modifier = Modifier.height(32.dp), contentPadding = PaddingValues(horizontal = 4.dp)) { Text(stringResource(fm.corus.android.R.string.map_select_multiple), style = CorusFont.caption, color = CorusColors.Accent) } }
+                        Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text(stringResource(fm.corus.android.R.string.map_countries), style = CorusFont.bodyMedium, color = CorusColors.Secondary); TextButton(onClick = { countrySelection = if (countrySelection.isSelectingMultiple) countrySelection.cancelMultiple() else countrySelection.beginMultiple() }, modifier = Modifier.height(32.dp), contentPadding = PaddingValues(horizontal = 4.dp)) { Text(if (countrySelection.isSelectingMultiple) parityCopy("Cancel") else stringResource(fm.corus.android.R.string.map_select_multiple), style = CorusFont.caption, color = CorusColors.Accent) } }
                     }
                     items(cities.map { it.city.countryCode }.distinct().sorted().filter { java.util.Locale("", it).displayCountry.contains(countryQuery, true) }) { code ->
                         val count = cities.filter { it.city.countryCode == code }.sumOf { it.facets[state.filter]?.count ?: 0 }
-                        Row(Modifier.fillMaxWidth().clickable { if (countries.isEmpty()) { model.start(pendingMode, setOf(code)); dialog = "" } else countries = if (code in countries) countries - code else countries + code }.padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Row(Modifier.fillMaxWidth().clickable { if (!countrySelection.isSelectingMultiple) { model.start(pendingMode, setOf(code)); dialog = "" } else countrySelection = countrySelection.toggleCountry(code) }.padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                             Text(countryFlag(code), style = CorusFont.bodyMedium)
                             Text(java.util.Locale("", code).displayCountry, style = CorusFont.bodyMedium, modifier = Modifier.weight(1f))
                             Text(count.toString(), style = CorusFont.caption, color = CorusColors.Secondary)
-                            if (countries.isNotEmpty()) Checkbox(checked = code in countries, onCheckedChange = null) else Icon(Icons.Default.ChevronRight, null, tint = CorusColors.Tertiary)
+                            if (countrySelection.isSelectingMultiple) Checkbox(checked = code.uppercase() in countrySelection.pendingCountryCodes, onCheckedChange = null) else if (code.uppercase() in countrySelection.activeCountryCodes) Icon(Icons.Default.CheckCircle, null, tint = CorusColors.Accent) else Icon(Icons.Default.ChevronRight, null, tint = CorusColors.Tertiary)
                         }; HorizontalDivider(color = CorusColors.Divider)
                     }
                     item { OutlinedTextField(value = countryQuery, onValueChange = { countryQuery = it }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp), leadingIcon = { Icon(Icons.Default.Search, null) }, placeholder = { Text(stringResource(fm.corus.android.R.string.map_search_countries)) }, singleLine = true) }

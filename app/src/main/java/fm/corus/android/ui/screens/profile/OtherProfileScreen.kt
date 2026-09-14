@@ -617,7 +617,10 @@ fun OtherProfileScreen(
                                         val statMod = Modifier.weight(1f)
                                         StatItemOrSkeleton(
                                             count = initialCymbalCount,
-                                            label = stringResource(fm.corus.android.R.string.profile_stat_coruses),
+                                            label = stringResource(
+                                                if (initialCymbalCount == 1) fm.corus.android.R.string.post_noun
+                                                else fm.corus.android.R.string.profile_stat_coruses,
+                                            ),
                                             modifier = statMod,
                                             instagram = true,
                                         )
@@ -893,7 +896,10 @@ fun OtherProfileScreen(
                                 val statMod: Modifier = Modifier.weight(1f)
                                 StatItem(
                                     count = currentProfile.cymbalCount,
-                                    label = stringResource(fm.corus.android.R.string.profile_stat_coruses),
+                                    label = stringResource(
+                                        if (currentProfile.cymbalCount == 1) fm.corus.android.R.string.post_noun
+                                        else fm.corus.android.R.string.profile_stat_coruses,
+                                    ),
                                     modifier = statMod,
                                     instagram = true,
                                 )

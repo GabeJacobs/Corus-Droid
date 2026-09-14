@@ -1046,6 +1046,7 @@
     <string name="club_cta_try_free_format">%1$s 동안 무료 체험</string>
     <string name="club_cta_join">Club 가입</string>
     <string name="club_monthly_detail_trial_format">%1$s 무료, 이후 %2$s/월</string>
+    <string name="club_plan_detail_trial_only">%1$s 무료</string>
     <string name="club_monthly_detail_billed_format">%1$s/월로 청구돼요.</string>
     <string name="club_yearly_detail_trial_format">%1$s 무료, 이후 %2$s/년</string>
     <string name="club_yearly_detail_only_format">월 %1$s만</string>
@@ -1473,7 +1474,8 @@
     <string name="club_onboarding_title">Corus를 최대한 활용하세요</string>
     <string name="club_onboarding_subtitle">모든 기능을 잠금 해제하고 취향이 같은 사람들과 소통하세요.</string>
     <string name="club_onboarding_skip">나중에</string>
-    <string name="club_onboarding_renewal">무료 체험 후 선택한 요금제로 자동 갱신됩니다. 언제든 취소할 수 있습니다.</string>
+    <string name="club_onboarding_renewal">이후 자동 갱신됩니다. 언제든 취소할 수 있습니다.</string>
+    <string name="club_onboarding_renewal_no_trial">자동 갱신됩니다. 언제든 취소할 수 있습니다.</string>
     <string name="club_onboarding_yearly_billed">연 %1$s 결제.</string>
     <string name="club_feature_unlimited_saves">무제한 저장</string>
     <string name="map_cluster_invite_copy">커뮤니티를 키워 보세요. 친구들을 Corus에 초대하세요.</string>
