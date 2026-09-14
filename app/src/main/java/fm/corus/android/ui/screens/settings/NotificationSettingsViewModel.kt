@@ -30,6 +30,7 @@ data class NotificationSettings(
     val plays: Boolean = true,
     val trending: Boolean = true,
     val reactions: Boolean = true,
+    val mapUpdates: Boolean = true,
     val messagePush: Boolean = true,
     val readReceipts: Boolean = true,
     val isLoaded: Boolean = false,
@@ -76,6 +77,7 @@ class NotificationSettingsViewModel @Inject constructor(
                     plays = notif["plays"] as? Boolean ?: true,
                     trending = notif["trending"] as? Boolean ?: true,
                     reactions = notif["reactions"] as? Boolean ?: true,
+                    mapUpdates = notif["mapUpdates"] as? Boolean ?: true,
                     messagePush = msg["pushEnabled"] as? Boolean ?: true,
                     readReceipts = msg["readReceiptsEnabled"] as? Boolean ?: true,
                     isLoaded = true,
@@ -115,6 +117,9 @@ class NotificationSettingsViewModel @Inject constructor(
     }
     fun setReactions(enabled: Boolean) = updateNotif("reactions", enabled) {
         _settings.value = _settings.value.copy(reactions = enabled)
+    }
+    fun setMapUpdates(enabled: Boolean) = updateNotif("mapUpdates", enabled) {
+        _settings.value = _settings.value.copy(mapUpdates = enabled)
     }
     fun setMessagePush(enabled: Boolean) {
         val uid = authRepository.currentUserId ?: return

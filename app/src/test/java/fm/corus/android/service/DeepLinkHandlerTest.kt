@@ -106,6 +106,21 @@ class DeepLinkHandlerTest {
     }
 
     @Test
+    fun `map follow join notification preserves city and profile targets`() {
+        val dest = DeepLinkHandler.parseNotificationData(
+            mapOf(
+                "type" to "map_follow_join",
+                "cityId" to "brooklyn-us",
+                "userIds" to "[\"user_123\",\"user_456\"]",
+            ),
+        )
+        assertEquals(
+            DeepLinkDestination.Map("brooklyn-us", listOf("user_123", "user_456")),
+            dest,
+        )
+    }
+
+    @Test
     fun `fallback ignores empty postId and uses fromUserId`() {
         val data = mapOf(
             "postId" to "",

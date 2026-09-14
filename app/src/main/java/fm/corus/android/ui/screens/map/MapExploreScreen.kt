@@ -65,6 +65,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapExploreScreen(
+    initialCityId: String? = null, initialUserIds: List<String> = emptyList(),
     onBack: () -> Unit, onUser: (CymbalUser) -> Unit, onPost: (CymbalPost) -> Unit,
     onChat: (String) -> Unit, onPaywall: (String) -> Unit,
     onComments: (String) -> Unit, onRepost: (CymbalPost) -> Unit,
@@ -94,6 +95,7 @@ fun MapExploreScreen(
     var browsingCityId by rememberSaveable { mutableStateOf<String?>(null) }
     var expanded by rememberSaveable { mutableStateOf(false) }
     var citySheetVisible by remember { mutableStateOf(false) }
+    var pushDestinationApplied by rememberSaveable { mutableStateOf(false) }
     // Keep the transition alive before a selected city's content is mounted.
     // Otherwise selecting the city and making the sheet visible in one event can
     // compose its first frame already open, which reads as a jump rather than a
@@ -160,6 +162,19 @@ fun MapExploreScreen(
         citySheetVisible = true
         citySheetFocusRevision++
         model.select(city)
+    }
+    LaunchedEffect(cities, initialCityId, initialUserIds, pushDestinationApplied) {
+        if (pushDestinationApplied || (initialCityId == null && initialUserIds.isEmpty())) return@LaunchedEffect
+        val target = initialCityId?.let { id -> cities.firstOrNull { it.city.cityId == id }?.city }
+        if (target != null) {
+            model.filter("following")
+            browsingCityId = target.cityId
+            openCitySheet(target)
+            pushDestinationApplied = true
+        } else if (initialCityId == null && cities.isNotEmpty()) {
+            model.filter("following")
+            pushDestinationApplied = true
+        }
     }
     fun focusSharedCity(city: MapCity) {
         sharingAnchorFrozen = false
@@ -313,6 +328,11 @@ fun MapExploreScreen(
     LaunchedEffect(listState, state.selected?.cityId, state.people) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.mapNotNull { row -> state.people.getOrNull(row.index)?.user?.id } }
             .collect { ids -> model.visiblePeople(ids) }
+    }
+    LaunchedEffect(state.selected?.cityId, state.people, initialUserIds, pushDestinationApplied) {
+        if (!pushDestinationApplied || initialUserIds.isEmpty()) return@LaunchedEffect
+        val index = state.people.indexOfFirst { it.user.id in initialUserIds }
+        if (index >= 0) listState.animateScrollToItem(index)
     }
     LaunchedEffect(query) { model.search(query) }
     LaunchedEffect(state.paywall) {

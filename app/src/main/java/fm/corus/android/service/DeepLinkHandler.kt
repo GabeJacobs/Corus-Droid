@@ -11,6 +11,7 @@ sealed class DeepLinkDestination {
     data class Thread(val threadId: String, val otherUserId: String = "") : DeepLinkDestination()
     data class Hashtag(val tag: String) : DeepLinkDestination()
     data object Club : DeepLinkDestination()
+    data class Map(val cityId: String?, val userIds: List<String>) : DeepLinkDestination()
 
     /**
      * A catalog page named by a public URL. [key] is exactly what the path
@@ -28,6 +29,7 @@ sealed class DeepLinkDestination {
         is Hashtag -> "hashtag"
         is Club -> "club"
         is Entity -> segment.segment
+        is Map -> "map_follow_join"
     }
 }
 
@@ -93,6 +95,16 @@ object DeepLinkHandler {
     fun parseNotificationData(data: Map<String, String>): DeepLinkDestination? {
         val type = data["type"] ?: return fallbackParse(data)
         return when (type) {
+            "map_follow_join" -> {
+                val cityId = data["cityId"]?.takeIf { it.isNotEmpty() }
+                val ids = runCatching {
+                    val array = org.json.JSONArray(data["userIds"].orEmpty())
+                    (0 until array.length()).mapNotNull { array.optString(it).takeIf(String::isNotEmpty) }
+                }.getOrDefault(emptyList()).ifEmpty {
+                    listOfNotNull(data["userId"]?.takeIf { it.isNotEmpty() })
+                }
+                DeepLinkDestination.Map(cityId, ids)
+            }
             "follow", "contact_joined" -> {
                 val userId = data["fromUserId"].orEmpty().ifEmpty { data["userId"].orEmpty() }
                 if (userId.isNotEmpty()) DeepLinkDestination.Profile(userId) else null

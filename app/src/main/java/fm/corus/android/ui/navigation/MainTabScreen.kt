@@ -366,9 +366,13 @@ fun MainTabScreen(
             playerExpansion.collapse()
         }
         val isThread = notificationDestination is DeepLinkDestination.Thread
+        val isMap = notificationDestination is DeepLinkDestination.Map
         val navController = if (isThread) {
             selectedTab = CorusTab.MESSAGES
             messagesNavController
+        } else if (isMap) {
+            selectedTab = CorusTab.EXPLORE
+            searchNavController
         } else {
             selectedTab = CorusTab.NOTIFICATIONS
             notificationsNavController
@@ -396,6 +400,9 @@ fun MainTabScreen(
             // the entity's own page.
             is DeepLinkDestination.Entity -> navController.navigate(
                 EntityLinkRoute(notificationDestination.segment.segment, notificationDestination.key)
+            )
+            is DeepLinkDestination.Map -> navController.navigate(
+                MapExploreRoute(notificationDestination.cityId, notificationDestination.userIds)
             )
         }
         onNotificationDestinationConsumed()

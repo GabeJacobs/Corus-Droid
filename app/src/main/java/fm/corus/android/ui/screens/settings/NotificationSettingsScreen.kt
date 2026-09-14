@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.AddReaction
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.HowToReg
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PersonSearch
 import androidx.compose.material.icons.filled.PlayArrow
@@ -95,6 +96,13 @@ fun NotificationSettingsScreen(
                 title = stringResource(R.string.notifications_row_contact_joined),
                 checked = settings.contactJoined,
                 onCheckedChange = viewModel::setContactJoined,
+            )
+
+            NotifToggleRow(
+                icon = Icons.Filled.Map,
+                title = stringResource(R.string.notifications_row_map_updates),
+                checked = settings.mapUpdates,
+                onCheckedChange = viewModel::setMapUpdates,
             )
 
             NotifToggleRow(

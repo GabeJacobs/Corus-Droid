@@ -255,7 +255,7 @@ fun SearchNavGraph(
     ) {
         composable<SearchTabRoute> {
             SearchScreen(
-                onNavigateToMap = { navController.navigate(MapExploreRoute) },
+                onNavigateToMap = { navController.navigate(MapExploreRoute()) },
                 scrollToTopTrigger = scrollToTopTrigger,
                 onNavigateToUser = { user ->
                     navController.navigate(
@@ -1046,8 +1046,11 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         popExitTransition = {
             slideOutHorizontally(tween(320), targetOffsetX = { it }) + fadeOut(tween(220))
         },
-    ) {
+    ) { backStackEntry ->
+        val mapRoute = backStackEntry.toRoute<MapExploreRoute>()
         fm.corus.android.ui.screens.map.MapExploreScreen(
+            initialCityId = mapRoute.cityId,
+            initialUserIds = mapRoute.userIds,
             // The listening card stays on the Map while the shared root sheet
             // presents comments over it, matching the iOS interaction.
             onComments = onShowComments,
@@ -1062,7 +1065,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     composable<SearchRoute> {
         CompositionLocalProvider(LocalSkipImageRevealWhenCached provides true) {
         SearchScreen(
-            onNavigateToMap = { navController.navigate(MapExploreRoute) },
+            onNavigateToMap = { navController.navigate(MapExploreRoute()) },
             onNavigateToUser = { user -> navController.navigate(user.toOtherProfileRoute()) },
             onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
             onNavigateToFilm = { route -> navController.navigate(route) },

@@ -7,6 +7,10 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class MapParityTest {
+    @Test fun focusedCityHasRequiredMapKitDisplayPriority() {
+        val html = appleMapHtml("token", compact = false, fontData = "font")
+        assertTrue(html.contains("displayPriority:focused?1000:750"))
+    }
     @Test fun cityFacesRetainTheirSlotsAcrossPageReordering() {
         val city = MapCity("c", "City", "", "US", 0.0, 0.0)
         fun person(id: String, name: String = id) = MapPerson(city, CymbalUser(id, name, name))

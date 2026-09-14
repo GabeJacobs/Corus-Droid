@@ -147,6 +147,7 @@
     <string name="notifications_row_new_followers">New Followers</string>
     <string name="notifications_row_follow_requests">Follow Requests</string>
     <string name="notifications_row_contact_joined">Contact Joined</string>
+    <string name="notifications_row_map_updates">Map Updates</string>
     <string name="notifications_row_plays">Plays</string>
     <string name="notifications_row_trending">Trending</string>
     <string name="notifications_row_messages">Messages</string>
