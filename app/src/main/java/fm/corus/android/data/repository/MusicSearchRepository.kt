@@ -70,6 +70,9 @@ internal fun parseUnifiedTrack(d: Map<String, Any?>): CymbalTrack? {
         // rest of the app branches on, but carrying the raw id avoids
         // re-parsing later when constructing Apple Music link-outs.
         appleMusicId = (d["appleMusicId"] as? String)?.ifEmpty { null },
+        appleMusicStorefront = (d["appleMusicStorefront"] as? String)?.ifEmpty { null },
+        youtubeMusicId = (d["youtubeMusicId"] as? String)?.ifEmpty { null },
+        youtubeMusicURL = (d["youtubeMusicURL"] as? String)?.ifEmpty { null },
         // Additive backend field — drives the compact "E" badge in search rows.
         explicit = (d["explicit"] as? Boolean) ?: false,
         isPlayable = d["isPlayable"] as? Boolean,

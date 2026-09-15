@@ -44,13 +44,14 @@ class ShareComposerViewModel @Inject constructor(
     private val postCreationEvent: PostCreationEvent,
 ) : ViewModel() {
 
-    enum class BlockedReason { NOT_SIGNED_IN, UNSUPPORTED_LINK, SONG_UNAVAILABLE, ALBUM_UNAVAILABLE, NOT_ON_CORUS, UNRELEASED }
+    enum class BlockedReason { NOT_SIGNED_IN, UNSUPPORTED_LINK, SONG_UNAVAILABLE, ALBUM_UNAVAILABLE, NOT_ON_CORUS, UNRELEASED, NO_CONFIDENT_MATCH }
 
     sealed interface Phase {
         data object Loading : Phase
         data object Resolving : Phase
         data object LoadingAlbum : Phase
         data object AlbumPicker : Phase
+        data object CandidatePicker : Phase
         data object Ready : Phase
         data object Posting : Phase
         data class Posted(val isFirstPoster: Boolean) : Phase
@@ -65,6 +66,9 @@ class ShareComposerViewModel @Inject constructor(
 
     private val _album = MutableStateFlow<ShareAlbum?>(null)
     val album: StateFlow<ShareAlbum?> = _album.asStateFlow()
+
+    private val _candidates = MutableStateFlow<List<CymbalTrack>>(emptyList())
+    val candidates: StateFlow<List<CymbalTrack>> = _candidates.asStateFlow()
 
     private val _caption = MutableStateFlow("")
     val caption: StateFlow<String> = _caption.asStateFlow()
@@ -163,8 +167,29 @@ class ShareComposerViewModel @Inject constructor(
                 startProvisional(source = "deezer", externalId = parsed.id) { resolver.deezerTrackMetadata(parsed.id) }
             is SharedMusicLink.TidalTrack ->
                 startProvisional(source = "tidal", externalId = parsed.id) { resolver.tidalTrackMetadata(parsed.id) }
+            is SharedMusicLink.YouTubeMusicTrack -> resolveYouTubeMusic(parsed.videoId)
             else -> resolveBlocking(parsed)
         }
+    }
+
+    private fun resolveYouTubeMusic(videoId: String) {
+        _phase.value = Phase.Resolving
+        viewModelScope.launch {
+            when (val result = resolver.resolveYouTubeMusic(videoId)) {
+                is ShareResolver.YouTubeResolution.Matched -> presentReady(result.track)
+                is ShareResolver.YouTubeResolution.NeedsSelection -> {
+                    _candidates.value = result.candidates
+                    _phase.value = Phase.CandidatePicker
+                }
+                ShareResolver.YouTubeResolution.NotFound ->
+                    _phase.value = Phase.Blocked(BlockedReason.NO_CONFIDENT_MATCH)
+            }
+        }
+    }
+
+    fun selectCandidate(candidate: CymbalTrack) {
+        _candidates.value = emptyList()
+        presentReady(candidate)
     }
 
     // ── Songs ──────────────────────────────────────────────────────────────
@@ -401,6 +426,8 @@ class ShareComposerViewModel @Inject constructor(
                 postTrack.albumId?.takeIf { it.isNotBlank() }?.let { trackMap["albumId"] = it }
                 postTrack.releaseDate?.let { trackMap["trackReleaseDate"] = it }
                 postTrack.releaseDatePrecision?.let { trackMap["trackReleaseDatePrecision"] = it }
+                postTrack.youtubeMusicId?.let { trackMap["youtubeMusicId"] = it }
+                postTrack.youtubeMusicURL?.let { trackMap["youtubeMusicURL"] = it }
                 postTrack.previewUrl?.let { trackMap["previewUrl"] = it }
                 if (postTrack.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
                     trackMap["soundcloudId"] = postTrack.soundcloudId ?: ""

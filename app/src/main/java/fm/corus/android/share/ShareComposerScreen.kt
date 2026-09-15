@@ -77,6 +77,7 @@ fun ShareComposerScreen(
     val phase by viewModel.phase.collectAsState()
     val track by viewModel.track.collectAsState()
     val album by viewModel.album.collectAsState()
+    val candidates by viewModel.candidates.collectAsState()
     val caption by viewModel.caption.collectAsState()
     val commentsAudience by viewModel.commentsAudience.collectAsState()
     val trophyPost by viewModel.trophyPost.collectAsState()
@@ -116,10 +117,64 @@ fun ShareComposerScreen(
                 onSelect = viewModel::selectAlbumTrack,
             )
 
+            ShareComposerViewModel.Phase.CandidatePicker -> CandidatePickerView(
+                candidates = candidates,
+                onCancel = onFinish,
+                onSelect = viewModel::selectCandidate,
+            )
+
             else -> ComposerContent(viewModel, track, caption, commentsAudience, phase, enabled = true, onFinish = onFinish)
         }
 
         ToastHost(modifier = Modifier.align(Alignment.TopCenter))
+    }
+}
+
+@Composable
+private fun CandidatePickerView(
+    candidates: List<fm.corus.android.data.model.CymbalTrack>,
+    onCancel: () -> Unit,
+    onSelect: (fm.corus.android.data.model.CymbalTrack) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxWidth().height(56.dp)) {
+            Text(
+                text = stringResource(R.string.share_title), style = CorusFont.screenTitle,
+                color = CorusColors.Text, modifier = Modifier.align(Alignment.Center),
+            )
+            TextButton(onClick = onCancel, modifier = Modifier.align(Alignment.CenterEnd)) {
+                Text(stringResource(R.string.share_cancel), style = CorusFont.body, color = CorusColors.Secondary)
+            }
+        }
+        LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(CorusSpacing.lg)) {
+            item {
+                Text(stringResource(R.string.share_youtube_choose_title), style = CorusFont.displayName, color = CorusColors.Text)
+                Spacer(Modifier.height(CorusSpacing.sm))
+                Text(stringResource(R.string.share_youtube_choose_subtitle), style = CorusFont.body, color = CorusColors.Secondary)
+                Spacer(Modifier.height(CorusSpacing.lg))
+            }
+            itemsIndexed(candidates) { _, candidate ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                        .clip(RoundedCornerShape(12.dp)).background(CorusColors.CardBackground)
+                        .clickable { onSelect(candidate) }.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    AsyncImage(
+                        model = candidate.albumArtLargeURL ?: candidate.albumArtURL,
+                        contentDescription = null, contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(56.dp).clip(RoundedCornerShape(6.dp)),
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(candidate.name, style = CorusFont.songTitle, color = CorusColors.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(candidate.artistName, style = CorusFont.artistName, color = CorusColors.Secondary, maxLines = 1)
+                        Text("${candidate.albumName} · ${candidate.formattedDuration}", style = CorusFont.caption, color = CorusColors.Tertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = CorusColors.Tertiary)
+                }
+            }
+        }
     }
 }
 
@@ -579,6 +634,7 @@ private fun BlockedView(
                     ShareComposerViewModel.BlockedReason.ALBUM_UNAVAILABLE -> R.string.share_blocked_album_title
                     ShareComposerViewModel.BlockedReason.NOT_ON_CORUS -> R.string.share_blocked_nomatch_title
                     ShareComposerViewModel.BlockedReason.UNRELEASED -> R.string.share_blocked_unreleased_title
+                    ShareComposerViewModel.BlockedReason.NO_CONFIDENT_MATCH -> R.string.share_youtube_not_found_title
                 }
             ),
             style = CorusFont.displayName,
@@ -593,6 +649,7 @@ private fun BlockedView(
                     ShareComposerViewModel.BlockedReason.UNSUPPORTED_LINK -> R.string.share_blocked_unsupported_subtitle
                     ShareComposerViewModel.BlockedReason.NOT_ON_CORUS -> R.string.share_blocked_nomatch_subtitle
                     ShareComposerViewModel.BlockedReason.UNRELEASED -> R.string.share_blocked_unreleased_subtitle
+                    ShareComposerViewModel.BlockedReason.NO_CONFIDENT_MATCH -> R.string.share_youtube_not_found_subtitle
                     else -> R.string.share_blocked_unavailable_subtitle
                 }
             ),

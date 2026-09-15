@@ -81,6 +81,11 @@ class ShareResolver @Inject constructor(
     private val functions: FirebaseFunctions,
     private val httpClient: HttpClient,
 ) {
+    sealed interface YouTubeResolution {
+        data class Matched(val track: CymbalTrack) : YouTubeResolution
+        data class NeedsSelection(val candidates: List<CymbalTrack>) : YouTubeResolution
+        data object NotFound : YouTubeResolution
+    }
 
     // ── Short links ────────────────────────────────────────────────────────
 
@@ -109,7 +114,30 @@ class ShareResolver @Inject constructor(
 
         is SharedMusicLink.TidalTrack -> resolveTidalTrack(link.id)
 
+        is SharedMusicLink.YouTubeMusicTrack -> null // use resolveYouTubeMusic for typed outcomes
+
         else -> null // albums route through the picker loaders
+    }
+
+    suspend fun resolveYouTubeMusic(videoId: String): YouTubeResolution {
+        val data = runCatching {
+            @Suppress("UNCHECKED_CAST")
+            functions.getHttpsCallable("shareResolveYouTubeMusic")
+                .call(mapOf("videoId" to videoId)).await().getData() as? Map<String, Any?>
+        }.getOrNull() ?: return YouTubeResolution.NotFound
+        return when (data["outcome"] as? String) {
+            "matched" -> {
+                @Suppress("UNCHECKED_CAST")
+                val track = (data["track"] as? Map<String, Any?>)?.let(::parseUnifiedTrack)
+                if (track != null) YouTubeResolution.Matched(track) else YouTubeResolution.NotFound
+            }
+            "needsSelection" -> {
+                @Suppress("UNCHECKED_CAST")
+                val tracks = (data["candidates"] as? List<Map<String, Any?>>).orEmpty().mapNotNull(::parseUnifiedTrack)
+                if (tracks.isEmpty()) YouTubeResolution.NotFound else YouTubeResolution.NeedsSelection(tracks)
+            }
+            else -> YouTubeResolution.NotFound
+        }
     }
 
     // ── TIDAL ──────────────────────────────────────────────────────────────

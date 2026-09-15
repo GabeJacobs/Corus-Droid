@@ -27,6 +27,7 @@ sealed class SharedMusicLink {
     data class DeezerAlbum(val id: String) : SharedMusicLink()
     data class TidalTrack(val id: String) : SharedMusicLink()
     data class TidalAlbum(val id: String) : SharedMusicLink()
+    data class YouTubeMusicTrack(val videoId: String) : SharedMusicLink()
 
     val isAlbum: Boolean
         get() = this is SpotifyAlbum || this is AppleMusicAlbum || this is DeezerAlbum || this is TidalAlbum
@@ -50,6 +51,7 @@ sealed class SharedMusicLink {
             deezerId(url, "album")?.let { return DeezerAlbum(it) }
             tidalId(url, "track")?.let { return TidalTrack(it) }
             tidalId(url, "album")?.let { return TidalAlbum(it) }
+            youtubeVideoId(url)?.let { return YouTubeMusicTrack(it) }
             return null
         }
 
@@ -186,6 +188,15 @@ sealed class SharedMusicLink {
             val id = url.segments[index + 1]
             if (id.isEmpty() || !id.all { it.isDigit() }) return null
             return id
+        }
+
+        private fun youtubeVideoId(url: UrlParts): String? {
+            if (url.host !in setOf("music.youtube.com", "youtube.com", "www.youtube.com", "youtu.be")) return null
+            val id = if (url.host == "youtu.be") url.segments.firstOrNull() else {
+                if (url.segments != listOf("watch")) return null
+                url.query["v"]
+            } ?: return null
+            return id.takeIf { it.length == 11 && it.all { c -> c.isLetterOrDigit() || c == '_' || c == '-' } }
         }
     }
 

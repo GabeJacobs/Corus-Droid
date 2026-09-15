@@ -126,6 +126,20 @@ class ShareLinksTest {
     }
 
     @Test
+    fun `youtube music and youtube song links parse exact video ids`() {
+        assertEquals(
+            SharedMusicLink.YouTubeMusicTrack("bTNHpxb8bBE"),
+            SharedMusicLink.parse("https://music.youtube.com/watch?v=bTNHpxb8bBE&si=share"),
+        )
+        assertEquals(
+            SharedMusicLink.YouTubeMusicTrack("o8x6BHmV_us"),
+            SharedMusicLink.parse("https://youtu.be/o8x6BHmV_us"),
+        )
+        assertNull(SharedMusicLink.parse("https://music.youtube.com/playlist?list=PL123"))
+        assertNull(SharedMusicLink.parse("https://www.youtube.com/@artist"))
+    }
+
+    @Test
     fun `short link hosts are detected`() {
         assertTrue(SharedMusicLink.isShortLink("https://spotify.link/AbCdEf"))
         assertTrue(SharedMusicLink.isShortLink("https://on.soundcloud.com/xyz"))

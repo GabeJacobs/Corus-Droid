@@ -1155,10 +1155,14 @@
     <string name="share_blocked_signin_title">Sign in to Corus first</string>
     <string name="share_blocked_signin_subtitle">Open the Corus app and sign in, then share this song again.</string>
     <string name="share_blocked_unsupported_title">Share a song</string>
-    <string name="share_blocked_unsupported_subtitle">Corus can post songs from Apple Music, Spotify, SoundCloud, Deezer, and TIDAL. Sharing an album works too. You\'ll pick the song here.</string>
+    <string name="share_blocked_unsupported_subtitle">Corus can post songs from Apple Music, Spotify, YouTube Music, SoundCloud, Deezer, and TIDAL. Sharing an album works too. You\'ll pick the song here.</string>
     <string name="share_blocked_song_title">Couldn\'t load this song</string>
     <string name="share_blocked_album_title">Couldn\'t load this album</string>
     <string name="share_blocked_unavailable_subtitle">Something went wrong loading it. Try again in a moment.</string>
+    <string name="share_youtube_choose_title">Which exact recording is this?</string>
+    <string name="share_youtube_choose_subtitle">Corus wasn\'t confident enough to choose for you. Check the version, album, and duration—or close without posting.</string>
+    <string name="share_youtube_not_found_title">Couldn\'t find this exact song</string>
+    <string name="share_youtube_not_found_subtitle">We found no match that was safe to post as this recording.</string>
 
     <!-- User avatar -->
     <string name="user_avatar_cd">User avatar</string>

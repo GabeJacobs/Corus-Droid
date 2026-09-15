@@ -151,6 +151,9 @@ data class CymbalTrack(
      * listener. null/empty = unknown (legacy/unresolved) -> treat as reachable.
      */
     val appleMusicStorefront: String? = null,
+    /** Exact source identity retained when a track entered through YouTube Music sharing. */
+    val youtubeMusicId: String? = null,
+    val youtubeMusicURL: String? = null,
     /**
      * True when the backend confirmed this Apple-sourced recording is not on
      * Spotify. Absent/false means unknown — a Spotify viewer keeps Spotify.
