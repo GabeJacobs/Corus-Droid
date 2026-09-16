@@ -440,11 +440,11 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
         }
         function compactPreviewCities(cities){
           if(!compact||!map?.convertCoordinateToPointOnPage)return cities;
-          const width=window.innerWidth||1,height=window.innerHeight||1,insetX=34,insetY=22;
+          const width=window.innerWidth||1,height=window.innerHeight||1,insetX=24,insetY=16;
           const ranked=cities.filter(function(city){return city.count>0}).slice().sort(function(a,b){return b.count-a.count||a.id.localeCompare(b.id)});
           const allProjected=ranked.map(function(city){const point=map.convertCoordinateToPointOnPage({latitude:city.latitude,longitude:city.longitude});return{city:city,x:point.x,y:point.y}});const projected=allProjected.filter(function(row){return row.x>=insetX&&row.x<=width-insetX&&row.y>=insetY&&row.y<=height-insetY});
           const focused=projected.find(function(row){return row.city.id===window.CorusAppleMap.data.focus?.id});const selected=focused?[focused]:[];
-          function overlaps(row){return selected.some(function(chosen){return Math.abs(row.x-chosen.x)<46&&Math.abs(row.y-chosen.y)<36})}
+          function overlaps(row){return selected.some(function(chosen){return Math.abs(row.x-chosen.x)<38&&Math.abs(row.y-chosen.y)<28})}
           const horizontal=projected.slice().sort(function(a,b){return a.x-b.x});[horizontal,horizontal.slice().reverse()].forEach(function(entries){const edge=entries.find(function(row){return !selected.some(function(chosen){return chosen.city.id===row.city.id})&&!overlaps(row)});if(edge)selected.push(edge)});
           const cells=new Map();projected.forEach(function(row){const column=Math.max(0,Math.min(7,Math.floor(row.x/width*8)));const line=Math.max(0,Math.min(1,Math.floor(row.y/height*2)));const key=line*8+column;const current=cells.get(key);if(!current||current.city.count<row.city.count)cells.set(key,row)});Array.from(cells.keys()).sort(function(a,b){return a-b}).forEach(function(key){const row=cells.get(key);if(selected.length<16&&!overlaps(row))selected.push(row)});
           projected.forEach(function(row){if(selected.length<16&&!selected.some(function(chosen){return chosen.city.id===row.city.id})&&!overlaps(row))selected.push(row)});
