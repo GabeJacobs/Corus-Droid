@@ -38,6 +38,7 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
     private var latestOwner: String? = null
     private var latestRevision = -1L
     private val latestCache = mutableMapOf<String, Pair<Long, CymbalPost?>>()
+    private var fullCitiesCache: Triple<Long, String, List<MapCitySummary>>? = null
     fun savedAudience(): String = currentUserId?.let { preferences.getString("$it.audience", "everyone") } ?: "everyone"
     fun rememberAudience(value: String) { currentUserId?.let { preferences.edit().putString("$it.audience", value).apply() } }
     val currentUserId get() = auth.currentUser?.uid
@@ -97,10 +98,12 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
         }
     }
     @Suppress("UNCHECKED_CAST")
-    suspend fun cities(following: List<String>, taste: List<String>, selectedCommunityId: String? = null): List<MapCitySummary> {
+    suspend fun cities(following: List<String>, taste: List<String>, selectedCommunityId: String? = null, previewOnly: Boolean = false): List<MapCitySummary> {
         val out = linkedMapOf<String, MapCitySummary>(); var cursor: String? = null; val seen = mutableSetOf<String>()
         do {
-            val response = call("getMapCitySummaries", mapOf("followingIds" to following, "tasteIds" to taste, "cursor" to cursor, "selectedCommunityId" to selectedCommunityId))
+            val payload = mutableMapOf<String, Any?>("followingIds" to following, "tasteIds" to taste, "cursor" to cursor, "selectedCommunityId" to selectedCommunityId)
+            if (previewOnly) payload["previewOnly"] = true
+            val response = call("getMapCitySummaries", payload)
             (response["cities"] as? List<Map<String, Any?>>).orEmpty().forEach { d ->
                 val city = MapCity.decode(d)
                 val facets = (d["facets"] as? Map<String, Map<String, Any?>>).orEmpty().mapValues { (_, f) ->
@@ -111,7 +114,14 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
             cursor = response["nextCursor"] as? String
             check(cursor == null || seen.add(cursor!!)) { "Couldn’t load more cities. Please try again." }
         } while (cursor != null)
-        return out.values.toList()
+        return out.values.toList().also { cities ->
+            if (!previewOnly && selectedCommunityId == null) fullCitiesCache = Triple(System.currentTimeMillis(), currentUserId.orEmpty(), cities)
+        }
+    }
+    suspend fun previewCities(): List<MapCitySummary> {
+        val cached = fullCitiesCache
+        if (cached != null && cached.second == currentUserId && System.currentTimeMillis() - cached.first < 60_000) return cached.third
+        return cities(emptyList(), emptyList(), previewOnly = true)
     }
     @Suppress("UNCHECKED_CAST")
     suspend fun people(city: MapCity, filter: String, following: List<String>, taste: List<String>, cursor: String? = null, selectedCommunityId: String? = null): MapPeoplePage {

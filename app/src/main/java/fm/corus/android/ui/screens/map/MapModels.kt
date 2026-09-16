@@ -60,7 +60,6 @@ fun stableMapFaces(previous: List<MapPerson>, candidates: List<MapPerson>): List
     return (previous.mapNotNull { latest[it.user.id] } + candidates.mapNotNull { latest[it.user.id] }).distinctBy { it.user.id }.take(3)
 }
 
-
 // Only deduplicate within the current response. Cached people cannot alter a
 // server summary or exclude a borough member from an explicit parent page.
 class MapMembership {

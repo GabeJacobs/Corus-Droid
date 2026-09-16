@@ -2,6 +2,8 @@ package fm.corus.android.ui.screens.map
 
 import android.annotation.SuppressLint
 import android.graphics.Color
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
@@ -21,9 +23,13 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.Image
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import fm.corus.android.ui.theme.CorusColors
@@ -59,6 +65,7 @@ internal fun AppleCityMapView(
     playbackMode: String? = null,
     playingUserId: String? = null,
     loadLatest: (suspend (List<String>) -> Map<String, fm.corus.android.data.model.CymbalPost?>)? = null,
+    onVisualReady: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val fontData = remember(context) {
@@ -71,8 +78,23 @@ internal fun AppleCityMapView(
     val currentOnCity by rememberUpdatedState(onCity)
     val currentOnCameraSettled by rememberUpdatedState(onCameraSettled)
     val currentLoadLatest by rememberUpdatedState(loadLatest)
+    val currentOnVisualReady by rememberUpdatedState(onVisualReady)
+    val currentFocusID by rememberUpdatedState(focus?.cityId.orEmpty())
     var artwork by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var hasRenderedMarkers by remember(token) { mutableStateOf(false) }
+    var transitionSnapshot by remember(token) { mutableStateOf<Bitmap?>(null) }
+    var snapshotVisible by remember(token) { mutableStateOf(false) }
+    var lastAppliedFocusID by remember(token) { mutableStateOf<String?>(null) }
+    val snapshotAlpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (snapshotVisible) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.tween(
+            // Match iOS MapPreviewSection.presentSnapshot: keep the old image
+            // above a fully rendered replacement, then blend it away.
+            durationMillis = if (android.animation.ValueAnimator.areAnimatorsEnabled()) 320 else 0,
+        ),
+        finishedListener = { if (it == 0f) transitionSnapshot = null },
+        label = "mapPreviewSnapshot",
+    )
     val expectsMarkers = cities.any { (it.facets[filter]?.count ?: 0) > 0 }
     val previewFaces = cities.firstOrNull { it.city.cityId == focus?.cityId }?.facets?.get(filter)?.previews.orEmpty()
     val focusedFaces = mapFocusedFaces(previewFaces, selectedPeople, focus?.cityId, playingUserId)
@@ -93,6 +115,7 @@ internal fun AppleCityMapView(
         .put("mapTopInsetFraction", mapTopInsetFraction)
         .put("mapBottomOcclusionFraction", mapBottomOcclusionFraction)
         .toString()
+    val currentPayload by rememberUpdatedState(payload)
 
     Box(modifier) {
     AndroidView(
@@ -122,7 +145,7 @@ internal fun AppleCityMapView(
                         // inline bridge exists. Replay the first payload after
                         // parsing so the first painted frame has its markers.
                         view.evaluateJavascript(
-                            "window.CorusAppleMap&&window.CorusAppleMap.update($payload)",
+                            "window.CorusAppleMap&&window.CorusAppleMap.update($currentPayload)",
                             null,
                         )
                     }
@@ -146,8 +169,12 @@ internal fun AppleCityMapView(
                     }
 
                     @JavascriptInterface
-                    fun markersRendered() {
-                        post { hasRenderedMarkers = true }
+                    fun markersRendered(focusID: String) {
+                        post {
+                            hasRenderedMarkers = true
+                            if (focusID == currentFocusID) snapshotVisible = false
+                            currentOnVisualReady()
+                        }
                     }
                 }, "CorusAndroidMap")
                 tag = token
@@ -174,6 +201,15 @@ internal fun AppleCityMapView(
                     null,
                 )
             }
+            val nextFocusID = focus?.cityId
+            if (compact && lastAppliedFocusID == null && nextFocusID != null &&
+                hasRenderedMarkers && webView.width > 0 && webView.height > 0) {
+                transitionSnapshot = Bitmap.createBitmap(webView.width, webView.height, Bitmap.Config.ARGB_8888).also {
+                    webView.draw(Canvas(it))
+                }
+                snapshotVisible = true
+            }
+            lastAppliedFocusID = nextFocusID
             webView.evaluateJavascript("window.CorusAppleMap&&window.CorusAppleMap.update($payload)", null)
         },
         onRelease = { webView ->
@@ -182,6 +218,14 @@ internal fun AppleCityMapView(
             webView.destroy()
         },
     )
+    transitionSnapshot?.let { snapshot ->
+        Image(
+            bitmap = snapshot.asImageBitmap(),
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.fillMaxSize().graphicsLayer { alpha = snapshotAlpha },
+        )
+    }
     if (expectsMarkers && !hasRenderedMarkers) {
         CircularProgressIndicator(
             modifier = Modifier.align(Alignment.Center).size(22.dp),
@@ -291,7 +335,7 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
           /* iOS uses smaller, tighter markers in the Search map preview
              (`MapCityClusterPin(faceSize: 28)`). The full map keeps the
              larger treatment above. */
-          .compact .faces{height:28px;min-width:28px}.compact .face{width:28px;height:28px;font-size:10px}.compact .face + .face{margin-left:-10px}.compact .count{right:-12px;top:-8px;min-width:20px;height:20px;font-size:11px;line-height:20px}.compact .label{margin-top:5px;padding:4px 10px;border-radius:16px;font-size:14px;line-height:17px}
+          .compact .city{animation:none}.compact .faces{height:28px;min-width:28px}.compact .face{width:28px;height:28px;font-size:10px}.compact .face + .face{margin-left:-10px}.compact .count{right:-12px;top:-8px;min-width:20px;height:20px;font-size:11px;line-height:20px}.compact .label{margin-top:5px;padding:4px 10px;border-radius:16px;font-size:14px;line-height:17px}
           .compact .city:not(.active){--cluster-opacity:.65}.compact .city.overlap-dim{--cluster-opacity:.45}.compact .city:not(.active) .faces{transform:scale(.84);transform-origin:center}
           @media (prefers-reduced-motion:reduce){.city,.pin-content,.faces,.label{transition:none;animation:none}}
         </style>
@@ -301,7 +345,7 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
         const interactive=$gestures;
         const compact=${if (compact) "true" else "false"};
         function sizeMap(){const h=window.innerHeight||1;for(const el of [document.documentElement,document.body,document.getElementById('map')])el.style.height=h+'px';if(map&&map.region)map.region=map.region}window.addEventListener('resize',sizeMap);
-        function initMapKitLoaderV2(){ sizeMap(); mapkit.load(['map','annotations']).then(function(k){ kit=k; map=new kit.Map('map',{mapType:kit.MapType.Standard,colorScheme:kit.ColorScheme.Light,showsPointsOfInterest:false,showsUserLocation:false,isScrollEnabled:interactive,isZoomEnabled:interactive,isRotationEnabled:false,showsZoomControl:false,showsMapTypeControl:false,region:{center:{latitude:38,longitude:-84},span:{latitudeDelta:45,longitudeDelta:70}}}); sizeMap(); map.addEventListener('region-change-end',function(){refreshOverlapDimming();if(!interactive||!map.region)return;const region=map.region;window.CorusAndroidMap.cameraSettled(region.center.latitude,region.center.longitude,region.span.latitudeDelta)}); window.CorusAppleMap.ready=true; window.CorusAppleMap.apply(); }).catch(function(){ document.body.dataset.error='true'; }); }
+        function initMapKitLoaderV2(){ sizeMap(); mapkit.load(['map','annotations']).then(function(k){ kit=k; map=new kit.Map('map',{mapType:kit.MapType.Standard,colorScheme:kit.ColorScheme.Light,showsPointsOfInterest:false,showsUserLocation:false,isScrollEnabled:interactive,isZoomEnabled:interactive,isRotationEnabled:false,showsZoomControl:false,showsMapTypeControl:false,region:{center:{latitude:38,longitude:-84},span:{latitudeDelta:45,longitudeDelta:70}}}); sizeMap(); map.addEventListener('region-change-end',function(){refreshOverlapDimming();if(compact){window.CorusAppleMap.apply();return}if(!interactive||!map.region)return;const region=map.region;window.CorusAndroidMap.cameraSettled(region.center.latitude,region.center.longitude,region.span.latitudeDelta)}); window.CorusAppleMap.ready=true; window.CorusAppleMap.apply(); }).catch(function(){ document.body.dataset.error='true'; }); }
         // Keep the marker's geographic anchor fixed. Artwork rises in an
         // absolute overlay just like iOS and must never move the city itself.
         function markerView(city){
@@ -360,24 +404,36 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
             annotation.corusButton.classList.toggle('overlap-dim',overlaps);
           });
         }
+        function compactPreviewCities(cities){
+          if(!compact||!map?.convertCoordinateToPointOnPage)return cities;
+          const width=window.innerWidth||1,height=window.innerHeight||1,insetX=34,insetY=22;
+          const ranked=cities.filter(function(city){return city.count>0}).slice().sort(function(a,b){return b.count-a.count||a.id.localeCompare(b.id)});
+          const allProjected=ranked.map(function(city){const point=map.convertCoordinateToPointOnPage({latitude:city.latitude,longitude:city.longitude});return{city:city,x:point.x,y:point.y}});const projected=allProjected.filter(function(row){return row.x>=insetX&&row.x<=width-insetX&&row.y>=insetY&&row.y<=height-insetY});
+          const focused=projected.find(function(row){return row.city.id===window.CorusAppleMap.data.focus?.id});const selected=focused?[focused]:[];
+          function overlaps(row){return selected.some(function(chosen){return Math.abs(row.x-chosen.x)<54&&Math.abs(row.y-chosen.y)<40})}
+          const horizontal=projected.slice().sort(function(a,b){return a.x-b.x});[horizontal,horizontal.slice().reverse()].forEach(function(entries){const edge=entries.find(function(row){return !selected.some(function(chosen){return chosen.city.id===row.city.id})&&!overlaps(row)});if(edge)selected.push(edge)});
+          const cells=new Map();projected.forEach(function(row){const column=Math.max(0,Math.min(5,Math.floor(row.x/width*6)));const line=Math.max(0,Math.min(1,Math.floor(row.y/height*2)));const key=line*6+column;const current=cells.get(key);if(!current||current.city.count<row.city.count)cells.set(key,row)});Array.from(cells.keys()).sort(function(a,b){return a-b}).forEach(function(key){const row=cells.get(key);if(selected.length<12&&!overlaps(row))selected.push(row)});
+          projected.forEach(function(row){if(selected.length<12&&!selected.some(function(chosen){return chosen.city.id===row.city.id})&&!overlaps(row))selected.push(row)});
+          return selected.map(function(row){return row.city});
+        }
         // Retain annotation objects across focus and artwork updates. Removing
         // and recreating them while MapKit is settling can detach pins from
         // the moving basemap until the next gesture.
         window.CorusAppleMap={ready:false,data:{cities:[],dark:false,focus:null},lastFocus:null,update:function(data){this.data=data;this.apply()},apply:function(){
           if(!this.ready||!map)return;sizeMap();document.body.classList.toggle('dark',this.data.dark);map.colorScheme=this.data.dark?kit.ColorScheme.Dark:kit.ColorScheme.Light;
-          const cityIds=new Set(this.data.cities.map(function(city){return city.id}));
+          const visibleCities=compactPreviewCities(this.data.cities);const cityIds=new Set(visibleCities.map(function(city){return city.id}));
           annotations.filter(function(annotation){return !cityIds.has(annotation.corusId)}).forEach(function(annotation){map.removeAnnotation(annotation)});
           annotations=annotations.filter(function(annotation){return cityIds.has(annotation.corusId)});
           const byId=new Map(annotations.map(function(annotation){return [annotation.corusId,annotation]}));
-          this.data.cities.forEach(function(city){let annotation=byId.get(city.id);if(!annotation){annotation=marker(city);annotations.push(annotation);byId.set(city.id,annotation);map.addAnnotation(annotation)}else{if(annotation.coordinate.latitude!==city.latitude||annotation.coordinate.longitude!==city.longitude)annotation.coordinate={latitude:city.latitude,longitude:city.longitude};updateMarker(annotation,city)}});
+          visibleCities.forEach(function(city){let annotation=byId.get(city.id);if(!annotation){annotation=marker(city);annotations.push(annotation);byId.set(city.id,annotation);map.addAnnotation(annotation)}else{if(annotation.coordinate.latitude!==city.latitude||annotation.coordinate.longitude!==city.longitude)annotation.coordinate={latitude:city.latitude,longitude:city.longitude};updateMarker(annotation,city)}});
           refreshOverlapDimming();
           // MapKit may paint a private copy of a custom annotation view, so the
           // source button's `isConnected` is not a valid render signal. Once a
           // non-empty annotation set has been accepted, wait through two paint
           // frames and dismiss the native loading indicator.
-          if(annotations.length)requestAnimationFrame(function(){requestAnimationFrame(function(){window.CorusAndroidMap.markersRendered()})});
+          if(annotations.length){const renderedFocus=this.data.focus?.id||'';requestAnimationFrame(function(){requestAnimationFrame(function(){window.CorusAndroidMap.markersRendered(renderedFocus)})})}
           const focus=this.data.focus;const top=Math.max(0,Math.min(.8,this.data.mapTopInsetFraction||0));const bottom=Math.max(0,Math.min(.95,this.data.mapBottomOcclusionFraction||0));const focusKey=focus&&this.data.focusRevision+':'+top.toFixed(4)+':'+bottom.toFixed(4);
-          if(focus&&this.lastFocus!==focusKey){const animate=this.lastFocus!==null;this.lastFocus=focusKey;const visibleFocus=this.data.focusInVisibleMap&&interactive;const latitudeDelta=visibleFocus?.6:(interactive?7:22);const longitudeDelta=visibleFocus?latitudeDelta*window.innerWidth/window.innerHeight/Math.max(.15,Math.cos(focus.latitude*Math.PI/180)):(interactive?10:34);const offset=(bottom-top)/2;map.setRegionAnimated({center:{latitude:focus.latitude-(visibleFocus?latitudeDelta*offset:0),longitude:focus.longitude},span:{latitudeDelta:latitudeDelta,longitudeDelta:longitudeDelta}},animate)}
+          if(focus&&this.lastFocus!==focusKey){const animate=interactive&&this.lastFocus!==null;this.lastFocus=focusKey;const visibleFocus=this.data.focusInVisibleMap&&interactive;const latitudeDelta=visibleFocus?.6:(interactive?7:125);const longitudeDelta=visibleFocus?latitudeDelta*window.innerWidth/window.innerHeight/Math.max(.15,Math.cos(focus.latitude*Math.PI/180)):(interactive?10:300);const offset=(bottom-top)/2;map.setRegionAnimated({center:{latitude:focus.latitude-(visibleFocus?latitudeDelta*offset:0),longitude:focus.longitude},span:{latitudeDelta:latitudeDelta,longitudeDelta:longitudeDelta}},animate)}
         }};
         </script></body></html>
     """.trimIndent()

@@ -5,8 +5,29 @@ import fm.corus.android.domain.CityChatPolicy
 import fm.corus.android.domain.MapPlaybackOwner
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.File
 
 class MapParityTest {
+    @Test fun previewKeepsBaseMapMountedUnderDirectoryProgress() {
+        val source = File("src/main/java/fm/corus/android/ui/screens/map/MapPreviewEntry.kt").readText()
+        assertTrue(source.indexOf("CityMapView(") < source.indexOf("!state.directoryReady"))
+        assertTrue(source.contains("CircularProgressIndicator"))
+        assertFalse(source.contains("repeat(2)"))
+        val mapSource = File("src/main/java/fm/corus/android/ui/screens/map/AppleCityMapView.kt").readText()
+        assertTrue(mapSource.contains("webView.draw(Canvas(it))"))
+        assertTrue(mapSource.contains("mapPreviewSnapshot"))
+        assertTrue(mapSource.contains("ValueAnimator.areAnimatorsEnabled()"))
+        assertTrue(mapSource.contains("durationMillis = if (android.animation.ValueAnimator.areAnimatorsEnabled()) 320 else 0"))
+        assertTrue(mapSource.contains("val currentPayload by rememberUpdatedState(payload)"))
+        assertTrue(mapSource.contains("window.CorusAppleMap&&window.CorusAppleMap.update(\$currentPayload)"))
+    }
+    @Test fun returningPreviewPrefersFreshCompleteDirectory() {
+        val repository = File("src/main/java/fm/corus/android/ui/screens/map/MapRepository.kt").readText()
+        val preview = File("src/main/java/fm/corus/android/ui/screens/map/MapPreviewViewModel.kt").readText()
+        assertTrue(repository.contains("fullCitiesCache"))
+        assertTrue(repository.contains("System.currentTimeMillis() - cached.first < 60_000"))
+        assertTrue(preview.contains("repository.previewCities()"))
+    }
     @Test fun focusedCityIsTopmostWithoutHidingNearbyPreviewClusters() {
         val html = appleMapHtml("token", compact = true, fontData = "font")
         assertTrue(html.contains("const active=city.id===window.CorusAppleMap.data.focus?.id"))
@@ -21,7 +42,24 @@ class MapParityTest {
         assertTrue(html.contains("transition:opacity .22s ease-in-out"))
         assertTrue(html.contains("transition:transform .22s ease-in-out"))
         assertTrue(html.contains("@keyframes cluster-in"))
-        assertTrue(html.contains("animation:cluster-in .22s ease-out both"))
+        assertTrue(html.contains("animation:cluster-in .22s ease-out"))
+        assertTrue(html.contains(".compact .city{animation:none}"))
+        assertFalse(html.contains("focused-preview-in"))
+    }
+    @Test fun mapPreviewUsesMapKitProjectionGridAndTwelveRealCandidates() {
+        val html = appleMapHtml("token", compact = true, fontData = "font")
+        assertTrue(html.contains("map.convertCoordinateToPointOnPage"))
+        assertTrue(html.contains("Math.floor(row.x/width*6)"))
+        assertTrue(html.contains("Math.floor(row.y/height*2)"))
+        assertTrue(html.contains("selected.length<12"))
+        assertTrue(html.contains("insetX=34,insetY=22"))
+        assertTrue(html.contains("Math.abs(row.x-chosen.x)<54&&Math.abs(row.y-chosen.y)<40"))
+        assertTrue(html.contains("[horizontal,horizontal.slice().reverse()]"))
+        assertTrue(html.contains("interactive?7:125"))
+        assertTrue(html.contains("interactive?10:300"))
+        assertTrue(html.contains("const animate=interactive&&this.lastFocus!==null"))
+        assertTrue(html.contains("row.city.id===window.CorusAppleMap.data.focus?.id"))
+        assertTrue(html.contains("const selected=focused?[focused]:[]"))
     }
     @Test fun settledCameraSelectsNearestCityAndNotifiesCompose() {
         fun summary(id: String, latitude: Double, longitude: Double) = MapCitySummary(
