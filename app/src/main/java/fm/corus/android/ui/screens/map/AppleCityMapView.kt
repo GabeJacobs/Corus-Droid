@@ -38,6 +38,28 @@ import fm.corus.android.BuildConfig
 import org.json.JSONArray
 import org.json.JSONObject
 
+/** Keeps Search's already-rendered MapKit surface alive across full-Map navigation. */
+private object MapPreviewWebViewCache {
+    private var key: String? = null
+    private var webView: WebView? = null
+
+    fun take(cacheKey: String): WebView? {
+        if (key != cacheKey) {
+            webView?.destroy()
+            webView = null
+            key = null
+            return null
+        }
+        return webView.also { webView = null }
+    }
+
+    fun put(cacheKey: String, replacement: WebView) {
+        if (webView !== replacement) webView?.destroy()
+        key = cacheKey
+        webView = replacement
+    }
+}
+
 /**
  * Apple has no native Android MapKit SDK. MapKit JS is Apple's supported
  * cross-platform map surface, including Android browsers, so the map lives in
@@ -74,6 +96,7 @@ internal fun AppleCityMapView(
         }
     }
     val dark = LocalCorusDarkTheme.current
+    val previewCacheKey = "$token:$dark"
     val currentCities by rememberUpdatedState(cities)
     val currentOnCity by rememberUpdatedState(onCity)
     val currentOnCameraSettled by rememberUpdatedState(onCameraSettled)
@@ -82,8 +105,8 @@ internal fun AppleCityMapView(
     val currentFocusID by rememberUpdatedState(focus?.cityId.orEmpty())
     var artwork by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var hasRenderedMarkers by remember(token) { mutableStateOf(false) }
-    var transitionSnapshot by remember(token) { mutableStateOf<Bitmap?>(null) }
-    var snapshotVisible by remember(token) { mutableStateOf(false) }
+    var transitionSnapshot by remember(previewCacheKey) { mutableStateOf<Bitmap?>(null) }
+    var snapshotVisible by remember(previewCacheKey) { mutableStateOf(false) }
     var lastAppliedFocusID by remember(token) { mutableStateOf<String?>(null) }
     val snapshotAlpha by androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (snapshotVisible) 1f else 0f,
@@ -121,7 +144,8 @@ internal fun AppleCityMapView(
     AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { context ->
-            WebView(context).apply {
+            val retainedWebView = if (compact) MapPreviewWebViewCache.take(previewCacheKey) else null
+            (retainedWebView ?: WebView(if (compact) context.applicationContext else context)).apply {
                 if (BuildConfig.DEBUG) WebView.setWebContentsDebuggingEnabled(true)
                 setBackgroundColor(Color.TRANSPARENT)
                 settings.javaScriptEnabled = true
@@ -178,13 +202,17 @@ internal fun AppleCityMapView(
                     }
                 }, "CorusAndroidMap")
                 tag = token
-                loadDataWithBaseURL(
-                    "https://app.corus.fm",
-                    appleMapHtml(token, compact, fontData),
-                    "text/html",
-                    "utf-8",
-                    null,
-                )
+                if (retainedWebView == null) {
+                    loadDataWithBaseURL(
+                        "https://app.corus.fm",
+                        appleMapHtml(token, compact, fontData),
+                        "text/html",
+                        "utf-8",
+                        null,
+                    )
+                } else {
+                    post { evaluateJavascript("window.CorusAppleMap&&window.CorusAppleMap.update($currentPayload)", null) }
+                }
             }
         },
         update = { webView ->
@@ -214,8 +242,12 @@ internal fun AppleCityMapView(
         },
         onRelease = { webView ->
             webView.removeJavascriptInterface("CorusAndroidMap")
-            webView.loadUrl("about:blank")
-            webView.destroy()
+            if (compact) {
+                MapPreviewWebViewCache.put(previewCacheKey, webView)
+            } else {
+                webView.loadUrl("about:blank")
+                webView.destroy()
+            }
         },
     )
     transitionSnapshot?.let { snapshot ->

@@ -28,6 +28,13 @@ class MapParityTest {
         assertTrue(repository.contains("System.currentTimeMillis() - cached.first < 60_000"))
         assertTrue(preview.contains("repository.previewCities()"))
     }
+    @Test fun returningPreviewRetainsItsRenderedMapKitSurface() {
+        val source = File("src/main/java/fm/corus/android/ui/screens/map/AppleCityMapView.kt").readText()
+        assertTrue(source.contains("MapPreviewWebViewCache.take(previewCacheKey)"))
+        assertTrue(source.contains("MapPreviewWebViewCache.put(previewCacheKey, webView)"))
+        assertTrue(source.contains("retainedWebView ?: WebView(if (compact) context.applicationContext else context)"))
+        assertFalse(source.contains("webView.draw(Canvas(it))\n                MapPreview"))
+    }
     @Test fun focusedCityIsTopmostWithoutHidingNearbyPreviewClusters() {
         val html = appleMapHtml("token", compact = true, fontData = "font")
         assertTrue(html.contains("const active=city.id===window.CorusAppleMap.data.focus?.id"))
