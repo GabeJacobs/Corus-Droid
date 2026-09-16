@@ -446,8 +446,8 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
           const focused=projected.find(function(row){return row.city.id===window.CorusAppleMap.data.focus?.id});const selected=focused?[focused]:[];
           function overlaps(row){return selected.some(function(chosen){return Math.abs(row.x-chosen.x)<46&&Math.abs(row.y-chosen.y)<36})}
           const horizontal=projected.slice().sort(function(a,b){return a.x-b.x});[horizontal,horizontal.slice().reverse()].forEach(function(entries){const edge=entries.find(function(row){return !selected.some(function(chosen){return chosen.city.id===row.city.id})&&!overlaps(row)});if(edge)selected.push(edge)});
-          const cells=new Map();projected.forEach(function(row){const column=Math.max(0,Math.min(6,Math.floor(row.x/width*7)));const line=Math.max(0,Math.min(1,Math.floor(row.y/height*2)));const key=line*7+column;const current=cells.get(key);if(!current||current.city.count<row.city.count)cells.set(key,row)});Array.from(cells.keys()).sort(function(a,b){return a-b}).forEach(function(key){const row=cells.get(key);if(selected.length<14&&!overlaps(row))selected.push(row)});
-          projected.forEach(function(row){if(selected.length<14&&!selected.some(function(chosen){return chosen.city.id===row.city.id})&&!overlaps(row))selected.push(row)});
+          const cells=new Map();projected.forEach(function(row){const column=Math.max(0,Math.min(7,Math.floor(row.x/width*8)));const line=Math.max(0,Math.min(1,Math.floor(row.y/height*2)));const key=line*8+column;const current=cells.get(key);if(!current||current.city.count<row.city.count)cells.set(key,row)});Array.from(cells.keys()).sort(function(a,b){return a-b}).forEach(function(key){const row=cells.get(key);if(selected.length<16&&!overlaps(row))selected.push(row)});
+          projected.forEach(function(row){if(selected.length<16&&!selected.some(function(chosen){return chosen.city.id===row.city.id})&&!overlaps(row))selected.push(row)});
           return selected.map(function(row){return row.city});
         }
         // Retain annotation objects across focus and artwork updates. Removing
