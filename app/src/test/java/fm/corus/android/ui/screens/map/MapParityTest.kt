@@ -69,6 +69,14 @@ class MapParityTest {
         assertTrue(html.contains("row.city.id===window.CorusAppleMap.data.focus?.id"))
         assertTrue(html.contains("const selected=focused?[focused]:[]"))
     }
+    @Test fun compactClusterDensityMatchesIosTiers() {
+        val html = appleMapHtml("token", compact = true, fontData = "font")
+        assertTrue(html.contains("city.count>=15?2:(city.count>=5?1:0)"))
+        assertTrue(html.contains(".compact .city.density-0 .face + .face{margin-left:-12px}"))
+        assertTrue(html.contains(".compact .city.density-1 .face + .face{margin-left:-10px}"))
+        assertTrue(html.contains(".compact .city.density-2 .face + .face{margin-left:-7px}"))
+        assertTrue(html.contains("compact?6+densityTier:7"))
+    }
     @Test fun settledCameraSelectsNearestCityAndNotifiesCompose() {
         fun summary(id: String, latitude: Double, longitude: Double) = MapCitySummary(
             MapCity(id, id, "", "US", latitude, longitude),

@@ -369,7 +369,7 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
           /* iOS uses smaller, tighter markers in the Search map preview
              (`MapCityClusterPin(faceSize: 28)`). The full map keeps the
              larger treatment above. */
-          .compact .city{animation:none}.compact .faces{height:28px;min-width:28px}.compact .face{width:28px;height:28px;font-size:10px}.compact .face + .face{margin-left:-10px}.compact .count{right:-12px;top:-8px;min-width:20px;height:20px;font-size:11px;line-height:20px}.compact .label{margin-top:5px;padding:4px 10px;border-radius:16px;font-size:14px;line-height:17px}
+          .compact .city{animation:none}.compact .faces{height:28px;min-width:28px}.compact .face{width:28px;height:28px;font-size:10px}.compact .city.density-0 .face + .face{margin-left:-12px}.compact .city.density-1 .face + .face{margin-left:-10px}.compact .city.density-2 .face + .face{margin-left:-7px}.compact .count{right:-12px;top:-8px;min-width:20px;height:20px;font-size:11px;line-height:20px}.compact .label{margin-top:5px;padding:4px 10px;border-radius:16px;font-size:14px;line-height:17px}
           .compact .city:not(.active){--cluster-opacity:.65}.compact .city.overlap-dim{--cluster-opacity:.45}.compact .city:not(.active) .faces{transform:scale(.84);transform-origin:center}
           @media (prefers-reduced-motion:reduce){.city,.pin-content,.faces,.label{transition:none;animation:none}}
         </style>
@@ -383,10 +383,10 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
         // Keep the marker's geographic anchor fixed. Artwork rises in an
         // absolute overlay just like iOS and must never move the city itself.
         function markerView(city){
-          const b=document.createElement('button');b.className='city';b.type='button';b.onclick=function(){window.CorusAndroidMap.selectCity(city.id)};
+          const densityTier=city.count>=15?2:(city.count>=5?1:0);const b=document.createElement('button');b.className='city density-'+densityTier;b.type='button';b.onclick=function(){window.CorusAndroidMap.selectCity(city.id)};
           const faces=document.createElement('span');faces.className='faces';
           city.faces.forEach(function(person){const face=document.createElement('span');face.className='face';face.textContent=(person.name||'?').slice(0,1);if(person.avatar){const img=document.createElement('img');img.alt='';img.src=person.avatar;img.onerror=function(){img.remove()};face.appendChild(img)}faces.appendChild(face)});
-          const count=document.createElement('span');count.className='count';count.textContent=city.count.toLocaleString();const badgeSize=Math.max(compact?20:23,count.textContent.length*8+(compact?6:7));count.style.width=badgeSize+'px';count.style.height=badgeSize+'px';faces.appendChild(count);
+          const count=document.createElement('span');count.className='count';count.textContent=city.count.toLocaleString();const badgeSize=Math.max(compact?20:23,count.textContent.length*8+(compact?6+densityTier:7));count.style.width=badgeSize+'px';count.style.height=(compact?20:badgeSize)+'px';faces.appendChild(count);
           const active=city.id===window.CorusAppleMap.data.focus?.id;b.classList.toggle('active',active);
           const focused=interactive&&active;const listening=focused&&window.CorusAppleMap.data.playbackMode==='listen';
           const label=document.createElement('span');label.className='label'+(listening?' listening':'')+(active?' visible':'');if(listening){label.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v-3a8 8 0 0 1 16 0v3M4 14h3v5H4zM20 14h-3v5h3z"/></svg><span>'+city.name+'</span>'}else{label.textContent=city.name}
