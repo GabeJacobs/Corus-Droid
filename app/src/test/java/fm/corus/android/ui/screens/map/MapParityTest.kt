@@ -81,6 +81,7 @@ class MapParityTest {
         assertTrue(html.contains("const compactBadgeSize=20+densityTier"))
         assertTrue(html.contains(".city.density-1 .face{width:41px;height:41px"))
         assertTrue(html.contains(".city.density-2 .face{width:44px;height:44px"))
+        assertTrue(html.contains("body:not(.compact) .city.density-0 .face{width:37px;height:37px"))
         assertTrue(html.contains("compact?compactBadgeSize:23+densityTier"))
     }
     @Test fun settledCameraSelectsNearestCityAndNotifiesCompose() {
