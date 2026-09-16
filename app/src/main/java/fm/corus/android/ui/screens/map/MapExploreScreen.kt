@@ -774,6 +774,11 @@ fun MapExploreScreen(
         state.error?.let { message -> AlertDialog(onDismissRequest = { model.error(null) }, title = { Text(stringResource(fm.corus.android.R.string.map_please_try_again)) }, text = { Text(message) }, confirmButton = { TextButton(onClick = { model.error(null) }) { Text(parityCopy("OK")) } }) }
     }
     val sharingSheet = rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = { value -> value != SheetValue.Hidden || (dialog != "intro" && dialog != "confirm" && !state.busy) })
+    // Give the growing country directory enough initial room for roughly three
+    // rows without turning it into a full-screen page. The capped LazyColumn is
+    // the scrolling surface, and the remaining top gap protects the cutout.
+    val countryPickerSheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val countryPickerMaxHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * .65f
     val clubOfferSheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     mapPaywallSource?.let { source -> ModalBottomSheet(
         sheetState = clubOfferSheet,
@@ -786,12 +791,24 @@ fun MapExploreScreen(
             onPurchaseSuccess = { if (source == PaywallSource.MAP) model.filter("tasteMatches") },
         )
     } }
-    if (dialog.isNotEmpty()) ModalBottomSheet(sheetState = sharingSheet,onDismissRequest = { if (dialog != "intro" && dialog != "confirm" && !state.busy) dialog = "" }, containerColor = CorusColors.Background) {
+    if (dialog.isNotEmpty()) ModalBottomSheet(
+        sheetState = if (dialog == "countries") countryPickerSheet else sharingSheet,
+        onDismissRequest = { if (dialog != "intro" && dialog != "confirm" && !state.busy) dialog = "" },
+        containerColor = CorusColors.Background,
+        contentWindowInsets = {
+            if (dialog == "countries") WindowInsets.systemBars.only(WindowInsetsSides.Bottom)
+            else BottomSheetDefaults.windowInsets
+        },
+    ) {
         AnimatedContent(targetState = dialog, transitionSpec = {
             (fadeIn(tween(180)) + slideInHorizontally(tween(180)) { it / 12 }) togetherWith
                 (fadeOut(tween(130)) + slideOutHorizontally(tween(130)) { -it / 16 })
         }, label = "mapSheetStep") { currentDialog ->
-            LazyColumn(contentPadding = PaddingValues(start = 24.dp, top = if (currentDialog == "countries") 10.dp else 24.dp, end = 24.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            LazyColumn(
+                modifier = if (currentDialog == "countries") Modifier.heightIn(max = countryPickerMaxHeight) else Modifier,
+                contentPadding = PaddingValues(start = 24.dp, top = if (currentDialog == "countries") 10.dp else 24.dp, end = 24.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
                 when (currentDialog) {
                 "intro" -> {
                     item { Column(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {

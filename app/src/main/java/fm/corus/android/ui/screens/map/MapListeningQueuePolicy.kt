@@ -11,6 +11,23 @@ internal fun mapPlaybackLocationIncludes(
 
 internal data class MapListeningQueueCandidate(val cityId: String, val postId: String)
 
+/** Randomize within cities, then take one person per city before repeating. */
+internal fun <T> mapPlaybackInterleavedByCity(
+    candidates: List<T>,
+    cityId: (T) -> String,
+): List<T> {
+    val buckets = candidates.groupBy(cityId)
+        .mapValues { (_, values) -> values.shuffled().toMutableList() }
+        .toMutableMap()
+    val result = ArrayList<T>(candidates.size)
+    var cities = buckets.keys.shuffled()
+    while (cities.isNotEmpty()) {
+        cities.forEach { city -> buckets[city]?.removeLastOrNull()?.let(result::add) }
+        cities = cities.filter { buckets[it]?.isNotEmpty() == true }.shuffled()
+    }
+    return result
+}
+
 /** Mirrors iOS playedPostIds exhaustion across the complete scoped pool. */
 internal fun mapListeningUnheardCandidates(
     candidates: List<MapListeningQueueCandidate>,

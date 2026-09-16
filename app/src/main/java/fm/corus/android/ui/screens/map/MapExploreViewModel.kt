@@ -484,7 +484,10 @@ class MapExploreViewModel @Inject constructor(
             (it.facets[mutable.value.filter]?.count ?: 0) > 0 &&
                 mapPlaybackLocationIncludes(it.city, cityId, countryCodes)
         }
-        pendingCities = selected.toMutableList(); rosterCursor = null; rosterCursors.clear()
+        // Directory summaries are distance-sorted. Randomize city traversal so
+        // broad Listen does not exhaust nearby New York before going global.
+        pendingCities = if (cityId == null) selected.shuffled().toMutableList() else selected.toMutableList()
+        rosterCursor = null; rosterCursors.clear()
         // The open city sheet has already loaded its people and their latest
         // visible posts. Start with that exact roster so a tap on Listen never
         // waits for a second directory request before considering the person
@@ -497,10 +500,15 @@ class MapExploreViewModel @Inject constructor(
             selectedCityPeople = mutable.value.selected?.takeIf { it.cityId == cityId }?.let { mutable.value.people }.orEmpty(),
             viewerId = uid,
             mode = mode,
-        )
-            .shuffled()
+        ).let { people -> mapPlaybackInterleavedByCity(people) { it.first.cityId } }
         sheetPeople.forEach { pool[it.second.user.id] = it }
         candidates = sheetPeople; nextCandidate = 0; history.clear(); endedPost = null
+        // Match iOS: broad Listen samples one unloaded/randomized city before
+        // choosing the first person, so a nearby preview cannot own startup.
+        if (mode == "listen" && cityId == null && pendingCities.isNotEmpty()) {
+            loadDirectoryPage(generation, mode)
+            shuffleRemaining()
+        }
         sessionStartedAtMs = android.os.SystemClock.elapsedRealtime()
         repository.event("session_started", mode, value = scopeValue, count = selected.sumOf { it.facets[mutable.value.filter]?.count ?: 0 })
         updateState { it.copy(mode = mode, selected = null, busy = false, playing = null, historyIndex = -1, blocked = false, sessionKey = it.sessionKey + 1) }
@@ -526,7 +534,14 @@ class MapExploreViewModel @Inject constructor(
     }
     private fun shuffleRemaining() {
         if (!directoryExtended) return
-        candidates = candidates.take(nextCandidate) + candidates.drop(nextCandidate).shuffled()
+        val remaining = mapPlaybackInterleavedByCity(candidates.drop(nextCandidate)) { it.first.cityId }
+            .toMutableList()
+        val previousCityId = mutable.value.playing?.city?.cityId
+        if (remaining.size > 1 && remaining.first().first.cityId == previousCityId) {
+            val differentCityIndex = remaining.indexOfFirst { it.first.cityId != previousCityId }
+            if (differentCityIndex > 0) java.util.Collections.swap(remaining, 0, differentCityIndex)
+        }
+        candidates = candidates.take(nextCandidate) + remaining
         directoryExtended = false
     }
     private fun extendListeningDirectory(gen: Int) {
@@ -568,8 +583,13 @@ class MapExploreViewModel @Inject constructor(
                         if (city == null) {
                             if (!roundFound || pool.isEmpty()) break
                             round++; roundFound = false; nextCandidate = 0
-                            val nextRound = pool.values.shuffled().toMutableList()
+                            val nextRound = mapPlaybackInterleavedByCity(pool.values.toList()) { it.first.cityId }.toMutableList()
                             if (nextRound.size > 1 && nextRound.first().second.user.id == mutable.value.playing?.post?.user?.id) java.util.Collections.swap(nextRound, 0, 1)
+                            val previousCityId = mutable.value.playing?.city?.cityId
+                            if (nextRound.size > 1 && nextRound.first().first.cityId == previousCityId) {
+                                val differentCityIndex = nextRound.indexOfFirst { it.first.cityId != previousCityId }
+                                if (differentCityIndex > 0) java.util.Collections.swap(nextRound, 0, differentCityIndex)
+                            }
                             candidates = nextRound
                         } else {
                             loadDirectoryPage(gen, mode)
