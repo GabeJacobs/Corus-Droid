@@ -724,7 +724,10 @@ class SearchViewModel @Inject constructor(
     val showNoContactMatches: StateFlow<Boolean> = _showNoContactMatches.asStateFlow()
 
     val contactsSyncStatus: StateFlow<String> = preferencesDataStore.contactsSyncStatus
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "notAsked")
+        // DataStore emits asynchronously. Treat the initial frame as unresolved
+        // instead of "notAsked" so returning users never see the sync prompt
+        // flash before their persisted "skipped" or "synced" value arrives.
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "unresolved")
 
     // New on Corus (recently joined)
     private val _newUsers = MutableStateFlow<List<CymbalUser>>(emptyList())
