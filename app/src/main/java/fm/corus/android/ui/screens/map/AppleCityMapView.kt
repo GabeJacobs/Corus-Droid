@@ -35,6 +35,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import fm.corus.android.BuildConfig
+import com.google.firebase.auth.FirebaseAuth
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -134,7 +135,8 @@ internal fun AppleCityMapView(
         val posts = runCatching { currentLoadLatest?.invoke(focusedFaces.map { it.user.id }).orEmpty() }.getOrDefault(emptyMap())
         artwork = mapClusterArtwork(focusedFaces.map { it.user.id }, posts.mapValues { it.value?.displayImageURL })
     }
-    val payload = JSONObject(appleMapPayload(cities, filter, dark, focus, artwork, playbackMode, playingUserId))
+    val viewerId = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
+    val payload = JSONObject(appleMapPayload(cities, filter, dark, focus, artwork, playbackMode, playingUserId, viewerId))
         .put("focusRevision", focusRevision)
         .put("focusInVisibleMap", focusInVisibleMap)
         .put("citySheetOpen", citySheetOpen)
@@ -279,6 +281,9 @@ internal fun mapFocusedFaces(previews: List<MapPerson>, selectedPeople: List<Map
     stableMapFaces(emptyList(), previews + selectedPeople.filter { it.city.cityId == cityId })
         .sortedByDescending { it.user.id == playingUserId }.take(3)
 
+internal fun mapClusterFaces(candidates: List<MapPerson>, viewerId: String): List<MapPerson> =
+    stableMapFaces(emptyList(), candidates.sortedByDescending { it.user.id == viewerId })
+
 internal const val MAP_CLUSTER_AVATAR_SIZE_PX = 38f
 internal const val MAP_CLUSTER_ARTWORK_AVATAR_RATIO = 1.25f
 internal const val MAP_CLUSTER_ART_FAN_WIDTH_PX = 136f
@@ -286,7 +291,7 @@ internal val MAP_CLUSTER_ARTWORK_SIZE_PX = MAP_CLUSTER_AVATAR_SIZE_PX * MAP_CLUS
 internal val MAP_CLUSTER_ARTWORK_LEFT_PX = (MAP_CLUSTER_ART_FAN_WIDTH_PX - MAP_CLUSTER_ARTWORK_SIZE_PX) / 2f
 
 private fun appleMapPayload(
-    cities: List<MapCitySummary>, filter: String, dark: Boolean, focus: MapCity?, artwork: Map<String, String>, playbackMode: String?, playingUserId: String?,
+    cities: List<MapCitySummary>, filter: String, dark: Boolean, focus: MapCity?, artwork: Map<String, String>, playbackMode: String?, playingUserId: String?, viewerId: String,
 ): String {
     val visible = cities.filter { (it.facets[filter]?.count ?: 0) > 0 }
     return JSONObject().apply {
@@ -308,7 +313,7 @@ private fun appleMapPayload(
                     put("longitude", summary.city.longitude)
                     put("count", facet.count)
                     put("faces", JSONArray().apply {
-                        stableMapFaces(emptyList(), facet.previews).forEach { person ->
+                        mapClusterFaces(facet.previews, viewerId).forEach { person ->
                             put(JSONObject().apply {
                                 put("id", person.user.id)
                                 put("name", person.user.displayName.ifBlank { person.user.username })
@@ -345,7 +350,7 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
           .faces{position:relative;height:${MAP_CLUSTER_AVATAR_SIZE_PX}px;min-width:${MAP_CLUSTER_AVATAR_SIZE_PX}px;display:flex;align-items:center;justify-content:center;transition:transform .22s ease-in-out}
           .face{position:relative;flex-shrink:0;width:${MAP_CLUSTER_AVATAR_SIZE_PX}px;height:${MAP_CLUSTER_AVATAR_SIZE_PX}px;border:0;border-radius:50%;overflow:hidden;background:#d7e4f6;color:#17202b;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;box-shadow:0 1px 3px #0003}
           .city.density-1 .faces{height:40px;min-width:40px}.city.density-1 .face{width:40px;height:40px;font-size:12.5px}.city.density-2 .faces{height:42px;min-width:42px}.city.density-2 .face{width:42px;height:42px;font-size:13px}
-          .face + .face{margin-left:-12px}.face img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:contain;object-position:center;background:#d7e4f6}
+          .face:first-child{z-index:3}.face:nth-child(2){z-index:2}.face:nth-child(3){z-index:1}.face + .face{margin-left:-12px}.face img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:contain;object-position:center;background:#d7e4f6}
           /* Pin the fan's bottom to the avatar's top, matching iOS's 66-point
              top overlay. This is independent of whether the label is mounted
              or animating, so focus updates cannot strand covers too high. */
@@ -357,7 +362,7 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
           .art-fan.raised .art{opacity:1}
           .art-fan.raised .art{transform:translate(var(--fan-x),var(--fan-y)) scale(1) rotate(var(--fan-r))}
           .art-1{transition-delay:.055s}.art-2{transition-delay:.11s}
-          .count{position:absolute;right:-15px;top:-9px;width:23px;height:23px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#6595ef;color:white;font-size:13px;line-height:23px;font-weight:800;font-variation-settings:"wght" 800;box-shadow:0 1px 3px #0002}.city.density-1 .count{font-size:13.5px}.city.density-2 .count{font-size:14px}
+          .count{position:absolute;right:-15px;top:-9px;z-index:4;width:23px;height:23px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#6595ef;color:white;font-size:13px;line-height:23px;font-weight:800;font-variation-settings:"wght" 800;box-shadow:0 1px 3px #0002}.city.density-1 .count{font-size:13.5px}.city.density-2 .count{font-size:14px}
           .label{position:absolute;top:100%;left:50%;margin-top:6px;padding:5px 14px;border-radius:18px;background:#fff;color:#17202b;font-size:15px;line-height:18px;font-weight:600;font-variation-settings:"wght" 600;white-space:nowrap;box-shadow:0 2px 8px #0002;opacity:1;transform:translateX(-50%) scale(1);transform-origin:top center;transition:opacity .22s ease-in-out,transform .22s ease-in-out}
           .label:not(.visible){opacity:0;transform:translateX(-50%) scale(.92);pointer-events:none}
           .label.listening{display:flex;align-items:center;gap:7px;background:#6595ef;color:#fff}.label.listening svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}

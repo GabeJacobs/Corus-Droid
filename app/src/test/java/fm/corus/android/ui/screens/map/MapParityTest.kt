@@ -117,6 +117,17 @@ class MapParityTest {
         assertEquals(listOf("a","b","d"), faces.map { it.user.id })
         assertEquals("updated", faces[1].user.displayName)
     }
+    @Test fun viewerFaceIsFirstAndPaintedAboveTheirCluster() {
+        val city = MapCity("c", "City", "", "US", 0.0, 0.0)
+        fun person(id: String) = MapPerson(city, CymbalUser(id, id, id))
+        assertEquals(
+            listOf("viewer", "a", "b"),
+            mapClusterFaces(listOf(person("a"), person("b"), person("viewer")), "viewer").map { it.user.id },
+        )
+        val html = appleMapHtml("token", compact = true, fontData = "font")
+        assertTrue(html.contains(".face:first-child{z-index:3}"))
+        assertTrue(html.contains(".count{position:absolute;right:-15px;top:-9px;z-index:4"))
+    }
     @Test fun movedPersonReplacesTheirOldLocation() {
         val old = MapCity("old", "Old", "", "AU", 0.0, 0.0)
         val new = old.copy(cityId = "new")
