@@ -30,9 +30,10 @@ class MapParityTest {
     }
     @Test fun returningPreviewRetainsItsRenderedMapKitSurface() {
         val source = File("src/main/java/fm/corus/android/ui/screens/map/AppleCityMapView.kt").readText()
-        assertTrue(source.contains("MapPreviewWebViewCache.take(previewCacheKey)"))
+        assertTrue(source.contains("if (compact) MapPreviewWebViewCache.take(previewCacheKey) else null"))
         assertTrue(source.contains("MapPreviewWebViewCache.put(previewCacheKey, webView)"))
-        assertTrue(source.contains("retainedWebView ?: WebView(if (compact) context.applicationContext else context)"))
+        assertTrue(source.contains("retainedPreviewWebView ?: WebView(if (compact) context.applicationContext else context)"))
+        assertTrue(source.contains("mutableStateOf(retainedPreviewWebView != null)"))
         assertFalse(source.contains("webView.draw(Canvas(it))\n                MapPreview"))
     }
     @Test fun focusedCityIsTopmostWithoutHidingNearbyPreviewClusters() {

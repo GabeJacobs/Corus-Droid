@@ -97,6 +97,9 @@ internal fun AppleCityMapView(
     }
     val dark = LocalCorusDarkTheme.current
     val previewCacheKey = "$token:$dark"
+    val retainedPreviewWebView = remember(previewCacheKey, compact) {
+        if (compact) MapPreviewWebViewCache.take(previewCacheKey) else null
+    }
     val currentCities by rememberUpdatedState(cities)
     val currentOnCity by rememberUpdatedState(onCity)
     val currentOnCameraSettled by rememberUpdatedState(onCameraSettled)
@@ -104,7 +107,7 @@ internal fun AppleCityMapView(
     val currentOnVisualReady by rememberUpdatedState(onVisualReady)
     val currentFocusID by rememberUpdatedState(focus?.cityId.orEmpty())
     var artwork by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
-    var hasRenderedMarkers by remember(token) { mutableStateOf(false) }
+    var hasRenderedMarkers by remember(token) { mutableStateOf(retainedPreviewWebView != null) }
     var transitionSnapshot by remember(previewCacheKey) { mutableStateOf<Bitmap?>(null) }
     var snapshotVisible by remember(previewCacheKey) { mutableStateOf(false) }
     var lastAppliedFocusID by remember(token) { mutableStateOf<String?>(null) }
@@ -144,8 +147,7 @@ internal fun AppleCityMapView(
     AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { context ->
-            val retainedWebView = if (compact) MapPreviewWebViewCache.take(previewCacheKey) else null
-            (retainedWebView ?: WebView(if (compact) context.applicationContext else context)).apply {
+            (retainedPreviewWebView ?: WebView(if (compact) context.applicationContext else context)).apply {
                 if (BuildConfig.DEBUG) WebView.setWebContentsDebuggingEnabled(true)
                 setBackgroundColor(Color.TRANSPARENT)
                 settings.javaScriptEnabled = true
@@ -202,7 +204,7 @@ internal fun AppleCityMapView(
                     }
                 }, "CorusAndroidMap")
                 tag = token
-                if (retainedWebView == null) {
+                if (retainedPreviewWebView == null) {
                     loadDataWithBaseURL(
                         "https://app.corus.fm",
                         appleMapHtml(token, compact, fontData),
