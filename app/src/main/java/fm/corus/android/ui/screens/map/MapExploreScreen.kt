@@ -554,7 +554,7 @@ fun MapExploreScreen(
             // fixed extra inset here made the directory end above a phantom
             // player and clipped its footer action.
             Surface(Modifier.fillMaxSize().padding(top = if (resolvingCity) 200.dp else 166.dp), color = CorusColors.Background) {
-                MapPeopleDirectory(cities, state, model, ::openUser) { city, chat -> if(chat.member) openChat(chat.threadId) else requestLocation { model.join(city,it,::openChat) } }
+                MapPeopleDirectory(cities, state, model, ::openUser) { city, chat -> if(chat.member) openChat(chat.threadId) else if (chat.clusterMember) model.join(city,null,::openChat) else requestLocation { model.join(city,it,::openChat) } }
             }
         }
         if (state.selected == null && state.playing == null && view == "map" && browsingCity != null) Surface(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 76.dp), shape = CircleShape, color = CorusColors.CardBackground.copy(alpha = .88f), shadowElevation = 4.dp) {
@@ -632,7 +632,7 @@ fun MapExploreScreen(
                         // eligibility refresh is in flight. The city did not change,
                         // so dropping it causes a distracting Open chat flicker.
                         FilledTonalButton(onClick = { model.start("listen", emptySet(), city.cityId) }, enabled = !state.busy, modifier = Modifier.weight(1f).height(44.dp), colors = ButtonDefaults.filledTonalButtonColors(containerColor = CorusColors.Accent.copy(alpha = .12f), contentColor = CorusColors.Accent)) { Icon(Icons.Default.Headphones, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(parityCopy("Listen"), style = CorusFont.bodyMedium) }
-                        state.chat?.takeIf { showMapChat(city.cityId, state.currentDeviceCityId, it) }?.let { chat -> Button(onClick = { if (chat.member) openChat(chat.threadId) else requestLocation { model.join(city, it, ::openChat) } }, modifier = Modifier.weight(1f), enabled = !state.busy) { Text(stringResource(if (chat.member) fm.corus.android.R.string.map_open_chat else fm.corus.android.R.string.map_join_chat)) } }
+                        state.chat?.takeIf { showMapChat(city.cityId, state.currentDeviceCityId, it) }?.let { chat -> Button(onClick = { if (chat.member) openChat(chat.threadId) else if (chat.clusterMember) model.join(city,null,::openChat) else requestLocation { model.join(city, it, ::openChat) } }, modifier = Modifier.weight(1f), enabled = !state.busy) { Text(stringResource(if (chat.member) fm.corus.android.R.string.map_open_chat else fm.corus.android.R.string.map_join_chat)) } }
                     }
                     LazyColumn(state = listState, contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
                         if (state.peopleLoading && state.people.isEmpty()) {

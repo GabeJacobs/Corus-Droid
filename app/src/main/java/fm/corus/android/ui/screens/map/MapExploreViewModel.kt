@@ -20,11 +20,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
 data class MapScreenState(
     val listPages: Map<String, MapPeoplePage> = emptyMap(), val listLoading: Set<String> = emptySet(), val listErrors: Set<String> = emptySet(),
+    val listPreparing: Boolean = false,
     val directoryChats: Map<String, MapChatStatus> = emptyMap(), val directoryChatsLoading: Set<String> = emptySet(),
     val selectedCommunityId: String? = null, val cities: List<MapCitySummary> = emptyList(), val selected: MapCity? = null,
     val people: List<MapPerson> = emptyList(), val posts: Map<String, CymbalPost?> = emptyMap(),
@@ -54,12 +57,13 @@ class MapExploreViewModel @Inject constructor(
         generation++; refreshGeneration++
         updateState { it.copy(ownPresenceReady = true, ownSource = data?.get("source") as? String,
             ownAudience = data?.get("audience") as? String ?: "off", ownCity = data?.let(MapCity::decode),
-            peopleLoading = false, listLoading = emptySet(), directoryChats = emptyMap(), directoryChatsLoading = emptySet()) }
+            peopleLoading = false, listLoading = emptySet(), listPreparing = false,
+            directoryChats = emptyMap(), directoryChatsLoading = emptySet()) }
         refresh()
     }
     fun community(id: String?) {
         generation++; refreshGeneration++
-        updateState { it.copy(selectedCommunityId = id, selected = null, people = emptyList(), cities = emptyList(), listPages = emptyMap(), listLoading = emptySet(), listErrors = emptySet(), loading = true) }
+        updateState { it.copy(selectedCommunityId = id, selected = null, people = emptyList(), cities = emptyList(), listPages = emptyMap(), listLoading = emptySet(), listErrors = emptySet(), listPreparing = false, loading = true) }
         refresh()
     }
     private var deviceCityCheckedAt = 0L
@@ -209,7 +213,7 @@ class MapExploreViewModel @Inject constructor(
         repository.event("filter_changed", value = value)
         if (value == "tasteMatches" && !fullAccess) { pendingAction = { filter(value) }; updateState { it.copy(paywall = "MAP") }; return }
         if (mutable.value.mode != null) stop()
-        generation++; updateState { it.copy(filter = value, selected = null, people = emptyList(), listPages = emptyMap(), listLoading = emptySet(), listErrors = emptySet()) }
+        generation++; updateState { it.copy(filter = value, selected = null, people = emptyList(), listPages = emptyMap(), listLoading = emptySet(), listErrors = emptySet(), listPreparing = false) }
     }
     fun select(city: MapCity) {
         repository.event("city_opened", count = mutable.value.cities.firstOrNull { it.city.cityId == city.cityId }?.facets?.get(mutable.value.filter)?.count)
@@ -247,6 +251,55 @@ class MapExploreViewModel @Inject constructor(
         } catch (e: CancellationException) { throw e }
         catch (_: Exception) { if (gen == generation) updateState { it.copy(listErrors = it.listErrors + key) } }
         finally { if (gen == generation) updateState { it.copy(listLoading = it.listLoading - key) } }
+    }
+
+    /**
+     * Resolve every initial city page behind one skeleton snapshot, then publish
+     * the directory once. Individual headers must not reveal fast responses and
+     * fall back to skeletons while slower responses or a refresh are pending.
+     */
+    fun prepareListDirectory() {
+        val snapshot = mutable.value
+        if (snapshot.listPreparing || !enabled) return
+        val missing = snapshot.cities.filter { summary ->
+            summary.city.cityId !in snapshot.listPages || summary.city.cityId in snapshot.listErrors
+        }
+        if (missing.isEmpty()) return
+        val gen = generation
+        val requestedFilter = snapshot.filter
+        val selectedCommunity = snapshot.selectedCommunityId
+        updateState { it.copy(listPreparing = true, listErrors = it.listErrors - missing.map { city -> city.city.cityId }.toSet()) }
+        viewModelScope.launch {
+            val results = coroutineScope {
+                missing.map { summary ->
+                    async {
+                        try {
+                            val page = repository.people(
+                                summary.city, requestedFilter, following, taste,
+                                selectedCommunityId = selectedCommunity,
+                            )
+                            Triple(summary.city.cityId, page, null as Throwable?)
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (error: Exception) {
+                            Triple(summary.city.cityId, null, error)
+                        }
+                    }
+                }.awaitAll()
+            }
+            if (gen != generation || requestedFilter != mutable.value.filter || auth.currentUser?.uid != uid) return@launch
+            val pages = results.mapNotNull { (cityID, page, _) ->
+                page?.let { cityID to it.copy(people = sortedMapPeople(it.people)) }
+            }.toMap()
+            val errors = results.filter { it.third != null }.map { it.first }.toSet()
+            updateState {
+                it.copy(
+                    listPages = it.listPages + pages,
+                    listErrors = it.listErrors + errors,
+                    listPreparing = false,
+                )
+            }
+        }
     }
     fun loadDirectoryChat(cityId: String) {
         val snapshot = mutable.value
@@ -337,8 +390,10 @@ class MapExploreViewModel @Inject constructor(
                 peopleLoading = false,
                 listPages = seeded + it.listPages + listOfNotNull(selectedPage).toMap(),
                 listLoading = emptySet(),
+                listPreparing = false,
             )
         }
+        prepareListDirectory()
     }
     fun error(message: String?) { updateState { it.copy(error = message) } }
     fun search(text: String) {
@@ -381,12 +436,17 @@ class MapExploreViewModel @Inject constructor(
         }
     }
     fun resolve(location: Location, done: (MapCity) -> Unit) = launch { done(repository.resolve(location)) }
-    fun join(city: MapCity, location: Location, done: (String) -> Unit) = launch {
+    fun join(city: MapCity, location: Location?, done: (String) -> Unit) = launch {
         val threadId = repository.join(city, location)
         updateState { it.copy(directoryChats = it.directoryChats + (city.cityId to MapChatStatus(threadId, member = true, canJoin = true))) }
         done(threadId)
     }
+    private var mapSessionStarted = false
     fun beginMapSession() {
+        // A profile push removes this destination from composition but retains
+        // its ViewModel. Returning to it must preserve the ready List snapshot.
+        if (mapSessionStarted) return
+        mapSessionStarted = true
         // The initial presence callback already performs the first refresh. Once
         // presence is ready, each later Map entry explicitly refreshes the
         // authoritative directory even when this device has not moved.
@@ -396,6 +456,7 @@ class MapExploreViewModel @Inject constructor(
                 listPages = emptyMap(),
                 listLoading = emptySet(),
                 listErrors = emptySet(),
+                listPreparing = false,
                 directoryChats = emptyMap(),
                 directoryChatsLoading = emptySet(),
             )

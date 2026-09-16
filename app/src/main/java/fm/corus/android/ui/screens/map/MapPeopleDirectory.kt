@@ -49,6 +49,9 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
             model.directoryScrollIndex = index; model.directoryScrollOffset = offset
         }
     }
+    LaunchedEffect(cities.map { it.city.cityId }, state.filter) {
+        model.prepareListDirectory()
+    }
     LazyColumn(
         state = listState,
         contentPadding = PaddingValues(start = 16.dp, top = 0.dp, end = 16.dp, bottom = 16.dp),
@@ -112,7 +115,7 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
                     }
                     run {
                         LaunchedEffect(city.cityId, state.currentDeviceCityId) { model.loadDirectoryChat(city.cityId) }
-                        state.directoryChats[city.cityId]?.takeIf { it.member || it.canJoin }?.let { value ->
+                        state.directoryChats[city.cityId]?.takeIf { it.available }?.let { value ->
                             Button(
                                 onClick = { onChat(city, value) },
                                 modifier = Modifier.padding(start = 8.dp),
@@ -131,11 +134,11 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
                     }
                     Icon(if (closed) Icons.Default.ChevronRight else Icons.Default.ExpandMore, stringResource(if (closed) R.string.map_cd_expand_city else R.string.map_cd_collapse_city))
                 }
-                if (!closed) LaunchedEffect(city.cityId, state.filter) { model.loadList(city) }
             }
             if (!closed) {
                 val page = state.listPages[city.cityId]
-                items(page?.people.orEmpty(), key = { "${city.cityId}:${it.user.id}" }) { person ->
+                val showInitialSkeleton = state.listPreparing
+                if (!showInitialSkeleton) items(page?.people.orEmpty(), key = { "${city.cityId}:${it.user.id}" }) { person ->
                     var appeared by rememberSaveable(city.cityId, person.user.id) { mutableStateOf(false) }
                     LaunchedEffect(Unit) { appeared = true }
                     val contentAlpha by animateFloatAsState(
@@ -148,7 +151,11 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
                         Column(Modifier.weight(1f)) { UsernameWithFlair(username = person.user.username, isVerified = person.user.isVerified, isClubMember = person.user.isClubMember, flairStyle = person.user.flairStyle, isBot = person.user.isBot, showAtPrefix = true); Text(person.user.displayName, style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1); if (person.user.bio.isNotBlank()) Text(person.user.bio, style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     }
                 }
-                if (city.cityId in state.listErrors) item { TextButton(onClick = { model.loadList(city, next = page?.cursor != null) }) { Text(parityCopy("Retry loading people")) } }
+                if (showInitialSkeleton) {
+                    val skeletonCount = (summary.facets[state.filter]?.count ?: 1).coerceIn(1, 3)
+                    items(skeletonCount, key = { "initial-skeleton:${city.cityId}:$it" }) { MapDirectoryPersonSkeleton() }
+                }
+                else if (city.cityId in state.listErrors) item { TextButton(onClick = { model.prepareListDirectory() }) { Text(parityCopy("Retry loading people")) } }
                 else if (city.cityId in state.listLoading) {
                     val skeletonCount = if (page == null) {
                         (summary.facets[state.filter]?.count ?: 1).coerceIn(1, 3)

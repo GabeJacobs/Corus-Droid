@@ -143,10 +143,13 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
         db.collection("map_presence").document(user.id).set(city.payload() + mapOf("uid" to user.id, "username" to user.username, "displayName" to user.displayName, "bio" to user.bio, "avatarURL" to (user.avatarURL ?: ""), "avatarThumbURL" to (user.avatarThumbURL ?: ""), "audience" to audience, "source" to source, "updatedAt" to FieldValue.serverTimestamp()), com.google.firebase.firestore.SetOptions.merge()).await()
     }
     suspend fun stopSharing() { val uid = auth.currentUser?.uid ?: return; db.collection("map_presence").document(uid).delete().await() }
-    suspend fun chat(cityId: String, currentCityId: String? = null): MapChatStatus { val d = call("getCityChat", mapOf("cityId" to cityId, "currentCityId" to currentCityId)); return MapChatStatus(d["threadId"] as? String ?: "", d["isMember"] == true, d["canJoin"] == true) }
-    suspend fun join(city: MapCity, location: Location): String {
-        val resolved = resolve(location)
-        return call("joinCityChat", mapOf("cityId" to city.cityId, "location" to mapOf("cityId" to resolved.cityId, "latitude" to location.latitude, "longitude" to location.longitude, "accuracy" to location.accuracy, "timestamp" to location.time)))["threadId"] as? String ?: error("Couldn’t join city chat.")
+    suspend fun chat(cityId: String, currentCityId: String? = null): MapChatStatus { val d = call("getCityChat", mapOf("cityId" to cityId, "currentCityId" to currentCityId)); return MapChatStatus(d["threadId"] as? String ?: "", d["isMember"] == true, d["canJoin"] == true, d["isClusterMember"] == true) }
+    suspend fun join(city: MapCity, location: Location?): String {
+        val payload = if (location == null) mapOf("cityId" to city.cityId) else {
+            val resolved = resolve(location)
+            mapOf("cityId" to city.cityId, "location" to mapOf("cityId" to resolved.cityId, "latitude" to location.latitude, "longitude" to location.longitude, "accuracy" to location.accuracy, "timestamp" to location.time))
+        }
+        return call("joinCityChat", payload)["threadId"] as? String ?: error("Couldn’t join city chat.")
     }
     @Suppress("UNCHECKED_CAST")
     suspend fun posts(userId: String, mode: String, beforeMs: Long? = null): List<CymbalPost> = (call("getProfilePosts", mapOf("userId" to userId, "pageSize" to 15, "beforeMs" to beforeMs, "mediaType" to if (mode == "listen") "track" else "movie"))["posts"] as? List<Map<String, Any?>>).orEmpty().map(CymbalPost::fromCloudData)

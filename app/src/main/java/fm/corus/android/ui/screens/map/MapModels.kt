@@ -25,7 +25,9 @@ data class MapPerson(
 data class MapFacet(val count: Int, val previews: List<MapPerson>, val includesViewer: Boolean = false)
 data class MapCitySummary(val city: MapCity, val facets: Map<String, MapFacet>, val parentCommunity: MapCity? = null, val subdivisions: List<MapCity> = emptyList())
 data class MapPeoplePage(val people: List<MapPerson>, val cursor: String?, val reachedEnd: Boolean = cursor == null)
-data class MapChatStatus(val threadId: String, val member: Boolean, val canJoin: Boolean)
+data class MapChatStatus(val threadId: String, val member: Boolean, val canJoin: Boolean, val clusterMember: Boolean = false) {
+    val available: Boolean get() = member || canJoin || clusterMember
+}
 internal fun shouldLoadDirectoryChat(hasStatus: Boolean, isLoading: Boolean): Boolean = !hasStatus && !isLoading
 data class MapPlaybackItem(val city: MapCity, val post: CymbalPost)
 internal enum class MapPersonRowLayout { USERNAME_ONLY, LATEST_POST }
@@ -66,7 +68,7 @@ class MapMembership {
     fun residents(cityId: String, people: List<MapPerson>): List<MapPerson> = sortedMapPeople(people)
     fun summaries(cities: List<MapCitySummary>): List<MapCitySummary> = cities
 }
-fun showMapChat(cityId: String, currentCityId: String?, status: MapChatStatus): Boolean = status.member || status.canJoin
+fun showMapChat(cityId: String, currentCityId: String?, status: MapChatStatus): Boolean = status.available
 fun requireMapCommunityVersion(response: Map<String, Any?>) {
     check((response["communityVersion"] as? Number)?.toInt() == 1) { "Please refresh Map after the service is updated." }
 }
