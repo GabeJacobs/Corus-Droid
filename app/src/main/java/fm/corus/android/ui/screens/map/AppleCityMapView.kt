@@ -349,16 +349,16 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
           .city.active .pin-content{transform:translateY(-10px)}
           .faces{position:relative;height:${MAP_CLUSTER_AVATAR_SIZE_PX}px;min-width:${MAP_CLUSTER_AVATAR_SIZE_PX}px;display:flex;align-items:center;justify-content:center;transition:transform .22s ease-in-out}
           .face{position:relative;flex-shrink:0;width:${MAP_CLUSTER_AVATAR_SIZE_PX}px;height:${MAP_CLUSTER_AVATAR_SIZE_PX}px;border:0;border-radius:50%;overflow:hidden;background:#d7e4f6;color:#17202b;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;box-shadow:0 1px 3px #0003}
-          .city.density-1 .faces{height:40px;min-width:40px}.city.density-1 .face{width:40px;height:40px;font-size:12.5px}.city.density-2 .faces{height:42px;min-width:42px}.city.density-2 .face{width:42px;height:42px;font-size:13px}
+          .city.density-1 .faces{height:41px;min-width:41px}.city.density-1 .face{width:41px;height:41px;font-size:12.5px}.city.density-2 .faces{height:44px;min-width:44px}.city.density-2 .face{width:44px;height:44px;font-size:13px}
           .face:first-child{z-index:3}.face:nth-child(2){z-index:2}.face:nth-child(3){z-index:1}.face + .face{margin-left:-12px}.face img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:contain;object-position:center;background:#d7e4f6}
           /* Pin the fan's bottom to the avatar's top, matching iOS's 66-point
              top overlay. This is independent of whether the label is mounted
              or animating, so focus updates cannot strand covers too high. */
-          .art-fan{position:absolute;bottom:${MAP_CLUSTER_AVATAR_SIZE_PX}px;left:50%;width:${MAP_CLUSTER_ART_FAN_WIDTH_PX}px;height:66px;pointer-events:none;transform:translateX(-50%)}.city.density-1 .art-fan{bottom:40px}.city.density-2 .art-fan{bottom:42px}
+          .art-fan{position:absolute;bottom:${MAP_CLUSTER_AVATAR_SIZE_PX}px;left:50%;width:${MAP_CLUSTER_ART_FAN_WIDTH_PX}px;height:66px;pointer-events:none;transform:translateX(-50%)}.city.density-1 .art-fan{bottom:41px}.city.density-2 .art-fan{bottom:44px}
           .art{position:absolute;left:${MAP_CLUSTER_ARTWORK_LEFT_PX}px;bottom:0;width:${MAP_CLUSTER_ARTWORK_SIZE_PX}px;height:${MAP_CLUSTER_ARTWORK_SIZE_PX}px;border-radius:11px;object-fit:cover;box-shadow:0 6px 10px rgba(0,0,0,.35);opacity:0;transform:translate(0,38px) scale(.45) rotate(0deg);transition:opacity .55s cubic-bezier(.2,.8,.25,1),transform .55s cubic-bezier(.2,.8,.25,1)}
           /* The active Listen Mode pin is the iOS treatment: one larger
              currently-playing cover over the avatar cluster and a blue pill. */
-          .art-fan.listening{bottom:calc(${MAP_CLUSTER_AVATAR_SIZE_PX}px + 11px)}.city.density-1 .art-fan.listening{bottom:51px}.city.density-2 .art-fan.listening{bottom:53px}.art-fan.listening .art{left:${MAP_CLUSTER_ARTWORK_LEFT_PX}px;width:${MAP_CLUSTER_ARTWORK_SIZE_PX}px;height:${MAP_CLUSTER_ARTWORK_SIZE_PX}px;border-radius:12px}
+          .art-fan.listening{bottom:calc(${MAP_CLUSTER_AVATAR_SIZE_PX}px + 11px)}.city.density-1 .art-fan.listening{bottom:52px}.city.density-2 .art-fan.listening{bottom:55px}.art-fan.listening .art{left:${MAP_CLUSTER_ARTWORK_LEFT_PX}px;width:${MAP_CLUSTER_ARTWORK_SIZE_PX}px;height:${MAP_CLUSTER_ARTWORK_SIZE_PX}px;border-radius:12px}
           .art-fan.raised .art{opacity:1}
           .art-fan.raised .art{transform:translate(var(--fan-x),var(--fan-y)) scale(1) rotate(var(--fan-r))}
           .art-1{transition-delay:.055s}.art-2{transition-delay:.11s}
