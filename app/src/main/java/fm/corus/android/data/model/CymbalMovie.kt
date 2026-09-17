@@ -99,6 +99,8 @@ data class TrendingArtist(
     val albumArtURL: String? = null,
     val albumArtLargeURL: String? = null,
     val cymbalCount: Int = 0,
+    /** Catalog headshot from getArtistDetail. Null until hydrated. */
+    val catalogImageURL: String? = null,
 )
 
 /** One row of trending_cache/albums — song counters re-merged by album
@@ -200,4 +202,6 @@ data class TrendingDirector(
     val posterURL: String? = null,
     val posterLargeURL: String? = null,
     val cymbalCount: Int = 0,
+    /** Catalog headshot from getDirectorDetail. Null until hydrated. */
+    val catalogImageURL: String? = null,
 )

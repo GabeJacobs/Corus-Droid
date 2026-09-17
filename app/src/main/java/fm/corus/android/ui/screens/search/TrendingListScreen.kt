@@ -41,6 +41,9 @@ import fm.corus.android.data.model.resolveTrendingAlbumOpen
 import fm.corus.android.data.repository.MusicSearchRepository
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirestoreDataSource
+import fm.corus.android.data.remote.catalogArtistPortraitUrl
+import fm.corus.android.data.remote.catalogDirectorPortraitUrl
+import fm.corus.android.data.remote.paintArtistCatalogImages
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.TMDBRepository
@@ -50,6 +53,9 @@ import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.navigation.FilmDetailRoute
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -203,6 +209,31 @@ class TrendingListViewModel @Inject constructor(
         viewModelScope.launch { preferencesDataStore.setTrendingDirectorsWindow(window.key) }
     }
 
+    private fun hydrateArtistPortraits() {
+        viewModelScope.launch {
+            _trendingArtists.value = cloudFunctions.paintArtistCatalogImages(_trendingArtists.value)
+        }
+    }
+
+    private fun hydrateDirectorPortraits() {
+        viewModelScope.launch {
+            val current = _trendingDirectors.value
+            _trendingDirectors.value = coroutineScope {
+                current.map { director ->
+                    async {
+                        if (!director.catalogImageURL.isNullOrBlank()) director
+                        else {
+                            val id = director.directorId.ifBlank {
+                                tmdbRepository.resolveDirectorByName(director.directorName)?.id.orEmpty()
+                            }
+                            director.copy(catalogImageURL = cloudFunctions.catalogDirectorPortraitUrl(id))
+                        }
+                    }
+                }.awaitAll()
+            }
+        }
+    }
+
     suspend fun loadSongs(window: TrendingWindow) {
         _isSongsLoading.value = true
         _trendingSongs.value = try {
@@ -245,20 +276,17 @@ class TrendingListViewModel @Inject constructor(
             emptyList()
         }
         _isArtistsLoading.value = false
-        val names = _trendingArtists.value.map { it.artistName }
-        if (names.isNotEmpty()) {
-            viewModelScope.launch {
-                cloudFunctions.prefetchArtistDestinations(names)
-            }
-        }
+        hydrateArtistPortraits()
     }
 
     suspend fun resolveTrendingArtist(artist: TrendingArtist): fm.corus.android.ui.navigation.ArtistPageRoute? {
+        val portrait = artist.catalogImageURL
+            ?: cloudFunctions.catalogArtistPortraitUrl(artist.artistName)
         cloudFunctions.cachedResolvedArtist(artist.artistName)?.let { cached ->
             return fm.corus.android.ui.navigation.ArtistPageRoute(
                 artistId = cached.id,
                 name = cached.name,
-                imageUrl = cached.imageUrl,
+                imageUrl = portrait,
             )
         }
         if (_isResolvingArtist.value) return null
@@ -266,10 +294,11 @@ class TrendingListViewModel @Inject constructor(
         DestinationResolvingOverlay.setResolving(true)
         return try {
             val resolved = cloudFunctions.resolveArtistByName(artist.artistName) ?: return null
+            val url = portrait ?: cloudFunctions.catalogArtistPortraitUrl(artist.artistName)
             fm.corus.android.ui.navigation.ArtistPageRoute(
                 artistId = resolved.id,
                 name = resolved.name,
-                imageUrl = resolved.imageUrl,
+                imageUrl = url,
             )
         } finally {
             _isResolvingArtist.value = false
@@ -321,39 +350,35 @@ class TrendingListViewModel @Inject constructor(
             emptyList()
         }
         _isDirectorsLoading.value = false
+        hydrateDirectorPortraits()
     }
 
     suspend fun resolveTrendingDirector(director: TrendingDirector): fm.corus.android.ui.navigation.DirectorPageRoute? {
-        if (director.directorId.isNotEmpty()) {
-            return fm.corus.android.ui.navigation.DirectorPageRoute(
-                directorId = director.directorId,
-                name = director.directorName.ifBlank { null },
-                imageUrl = director.posterLargeURL ?: director.posterURL,
-            )
+        var id = director.directorId
+        var name = director.directorName.ifBlank { null }
+        if (id.isBlank()) {
+            if (_isResolvingDirector.value) return null
+            _isResolvingDirector.value = true
+            DestinationResolvingOverlay.setResolving(true)
+            try {
+                val resolved = tmdbRepository.cachedResolvedDirector(director.directorName)
+                    ?: tmdbRepository.resolveDirectorByName(director.directorName)
+                    ?: return null
+                id = resolved.id
+                name = resolved.name
+            } finally {
+                _isResolvingDirector.value = false
+                DestinationResolvingOverlay.setResolving(
+                    _isResolvingArtist.value || _isResolvingAlbum.value || _isResolvingDirector.value,
+                )
+            }
         }
-        tmdbRepository.cachedResolvedDirector(director.directorName)?.let { cached ->
-            return fm.corus.android.ui.navigation.DirectorPageRoute(
-                directorId = cached.id,
-                name = cached.name,
-                imageUrl = cached.imageUrl ?: director.posterLargeURL ?: director.posterURL,
-            )
-        }
-        if (_isResolvingDirector.value) return null
-        _isResolvingDirector.value = true
-        DestinationResolvingOverlay.setResolving(true)
-        return try {
-            val resolved = tmdbRepository.resolveDirectorByName(director.directorName) ?: return null
-            fm.corus.android.ui.navigation.DirectorPageRoute(
-                directorId = resolved.id,
-                name = resolved.name,
-                imageUrl = resolved.imageUrl ?: director.posterLargeURL ?: director.posterURL,
-            )
-        } finally {
-            _isResolvingDirector.value = false
-            DestinationResolvingOverlay.setResolving(
-                _isResolvingArtist.value || _isResolvingAlbum.value || _isResolvingDirector.value,
-            )
-        }
+        val url = director.catalogImageURL ?: cloudFunctions.catalogDirectorPortraitUrl(id)
+        return fm.corus.android.ui.navigation.DirectorPageRoute(
+            directorId = id,
+            name = name,
+            imageUrl = url,
+        )
     }
 
     suspend fun resolveTrendingAlbum(album: TrendingAlbum): TrendingAlbumOpen? {

@@ -28,6 +28,9 @@ import fm.corus.android.data.model.albumTitlesMatch
 import fm.corus.android.data.model.resolveTrendingAlbumOpen
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirestoreDataSource
+import fm.corus.android.data.remote.catalogArtistPortraitUrl
+import fm.corus.android.data.remote.catalogDirectorPortraitUrl
+import fm.corus.android.data.remote.paintArtistCatalogImages
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.MusicSearchRepository
@@ -41,6 +44,7 @@ import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.service.SearchSection
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -503,18 +507,18 @@ class SearchViewModel @Inject constructor(
             }
             _trendingArtists.value = fetched
             _isTrendingArtistsLoading.value = false
-            viewModelScope.launch {
-                cloudFunctions.prefetchArtistDestinations(fetched.map { it.artistName })
-            }
+            hydrateArtistPortraits()
         }
     }
 
     suspend fun resolveTrendingArtist(artist: TrendingArtist): fm.corus.android.ui.navigation.ArtistPageRoute? {
+        val portrait = artist.catalogImageURL
+            ?: cloudFunctions.catalogArtistPortraitUrl(artist.artistName)
         cloudFunctions.cachedResolvedArtist(artist.artistName)?.let { cached ->
             return fm.corus.android.ui.navigation.ArtistPageRoute(
                 artistId = cached.id,
                 name = cached.name,
-                imageUrl = cached.imageUrl,
+                imageUrl = portrait,
             )
         }
         if (_isResolvingArtist.value) return null
@@ -522,13 +526,11 @@ class SearchViewModel @Inject constructor(
         DestinationResolvingOverlay.setResolving(true)
         return try {
             val resolved = cloudFunctions.resolveArtistByName(artist.artistName) ?: return null
-            viewModelScope.launch {
-                runCatching { cloudFunctions.fetchArtistDetail(resolved.id, resolved.name) }
-            }
+            val url = portrait ?: cloudFunctions.catalogArtistPortraitUrl(artist.artistName)
             fm.corus.android.ui.navigation.ArtistPageRoute(
                 artistId = resolved.id,
                 name = resolved.name,
-                imageUrl = resolved.imageUrl,
+                imageUrl = url,
             )
         } finally {
             _isResolvingArtist.value = false
@@ -599,40 +601,36 @@ class SearchViewModel @Inject constructor(
             }
             _trendingDirectors.value = fetched
             _isTrendingDirectorsLoading.value = false
+            hydrateDirectorPortraits()
         }
     }
 
     suspend fun resolveTrendingDirector(director: TrendingDirector): fm.corus.android.ui.navigation.DirectorPageRoute? {
-        if (director.directorId.isNotEmpty()) {
-            return fm.corus.android.ui.navigation.DirectorPageRoute(
-                directorId = director.directorId,
-                name = director.directorName.ifBlank { null },
-                imageUrl = director.posterLargeURL ?: director.posterURL,
-            )
+        var id = director.directorId
+        var name = director.directorName.ifBlank { null }
+        if (id.isBlank()) {
+            if (_isResolvingDirector.value) return null
+            _isResolvingDirector.value = true
+            DestinationResolvingOverlay.setResolving(true)
+            try {
+                val resolved = tmdbRepository.cachedResolvedDirector(director.directorName)
+                    ?: tmdbRepository.resolveDirectorByName(director.directorName)
+                    ?: return null
+                id = resolved.id
+                name = resolved.name
+            } finally {
+                _isResolvingDirector.value = false
+                DestinationResolvingOverlay.setResolving(
+                    _isResolvingArtist.value || _isResolvingAlbum.value || _isResolvingDirector.value,
+                )
+            }
         }
-        tmdbRepository.cachedResolvedDirector(director.directorName)?.let { cached ->
-            return fm.corus.android.ui.navigation.DirectorPageRoute(
-                directorId = cached.id,
-                name = cached.name,
-                imageUrl = cached.imageUrl ?: director.posterLargeURL ?: director.posterURL,
-            )
-        }
-        if (_isResolvingDirector.value) return null
-        _isResolvingDirector.value = true
-        DestinationResolvingOverlay.setResolving(true)
-        return try {
-            val resolved = tmdbRepository.resolveDirectorByName(director.directorName) ?: return null
-            fm.corus.android.ui.navigation.DirectorPageRoute(
-                directorId = resolved.id,
-                name = resolved.name,
-                imageUrl = resolved.imageUrl ?: director.posterLargeURL ?: director.posterURL,
-            )
-        } finally {
-            _isResolvingDirector.value = false
-            DestinationResolvingOverlay.setResolving(
-                _isResolvingArtist.value || _isResolvingAlbum.value || _isResolvingDirector.value,
-            )
-        }
+        val url = director.catalogImageURL ?: cloudFunctions.catalogDirectorPortraitUrl(id)
+        return fm.corus.android.ui.navigation.DirectorPageRoute(
+            directorId = id,
+            name = name,
+            imageUrl = url,
+        )
     }
 
     private suspend fun resolveAlbumByName(name: String, artist: String): AlbumSearchSummary? {
@@ -1089,6 +1087,7 @@ class SearchViewModel @Inject constructor(
         if (!directors.isNullOrEmpty() && _trendingDirectors.value.isEmpty()) {
             _trendingDirectors.value = directors
             _isTrendingDirectorsLoading.value = false
+            hydrateDirectorPortraits()
         }
     }
 
@@ -1428,9 +1427,7 @@ class SearchViewModel @Inject constructor(
                 val window = trendingArtistsWindow.value
                 val loaded = exploreRepository.fetchTrendingArtists(window)
                 _trendingArtists.value = loaded
-                viewModelScope.launch {
-                    cloudFunctions.prefetchArtistDestinations(loaded.map { it.artistName })
-                }
+                hydrateArtistPortraits()
             } catch (e: Exception) {
                 Log.e("SearchVM", "Failed to load trending artists", e)
                 hasLoadedTrendingArtists = false
@@ -1495,11 +1492,39 @@ class SearchViewModel @Inject constructor(
                 val loaded = exploreRepository.fetchTrendingDirectors(TrendingWindow.WEEK)
                 _trendingDirectors.value = loaded
                 if (loaded.isNotEmpty()) preferencesDataStore.persistSearchTrendingDirectors(loaded)
+                hydrateDirectorPortraits()
             } catch (e: Exception) {
                 Log.e("SearchVM", "Failed to load trending directors", e)
                 hasLoadedTrendingDirectors = false
             }
             _isTrendingDirectorsLoading.value = false
+        }
+    }
+
+    private fun hydrateArtistPortraits() {
+        viewModelScope.launch {
+            val painted = cloudFunctions.paintArtistCatalogImages(_trendingArtists.value)
+            _trendingArtists.value = painted
+        }
+    }
+
+    private fun hydrateDirectorPortraits() {
+        viewModelScope.launch {
+            val current = _trendingDirectors.value
+            val painted = coroutineScope {
+                current.map { director ->
+                    async {
+                        if (!director.catalogImageURL.isNullOrBlank()) director
+                        else {
+                            val id = director.directorId.ifBlank {
+                                tmdbRepository.resolveDirectorByName(director.directorName)?.id.orEmpty()
+                            }
+                            director.copy(catalogImageURL = cloudFunctions.catalogDirectorPortraitUrl(id))
+                        }
+                    }
+                }.awaitAll()
+            }
+            _trendingDirectors.value = painted
         }
     }
 

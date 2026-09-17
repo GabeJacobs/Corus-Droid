@@ -668,6 +668,18 @@ fun SearchScreen(
                                     onSongTap = onNavigateToSong,
                                     onSeeAll = { onNavigateToTrending("songs") },
                                 )
+                                compactTrendingAlbumsSection(
+            nowPlaying = viewModel.nowPlayingManager,
+                                    albums = trendingAlbums,
+                                    isLoading = isTrendingAlbumsLoading,
+                                    showRank = true,
+                                    viewModel = viewModel,
+                                    section = SearchSection.TrendingAlbums,
+                                    titleRes = fm.corus.android.R.string.search_trending_albums_title,
+                                    icon = "album",
+                                    onAlbumTap = openTrendingAlbum,
+                                    onSeeAll = { onNavigateToTrending("albums") },
+                                )
                                 if (trendingArtistsSectionEnabled || segmentedSearchEnabled) {
                                     compactTrendingArtistsSection(
                                         artists = trendingArtists,
@@ -687,18 +699,6 @@ fun SearchScreen(
                                         onSeeAll = { onNavigateToTrending("artists") },
                                     )
                                 }
-                                compactTrendingAlbumsSection(
-            nowPlaying = viewModel.nowPlayingManager,
-                                    albums = trendingAlbums,
-                                    isLoading = isTrendingAlbumsLoading,
-                                    showRank = true,
-                                    viewModel = viewModel,
-                                    section = SearchSection.TrendingAlbums,
-                                    titleRes = fm.corus.android.R.string.search_trending_albums_title,
-                                    icon = "album",
-                                    onAlbumTap = openTrendingAlbum,
-                                    onSeeAll = { onNavigateToTrending("albums") },
-                                )
                                 compactTrendingAlbumsSection(
             nowPlaying = viewModel.nowPlayingManager,
                                     albums = newReleaseAlbums,
@@ -1998,8 +1998,7 @@ private fun LazyListScope.compactTrendingDirectorsSection(
                 items(5) {
                     Box(
                         modifier = Modifier
-                            .width(90.dp)
-                            .height(135.dp)
+                            .size(120.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .background(CorusColors.CardBackground),
                     )
@@ -2008,19 +2007,26 @@ private fun LazyListScope.compactTrendingDirectorsSection(
                 items(directors, key = { "td-${it.id}" }) { director ->
                     Column(
                         modifier = Modifier
-                            .width(90.dp)
+                            .width(120.dp)
                             .clickable { onDirectorTap(director) },
                     ) {
                         Box {
-                            ShimmerAsyncImage(
-                                model = director.posterLargeURL ?: director.posterURL,
-                                contentDescription = "${director.rank}. ${director.directorName}",
-                                modifier = Modifier
-                                    .width(90.dp)
-                                    .height(135.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                contentScale = ContentScale.Crop,
-                            )
+                            if (director.catalogImageURL.isNullOrBlank()) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(120.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(CorusColors.CardBackground),
+                                )
+                            } else {
+                                ShimmerAsyncImage(
+                                    model = director.catalogImageURL,
+                                    contentDescription = "${director.rank}. ${director.directorName}",
+                                    modifier = Modifier.size(120.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            }
                             TrendingTileRankBadge(
                                 rank = director.rank,
                                 modifier = Modifier.align(Alignment.TopStart),
@@ -2298,13 +2304,22 @@ private fun LazyListScope.compactTrendingArtistsSection(
                             .clickable { onArtistTap(artist) },
                     ) {
                         Box {
-                            ShimmerAsyncImage(
-                                model = artist.albumArtLargeURL ?: artist.albumArtURL,
-                                contentDescription = "${artist.rank}. ${artist.artistName}",
-                                modifier = Modifier.size(120.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                contentScale = ContentScale.Crop,
-                            )
+                            if (artist.catalogImageURL.isNullOrBlank()) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(120.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(CorusColors.CardBackground),
+                                )
+                            } else {
+                                ShimmerAsyncImage(
+                                    model = artist.catalogImageURL,
+                                    contentDescription = "${artist.rank}. ${artist.artistName}",
+                                    modifier = Modifier.size(120.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            }
                             TrendingTileRankBadge(
                                 rank = artist.rank,
                                 modifier = Modifier.align(Alignment.TopStart),
@@ -3348,13 +3363,22 @@ private fun TrendingArtistRow(
             modifier = Modifier.width(24.dp),
         )
         Spacer(modifier = Modifier.width(CorusSpacing.md))
-        ShimmerAsyncImage(
-            model = artist.albumArtLargeURL ?: artist.albumArtURL,
-            contentDescription = artist.artistName,
-            modifier = Modifier.size(44.dp),
-            shape = RoundedCornerShape(4.dp),
-            contentScale = ContentScale.Crop,
-        )
+        if (artist.catalogImageURL.isNullOrBlank()) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.CardBackground),
+            )
+        } else {
+            ShimmerAsyncImage(
+                model = artist.catalogImageURL,
+                contentDescription = artist.artistName,
+                modifier = Modifier.size(44.dp),
+                shape = RoundedCornerShape(4.dp),
+                contentScale = ContentScale.Crop,
+            )
+        }
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Text(
             artist.artistName,
@@ -3759,15 +3783,22 @@ private fun TrendingDirectorRow(
             modifier = Modifier.width(24.dp),
         )
         Spacer(modifier = Modifier.width(CorusSpacing.md))
-        ShimmerAsyncImage(
-            model = director.posterLargeURL ?: director.posterURL,
-            contentDescription = null,
-            modifier = Modifier
-                .width(44.dp)
-                .height(66.dp),
-            shape = RoundedCornerShape(4.dp),
-            contentScale = ContentScale.Crop,
-        )
+        if (director.catalogImageURL.isNullOrBlank()) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(CorusColors.CardBackground),
+            )
+        } else {
+            ShimmerAsyncImage(
+                model = director.catalogImageURL,
+                contentDescription = null,
+                modifier = Modifier.size(44.dp),
+                shape = RoundedCornerShape(4.dp),
+                contentScale = ContentScale.Crop,
+            )
+        }
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Text(
             director.directorName,
