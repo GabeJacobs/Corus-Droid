@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Flag
@@ -1684,6 +1685,14 @@ fun MessageThreadScreen(
                 clipboardManager.setPrimaryClip(clip)
                 reactionTarget = null
             },
+            onCopyLink = reactionTarget!!.linkPreview?.url?.let { url ->
+                {
+                    val clipboardManager = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    val clip = android.content.ClipData.newPlainText("link", url)
+                    clipboardManager.setPrimaryClip(clip)
+                    reactionTarget = null
+                }
+            },
             onEdit = if (
                 !isCityChat &&
                 reactionTarget!!.fromUserId == viewModel.currentUserId &&
@@ -1773,6 +1782,7 @@ private fun ReactionOverlay(
     onReaction: (String) -> Unit,
     onReply: () -> Unit,
     onCopy: () -> Unit,
+    onCopyLink: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
     onReport: () -> Unit,
@@ -1850,6 +1860,14 @@ private fun ReactionOverlay(
                             icon = Icons.Filled.ContentCopy,
                             label = stringResource(id = R.string.comments_menu_copy),
                             onClick = onCopy,
+                        )
+                    }
+                    if (onCopyLink != null) {
+                        HorizontalDivider(color = CorusColors.Divider)
+                        ActionMenuItem(
+                            icon = Icons.Filled.Link,
+                            label = "Copy link",
+                            onClick = onCopyLink,
                         )
                     }
                     if (!isFromCurrentUser) {
@@ -1941,12 +1959,14 @@ private fun MessageBubble(
     val isSending = message.sendStatus == MessageSendStatus.SENDING
     val isFailed = message.sendStatus == MessageSendStatus.FAILED
     val hasMedia = message.type != MessageType.TEXT
-    val emojiOnly = !hasMedia && message.replyToText == null &&
-        !message.text.isNullOrBlank() && isEmojiOnly(message.text!!)
+    val heroLink = message.showsHeroLinkPreview
+    val displayText = message.displayText
+    val emojiOnly = !hasMedia && !heroLink && message.replyToText == null &&
+        !displayText.isNullOrBlank() && isEmojiOnly(displayText)
 
-    val annotatedText = remember(message.text, isFromCurrentUser, emojiOnly) {
-        if (!message.text.isNullOrBlank() && !emojiOnly)
-            buildLinkifiedText(message.text!!, isFromCurrentUser)
+    val annotatedText = remember(displayText, isFromCurrentUser, emojiOnly) {
+        if (!displayText.isNullOrBlank() && !emojiOnly)
+            buildLinkifiedText(displayText, isFromCurrentUser)
         else null
     }
     var textLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
@@ -2102,14 +2122,14 @@ private fun MessageBubble(
                     )
                 }
                 .background(
-                    color = if (emojiOnly) Color.Transparent
+                    color = if (emojiOnly || (heroLink && message.replyToText == null)) Color.Transparent
                             else if (isFromCurrentUser) CorusColors.Accent
                             else CorusColors.CardBackground,
                     shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
                 )
                 .padding(
-                    horizontal = if (emojiOnly) 0.dp else CorusSpacing.md,
-                    vertical = if (emojiOnly) 0.dp else CorusSpacing.sm,
+                    horizontal = if (emojiOnly || (heroLink && message.replyToText == null)) 0.dp else CorusSpacing.md,
+                    vertical = if (emojiOnly || (heroLink && message.replyToText == null)) 0.dp else CorusSpacing.sm,
                 ),
         ) {
             Column {
@@ -2308,11 +2328,19 @@ private fun MessageBubble(
                     }
                 }
 
+                if (heroLink && message.linkPreview != null) {
+                    MessageLinkPreviewCard(
+                        preview = message.linkPreview,
+                        isFromCurrentUser = isFromCurrentUser,
+                        hero = true,
+                    )
+                }
+
                 // Text content
-                if (!message.text.isNullOrBlank()) {
+                if (!displayText.isNullOrBlank()) {
                     if (emojiOnly) {
                         Text(
-                            text = message.text ?: "",
+                            text = displayText,
                             fontSize = 40.sp,
                         )
                     } else if (annotatedText != null) {
@@ -2325,6 +2353,17 @@ private fun MessageBubble(
                             modifier = Modifier.onGloballyPositioned { textCoords = it },
                         )
                     }
+                }
+
+                if (!heroLink && message.type == MessageType.TEXT && message.linkPreview != null) {
+                    if (!displayText.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                    }
+                    MessageLinkPreviewCard(
+                        preview = message.linkPreview,
+                        isFromCurrentUser = isFromCurrentUser,
+                        hero = false,
+                    )
                 }
 
             }

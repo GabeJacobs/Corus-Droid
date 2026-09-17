@@ -54,6 +54,7 @@ data class CymbalMessage(
     val replyToMessageId: String? = null,
     val replyToText: String? = null,
     val replyToUserId: String? = null,
+    val linkPreview: MessageLinkPreview? = null,
     /** Set when the author edited the message; drives the "edited" indicator. */
     val editedAt: Date? = null,
     val failureReason: MessageFailureReason = MessageFailureReason.GENERIC,
@@ -68,6 +69,19 @@ data class CymbalMessage(
 
     /** True for group lifecycle events, rendered as a centered system row. */
     val isSystem: Boolean get() = type == MessageType.SYSTEM
+
+    val showsHeroLinkPreview: Boolean
+        get() = type == MessageType.TEXT &&
+            linkPreview != null &&
+            MessageLinkPreview.isUrlOnly(text, linkPreview.url)
+
+    val displayText: String?
+        get() {
+            val value = text ?: return null
+            if (value.isEmpty()) return null
+            if (showsHeroLinkPreview) return null
+            return value
+        }
 
     /**
      * Reconstruct a [CommentAttachedSong] from the message's track fields so
@@ -189,6 +203,7 @@ data class CymbalMessage(
                 replyToMessageId = data["replyToMessageId"] as? String,
                 replyToText = data["replyToText"] as? String,
                 replyToUserId = data["replyToUserId"] as? String,
+                linkPreview = MessageLinkPreview.parse(data["linkPreview"]),
                 editedAt = (data["editedAt"] as? Number)?.let { Date(it.toLong()) },
                 systemEvent = data["systemEvent"] as? String,
                 systemActorId = data["actorId"] as? String,
@@ -251,6 +266,7 @@ data class CymbalMessage(
                 replyToMessageId = data["replyToMessageId"] as? String,
                 replyToText = data["replyToText"] as? String,
                 replyToUserId = data["replyToUserId"] as? String,
+                linkPreview = MessageLinkPreview.parse(data["linkPreview"]),
                 editedAt = (data["editedAt"] as? Timestamp)?.toDate(),
                 systemEvent = data["systemEvent"] as? String,
                 systemActorId = data["actorId"] as? String,
