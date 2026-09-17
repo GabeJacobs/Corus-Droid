@@ -54,6 +54,11 @@ class EditProfileViewModel @Inject constructor(
     val canEditTrophies get() = trophyViewerAllowed(authRepository.currentUserId, remoteConfigService.trophyCaseDisabled)
     fun updateShowTrophies(value: Boolean) { if (canEditTrophies) _showTrophies.value = value }
 
+    val mapEnabled: Boolean get() = remoteConfigService.mapEnabled
+    private val _showCityOnProfile = MutableStateFlow(true)
+    val showCityOnProfile = _showCityOnProfile.asStateFlow()
+    fun updateShowCityOnProfile(value: Boolean) { if (mapEnabled) _showCityOnProfile.value = value }
+
     private val _bio = MutableStateFlow("")
     val bio: StateFlow<String> = _bio.asStateFlow()
 
@@ -139,6 +144,7 @@ class EditProfileViewModel @Inject constructor(
                     _displayName.value = user.displayName
                     _username.value = user.username
                     _showTrophies.value = user.showTrophies
+                    _showCityOnProfile.value = user.showCityOnProfile
                     _bio.value = user.bio
                     _website.value = user.website ?: ""
                     _tabPreferences.value = user.tabPreferences(booksEnabled)
@@ -267,6 +273,7 @@ class EditProfileViewModel @Inject constructor(
                     _username.value != p.username ||
                     _bio.value != p.bio ||
                     _showTrophies.value != p.showTrophies ||
+                    (mapEnabled && _showCityOnProfile.value != p.showCityOnProfile) ||
                     _website.value != (p.website ?: "") ||
                     tabsDiffer(p)
         }
@@ -279,6 +286,7 @@ class EditProfileViewModel @Inject constructor(
                     _username.value != originalUsername ||
                     _bio.value != originalBio ||
                     _website.value != originalWebsite ||
+                    (mapEnabled && _showCityOnProfile.value != user.showCityOnProfile) ||
                     tabsDiffer(user)
         }
 
@@ -322,6 +330,7 @@ class EditProfileViewModel @Inject constructor(
                 // searchTokens are regenerated server-side by
                 // regenerateSearchTokensOnUserWrite within ~1s of this update.
                 if (canEditTrophies && _showTrophies.value != p.showTrophies) fields["showTrophies"] = _showTrophies.value
+                if (mapEnabled && _showCityOnProfile.value != p.showCityOnProfile) fields["showCityOnProfile"] = _showCityOnProfile.value
                 if (_bio.value != p.bio) fields["bio"] = _bio.value
                 if (_website.value != (p.website ?: "")) fields["website"] = _website.value
                 if (tabsDiffer(p)) {

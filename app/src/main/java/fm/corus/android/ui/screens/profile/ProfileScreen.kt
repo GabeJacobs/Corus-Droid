@@ -154,6 +154,7 @@ fun ProfileScreen(
     onStylePickerConsumed: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToEditProfile: (String) -> Unit = {},
+    onNavigateToMap: (String) -> Unit = {},
     onNavigateToFollowList: (String, Boolean, String, Int, Int) -> Unit = { _, _, _, _, _ -> },
     onNavigateToProfileFeed: (userId: String, username: String, postId: String, segment: Int) -> Unit = { _, _, _, _ -> },
     onNavigateToPost: (String) -> Unit = {},
@@ -175,6 +176,7 @@ fun ProfileScreen(
 
     val profile by viewModel.profile.collectAsState()
     val linkedArtist by viewModel.linkedArtist.collectAsState()
+    val mapCity by viewModel.mapCity.collectAsState()
     val pendingAvatarBytes by viewModel.pendingAvatarBytes.collectAsState()
     val posts by viewModel.posts.collectAsState()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
@@ -633,12 +635,13 @@ fun ProfileScreen(
                         modifier = Modifier.weight(1f),
                         horizontalAlignment = Alignment.Start,
                     ) {
-                        Text(
-                            text = currentProfile.displayName,
-                            style = CorusFont.usernameLarge,
-                            color = CorusColors.Text,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                        val city = mapCity?.takeIf {
+                            viewModel.mapEnabled && currentProfile.showCityOnProfile
+                        }
+                        ProfileCityNameRow(
+                            displayName = currentProfile.displayName,
+                            cityLabel = city?.label,
+                            onCityClick = city?.let { { onNavigateToMap(it.cityId) } },
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(

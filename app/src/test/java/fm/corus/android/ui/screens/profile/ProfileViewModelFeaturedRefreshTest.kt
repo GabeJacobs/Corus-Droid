@@ -111,6 +111,9 @@ class ProfileViewModelFeaturedRefreshTest {
             on { isConnected } doReturn kotlinx.coroutines.flow.MutableStateFlow(true)
         },
         ownProfileLaunchCache = OwnProfileLaunchCache(cloudFunctions),
+        mapRepository = org.mockito.kotlin.mock {
+            on { ownPresence(org.mockito.kotlin.any(), org.mockito.kotlin.any()) } doReturn kotlinx.coroutines.flow.emptyFlow()
+        },
     ).also { it.clock = { fakeNow } }
 
     private fun makePost(id: String, mediaType: MediaType = MediaType.TRACK, likeCount: Int = 0): CymbalPost = CymbalPost(

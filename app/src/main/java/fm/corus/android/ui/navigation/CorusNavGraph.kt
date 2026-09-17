@@ -419,6 +419,7 @@ fun ProfileNavGraph(
                 },
                 onNavigateToSettings = { navController.navigate(SettingsRoute) },
                 onNavigateToEditProfile = { navController.navigate(EditProfileRoute(it)) },
+                onNavigateToMap = { cityId -> navController.navigate(MapExploreRoute(cityId = cityId, fromProfile = true)) },
                 onNavigateToFollowList = { userId, isFollowers, username, followerCount, followingCount ->
                     navController.navigate(FollowListRoute(userId, isFollowers, username, followerCount, followingCount))
                 },
@@ -634,6 +635,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToFollowList = { userId, isFollowers, username, followerCount, followingCount ->
                 navController.navigate(FollowListRoute(userId, isFollowers, username, followerCount, followingCount))
             },
+            onNavigateToMap = { cityId -> navController.navigate(MapExploreRoute(cityId = cityId, fromProfile = true)) },
             onNavigateToMessages = { threadId, otherUserId ->
                 navController.navigate(MessageThreadRoute(threadId, otherUserId))
             },
@@ -666,6 +668,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
                 onNavigateToFollowList = { uid, isFollowers, username, followerCount, followingCount ->
                     navController.navigate(FollowListRoute(uid, isFollowers, username, followerCount, followingCount))
                 },
+                onNavigateToMap = { cityId -> navController.navigate(MapExploreRoute(cityId = cityId, fromProfile = true)) },
                 onNavigateToMessages = { threadId, otherUserId ->
                     navController.navigate(MessageThreadRoute(threadId, otherUserId))
                 },
@@ -1051,6 +1054,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         fm.corus.android.ui.screens.map.MapExploreScreen(
             initialCityId = mapRoute.cityId,
             initialUserIds = mapRoute.userIds,
+            fromProfile = mapRoute.fromProfile,
             // The listening card stays on the Map while the shared root sheet
             // presents comments over it, matching the iOS interaction.
             onComments = onShowComments,

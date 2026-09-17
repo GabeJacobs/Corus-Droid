@@ -94,6 +94,9 @@ class ProfileOptimisticMergeTest {
         remoteConfigService = mock(),
         networkMonitor = mock { on { isConnected } doReturn MutableStateFlow(true) },
         ownProfileLaunchCache = OwnProfileLaunchCache(cloudFunctions),
+        mapRepository = mock {
+            on { ownPresence(org.mockito.kotlin.any(), org.mockito.kotlin.any()) } doReturn kotlinx.coroutines.flow.emptyFlow()
+        },
     )
 
     @Test

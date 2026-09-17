@@ -33,7 +33,19 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
         })
     }
     private val preferences = context.getSharedPreferences("map_preview", Context.MODE_PRIVATE)
-    private val tasteMatchPreferences = context.getSharedPreferences("map_taste_matches", Context.MODE_PRIVATE)
+    private val ownCityPreferences = context.getSharedPreferences("own_map_city", Context.MODE_PRIVATE)
+    fun cachedOwnMapCity(uid: String): fm.corus.android.data.model.ProfileMapCity? {
+        val cityId = ownCityPreferences.getString("$uid.cityId", null) ?: return null
+        val label = ownCityPreferences.getString("$uid.label", null) ?: return null
+        if (cityId.isEmpty() || label.isEmpty()) return null
+        return fm.corus.android.data.model.ProfileMapCity(cityId, label)
+    }
+    fun saveOwnMapCity(uid: String, city: fm.corus.android.data.model.ProfileMapCity?) {
+        val editor = ownCityPreferences.edit()
+        if (city == null) editor.remove("$uid.cityId").remove("$uid.label")
+        else editor.putString("$uid.cityId", city.cityId).putString("$uid.label", city.label)
+        editor.apply()
+    }
     private val latestMutex = Mutex()
     private var latestOwner: String? = null
     private var latestRevision = -1L
@@ -58,10 +70,12 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
             .apply()
         return ids
     }
-    fun ownPresence(uid: String) = callbackFlow {
+    fun ownPresence(uid: String, serverOnly: Boolean = false) = callbackFlow {
         val listener = db.collection("map_presence").document(uid).addSnapshotListener { snapshot, error ->
             if (error != null) { trySend(null); return@addSnapshotListener }
-            if (auth.currentUser?.uid == uid) trySend(snapshot?.data)
+            if (auth.currentUser?.uid != uid) return@addSnapshotListener
+            if (serverOnly && snapshot?.metadata?.isFromCache == true) return@addSnapshotListener
+            trySend(snapshot?.data)
         }
         awaitClose { listener.remove() }
     }
@@ -89,11 +103,11 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
         try {
             val result = functions.getHttpsCallable(name).call(payload).await().getData() as? Map<String, Any?> ?: error("Invalid response")
             check(auth.currentUser?.uid == uid) { "Account changed." }
-            if (name.startsWith("getMap")) event("request_finished", if (name == "getMapCityPeople") "people" else "directory", "success", count = (result["people"] as? List<*>)?.size ?: (result["cities"] as? List<*>)?.size, durationMs = android.os.SystemClock.elapsedRealtime()-started)
-            if (name in listOf("resolveMapCity", "searchMapCities", "getMapCitySummaries", "getMapCityPeople")) requireMapCommunityVersion(result)
+            if (name.startsWith("getMap") || name == "searchMapPeople") event("request_finished", if (name == "getMapCityPeople" || name == "searchMapPeople") "people" else "directory", "success", count = (result["people"] as? List<*>)?.size ?: (result["cities"] as? List<*>)?.size, durationMs = android.os.SystemClock.elapsedRealtime()-started)
+            if (name in listOf("resolveMapCity", "searchMapCities", "getMapCitySummaries", "getMapCityPeople", "searchMapPeople")) requireMapCommunityVersion(result)
             return result
         } catch (error: Exception) {
-            if (name.startsWith("getMap")) event("request_finished", if (name == "getMapCityPeople") "people" else "directory", "error", durationMs = android.os.SystemClock.elapsedRealtime()-started)
+            if (name.startsWith("getMap") || name == "searchMapPeople") event("request_finished", if (name == "getMapCityPeople" || name == "searchMapPeople") "people" else "directory", "error", durationMs = android.os.SystemClock.elapsedRealtime()-started)
             throw error
         }
     }
@@ -127,6 +141,11 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
     suspend fun people(city: MapCity, filter: String, following: List<String>, taste: List<String>, cursor: String? = null, selectedCommunityId: String? = null): MapPeoplePage {
         val response = call("getMapCityPeople", mapOf("cityId" to city.cityId, "filter" to filter, "followingIds" to following, "tasteIds" to taste, "cursor" to cursor, "selectedCommunityId" to selectedCommunityId))
         return MapPeoplePage((response["people"] as? List<Map<String, Any?>>).orEmpty().map { person(it + city.payload()) }, response["nextCursor"] as? String)
+    }
+    @Suppress("UNCHECKED_CAST")
+    suspend fun searchPeople(query: String, filter: String, following: List<String>, taste: List<String>, selectedCommunityId: String? = null): List<MapPerson> {
+        val response = call("searchMapPeople", mapOf("query" to query, "filter" to filter, "followingIds" to following, "tasteIds" to taste, "selectedCommunityId" to selectedCommunityId))
+        return (response["people"] as? List<Map<String, Any?>>).orEmpty().map(::person)
     }
     @Suppress("UNCHECKED_CAST")
     private fun person(d: Map<String, Any?>): MapPerson {

@@ -129,6 +129,7 @@ class ProfileViewModel @Inject constructor(
     private val remoteConfigService: RemoteConfigService,
     private val networkMonitor: NetworkMonitor,
     private val ownProfileLaunchCache: OwnProfileLaunchCache,
+    private val mapRepository: fm.corus.android.ui.screens.map.MapRepository,
 ) : ViewModel() {
 
     /**
@@ -264,6 +265,10 @@ class ProfileViewModel @Inject constructor(
     private val _linkedArtist = MutableStateFlow<LinkedArtist?>(null)
     val linkedArtist: StateFlow<LinkedArtist?> = _linkedArtist.asStateFlow()
 
+    val mapEnabled: Boolean get() = remoteConfigService.mapEnabled
+    private val _mapCity = MutableStateFlow<fm.corus.android.data.model.ProfileMapCity?>(null)
+    val mapCity: StateFlow<fm.corus.android.data.model.ProfileMapCity?> = _mapCity.asStateFlow()
+
     val isProfileArtistLinkEnabled: Boolean
         get() = remoteConfigService.isProfileArtistLinkEnabled(authRepository.userProfile.value?.username)
 
@@ -371,6 +376,20 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             authRepository.userProfile.collect { user ->
                 if (user != null) _profile.value = user
+            }
+        }
+        viewModelScope.launch {
+            val uid = authRepository.currentUserId ?: return@launch
+            mapRepository.ownPresence(uid, serverOnly = true).collect { data ->
+                val live = fm.corus.android.data.model.ProfileMapCity.fromPresence(data)
+                val cached = mapRepository.cachedOwnMapCity(uid)
+                val confirmed = when {
+                    live == null -> null
+                    cached != null && cached.cityId != live.cityId -> live
+                    else -> live
+                }
+                _mapCity.value = confirmed
+                mapRepository.saveOwnMapCity(uid, confirmed)
             }
         }
         // Optimistic insert when compose sent a card (matches iOS). Fall

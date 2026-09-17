@@ -619,6 +619,8 @@ class CloudFunctionsDataSource @Inject constructor(
         val posts: List<CymbalPost>,
         val match: MusicMatchData? = null,
         val linkedArtist: LinkedArtist? = null,
+        val mapCity: fm.corus.android.data.model.ProfileMapCity? = null,
+        val mapCityIncluded: Boolean = false,
     )
 
     /**
@@ -659,7 +661,17 @@ class CloudFunctionsDataSource @Inject constructor(
             ) null else parsed
         }
         val linkedArtist = LinkedArtist.fromMap(data["linkedArtist"] as? Map<String, Any?>)
-        return ProfileData(user, posts, match, linkedArtist)
+        val mapCityIncluded = data.containsKey("mapCity")
+        val mapCity = fm.corus.android.data.model.ProfileMapCity.fromPayload(
+            data["mapCity"] as? Map<String, Any?>,
+        )
+        return ProfileData(user, posts, match, linkedArtist, mapCity, mapCityIncluded)
+    }
+
+    suspend fun getProfileMapCity(uid: String): fm.corus.android.data.model.ProfileMapCity? {
+        val result = functions.getHttpsCallable("getProfileMapCity").call(mapOf("uid" to uid)).await()
+        val payload = result.getData() as? Map<String, Any?> ?: return null
+        return fm.corus.android.data.model.ProfileMapCity.fromPayload(payload["city"] as? Map<String, Any?>)
     }
 
     /** Fallback for the rare path where `getProfileData` is unavailable. */

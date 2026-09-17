@@ -315,6 +315,17 @@ class OtherProfileViewModel @Inject constructor(
     private val _linkedArtist = MutableStateFlow<LinkedArtist?>(null)
     val linkedArtist: StateFlow<LinkedArtist?> = _linkedArtist.asStateFlow()
 
+    val mapEnabled: Boolean get() = remoteConfig.mapEnabled
+    private val _mapCity = MutableStateFlow<fm.corus.android.data.model.ProfileMapCity?>(null)
+    val mapCity: StateFlow<fm.corus.android.data.model.ProfileMapCity?> = _mapCity.asStateFlow()
+
+    private fun applyMapCity(data: CloudFunctionsDataSource.ProfileData) {
+        if (!mapEnabled) return
+        if (data.mapCityIncluded) {
+            _mapCity.value = data.mapCity
+        }
+    }
+
     val isProfileArtistLinkEnabled: Boolean
         get() = remoteConfig.isProfileArtistLinkEnabled(authRepository.userProfile.value?.username)
 
@@ -449,6 +460,7 @@ class OtherProfileViewModel @Inject constructor(
                         _profile.value = data.user
                         _matchData.value = data.match
                         _linkedArtist.value = data.linkedArtist
+                        applyMapCity(data)
                         data.posts
                     } else {
                         _profile.value = userRepository.fetchUserProfile(userId)
@@ -564,6 +576,7 @@ class OtherProfileViewModel @Inject constructor(
                     val data = postRepository.getProfileData(userId = userId, pageSize = 1)
                     _matchData.value = data.match
                     _linkedArtist.value = data.linkedArtist
+                    applyMapCity(data)
                     data.user ?: userRepository.fetchUserProfile(userId)
                 } catch (e: Exception) {
                     if (e is com.google.firebase.functions.FirebaseFunctionsException &&

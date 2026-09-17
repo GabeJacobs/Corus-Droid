@@ -129,6 +129,7 @@ fun OtherProfileScreen(
     onNavigateToProfileFeed: (userId: String, username: String, postId: String, segment: Int) -> Unit = { _, _, _, _ -> },
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToFollowList: (String, Boolean, String, Int, Int) -> Unit = { _, _, _, _, _ -> },
+    onNavigateToMap: (String) -> Unit = {},
     onNavigateToMessages: (String, String) -> Unit = { _, _ -> },
     onNavigateToPost: (postId: String) -> Unit = {},
     onNavigateToArtist: ((ArtistPageRoute) -> Unit)? = null,
@@ -148,6 +149,7 @@ fun OtherProfileScreen(
     val pillHPad = headerHPad - 4.dp
 
     val profile by viewModel.profile.collectAsState()
+    val mapCity by viewModel.mapCity.collectAsState()
     val posts by viewModel.posts.collectAsState()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
     var showPlaylistAlert by remember { mutableStateOf(false) }
@@ -880,12 +882,11 @@ fun OtherProfileScreen(
                             modifier = Modifier.weight(1f),
                             horizontalAlignment = Alignment.Start,
                         ) {
-                            Text(
-                                text = currentProfile.displayName,
-                                style = CorusFont.usernameLarge,
-                                color = CorusColors.Text,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
+                            val city = mapCity?.takeIf { viewModel.mapEnabled }
+                            ProfileCityNameRow(
+                                displayName = currentProfile.displayName,
+                                cityLabel = city?.label,
+                                onCityClick = city?.let { { onNavigateToMap(it.cityId) } },
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Row(

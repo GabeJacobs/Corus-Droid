@@ -109,6 +109,9 @@ class ProfileViewModelTest {
         remoteConfigService = remoteConfigService,
         networkMonitor = mock { on { isConnected } doReturn kotlinx.coroutines.flow.MutableStateFlow(true) },
         ownProfileLaunchCache = OwnProfileLaunchCache(cloudFunctions),
+        mapRepository = mock {
+            on { ownPresence(org.mockito.kotlin.any(), org.mockito.kotlin.any()) } doReturn kotlinx.coroutines.flow.emptyFlow()
+        },
     )
 
     private fun makeUser(id: String = "user1", movieCount: Int? = null, trackCount: Int? = null) = CymbalUser(

@@ -67,6 +67,7 @@ fun EditProfileScreen(
     val username by viewModel.username.collectAsState()
     val bio by viewModel.bio.collectAsState()
     val showTrophies by viewModel.showTrophies.collectAsState()
+    val showCityOnProfile by viewModel.showCityOnProfile.collectAsState()
     val website by viewModel.website.collectAsState()
     val tabPreferences by viewModel.tabPreferences.collectAsState()
     val usernameState by viewModel.usernameState.collectAsState()
@@ -77,7 +78,7 @@ fun EditProfileScreen(
     val profile by viewModel.profile.collectAsState()
 
     // Derive canSave reactively from collected states so Compose can observe changes
-    val canSave = remember(displayName, username, bio, showTrophies, website, tabPreferences, profile, usernameState, isSaving) {
+    val canSave = remember(displayName, username, bio, showTrophies, showCityOnProfile, website, tabPreferences, profile, usernameState, isSaving) {
         val p = profile ?: return@remember false
         val booksEnabled = viewModel.booksEnabled
         val original = p.tabPreferences(booksEnabled)
@@ -90,6 +91,7 @@ fun EditProfileScreen(
                 username != p.username ||
                 bio != p.bio ||
                 showTrophies != p.showTrophies ||
+                (viewModel.mapEnabled && showCityOnProfile != p.showCityOnProfile) ||
                 website != (p.website ?: "") ||
                 tabsChanged
         if (!hasChanges) return@remember false
@@ -302,6 +304,19 @@ fun EditProfileScreen(
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(fm.corus.android.ui.components.parityCopy("Show trophies on profile"), Modifier.weight(1f))
                     Switch(checked = showTrophies, onCheckedChange = viewModel::updateShowTrophies)
+                }
+            }
+            if (viewModel.mapEnabled) {
+                Column(Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(fm.corus.android.ui.components.parityCopy("Show city on profile"), Modifier.weight(1f))
+                        Switch(checked = showCityOnProfile, onCheckedChange = viewModel::updateShowCityOnProfile)
+                    }
+                    Text(
+                        fm.corus.android.ui.components.parityCopy("Same city as your Map cluster. People who can see you there can open it from here."),
+                        style = CorusFont.caption,
+                        color = CorusColors.Tertiary,
+                    )
                 }
             }
             BioEditField(
