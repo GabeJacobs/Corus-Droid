@@ -45,7 +45,7 @@ import fm.corus.android.data.remote.catalogArtistPortraitUrl
 import fm.corus.android.data.remote.catalogDirectorPortraitUrl
 import fm.corus.android.data.remote.paintArtistCatalogImages
 import fm.corus.android.data.repository.AuthRepository
-import fm.corus.android.data.repository.ExploreRepository
+import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.domain.DestinationResolvingOverlay
 import fm.corus.android.domain.NowPlayingManager
@@ -86,6 +86,7 @@ class TrendingListViewModel @Inject constructor(
     private val musicSearchRepository: MusicSearchRepository,
     private val preferencesDataStore: PreferencesDataStore,
     private val authRepository: AuthRepository,
+    private val remoteConfigService: RemoteConfigService,
     val nowPlayingManager: NowPlayingManager,
 ) : ViewModel() {
 
@@ -121,7 +122,7 @@ class TrendingListViewModel @Inject constructor(
     val trendingFilmsWindow: StateFlow<TrendingWindow> =
         preferencesDataStore.trendingFilmsWindow
             .map { TrendingWindow.fromKey(it) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.FILMS_DEFAULT)
 
     val trendingHashtagsWindow: StateFlow<TrendingWindow> =
         preferencesDataStore.trendingHashtagsWindow
@@ -162,6 +163,18 @@ class TrendingListViewModel @Inject constructor(
     private val _isResolvingAlbum = MutableStateFlow(false)
     val isResolvingAlbum: StateFlow<Boolean> = _isResolvingAlbum.asStateFlow()
 
+    val newReleasesMonthTrendingEnabled: Boolean
+        get() = remoteConfigService.newReleasesMonthTrendingEnabled
+
+    val trendingNewReleasesWindow: StateFlow<TrendingWindow> =
+        preferencesDataStore.trendingNewReleasesWindow
+            .map { TrendingWindow.newReleasesFromKey(it) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.NEW_RELEASES_DEFAULT)
+
+    fun setTrendingNewReleasesWindow(window: TrendingWindow) {
+        viewModelScope.launch { preferencesDataStore.setTrendingNewReleasesWindow(window.key) }
+    }
+
     fun setTrendingAlbumsWindow(window: TrendingWindow) {
         viewModelScope.launch { preferencesDataStore.setTrendingAlbumsWindow(window.key) }
     }
@@ -188,7 +201,7 @@ class TrendingListViewModel @Inject constructor(
     val trendingDirectorsWindow: StateFlow<TrendingWindow> =
         preferencesDataStore.trendingDirectorsWindow
             .map { TrendingWindow.fromKey(it) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DIRECTORS_DEFAULT)
 
     private val _trendingDirectors = MutableStateFlow<List<TrendingDirector>>(emptyList())
     val trendingDirectors: StateFlow<List<TrendingDirector>> = _trendingDirectors.asStateFlow()
@@ -319,10 +332,13 @@ class TrendingListViewModel @Inject constructor(
         _isAlbumsLoading.value = false
     }
 
-    suspend fun loadNewReleaseAlbums() {
+    suspend fun loadNewReleaseAlbums(window: TrendingWindow = TrendingWindow.NEW_RELEASES_DEFAULT) {
         _isNewReleaseAlbumsLoading.value = true
         _newReleaseAlbums.value = try {
-            exploreRepository.fetchNewReleaseAlbums()
+            exploreRepository.fetchNewReleaseAlbums(
+                trending = remoteConfigService.newReleasesMonthTrendingEnabled,
+                window = window,
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load new-release albums", e)
             emptyList()
@@ -500,6 +516,8 @@ fun TrendingListScreen(
     val isNewReleaseMoviesLoading by viewModel.isNewReleaseMoviesLoading.collectAsState()
     val directorsWindow by viewModel.trendingDirectorsWindow.collectAsState()
     val albumsWindow by viewModel.trendingAlbumsWindow.collectAsState()
+    val newReleasesWindow by viewModel.trendingNewReleasesWindow.collectAsState()
+    val newReleasesTrending = viewModel.newReleasesMonthTrendingEnabled
     val songsWindow by viewModel.trendingSongsWindow.collectAsState()
     val filmsWindow by viewModel.trendingFilmsWindow.collectAsState()
     val hashtagsWindow by viewModel.trendingHashtagsWindow.collectAsState()
@@ -519,7 +537,13 @@ fun TrendingListScreen(
             }
             KIND_ARTISTS -> viewModel.trendingArtistsWindow.collect { viewModel.loadArtists(it) }
             KIND_ALBUMS -> viewModel.trendingAlbumsWindow.collect { viewModel.loadAlbums(it) }
-            KIND_NEW_RELEASE_ALBUMS -> viewModel.loadNewReleaseAlbums()
+            KIND_NEW_RELEASE_ALBUMS -> {
+                if (newReleasesTrending) {
+                    viewModel.trendingNewReleasesWindow.collect { viewModel.loadNewReleaseAlbums(it) }
+                } else {
+                    viewModel.loadNewReleaseAlbums()
+                }
+            }
             KIND_NEW_RELEASE_FILMS -> viewModel.loadNewReleaseMovies()
             KIND_DIRECTORS -> viewModel.trendingDirectorsWindow.collect { viewModel.loadDirectors(it) }
         }
@@ -617,6 +641,13 @@ fun TrendingListScreen(
                     albums = newReleaseAlbums,
                     isLoading = isNewReleaseAlbumsLoading,
                     showRank = false,
+                    window = if (newReleasesTrending) newReleasesWindow else null,
+                    onWindowChange = if (newReleasesTrending) viewModel::setTrendingNewReleasesWindow else null,
+                    headerPhrasePrefix = if (newReleasesTrending) {
+                        stringResource(fm.corus.android.R.string.search_new_release_albums_title) + " " +
+                            stringResource(fm.corus.android.R.string.search_section_trending_this_suffix) + " "
+                    } else null,
+                    headerWindows = if (newReleasesTrending) TrendingWindow.NEW_RELEASES_WINDOWS else null,
                     staticHeaderIcon = "sparkle",
                     staticHeaderTitle = stringResource(fm.corus.android.R.string.search_new_release_albums_title),
                     emptyMessage = stringResource(fm.corus.android.R.string.search_nothing_new_releases),

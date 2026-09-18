@@ -154,6 +154,15 @@ class RemoteConfigService @Inject constructor(
     val groupMessagingEnabled: Boolean
         get() = remoteConfig.getBoolean("group_messaging_enabled")
 
+    /** In-thread typing indicators. Flip `typing_indicators_enabled` off to kill
+     *  writes and UI with no app release. */
+    val typingIndicatorsEnabled: Boolean
+        get() = remoteConfig.getBoolean("typing_indicators_enabled")
+
+    /** DM video attachments. Default off; ON for @gabe + @clifton via RC. */
+    val dmVideoEnabled: Boolean
+        get() = remoteConfig.getBoolean("dm_video_enabled")
+
     val serverNotificationsEnabled: Boolean
         get() = remoteConfig.getBoolean("server_notifications_enabled")
 
@@ -382,6 +391,11 @@ class RemoteConfigService @Inject constructor(
     /// `trending_artists_section_enabled` with iOS/web.
     val trendingArtistsSectionEnabled: Boolean
         get() = feedFlag("trending_artists_section_enabled")
+
+    /// Music Search New Releases: week/month heat on the 30-day new-release
+    /// tag. Off = newest-first. Shares `new_releases_month_trending_enabled`.
+    val newReleasesMonthTrendingEnabled: Boolean
+        get() = feedFlag("new_releases_month_trending_enabled")
 
     /// Profile → artist-page card ("View artist page" + optional taste-match
     /// row). Default OFF. @gabe is hardcoded on in [isProfileArtistLinkEnabled]
@@ -684,6 +698,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("segmented_search_enabled", remoteConfig.getBoolean("segmented_search_enabled"))
             .putBoolean("artists_on_corus_section_enabled", remoteConfig.getBoolean("artists_on_corus_section_enabled"))
             .putBoolean("trending_artists_section_enabled", remoteConfig.getBoolean("trending_artists_section_enabled"))
+            .putBoolean("new_releases_month_trending_enabled", remoteConfig.getBoolean("new_releases_month_trending_enabled"))
             .putBoolean("profile_artist_link_enabled", remoteConfig.getBoolean("profile_artist_link_enabled"))
             .putBoolean("compose_unified_search_enabled", remoteConfig.getBoolean("compose_unified_search_enabled"))
             .putBoolean("notification_filters_enabled", remoteConfig.getBoolean("notification_filters_enabled"))
@@ -766,6 +781,8 @@ class RemoteConfigService @Inject constructor(
             "paywall_default_yearly" to false,
             "gif_support" to false,
             "group_messaging_enabled" to false,
+            "typing_indicators_enabled" to false,
+            "dm_video_enabled" to false,
             "server_notifications_enabled" to true,
             "save_count_enabled" to true,
             "save_cap_enforced" to true,
@@ -803,6 +820,7 @@ class RemoteConfigService @Inject constructor(
             "segmented_search_enabled" to true,
             "artists_on_corus_section_enabled" to false,
             "trending_artists_section_enabled" to false,
+            "new_releases_month_trending_enabled" to false,
             "profile_artist_link_enabled" to false,
             "compose_unified_search_enabled" to false,
             "post_success_others_enabled" to false,

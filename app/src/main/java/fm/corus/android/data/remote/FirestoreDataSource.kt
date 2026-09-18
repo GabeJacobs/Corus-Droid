@@ -1380,6 +1380,49 @@ class FirestoreDataSource @Inject constructor(
             }
     }
 
+    /**
+     * Heat-ranked New Releases from `trending_cache/new_release_songs`.
+     * Week and month only; year is unused. Pool is the 30-day tag.
+     */
+    suspend fun fetchNewReleaseAlbumsTrendingByWindow(
+        limit: Int = 20,
+    ): Map<TrendingWindow, List<TrendingAlbum>> {
+        val doc = firestore.collection("trending_cache").document("new_release_songs").get().await()
+        val data = doc.data ?: return emptyMap()
+        return listOf(TrendingWindow.WEEK, TrendingWindow.MONTH).associateWith { window ->
+            if (window == TrendingWindow.WEEK && data["week"] == null) {
+                emptyList()
+            } else {
+                pickWindowItems(data, window).take(limit).mapNotNull { parseNewReleaseSongFromCache(it) }
+            }
+        }
+    }
+
+    private fun parseNewReleaseSongFromCache(item: Map<String, Any?>): TrendingAlbum? {
+        val trackId = (item["trackId"] as? String)?.trim().orEmpty()
+        if (trackId.isEmpty()) return null
+        val isrc = (item["isrc"] as? String)?.trim().orEmpty()
+        val albumName = (item["albumName"] as? String)?.trim().orEmpty()
+        val trackName = (item["trackName"] as? String)?.trim().orEmpty()
+        val title = trackName.ifEmpty { albumName }
+        val key = if (isrc.isNotEmpty()) "isrc:${isrc.lowercase()}" else "track:${trackId.lowercase()}"
+        return TrendingAlbum(
+            id = key,
+            rank = (item["rank"] as? Number)?.toInt() ?: 0,
+            albumId = (item["albumId"] as? String)?.trim().orEmpty(),
+            albumName = albumName,
+            artistName = (item["artistName"] as? String)?.trim().orEmpty(),
+            albumArtURL = (item["albumArtURL"] as? String)?.takeIf { it.isNotBlank() },
+            albumArtLargeURL = (item["albumArtLargeURL"] as? String)?.takeIf { it.isNotBlank() },
+            cymbalCount = (item["cymbalCount"] as? Number)?.toInt() ?: 0,
+            openAsSong = true,
+            trackId = trackId,
+            trackName = title,
+            trackReleaseDate = (item["trackReleaseDate"] as? String)?.trim().orEmpty(),
+            trackReleaseDatePrecision = (item["trackReleaseDatePrecision"] as? String)?.trim().orEmpty(),
+        )
+    }
+
     private fun parseNewReleaseSongFromPost(data: Map<String, Any?>): Pair<String, TrendingAlbum>? {
         val trackId = (data["trackId"] as? String)?.trim().orEmpty()
         val albumId = (data["albumId"] as? String)?.trim().orEmpty()

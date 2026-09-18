@@ -180,6 +180,7 @@ class SearchViewModel @Inject constructor(
 
     val artistsOnCorusSectionEnabled: Boolean get() = remoteConfigService.artistsOnCorusSectionEnabled
     val trendingArtistsSectionEnabled: Boolean get() = remoteConfigService.trendingArtistsSectionEnabled
+    val newReleasesMonthTrendingEnabled: Boolean get() = remoteConfigService.newReleasesMonthTrendingEnabled
 
     // ── Unified search state ──
 
@@ -351,7 +352,7 @@ class SearchViewModel @Inject constructor(
     val trendingFilmsWindow: StateFlow<TrendingWindow> =
         preferencesDataStore.trendingFilmsWindow
             .map { TrendingWindow.fromKey(it) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.FILMS_DEFAULT)
 
     val trendingHashtagsWindow: StateFlow<TrendingWindow> =
         preferencesDataStore.trendingHashtagsWindow
@@ -405,7 +406,7 @@ class SearchViewModel @Inject constructor(
     val trendingDirectorsWindow: StateFlow<TrendingWindow> =
         preferencesDataStore.trendingDirectorsWindow
             .map { TrendingWindow.fromKey(it) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DIRECTORS_DEFAULT)
 
     private val _trendingDirectors = MutableStateFlow<List<TrendingDirector>>(emptyList())
     val trendingDirectors: StateFlow<List<TrendingDirector>> = _trendingDirectors.asStateFlow()
@@ -1073,7 +1074,12 @@ class SearchViewModel @Inject constructor(
             _trendingAlbums.value = albums
             _isTrendingAlbumsLoading.value = false
         }
-        val newReleases = preferencesDataStore.loadSearchNewReleaseAlbums()
+        val newReleases = if (remoteConfigService.newReleasesMonthTrendingEnabled) {
+            preferencesDataStore.loadSearchNewReleaseAlbumsMonth()
+                ?: preferencesDataStore.loadSearchNewReleaseAlbums()
+        } else {
+            preferencesDataStore.loadSearchNewReleaseAlbums()
+        }
         if (!newReleases.isNullOrEmpty() && _newReleaseAlbums.value.isEmpty()) {
             _newReleaseAlbums.value = newReleases
             _isNewReleaseAlbumsLoading.value = false
@@ -1457,9 +1463,18 @@ class SearchViewModel @Inject constructor(
         hasLoadedNewReleaseAlbums = true
         viewModelScope.launch {
             try {
-                val loaded = exploreRepository.fetchNewReleaseAlbums()
+                val loaded = exploreRepository.fetchNewReleaseAlbums(
+                    trending = remoteConfigService.newReleasesMonthTrendingEnabled,
+                    window = TrendingWindow.NEW_RELEASES_DEFAULT,
+                )
                 _newReleaseAlbums.value = loaded
-                if (loaded.isNotEmpty()) preferencesDataStore.persistSearchNewReleaseAlbums(loaded)
+                if (loaded.isNotEmpty()) {
+                    if (remoteConfigService.newReleasesMonthTrendingEnabled) {
+                        preferencesDataStore.persistSearchNewReleaseAlbumsMonth(loaded)
+                    } else {
+                        preferencesDataStore.persistSearchNewReleaseAlbums(loaded)
+                    }
+                }
             } catch (e: Exception) {
                 Log.e("SearchVM", "Failed to load new-release albums", e)
                 hasLoadedNewReleaseAlbums = false
@@ -1489,7 +1504,7 @@ class SearchViewModel @Inject constructor(
         hasLoadedTrendingDirectors = true
         viewModelScope.launch {
             try {
-                val loaded = exploreRepository.fetchTrendingDirectors(TrendingWindow.WEEK)
+                val loaded = exploreRepository.fetchTrendingDirectors(TrendingWindow.DIRECTORS_DEFAULT)
                 _trendingDirectors.value = loaded
                 if (loaded.isNotEmpty()) preferencesDataStore.persistSearchTrendingDirectors(loaded)
                 hydrateDirectorPortraits()
