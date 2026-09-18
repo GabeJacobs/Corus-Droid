@@ -1,6 +1,10 @@
 package fm.corus.android.ui.screens.messaging
 
+import fm.corus.android.domain.ChatTyping
 import fm.corus.android.domain.CityChatPolicy
+import fm.corus.android.domain.TypingPulse
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -82,12 +86,31 @@ class MessageThreadViewModel @Inject constructor(
     val gifSupport: Boolean
         get() = remoteConfigService.gifSupport
 
+    val dmVideoEnabled: Boolean
+        get() = remoteConfigService.dmVideoEnabled
+
     /** Send-side gate for the Artist/Album/Director items in the composer "+" menu. */
     val entityShareEnabled: Boolean
         get() = remoteConfigService.entityShareEnabled
 
     val groupMessagingEnabled: Boolean
         get() = remoteConfigService.groupMessagingEnabled
+
+    val typingIndicatorsEnabled: Boolean
+        get() = ChatTyping.isEnabled(
+            remoteConfigService.typingIndicatorsEnabled,
+            currentUserId,
+        )
+
+    private val _typerIds = MutableStateFlow<List<String>>(emptyList())
+    val typerIds: StateFlow<List<String>> = _typerIds.asStateFlow()
+    private var typingPulses: List<TypingPulse> = emptyList()
+    private var typingListenJob: Job? = null
+    private var typingHeartbeatJob: Job? = null
+    private var typingIdleJob: Job? = null
+    private var typingStaleJob: Job? = null
+    private var typingOn = false
+    private var typingWrites = 0
 
     // Group metadata (null/non-group for 1:1 threads) + resolved member profiles
     // for the header title, run-grouped sender labels/avatars, and reply names.
@@ -263,6 +286,7 @@ class MessageThreadViewModel @Inject constructor(
             && threadId == currentThreadId
         if (alreadyLive) {
             _resolvedThreadId.value = threadId
+            if (typingListenJob?.isActive != true) startTypingListener(threadId)
             return
         }
 
@@ -317,6 +341,7 @@ class MessageThreadViewModel @Inject constructor(
                 // Start real-time Firestore listener (matches iOS snapshot listener)
                 startThreadRowListener(userId, resolvedId)
                 startListening(resolvedId)
+                startTypingListener(resolvedId)
                 startThreadDocListener(resolvedId, otherUserId)
                 startGroupInfoListener(resolvedId)
 
@@ -774,11 +799,99 @@ class MessageThreadViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        stopTypingBroadcast()
+        typingListenJob?.cancel()
+        typingStaleJob?.cancel()
         listenerJob?.cancel()
         threadRowJob?.cancel()
         recipientUnreadJob?.cancel()
         readReceiptsJob?.cancel()
         groupInfoJob?.cancel()
+    }
+
+    fun setComposerTyping(text: String, isEditing: Boolean) {
+        val composing = typingIndicatorsEnabled &&
+            !isEditing &&
+            text.isNotBlank() &&
+            _messagingRestriction.value == null
+        if (!composing) {
+            stopTypingBroadcast()
+            return
+        }
+        if (!typingOn) startTypingBroadcast()
+        typingIdleJob?.cancel()
+        typingIdleJob = viewModelScope.launch {
+            delay(ChatTyping.IDLE_MS)
+            stopTypingBroadcast()
+        }
+    }
+
+    private fun typingKind(): String = ChatTyping.threadKind(
+        isGroup = _groupInfo.value?.isGroup == true,
+        cityChatId = _groupInfo.value?.cityChatId,
+    )
+
+    private fun publishTypers() {
+        val me = currentUserId ?: return
+        _typerIds.value = ChatTyping.activeIds(
+            typingPulses,
+            System.currentTimeMillis(),
+            me,
+        )
+    }
+
+    private fun startTypingListener(threadId: String) {
+        typingListenJob?.cancel()
+        typingStaleJob?.cancel()
+        typingPulses = emptyList()
+        _typerIds.value = emptyList()
+        if (!typingIndicatorsEnabled || threadId.isBlank()) return
+        typingListenJob = viewModelScope.launch {
+            messageRepository.listenTyping(threadId).collect { pulses ->
+                typingPulses = pulses
+                publishTypers()
+            }
+        }
+        typingStaleJob = viewModelScope.launch {
+            while (isActive) {
+                delay(1_000)
+                publishTypers()
+            }
+        }
+    }
+
+    private fun startTypingBroadcast() {
+        val threadId = currentThreadId?.takeIf { it.isNotBlank() } ?: return
+        val uid = currentUserId ?: return
+        if (typingOn) return
+        typingOn = true
+        viewModelScope.launch { pingTyping(threadId, uid) }
+        typingHeartbeatJob = viewModelScope.launch {
+            while (isActive) {
+                delay(ChatTyping.HEARTBEAT_MS)
+                pingTyping(threadId, uid)
+            }
+        }
+    }
+
+    private suspend fun pingTyping(threadId: String, uid: String) {
+        typingWrites += 1
+        runCatching { messageRepository.pingTyping(threadId, uid) }
+    }
+
+    private fun stopTypingBroadcast() {
+        typingHeartbeatJob?.cancel()
+        typingHeartbeatJob = null
+        typingIdleJob?.cancel()
+        typingIdleJob = null
+        if (!typingOn) return
+        typingOn = false
+        val count = typingWrites
+        typingWrites = 0
+        if (count > 0) analyticsService.logTypingSession(typingKind(), count)
+        val threadId = currentThreadId?.takeIf { it.isNotBlank() } ?: return
+        val uid = currentUserId ?: return
+        viewModelScope.launch { messageRepository.clearTyping(threadId, uid) }
     }
 
     fun setReplyTo(message: CymbalMessage?) {
@@ -836,6 +949,7 @@ class MessageThreadViewModel @Inject constructor(
     // ── Optimistic send: text ──
 
     fun sendMessage(threadId: String, text: String) {
+        stopTypingBroadcast()
         val userId = authRepository.currentUserId ?: return
         val provisionalId = provisionalThreadId(threadId)
         val reply = _replyToMessage.value
@@ -892,6 +1006,47 @@ class MessageThreadViewModel @Inject constructor(
                 imageData = imageData,
                 clientMessageId = clientId,
             )
+        }
+    }
+
+    fun sendVideoMessage(threadId: String, uri: android.net.Uri) {
+        if (!dmVideoEnabled) return
+        val userId = authRepository.currentUserId ?: return
+        val provisionalId = provisionalThreadId(threadId)
+        val clientId = UUID.randomUUID().toString()
+
+        viewModelScope.launch {
+            val prepared = try {
+                MessageVideoPreparer.prepare(context, uri)
+            } catch (e: Exception) {
+                _cityActionError.value = e.message ?: "Couldn't prepare this video"
+                return@launch
+            }
+            val optimistic = CymbalMessage(
+                id = clientId,
+                threadId = provisionalId,
+                fromUserId = userId,
+                text = null,
+                type = MessageType.VIDEO,
+                thumbnailURL = null,
+                mediaDurationMs = prepared.durationMs,
+                mediaWidth = prepared.width,
+                mediaHeight = prepared.height,
+                createdAt = Date(),
+                sendStatus = MessageSendStatus.SENDING,
+            )
+            launchOutgoing(navThreadId = threadId, clientId = clientId, optimistic = optimistic) { resolvedId ->
+                messageRepository.sendVideoMessage(
+                    threadId = resolvedId,
+                    fromUserId = userId,
+                    videoData = prepared.file.readBytes(),
+                    thumbnailData = prepared.thumbnailJpeg,
+                    durationMs = prepared.durationMs,
+                    width = prepared.width,
+                    height = prepared.height,
+                    clientMessageId = clientId,
+                )
+            }
         }
     }
 

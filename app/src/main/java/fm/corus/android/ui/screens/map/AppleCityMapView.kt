@@ -356,6 +356,8 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
              top overlay. This is independent of whether the label is mounted
              or animating, so focus updates cannot strand covers too high. */
           .art-fan{position:absolute;bottom:${MAP_CLUSTER_AVATAR_SIZE_PX}px;left:50%;width:${MAP_CLUSTER_ART_FAN_WIDTH_PX}px;height:66px;pointer-events:none;transform:translateX(-50%)}body:not(.compact) .city.density-0 .art-fan{bottom:37px}.city.density-1 .art-fan{bottom:41px}.city.density-2 .art-fan{bottom:44px}
+          .art-fan.raised{pointer-events:auto}
+          .city.is-pressing{transform:scale(.92);opacity:calc(var(--cluster-opacity)*0.78)}
           .art{position:absolute;left:${MAP_CLUSTER_ARTWORK_LEFT_PX}px;bottom:0;width:${MAP_CLUSTER_ARTWORK_SIZE_PX}px;height:${MAP_CLUSTER_ARTWORK_SIZE_PX}px;border-radius:11px;object-fit:cover;box-shadow:0 6px 10px rgba(0,0,0,.35);opacity:0;transform:translate(0,38px) scale(.45) rotate(0deg);transition:opacity .55s cubic-bezier(.2,.8,.25,1),transform .55s cubic-bezier(.2,.8,.25,1)}
           /* The active Listen Mode pin is the iOS treatment: one larger
              currently-playing cover over the avatar cluster and a blue pill. */
@@ -378,7 +380,7 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
              larger treatment above. */
           .compact .city{animation:none}.compact .faces{height:28px;min-width:28px}.compact .face{width:28px;height:28px;font-size:10px}.compact .city.density-1 .faces{height:30px;min-width:30px}.compact .city.density-1 .face{width:30px;height:30px;font-size:10.5px}.compact .city.density-2 .faces{height:32px;min-width:32px}.compact .city.density-2 .face{width:32px;height:32px;font-size:11px}.compact .city.density-0 .face + .face{margin-left:-12px}.compact .city.density-1 .face + .face{margin-left:-10px}.compact .city.density-2 .face + .face{margin-left:-7px}.compact .count{right:-12px;top:-8px;min-width:20px;height:20px;font-size:11px;line-height:20px}.compact .city.density-1 .count{font-size:11.5px}.compact .city.density-2 .count{font-size:12px}.compact .label{margin-top:5px;padding:4px 10px;border-radius:16px;font-size:14px;line-height:17px}
           .compact .city:not(.active){--cluster-opacity:.65}.compact .city.overlap-dim{--cluster-opacity:.45}.compact .city:not(.active) .faces{transform:scale(.84);transform-origin:center}
-          @media (prefers-reduced-motion:reduce){.city,.pin-content,.faces,.label{transition:none;animation:none}}
+          @media (prefers-reduced-motion:reduce){.city,.pin-content,.faces,.label{transition:none;animation:none}.city.is-pressing{transform:none;opacity:var(--cluster-opacity)}}
         </style>
         <script async crossorigin src="https://cdn.apple-mapkit.com/mk/6.x.x/mapkit.core.js" data-callback="initMapKitLoaderV2" data-token="$escapedToken" data-libraries="map,annotations"></script>
         </head><body class="${if (compact) "compact" else ""}"><div id="map"></div><script>
@@ -389,8 +391,9 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
         function initMapKitLoaderV2(){ sizeMap(); mapkit.load(['map','annotations']).then(function(k){ kit=k; map=new kit.Map('map',{mapType:kit.MapType.Standard,colorScheme:kit.ColorScheme.Light,showsPointsOfInterest:false,showsUserLocation:false,isScrollEnabled:interactive,isZoomEnabled:interactive,isRotationEnabled:false,showsZoomControl:false,showsMapTypeControl:false,region:{center:{latitude:38,longitude:-84},span:{latitudeDelta:45,longitudeDelta:70}}}); sizeMap(); map.addEventListener('region-change-end',function(){refreshOverlapDimming();if(compact){window.CorusAppleMap.apply();return}if(!interactive||!map.region)return;const region=map.region;window.CorusAndroidMap.cameraSettled(region.center.latitude,region.center.longitude,region.span.latitudeDelta)}); window.CorusAppleMap.ready=true; window.CorusAppleMap.apply(); }).catch(function(){ document.body.dataset.error='true'; }); }
         // Keep the marker's geographic anchor fixed. Artwork rises in an
         // absolute overlay just like iOS and must never move the city itself.
+        function pulseCity(b){if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;b.classList.add('is-pressing');setTimeout(function(){b.classList.remove('is-pressing')},120)}
         function markerView(city){
-          const densityTier=city.count>=15?2:(city.count>=5?1:0);const b=document.createElement('button');b.className='city density-'+densityTier;b.type='button';b.onclick=function(){window.CorusAndroidMap.selectCity(city.id)};
+          const densityTier=city.count>=15?2:(city.count>=5?1:0);const b=document.createElement('button');b.className='city density-'+densityTier;b.type='button';b.onclick=function(){pulseCity(b);window.CorusAndroidMap.selectCity(city.id)};
           const faces=document.createElement('span');faces.className='faces';
           city.faces.forEach(function(person){const face=document.createElement('span');face.className='face';face.textContent=(person.name||'?').slice(0,1);if(person.avatar){const img=document.createElement('img');img.alt='';img.src=person.avatar;img.onerror=function(){img.remove()};face.appendChild(img)}faces.appendChild(face)});
           const count=document.createElement('span');count.className='count';count.textContent=city.count.toLocaleString();const compactBadgeSize=20+densityTier;const badgeSize=Math.max(compact?compactBadgeSize:23+densityTier,count.textContent.length*8+(compact?6+densityTier:7+densityTier));count.style.width=badgeSize+'px';count.style.height=(compact?compactBadgeSize:badgeSize)+'px';count.style.lineHeight=(compact?compactBadgeSize:badgeSize)+'px';faces.appendChild(count);
@@ -399,7 +402,7 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
           const label=document.createElement('span');label.className='label'+(listening?' listening':'')+(active?' visible':'');if(listening){label.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v-3a8 8 0 0 1 16 0v3M4 14h3v5H4zM20 14h-3v5h3z"/></svg><span>'+city.name+'</span>'}else{label.textContent=city.name}
           const arts=city.faces.filter(function(p){return p.artwork&&(!listening||p.id===window.CorusAppleMap.data.playingUserId)});
           const content=document.createElement('span');content.className='pin-content';
-          if(focused&&arts.length){const fan=document.createElement('span');fan.className='art-fan'+(listening?' listening':'');arts.slice(0,listening?1:3).forEach(function(person,index){const spread=index-(arts.length-1)/2;const art=document.createElement('img');art.className='art art-'+index;art.alt='';art.src=person.artwork;art.style.setProperty('--fan-x',(spread*36)+'px');art.style.setProperty('--fan-y',(Math.abs(spread)*10-4)+'px');art.style.setProperty('--fan-r',(spread*19)+'deg');fan.appendChild(art)});content.appendChild(fan);requestAnimationFrame(function(){void fan.offsetWidth;requestAnimationFrame(function(){setTimeout(function(){if(fan.isConnected)fan.classList.add('raised')},35)})})}
+          if(focused&&arts.length){const fan=document.createElement('span');fan.className='art-fan'+(listening?' listening':'');arts.slice(0,listening?1:3).forEach(function(person,index){const spread=index-(arts.length-1)/2;const art=document.createElement('img');art.className='art art-'+index;art.alt='';art.src=person.artwork;art.style.setProperty('--fan-x',(spread*36)+'px');art.style.setProperty('--fan-y',(Math.abs(spread)*10-4)+'px');art.style.setProperty('--fan-r',(spread*19)+'deg');fan.appendChild(art)});fan.onclick=function(event){event.stopPropagation();pulseCity(b);window.CorusAndroidMap.selectCity(city.id)};content.appendChild(fan);requestAnimationFrame(function(){void fan.offsetWidth;requestAnimationFrame(function(){setTimeout(function(){if(fan.isConnected)fan.classList.add('raised')},35)})})}
           content.append(faces,label);b.appendChild(content);
           /* Compact annotations are bottom-anchored by MapKit. Unfocused pins
              use half the face height; the focused pin uses a smaller offset
@@ -445,6 +448,12 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
             annotation.corusButton.classList.toggle('overlap-dim',overlaps);
           });
         }
+        function expandedPreviewClusterIDs(locked,proposed,limit){
+          if(!locked.length)return proposed.slice(0,limit);
+          const ids=locked.slice();
+          proposed.forEach(function(id){if(ids.length<limit&&ids.indexOf(id)<0)ids.push(id)});
+          return ids;
+        }
         function compactPreviewCities(cities){
           if(!compact||!map?.convertCoordinateToPointOnPage)return cities;
           const width=window.innerWidth||1,height=window.innerHeight||1,insetX=24,insetY=16;
@@ -453,15 +462,21 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
           const focused=projected.find(function(row){return row.city.id===window.CorusAppleMap.data.focus?.id});const selected=focused?[focused]:[];
           function overlaps(row){return selected.some(function(chosen){return Math.abs(row.x-chosen.x)<38&&Math.abs(row.y-chosen.y)<28})}
           const horizontal=projected.slice().sort(function(a,b){return a.x-b.x});[horizontal,horizontal.slice().reverse()].forEach(function(entries){const edge=entries.find(function(row){return !selected.some(function(chosen){return chosen.city.id===row.city.id})&&!overlaps(row)});if(edge)selected.push(edge)});
-          const cells=new Map();projected.forEach(function(row){const column=Math.max(0,Math.min(7,Math.floor(row.x/width*8)));const line=Math.max(0,Math.min(1,Math.floor(row.y/height*2)));const key=line*8+column;const current=cells.get(key);if(!current||current.city.count<row.city.count)cells.set(key,row)});Array.from(cells.keys()).sort(function(a,b){return a-b}).forEach(function(key){const row=cells.get(key);if(selected.length<16&&!overlaps(row))selected.push(row)});
+          const cells=new Map();projected.forEach(function(row){const column=Math.max(0,Math.min(7,Math.floor(row.x/width*8)));const line=Math.max(0,Math.min(1,Math.floor(row.y/height*2)));const key=line*8+column;const list=cells.get(key)||[];list.push(row);cells.set(key,list)});Array.from(cells.keys()).sort(function(a,b){return a-b}).forEach(function(key){if(selected.length>=16)return;const ranked=cells.get(key).slice().sort(function(a,b){return b.city.count-a.city.count||a.city.id.localeCompare(b.city.id)});const row=ranked.find(function(entry){return !selected.some(function(chosen){return chosen.city.id===entry.city.id})&&!overlaps(entry)});if(row)selected.push(row)});
           projected.forEach(function(row){if(selected.length<16&&!selected.some(function(chosen){return chosen.city.id===row.city.id})&&!overlaps(row))selected.push(row)});
-          return selected.map(function(row){return row.city});
+          const proposed=selected.map(function(row){return row.city.id});
+          const ids=expandedPreviewClusterIDs(window.CorusAppleMap.lockedPreviewIds||[],proposed,16);
+          window.CorusAppleMap.lockedPreviewIds=ids;
+          const byId=new Map(cities.map(function(city){return [city.id,city]}));
+          return ids.map(function(id){return byId.get(id)}).filter(Boolean);
         }
         // Retain annotation objects across focus and artwork updates. Removing
         // and recreating them while MapKit is settling can detach pins from
         // the moving basemap until the next gesture.
-        window.CorusAppleMap={ready:false,data:{cities:[],dark:false,focus:null},lastFocus:null,update:function(data){this.data=data;this.apply()},apply:function(){
+        window.CorusAppleMap={ready:false,data:{cities:[],dark:false,focus:null},lastFocus:null,lockedPreviewIds:[],lastPreviewCamera:null,update:function(data){this.data=data;this.apply()},apply:function(){
           if(!this.ready||!map)return;sizeMap();document.body.classList.toggle('dark',this.data.dark);map.colorScheme=this.data.dark?kit.ColorScheme.Dark:kit.ColorScheme.Light;
+          const cameraKey=this.data.focus?String(this.data.focus.latitude)+','+String(this.data.focus.longitude)+','+(this.data.dark?'dark':'light'):'';
+          if(this.lastPreviewCamera!==cameraKey){this.lockedPreviewIds=[];this.lastPreviewCamera=cameraKey;}
           const visibleCities=compactPreviewCities(this.data.cities);const cityIds=new Set(visibleCities.map(function(city){return city.id}));
           annotations.filter(function(annotation){return !cityIds.has(annotation.corusId)}).forEach(function(annotation){map.removeAnnotation(annotation)});
           annotations=annotations.filter(function(annotation){return cityIds.has(annotation.corusId)});

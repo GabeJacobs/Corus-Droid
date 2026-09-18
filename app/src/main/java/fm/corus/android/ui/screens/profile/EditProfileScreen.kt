@@ -2,6 +2,9 @@ package fm.corus.android.ui.screens.profile
 
 import android.content.Intent
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -100,6 +103,24 @@ fun EditProfileScreen(
         if (isSaving) return@remember false
         true
     }
+    val showSave = remember(displayName, username, bio, showTrophies, showCityOnProfile, website, tabPreferences, profile, isSaving) {
+        val p = profile ?: return@remember false
+        val booksEnabled = viewModel.booksEnabled
+        val original = p.tabPreferences(booksEnabled)
+        val originalEditor = original.editorTabs(booksEnabled)
+        val currentEditor = tabPreferences.editorTabs(booksEnabled)
+        val tabsChanged = originalEditor != currentEditor ||
+            original.hidden.intersect(originalEditor.toSet()) !=
+            tabPreferences.hidden.intersect(currentEditor.toSet())
+        isSaving ||
+            displayName != p.displayName ||
+            username != p.username ||
+            bio != p.bio ||
+            showTrophies != p.showTrophies ||
+            (viewModel.mapEnabled && showCityOnProfile != p.showCityOnProfile) ||
+            website != (p.website ?: "") ||
+            tabsChanged
+    }
 
     var showDiscardDialog by remember { mutableStateOf(false) }
     // Track pending action when user has unsaved changes and taps Customize or Share
@@ -185,18 +206,24 @@ fun EditProfileScreen(
                     }
                 },
                 actions = {
-                    TextButton(
-                        onClick = { viewModel.save(onSuccess = onBack) },
-                        enabled = canSave,
+                    AnimatedVisibility(
+                        visible = showSave,
+                        enter = fadeIn(),
+                        exit = fadeOut(),
                     ) {
-                        if (isSaving) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = CorusColors.Accent)
-                        } else {
-                            Text(
-                                stringResource(R.string.edit_profile_save),
-                                style = CorusFont.button,
-                                color = if (canSave) CorusColors.Accent else CorusColors.Tertiary,
-                            )
+                        TextButton(
+                            onClick = { viewModel.save(onSuccess = onBack) },
+                            enabled = canSave,
+                        ) {
+                            if (isSaving) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = CorusColors.Accent)
+                            } else {
+                                Text(
+                                    stringResource(R.string.edit_profile_save),
+                                    style = CorusFont.button,
+                                    color = if (canSave) CorusColors.Accent else CorusColors.Tertiary,
+                                )
+                            }
                         }
                     }
                 },
@@ -298,25 +325,16 @@ fun EditProfileScreen(
                 }
             }
 
+            if (viewModel.mapEnabled) {
+                EditProfileCitySection(viewModel)
+            }
+
             // Bio field — counter lives inside the same box as iOS so it
             // never overlaps the typed text and doesn't add extra section space.
             if (viewModel.canEditTrophies) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(fm.corus.android.ui.components.parityCopy("Show trophies on profile"), Modifier.weight(1f))
                     Switch(checked = showTrophies, onCheckedChange = viewModel::updateShowTrophies)
-                }
-            }
-            if (viewModel.mapEnabled) {
-                Column(Modifier.fillMaxWidth()) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(fm.corus.android.ui.components.parityCopy("Show city on profile"), Modifier.weight(1f))
-                        Switch(checked = showCityOnProfile, onCheckedChange = viewModel::updateShowCityOnProfile)
-                    }
-                    Text(
-                        fm.corus.android.ui.components.parityCopy("Same city as your Map cluster. People who can see you there can open it from here."),
-                        style = CorusFont.caption,
-                        color = CorusColors.Tertiary,
-                    )
                 }
             }
             BioEditField(

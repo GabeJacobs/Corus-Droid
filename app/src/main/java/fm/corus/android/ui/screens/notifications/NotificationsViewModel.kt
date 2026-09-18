@@ -11,7 +11,10 @@ import fm.corus.android.data.model.CommentAttachedSong
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalNotification
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.HashtagSuggestion
 import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.data.repository.ExploreRepository
 import fm.corus.android.data.repository.NotificationRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
@@ -33,6 +36,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import android.util.Log
 import javax.inject.Inject
@@ -42,6 +46,7 @@ class NotificationsViewModel @Inject constructor(
     private val notificationRepository: NotificationRepository,
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
+    private val exploreRepository: ExploreRepository,
     private val postRepository: PostRepository,
     private val commentLikeChangedEvent: CommentLikeChangedEvent,
     private val engagementManager: PostEngagementManager,
@@ -788,6 +793,70 @@ class NotificationsViewModel @Inject constructor(
 
     fun setReplyingToNotification(notification: CymbalNotification?) {
         _replyingToNotification.value = notification
+        if (notification == null) clearReplyComposerSuggestions()
+    }
+
+    // ── Reply mention / hashtag suggestions ──
+
+    private val _mentionSuggestions = MutableStateFlow<List<CymbalUser>>(emptyList())
+    val mentionSuggestions: StateFlow<List<CymbalUser>> = _mentionSuggestions.asStateFlow()
+
+    private val _isSearchingMentions = MutableStateFlow(false)
+    val isSearchingMentions: StateFlow<Boolean> = _isSearchingMentions.asStateFlow()
+
+    private val _hashtagSuggestions = MutableStateFlow<List<HashtagSuggestion>>(emptyList())
+    val hashtagSuggestions: StateFlow<List<HashtagSuggestion>> = _hashtagSuggestions.asStateFlow()
+
+    private var mentionSearchJob: Job? = null
+    private var hashtagSearchJob: Job? = null
+
+    fun searchMentions(query: String) {
+        mentionSearchJob?.cancel()
+        if (query.length < 2) {
+            _mentionSuggestions.value = emptyList()
+            _isSearchingMentions.value = false
+            return
+        }
+        _isSearchingMentions.value = true
+        mentionSearchJob = viewModelScope.launch {
+            try {
+                val results = userRepository.searchUsers(query, limit = 4)
+                _mentionSuggestions.value = results
+            } catch (_: Exception) {
+                _mentionSuggestions.value = emptyList()
+            } finally {
+                _isSearchingMentions.value = false
+            }
+        }
+    }
+
+    fun clearMentions() {
+        mentionSearchJob?.cancel()
+        mentionSearchJob = null
+        _mentionSuggestions.value = emptyList()
+        _isSearchingMentions.value = false
+    }
+
+    fun searchHashtags(query: String) {
+        hashtagSearchJob?.cancel()
+        hashtagSearchJob = viewModelScope.launch {
+            try {
+                _hashtagSuggestions.value = exploreRepository.fetchHashtagSuggestions(query, limit = 3)
+            } catch (_: Exception) {
+                _hashtagSuggestions.value = emptyList()
+            }
+        }
+    }
+
+    fun clearHashtags() {
+        hashtagSearchJob?.cancel()
+        hashtagSearchJob = null
+        _hashtagSuggestions.value = emptyList()
+    }
+
+    fun clearReplyComposerSuggestions() {
+        clearMentions()
+        clearHashtags()
     }
 
     fun sendReply(text: String) {
@@ -815,6 +884,7 @@ class NotificationsViewModel @Inject constructor(
         _replyingToNotification.value = null
         _replyPendingSong.value = null
         _replyPendingFilm.value = null
+        clearReplyComposerSuggestions()
         _isSendingReply.value = true
 
         viewModelScope.launch {
@@ -893,6 +963,7 @@ class NotificationsViewModel @Inject constructor(
         _replyPendingSong.value = null
         _replyPendingFilm.value = null
         _replyPendingGif.value = null
+        clearReplyComposerSuggestions()
         _isSendingReply.value = true
 
         viewModelScope.launch {

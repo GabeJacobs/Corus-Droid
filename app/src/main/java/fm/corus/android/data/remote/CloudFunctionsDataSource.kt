@@ -1152,6 +1152,10 @@ class CloudFunctionsDataSource @Inject constructor(
         text: String,
         type: String = "text",
         mediaURL: String? = null,
+        thumbnailURL: String? = null,
+        mediaDurationMs: Int? = null,
+        mediaWidth: Int? = null,
+        mediaHeight: Int? = null,
         sharedPostId: String? = null,
         trackId: String? = null,
         trackName: String? = null,
@@ -1201,6 +1205,10 @@ class CloudFunctionsDataSource @Inject constructor(
             "type" to type,
         )
         mediaURL?.let { params["mediaURL"] = it }
+        thumbnailURL?.let { params["thumbnailURL"] = it }
+        mediaDurationMs?.let { params["mediaDurationMs"] = it }
+        mediaWidth?.let { params["mediaWidth"] = it }
+        mediaHeight?.let { params["mediaHeight"] = it }
         sharedPostId?.let { params["sharedPostId"] = it }
         trackId?.let { params["trackId"] = it }
         trackName?.let { params["trackName"] = it }

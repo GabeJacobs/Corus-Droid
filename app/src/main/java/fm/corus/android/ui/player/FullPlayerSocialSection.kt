@@ -589,20 +589,10 @@ private fun FullPlayerCommentsSection(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 88.dp)
+                    .heightIn(min = if (comments.isEmpty() && !isBusy) 0.dp else 88.dp)
                     .alpha(if (contentVisible) 1f else 0f),
             ) {
-                if (comments.isEmpty() && !isBusy) {
-                    Text(
-                        text = stringResource(R.string.comments_no_comments),
-                        style = CorusFont.bodyMedium,
-                        color = CorusColors.Text.copy(alpha = 0.7f),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 28.dp),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    )
-                } else {
+                if (comments.isNotEmpty()) {
                     comments.forEach { comment ->
                         FullPlayerCommentRow(
                             comment = comment,

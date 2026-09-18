@@ -6,8 +6,13 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -119,6 +124,7 @@ import kotlinx.coroutines.launch
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.FullScreenImageView
+import fm.corus.android.ui.components.FullScreenVideoView
 import fm.corus.android.ui.components.GifPickerSheet
 import fm.corus.android.ui.components.HashtagSuggestionsList
 import fm.corus.android.ui.components.EntityPickerSheet
@@ -208,6 +214,7 @@ internal fun replyPreviewText(msg: CymbalMessage, context: android.content.Conte
     if (!text.isNullOrBlank()) return text.take(100)
     return when (msg.type) {
         MessageType.IMAGE -> context.getString(R.string.messaging_thread_attachment_photo)
+        MessageType.VIDEO -> context.getString(R.string.messaging_thread_attachment_video)
         MessageType.GIF -> context.getString(R.string.comments_cd_gif)
         MessageType.SHARED_TRACK -> msg.trackName?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_song)
         MessageType.SHARED_FILM -> msg.movieTitle?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_film)
@@ -741,6 +748,7 @@ fun MessageThreadScreen(
     val myReadReceiptsEnabled by viewModel.myReadReceiptsEnabled.collectAsState()
     val groupInfo by viewModel.groupInfo.collectAsState()
     val membersById by viewModel.membersById.collectAsState()
+    val typerIds by viewModel.typerIds.collectAsState()
     val resolvedThreadId by viewModel.resolvedThreadId.collectAsState()
     val isGroup = groupInfo?.isGroup == true
     val isCityChat = !groupInfo?.cityChatId.isNullOrBlank()
@@ -788,6 +796,7 @@ fun MessageThreadScreen(
     var showAttachmentMenu by remember { mutableStateOf(false) }
     var mediaPickerMode by remember { mutableStateOf<PickerMode?>(null) }
     var fullScreenImageUrl by remember { mutableStateOf<String?>(null) }
+    var fullScreenVideoUrl by remember { mutableStateOf<String?>(null) }
     val keyboardController = LocalSoftwareKeyboardController.current
     val composerFocusRequester = remember { FocusRequester() }
     val mentionSuggestions by viewModel.mentionSuggestions.collectAsState()
@@ -844,6 +853,10 @@ fun MessageThreadScreen(
         if (reactionTarget != null) keyboardController?.hide()
     }
 
+    LaunchedEffect(messageText.text, editingMessage) {
+        viewModel.setComposerTyping(messageText.text, editingMessage != null)
+    }
+
     // When an edit begins, focus the composer and raise the keyboard (parity with
     // iOS/web, which focus the field on edit).
     LaunchedEffect(editingMessage) {
@@ -870,6 +883,13 @@ fun MessageThreadScreen(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
+            val mime = context.contentResolver.getType(uri).orEmpty()
+            if (mime.startsWith("video")) {
+                if (viewModel.dmVideoEnabled) {
+                    viewModel.sendVideoMessage(threadId, uri)
+                }
+                return@rememberLauncherForActivityResult
+            }
             try {
                 val inputStream = context.contentResolver.openInputStream(uri)
                 val imageData = inputStream?.readBytes()
@@ -1127,6 +1147,20 @@ fun MessageThreadScreen(
             reverseLayout = true,
             contentPadding = PaddingValues(vertical = CorusSpacing.sm),
         ) {
+            val visibleTypers = typerIds.filter { it !in groupBlocked }
+            if (visibleTypers.isNotEmpty()) {
+                item(key = "typing") {
+                    val names = visibleTypers.map { id ->
+                        membersById[id]?.let { user ->
+                            user.displayName.ifBlank { user.username }
+                        }.orEmpty()
+                    }
+                    TypingIndicatorRow(
+                        isGroup = isGroup,
+                        names = names,
+                    )
+                }
+            }
             itemsIndexed(if (waitingForGroupBlocks) emptyList() else messages, key = { _, m -> m.id }) { index, message ->
                 // messages is newest-first (reverseLayout). The chronologically
                 // older message is at index+1; the newer one at index-1.
@@ -1226,6 +1260,11 @@ fun MessageThreadScreen(
                             onImageTap = { url ->
                                 if (reactionTarget == null) {
                                     fullScreenImageUrl = url
+                                }
+                            },
+                            onVideoTap = { url ->
+                                if (reactionTarget == null) {
+                                    fullScreenVideoUrl = url
                                 }
                             },
                             onRetry = { viewModel.retrySendMessage(message.id) },
@@ -1479,7 +1518,13 @@ fun MessageThreadScreen(
                         onClick = {
                             showAttachmentMenu = false
                             photoPickerLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                PickVisualMediaRequest(
+                                    if (viewModel.dmVideoEnabled) {
+                                        ActivityResultContracts.PickVisualMedia.ImageAndVideo
+                                    } else {
+                                        ActivityResultContracts.PickVisualMedia.ImageOnly
+                                    }
+                                )
                             )
                         },
                     )
@@ -1655,6 +1700,11 @@ fun MessageThreadScreen(
         imageUrl = fullScreenImageUrl,
         visible = fullScreenImageUrl != null,
         onDismiss = { fullScreenImageUrl = null },
+    )
+    FullScreenVideoView(
+        videoUrl = fullScreenVideoUrl,
+        visible = fullScreenVideoUrl != null,
+        onDismiss = { fullScreenVideoUrl = null },
     )
 
     // Reaction overlay
@@ -1943,6 +1993,7 @@ private fun MessageBubble(
     onReactionTap: (String) -> Unit,
     onShowReactions: () -> Unit = {},
     onImageTap: (String) -> Unit = {},
+    onVideoTap: (String) -> Unit = {},
     onRetry: () -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (CymbalMovie) -> Unit = {},
@@ -2197,6 +2248,55 @@ private fun MessageBubble(
                     }
                 }
 
+                if (message.type == MessageType.VIDEO) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                            .clickable {
+                                message.mediaURL?.let(onVideoTap)
+                            },
+                    ) {
+                        if (message.thumbnailURL != null) {
+                            MessageMediaImage(
+                                url = message.thumbnailURL,
+                                contentDescription = stringResource(id = R.string.messaging_thread_attachment_video),
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(width = 200.dp, height = 240.dp)
+                                    .background(CorusColors.Skeleton),
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .size(44.dp)
+                                .background(Color.Black.copy(alpha = 0.45f), CircleShape)
+                                .padding(8.dp),
+                        )
+                        val duration = formatMessageVideoDuration(message.mediaDurationMs)
+                        if (duration.isNotEmpty()) {
+                            Text(
+                                text = duration,
+                                color = Color.White,
+                                style = CorusFont.caption,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(8.dp)
+                                    .background(Color.Black.copy(alpha = 0.65f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                            )
+                        }
+                    }
+                    if (!message.text.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                    }
+                }
+
                 // GIF content
                 if (message.type == MessageType.GIF && message.mediaURL != null) {
                     MessageMediaImage(
@@ -2328,7 +2428,7 @@ private fun MessageBubble(
                     }
                 }
 
-                if (heroLink && message.linkPreview != null) {
+                if (heroLink) {
                     MessageLinkPreviewCard(
                         preview = message.linkPreview,
                         isFromCurrentUser = isFromCurrentUser,
@@ -2968,6 +3068,76 @@ private fun SharedProfileContent(
             modifier = Modifier.size(14.dp),
         )
     }
+}
+
+@Composable
+private fun TypingIndicatorRow(isGroup: Boolean, names: List<String>) {
+    val cleaned = names.map { it.trim() }.filter { it.isNotEmpty() }
+    val caption = when {
+        !isGroup -> null
+        cleaned.isEmpty() -> stringResource(R.string.messaging_typing_several)
+        cleaned.size == 1 -> stringResource(R.string.messaging_typing_one, cleaned[0])
+        cleaned.size == 2 -> stringResource(R.string.messaging_typing_two, cleaned[0], cleaned[1])
+        else -> stringResource(
+            R.string.messaging_typing_many,
+            cleaned[0],
+            cleaned[1],
+            cleaned.size - 2,
+        )
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.xxs),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        if (isGroup) Spacer(modifier = Modifier.width(32.dp))
+        Column(horizontalAlignment = Alignment.Start) {
+            if (caption != null) {
+                Text(
+                    text = caption,
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
+                    modifier = Modifier.padding(start = 2.dp, bottom = 2.dp),
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .background(
+                        CorusColors.CardBackground,
+                        RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+                    )
+                    .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TypingDot(0)
+                TypingDot(160)
+                TypingDot(320)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TypingDot(delayMs: Int) {
+    val transition = rememberInfiniteTransition(label = "typing")
+    val y by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = -3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 520, delayMillis = delayMs),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "dot-y",
+    )
+    Box(
+        modifier = Modifier
+            .size(8.dp)
+            .offset(y = y.dp)
+            .background(CorusColors.Secondary.copy(alpha = 0.8f), CircleShape),
+    )
 }
 
 /** Instagram-style composer: grow through 5 lines, then scroll with the caret. */

@@ -59,6 +59,7 @@ class OtherProfileViewModel @Inject constructor(
     private val remoteConfig: RemoteConfigService,
     private val networkMonitor: NetworkMonitor,
     private val favoriteChangedEvent: fm.corus.android.domain.FavoriteChangedEvent,
+    private val mapRepository: fm.corus.android.ui.screens.map.MapRepository,
 ) : ViewModel() {
 
     /** Whether the Favorites feature (star button) is enabled in Remote Config. */
@@ -318,13 +319,19 @@ class OtherProfileViewModel @Inject constructor(
     val mapEnabled: Boolean get() = remoteConfig.mapEnabled
     private val _mapCity = MutableStateFlow<fm.corus.android.data.model.ProfileMapCity?>(null)
     val mapCity: StateFlow<fm.corus.android.data.model.ProfileMapCity?> = _mapCity.asStateFlow()
+    private val _mapCityResolved = MutableStateFlow(!remoteConfig.mapEnabled)
+    val mapCityResolved: StateFlow<Boolean> = _mapCityResolved.asStateFlow()
 
     private fun applyMapCity(data: CloudFunctionsDataSource.ProfileData) {
-        if (!mapEnabled) return
         if (data.mapCityIncluded) {
             _mapCity.value = data.mapCity
+            loadedUserId?.let { mapRepository.saveOtherProfileHasCity(it, data.mapCity != null) }
         }
+        _mapCityResolved.value = true
     }
+
+    fun expectCitySkeleton(userId: String): Boolean =
+        mapEnabled && mapRepository.otherProfileHasCity(userId) == true
 
     val isProfileArtistLinkEnabled: Boolean
         get() = remoteConfig.isProfileArtistLinkEnabled(authRepository.userProfile.value?.username)
@@ -457,12 +464,13 @@ class OtherProfileViewModel @Inject constructor(
                 val page: List<CymbalPost> = try {
                     val data = postRepository.getProfileData(userId = userId, pageSize = PAGE_SIZE)
                     if (data.user != null) {
+                        applyMapCity(data)
                         _profile.value = data.user
                         _matchData.value = data.match
                         _linkedArtist.value = data.linkedArtist
-                        applyMapCity(data)
                         data.posts
                     } else {
+                        _mapCityResolved.value = true
                         _profile.value = userRepository.fetchUserProfile(userId)
                         postRepository.getProfilePosts(
                             userId = userId,
@@ -480,9 +488,11 @@ class OtherProfileViewModel @Inject constructor(
                         e.code == com.google.firebase.functions.FirebaseFunctionsException.Code.NOT_FOUND
                     ) {
                         _profileUnavailable.value = true
+                        _mapCityResolved.value = true
                         _isLoading.value = false
                         return@launch
                     }
+                    _mapCityResolved.value = true
                     _profile.value = userRepository.fetchUserProfile(userId)
                     postRepository.getProfilePosts(
                         userId = userId,
@@ -519,6 +529,7 @@ class OtherProfileViewModel @Inject constructor(
                 if (_profile.value == null && !_profileUnavailable.value) {
                     _hasLoadError.value = true
                 }
+                _mapCityResolved.value = true
             }
             if (_profile.value == null && !_profileUnavailable.value) {
                 _hasLoadError.value = true

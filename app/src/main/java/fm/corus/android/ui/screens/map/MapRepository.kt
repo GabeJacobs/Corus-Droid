@@ -46,6 +46,14 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
         else editor.putString("$uid.cityId", city.cityId).putString("$uid.label", city.label)
         editor.apply()
     }
+    private val cityHintPreferences = context.getSharedPreferences("profile_city_hint", Context.MODE_PRIVATE)
+    fun otherProfileHasCity(uid: String): Boolean? {
+        if (!cityHintPreferences.contains(uid)) return null
+        return cityHintPreferences.getBoolean(uid, false)
+    }
+    fun saveOtherProfileHasCity(uid: String, hasCity: Boolean) {
+        cityHintPreferences.edit().putBoolean(uid, hasCity).apply()
+    }
     private val latestMutex = Mutex()
     private var latestOwner: String? = null
     private var latestRevision = -1L
@@ -53,6 +61,13 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
     private var fullCitiesCache: Triple<Long, String, List<MapCitySummary>>? = null
     fun savedAudience(): String = currentUserId?.let { preferences.getString("$it.audience", "everyone") } ?: "everyone"
     fun rememberAudience(value: String) { currentUserId?.let { preferences.edit().putString("$it.audience", value).apply() } }
+    fun sheetAudience(liveAudience: String?, isSharing: Boolean): String {
+        val saved = currentUserId?.let { preferences.getString("$it.audience", null) }
+        if (saved == "off") return "off"
+        if (isSharing && liveAudience == "following") return "following"
+        if (isSharing && liveAudience == "everyone") return "everyone"
+        return saved ?: "everyone"
+    }
     val currentUserId get() = auth.currentUser?.uid
     fun cachedTasteMatchIds(uid: String): TasteMatchIdsCache? {
         val fetchedAt = tasteMatchPreferences.getLong("$uid.fetchedAt", 0L)
@@ -166,6 +181,12 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
     suspend fun resolve(location: Location): MapCity {
         val result = call("resolveMapCity", mapOf("latitude" to location.latitude, "longitude" to location.longitude))
         return MapCity.decode(result["city"] as? Map<String, Any?> ?: error("Couldn’t find your city. Choose another city."))
+    }
+    @Suppress("UNCHECKED_CAST")
+    suspend fun resolveCityId(cityId: String): MapCity? {
+        val result = call("resolveMapCity", mapOf("cityId" to cityId))
+        val city = result["city"] as? Map<String, Any?> ?: return null
+        return MapCity.decode(city).takeIf { it.cityId.isNotEmpty() }
     }
     suspend fun share(user: CymbalUser, city: MapCity, audience: String, source: String) {
         check(auth.currentUser?.uid == user.id)

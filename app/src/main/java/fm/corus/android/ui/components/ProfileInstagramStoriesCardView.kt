@@ -354,6 +354,10 @@ private const val IG_PROFILE_SHARE_TAG = "InstagramProfileShare"
 /**
  * Share a profile to Instagram Stories using the background image sticker API.
  * Mirrors iOS `ProfileInstagramStoriesCardView.render` + pasteboard hand-off.
+ *
+ * Instagram does not add a tappable link sticker for third-party shares;
+ * `content_url` is attribution at best. The share sheet copies the profile
+ * URL so the user can paste it onto the story.
  */
 suspend fun shareProfileToInstagramStories(
     context: Context,

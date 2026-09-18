@@ -187,6 +187,7 @@ private fun OwnProfileShareSheet(
     var hasLoggedInitialTheme by remember { mutableStateOf(false) }
     var showCopied by remember { mutableStateOf(false) }
     var isSharingToInstagram by remember { mutableStateOf(false) }
+    var showInstagramPasteHint by remember { mutableStateOf(false) }
 
     LaunchedEffect(shareCardTheme) {
         if (!hasLoggedInitialTheme) {
@@ -210,6 +211,14 @@ private fun OwnProfileShareSheet(
         }
     }
 
+    LaunchedEffect(showInstagramPasteHint) {
+        if (showInstagramPasteHint) {
+            delay(4000)
+            showInstagramPasteHint = false
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
     Column(
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -287,6 +296,14 @@ private fun OwnProfileShareSheet(
                                 profileShareAnalytics = profileShareAnalytics,
                                 onAnalyticsLog = onAnalyticsLog,
                             )
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(
+                                ClipData.newPlainText(
+                                    context.getString(R.string.share_post_clip_label),
+                                    shareableLink,
+                                ),
+                            )
+                            showInstagramPasteHint = true
                             isSharingToInstagram = true
                             val themeToShare = shareCardTheme
                             coroutineScope.launch {
@@ -360,6 +377,36 @@ private fun OwnProfileShareSheet(
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.share_post_clip_label), outboundShareLink))
                     showCopied = true
+                }
+            }
+        }
+    }
+
+        if (showInstagramPasteHint) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = CorusSpacing.lg, start = CorusSpacing.lg, end = CorusSpacing.lg),
+                shape = RoundedCornerShape(50),
+                color = CorusColors.CardBackground,
+                shadowElevation = 8.dp,
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = CorusSpacing.xl, vertical = CorusSpacing.md),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.ContentCopy,
+                        contentDescription = null,
+                        tint = CorusColors.Accent,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text(
+                        stringResource(R.string.share_profile_toast_instagram_link),
+                        style = CorusFont.bodyMedium,
+                        color = CorusColors.Text,
+                    )
                 }
             }
         }

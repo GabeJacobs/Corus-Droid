@@ -25,6 +25,8 @@ class MapClusterArtworkTest {
         assertTrue(html.contains("art.className='art art-'+index"))
         assertTrue(html.contains("if(fan.isConnected)fan.classList.add('raised')"))
         assertTrue(html.contains("b.dataset.anchorOffset=String(interactive?0"))
+        assertTrue(html.contains(".art-fan.raised{pointer-events:auto}"))
+        assertTrue(html.contains("pulseCity(b)"))
         assertTrue(html.contains("annotation.corusId=city.id"))
         assertTrue(html.contains("updateMarker(annotation,city)"))
     }

@@ -116,10 +116,10 @@ class SearchViewModelHashtagTest {
     )
 
     @Test
-    fun `hashtags songs and films all default to week window`() =
+    fun `songs hashtags default to week films directors to month`() =
         runTest(testDispatcher) {
             // Empty pref flows == nothing stored, so each StateFlow keeps its
-            // stateIn() initial value: all three seed to WEEK.
+            // stateIn() initial value: songs/hashtags week, films/directors month.
             whenever(preferencesDataStore.trendingHashtagsWindow)
                 .thenReturn(kotlinx.coroutines.flow.emptyFlow())
             whenever(preferencesDataStore.trendingSongsWindow)
@@ -140,8 +140,8 @@ class SearchViewModelHashtagTest {
             assertEquals(TrendingWindow.WEEK, vm.trendingSongsWindow.value)
             assertEquals(TrendingWindow.WEEK, vm.trendingArtistsWindow.value)
             assertEquals(TrendingWindow.WEEK, vm.trendingAlbumsWindow.value)
-            assertEquals(TrendingWindow.WEEK, vm.trendingFilmsWindow.value)
-            assertEquals(TrendingWindow.WEEK, vm.trendingDirectorsWindow.value)
+            assertEquals(TrendingWindow.MONTH, vm.trendingFilmsWindow.value)
+            assertEquals(TrendingWindow.MONTH, vm.trendingDirectorsWindow.value)
         }
 
     @Test

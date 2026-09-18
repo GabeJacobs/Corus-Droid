@@ -641,6 +641,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             },
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
             onNavigateToArtist = { route -> navController.navigate(route) },
+            suppressMapCityNavigation = navController.hasMapExploreInBackStack(),
         )
     }
 
@@ -674,6 +675,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
                 },
                 onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
                 onNavigateToArtist = { route -> navController.navigate(route) },
+                suppressMapCityNavigation = navController.hasMapExploreInBackStack(),
             )
         }
     }

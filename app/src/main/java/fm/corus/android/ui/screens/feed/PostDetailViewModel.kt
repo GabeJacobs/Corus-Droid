@@ -19,6 +19,8 @@ import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.FullSongPlayCoordinator
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PosterCorusQueue
+import fm.corus.android.domain.asPlayableQueuedTracks
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
@@ -160,6 +162,9 @@ class PostDetailViewModel @Inject constructor(
     override val isLoadingShareContacts: StateFlow<Boolean> = _isLoadingShareContacts.asStateFlow()
 
     private var shareSearchJob: Job? = null
+    private var posterQueueJob: Job? = null
+    private var posterLoaded: MutableList<CymbalPost> = mutableListOf()
+    private var posterHasMore: Boolean = false
 
     private var listeningPostId: String? = null
 
@@ -299,9 +304,97 @@ class PostDetailViewModel @Inject constructor(
                     audiomackUrl = post.track.audiomackUrl,
                     notOnSpotify = post.track.notOnSpotify,
                 )
+                seedPosterCorusQueue(post)
             },
             scope = viewModelScope,
         )
+        if (outcome == FullSongPlayCoordinator.PlayTapOutcome.HandledByExperiment) {
+            seedPosterCorusQueue(post)
+        }
+    }
+
+    /**
+     * Notification / deep-link post detail has no feed queue. After play
+     * starts, fill Up Next with this poster's other song posts (newest first).
+     */
+    private fun seedPosterCorusQueue(post: CymbalPost) {
+        if (!post.isTrack) return
+        posterQueueJob?.cancel()
+        posterQueueJob = viewModelScope.launch {
+            val viewerId = authRepository.currentUserId ?: return@launch
+            val firstPage = try {
+                postRepository.getProfilePosts(
+                    userId = post.user.id,
+                    viewerId = viewerId,
+                    limit = PosterCorusQueue.PAGE_SIZE,
+                    mediaType = "track",
+                )
+            } catch (_: Exception) {
+                return@launch
+            }
+            if (!waitUntilPlaying(post)) return@launch
+
+            if (firstPage.any { it.id == post.id }) {
+                posterLoaded = firstPage.toMutableList()
+                posterHasMore = firstPage.size >= PosterCorusQueue.PAGE_SIZE
+            } else {
+                val older = try {
+                    postRepository.getProfilePosts(
+                        userId = post.user.id,
+                        viewerId = viewerId,
+                        limit = PosterCorusQueue.PAGE_SIZE,
+                        lastTimestamp = post.timestamp.time,
+                        mediaType = "track",
+                    )
+                } catch (_: Exception) {
+                    emptyList()
+                }
+                if (!waitUntilPlaying(post)) return@launch
+                posterLoaded = PosterCorusQueue.assemblePosts(post, firstPage, older).toMutableList()
+                posterHasMore = older.size >= PosterCorusQueue.PAGE_SIZE
+            }
+            applyPosterQueue(post)
+        }
+    }
+
+    private suspend fun waitUntilPlaying(post: CymbalPost): Boolean {
+        repeat(50) {
+            if (nowPlayingManager.currentSourcePostId == post.id) return true
+            delay(40)
+        }
+        return nowPlayingManager.currentSourcePostId == post.id
+    }
+
+    private fun applyPosterQueue(post: CymbalPost) {
+        val tracks = posterLoaded.asPlayableQueuedTracks()
+        if (tracks.none { it.sourcePostId == post.id }) return
+        nowPlayingManager.updateFeedQueue(
+            newQueue = tracks,
+            hasMore = posterHasMore,
+            loadMore = { loadMorePosterQueue(post) },
+        )
+    }
+
+    private suspend fun loadMorePosterQueue(post: CymbalPost) {
+        if (!posterHasMore) return
+        val viewerId = authRepository.currentUserId ?: return
+        val cursor = posterLoaded.lastOrNull()?.timestamp?.time ?: return
+        val page = try {
+            postRepository.getProfilePosts(
+                userId = post.user.id,
+                viewerId = viewerId,
+                limit = PosterCorusQueue.PAGE_SIZE,
+                lastTimestamp = cursor,
+                mediaType = "track",
+            )
+        } catch (_: Exception) {
+            return
+        }
+        val existing = posterLoaded.map { it.id }.toSet()
+        posterLoaded.addAll(page.filter { it.id !in existing })
+        if (page.size < PosterCorusQueue.PAGE_SIZE) posterHasMore = false
+        if (nowPlayingManager.currentSourcePostId != post.id) return
+        applyPosterQueue(post)
     }
 
     override fun deletePost(postId: String) {

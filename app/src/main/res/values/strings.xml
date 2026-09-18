@@ -519,6 +519,7 @@
     <string name="edit_profile_share_chooser">Share Profile</string>
     <string name="edit_profile_field_name">DISPLAY NAME</string>
     <string name="edit_profile_field_username">USERNAME</string>
+    <string name="edit_profile_field_city">CITY</string>
     <string name="edit_profile_field_bio">BIO</string>
     <string name="edit_profile_field_website">WEBSITE</string>
     <string name="edit_profile_field_featured_tab">FEATURED TAB</string>
@@ -873,6 +874,7 @@
     <string name="messaging_thread_you">You</string>
     <string name="messaging_thread_cd_add_attachment">Add attachment</string>
     <string name="messaging_thread_attachment_photo">Photo</string>
+    <string name="messaging_thread_attachment_video">Video</string>
     <string name="messaging_thread_attachment_song">Song</string>
     <string name="messaging_thread_attachment_film">Film</string>
     <string name="messaging_thread_attachment_artist">Artist</string>
@@ -881,6 +883,11 @@
     <string name="messaging_thread_shared_profile">Profile</string>
     <string name="messaging_thread_attachment_post">Corus</string>
     <string name="messaging_thread_placeholder">Message...</string>
+    <string name="messaging_typing_one">%1$s is typing</string>
+    <string name="messaging_typing_two">%1$s and %2$s are typing</string>
+    <string name="messaging_typing_many">%1$s, %2$s and %3$d others are typing</string>
+    <string name="messaging_typing_several">Several people are typing</string>
+    <string name="messaging_typing_aria">Someone is typing</string>
     <string name="messaging_thread_cd_shared_image">Shared image</string>
     <string name="messaging_thread_sending">Sending...</string>
     <string name="messaging_thread_unavailable">This conversation is no longer available</string>
@@ -1116,6 +1123,7 @@
     <string name="share_post_cd_x">Share to X</string>
     <string name="share_profile_title">Share your profile</string>
     <string name="share_profile_subtitle">Preview of how your link will look when shared</string>
+    <string name="share_profile_toast_instagram_link">Link copied — paste it onto your story</string>
 
     <!-- Song/Film picker sheet -->
     <string name="song_film_picker_songs">Songs</string>

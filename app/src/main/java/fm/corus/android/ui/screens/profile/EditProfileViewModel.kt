@@ -18,6 +18,9 @@ import fm.corus.android.domain.DisplayNameValidator
 import fm.corus.android.domain.UsernameValidator
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
+import fm.corus.android.ui.screens.map.MapCity
+import fm.corus.android.ui.screens.map.MapRepository
+import android.location.Location
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,10 +38,13 @@ class EditProfileViewModel @Inject constructor(
     val subscriptionRepository: SubscriptionRepository,
     private val analyticsService: AnalyticsService,
     private val remoteConfigService: RemoteConfigService,
+    private val mapRepository: MapRepository,
 ) : ViewModel() {
 
     val booksEnabled: Boolean
         get() = remoteConfigService.booksEnabled
+
+    val currentUserId: String? get() = authRepository.currentUserId
 
     private val _profile = MutableStateFlow<CymbalUser?>(null)
     val profile: StateFlow<CymbalUser?> = _profile.asStateFlow()
@@ -58,6 +64,17 @@ class EditProfileViewModel @Inject constructor(
     private val _showCityOnProfile = MutableStateFlow(true)
     val showCityOnProfile = _showCityOnProfile.asStateFlow()
     fun updateShowCityOnProfile(value: Boolean) { if (mapEnabled) _showCityOnProfile.value = value }
+
+    private val _ownCity = MutableStateFlow<fm.corus.android.ui.screens.map.MapCity?>(null)
+    val ownCity = _ownCity.asStateFlow()
+    private val _ownAudience = MutableStateFlow("off")
+    val ownAudience = _ownAudience.asStateFlow()
+    private val _findingCity = MutableStateFlow(false)
+    val findingCity = _findingCity.asStateFlow()
+    private val _shareError = MutableStateFlow<String?>(null)
+    val shareError = _shareError.asStateFlow()
+    fun clearShareError() { _shareError.value = null }
+    val isSharingCity: Boolean get() = _ownCity.value != null && _ownAudience.value != "off"
 
     private val _bio = MutableStateFlow("")
     val bio: StateFlow<String> = _bio.asStateFlow()
@@ -165,6 +182,15 @@ class EditProfileViewModel @Inject constructor(
                     )
                 }
             } catch (_: Exception) { }
+        }
+
+        if (mapEnabled) {
+            viewModelScope.launch {
+                mapRepository.ownPresence(userId, serverOnly = true).collect { data ->
+                    _ownCity.value = data?.let(MapCity::decode)?.takeIf { it.cityId.isNotEmpty() }
+                    _ownAudience.value = data?.get("audience") as? String ?: "off"
+                }
+            }
         }
 
         // Load user's posts to determine hasTrackPosts / hasMoviePosts and latest posts
@@ -306,18 +332,21 @@ class EditProfileViewModel @Inject constructor(
 
     val canSave: Boolean
         get() {
-            if (!hasChanges) return false
+            if (!hasChanges || _isSaving.value) return false
             // Grandfather: if displayName is unchanged from the server value,
             // allow save regardless of whether it would pass the new visible-char rule.
             val displayNameChanged = _displayName.value != originalDisplayName
             if (displayNameChanged && !DisplayNameValidator.hasVisibleCharacter(_displayName.value)) return false
             if (_username.value != originalUsername && _usernameState.value != UsernameState.AVAILABLE) return false
-            if (_isSaving.value) return false
             return true
         }
 
     fun save(onSuccess: () -> Unit) {
         val userId = authRepository.currentUserId ?: return
+        if (!hasChanges) {
+            onSuccess()
+            return
+        }
         viewModelScope.launch {
             _isSaving.value = true
             _saveError.value = null
@@ -340,6 +369,11 @@ class EditProfileViewModel @Inject constructor(
                     fields["hiddenProfileTabs"] = persisted.hidden
                 }
 
+                if (fields.isEmpty()) {
+                    onSuccess()
+                    return@launch
+                }
+
                 userRepository.updateUserProfile(userId, fields)
                 authRepository.refreshUserProfile()
                 analyticsService.logEditProfileSaved()
@@ -347,8 +381,9 @@ class EditProfileViewModel @Inject constructor(
             } catch (e: Exception) {
                 _saveError.value = context.getString(R.string.edit_profile_save_error)
                 analyticsService.logProfileUpdateError(e.message ?: "unknown")
+            } finally {
+                _isSaving.value = false
             }
-            _isSaving.value = false
         }
     }
 
@@ -369,6 +404,51 @@ class EditProfileViewModel @Inject constructor(
                 _saveError.value = context.getString(R.string.edit_profile_save_style_error)
             }
             _isStyleSaving.value = false
+        }
+    }
+
+    fun savedAudience(): String = mapRepository.savedAudience()
+    fun rememberAudience(value: String) = mapRepository.rememberAudience(value)
+    fun sheetAudience(liveAudience: String?, isSharing: Boolean): String =
+        mapRepository.sheetAudience(liveAudience, isSharing)
+
+    fun markFindingCity() {
+        if (mapEnabled) _findingCity.value = true
+    }
+
+    fun clearFindingCity() {
+        _findingCity.value = false
+    }
+
+    fun applyAudience(audience: String, location: Location?, onFinished: () -> Unit) {
+        if (!mapEnabled) return
+        viewModelScope.launch {
+            try {
+                mapRepository.rememberAudience(audience)
+                mapRepository.event("audience_selected", mode = "edit_profile", value = audience)
+                if (audience == "off") {
+                    mapRepository.stopSharing()
+                    mapRepository.event("sharing_stopped", mode = "edit_profile")
+                    _ownCity.value = null
+                    _ownAudience.value = "off"
+                    onFinished()
+                    return@launch
+                }
+                val fix = location ?: error(context.getString(R.string.map_location_needed))
+                _findingCity.value = true
+                val city = mapRepository.resolve(fix)
+                val user = _profile.value ?: error(context.getString(R.string.map_please_try_again))
+                mapRepository.share(user, city, audience, "device")
+                mapRepository.event("sharing_saved", mode = "edit_profile", value = "device")
+                _ownCity.value = city
+                _ownAudience.value = audience
+            } catch (e: Exception) {
+                mapRepository.event("sharing_failed", mode = "edit_profile", value = "device")
+                _shareError.value = e.message ?: context.getString(R.string.map_please_try_again)
+            } finally {
+                _findingCity.value = false
+                onFinished()
+            }
         }
     }
 }

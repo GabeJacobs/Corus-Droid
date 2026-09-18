@@ -7,9 +7,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
+import androidx.compose.ui.unit.sp
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 
@@ -27,15 +25,14 @@ fun ProfileCityNameRow(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        if (!cityLabel.isNullOrEmpty() && onCityClick != null) {
-            Spacer(Modifier.height(2.dp))
+        if (!cityLabel.isNullOrEmpty()) {
             Text(
                 text = cityLabel,
-                style = CorusFont.caption,
-                color = CorusColors.Tertiary,
+                style = CorusFont.caption.copy(fontSize = 11.sp),
+                color = CorusColors.Secondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.clickable(onClick = onCityClick),
+                modifier = if (onCityClick != null) Modifier.clickable(onClick = onCityClick) else Modifier,
             )
         }
     }

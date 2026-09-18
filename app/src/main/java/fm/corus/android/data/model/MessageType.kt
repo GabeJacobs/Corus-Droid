@@ -4,6 +4,7 @@ enum class MessageType(val value: String) {
     TEXT("text"),
     IMAGE("image"),
     GIF("gif"),
+    VIDEO("video"),
     SHARED_POST("sharedPost"),
     SHARED_TRACK("sharedTrack"),
     SHARED_FILM("sharedFilm"),

@@ -47,6 +47,20 @@ internal fun NavHostController.popToStart(): Boolean {
 /** True when an in-app back can pop without removing the tab root. */
 internal fun canPopTabBackStack(hasPreviousEntry: Boolean): Boolean = hasPreviousEntry
 
+/** True when Map is already under this profile, so the city line should not
+ *  push another Map (iOS `suppressMapCityNavigation`). */
+internal fun shouldOpenMapFromProfileCity(mapAlreadyOnStack: Boolean): Boolean =
+    !mapAlreadyOnStack
+
+internal fun destinationIsMapExplore(route: String?): Boolean {
+    val name = MapExploreRoute::class.qualifiedName ?: return false
+    return route?.startsWith(name) == true
+}
+
+internal fun NavHostController.hasMapExploreInBackStack(): Boolean =
+    currentBackStack.value.any { destinationIsMapExplore(it.destination.route) }
+
+
 /** True when a tab NavHost has no destination and must remount its start route. */
 internal fun shouldRestoreTabStart(hasCurrentDestination: Boolean): Boolean =
     !hasCurrentDestination

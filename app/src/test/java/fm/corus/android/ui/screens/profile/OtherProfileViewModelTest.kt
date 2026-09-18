@@ -135,6 +135,7 @@ class OtherProfileViewModelTest {
         commentEditedEvent = fm.corus.android.domain.CommentEditedEvent(),
         commentDeletedEvent = fm.corus.android.domain.CommentDeletedEvent(),
         networkMonitor = mock<NetworkMonitor> { on { isConnected } doReturn MutableStateFlow(true) },
+        mapRepository = mock(),
     )
 
     private fun makeUser(id: String, cymbalCount: Int): CymbalUser = CymbalUser(

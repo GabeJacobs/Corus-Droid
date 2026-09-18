@@ -31,4 +31,23 @@ class MessageLinkPreviewTest {
         assertTrue(MessageLinkPreview.isUrlOnly("  $url  ", url))
         assertFalse(MessageLinkPreview.isUrlOnly("watch $url", url))
     }
+
+    @Test
+    fun `url-only sending hides the raw string before unfurl`() {
+        val url = "https://www.nytimes.com/story"
+        val sending = fm.corus.android.data.model.CymbalMessage(
+            id = "m1",
+            threadId = "t1",
+            fromUserId = "u1",
+            text = url,
+            type = fm.corus.android.data.model.MessageType.TEXT,
+            createdAt = java.util.Date(),
+            sendStatus = fm.corus.android.data.model.MessageSendStatus.SENDING,
+        )
+        assertTrue(sending.showsHeroLinkPreview)
+        assertNull(sending.displayText)
+        val sent = sending.copy(sendStatus = fm.corus.android.data.model.MessageSendStatus.SENT)
+        assertFalse(sent.showsHeroLinkPreview)
+        assertTrue(sent.copy(linkPreviewPending = true).showsHeroLinkPreview)
+    }
 }

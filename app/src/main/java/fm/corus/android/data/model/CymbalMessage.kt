@@ -10,6 +10,10 @@ data class CymbalMessage(
     val text: String? = null,
     val type: MessageType = MessageType.TEXT,
     val mediaURL: String? = null,
+    val thumbnailURL: String? = null,
+    val mediaDurationMs: Int? = null,
+    val mediaWidth: Int? = null,
+    val mediaHeight: Int? = null,
     val createdAt: Date = Date(),
     val sendStatus: MessageSendStatus = MessageSendStatus.SENT,
     val sharedPostId: String? = null,
@@ -55,6 +59,7 @@ data class CymbalMessage(
     val replyToText: String? = null,
     val replyToUserId: String? = null,
     val linkPreview: MessageLinkPreview? = null,
+    val linkPreviewPending: Boolean = false,
     /** Set when the author edited the message; drives the "edited" indicator. */
     val editedAt: Date? = null,
     val failureReason: MessageFailureReason = MessageFailureReason.GENERIC,
@@ -71,9 +76,13 @@ data class CymbalMessage(
     val isSystem: Boolean get() = type == MessageType.SYSTEM
 
     val showsHeroLinkPreview: Boolean
-        get() = type == MessageType.TEXT &&
-            linkPreview != null &&
-            MessageLinkPreview.isUrlOnly(text, linkPreview.url)
+        get() {
+            if (type != MessageType.TEXT) return false
+            val url = linkPreview?.url ?: MessageLinkPreview.firstHttpUrl(text) ?: return false
+            if (!MessageLinkPreview.isUrlOnly(text, url)) return false
+            if (linkPreview != null) return true
+            return sendStatus == MessageSendStatus.SENDING || linkPreviewPending
+        }
 
     val displayText: String?
         get() {
@@ -160,6 +169,10 @@ data class CymbalMessage(
                 text = data["text"] as? String,
                 type = MessageType.from(data["type"] as? String),
                 mediaURL = data["mediaURL"] as? String,
+                thumbnailURL = data["thumbnailURL"] as? String,
+                mediaDurationMs = (data["mediaDurationMs"] as? Number)?.toInt(),
+                mediaWidth = (data["mediaWidth"] as? Number)?.toInt(),
+                mediaHeight = (data["mediaHeight"] as? Number)?.toInt(),
                 createdAt = createdAt,
                 sharedPostId = data["sharedPostId"] as? String,
                 trackId = data["trackId"] as? String,
@@ -204,6 +217,7 @@ data class CymbalMessage(
                 replyToText = data["replyToText"] as? String,
                 replyToUserId = data["replyToUserId"] as? String,
                 linkPreview = MessageLinkPreview.parse(data["linkPreview"]),
+                linkPreviewPending = data["linkPreviewPending"] as? Boolean ?: false,
                 editedAt = (data["editedAt"] as? Number)?.let { Date(it.toLong()) },
                 systemEvent = data["systemEvent"] as? String,
                 systemActorId = data["actorId"] as? String,
@@ -223,6 +237,10 @@ data class CymbalMessage(
                 text = data["text"] as? String,
                 type = MessageType.from(data["type"] as? String),
                 mediaURL = data["mediaURL"] as? String,
+                thumbnailURL = data["thumbnailURL"] as? String,
+                mediaDurationMs = (data["mediaDurationMs"] as? Number)?.toInt(),
+                mediaWidth = (data["mediaWidth"] as? Number)?.toInt(),
+                mediaHeight = (data["mediaHeight"] as? Number)?.toInt(),
                 createdAt = createdAt,
                 sharedPostId = data["sharedPostId"] as? String,
                 trackId = data["trackId"] as? String,
@@ -267,6 +285,7 @@ data class CymbalMessage(
                 replyToText = data["replyToText"] as? String,
                 replyToUserId = data["replyToUserId"] as? String,
                 linkPreview = MessageLinkPreview.parse(data["linkPreview"]),
+                linkPreviewPending = data["linkPreviewPending"] as? Boolean ?: false,
                 editedAt = (data["editedAt"] as? Timestamp)?.toDate(),
                 systemEvent = data["systemEvent"] as? String,
                 systemActorId = data["actorId"] as? String,

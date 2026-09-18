@@ -581,6 +581,7 @@ class AnalyticsService @Inject constructor(
         logEvent("taste_matches_paywall_tapped", mapOf("has_club_trial" to hasClubTrial))
     fun logMessageThreadOpened(threadId: String) = logEvent("message_thread_opened", mapOf("thread_id" to threadId))
     fun logMessageSent(threadId: String, type: String) = logEvent("message_sent", mapOf("thread_id" to threadId, "message_type" to type))
+    fun logTypingSession(threadKind: String, writeCount: Int) = logEvent("typing_session", mapOf("thread_kind" to threadKind, "write_count" to writeCount))
     fun logMessageError(threadId: String, error: String) = logEvent("message_error", mapOf("thread_id" to threadId, "error" to error.take(100)))
 
     // MARK: - Group Messaging Events

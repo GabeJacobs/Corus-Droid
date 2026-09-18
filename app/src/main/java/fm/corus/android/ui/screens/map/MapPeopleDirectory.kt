@@ -42,7 +42,17 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
     var search by remember { mutableStateOf(model.directorySearch) }
     var collapsed by remember { mutableStateOf(ArrayList(model.directoryCollapsed)) }
     LaunchedEffect(search, collapsed) { model.directorySearch = search; model.directoryCollapsed = collapsed }
-    val filtered = cities.filter { "${it.city.cityName} ${it.city.regionName} ${it.city.countryCode} ${java.util.Locale("", it.city.countryCode).displayCountry}".contains(search.trim(), ignoreCase = true) }
+    LaunchedEffect(search, state.filter, state.selectedCommunityId) { model.searchDirectoryPeople(search) }
+    val cityMatches = cities.filter { "${it.city.cityName} ${it.city.regionName} ${it.city.countryCode} ${java.util.Locale("", it.city.countryCode).displayCountry}".contains(search.trim(), ignoreCase = true) }
+    val cityMatchIds = cityMatches.map { it.city.cityId }.toSet()
+    val extraPeople = state.directorySearchPeople.filter { it.city.cityId !in cityMatchIds }.groupBy { it.city.cityId }
+    val extraCities = extraPeople.map { (cityId, people) ->
+        cities.firstOrNull { it.city.cityId == cityId } ?: MapCitySummary(
+            people.first().city,
+            mapOf(state.filter to MapFacet(people.size, emptyList())),
+        )
+    }
+    val filtered = cityMatches + extraCities.filter { summary -> cityMatches.none { it.city.cityId == summary.city.cityId } }
     val listState = rememberLazyListState(model.directoryScrollIndex, model.directoryScrollOffset)
     LaunchedEffect(listState) {
         snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }.collect { (index, offset) ->
@@ -74,7 +84,7 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
                 Box(Modifier.weight(1f)) {
                     if (search.isEmpty()) {
                         Text(
-                            parityCopy("Search cities or countries"),
+                            parityCopy("Search cities or people"),
                             style = CorusFont.body,
                             color = CorusColors.Tertiary,
                         )
@@ -97,6 +107,8 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
         }
         filtered.forEach { summary ->
             val city = summary.city; val closed = city.cityId in collapsed
+            val searchHits = extraPeople[city.cityId]
+            val cityNameMatch = city.cityId in cityMatchIds
             item(key = "header:${city.cityId}") {
                 Row(Modifier.fillMaxWidth().clickable { collapsed = ArrayList(if (closed) collapsed - city.cityId else collapsed + city.cityId) }.padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
@@ -104,7 +116,7 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
                             Text(city.cityName, style = CorusFont.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Surface(color = CorusColors.CardBackground, shape = CircleShape) {
                                 Text(
-                                    "${summary.facets[state.filter]?.count ?: 0}",
+                                    "${if (cityNameMatch) summary.facets[state.filter]?.count ?: 0 else searchHits?.size ?: 0}",
                                     modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
                                     style = CorusFont.caption,
                                     color = CorusColors.Secondary,
@@ -136,8 +148,8 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
                 }
             }
             if (!closed) {
-                val page = state.listPages[city.cityId]
-                val showInitialSkeleton = state.listPreparing
+                val page = if (cityNameMatch) state.listPages[city.cityId] else MapPeoplePage(searchHits.orEmpty(), null, true)
+                val showInitialSkeleton = cityNameMatch && state.listPreparing
                 if (!showInitialSkeleton) items(page?.people.orEmpty(), key = { "${city.cityId}:${it.user.id}" }) { person ->
                     var appeared by rememberSaveable(city.cityId, person.user.id) { mutableStateOf(false) }
                     LaunchedEffect(Unit) { appeared = true }
@@ -155,21 +167,22 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
                     val skeletonCount = (summary.facets[state.filter]?.count ?: 1).coerceIn(1, 3)
                     items(skeletonCount, key = { "initial-skeleton:${city.cityId}:$it" }) { MapDirectoryPersonSkeleton() }
                 }
-                else if (city.cityId in state.listErrors) item { TextButton(onClick = { model.prepareListDirectory() }) { Text(parityCopy("Retry loading people")) } }
-                else if (city.cityId in state.listLoading) {
+                else if (cityNameMatch && city.cityId in state.listErrors) item { TextButton(onClick = { model.prepareListDirectory() }) { Text(parityCopy("Retry loading people")) } }
+                else if (cityNameMatch && city.cityId in state.listLoading) {
                     val skeletonCount = if (page == null) {
                         (summary.facets[state.filter]?.count ?: 1).coerceIn(1, 3)
                     } else 1
                     items(skeletonCount, key = { "skeleton:${city.cityId}:$it" }) { MapDirectoryPersonSkeleton() }
                 }
-                else if (page?.cursor != null) item(key = "next:${city.cityId}:${page.cursor}") { LaunchedEffect(page.cursor) { model.loadList(city, next = true) }; TextButton(onClick = { model.loadList(city, next = true) }) { Text(parityCopy("Load more people")) } }
-                else if (canInviteMapCluster(state, city, page, city.cityId in state.listLoading,
+                else if (cityNameMatch && page?.cursor != null) item(key = "next:${city.cityId}:${page.cursor}") { LaunchedEffect(page.cursor) { model.loadList(city, next = true) } }
+                else if (cityNameMatch && canInviteMapCluster(state, city, page, city.cityId in state.listLoading,
                     city.cityId in state.listErrors, model.repository.currentUserId)) {
                     item(key = "invite:${city.cityId}") { MapClusterInviteFooter() }
                 }
             }
         }
-        if (filtered.isEmpty()) item { Text(parityCopy("No people to show for this filter."), Modifier.padding(vertical = 24.dp)) }
+        if (filtered.isEmpty() && state.directorySearchLoading) item { MapDirectoryPersonSkeleton() }
+        else if (filtered.isEmpty()) item { Text(parityCopy("No people to show for this filter."), Modifier.padding(vertical = 24.dp)) }
     }
 }
 

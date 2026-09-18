@@ -1,10 +1,12 @@
 package fm.corus.android.data.repository
 
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.MetadataChanges
 import com.google.firebase.firestore.Query
+import fm.corus.android.domain.TypingPulse
 import fm.corus.android.data.model.CymbalMessage
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalThread
@@ -175,6 +177,35 @@ class MessageRepository @Inject constructor(
         val messageId = clientMessageId ?: "${System.currentTimeMillis()}"
         val url = storageDataSource.uploadMessageImage(fromUserId, threadId, messageId, imageData)
         cloudFunctions.sendMessage(threadId = threadId, fromUserId = fromUserId, text = "", type = "image", mediaURL = url, clientMessageId = clientMessageId)
+        return url
+    }
+
+    suspend fun sendVideoMessage(
+        threadId: String,
+        fromUserId: String,
+        videoData: ByteArray,
+        thumbnailData: ByteArray,
+        durationMs: Int,
+        width: Int,
+        height: Int,
+        text: String = "",
+        clientMessageId: String? = null,
+    ): String {
+        val messageId = clientMessageId ?: "${System.currentTimeMillis()}"
+        val url = storageDataSource.uploadMessageVideo(fromUserId, threadId, messageId, videoData)
+        val thumb = storageDataSource.uploadMessagePoster(fromUserId, threadId, messageId, thumbnailData)
+        cloudFunctions.sendMessage(
+            threadId = threadId,
+            fromUserId = fromUserId,
+            text = text,
+            type = "video",
+            mediaURL = url,
+            thumbnailURL = thumb,
+            mediaDurationMs = durationMs,
+            mediaWidth = width,
+            mediaHeight = height,
+            clientMessageId = clientMessageId,
+        )
         return url
     }
 
@@ -664,5 +695,43 @@ class MessageRepository @Inject constructor(
                 trySend(count)
             }
         awaitClose { registration.remove() }
+    }
+
+    fun listenTyping(threadId: String): Flow<List<TypingPulse>> = callbackFlow {
+        val registration = firestore
+            .collection("chat_typing")
+            .document(threadId)
+            .collection("typers")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                trySend(
+                    snapshot.documents.map { doc ->
+                        TypingPulse(
+                            uid = doc.id,
+                            atMs = doc.getTimestamp("at")?.toDate()?.time ?: 0L,
+                        )
+                    },
+                )
+            }
+        awaitClose { registration.remove() }
+    }
+
+    suspend fun pingTyping(threadId: String, uid: String) {
+        firestore.collection("chat_typing").document(threadId)
+            .collection("typers").document(uid)
+            .set(mapOf("at" to FieldValue.serverTimestamp()))
+            .await()
+    }
+
+    suspend fun clearTyping(threadId: String, uid: String) {
+        runCatching {
+            firestore.collection("chat_typing").document(threadId)
+                .collection("typers").document(uid)
+                .delete()
+                .await()
+        }
     }
 }

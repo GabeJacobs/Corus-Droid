@@ -36,15 +36,20 @@ import fm.corus.android.ui.theme.CorusSpacing
 
 @Composable
 fun MessageLinkPreviewCard(
-    preview: MessageLinkPreview,
+    preview: MessageLinkPreview?,
     isFromCurrentUser: Boolean,
     hero: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    if (hero && preview == null) {
+        HeroLinkPreviewSkeleton(isFromCurrentUser = isFromCurrentUser, modifier = modifier)
+        return
+    }
+    val resolved = preview ?: return
     val open = {
         runCatching {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(preview.openUrl)))
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(resolved.openUrl)))
         }
     }
     if (hero) {
@@ -54,12 +59,12 @@ fun MessageLinkPreviewCard(
                 .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
                 .clickable(onClick = open)
                 .background(
-                    if (isFromCurrentUser) Color.White.copy(alpha = 0.16f)
-                    else Color.Black.copy(alpha = 0.06f)
+                    if (isFromCurrentUser) CorusColors.Accent
+                    else CorusColors.CardBackground
                 ),
         ) {
             HeroMedia(preview)
-            CaptionBar(preview)
+            CaptionBar(preview, isFromCurrentUser)
         }
     } else {
         Row(
@@ -140,7 +145,7 @@ private fun HeroMedia(preview: MessageLinkPreview) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(if (preview.imageURL.isNullOrBlank()) 88.dp else 220.dp)
+            .height(if (preview.imageURL.isNullOrBlank()) 72.dp else 160.dp)
             .background(Color.Black.copy(alpha = 0.25f)),
         contentAlignment = Alignment.Center,
     ) {
@@ -148,7 +153,7 @@ private fun HeroMedia(preview: MessageLinkPreview) {
             ShimmerAsyncImage(
                 model = url,
                 contentDescription = preview.title,
-                modifier = Modifier.fillMaxWidth().height(220.dp),
+                modifier = Modifier.fillMaxWidth().height(160.dp),
                 contentScale = ContentScale.Crop,
             )
         }
@@ -172,19 +177,19 @@ private fun HeroMedia(preview: MessageLinkPreview) {
 }
 
 @Composable
-private fun CaptionBar(preview: MessageLinkPreview) {
+private fun CaptionBar(preview: MessageLinkPreview, isFromCurrentUser: Boolean) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.Black.copy(alpha = 0.55f))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .background(if (isFromCurrentUser) CorusColors.Accent else CorusColors.CardBackground)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
         preview.title?.takeIf { it.isNotBlank() }?.let {
             Text(
                 text = it,
                 style = CorusFont.bodyMedium,
-                color = Color.White,
-                maxLines = 3,
+                color = if (isFromCurrentUser) Color.White else CorusColors.Text,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
         }
@@ -192,7 +197,7 @@ private fun CaptionBar(preview: MessageLinkPreview) {
         Text(
             text = if (site != null) "$site  ${preview.displayDomain}" else preview.displayDomain,
             style = CorusFont.caption,
-            color = Color.White.copy(alpha = 0.85f),
+            color = if (isFromCurrentUser) Color.White.copy(alpha = 0.8f) else CorusColors.Secondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -205,4 +210,46 @@ private fun compactFooter(preview: MessageLinkPreview): String {
     }
     val site = preview.siteName?.takeIf { it.isNotBlank() }
     return if (site != null) "$site · ${preview.displayDomain}" else preview.displayDomain
+}
+
+@Composable
+private fun HeroLinkPreviewSkeleton(
+    isFromCurrentUser: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val fill = if (isFromCurrentUser) Color.White.copy(alpha = 0.28f) else Color.Black.copy(alpha = 0.08f)
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
+            .background(if (isFromCurrentUser) CorusColors.Accent else CorusColors.CardBackground),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(160.dp)
+                .background(fill),
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.8f)
+                    .height(12.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(fill),
+            )
+            Box(
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .fillMaxWidth(0.35f)
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(fill.copy(alpha = fill.alpha * 0.7f)),
+            )
+        }
+    }
 }

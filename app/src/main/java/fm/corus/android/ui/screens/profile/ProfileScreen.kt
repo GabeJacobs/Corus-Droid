@@ -177,6 +177,7 @@ fun ProfileScreen(
     val profile by viewModel.profile.collectAsState()
     val linkedArtist by viewModel.linkedArtist.collectAsState()
     val mapCity by viewModel.mapCity.collectAsState()
+    val mapCityResolved by viewModel.mapCityResolved.collectAsState()
     val pendingAvatarBytes by viewModel.pendingAvatarBytes.collectAsState()
     val posts by viewModel.posts.collectAsState()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
@@ -382,9 +383,11 @@ fun ProfileScreen(
 
     val gridState = rememberLazyGridState()
 
-    if (isLoading && profile == null) {
+    if ((isLoading && profile == null) || (viewModel.mapEnabled && !mapCityResolved)) {
         Column(modifier = Modifier.fillMaxSize()) {
-            fm.corus.android.ui.components.SkeletonProfileView()
+            fm.corus.android.ui.components.SkeletonProfileView(
+                reserveCityLine = viewModel.expectCityLine,
+            )
             fm.corus.android.ui.components.SkeletonProfileGrid()
         }
         return
@@ -564,11 +567,15 @@ fun ProfileScreen(
         item(span = { GridItemSpan(3) }, key = "avatar_stats") {
             Column {
                 // ── Avatar + Stats Row ──
+                val city = mapCity?.takeIf {
+                    viewModel.mapEnabled && currentProfile.showCityOnProfile
+                }
+                val hasCity = !city?.label.isNullOrEmpty()
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = avatarHPad),
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalAlignment = if (hasCity) Alignment.Top else Alignment.CenterVertically,
                 ) {
                     // Large circular avatar with long-press context menu
                     Box {
@@ -631,19 +638,18 @@ fun ProfileScreen(
                     Spacer(modifier = Modifier.width(CorusSpacing.md))
 
                     // Right side: stats + edit button
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        horizontalAlignment = Alignment.Start,
-                    ) {
-                        val city = mapCity?.takeIf {
-                            viewModel.mapEnabled && currentProfile.showCityOnProfile
-                        }
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(top = if (hasCity) 4.dp else 0.dp),
+                            horizontalAlignment = Alignment.Start,
+                        ) {
                         ProfileCityNameRow(
                             displayName = currentProfile.displayName,
                             cityLabel = city?.label,
                             onCityClick = city?.let { { onNavigateToMap(it.cityId) } },
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(if (hasCity) 8.dp else 4.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,

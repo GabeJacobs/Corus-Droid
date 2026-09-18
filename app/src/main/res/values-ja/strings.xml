@@ -707,6 +707,11 @@
     <string name="messaging_thread_attachment_album">アルバム</string>
     <string name="messaging_thread_attachment_director">監督</string>
     <string name="messaging_thread_placeholder">メッセージ...</string>
+    <string name="messaging_typing_one">%1$sが入力中</string>
+    <string name="messaging_typing_two">%1$sと%2$sが入力中</string>
+    <string name="messaging_typing_many">%1$s、%2$sほか%3$d人が入力中</string>
+    <string name="messaging_typing_several">複数の人が入力中</string>
+    <string name="messaging_typing_aria">入力中</string>
     <string name="messaging_thread_cd_shared_image">シェアされた画像</string>
     <string name="messaging_thread_sending">送信中...</string>
     <string name="messaging_thread_unavailable">この会話は利用できなくなりました</string>
@@ -1326,6 +1331,7 @@
     <string name="settings_row_always_play_full_songs_tidal_subtitle">TIDAL のサブスクリプションがあればフル尺、なければ 30 秒プレビュー。オフにすると 30秒/フル の切り替えが表示されます。</string>
     <string name="share_profile_subtitle">シェアしたときのリンクの表示プレビュー</string>
     <string name="share_profile_title">プロフィールをシェア</string>
+    <string name="share_profile_toast_instagram_link">リンクをコピーしました。ストーリーに貼り付けてください</string>
     <!-- Full-player a11y / social copy -->
     <string name="full_player_cd_close">プレーヤーを閉じる</string>
     <string name="full_player_cd_previous">前へ</string>

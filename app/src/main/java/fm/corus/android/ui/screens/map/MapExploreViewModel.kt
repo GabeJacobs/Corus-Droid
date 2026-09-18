@@ -14,6 +14,7 @@ import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -38,6 +39,7 @@ data class MapScreenState(
     val mode: String? = null, val playing: MapPlaybackItem? = null, val preview: MapPreviewUsage = MapPreviewUsage(),
     val currentDeviceCityId: String? = null, val ownSource: String? = null,
     val ownPresenceReady: Boolean = false, val ownAudience: String = "off", val ownCity: MapCity? = null, val paywall: String? = null, val historyIndex: Int = -1, val blocked: Boolean = false, val sessionKey: Int = 0,
+    val directorySearchPeople: List<MapPerson> = emptyList(), val directorySearchLoading: Boolean = false,
 )
 @HiltViewModel
 class MapExploreViewModel @Inject constructor(
@@ -63,7 +65,7 @@ class MapExploreViewModel @Inject constructor(
     }
     fun community(id: String?) {
         generation++; refreshGeneration++
-        updateState { it.copy(selectedCommunityId = id, selected = null, people = emptyList(), cities = emptyList(), listPages = emptyMap(), listLoading = emptySet(), listErrors = emptySet(), listPreparing = false, loading = true) }
+        updateState { it.copy(selectedCommunityId = id, selected = null, people = emptyList(), cities = emptyList(), listPages = emptyMap(), listLoading = emptySet(), listErrors = emptySet(), listPreparing = false, loading = true, directorySearchPeople = emptyList(), directorySearchLoading = false) }
         refresh()
     }
     private var deviceCityCheckedAt = 0L
@@ -213,7 +215,7 @@ class MapExploreViewModel @Inject constructor(
         repository.event("filter_changed", value = value)
         if (value == "tasteMatches" && !fullAccess) { pendingAction = { filter(value) }; updateState { it.copy(paywall = "MAP") }; return }
         if (mutable.value.mode != null) stop()
-        generation++; updateState { it.copy(filter = value, selected = null, people = emptyList(), listPages = emptyMap(), listLoading = emptySet(), listErrors = emptySet(), listPreparing = false) }
+        generation++; updateState { it.copy(filter = value, selected = null, people = emptyList(), listPages = emptyMap(), listLoading = emptySet(), listErrors = emptySet(), listPreparing = false, directorySearchPeople = emptyList(), directorySearchLoading = false) }
     }
     fun select(city: MapCity) {
         repository.event("city_opened", count = mutable.value.cities.firstOrNull { it.city.cityId == city.cityId }?.facets?.get(mutable.value.filter)?.count)
@@ -232,8 +234,12 @@ class MapExploreViewModel @Inject constructor(
         launch {
             val page = repository.people(city, mutable.value.filter, following, taste, selectedCommunityId = mutable.value.selectedCommunityId)
             val people = sortedMapPeople(page.people)
+            if (gen == generation) {
+                updateState { it.copy(people = people, peopleLoading = false, more = page.cursor, peopleReachedEnd = page.reachedEnd) }
+                repository.event("directory_ready", "city", count = people.size)
+            }
             val posts = repository.latest(people.take(8).map { it.user.id })
-            if (gen == generation) { updateState { it.copy(people = people, posts = posts, peopleLoading = false, more = page.cursor, peopleReachedEnd = page.reachedEnd) }; repository.event("directory_ready", "city", count = people.size) }
+            if (gen == generation) updateState { it.copy(posts = it.posts + posts) }
         }
     }
     fun loadList(city: MapCity, next: Boolean = false) = launch {
@@ -251,6 +257,34 @@ class MapExploreViewModel @Inject constructor(
         } catch (e: CancellationException) { throw e }
         catch (_: Exception) { if (gen == generation) updateState { it.copy(listErrors = it.listErrors + key) } }
         finally { if (gen == generation) updateState { it.copy(listLoading = it.listLoading - key) } }
+    }
+
+    private var peopleSearchGeneration = 0
+    fun searchDirectoryPeople(query: String) {
+        val needle = query.trim()
+        val request = ++peopleSearchGeneration
+        if (needle.isEmpty()) {
+            updateState { it.copy(directorySearchPeople = emptyList(), directorySearchLoading = false) }
+            return
+        }
+        updateState { it.copy(directorySearchLoading = true) }
+        viewModelScope.launch {
+            delay(400)
+            if (request != peopleSearchGeneration) return@launch
+            try {
+                val snapshot = mutable.value
+                val people = repository.searchPeople(needle, snapshot.filter, following, taste, snapshot.selectedCommunityId)
+                if (request == peopleSearchGeneration && auth.currentUser?.uid == uid) {
+                    updateState { it.copy(directorySearchPeople = people, directorySearchLoading = false) }
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                if (request == peopleSearchGeneration) {
+                    updateState { it.copy(directorySearchPeople = emptyList(), directorySearchLoading = false) }
+                }
+            }
+        }
     }
 
     /**

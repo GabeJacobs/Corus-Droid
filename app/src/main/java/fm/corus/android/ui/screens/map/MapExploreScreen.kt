@@ -66,6 +66,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun MapExploreScreen(
     initialCityId: String? = null, initialUserIds: List<String> = emptyList(),
+    fromProfile: Boolean = false,
     onBack: () -> Unit, onUser: (CymbalUser) -> Unit, onPost: (CymbalPost) -> Unit,
     onChat: (String) -> Unit, onPaywall: (String) -> Unit,
     onComments: (String) -> Unit, onRepost: (CymbalPost) -> Unit,
@@ -165,18 +166,23 @@ fun MapExploreScreen(
         // the sheet becomes visible on the next frame.
         citySheetVisible = true
         citySheetFocusRevision++
+        hapticView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
         model.select(city)
     }
     LaunchedEffect(cities, initialCityId, initialUserIds, pushDestinationApplied) {
         if (pushDestinationApplied || (initialCityId == null && initialUserIds.isEmpty())) return@LaunchedEffect
-        val target = initialCityId?.let { id -> cities.firstOrNull { it.city.cityId == id }?.city }
+        var target = initialCityId?.let { id -> cities.firstOrNull { it.city.cityId == id }?.city }
+        if (target == null && initialCityId != null && cities.isNotEmpty()) {
+            val resolved = runCatching { model.repository.resolveCityId(initialCityId) }.getOrNull()
+            target = resolved?.let { city -> cities.firstOrNull { it.city.cityId == city.cityId }?.city }
+        }
         if (target != null) {
-            model.filter("following")
+            if (!fromProfile) model.filter("following")
             browsingCityId = target.cityId
             openCitySheet(target)
             pushDestinationApplied = true
-        } else if (initialCityId == null && cities.isNotEmpty()) {
-            model.filter("following")
+        } else if (cities.isNotEmpty()) {
+            if (initialCityId == null && !fromProfile) model.filter("following")
             pushDestinationApplied = true
         }
     }
@@ -328,7 +334,7 @@ fun MapExploreScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer); stopLocation() }
     }
 
-    LaunchedEffect(state.ownAudience, state.ownCity) { audience = if (state.ownCity != null) state.ownAudience else model.repository.savedAudience(); chosenCity = state.ownCity }
+    LaunchedEffect(state.ownAudience, state.ownCity) { audience = model.repository.sheetAudience(state.ownAudience, state.ownCity != null); chosenCity = state.ownCity }
     LaunchedEffect(listState, state.selected?.cityId, state.people) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.mapNotNull { row -> state.people.getOrNull(row.index)?.user?.id } }
             .collect { ids -> model.visiblePeople(ids) }
@@ -449,7 +455,7 @@ fun MapExploreScreen(
                 Text(parityCopy("Map"), style = CorusFont.songTitleLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 IconButton(
                     enabled = !resolvingCity,
-                    onClick = { audience = if (state.ownCity != null) state.ownAudience else model.repository.savedAudience(); model.repository.event("audience_picker_opened"); dialog = "audience" },
+                    onClick = { audience = model.repository.sheetAudience(state.ownAudience, state.ownCity != null); model.repository.event("audience_picker_opened"); dialog = "audience" },
                     modifier = Modifier.align(Alignment.CenterEnd).size(48.dp),
                     colors = IconButtonDefaults.iconButtonColors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
                 ) {
@@ -505,7 +511,7 @@ fun MapExploreScreen(
                         Text("${stringResource(fm.corus.android.R.string.map_sharing_label)} ${sharedCity.cityName}", modifier = Modifier.weight(1f, fill = false), style = CorusFont.captionMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     TextButton(
-                        onClick = { audience = if (sharedCity != null) state.ownAudience else model.repository.savedAudience(); model.repository.event("audience_picker_opened"); dialog = "audience" },
+                        onClick = { audience = model.repository.sheetAudience(state.ownAudience, sharedCity != null); model.repository.event("audience_picker_opened"); dialog = "audience" },
                         contentPadding = PaddingValues(horizontal = if (sharedCity == null) 0.dp else 6.dp),
                     ) {
                         Text(parityCopy(if (sharedCity == null) "Share your city" else "Change"), style = CorusFont.captionMedium, color = CorusColors.Accent, maxLines = 1)
@@ -560,8 +566,9 @@ fun MapExploreScreen(
         if (state.selected == null && state.playing == null && view == "map" && browsingCity != null) Surface(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 76.dp), shape = CircleShape, color = CorusColors.CardBackground.copy(alpha = .88f), shadowElevation = 4.dp) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 fun browse(delta: Int) {
-                    val i = cities.indexOfFirst { it.city.cityId == browsingCity.cityId }
-                    browsingCityId = cities[(i + delta + cities.size) % cities.size].city.cityId
+                    val next = nextMapCitySummary(cities, browsingCity.cityId, delta) ?: return
+                    hapticView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                    browsingCityId = next.city.cityId
                     citySheetFocusRevision++
                 }
                 IconButton(onClick = { browse(-1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronLeft, stringResource(fm.corus.android.R.string.map_cd_previous_city)) }
@@ -569,9 +576,21 @@ fun MapExploreScreen(
                 IconButton(onClick = { browse(1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronRight, stringResource(fm.corus.android.R.string.map_cd_next_city)) }
             }
         }
-        if (state.selected == null && state.playing == null && view == "map") Row(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (state.selected == null && state.playing == null && view == "map") Row(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             MapGlassModeButton("Listen", Icons.Default.Headphones) { openCountryPicker("listen") }
             MapGlassModeButton("Watch", Icons.Default.Movie) { openCountryPicker("watch") }
+            val sharedCity = state.ownCity?.takeIf { state.ownAudience != "off" }
+            if (sharedCity != null && cities.isNotEmpty()) {
+                MapGlassLocateButton(
+                    onClick = {
+                        hapticView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                        model.repository.event("own_city_located")
+                        sharedCityFocus = sharedCity
+                        shareFocusRevision++
+                        browsingCityId = sharedCity.cityId
+                    },
+                )
+            }
         }
         state.selected?.takeIf { state.playing == null }?.let { city ->
             // Keep the directory in the map hierarchy. Unlike a Dialog, this
@@ -617,7 +636,10 @@ fun MapExploreScreen(
                         contentAlignment = Alignment.Center,
                     ) { Box(Modifier.size(36.dp, 4.dp).clip(CircleShape).background(CorusColors.Secondary.copy(alpha = .4f))) }
                     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        fun step(delta: Int) { val i = cities.indexOfFirst { it.city.cityId == city.cityId }; if (cities.isNotEmpty()) openCitySheet(cities[(i + delta + cities.size) % cities.size].city) }
+                        fun step(delta: Int) {
+                            val next = nextMapCitySummary(cities, city.cityId, delta) ?: return
+                            openCitySheet(next.city)
+                        }
                         IconButton(onClick = { step(-1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronLeft, stringResource(fm.corus.android.R.string.map_cd_previous_city)) }
                         val peopleCount = cities.firstOrNull { it.city.cityId == city.cityId }?.facets?.get(state.filter)?.count ?: 0
                         val country = java.util.Locale("", city.countryCode).displayCountry.ifBlank { city.countryCode }
@@ -642,7 +664,7 @@ fun MapExploreScreen(
                         items(state.people, key = { it.user.id }) { person ->
                             val post = state.posts[person.user.id]
                             val rowLayout = mapPersonRowLayout(post != null)
-                            Row(Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(fm.corus.android.R.string.map_cd_view_profile), role = androidx.compose.ui.semantics.Role.Button) { openUser(person.user) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).clickable(onClickLabel = stringResource(fm.corus.android.R.string.map_cd_view_profile), role = androidx.compose.ui.semantics.Role.Button) { openUser(person.user) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 AsyncImage(model = person.user.avatarThumbURL ?: person.user.avatarURL, contentDescription = null, modifier = Modifier.size(44.dp).clip(CircleShape))
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     UsernameWithFlair(username = person.user.username, isVerified = person.user.isVerified, isClubMember = person.user.isClubMember, flairStyle = person.user.flairStyle, isBot = person.user.isBot, showAtPrefix = true, flairYOffset = (-1).dp, flairSpacing = 2.dp)
@@ -655,7 +677,12 @@ fun MapExploreScreen(
                                 Icon(Icons.Default.ChevronRight, contentDescription = stringResource(fm.corus.android.R.string.map_cd_view_profile), tint = CorusColors.Tertiary)
                             }; HorizontalDivider(color = CorusColors.Divider)
                         }
-                        if (state.more != null) item { TextButton(onClick = { model.more() }, enabled = !state.peopleLoading) { Text(parityCopy("Load more people")) } }
+                        if (state.peopleLoading && state.people.isNotEmpty()) {
+                            items(2, key = { "more-skeleton:$it" }) { MapPersonRowSkeleton() }
+                        }
+                        if (state.more != null) item(key = "next:${city.cityId}:${state.more}") {
+                            LaunchedEffect(state.more) { model.more() }
+                        }
                         else if (canInviteMapCluster(state, city, MapPeoplePage(state.people, state.more, state.peopleReachedEnd),
                             state.peopleLoading, state.error != null, model.repository.currentUserId)) {
                             item(key = "invite:${city.cityId}") { MapClusterInviteFooter() }
@@ -832,7 +859,7 @@ fun MapExploreScreen(
                         Triple("following", "People I follow", "Only accounts you follow can see your city."),
                         Triple("off", "No one", "Stay private while you explore the map."),
                     ).forEach { (value, title, subtitle) -> item {
-                        MapAudienceOption(value, title, subtitle, audience == value) { audience = value; model.repository.event("audience_selected", value = value) }
+                        MapAudienceOption(value, title, subtitle, audience == value) { audience = value; model.repository.rememberAudience(value); model.repository.event("audience_selected", value = value) }
                     } }
                     item { MapSheetPrimaryButton(onClick = { model.repository.rememberAudience(audience); if (audience == "off") model.stopSharing { dialog = "" } else {
                         // Sharing is always device-derived: permission, visible resolving
@@ -901,65 +928,9 @@ fun MapExploreScreen(
     }
 }
 
-@Composable
-private fun MapIntroBenefitRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, body: String) {
-    Row(
-        Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Icon(icon, contentDescription = null, tint = CorusColors.Accent, modifier = Modifier.size(22.dp).padding(top = 1.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(parityCopy(title), style = CorusFont.bodyMedium)
-            Text(parityCopy(body), style = CorusFont.caption, color = CorusColors.Secondary)
-        }
-    }
-}
-
 private fun countryFlag(countryCode: String): String = countryCode.uppercase().map {
     String(Character.toChars(it.code + 0x1F1A5))
 }.joinToString("")
-
-@Composable
-private fun MapAudienceOption(value: String, title: String, subtitle: String, selected: Boolean, onSelect: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
-            .background(if (selected) CorusColors.Accent.copy(alpha = .10f) else CorusColors.CardBackground)
-            .clickable(onClick = onSelect).padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        val icon = when (value) {
-            "everyone" -> Icons.Default.Public
-            "following" -> Icons.Default.People
-            else -> Icons.Default.LocationOff
-        }
-        Box(Modifier.size(42.dp).clip(CircleShape).background(CorusColors.Accent.copy(alpha = .14f)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = CorusColors.Accent)
-        }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(parityCopy(title), style = CorusFont.bodyMedium)
-            Text(parityCopy(subtitle), style = CorusFont.caption, color = CorusColors.Secondary)
-        }
-        RadioButton(selected = selected, onClick = onSelect)
-    }
-}
-
-/** Shared primary action geometry for the map's onboarding and picker sheets. */
-@Composable
-private fun MapSheetPrimaryButton(
-    onClick: () -> Unit,
-    enabled: Boolean = true,
-    content: @Composable RowScope.() -> Unit,
-) {
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.fillMaxWidth().height(56.dp).navigationBarsPadding(),
-        shape = RoundedCornerShape(28.dp),
-        content = content,
-    )
-}
 
 /** Mirrors the directory row so loading preserves avatar, text and artwork columns. */
 @Composable
@@ -980,6 +951,36 @@ private fun MapPersonRowSkeleton() {
             Spacer(Modifier.size(24.dp))
         }
         HorizontalDivider(color = CorusColors.Divider)
+    }
+}
+
+@Composable
+private fun MapGlassLocateButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = CircleShape
+    Surface(
+        onClick = onClick,
+        shape = shape,
+        color = androidx.compose.ui.graphics.Color.Transparent,
+        contentColor = CorusColors.Text,
+        shadowElevation = 6.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = .55f)),
+        modifier = modifier.size(48.dp),
+    ) {
+        Box(
+            Modifier.fillMaxSize().background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(listOf(
+                    CorusColors.Background.copy(alpha = .88f),
+                    CorusColors.Background.copy(alpha = .68f),
+                ))
+            ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Default.MyLocation,
+                contentDescription = parityCopy("Show your city on the map"),
+                modifier = Modifier.size(18.dp),
+            )
+        }
     }
 }
 

@@ -780,6 +780,11 @@
     <string name="messaging_thread_attachment_album">Álbum</string>
     <string name="messaging_thread_attachment_director">Director</string>
     <string name="messaging_thread_placeholder">Mensaje...</string>
+    <string name="messaging_typing_one">%1$s está escribiendo</string>
+    <string name="messaging_typing_two">%1$s y %2$s están escribiendo</string>
+    <string name="messaging_typing_many">%1$s, %2$s y %3$d más están escribiendo</string>
+    <string name="messaging_typing_several">Varias personas están escribiendo</string>
+    <string name="messaging_typing_aria">Alguien está escribiendo</string>
     <string name="messaging_thread_cd_shared_image">Imagen compartida</string>
     <string name="messaging_thread_sending">Enviando...</string>
     <string name="messaging_thread_unavailable">Esta conversación ya no está disponible</string>
@@ -1462,6 +1467,7 @@
     <string name="settings_row_always_play_full_songs_tidal_subtitle">Reproduce canciones completas con una suscripción a TIDAL; si no, vistas previas de 30 s. Desactívalo para mostrar el interruptor 30s/Completo.</string>
     <string name="share_profile_subtitle">Vista previa de cómo se verá tu enlace al compartirlo</string>
     <string name="share_profile_title">Compartir tu perfil</string>
+    <string name="share_profile_toast_instagram_link">Enlace copiado — pégalo en tu historia</string>
     <!-- Full-player a11y / social copy -->
     <string name="full_player_cd_close">Cerrar reproductor</string>
     <string name="full_player_cd_previous">Anterior</string>

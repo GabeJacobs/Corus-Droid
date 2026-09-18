@@ -39,4 +39,18 @@ class TabNavBackStackTest {
     fun `populated tab stack is left alone`() {
         assertFalse(shouldRestoreTabStart(hasCurrentDestination = true))
     }
+
+    @Test
+    fun `city on a profile opened from map does not push another map`() {
+        assertFalse(shouldOpenMapFromProfileCity(mapAlreadyOnStack = true))
+        assertTrue(shouldOpenMapFromProfileCity(mapAlreadyOnStack = false))
+    }
+
+    @Test
+    fun `typed map explore routes are recognized under a profile`() {
+        val map = MapExploreRoute::class.qualifiedName
+        assertTrue(destinationIsMapExplore("$map/{cityId}"))
+        assertFalse(destinationIsMapExplore(OtherProfileRoute::class.qualifiedName + "/{userId}"))
+        assertFalse(destinationIsMapExplore(null))
+    }
 }

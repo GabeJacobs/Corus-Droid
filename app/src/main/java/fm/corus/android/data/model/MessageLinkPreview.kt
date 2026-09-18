@@ -63,6 +63,13 @@ data class MessageLinkPreview(
             return remainder.isEmpty()
         }
 
+        fun firstHttpUrl(text: String?): String? {
+            val trimmed = text?.trim().orEmpty()
+            if (trimmed.isEmpty()) return null
+            val match = URL_REGEX.find(trimmed) ?: return null
+            return match.value.replace(Regex("""[),.;!?]+$"""), "")
+        }
+
         private fun hostOf(value: String): String? = try {
             java.net.URI(value).host
         } catch (_: Exception) {

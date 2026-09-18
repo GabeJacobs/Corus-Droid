@@ -67,6 +67,7 @@ class MessageThreadViewModelTest {
         userRepository = mock { on { blockedIds } doReturn kotlinx.coroutines.flow.MutableStateFlow(emptySet()) }
         remoteConfigService = mock {
             on { gifSupport } doReturn false
+            on { dmVideoEnabled } doReturn false
         }
         gifRepository = mock()
         nowPlayingManager = mock()

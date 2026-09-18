@@ -85,6 +85,20 @@ class FirebaseStorageDataSource @Inject constructor(
         return ref.downloadUrl.await().toString()
     }
 
+    suspend fun uploadMessageVideo(userId: String, threadId: String, messageId: String, videoData: ByteArray): String {
+        val ref = storage.reference.child("messageMedia/$userId/$threadId/$messageId.mp4")
+        val metadata = StorageMetadata.Builder().setContentType("video/mp4").build()
+        ref.putBytes(videoData, metadata).await()
+        return ref.downloadUrl.await().toString()
+    }
+
+    suspend fun uploadMessagePoster(userId: String, threadId: String, messageId: String, imageData: ByteArray): String {
+        val ref = storage.reference.child("messageMedia/$userId/$threadId/$messageId-poster.jpg")
+        val metadata = StorageMetadata.Builder().setContentType("image/jpeg").build()
+        ref.putBytes(imageData, metadata).await()
+        return ref.downloadUrl.await().toString()
+    }
+
     suspend fun uploadVoiceNote(userId: String, postId: String, audioData: ByteArray): String {
         val ref = storage.reference.child("voiceNotes/$userId/$postId.m4a")
         val metadata = StorageMetadata.Builder().setContentType("audio/mp4").build()

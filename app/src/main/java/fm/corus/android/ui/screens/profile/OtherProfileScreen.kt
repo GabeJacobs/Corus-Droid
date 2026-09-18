@@ -133,6 +133,7 @@ fun OtherProfileScreen(
     onNavigateToMessages: (String, String) -> Unit = { _, _ -> },
     onNavigateToPost: (postId: String) -> Unit = {},
     onNavigateToArtist: ((ArtistPageRoute) -> Unit)? = null,
+    suppressMapCityNavigation: Boolean = false,
 ) {
     // Responsive header spacing: wider phones (~Pixel 9 Pro) get a more generous
     // inset; narrower phones (~Galaxy S) keep the original tighter layout so the
@@ -150,6 +151,7 @@ fun OtherProfileScreen(
 
     val profile by viewModel.profile.collectAsState()
     val mapCity by viewModel.mapCity.collectAsState()
+    val mapCityResolved by viewModel.mapCityResolved.collectAsState()
     val posts by viewModel.posts.collectAsState()
     val musicService by viewModel.musicServicePreference.current.collectAsState()
     var showPlaylistAlert by remember { mutableStateOf(false) }
@@ -569,8 +571,9 @@ fun OtherProfileScreen(
             return@run
         }
         val hasInitialData = initialDisplayName != null && initialUsername != null
-        if (isLoading && profile == null) {
-            if (hasInitialData) {
+        val waitForMapCity = viewModel.mapEnabled && !mapCityResolved
+        if ((isLoading && profile == null) || waitForMapCity) {
+            if (hasInitialData && !waitForMapCity) {
                 // Show real header with initial data from the feed; only shimmer the posts grid
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(3),
@@ -762,11 +765,13 @@ fun OtherProfileScreen(
                     SkeletonProfileWithAvatar(
                         avatarURL = initialAvatarURL,
                         avatarThumbURL = initialAvatarThumbURL,
+                        reserveCityLine = viewModel.expectCitySkeleton(userId),
                     )
                 } else {
-                    // OtherProfileScreen keeps the nav icons in the TopAppBar, so
-                    // the body header is just a centered name (no 40dp icon band).
-                    SkeletonProfileView(showIconHeaderRow = false)
+                    SkeletonProfileView(
+                        showIconHeaderRow = false,
+                        reserveCityLine = viewModel.expectCitySkeleton(userId),
+                    )
                 }
                 SkeletonProfileGrid()
             }
@@ -862,12 +867,14 @@ fun OtherProfileScreen(
             item(span = { GridItemSpan(3) }) {
                 Column {
                     // Avatar + display name + stats (Instagram identity)
+                    val city = mapCity?.takeIf { viewModel.mapEnabled }
+                    val hasCity = !city?.label.isNullOrEmpty()
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = headerHPad)
                             .padding(top = CorusSpacing.sm),
-                        verticalAlignment = Alignment.CenterVertically,
+                        verticalAlignment = if (hasCity) Alignment.Top else Alignment.CenterVertically,
                     ) {
                         UserAvatarView(
                             avatarURL = currentProfile.avatarURL,
@@ -879,16 +886,17 @@ fun OtherProfileScreen(
                         Spacer(modifier = Modifier.width(16.dp))
 
                         Column(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(top = if (hasCity) 4.dp else 0.dp),
                             horizontalAlignment = Alignment.Start,
                         ) {
-                            val city = mapCity?.takeIf { viewModel.mapEnabled }
                             ProfileCityNameRow(
                                 displayName = currentProfile.displayName,
                                 cityLabel = city?.label,
-                                onCityClick = city?.let { { onNavigateToMap(it.cityId) } },
+                                onCityClick = city?.takeIf { !suppressMapCityNavigation }?.let { { onNavigateToMap(it.cityId) } },
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(if (hasCity) 8.dp else 4.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,

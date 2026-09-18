@@ -779,6 +779,11 @@
     <string name="messaging_thread_attachment_album">专辑</string>
     <string name="messaging_thread_attachment_director">导演</string>
     <string name="messaging_thread_placeholder">发消息...</string>
+    <string name="messaging_typing_one">%1$s正在输入</string>
+    <string name="messaging_typing_two">%1$s和%2$s正在输入</string>
+    <string name="messaging_typing_many">%1$s、%2$s和其他 %3$d 人正在输入</string>
+    <string name="messaging_typing_several">有人正在输入</string>
+    <string name="messaging_typing_aria">有人正在输入</string>
     <string name="messaging_thread_cd_shared_image">分享的图片</string>
     <string name="messaging_thread_sending">发送中...</string>
     <string name="messaging_thread_unavailable">此对话已不可用</string>
@@ -1453,6 +1458,7 @@
     <string name="settings_row_always_play_full_songs_tidal_subtitle">有 TIDAL 订阅时播放完整歌曲，否则为 30 秒试听。关闭后显示 30秒/完整 开关。</string>
     <string name="share_profile_subtitle">预览分享后链接的显示效果</string>
     <string name="share_profile_title">分享你的个人资料</string>
+    <string name="share_profile_toast_instagram_link">链接已复制 — 粘贴到你的快拍</string>
     <!-- Full-player a11y / social copy -->
     <string name="full_player_cd_close">关闭播放器</string>
     <string name="full_player_cd_previous">上一首</string>

@@ -55,6 +55,39 @@ fun sortedMapCitiesNear(cities: List<MapCitySummary>, origin: MapCity?): List<Ma
         a.city.cityId.compareTo(b.city.cityId)
     }
 
+/** Degrees in (0, 360]. Same longitude is a full wrap so a different city
+ * at that meridian is still reachable. Mirrors iOS `MapCityStep`. */
+fun eastwardDegrees(from: Double, to: Double): Double {
+    var delta = (to - from) % 360.0
+    if (delta <= 0) delta += 360.0
+    return delta
+}
+
+/** Right is east, left is west. Walks the globe instead of list order. */
+fun nextMapCity(cities: List<MapCity>, currentId: String?, delta: Int): MapCity? {
+    if (cities.isEmpty()) return null
+    if (cities.size == 1 || delta == 0) return cities.firstOrNull { it.cityId == currentId } ?: cities.first()
+    val current = cities.firstOrNull { it.cityId == currentId } ?: cities.first()
+    val goingEast = delta > 0
+    var best: MapCity? = null
+    var bestScore = Double.POSITIVE_INFINITY
+    for (city in cities) {
+        if (city.cityId == current.cityId) continue
+        val east = eastwardDegrees(current.longitude, city.longitude)
+        val score = if (goingEast) east else 360.0 - east
+        if (score < bestScore || (score == bestScore && city.cityId < (best?.cityId ?: city.cityId))) {
+            bestScore = score
+            best = city
+        }
+    }
+    return best
+}
+
+fun nextMapCitySummary(cities: List<MapCitySummary>, currentId: String?, delta: Int): MapCitySummary? {
+    val next = nextMapCity(cities.map { it.city }, currentId, delta) ?: return null
+    return cities.first { it.city.cityId == next.cityId }
+}
+
 fun stableMapFaces(previous: List<MapPerson>, candidates: List<MapPerson>): List<MapPerson> {
     val latest = candidates.associateBy { it.user.id }
     return (previous.mapNotNull { latest[it.user.id] } + candidates.mapNotNull { latest[it.user.id] }).distinctBy { it.user.id }.take(3)
@@ -75,5 +108,5 @@ fun removeMapViewer(state: MapScreenState, uid: String?): MapScreenState {
     if (uid == null) return state
     return state.copy(cities = state.cities.map { city -> city.copy(facets = city.facets.mapValues { (_, f) ->
         f.copy(count = (f.count - if (f.includesViewer) 1 else 0).coerceAtLeast(0), includesViewer = false, previews = f.previews.filterNot { it.user.id == uid })
-    }) }, people = state.people.filterNot { it.user.id == uid }, listPages = state.listPages.mapValues { (_, page) -> page.copy(people = page.people.filterNot { it.user.id == uid }) })
+    }) }, people = state.people.filterNot { it.user.id == uid }, directorySearchPeople = state.directorySearchPeople.filterNot { it.user.id == uid }, listPages = state.listPages.mapValues { (_, page) -> page.copy(people = page.people.filterNot { it.user.id == uid }) })
 }

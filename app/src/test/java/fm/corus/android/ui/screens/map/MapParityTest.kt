@@ -68,6 +68,10 @@ class MapParityTest {
         assertTrue(html.contains("const animate=interactive&&this.lastFocus!==null"))
         assertTrue(html.contains("row.city.id===window.CorusAppleMap.data.focus?.id"))
         assertTrue(html.contains("const selected=focused?[focused]:[]"))
+        assertTrue(html.contains("const list=cells.get(key)||[];list.push(row)"))
+        assertTrue(html.contains("ranked.find(function(entry){return !selected.some"))
+        assertTrue(html.contains("function expandedPreviewClusterIDs(locked,proposed,limit)"))
+        assertTrue(html.contains("if(this.lastPreviewCamera!==cameraKey){this.lockedPreviewIds=[];this.lastPreviewCamera=cameraKey;}"))
     }
     @Test fun compactClusterDensityMatchesIosTiers() {
         val html = appleMapHtml("token", compact = true, fontData = "font")
@@ -110,6 +114,19 @@ class MapParityTest {
         )
         assertEquals(listOf("queens", "boston", "melbourne"), sortedMapCitiesNear(cities, brooklyn).map { it.city.cityId })
         assertEquals(listOf("boston", "melbourne", "queens"), sortedMapCitiesNear(cities, null).map { it.city.cityId })
+    }
+
+    @Test fun cityArrowsWalkEastAndWestByLongitude() {
+        fun city(id: String, longitude: Double) = MapCity(id, id, "", "US", 0.0, longitude)
+        val globe = listOf(city("new-york-us", -74.0), city("tokyo-jp", 139.7), city("los-angeles-us", -118.2))
+        assertEquals("new-york-us", nextMapCity(globe, "los-angeles-us", 1)?.cityId)
+        assertEquals("tokyo-jp", nextMapCity(globe, "new-york-us", 1)?.cityId)
+        assertEquals("los-angeles-us", nextMapCity(globe, "tokyo-jp", 1)?.cityId)
+        val west = listOf(city("new-york-us", -74.0), city("los-angeles-us", -118.2), city("chicago-us", -87.6))
+        assertEquals("chicago-us", nextMapCity(west, "new-york-us", -1)?.cityId)
+        val alpha = listOf(city("austin-us", -97.7), city("boston-us", -71.1), city("chicago-us", -87.6))
+        assertEquals("austin-us", nextMapCity(alpha, "boston-us", 1)?.cityId)
+        assertEquals("chicago-us", nextMapCity(alpha, "boston-us", -1)?.cityId)
     }
     @Test fun cityFacesRetainTheirSlotsAcrossPageReordering() {
         val city = MapCity("c", "City", "", "US", 0.0, 0.0)
@@ -202,5 +219,14 @@ class MapParityTest {
         assertFalse(MapPlaybackOwner.advance("other-track"))
         assertTrue(MapPlaybackOwner.advance("map-track")); assertEquals(1, advances)
         MapPlaybackOwner.yield(); assertTrue(abandoned); assertNull(MapPlaybackOwner.current)
+    }
+    @Test fun ownCityLocatorSitsInTheListenWatchRow() {
+        val source = File("src/main/java/fm/corus/android/ui/screens/map/MapExploreScreen.kt").readText()
+        val listen = source.indexOf("MapGlassModeButton(\"Listen\"")
+        val watch = source.indexOf("MapGlassModeButton(\"Watch\"")
+        val locate = source.indexOf("MapGlassLocateButton(")
+        assertTrue(listen >= 0 && watch > listen && locate > watch)
+        val row = source.substring(listen, locate)
+        assertFalse(row.contains("Alignment.BottomEnd"))
     }
 }

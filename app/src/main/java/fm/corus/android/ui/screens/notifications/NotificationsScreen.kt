@@ -59,6 +59,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -67,6 +68,15 @@ import androidx.compose.ui.window.PopupProperties
 import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import fm.corus.android.ui.components.HashtagSuggestionsList
+import fm.corus.android.ui.components.MentionSuggestionsList
+import fm.corus.android.ui.components.applyHashtag
+import fm.corus.android.ui.components.applyMention
+import fm.corus.android.ui.components.parseHashtagQuery
+import fm.corus.android.ui.components.parseMentionQuery
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import fm.corus.android.R
 import fm.corus.android.data.model.CommentAttachedFilm
 import fm.corus.android.data.model.CommentAttachedSong
@@ -498,6 +508,7 @@ fun NotificationsScreen(
 
             InlineReplyBar(
                 modifier = Modifier.align(Alignment.BottomCenter),
+                viewModel = viewModel,
                 replyingTo = replyingTo!!,
                 isSending = isSendingReply,
                 pendingSong = replyPendingSong,
@@ -1136,6 +1147,7 @@ private fun NotificationsEmptyState(
 @Composable
 private fun InlineReplyBar(
     modifier: Modifier = Modifier,
+    viewModel: NotificationsViewModel,
     replyingTo: CymbalNotification,
     isSending: Boolean,
     pendingSong: CommentAttachedSong? = null,
@@ -1152,15 +1164,21 @@ private fun InlineReplyBar(
     onClearAttachment: () -> Unit = {},
     onSend: (String) -> Unit,
 ) {
-    var text by rememberSaveable(replyingTo.id) { mutableStateOf("") }
+    var text by remember(replyingTo.id) { mutableStateOf(TextFieldValue("")) }
     val focusRequester = remember { FocusRequester() }
+    val coroutineScope = rememberCoroutineScope()
+    var mentionSearchJob by remember { mutableStateOf<Job?>(null) }
+    val mentionSuggestions by viewModel.mentionSuggestions.collectAsState()
+    val isSearchingMentions by viewModel.isSearchingMentions.collectAsState()
+    val hashtagSuggestions by viewModel.hashtagSuggestions.collectAsState()
 
     LaunchedEffect(replyingTo.id) {
         focusRequester.requestFocus()
+        viewModel.clearReplyComposerSuggestions()
     }
 
     val hasAttachment = pendingSong != null || pendingFilm != null || pendingGif != null
-    val canSend = (text.trim().isNotEmpty() || hasAttachment) && !isSending
+    val canSend = (text.text.trim().isNotEmpty() || hasAttachment) && !isSending
     val composerBottomInset = with(LocalDensity.current) {
         liftAboveReservedChrome(
             ime = WindowInsets.ime.getBottom(this).toDp(),
@@ -1180,6 +1198,21 @@ private fun InlineReplyBar(
             // must own pointer input rather than letting taps hit a row beneath it.
             .blockTouchPassthrough(),
     ) {
+        MentionSuggestionsList(
+            users = mentionSuggestions.take(4),
+            onSelect = { user ->
+                text = applyMention(text, user.username)
+                viewModel.clearMentions()
+            },
+            isSearching = isSearchingMentions,
+        )
+        HashtagSuggestionsList(
+            hashtags = hashtagSuggestions.take(3),
+            onSelect = { tag ->
+                text = applyHashtag(text, tag.name)
+                viewModel.clearHashtags()
+            },
+        )
         HorizontalDivider(color = CorusColors.Divider)
 
         if (hasAttachment) {
@@ -1256,7 +1289,27 @@ private fun InlineReplyBar(
                 Spacer(modifier = Modifier.height(2.dp))
                 BasicTextField(
                     value = text,
-                    onValueChange = { text = it },
+                    onValueChange = { newValue ->
+                        val textChanged = newValue.text != text.text
+                        text = newValue
+                        if (textChanged) {
+                            mentionSearchJob?.cancel()
+                            mentionSearchJob = coroutineScope.launch {
+                                delay(200)
+                                val caret = newValue.selection.start
+                                val mention = parseMentionQuery(newValue.text, caret)
+                                if (mention != null) {
+                                    viewModel.clearHashtags()
+                                    viewModel.searchMentions(mention)
+                                } else {
+                                    viewModel.clearMentions()
+                                    val hashtag = parseHashtagQuery(newValue.text, caret)
+                                    if (hashtag != null) viewModel.searchHashtags(hashtag)
+                                    else viewModel.clearHashtags()
+                                }
+                            }
+                        }
+                    },
                     textStyle = CorusFont.body.copy(color = CorusColors.Text),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1264,11 +1317,11 @@ private fun InlineReplyBar(
                     cursorBrush = androidx.compose.ui.graphics.SolidColor(CorusColors.Accent),
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = {
-                        if (canSend) onSend(text)
+                        if (canSend) onSend(text.text)
                     }),
                     maxLines = 4,
                     decorationBox = { inner ->
-                        if (text.isEmpty()) {
+                        if (text.text.isEmpty()) {
                             Text(
                                 text = stringResource(id = R.string.notifications_reply_placeholder),
                                 style = CorusFont.body.copy(color = CorusColors.Tertiary),
@@ -1284,7 +1337,7 @@ private fun InlineReplyBar(
                     .size(32.dp)
                     .clip(CircleShape)
                     .background(if (canSend) CorusColors.Accent else CorusColors.Divider)
-                    .clickable(enabled = canSend) { onSend(text) },
+                    .clickable(enabled = canSend) { onSend(text.text) },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(

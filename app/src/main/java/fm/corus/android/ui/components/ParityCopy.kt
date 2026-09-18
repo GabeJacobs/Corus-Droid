@@ -144,6 +144,7 @@ fun parityCopy(text: String): String = when (text) {
     "Search KLIPY" -> stringResource(R.string.parity_9e867d1a518b)
     "Search cities" -> stringResource(R.string.parity_8008bef0fc1f)
     "Search cities or countries" -> stringResource(R.string.parity_04142689eeeb)
+    "Search cities or people" -> stringResource(R.string.parity_04142689eeeb)
     "Search films" -> stringResource(R.string.parity_4579de70a18f)
     "Search songs" -> stringResource(R.string.parity_9de9debbfd35)
     "Search username" -> stringResource(R.string.parity_8d232b28b92f)
