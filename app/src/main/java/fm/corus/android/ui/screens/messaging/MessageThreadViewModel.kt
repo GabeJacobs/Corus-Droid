@@ -29,7 +29,9 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.service.RemoteConfigService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -153,9 +155,16 @@ class MessageThreadViewModel @Inject constructor(
         _pendingMessages,
     ) { server, older, pending ->
         val history = mergeMessagePages(server, older)
-        val confirmedIds = history.map { it.id }.toSet()
+        val byPending = pending
+        val held = history.map { msg ->
+            val local = byPending[msg.id]
+            if (local?.linkPreviewPending == true && msg.linkPreview == null) {
+                msg.copy(linkPreviewPending = true)
+            } else msg
+        }
+        val confirmedIds = held.map { it.id }.toSet()
         val unconfirmed = pending.values.filter { it.id !in confirmedIds }
-        (history + unconfirmed).sortedByDescending { it.createdAt }
+        (held + unconfirmed).sortedByDescending { it.createdAt }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     // Starts true so the first frame of an opened thread cannot paint a blank
@@ -424,6 +433,13 @@ class MessageThreadViewModel @Inject constructor(
                 // Ack: mark sent so the clock icon clears immediately (iOS parity); the
                 // copy itself is held until the listener has the canonical doc.
                 updatePendingStatus(clientId, MessageSendStatus.SENT)
+                if (optimistic.linkPreviewPending) {
+                    delay(8_000)
+                    val current = _pendingMessages.value[clientId] ?: return@launch
+                    if (current.linkPreviewPending && current.linkPreview == null) {
+                        _pendingMessages.value = _pendingMessages.value - clientId
+                    }
+                }
             } catch (e: Exception) {
                 updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
             }
@@ -516,7 +532,6 @@ class MessageThreadViewModel @Inject constructor(
                         hasRetainedOlder = hasRetainedOlder,
                         pageSize = MessageRepository.MESSAGE_PAGE_SIZE,
                     )
-                    val confirmedIds = serverMessages.map { it.id }.toSet()
                     // Publish the server snapshot BEFORE pruning the matching pending
                     // copy. The `messages` combine filters pending by the current
                     // server ids, so setting server first means the confirmed message
@@ -524,8 +539,16 @@ class MessageThreadViewModel @Inject constructor(
                     // the merged list, which would otherwise re-anchor the reverseLayout
                     // list and hide the newest bubble behind the composer.
                     _serverMessages.value = serverMessages
-                    // Remove pending messages that the server has now confirmed
-                    _pendingMessages.value = _pendingMessages.value.filterKeys { it !in confirmedIds }
+                    _pendingMessages.value = _pendingMessages.value.filter { (id, local) ->
+                        val server = serverMessages.firstOrNull { it.id == id }
+                        when {
+                            server == null -> true
+                            server.linkPreview != null -> false
+                            local.sendStatus == MessageSendStatus.FAILED -> false
+                            local.linkPreviewPending -> true
+                            else -> false
+                        }
+                    }
                     authRepository.currentUserId?.let { userId ->
                         messageLocalStore.save(
                             userId,
@@ -677,6 +700,63 @@ class MessageThreadViewModel @Inject constructor(
     private val _cityActionError = MutableStateFlow<String?>(null)
     val cityActionError = _cityActionError.asStateFlow()
     fun clearCityActionError() { _cityActionError.value = null }
+
+    data class ComposerVideoUi(
+        val uri: android.net.Uri,
+        val preview: android.graphics.Bitmap? = null,
+        val isPreparing: Boolean = true,
+        val errorMessage: String? = null,
+    )
+
+    private val _composerVideo = MutableStateFlow<ComposerVideoUi?>(null)
+    val composerVideo = _composerVideo.asStateFlow()
+    private var videoAccepted = CompletableDeferred<Unit>()
+    private var videoPrepared: Deferred<PreparedMessageVideo>? = null
+    private var videoOutgoingStarted = false
+
+    fun attachVideo(uri: android.net.Uri) {
+        if (!dmVideoEnabled) return
+        clearComposerVideo()
+        videoOutgoingStarted = false
+        val accepted = CompletableDeferred<Unit>()
+        videoAccepted = accepted
+        _composerVideo.value = ComposerVideoUi(uri)
+        videoPrepared = viewModelScope.async {
+            MessageVideoPreparer.prepare(
+                context,
+                uri,
+                onPreview = { jpeg ->
+                    val bmp = android.graphics.BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size)
+                    _composerVideo.value = _composerVideo.value?.copy(preview = bmp)
+                },
+                onAccepted = {
+                    if (!accepted.isCompleted) accepted.complete(Unit)
+                },
+            )
+        }
+        viewModelScope.launch {
+            try {
+                videoPrepared?.await()
+                _composerVideo.value = _composerVideo.value?.copy(isPreparing = false)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (!accepted.isCompleted) accepted.completeExceptionally(e)
+                _composerVideo.value = _composerVideo.value?.copy(
+                    isPreparing = false,
+                    errorMessage = e.message ?: MessageVideoException.FAILED,
+                )
+            }
+        }
+    }
+
+    fun clearComposerVideo() {
+        videoPrepared?.cancel()
+        videoPrepared = null
+        if (!videoAccepted.isCompleted) videoAccepted.cancel()
+        videoAccepted = CompletableDeferred()
+        _composerVideo.value = null
+    }
     suspend fun cityNotifications(mode: String? = null): String = messageRepository.cityChatNotifications(currentThreadId ?: error("Open a chat first"), mode)
     fun claimCityWelcome(): Boolean {
         val uid = currentUserId ?: return false; val thread = currentThreadId ?: return false
@@ -968,6 +1048,9 @@ class MessageThreadViewModel @Inject constructor(
             replyToMessageId = reply?.id,
             replyToText = replySnippet,
             replyToUserId = reply?.fromUserId,
+            linkPreviewPending = MessageLinkPreview.firstHttpUrl(text)?.let {
+                MessageLinkPreview.isUrlOnly(text, it)
+            } == true,
         )
         _replyToMessage.value = null
         launchOutgoing(navThreadId = threadId, clientId = clientId, optimistic = optimistic) { resolvedId ->
@@ -985,16 +1068,17 @@ class MessageThreadViewModel @Inject constructor(
 
     // ── Optimistic send: image ──
 
-    fun sendImageMessage(threadId: String, imageData: ByteArray) {
+    fun sendImageMessage(threadId: String, imageData: ByteArray, caption: String = "") {
         val userId = authRepository.currentUserId ?: return
         val provisionalId = provisionalThreadId(threadId)
         val clientId = UUID.randomUUID().toString()
+        val captionTrim = caption.trim()
 
         val optimistic = CymbalMessage(
             id = clientId,
             threadId = provisionalId,
             fromUserId = userId,
-            text = null,
+            text = captionTrim.ifBlank { null },
             type = MessageType.IMAGE,
             createdAt = Date(),
             sendStatus = MessageSendStatus.SENDING,
@@ -1005,46 +1089,64 @@ class MessageThreadViewModel @Inject constructor(
                 fromUserId = userId,
                 imageData = imageData,
                 clientMessageId = clientId,
+                text = captionTrim,
             )
         }
     }
 
-    fun sendVideoMessage(threadId: String, uri: android.net.Uri) {
-        if (!dmVideoEnabled) return
-        val userId = authRepository.currentUserId ?: return
+    fun sendStagedVideo(threadId: String, caption: String = "") {
+        if (_composerVideo.value?.errorMessage != null) return
         val provisionalId = provisionalThreadId(threadId)
         val clientId = UUID.randomUUID().toString()
+        val captionTrim = caption.trim()
 
         viewModelScope.launch {
-            val prepared = try {
-                MessageVideoPreparer.prepare(context, uri)
-            } catch (e: Exception) {
-                _cityActionError.value = e.message ?: "Couldn't prepare this video"
-                return@launch
-            }
-            val optimistic = CymbalMessage(
-                id = clientId,
-                threadId = provisionalId,
-                fromUserId = userId,
-                text = null,
-                type = MessageType.VIDEO,
-                thumbnailURL = null,
-                mediaDurationMs = prepared.durationMs,
-                mediaWidth = prepared.width,
-                mediaHeight = prepared.height,
-                createdAt = Date(),
-                sendStatus = MessageSendStatus.SENDING,
-            )
-            launchOutgoing(navThreadId = threadId, clientId = clientId, optimistic = optimistic) { resolvedId ->
-                messageRepository.sendVideoMessage(
-                    threadId = resolvedId,
+            try {
+                if (!dmVideoEnabled) throw MessageVideoException(MessageVideoException.FAILED)
+                val userId = authRepository.currentUserId
+                    ?: throw MessageVideoException(MessageVideoException.FAILED)
+                val preparedDeferred = videoPrepared
+                    ?: throw MessageVideoException(MessageVideoException.FAILED)
+                val prepared = preparedDeferred.await()
+                if (videoOutgoingStarted) return@launch
+                videoOutgoingStarted = true
+                videoPrepared = null
+                val sentAt = Date()
+                val optimistic = CymbalMessage(
+                    id = clientId,
+                    threadId = provisionalId,
                     fromUserId = userId,
-                    videoData = prepared.file.readBytes(),
-                    thumbnailData = prepared.thumbnailJpeg,
-                    durationMs = prepared.durationMs,
-                    width = prepared.width,
-                    height = prepared.height,
-                    clientMessageId = clientId,
+                    text = captionTrim.ifBlank { null },
+                    type = MessageType.VIDEO,
+                    thumbnailURL = null,
+                    mediaDurationMs = prepared.durationMs,
+                    mediaWidth = prepared.width,
+                    mediaHeight = prepared.height,
+                    createdAt = sentAt,
+                    sendStatus = MessageSendStatus.SENDING,
+                )
+                _composerVideo.value = null
+                launchOutgoing(navThreadId = threadId, clientId = clientId, optimistic = optimistic) { resolvedId ->
+                    messageRepository.sendVideoMessage(
+                        threadId = resolvedId,
+                        fromUserId = userId,
+                        videoData = prepared.file.readBytes(),
+                        thumbnailData = prepared.thumbnailJpeg,
+                        durationMs = prepared.durationMs,
+                        width = prepared.width,
+                        height = prepared.height,
+                        text = captionTrim,
+                        clientMessageId = clientId,
+                        clientCreatedAt = sentAt.time,
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                videoOutgoingStarted = false
+                _composerVideo.value = _composerVideo.value?.copy(
+                    isPreparing = false,
+                    errorMessage = e.message ?: MessageVideoException.FAILED,
                 )
             }
         }

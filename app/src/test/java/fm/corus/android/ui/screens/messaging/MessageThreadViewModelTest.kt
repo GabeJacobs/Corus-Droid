@@ -330,7 +330,7 @@ class MessageThreadViewModelTest {
     @Test
     fun `sendImageMessage adds optimistic image message`() = runTest {
         val neverCompletes = CompletableDeferred<String>()
-        whenever(messageRepository.sendImageMessage(any(), any(), any(), anyOrNull()))
+        whenever(messageRepository.sendImageMessage(any(), any(), any(), anyOrNull(), any()))
             .doSuspendableAnswer { neverCompletes.await() }
 
         viewModel.sendImageMessage("thread1", byteArrayOf(1, 2, 3))

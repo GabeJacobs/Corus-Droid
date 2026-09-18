@@ -4,13 +4,14 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.Presentation
-import androidx.media3.transformer.Composition
 import androidx.media3.transformer.DefaultEncoderFactory
 import androidx.media3.transformer.EditedMediaItem
-import androidx.media3.transformer.EditedMediaItemSequence
 import androidx.media3.transformer.Effects
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
@@ -19,19 +20,35 @@ import androidx.media3.transformer.VideoEncoderSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import java.io.ByteArrayOutputStream
 import java.io.File
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.math.ceil
+import kotlin.math.round
 
 object MessageVideoLimits {
-    /** Skip transcode for hour-long camera-roll items. Upload cap is MAX_BYTES. */
-    const val MAX_PREPARE_DURATION_MS = 10 * 60 * 1000L
-    const val MAX_BYTES = 16L * 1024L * 1024L
-    const val TARGET_BYTES = 14L * 1024L * 1024L
+    const val MAX_PREPARE_DURATION_MS = 2 * 60 * 1000L
+    const val MAX_BYTES = 30L * 1024L * 1024L
+    const val COMPRESSED_BITS_PER_SECOND = 1_200_000L
+    const val SHORT_CLIP_1080P_MS = 20_000L
+
+    fun estimatedCompressedBytes(durationMs: Long): Long {
+        val seconds = durationMs / 1000.0
+        return ceil(seconds * COMPRESSED_BITS_PER_SECOND / 8.0).toLong()
+    }
+
+    fun fitsAsIs(size: Long): Boolean = size > 0L && size <= MAX_BYTES
 }
 
-class MessageVideoException(message: String) : Exception(message)
+class MessageVideoException(message: String) : Exception(message) {
+    companion object {
+        const val TOO_LONG = "Videos can be up to 2 minutes"
+        const val TOO_LARGE = "Videos need to be under 30 MB"
+        const val FAILED = "Couldn't prepare this video"
+    }
+}
 
 data class PreparedMessageVideo(
     val file: File,
@@ -41,8 +58,15 @@ data class PreparedMessageVideo(
     val height: Int,
 )
 
+@OptIn(UnstableApi::class)
 object MessageVideoPreparer {
-    suspend fun prepare(context: Context, uri: Uri): PreparedMessageVideo = withContext(Dispatchers.IO) {
+    suspend fun prepare(
+        context: Context,
+        uri: Uri,
+        onPreview: ((ByteArray) -> Unit)? = null,
+        onDuration: ((Int) -> Unit)? = null,
+        onAccepted: (() -> Unit)? = null,
+    ): PreparedMessageVideo = withContext(Dispatchers.IO) {
         val retriever = MediaMetadataRetriever()
         try {
             retriever.setDataSource(context, uri)
@@ -50,10 +74,11 @@ object MessageVideoPreparer {
                 ?.toLongOrNull()
                 ?: 0L
             if (durationMs <= 0L) {
-                throw MessageVideoException("Couldn't prepare this video")
+                throw MessageVideoException(MessageVideoException.FAILED)
             }
+            onDuration?.invoke(durationMs.toInt())
             if (durationMs > MessageVideoLimits.MAX_PREPARE_DURATION_MS) {
-                throw MessageVideoException("This clip is too large — try a shorter one")
+                throw MessageVideoException(MessageVideoException.TOO_LONG)
             }
             val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
                 ?.toIntOrNull() ?: 0
@@ -64,6 +89,15 @@ object MessageVideoPreparer {
                 width = height
                 height = tmp
             }
+
+            val sourceBytes = sourceByteCount(context, uri)
+            val fitsAsIs = MessageVideoLimits.fitsAsIs(sourceBytes)
+            val estimate = MessageVideoLimits.estimatedCompressedBytes(durationMs)
+            if (!fitsAsIs && estimate > MessageVideoLimits.MAX_BYTES) {
+                throw MessageVideoException(MessageVideoException.TOO_LARGE)
+            }
+            onAccepted?.invoke()
+
             val thumb = retriever.getFrameAtTime(100_000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
                 ?: retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
                 ?: retriever.frameAtTime
@@ -72,57 +106,107 @@ object MessageVideoPreparer {
                     .compress(Bitmap.CompressFormat.JPEG, 70, out)
                 out.toByteArray()
             }
+            onPreview?.invoke(jpeg)
 
+            val fps = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)
+                ?.toFloatOrNull() ?: 0f
+            val mime = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE).orEmpty()
+            val wantsCompat = fps >= 48f
+                || maxOf(width, height) > 1280
+                || mime.contains("hevc", ignoreCase = true)
+                || mime.contains("h265", ignoreCase = true)
+            val transcode = !fitsAsIs || (wantsCompat && estimate <= MessageVideoLimits.MAX_BYTES)
             val dest = File(context.cacheDir, "dm-video-${System.currentTimeMillis()}.mp4")
-            val sourceBytes = sourceByteCount(context, uri)
-            if (sourceBytes in 1L..MessageVideoLimits.MAX_BYTES) {
-                copyUri(context, uri, dest)
+            if (transcode) {
+                val use1080 = durationMs <= MessageVideoLimits.SHORT_CLIP_1080P_MS
+                    && fps < 48f
+                    && maxOf(width, height) <= 1920
+                exportLikeWhatsApp(context, uri, durationMs, dest, use1080)
             } else {
-                compress(context, uri, dest, durationMs)
+                copyUri(context, uri, dest)
             }
             if (!dest.exists() || dest.length() <= 0L) {
-                throw MessageVideoException("Couldn't prepare this video")
+                throw MessageVideoException(MessageVideoException.FAILED)
             }
             if (dest.length() > MessageVideoLimits.MAX_BYTES) {
                 dest.delete()
-                throw MessageVideoException("This clip is too large — try a shorter one")
+                throw MessageVideoException(MessageVideoException.TOO_LARGE)
             }
             PreparedMessageVideo(
                 file = dest,
                 thumbnailJpeg = jpeg,
                 durationMs = durationMs.toInt(),
-                width = width,
-                height = height,
+                width = width.coerceAtLeast(1),
+                height = height.coerceAtLeast(1),
             )
         } finally {
             retriever.release()
         }
     }
 
-    private suspend fun compress(context: Context, uri: Uri, dest: File, durationMs: Long) {
-        val heightLadder = when {
-            durationMs <= 90_000L -> listOf(720, 480, 360)
-            durationMs <= 180_000L -> listOf(540, 360)
-            else -> listOf(360, 240)
-        }
-        val hdrModes = listOf(
-            Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL,
-            Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIA_CODEC,
-        )
-        var lastError: Exception? = null
-        for (height in heightLadder) {
-            for (hdrMode in hdrModes) {
-                if (dest.exists()) dest.delete()
-                try {
-                    runTransformer(context, uri, dest, height, hdrMode, durationMs)
-                    if (dest.exists() && dest.length() > 0L) return
-                } catch (e: Exception) {
-                    lastError = e
-                    dest.delete()
+    private suspend fun exportLikeWhatsApp(
+        context: Context,
+        uri: Uri,
+        durationMs: Long,
+        dest: File,
+        use1080: Boolean,
+    ) {
+        if (dest.exists()) dest.delete()
+        val height = if (use1080) 1080 else 720
+        val timeoutMs = (durationMs * 2.5).toLong().coerceIn(60_000L, 180_000L)
+        withTimeout(timeoutMs) {
+            withContext(Dispatchers.Main) {
+                suspendCancellableCoroutine { cont ->
+                    val edited = EditedMediaItem.Builder(MediaItem.fromUri(uri))
+                        .setEffects(
+                            Effects(
+                                emptyList(),
+                                listOf(Presentation.createForHeight(height)),
+                            )
+                        )
+                        .build()
+                    val transformer = Transformer.Builder(context.applicationContext)
+                        .setVideoMimeType(MimeTypes.VIDEO_H264)
+                        .setAudioMimeType(MimeTypes.AUDIO_AAC)
+                        .setEncoderFactory(
+                            DefaultEncoderFactory.Builder(context.applicationContext)
+                                .setRequestedVideoEncoderSettings(
+                                    VideoEncoderSettings.Builder()
+                                        .setBitrate(MessageVideoLimits.COMPRESSED_BITS_PER_SECOND.toInt())
+                                        .build()
+                                )
+                                .build()
+                        )
+                        .build()
+                    val listener = object : Transformer.Listener {
+                        override fun onCompleted(
+                            composition: androidx.media3.transformer.Composition,
+                            exportResult: ExportResult,
+                        ) {
+                            if (cont.isActive) cont.resume(Unit)
+                        }
+
+                        override fun onError(
+                            composition: androidx.media3.transformer.Composition,
+                            exportResult: ExportResult,
+                            exportException: ExportException,
+                        ) {
+                            dest.delete()
+                            if (cont.isActive) {
+                                cont.resumeWithException(
+                                    MessageVideoException(MessageVideoException.FAILED)
+                                )
+                            }
+                        }
+                    }
+                    transformer.addListener(listener)
+                    transformer.start(edited, dest.absolutePath)
+                    cont.invokeOnCancellation {
+                        Handler(Looper.getMainLooper()).post { transformer.cancel() }
+                    }
                 }
             }
         }
-        throw lastError ?: MessageVideoException("Couldn't prepare this video")
     }
 
     private fun sourceByteCount(context: Context, uri: Uri): Long {
@@ -133,70 +217,13 @@ object MessageVideoPreparer {
         if (dest.exists()) dest.delete()
         context.contentResolver.openInputStream(uri)?.use { input ->
             dest.outputStream().use { output -> input.copyTo(output) }
-        } ?: throw MessageVideoException("Couldn't prepare this video")
-    }
-
-    private suspend fun runTransformer(
-        context: Context,
-        uri: Uri,
-        dest: File,
-        height: Int,
-        hdrMode: Int,
-        durationMs: Long,
-    ) {
-        val bitrate = videoBitrate(durationMs, height)
-        suspendCancellableCoroutine { cont ->
-            val encoderFactory = DefaultEncoderFactory.Builder(context)
-                .setRequestedVideoEncoderSettings(
-                    VideoEncoderSettings.Builder()
-                        .setBitrate(bitrate)
-                        .build()
-                )
-                .build()
-            val transformer = Transformer.Builder(context)
-                .setVideoMimeType(MimeTypes.VIDEO_H264)
-                .setAudioMimeType(MimeTypes.AUDIO_AAC)
-                .setEncoderFactory(encoderFactory)
-                .build()
-            val edited = EditedMediaItem.Builder(MediaItem.fromUri(uri))
-                .setEffects(Effects(emptyList(), listOf(Presentation.createForHeight(height))))
-                .build()
-            val composition = Composition.Builder(EditedMediaItemSequence(listOf(edited)))
-                .setHdrMode(hdrMode)
-                .build()
-            transformer.addListener(object : Transformer.Listener {
-                override fun onCompleted(composition: Composition, exportResult: ExportResult) {
-                    if (cont.isActive) cont.resume(Unit)
-                }
-
-                override fun onError(
-                    composition: Composition,
-                    exportResult: ExportResult,
-                    exportException: ExportException,
-                ) {
-                    if (cont.isActive) cont.resumeWithException(exportException)
-                }
-            })
-            transformer.start(composition, dest.absolutePath)
-            cont.invokeOnCancellation { transformer.cancel() }
-        }
-    }
-
-    private fun videoBitrate(durationMs: Long, height: Int): Int {
-        val seconds = (durationMs / 1000.0).coerceAtLeast(1.0)
-        val adaptive = ((MessageVideoLimits.TARGET_BYTES * 8) / seconds).toInt()
-        val qualityCap = when {
-            height >= 720 -> 1_800_000
-            height >= 480 -> 1_000_000
-            else -> 600_000
-        }
-        return adaptive.coerceIn(200_000, qualityCap)
+        } ?: throw MessageVideoException(MessageVideoException.FAILED)
     }
 }
 
 fun formatMessageVideoDuration(ms: Int?): String {
     if (ms == null || ms <= 0) return ""
-    val total = kotlin.math.round(ms / 1000.0).toInt()
+    val total = round(ms / 1000.0).toInt()
     val m = total / 60
     val s = total % 60
     return "$m:${s.toString().padStart(2, '0')}"

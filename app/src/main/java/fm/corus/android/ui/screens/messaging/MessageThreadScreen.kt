@@ -15,6 +15,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -63,6 +64,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
@@ -761,6 +764,16 @@ fun MessageThreadScreen(
         groupInfo?.memberIds?.any { it in groupBlocked } == true || messages.any { it.fromUserId in groupBlocked }
     )
     val cityActionError by viewModel.cityActionError.collectAsState()
+    val composerVideo by viewModel.composerVideo.collectAsState()
+    var stagedPhotoBytes by remember { mutableStateOf<ByteArray?>(null) }
+    var stagedPhotoBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var waitingVideoSend by remember { mutableStateOf(false) }
+    LaunchedEffect(composerVideo, waitingVideoSend) {
+        if (waitingVideoSend && (composerVideo == null || composerVideo?.errorMessage != null)) {
+            waitingVideoSend = false
+        }
+    }
+    val hasComposerMedia = stagedPhotoBytes != null || composerVideo != null
     var cityWelcome by remember { mutableStateOf(false) }
     LaunchedEffect(groupInfo?.cityChatId, liveWindowReady) { if (liveWindowReady && isCityChat) cityWelcome = viewModel.claimCityWelcome() }
     var showGroupInfo by remember { mutableStateOf(false) }
@@ -774,6 +787,12 @@ fun MessageThreadScreen(
         mutableStateOf(
             TextFieldValue(draftStore.load(composerUid, threadId, otherUserId) ?: ""),
         )
+    }
+    val canSendComposer = when {
+        editingMessage != null -> messageText.text.isNotBlank()
+        stagedPhotoBytes != null -> true
+        composerVideo != null -> composerVideo?.errorMessage == null && !waitingVideoSend
+        else -> messageText.text.isNotBlank()
     }
     // After Send, ignore IME echoes of the outgoing string so they can't refill
     // the box or re-persist the draft (iOS `takeText()` / `isSendingComposerText`).
@@ -886,7 +905,9 @@ fun MessageThreadScreen(
             val mime = context.contentResolver.getType(uri).orEmpty()
             if (mime.startsWith("video")) {
                 if (viewModel.dmVideoEnabled) {
-                    viewModel.sendVideoMessage(threadId, uri)
+                    stagedPhotoBytes = null
+                    stagedPhotoBitmap = null
+                    viewModel.attachVideo(uri)
                 }
                 return@rememberLauncherForActivityResult
             }
@@ -895,7 +916,9 @@ fun MessageThreadScreen(
                 val imageData = inputStream?.readBytes()
                 inputStream?.close()
                 if (imageData != null) {
-                    viewModel.sendImageMessage(threadId, imageData)
+                    viewModel.clearComposerVideo()
+                    stagedPhotoBytes = imageData
+                    stagedPhotoBitmap = android.graphics.BitmapFactory.decodeByteArray(imageData, 0, imageData.size)
                 }
             } catch (_: Exception) { }
         }
@@ -1492,6 +1515,16 @@ fun MessageThreadScreen(
 
         // Compose bar
         HorizontalDivider(color = CorusColors.Divider)
+        if (composerVideo?.errorMessage != null) {
+            Text(
+                text = composerVideo?.errorMessage.orEmpty(),
+                style = CorusFont.caption,
+                color = Color.Red,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.xs),
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1500,6 +1533,26 @@ fun MessageThreadScreen(
         ) {
             // Attachment plus button (Photo / Song / Film)
             Box {
+                if (stagedPhotoBitmap != null) {
+                    ComposerMediaChip(
+                        bitmap = stagedPhotoBitmap,
+                        isPreparing = false,
+                        showsPlay = false,
+                        onRemove = {
+                            stagedPhotoBytes = null
+                            stagedPhotoBitmap = null
+                        },
+                    )
+                } else if (composerVideo != null) {
+                    ComposerMediaChip(
+                        bitmap = composerVideo?.preview,
+                        isPreparing = composerVideo?.isPreparing == true
+                            && composerVideo?.errorMessage == null,
+                        showsPlay = composerVideo?.errorMessage == null
+                            && composerVideo?.isPreparing == false,
+                        onRemove = { viewModel.clearComposerVideo() },
+                    )
+                } else {
                 IconButton(onClick = { showAttachmentMenu = true }) {
                     Icon(
                         imageVector = Icons.Filled.AddCircle,
@@ -1556,6 +1609,7 @@ fun MessageThreadScreen(
                         },
                     )
                 }
+                }
             }
 
             OutlinedTextField(
@@ -1593,7 +1647,13 @@ fun MessageThreadScreen(
                 modifier = Modifier
                     .weight(1f)
                     .focusRequester(composerFocusRequester),
-                placeholder = { Text(stringResource(id = R.string.messaging_thread_placeholder), style = CorusFont.body) },
+                placeholder = {
+                    Text(
+                        if (hasComposerMedia) "Add a caption..."
+                        else stringResource(id = R.string.messaging_thread_placeholder),
+                        style = CorusFont.body,
+                    )
+                },
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 singleLine = false,
                 minLines = 1,
@@ -1601,31 +1661,53 @@ fun MessageThreadScreen(
                 shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
             )
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
+            if (waitingVideoSend) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.dp,
+                    color = CorusColors.Accent,
+                )
+            } else {
             IconButton(
                 onClick = {
-                    if (messageText.text.isNotBlank()) {
-                        viewModel.clearMentions()
-                        viewModel.clearHashtags()
-                        if (editingMessage != null) {
+                    viewModel.clearMentions()
+                    viewModel.clearHashtags()
+                    if (editingMessage != null) {
+                        if (messageText.text.isNotBlank()) {
                             viewModel.editMessage(threadId, messageText.text)
                             val draft = draftStore.load(composerUid, persistThreadId, otherUserId) ?: ""
                             messageText = TextFieldValue(text = draft, selection = TextRange(draft.length))
-                        } else {
-                            val outgoing = messageText.text
-                            sentComposerText = outgoing
-                            messageText = TextFieldValue("")
-                            draftStore.clear(composerUid, persistThreadId, otherUserId)
-                            viewModel.sendMessage(threadId, outgoing)
                         }
+                    } else if (stagedPhotoBytes != null) {
+                        val outgoing = messageText.text
+                        val bytes = stagedPhotoBytes!!
+                        stagedPhotoBytes = null
+                        stagedPhotoBitmap = null
+                        sentComposerText = outgoing
+                        messageText = TextFieldValue("")
+                        draftStore.clear(composerUid, persistThreadId, otherUserId)
+                        viewModel.sendImageMessage(threadId, bytes, outgoing)
+                    } else if (composerVideo != null && composerVideo?.errorMessage == null) {
+                        val outgoing = messageText.text
+                        sentComposerText = outgoing
+                        waitingVideoSend = true
+                        viewModel.sendStagedVideo(threadId, outgoing)
+                    } else if (messageText.text.isNotBlank()) {
+                        val outgoing = messageText.text
+                        sentComposerText = outgoing
+                        messageText = TextFieldValue("")
+                        draftStore.clear(composerUid, persistThreadId, otherUserId)
+                        viewModel.sendMessage(threadId, outgoing)
                     }
                 },
-                enabled = messageText.text.isNotBlank(),
+                enabled = canSendComposer,
             ) {
                 Icon(
                     if (editingMessage != null) Icons.Filled.Check else Icons.AutoMirrored.Filled.Send,
                     contentDescription = stringResource(id = R.string.comments_cd_send),
-                    tint = if (messageText.text.isNotBlank()) CorusColors.Accent else CorusColors.Tertiary,
+                    tint = if (canSendComposer) CorusColors.Accent else CorusColors.Tertiary,
                 )
+            }
             }
         }
         }
@@ -1735,14 +1817,15 @@ fun MessageThreadScreen(
                 clipboardManager.setPrimaryClip(clip)
                 reactionTarget = null
             },
-            onCopyLink = reactionTarget!!.linkPreview?.url?.let { url ->
+            onCopyLink = if (reactionTarget!!.showsHeroLinkPreview) {
                 {
+                    val url = reactionTarget?.linkPreview?.url ?: reactionTarget?.text.orEmpty()
                     val clipboardManager = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                     val clip = android.content.ClipData.newPlainText("link", url)
                     clipboardManager.setPrimaryClip(clip)
                     reactionTarget = null
                 }
-            },
+            } else null,
             onEdit = if (
                 !isCityChat &&
                 reactionTarget!!.fromUserId == viewModel.currentUserId &&
@@ -2133,7 +2216,7 @@ private fun MessageBubble(
         Box(
             modifier = Modifier
                 .widthIn(max = 280.dp)
-                .then(if (isSending) Modifier.alpha(0.7f) else Modifier)
+                .then(if (isSending && !heroLink) Modifier.alpha(0.7f) else Modifier)
                 .onGloballyPositioned { bubbleCoords = it }
                 .pointerInput(message.id, annotatedText, onMentionTap, onHashtagTap) {
                     detectTapGestures(
@@ -2453,17 +2536,6 @@ private fun MessageBubble(
                             modifier = Modifier.onGloballyPositioned { textCoords = it },
                         )
                     }
-                }
-
-                if (!heroLink && message.type == MessageType.TEXT && message.linkPreview != null) {
-                    if (!displayText.isNullOrBlank()) {
-                        Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                    }
-                    MessageLinkPreviewCard(
-                        preview = message.linkPreview,
-                        isFromCurrentUser = isFromCurrentUser,
-                        hero = false,
-                    )
                 }
 
             }
@@ -3142,3 +3214,61 @@ private fun TypingDot(delayMs: Int) {
 
 /** Instagram-style composer: grow through 5 lines, then scroll with the caret. */
 internal const val MESSAGE_COMPOSER_MAX_LINES = 5
+
+@Composable
+private fun ComposerMediaChip(
+    bitmap: android.graphics.Bitmap?,
+    isPreparing: Boolean,
+    showsPlay: Boolean,
+    onRemove: () -> Unit,
+) {
+    Box(modifier = Modifier.padding(top = 5.dp, end = 5.dp)) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(CorusColors.Divider),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+            if (isPreparing) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.4f)),
+                )
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = Color.White,
+                )
+            } else if (showsPlay) {
+                Icon(
+                    Icons.Filled.PlayArrow,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+        }
+        Icon(
+            Icons.Filled.Close,
+            contentDescription = stringResource(id = R.string.comments_cd_cancel_reply),
+            tint = Color.White,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 5.dp, y = (-5).dp)
+                .size(14.dp)
+                .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                .clickable(onClick = onRemove)
+                .padding(2.dp),
+        )
+    }
+}

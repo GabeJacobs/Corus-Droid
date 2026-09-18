@@ -173,10 +173,23 @@ class MessageRepository @Inject constructor(
         cloudFunctions.editMessage(threadId, messageId, text)
     }
 
-    suspend fun sendImageMessage(threadId: String, fromUserId: String, imageData: ByteArray, clientMessageId: String? = null): String {
+    suspend fun sendImageMessage(
+        threadId: String,
+        fromUserId: String,
+        imageData: ByteArray,
+        clientMessageId: String? = null,
+        text: String = "",
+    ): String {
         val messageId = clientMessageId ?: "${System.currentTimeMillis()}"
         val url = storageDataSource.uploadMessageImage(fromUserId, threadId, messageId, imageData)
-        cloudFunctions.sendMessage(threadId = threadId, fromUserId = fromUserId, text = "", type = "image", mediaURL = url, clientMessageId = clientMessageId)
+        cloudFunctions.sendMessage(
+            threadId = threadId,
+            fromUserId = fromUserId,
+            text = text,
+            type = "image",
+            mediaURL = url,
+            clientMessageId = clientMessageId,
+        )
         return url
     }
 
@@ -190,6 +203,7 @@ class MessageRepository @Inject constructor(
         height: Int,
         text: String = "",
         clientMessageId: String? = null,
+        clientCreatedAt: Long? = null,
     ): String {
         val messageId = clientMessageId ?: "${System.currentTimeMillis()}"
         val url = storageDataSource.uploadMessageVideo(fromUserId, threadId, messageId, videoData)
@@ -205,6 +219,7 @@ class MessageRepository @Inject constructor(
             mediaWidth = width,
             mediaHeight = height,
             clientMessageId = clientMessageId,
+            clientCreatedAt = clientCreatedAt,
         )
         return url
     }
