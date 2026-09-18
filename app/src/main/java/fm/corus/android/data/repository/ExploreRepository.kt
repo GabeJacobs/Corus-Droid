@@ -26,7 +26,6 @@ class ExploreRepository @Inject constructor(
     @Volatile private var trendingArtistsCache: CacheEntry<Map<TrendingWindow, List<TrendingArtist>>>? = null
     @Volatile private var trendingAlbumsCache: CacheEntry<Map<TrendingWindow, List<TrendingAlbum>>>? = null
     @Volatile private var newReleaseAlbumsCache: CacheEntry<List<TrendingAlbum>>? = null
-    @Volatile private var newReleaseAlbumsTrendingCache: CacheEntry<Map<TrendingWindow, List<TrendingAlbum>>>? = null
     @Volatile private var newReleaseMoviesCache: CacheEntry<List<TrendingMovie>>? = null
     @Volatile private var trendingDirectorsCache: CacheEntry<Map<TrendingWindow, List<TrendingDirector>>>? = null
     @Volatile private var trendingMoviesCache: CacheEntry<Map<TrendingWindow, List<TrendingMovie>>>? = null
@@ -66,7 +65,7 @@ class ExploreRepository @Inject constructor(
     }
 
     suspend fun fetchTrendingMovies(
-        window: TrendingWindow = TrendingWindow.FILMS_DEFAULT,
+        window: TrendingWindow = TrendingWindow.DEFAULT,
         limit: Int = 20,
     ): List<TrendingMovie> {
         trendingMoviesCache?.let { if (it.isValid(TRENDING_TTL_MS)) return it.value[window].orEmpty() }
@@ -95,24 +94,7 @@ class ExploreRepository @Inject constructor(
         return all[window].orEmpty()
     }
 
-    suspend fun fetchNewReleaseAlbums(
-        limit: Int = 20,
-        trending: Boolean = false,
-        window: TrendingWindow = TrendingWindow.NEW_RELEASES_DEFAULT,
-    ): List<TrendingAlbum> {
-        val resolved = if (window == TrendingWindow.YEAR) TrendingWindow.MONTH else window
-        if (trending) {
-            newReleaseAlbumsTrendingCache?.let {
-                if (it.isValid(TRENDING_TTL_MS)) {
-                    val cached = it.value[resolved].orEmpty()
-                    if (cached.isNotEmpty()) return cached
-                }
-            }
-            val all = firestoreDataSource.fetchNewReleaseAlbumsTrendingByWindow(limit)
-            newReleaseAlbumsTrendingCache = CacheEntry(all)
-            val ranked = all[resolved].orEmpty()
-            if (ranked.isNotEmpty()) return ranked
-        }
+    suspend fun fetchNewReleaseAlbums(limit: Int = 20): List<TrendingAlbum> {
         newReleaseAlbumsCache?.let { if (it.isValid(TRENDING_TTL_MS)) return it.value }
         return firestoreDataSource.fetchNewReleaseAlbums(limit).also {
             newReleaseAlbumsCache = CacheEntry(it)
@@ -127,7 +109,7 @@ class ExploreRepository @Inject constructor(
     }
 
     suspend fun fetchTrendingDirectors(
-        window: TrendingWindow = TrendingWindow.DIRECTORS_DEFAULT,
+        window: TrendingWindow = TrendingWindow.DEFAULT,
         limit: Int = 20,
     ): List<TrendingDirector> {
         trendingDirectorsCache?.let { if (it.isValid(TRENDING_TTL_MS)) return it.value[window].orEmpty() }
@@ -140,7 +122,6 @@ class ExploreRepository @Inject constructor(
         trendingArtistsCache = null
         trendingAlbumsCache = null
         newReleaseAlbumsCache = null
-        newReleaseAlbumsTrendingCache = null
         newReleaseMoviesCache = null
         trendingDirectorsCache = null
         trendingSongsCache = null

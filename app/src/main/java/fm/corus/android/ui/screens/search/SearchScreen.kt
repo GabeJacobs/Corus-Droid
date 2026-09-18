@@ -231,7 +231,6 @@ fun SearchScreen(
     val artistsOnCorus by viewModel.artistsOnCorus.collectAsState()
     val artistsOnCorusSectionEnabled = viewModel.artistsOnCorusSectionEnabled
     val trendingArtistsSectionEnabled = viewModel.trendingArtistsSectionEnabled
-    val newReleasesMonthTrendingEnabled = viewModel.newReleasesMonthTrendingEnabled
     val hashtagSearchResults by viewModel.hashtagSearchResults.collectAsState()
     val trendingHashtags by viewModel.trendingHashtags.collectAsState()
     val isTrendingHashtagsLoading by viewModel.isTrendingHashtagsLoading.collectAsState()
@@ -669,22 +668,6 @@ fun SearchScreen(
                                     onSongTap = onNavigateToSong,
                                     onSeeAll = { onNavigateToTrending("songs") },
                                 )
-                                if (newReleasesMonthTrendingEnabled) {
-                                    compactTrendingAlbumsSection(
-            nowPlaying = viewModel.nowPlayingManager,
-                                    albums = newReleaseAlbums,
-                                    isLoading = isNewReleaseAlbumsLoading,
-                                    showRank = false,
-                                    viewModel = viewModel,
-                                    section = SearchSection.NewReleaseAlbums,
-                                    titleRes = fm.corus.android.R.string.search_new_release_albums_title,
-                                    icon = "sparkle",
-                                    onAlbumTap = { album ->
-                                        album.asSongTrack()?.let { onNavigateToSong(it) }
-                                    },
-                                    onSeeAll = { onNavigateToTrending("new_release_albums") },
-                                )
-                                }
                                 compactTrendingAlbumsSection(
             nowPlaying = viewModel.nowPlayingManager,
                                     albums = trendingAlbums,
@@ -716,8 +699,7 @@ fun SearchScreen(
                                         onSeeAll = { onNavigateToTrending("artists") },
                                     )
                                 }
-                                if (!newReleasesMonthTrendingEnabled) {
-                                    compactTrendingAlbumsSection(
+                                compactTrendingAlbumsSection(
             nowPlaying = viewModel.nowPlayingManager,
                                     albums = newReleaseAlbums,
                                     isLoading = isNewReleaseAlbumsLoading,
@@ -731,7 +713,6 @@ fun SearchScreen(
                                     },
                                     onSeeAll = { onNavigateToTrending("new_release_albums") },
                                 )
-                                }
                                 if (artistsOnCorusSectionEnabled) {
                                     artistsOnCorusSection(
                                         artists = artistsOnCorus,
@@ -3424,19 +3405,11 @@ internal fun TrendingAlbumsContent(
     staticHeaderIcon: String? = null,
     staticHeaderTitle: String? = null,
     emptyMessage: String? = null,
-    headerPhrasePrefix: String? = null,
-    headerWindows: List<TrendingWindow>? = null,
     onAlbumTap: (TrendingAlbum) -> Unit,
 ) {
     val header: @Composable () -> Unit = {
         if (window != null && onWindowChange != null) {
-            TrendingHeader(
-                iconName = staticHeaderIcon ?: "album",
-                window = window,
-                onWindowChange = onWindowChange,
-                phrasePrefix = headerPhrasePrefix,
-                windows = headerWindows ?: TrendingWindow.values().toList(),
-            )
+            TrendingHeader(iconName = "album", window = window, onWindowChange = onWindowChange)
         } else if (staticHeaderIcon != null && staticHeaderTitle != null) {
             SectionHeader(icon = staticHeaderIcon, title = staticHeaderTitle.uppercase())
         }
@@ -3662,8 +3635,6 @@ private fun TrendingHeader(
      *  reads just "TRENDING THIS WEEK ▾"); the surrounding tab already says
      *  Songs/Films. */
     noun: String? = null,
-    phrasePrefix: String? = null,
-    windows: List<TrendingWindow> = TrendingWindow.values().toList(),
 ) {
     var expanded by remember { mutableStateOf(false) }
     val iconVector = when (iconName) {
@@ -3680,14 +3651,12 @@ private fun TrendingHeader(
         TrendingWindow.MONTH -> fm.corus.android.R.string.search_trending_window_month
         TrendingWindow.YEAR -> fm.corus.android.R.string.search_trending_window_year
     }
-    val prefixText = when {
-        !phrasePrefix.isNullOrEmpty() -> phrasePrefix
-        !noun.isNullOrEmpty() ->
-            stringResource(fm.corus.android.R.string.search_section_trending) +
-                " " + noun.uppercase() + " " +
-                stringResource(fm.corus.android.R.string.search_section_trending_this_suffix) + " "
-        else ->
-            stringResource(fm.corus.android.R.string.search_section_trending_this) + " "
+    val prefixText = if (!noun.isNullOrEmpty()) {
+        stringResource(fm.corus.android.R.string.search_section_trending) +
+            " " + noun.uppercase() + " " +
+            stringResource(fm.corus.android.R.string.search_section_trending_this_suffix) + " "
+    } else {
+        stringResource(fm.corus.android.R.string.search_section_trending_this) + " "
     }
     Row(
         modifier = Modifier
@@ -3732,7 +3701,7 @@ private fun TrendingHeader(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
             ) {
-                windows.forEach { option ->
+                TrendingWindow.values().forEach { option ->
                     val optionLabelRes = when (option) {
                         TrendingWindow.WEEK -> fm.corus.android.R.string.search_trending_window_week
                         TrendingWindow.MONTH -> fm.corus.android.R.string.search_trending_window_month

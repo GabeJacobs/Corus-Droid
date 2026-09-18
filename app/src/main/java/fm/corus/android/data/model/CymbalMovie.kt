@@ -54,21 +54,9 @@ enum class TrendingWindow(val key: String) {
 
     companion object {
         val DEFAULT: TrendingWindow = WEEK
-        /** Search films rail — month-scale volume reads as "in the spotlight". */
-        val FILMS_DEFAULT: TrendingWindow = MONTH
-        /** Search directors rail — hottest film needs month-scale volume. */
-        val DIRECTORS_DEFAULT: TrendingWindow = MONTH
-        /** New Releases see-all: month heat, week optional, never year. */
-        val NEW_RELEASES_DEFAULT: TrendingWindow = MONTH
-        val NEW_RELEASES_WINDOWS: List<TrendingWindow> = listOf(WEEK, MONTH)
 
         fun fromKey(value: String?): TrendingWindow =
             values().firstOrNull { it.key == value } ?: DEFAULT
-
-        fun newReleasesFromKey(value: String?): TrendingWindow {
-            val window = fromKey(value)
-            return if (window == YEAR) NEW_RELEASES_DEFAULT else window
-        }
     }
 }
 
