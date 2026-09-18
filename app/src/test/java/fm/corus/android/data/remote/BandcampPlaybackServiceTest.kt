@@ -94,5 +94,9 @@ class BandcampPlaybackServiceTest {
         assertNull(BandcampPlaybackService.validPage("https://artist.bandcamp.com.evil.test/track/x"))
         assertNull(BandcampPlaybackService.validPage("http://artist.bandcamp.com/track/x"))
         assertEquals(page, BandcampPlaybackService.validPage(page))
+        assertEquals(
+            page,
+            BandcampPlaybackService.validPage("https://ingridsuperstar.com/track/duet"),
+        )
     }
 }

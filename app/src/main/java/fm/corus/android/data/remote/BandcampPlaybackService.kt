@@ -71,10 +71,22 @@ class BandcampPlaybackService @Inject constructor(private val client: HttpClient
         internal fun validPage(raw: String?): String? {
             val value = raw?.trim() ?: return null
             val uri = runCatching { URI(value) }.getOrNull() ?: return null
-            return value.takeIf {
-                uri.scheme == "https" && uri.host.orEmpty().matches(Regex("[a-zA-Z0-9-]+\\.bandcamp\\.com")) &&
-                    uri.userInfo == null && uri.port == -1 && uri.path.startsWith("/track/")
+            if (uri.scheme != "https" || uri.userInfo != null || uri.port != -1) return null
+            val host = uri.host?.lowercase() ?: return null
+            if (host.isBlank() || ':' in host) return null
+            val labels = host.split('.').filter { it.isNotEmpty() }
+            if (labels.any { !it.matches(Regex("^[a-z0-9-]+$")) }) return null
+            val sub = when {
+                labels.size == 3 && labels[1] == "bandcamp" && labels[2] == "com" -> labels[0]
+                labels.size == 3 && labels[0] == "www" -> labels[1]
+                labels.size == 2 -> labels[0]
+                else -> return null
             }
+            if (sub.isBlank() || sub == "www") return null
+            var path = uri.path ?: return null
+            while (path.endsWith('/')) path = path.dropLast(1)
+            if (!path.matches(Regex("^/track/[a-zA-Z0-9_-]+$"))) return null
+            return "https://$sub.bandcamp.com${path.lowercase()}"
         }
 
         internal fun trackPage(body: String, id: String): String? = runCatching {
