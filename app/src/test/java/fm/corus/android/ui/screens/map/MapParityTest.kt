@@ -171,6 +171,7 @@ class MapParityTest {
             assertTrue(showMapChat("old", null, status))
             assertTrue(showMapChat("new", "new", status))
         }
+        assertTrue(showMapChat("old", "new", MapChatStatus("chat", member = false, canJoin = false, clusterMember = true)))
     }
     @Test fun directoryChatStatusIsRetainedWhileFreshOrRefreshing() {
         assertTrue(shouldLoadDirectoryChat(hasStatus = false, isLoading = false))
