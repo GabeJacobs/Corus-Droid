@@ -465,6 +465,7 @@ class MessageRepository @Inject constructor(
         val photoURL: String?,
         val memberIds: List<String>,
         val createdBy: String?,
+        val lastWriterIds: List<String> = emptyList(),
     )
 
     fun listenToGroupThreadInfo(threadId: String): Flow<GroupThreadInfo?> = callbackFlow {
@@ -487,6 +488,7 @@ class MessageRepository @Inject constructor(
                         photoURL = data["photoURL"] as? String,
                         memberIds = memberIds,
                         createdBy = data["createdBy"] as? String,
+                        lastWriterIds = (data["lastWriterIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
                     )
                 )
             }
@@ -638,6 +640,7 @@ class MessageRepository @Inject constructor(
             groupPhotoURL = (data["groupPhotoURL"] ?: data["photoURL"]) as? String,
             memberIds = memberIds,
             createdBy = data["createdBy"] as? String,
+            lastWriterIds = (data["lastWriterIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
             blocked = data["blocked"] == true,
             isPinned = data["isPinned"] == true,
             updatedAt = (data["updatedAt"] as? Timestamp)?.toDate(),

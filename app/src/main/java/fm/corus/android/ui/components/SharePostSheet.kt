@@ -651,7 +651,17 @@ internal fun isWhatsAppAvailable(context: Context): Boolean {
 private fun ShareRecipientAvatar(recipient: ShareRecipient, size: Dp) {
     val group = recipient.group
     if (group != null && group.groupPhotoURL == null) {
-        fm.corus.android.ui.screens.messaging.StackedGroupAvatar(members = group.members, size = size)
+        fm.corus.android.ui.screens.messaging.StackedGroupAvatar(
+            members = fm.corus.android.ui.screens.messaging.stackedAvatarMembers(
+                members = group.members,
+                currentUserId = null,
+                lastWriterIds = group.lastWriterIds,
+                memberIds = group.memberIds,
+                lastMessageFromUserId = group.lastMessageFromUserId,
+                lastMessageIsSystem = group.lastMessageType == fm.corus.android.data.model.MessageType.SYSTEM,
+            ),
+            size = size,
+        )
     } else {
         UserAvatarView(avatarURL = recipient.avatarURL, displayName = recipient.displayName, size = size)
     }

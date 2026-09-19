@@ -15,6 +15,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
@@ -97,6 +99,7 @@ fun ThreadListScreen(
     onBack: () -> Unit = {},
     onThreadTap: (String, String) -> Unit = { _, _ -> },
     isTabRoot: Boolean = false,
+    scrollToTopTrigger: Int = 0,
     viewModel: ThreadListViewModel = hiltViewModel(),
 ) {
     val pinError by viewModel.pinError.collectAsState()
@@ -120,6 +123,14 @@ fun ThreadListScreen(
     var isCreatingThread by remember { mutableStateOf(false) }
     var inboxSearchText by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+    var lastScrollTrigger by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(scrollToTopTrigger) {
+        if (scrollToTopTrigger > lastScrollTrigger) {
+            listState.animateScrollToItem(0)
+            lastScrollTrigger = scrollToTopTrigger
+        }
+    }
 
     val isSearching = inboxSearchText.isNotBlank()
     val searchChats = remember(threads, inboxSearchText, inboxSearchResults) {
@@ -258,7 +269,10 @@ fun ThreadListScreen(
                     }
                 }
             } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
                     if (isSearching) {
                         if (searchChats.isNotEmpty()) {
                             item(key = "header-chats") {
@@ -769,6 +783,16 @@ private fun MessageSearchHitRow(
     val otherMembers = if (isGroup) {
         thread.memberIds.filter { it != currentUserId }.mapNotNull { membersById[it] }
     } else emptyList()
+    val avatarMembers = if (isGroup) {
+        stackedAvatarMembers(
+            membersById = membersById,
+            currentUserId = currentUserId,
+            lastWriterIds = thread.lastWriterIds,
+            memberIds = thread.memberIds,
+            lastMessageFromUserId = thread.lastMessageFromUserId,
+            lastMessageIsSystem = thread.lastMessageType == MessageType.SYSTEM,
+        )
+    } else emptyList()
     val title = if (isGroup) {
         groupDisplayTitle(thread.groupName, otherMembers, context)
     } else {
@@ -790,7 +814,7 @@ private fun MessageSearchHitRow(
                 size = CorusSpacing.avatarMedium,
             )
         } else if (isGroup) {
-            StackedGroupAvatar(members = otherMembers, size = CorusSpacing.avatarMedium)
+            StackedGroupAvatar(members = avatarMembers, size = CorusSpacing.avatarMedium)
         } else {
             UserAvatarView(
                 avatarURL = thread.otherUser?.avatarURL,
@@ -907,7 +931,7 @@ private fun ThreadRow(
                 size = 56.dp,
             )
         } else if (isGroup) {
-            StackedGroupAvatar(members = otherMembers, size = 56.dp)
+            StackedGroupAvatar(members = avatarMembers, size = 56.dp)
         } else {
             UserAvatarView(
                 avatarURL = thread.otherUser?.avatarURL,

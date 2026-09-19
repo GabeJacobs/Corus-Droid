@@ -26,6 +26,8 @@ data class CymbalThread(
      *  doc carries only `memberIds`, resolved by the consumer. */
     val members: List<CymbalUser> = emptyList(),
     val createdBy: String? = null,
+    /** Most-recent unique group senders, newest first. Facepiles prefer these. */
+    val lastWriterIds: List<String> = emptyList(),
     /** True while the caller has the correspondent blocked. Stamped on the
      *  caller's own mirror row for as long as the block exists, so the row
      *  itself says whether it may be shown; callable rows never arrive blocked
@@ -49,6 +51,7 @@ data class CymbalThread(
 
             val isGroup = data["type"] == "group"
             val memberIds = (data["memberIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+            val lastWriterIds = (data["lastWriterIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
             // Callables hand back a resolved `members` map (uid -> profile);
             // mirror docs carry only ids.
             val members = (data["members"] as? Map<String, Any?>)?.mapNotNull { (uid, raw) ->
@@ -74,6 +77,7 @@ data class CymbalThread(
                 memberIds = memberIds,
                 members = members,
                 createdBy = data["createdBy"] as? String,
+                lastWriterIds = lastWriterIds,
             )
         }
     }

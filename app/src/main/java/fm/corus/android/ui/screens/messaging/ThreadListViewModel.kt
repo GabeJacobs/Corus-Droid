@@ -104,6 +104,7 @@ internal fun applyLiveThreadUpdates(
                 groupPhotoURL = lt.groupPhotoURL ?: ex.groupPhotoURL,
                 memberIds = if (lt.memberIds.isNotEmpty()) lt.memberIds else ex.memberIds,
                 createdBy = ex.createdBy ?: lt.createdBy,
+                lastWriterIds = if (lt.lastWriterIds.isNotEmpty()) lt.lastWriterIds else ex.lastWriterIds,
                 blocked = lt.blocked,
                 updatedAt = lt.updatedAt,
             )
@@ -241,7 +242,7 @@ class ThreadListViewModel @Inject constructor(
                 val resolved = _groupMembersById.value.toMutableMap()
                 // Seed from any members already resolved by the callable rows.
                 for (g in groups) for (m in g.members) resolved.putIfAbsent(m.id, m)
-                val missing = groups.flatMap { it.memberIds }.toSet()
+                val missing = groups.flatMap { it.memberIds + it.lastWriterIds }.toSet()
                     .filter { it != currentUserId && it !in resolved }
                 for (id in missing) {
                     runCatching { userRepository.fetchUserProfile(id) }.getOrNull()?.let { resolved[id] = it }
@@ -445,13 +446,13 @@ class ThreadListViewModel @Inject constructor(
                 val profiles = runCatching {
                     userRepository.fetchUsersByIdsBatched(
                         newThreads.flatMap { lt ->
-                            if (lt.isGroup) lt.memberIds else listOf(lt.otherUserId)
+                            if (lt.isGroup) lt.memberIds + lt.lastWriterIds else listOf(lt.otherUserId)
                         }.filter { it.isNotBlank() && it != currentUserId }.distinct()
                     )
                 }.getOrDefault(emptyList()).associateBy { it.id }
                 val resolved = newThreads.mapNotNull { lt ->
                     if (lt.isGroup) {
-                        lt.copy(members = lt.memberIds.mapNotNull { profiles[it] })
+                        lt.copy(members = (lt.memberIds + lt.lastWriterIds).distinct().mapNotNull { profiles[it] })
                     } else {
                         profiles[lt.otherUserId]?.let { lt.copy(otherUser = it) }
                     }
