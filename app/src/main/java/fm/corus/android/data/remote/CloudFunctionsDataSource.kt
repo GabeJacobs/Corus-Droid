@@ -1197,6 +1197,7 @@ class CloudFunctionsDataSource @Inject constructor(
         replyToText: String? = null,
         replyToUserId: String? = null,
         clientMessageId: String? = null,
+        clientCreatedAt: Long? = null,
     ) {
         val params = mutableMapOf<String, Any>(
             "threadId" to threadId,
@@ -1250,6 +1251,7 @@ class CloudFunctionsDataSource @Inject constructor(
         replyToText?.let { params["replyToText"] = it }
         replyToUserId?.let { params["replyToUserId"] = it }
         clientMessageId?.let { params["clientMessageId"] = it }
+        clientCreatedAt?.let { params["clientCreatedAt"] = it }
         functions.getHttpsCallable("sendMessage").call(params).await()
     }
 

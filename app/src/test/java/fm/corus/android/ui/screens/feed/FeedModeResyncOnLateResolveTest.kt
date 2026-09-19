@@ -89,7 +89,6 @@ class FeedModeResyncOnLateResolveTest {
         nowPlayingManager = mock()
         remoteConfig = mock {
             on { revision } doReturn MutableStateFlow(0)
-            on { forceTasteMatchesPaywallFlow } doReturn MutableStateFlow(false)
         }
         analyticsService = mock()
         postCreationEvent = mock { on { events } doReturn MutableSharedFlow() }

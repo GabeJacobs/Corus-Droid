@@ -68,9 +68,8 @@ fun TrophyCelebrationView(
     val haptics = LocalHapticManager.current
     LaunchedEffect(visible) {
         if (visible) {
-            // Mirrors iOS TrophyCelebrationView entrance haptic.
-            haptics.notification(HapticManager.NotificationType.SUCCESS)
             delay(100)
+            haptics.play(HapticManager.Pattern.TROPHY)
             showTrophy = true
             delay(300)
             showSparkles = true

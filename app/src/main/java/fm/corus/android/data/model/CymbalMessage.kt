@@ -11,6 +11,8 @@ data class CymbalMessage(
     val type: MessageType = MessageType.TEXT,
     val mediaURL: String? = null,
     val thumbnailURL: String? = null,
+    /** Local poster while a video is still uploading — not persisted. */
+    val localPoster: android.graphics.Bitmap? = null,
     val mediaDurationMs: Int? = null,
     val mediaWidth: Int? = null,
     val mediaHeight: Int? = null,

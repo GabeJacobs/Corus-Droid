@@ -89,8 +89,6 @@ class FeedTransientRetryTest {
         nowPlayingManager = mock()
         remoteConfig = mock {
             on { revision } doReturn MutableStateFlow(0)
-            on { forceTasteMatchesPaywallFlow } doReturn MutableStateFlow(false)
-            on { forceTasteMatchesPaywall } doReturn false
         }
         analyticsService = mock()
         postCreationEvent = mock { on { events } doReturn MutableSharedFlow() }

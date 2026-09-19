@@ -53,4 +53,20 @@ class TabNavBackStackTest {
         assertFalse(destinationIsMapExplore(OtherProfileRoute::class.qualifiedName + "/{userId}"))
         assertFalse(destinationIsMapExplore(null))
     }
+
+    @Test
+    fun `map opened from a profile city is not the profile tab root`() {
+        val map = MapExploreRoute::class.qualifiedName + "/nyc-us"
+        val profile = ProfileTabRoute::class.qualifiedName
+        assertFalse(isAtTabStartDestination(map, profile, currentId = 1, startId = 1))
+        assertTrue(isAtTabStartDestination(profile, profile, currentId = 2, startId = 2))
+        assertEquals(
+            TabReselectAction.POP_TO_START,
+            tabReselectAction(
+                alreadySelected = true,
+                hasCurrentDestination = true,
+                isAtStartDestination = isAtTabStartDestination(map, profile, 9, 1),
+            ),
+        )
+    }
 }

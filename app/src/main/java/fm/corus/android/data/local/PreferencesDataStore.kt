@@ -1,6 +1,7 @@
 package fm.corus.android.data.local
 
 import fm.corus.android.data.model.TasteDiscoveryAccess
+import fm.corus.android.data.model.TrendingWindow
 
 import android.content.Context
 import androidx.datastore.core.DataStore
@@ -520,11 +521,11 @@ class PreferencesDataStore @Inject constructor(
         private const val LAST_COMPOSE_MEDIA_TYPE_SYNC_KEY = "last_compose_media_type"
         private const val SEARCH_BROWSE_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
         private val SEARCH_TRENDING_SONGS = stringPreferencesKey("searchBrowse_v1_trendingSongs")
-        private val SEARCH_TRENDING_MOVIES = stringPreferencesKey("searchBrowse_v1_trendingMovies")
+        private val SEARCH_TRENDING_MOVIES = stringPreferencesKey("searchBrowse_v1_trendingMovies_month")
         private val SEARCH_TRENDING_ALBUMS = stringPreferencesKey("searchBrowse_v1_trendingAlbums")
         private val SEARCH_NEW_RELEASE_ALBUMS = stringPreferencesKey("searchBrowse_v1_newReleaseAlbums")
         private val SEARCH_NEW_RELEASE_MOVIES = stringPreferencesKey("searchBrowse_v1_newReleaseMovies")
-        private val SEARCH_TRENDING_DIRECTORS = stringPreferencesKey("searchBrowse_v1_trendingDirectors")
+        private val SEARCH_TRENDING_DIRECTORS = stringPreferencesKey("searchBrowse_v1_trendingDirectors_month")
         private fun searchNewUsersKey(userId: String) = stringPreferencesKey("searchBrowse_v1_newUsers_$userId")
         private fun searchClubKey(userId: String) = stringPreferencesKey("searchBrowse_v1_club_$userId")
     }
@@ -538,7 +539,7 @@ class PreferencesDataStore @Inject constructor(
     }
 
     val trendingFilmsWindow: Flow<String> = dataStore.data.map { prefs ->
-        prefs[TRENDING_FILMS_WINDOW] ?: "week"
+        prefs[TRENDING_FILMS_WINDOW] ?: TrendingWindow.FILMS_DEFAULT.key
     }
 
     suspend fun setTrendingFilmsWindow(value: String) {
@@ -570,7 +571,7 @@ class PreferencesDataStore @Inject constructor(
     }
 
     val trendingDirectorsWindow: Flow<String> = dataStore.data.map { prefs ->
-        prefs[TRENDING_DIRECTORS_WINDOW] ?: "week"
+        prefs[TRENDING_DIRECTORS_WINDOW] ?: TrendingWindow.DIRECTORS_DEFAULT.key
     }
 
     suspend fun setTrendingDirectorsWindow(value: String) {

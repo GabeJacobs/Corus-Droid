@@ -41,4 +41,32 @@ class PosterCorusQueueTest {
         )
         assertEquals(listOf("older-like", "even-older"), assembled.map { it.id })
     }
+
+    @Test
+    fun isolatedPlayFollowsThePostNotThePreviousOrigin() {
+        assertEquals(
+            true,
+            PosterCorusQueue.isStillIsolatedPlay(
+                postId = "other-post",
+                currentSourcePostId = "other-post",
+                loadingSourcePostId = null,
+            ),
+        )
+        assertEquals(
+            true,
+            PosterCorusQueue.isStillIsolatedPlay(
+                postId = "other-post",
+                currentSourcePostId = null,
+                loadingSourcePostId = "other-post",
+            ),
+        )
+        assertEquals(
+            false,
+            PosterCorusQueue.isStillIsolatedPlay(
+                postId = "other-post",
+                currentSourcePostId = "feed-post",
+                loadingSourcePostId = null,
+            ),
+        )
+    }
 }

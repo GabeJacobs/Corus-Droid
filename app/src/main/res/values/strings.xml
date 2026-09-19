@@ -1271,6 +1271,7 @@
     <string name="club_feature_support">Keep Corus ad-free</string>
     <string name="club_feature_taste_matches">Taste Matches feed</string>
     <string name="club_feature_unlock_all_taste_matches">Unlock all Taste Matches</string>
+    <string name="club_feature_see_whos_nearby">See who’s on Corus in your city</string>
     <string name="club_disclaimer">Corus is proudly ad-free. Club members help keep Corus independent and sustainable.</string>
     <!-- Taste Matches cold-start (premium feed, not enough posts yet) -->
     <string name="feed_taste_matches_coldstart_title">What are 3 songs or films you love?</string>
@@ -1556,6 +1557,22 @@
     <string name="club_onboarding_renewal">Then auto-renews. Cancel anytime.</string>
     <string name="club_onboarding_renewal_no_trial">Auto-renews. Cancel anytime.</string>
     <string name="club_onboarding_yearly_billed">Billed at %1$s/yr.</string>
+    <string name="club_onboarding_social_proof">People who share your taste are already in Corus Club</string>
+    <string name="club_onboarding_reviews_source">Reviews</string>
+    <string name="club_onboarding_review_dakota_quote">Already found cool people and cool new artists to listen to.</string>
+    <string name="club_onboarding_review_dakota_name">Dakota</string>
+    <string name="club_onboarding_review_russell_quote">I avoid social media, but Corus feels great.</string>
+    <string name="club_onboarding_review_russell_name">Russell</string>
+    <string name="club_onboarding_review_eh7429_quote">The community here makes it. Discovered so much great music and cool people.</string>
+    <string name="club_onboarding_review_eh7429_name">eh7429</string>
+    <string name="club_onboarding_review_freakybr0_quote">No ads, no friction, and a fair paid tier.</string>
+    <string name="club_onboarding_review_freakybr0_name">FreakyBr0</string>
+    <string name="club_onboarding_review_audible_orange_quote">A welcoming community where you connect over the songs you love.</string>
+    <string name="club_onboarding_review_audible_orange_name">audible_orange</string>
+    <string name="club_onboarding_review_voidlike_quote">A social network that connects you on musical taste.</string>
+    <string name="club_onboarding_review_voidlike_name">voidlike</string>
+    <string name="club_onboarding_review_toby_quote">I’ve been looking my whole life for a real music social network.</string>
+    <string name="club_onboarding_review_toby_name">tobywankanobie</string>
     <string name="map_cluster_invite_copy">Grow your cluster. Invite your friends to join Corus.</string>
     <string name="map_cluster_invite_action">Invite friends</string>
     <string name="messaging_blocked_message">Blocked message</string>

@@ -386,25 +386,6 @@ class ProfileViewModel @Inject constructor(
                 if (user != null) _profile.value = user
             }
         }
-        viewModelScope.launch {
-            val uid = authRepository.currentUserId
-            if (uid == null) {
-                _mapCityResolved.value = true
-                return@launch
-            }
-            mapRepository.ownPresence(uid, serverOnly = true).collect { data ->
-                val live = fm.corus.android.data.model.ProfileMapCity.fromPresence(data)
-                val cached = mapRepository.cachedOwnMapCity(uid)
-                val confirmed = when {
-                    live == null -> null
-                    cached != null && cached.cityId != live.cityId -> live
-                    else -> live
-                }
-                _mapCity.value = confirmed
-                mapRepository.saveOwnMapCity(uid, confirmed)
-                _mapCityResolved.value = true
-            }
-        }
         // Optimistic insert when compose sent a card (matches iOS). Fall
         // back to a short live refetch when only the media type arrived.
         viewModelScope.launch {
@@ -524,6 +505,42 @@ class ProfileViewModel @Inject constructor(
     // immediately refetch on entry.
     private var lastFeaturedRefreshAt: Long = 0L
 
+    /**
+     * Server `map_presence` wins. Cache is only a height hint for the wait
+     * skeleton (`expectCityLine`) and is saved after a successful live read —
+     * never painted as the visible city on a failed fetch. Matches iOS
+     * `ProfileViewModel.confirmOwnMapCity`.
+     */
+    fun confirmOwnMapCity() {
+        viewModelScope.launch { confirmOwnMapCityInternal() }
+    }
+
+    private suspend fun confirmOwnMapCityInternal() {
+        if (!mapEnabled) {
+            _mapCity.value = null
+            _mapCityResolved.value = true
+            return
+        }
+        val uid = authRepository.currentUserId
+        if (uid == null) {
+            _mapCity.value = null
+            _mapCityResolved.value = true
+            return
+        }
+        try {
+            val live = mapRepository.fetchLiveProfileCity(uid)
+            val cached = mapRepository.cachedOwnMapCity(uid)
+            val confirmed = fm.corus.android.data.model.ProfileMapCity.displayOwn(live, cached)
+            _mapCity.value = confirmed
+            mapRepository.saveOwnMapCity(uid, confirmed)
+        } catch (_: Exception) {
+            // Don't paint cache on a failed live read — it may be a moved cluster.
+            // Leave disk cache so the next skeleton still reserves the city line.
+            _mapCity.value = null
+        }
+        _mapCityResolved.value = true
+    }
+
     // Clock seam — overridden in tests so the throttle window can be exercised
     // without sleeping. Production uses System.currentTimeMillis.
     @androidx.annotation.VisibleForTesting
@@ -531,6 +548,8 @@ class ProfileViewModel @Inject constructor(
 
     private val PAGE_SIZE = 30
     fun loadProfile() {
+        // iOS confirms city on every Profile tab visit, in parallel with posts.
+        confirmOwnMapCity()
         if (hasLoaded) return
         val userId = authRepository.currentUserId ?: return
         hasLoaded = true
@@ -655,6 +674,7 @@ class ProfileViewModel @Inject constructor(
         if (!(knownZeroSongs || (allPostsLoaded && noSongsCached))) {
             _hasFetchedSongPage.value = false
         }
+        confirmOwnMapCity()
         viewModelScope.launch {
             _isLoading.value = true
             _isRefreshing.value = true

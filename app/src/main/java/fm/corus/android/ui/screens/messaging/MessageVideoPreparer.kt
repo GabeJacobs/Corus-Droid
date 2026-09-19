@@ -44,8 +44,13 @@ object MessageVideoLimits {
 
 class MessageVideoException(message: String) : Exception(message) {
     companion object {
-        const val TOO_LONG = "Videos can be up to 2 minutes"
+        const val TOO_LONG_TITLE = "This video is too long."
+        const val TOO_LONG_BODY = "Please pick a video under 2 minutes."
+        const val TOO_LONG = "$TOO_LONG_TITLE $TOO_LONG_BODY"
         const val TOO_LARGE = "Videos need to be under 30 MB"
+        const val DAILY_LIMIT_TITLE = "You've sent a lot of videos today."
+        const val DAILY_LIMIT_BODY = "Try again tomorrow."
+        const val DAILY_LIMIT = "$DAILY_LIMIT_TITLE $DAILY_LIMIT_BODY"
         const val FAILED = "Couldn't prepare this video"
     }
 }

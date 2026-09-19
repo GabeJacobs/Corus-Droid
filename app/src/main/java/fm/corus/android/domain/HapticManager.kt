@@ -27,6 +27,9 @@ class HapticManager @Inject constructor(
 ) {
     companion object {
         private val HAPTICS_ENABLED = booleanPreferencesKey("haptics_enabled")
+
+        /** Flip to `false` to restore the old one-shot haptics. */
+        @JvmField var choreographedEnabled = true
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -86,6 +89,51 @@ class HapticManager @Inject constructor(
         vibrator.vibrate(effect)
     }
 
+    /**
+     * Timed haptic that follows a visual (trophy, post success).
+     * Flip [choreographedEnabled] to restore the old one-shot impacts.
+     */
+    fun play(pattern: Pattern) {
+        if (!isEnabled()) return
+        if (!choreographedEnabled) {
+            fallback()
+            return
+        }
+        if (playComposition(pattern)) return
+        playWaveform(pattern)
+    }
+
+    private fun fallback() {
+        notification(NotificationType.SUCCESS)
+    }
+
+    private fun playComposition(pattern: Pattern): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
+        val primitives = pattern.primitives
+        if (primitives.isEmpty()) return false
+        val ids = primitives.map { it.id }.toIntArray()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            !vibrator.areAllPrimitivesSupported(*ids)
+        ) {
+            return false
+        }
+        return try {
+            val composition = VibrationEffect.startComposition()
+            for (step in primitives) {
+                composition.addPrimitive(step.id, step.scale, step.delayMs)
+            }
+            vibrateTouch(composition.compose())
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun playWaveform(pattern: Pattern) {
+        val (timings, amps) = pattern.waveform
+        vibrateTouch(VibrationEffect.createWaveform(timings, amps, -1))
+    }
+
     /** Selection tick — subtle change feedback. */
     fun selection() {
         if (!isEnabled()) return
@@ -111,4 +159,35 @@ class HapticManager @Inject constructor(
 
     enum class ImpactStyle { LIGHT, MEDIUM, HEAVY }
     enum class NotificationType { SUCCESS, WARNING, ERROR }
+
+    enum class Pattern {
+        TROPHY,
+        POST_SUCCESS,
+        ;
+
+        internal val primitives: List<PrimitiveStep>
+            get() = when (this) {
+                TROPHY -> listOf(
+                    PrimitiveStep(VibrationEffect.Composition.PRIMITIVE_CLICK, 1.00f, 0),
+                    PrimitiveStep(VibrationEffect.Composition.PRIMITIVE_CLICK, 0.62f, 140),
+                    PrimitiveStep(VibrationEffect.Composition.PRIMITIVE_TICK, 1.00f, 120),
+                    PrimitiveStep(VibrationEffect.Composition.PRIMITIVE_TICK, 0.55f, 60),
+                    PrimitiveStep(VibrationEffect.Composition.PRIMITIVE_TICK, 0.72f, 60),
+                    PrimitiveStep(VibrationEffect.Composition.PRIMITIVE_CLICK, 0.85f, 80),
+                )
+                POST_SUCCESS -> listOf(
+                    PrimitiveStep(VibrationEffect.Composition.PRIMITIVE_TICK, 0.55f, 0),
+                    PrimitiveStep(VibrationEffect.Composition.PRIMITIVE_CLICK, 0.90f, 80),
+                )
+            }
+
+        internal val waveform: Pair<LongArray, IntArray>
+            get() = when (this) {
+                TROPHY -> longArrayOf(0, 24, 120, 18, 100, 12, 50, 10, 50, 10, 70, 22) to
+                    intArrayOf(0, 255, 0, 170, 0, 90, 0, 140, 0, 110, 0, 210)
+                POST_SUCCESS -> longArrayOf(0, 16, 70, 22) to intArrayOf(0, 90, 0, 200)
+            }
+    }
+
+    internal data class PrimitiveStep(val id: Int, val scale: Float, val delayMs: Int)
 }

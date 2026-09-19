@@ -20,6 +20,7 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PlaybackOrigin
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.domain.FullSongPlayCoordinator
@@ -173,6 +174,8 @@ class ProfileFeedViewModel @Inject constructor(
                     .filter { it.mediaType == MediaType.TRACK }
                     .map { it.toQueuedTrack() }
                 if (tracks.isEmpty()) return@collect
+                val ctx = nowPlayingManager.activeContext
+                if (ctx !is PlaybackOrigin.Profile || ctx.userId != userId) return@collect
                 nowPlayingManager.updateFeedQueue(
                     newQueue = tracks,
                     hasMore = hasMore,
@@ -484,6 +487,7 @@ class ProfileFeedViewModel @Inject constructor(
         skipPlaybackModePrompt: Boolean = false,
     ) {
         nowPlayingManager.lastUserInitiatedSourcePostId = post.id
+        nowPlayingManager.setPlaybackOrigin(PlaybackOrigin.Profile(userId))
         val musicService = musicServicePreference.current.value
         if (!preferFullSong &&
             nowPlayingManager.isFullSongSessionActive(musicService, post.track.id, post.id)

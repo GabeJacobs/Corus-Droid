@@ -51,6 +51,7 @@ fun MessageLinkPreviewCard(
         runCatching {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(resolved.openUrl)))
         }
+        Unit
     }
     if (hero) {
         Column(

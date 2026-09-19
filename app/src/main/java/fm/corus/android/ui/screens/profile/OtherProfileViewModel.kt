@@ -322,16 +322,40 @@ class OtherProfileViewModel @Inject constructor(
     private val _mapCityResolved = MutableStateFlow(!remoteConfig.mapEnabled)
     val mapCityResolved: StateFlow<Boolean> = _mapCityResolved.asStateFlow()
 
-    private fun applyMapCity(data: CloudFunctionsDataSource.ProfileData) {
+    private fun applyMapCity(userId: String, data: CloudFunctionsDataSource.ProfileData) {
+        if (!mapEnabled) {
+            _mapCityResolved.value = true
+            return
+        }
         if (data.mapCityIncluded) {
             _mapCity.value = data.mapCity
-            loadedUserId?.let { mapRepository.saveOtherProfileHasCity(it, data.mapCity != null) }
+            mapRepository.saveOtherProfileHasCity(userId, data.mapCity != null)
+            _mapCityResolved.value = true
+            return
         }
-        _mapCityResolved.value = true
+        // Older backends omit the key; clients then call getProfileMapCity.
+        viewModelScope.launch {
+            try {
+                val city = cloudFunctions.getProfileMapCity(userId)
+                _mapCity.value = city
+                mapRepository.saveOtherProfileHasCity(userId, city != null)
+            } catch (_: Exception) {
+                _mapCity.value = null
+            }
+            _mapCityResolved.value = true
+        }
     }
 
-    fun expectCitySkeleton(userId: String): Boolean =
-        mapEnabled && mapRepository.otherProfileHasCity(userId) == true
+    /**
+     * Height-only hint for the wait skeleton, matching iOS
+     * `OtherProfileView.reserveCitySkeleton`: Map entry, or a previous
+     * `getProfileData` that stored whether this uid has a city. Never used
+     * as the visible city label.
+     */
+    fun expectCitySkeleton(userId: String, expectMapCity: Boolean = false): Boolean {
+        if (!mapEnabled) return false
+        return expectMapCity || mapRepository.otherProfileHasCity(userId) == true
+    }
 
     val isProfileArtistLinkEnabled: Boolean
         get() = remoteConfig.isProfileArtistLinkEnabled(authRepository.userProfile.value?.username)
@@ -434,6 +458,8 @@ class OtherProfileViewModel @Inject constructor(
         _hasFetchedFilmPage.value = false
         _isLoadingFilms.value = false
         _linkedArtist.value = null
+        _mapCity.value = null
+        _mapCityResolved.value = !mapEnabled
         viewModelScope.launch {
             _isLoading.value = true
             _hasLoadError.value = false
@@ -464,10 +490,10 @@ class OtherProfileViewModel @Inject constructor(
                 val page: List<CymbalPost> = try {
                     val data = postRepository.getProfileData(userId = userId, pageSize = PAGE_SIZE)
                     if (data.user != null) {
-                        applyMapCity(data)
                         _profile.value = data.user
                         _matchData.value = data.match
                         _linkedArtist.value = data.linkedArtist
+                        applyMapCity(userId, data)
                         data.posts
                     } else {
                         _mapCityResolved.value = true
@@ -587,7 +613,7 @@ class OtherProfileViewModel @Inject constructor(
                     val data = postRepository.getProfileData(userId = userId, pageSize = 1)
                     _matchData.value = data.match
                     _linkedArtist.value = data.linkedArtist
-                    applyMapCity(data)
+                    applyMapCity(userId, data)
                     data.user ?: userRepository.fetchUserProfile(userId)
                 } catch (e: Exception) {
                     if (e is com.google.firebase.functions.FirebaseFunctionsException &&

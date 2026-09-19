@@ -124,6 +124,7 @@ fun OtherProfileScreen(
     initialIsVerified: Boolean? = null,
     initialIsClubMember: Boolean? = null,
     initialIsFollowing: Boolean? = null,
+    expectMapCity: Boolean = false,
     viewModel: OtherProfileViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToProfileFeed: (userId: String, username: String, postId: String, segment: Int) -> Unit = { _, _, _, _ -> },
@@ -572,6 +573,7 @@ fun OtherProfileScreen(
         }
         val hasInitialData = initialDisplayName != null && initialUsername != null
         val waitForMapCity = viewModel.mapEnabled && !mapCityResolved
+        val reserveCityLine = viewModel.expectCitySkeleton(userId, expectMapCity)
         if ((isLoading && profile == null) || waitForMapCity) {
             if (hasInitialData && !waitForMapCity) {
                 // Show real header with initial data from the feed; only shimmer the posts grid
@@ -591,7 +593,7 @@ fun OtherProfileScreen(
                                     .fillMaxWidth()
                                     .padding(horizontal = headerHPad)
                                     .padding(top = CorusSpacing.sm),
-                                verticalAlignment = Alignment.CenterVertically,
+                                verticalAlignment = if (reserveCityLine) Alignment.Top else Alignment.CenterVertically,
                             ) {
                                 UserAvatarView(
                                     avatarURL = initialAvatarURL,
@@ -603,7 +605,9 @@ fun OtherProfileScreen(
                                 Spacer(modifier = Modifier.width(16.dp))
 
                                 Column(
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(top = if (reserveCityLine) 4.dp else 0.dp),
                                     horizontalAlignment = Alignment.Start,
                                 ) {
                                     Text(
@@ -613,7 +617,18 @@ fun OtherProfileScreen(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                     )
-                                    Spacer(modifier = Modifier.height(4.dp))
+                                    if (reserveCityLine) {
+                                        Box(
+                                            modifier = Modifier
+                                                .padding(top = 4.dp)
+                                                .width(88.dp)
+                                                .height(11.dp)
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .shimmer()
+                                                .background(CorusColors.Skeleton),
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(if (reserveCityLine) 8.dp else 4.dp))
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         verticalAlignment = Alignment.CenterVertically,
@@ -765,12 +780,12 @@ fun OtherProfileScreen(
                     SkeletonProfileWithAvatar(
                         avatarURL = initialAvatarURL,
                         avatarThumbURL = initialAvatarThumbURL,
-                        reserveCityLine = viewModel.expectCitySkeleton(userId),
+                        reserveCityLine = reserveCityLine,
                     )
                 } else {
                     SkeletonProfileView(
                         showIconHeaderRow = false,
-                        reserveCityLine = viewModel.expectCitySkeleton(userId),
+                        reserveCityLine = reserveCityLine,
                     )
                 }
                 SkeletonProfileGrid()

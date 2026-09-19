@@ -47,6 +47,7 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
         editor.apply()
     }
     private val cityHintPreferences = context.getSharedPreferences("profile_city_hint", Context.MODE_PRIVATE)
+    private val tasteMatchPreferences = context.getSharedPreferences("map_taste_matches", Context.MODE_PRIVATE)
     fun otherProfileHasCity(uid: String): Boolean? {
         if (!cityHintPreferences.contains(uid)) return null
         return cityHintPreferences.getBoolean(uid, false)
@@ -85,6 +86,18 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
             .apply()
         return ids
     }
+    /**
+     * One-shot server read of the viewer's `map_presence` doc. Matches iOS
+     * `MapPresenceService.fetchLiveProfileCity` (`getDocument(source: .server)`).
+     * Missing doc → null (not sharing). Network / permission errors throw so
+     * the caller can leave the disk cache untouched.
+     */
+    suspend fun fetchLiveProfileCity(uid: String): fm.corus.android.data.model.ProfileMapCity? {
+        val snap = db.collection("map_presence").document(uid).get(Source.SERVER).await()
+        if (!snap.exists()) return null
+        return fm.corus.android.data.model.ProfileMapCity.fromPresence(snap.data)
+    }
+
     fun ownPresence(uid: String, serverOnly: Boolean = false) = callbackFlow {
         val listener = db.collection("map_presence").document(uid).addSnapshotListener { snapshot, error ->
             if (error != null) { trySend(null); return@addSnapshotListener }

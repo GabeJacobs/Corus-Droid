@@ -90,6 +90,9 @@ class ProfileViewModelTest {
 
     private fun createViewModel(
         remoteConfigService: RemoteConfigService = mock(),
+        mapRepository: fm.corus.android.ui.screens.map.MapRepository = mock {
+            on { ownPresence(org.mockito.kotlin.any(), org.mockito.kotlin.any()) } doReturn kotlinx.coroutines.flow.emptyFlow()
+        },
     ): ProfileViewModel = ProfileViewModel(
         context = mock(),
         authRepository = authRepository,
@@ -109,9 +112,7 @@ class ProfileViewModelTest {
         remoteConfigService = remoteConfigService,
         networkMonitor = mock { on { isConnected } doReturn kotlinx.coroutines.flow.MutableStateFlow(true) },
         ownProfileLaunchCache = OwnProfileLaunchCache(cloudFunctions),
-        mapRepository = mock {
-            on { ownPresence(org.mockito.kotlin.any(), org.mockito.kotlin.any()) } doReturn kotlinx.coroutines.flow.emptyFlow()
-        },
+        mapRepository = mapRepository,
     )
 
     private fun makeUser(id: String = "user1", movieCount: Int? = null, trackCount: Int? = null) = CymbalUser(
@@ -442,6 +443,48 @@ class ProfileViewModelTest {
         advanceUntilIdle()
 
         assertEquals(artist, viewModel.linkedArtist.value)
+    }
+
+    @Test
+    fun `confirmOwnMapCity paints live city and saves cache`() = runTest {
+        val nyc = fm.corus.android.data.model.ProfileMapCity("nyc", "New York, New York")
+        val mapRepository = mock<fm.corus.android.ui.screens.map.MapRepository> {
+            on { cachedOwnMapCity("user1") } doReturn nyc
+        }
+        whenever(mapRepository.fetchLiveProfileCity("user1")).thenReturn(nyc)
+        val remoteConfig = mock<RemoteConfigService> {
+            on { mapEnabled } doReturn true
+        }
+
+        val viewModel = createViewModel(remoteConfigService = remoteConfig, mapRepository = mapRepository)
+        viewModel.confirmOwnMapCity()
+        advanceUntilIdle()
+
+        assertEquals(nyc, viewModel.mapCity.value)
+        assertEquals(true, viewModel.mapCityResolved.value)
+        verify(mapRepository).saveOwnMapCity("user1", nyc)
+    }
+
+    @Test
+    fun `failed live city read reveals without painting or clearing cache`() = runTest {
+        val cached = fm.corus.android.data.model.ProfileMapCity("nyc", "New York, New York")
+        val mapRepository = mock<fm.corus.android.ui.screens.map.MapRepository> {
+            on { cachedOwnMapCity("user1") } doReturn cached
+        }
+        whenever(mapRepository.fetchLiveProfileCity("user1"))
+            .thenThrow(RuntimeException("firestore offline"))
+        val remoteConfig = mock<RemoteConfigService> {
+            on { mapEnabled } doReturn true
+        }
+
+        val viewModel = createViewModel(remoteConfigService = remoteConfig, mapRepository = mapRepository)
+        viewModel.confirmOwnMapCity()
+        advanceUntilIdle()
+
+        assertNull(viewModel.mapCity.value)
+        assertEquals(true, viewModel.mapCityResolved.value)
+        verify(mapRepository, org.mockito.kotlin.never()).saveOwnMapCity(org.mockito.kotlin.any(), org.mockito.kotlin.any())
+        assertTrue(viewModel.expectCityLine)
     }
 
     @Test

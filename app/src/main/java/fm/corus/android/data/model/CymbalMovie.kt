@@ -54,9 +54,13 @@ enum class TrendingWindow(val key: String) {
 
     companion object {
         val DEFAULT: TrendingWindow = WEEK
+        /** Films use month on every platform; week is too sparse. */
+        val FILMS_DEFAULT: TrendingWindow = MONTH
+        /** Directors use month on every platform; week is too sparse. */
+        val DIRECTORS_DEFAULT: TrendingWindow = MONTH
 
-        fun fromKey(value: String?): TrendingWindow =
-            values().firstOrNull { it.key == value } ?: DEFAULT
+        fun fromKey(value: String?, fallback: TrendingWindow = DEFAULT): TrendingWindow =
+            values().firstOrNull { it.key == value } ?: fallback
     }
 }
 

@@ -3,7 +3,12 @@ package fm.corus.android.ui.screens.subscription
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,6 +22,7 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Verified
@@ -38,10 +44,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.revenuecat.purchases.Package
 import com.revenuecat.purchases.models.Period
 import fm.corus.android.R
+import fm.corus.android.data.model.MusicService
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.VennDiagramIcon
 import fm.corus.android.ui.theme.CorusColors
@@ -49,12 +57,48 @@ import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.bottomSheetMaxHeight
 import fm.corus.android.domain.PlaylistTrialField
+import kotlinx.coroutines.delay
 
 internal object ClubOnboardingPaywallContract {
     val vinylSize = 112.dp
-    val headerVerticalPadding = 56.dp
-    val exportBenefitMinimumContentHeight = 440.dp
+    val headerVerticalPadding = 36.dp
+    val extraBenefitMinimumContentHeight = 440.dp
+    val expandedBenefitMinimumContentHeight = 560.dp
+    val subtitleMaxWidth = 280.dp
     val closeTapTargetSize = 48.dp
+
+    data class PlayStoreReview(val quote: Int, val name: Int)
+
+    val playStoreReviews = listOf(
+        PlayStoreReview(
+            R.string.club_onboarding_review_toby_quote,
+            R.string.club_onboarding_review_toby_name,
+        ),
+        PlayStoreReview(
+            R.string.club_onboarding_review_voidlike_quote,
+            R.string.club_onboarding_review_voidlike_name,
+        ),
+        PlayStoreReview(
+            R.string.club_onboarding_review_audible_orange_quote,
+            R.string.club_onboarding_review_audible_orange_name,
+        ),
+        PlayStoreReview(
+            R.string.club_onboarding_review_freakybr0_quote,
+            R.string.club_onboarding_review_freakybr0_name,
+        ),
+        PlayStoreReview(
+            R.string.club_onboarding_review_eh7429_quote,
+            R.string.club_onboarding_review_eh7429_name,
+        ),
+        PlayStoreReview(
+            R.string.club_onboarding_review_russell_quote,
+            R.string.club_onboarding_review_russell_name,
+        ),
+        PlayStoreReview(
+            R.string.club_onboarding_review_dakota_quote,
+            R.string.club_onboarding_review_dakota_name,
+        ),
+    )
 
     fun renewalStringResource(hasTrial: Boolean): Int = if (hasTrial) {
         R.string.club_onboarding_renewal
@@ -62,11 +106,28 @@ internal object ClubOnboardingPaywallContract {
         R.string.club_onboarding_renewal_no_trial
     }
 
-    fun benefitStringResources(supportsPlaylistExport: Boolean, contentHeight: Dp): List<Int> = buildList {
+    fun showsReviews(contentHeight: Dp): Boolean =
+        contentHeight >= extraBenefitMinimumContentHeight
+
+    fun showsSocialProof(contentHeight: Dp): Boolean =
+        contentHeight >= expandedBenefitMinimumContentHeight &&
+            !showsReviews(contentHeight)
+
+    fun benefitStringResources(
+        supportsPlaylistExport: Boolean,
+        contentHeight: Dp,
+        mapEnabled: Boolean = false,
+    ): List<Int> = buildList {
         add(R.string.club_feature_unlock_all_taste_matches)
         add(R.string.club_feature_customization)
-        add(R.string.club_feature_unlimited_saves)
-        if (supportsPlaylistExport && contentHeight >= exportBenefitMinimumContentHeight) {
+        val showReviews = showsReviews(contentHeight)
+        val showFivePerks = contentHeight >= expandedBenefitMinimumContentHeight
+        // Drop saves on mid-height phones so the review quote can sit fully
+        // above the pinned plans. Keep it on compact (no reviews) and tall.
+        if (!showReviews || showFivePerks || !supportsPlaylistExport) {
+            add(R.string.club_feature_unlimited_saves)
+        }
+        if (supportsPlaylistExport && showReviews) {
             add(R.string.club_feature_unlimited_playlists)
         }
         add(R.string.club_feature_support)
@@ -361,8 +422,6 @@ fun CymbalClubOfferScreen(
                     color = CorusColors.Text,
                 )
 
-                Spacer(modifier = Modifier.height(CorusSpacing.sm))
-
                 // Post-limit: surface the trial with its duration when available,
                 // otherwise the source's default subtitle ("Remove posting limits").
                 val trial = trialDurationText(
@@ -370,6 +429,9 @@ fun CymbalClubOfferScreen(
                     selectedPackage,
                     source == PaywallSource.ONBOARDING || source == PaywallSource.THIRD_POST,
                 )
+
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+
                 val subtitleText = if (source == PaywallSource.POST_LIMIT && trial != null)
                     context.getString(R.string.club_subtitle_post_limit_trial_format, trial)
                 else
@@ -380,10 +442,15 @@ fun CymbalClubOfferScreen(
                     style = CorusFont.body,
                     color = CorusColors.Secondary,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+                    modifier = Modifier
+                        .padding(horizontal = CorusSpacing.xl)
+                        .then(
+                            if (isOnboarding) Modifier.widthIn(max = ClubOnboardingPaywallContract.subtitleMaxWidth)
+                            else Modifier,
+                        ),
                 )
 
-                Spacer(modifier = Modifier.height(CorusSpacing.xxxl))
+                Spacer(modifier = Modifier.height(if (isOnboarding) CorusSpacing.xl else CorusSpacing.xxxl))
 
                 // Features. Lead with the Taste Matches feed (when live) and profile
                 // customization; "Unlimited posts" sits mid-list now that the free tier
@@ -396,34 +463,35 @@ fun CymbalClubOfferScreen(
                     modifier = Modifier.padding(horizontal = CorusSpacing.xl),
                     verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                 ) {
-                    if (tasteMatchesEnabled) {
-                        FeatureRow(text = stringResource(if (isOnboarding) R.string.club_feature_unlock_all_taste_matches else R.string.club_feature_taste_matches)) {
-                            VennDiagramIcon(size = 20.dp, color = CorusColors.Accent, shadedIntersection = true)
-                        }
-                    }
-                    FeatureRow(icon = Icons.Filled.Brush, text = stringResource(R.string.club_feature_customization))
                     if (isOnboarding) {
-                        FeatureRow(icon = Icons.Filled.Bookmark, text = stringResource(R.string.club_feature_unlimited_saves))
-                        if (musicService != fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC &&
-                            availableHeight >= ClubOnboardingPaywallContract.exportBenefitMinimumContentHeight
-                        ) {
-                            FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_unlimited_playlists))
-                        }
+                        ClubOnboardingPaywallContract.benefitStringResources(
+                            supportsPlaylistExport = musicService != MusicService.YOUTUBE_MUSIC,
+                            contentHeight = availableHeight,
+                            mapEnabled = viewModel.remoteConfig.mapEnabled,
+                        ).forEach { OnboardingBenefitRow(it) }
                     } else {
+                        if (tasteMatchesEnabled) {
+                            FeatureRow(text = stringResource(R.string.club_feature_taste_matches)) {
+                                VennDiagramIcon(size = 20.dp, color = CorusColors.Accent, shadedIntersection = true)
+                            }
+                        }
+                        FeatureRow(icon = Icons.Filled.Brush, text = stringResource(R.string.club_feature_customization))
                         FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
-                    }
-                    if (!isOnboarding && musicService != fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
-                        FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
-                    }
-                    FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
-                    if (!isOnboarding && !tasteMatchesEnabled) {
-                        FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
+                        if (musicService != MusicService.YOUTUBE_MUSIC) {
+                            FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
+                        }
+                        FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
+                        if (!tasteMatchesEnabled) {
+                            FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
+                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(CorusSpacing.md))
 
-                if (!isOnboarding) {
+                if (isOnboarding && ClubOnboardingPaywallContract.showsReviews(availableHeight)) {
+                    OnboardingPlayStoreReviews()
+                } else if (!isOnboarding) {
                     Text(
                         text = stringResource(R.string.club_disclaimer),
                         style = CorusFont.caption,
@@ -516,7 +584,7 @@ fun CymbalClubOfferScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = CorusSpacing.xl)
-                        .height(52.dp),
+                        .height(56.dp),
                     shape = RoundedCornerShape(50),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = CorusColors.Accent,
@@ -532,7 +600,7 @@ fun CymbalClubOfferScreen(
                     } else {
                         Text(
                             text = ctaText(context, selectedPackage, isClubMember, source == PaywallSource.ONBOARDING || source == PaywallSource.THIRD_POST),
-                            style = CorusFont.button,
+                            style = CorusFont.button.copy(fontSize = 17.sp),
                         )
                     }
                 }
@@ -1011,6 +1079,86 @@ fun CymbalClubOfferSheet(
 
             Spacer(modifier = Modifier.height(CorusSpacing.sm))
         }
+    }
+}
+
+@Composable
+private fun OnboardingPlayStoreReviews() {
+    val reviews = ClubOnboardingPaywallContract.playStoreReviews
+    var index by remember { mutableIntStateOf(0) }
+    LaunchedEffect(reviews.size) {
+        while (true) {
+            delay(5_500)
+            index = (index + 1) % reviews.size
+        }
+    }
+    val review = reviews[index]
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.xxl),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        AnimatedContent(
+            targetState = review,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            label = "onboardingReview",
+        ) { shown ->
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 92.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(
+                    text = "“${stringResource(shown.quote)}”",
+                    style = CorusFont.bodyMedium,
+                    color = CorusColors.Text,
+                    textAlign = TextAlign.Center,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                Text(
+                    text = stringResource(shown.name),
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(CorusSpacing.md))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            reviews.forEachIndexed { i, _ ->
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(
+                            if (i == index) CorusColors.Accent
+                            else CorusColors.Secondary.copy(alpha = 0.22f),
+                        ),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun OnboardingBenefitRow(stringRes: Int) {
+    val text = stringResource(stringRes)
+    when (stringRes) {
+        R.string.club_feature_unlock_all_taste_matches -> FeatureRow(text = text) {
+            VennDiagramIcon(size = 20.dp, color = CorusColors.Accent, shadedIntersection = true)
+        }
+        R.string.club_feature_customization -> FeatureRow(icon = Icons.Filled.Brush, text = text)
+        R.string.club_feature_unlimited_saves -> FeatureRow(icon = Icons.Filled.Bookmark, text = text)
+        R.string.club_feature_unlimited_playlists -> FeatureRow(icon = Icons.Filled.QueueMusic, text = text)
+        R.string.club_feature_favorites -> FeatureRow(icon = Icons.Filled.Star, text = text)
+        R.string.club_feature_see_whos_nearby -> FeatureRow(icon = Icons.Filled.LocationOn, text = text)
+        R.string.club_feature_verified -> FeatureRow(icon = Icons.Filled.Verified, text = text)
+        else -> FeatureRow(icon = Icons.Filled.Favorite, text = text)
     }
 }
 

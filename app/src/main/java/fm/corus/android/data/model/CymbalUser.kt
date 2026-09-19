@@ -102,7 +102,10 @@ data class CymbalUser(
      * null — search docs and feed author previews both have counts that are
      * either stale or zero, and iOS always waits for the live profile.
      */
-    fun toOtherProfileRoute(isFollowing: Boolean? = null) = OtherProfileRoute(
+    fun toOtherProfileRoute(
+        isFollowing: Boolean? = null,
+        expectMapCity: Boolean = false,
+    ) = OtherProfileRoute(
         userId = id,
         avatarURL = avatarURL,
         avatarThumbURL = avatarThumbURL,
@@ -112,6 +115,7 @@ data class CymbalUser(
         initialIsVerified = isVerified,
         initialIsClubMember = isClubMember,
         initialIsFollowing = isFollowing,
+        expectMapCity = expectMapCity,
     )
 
     /**

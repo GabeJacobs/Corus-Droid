@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
@@ -15,6 +16,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
@@ -30,10 +32,16 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layout
+import kotlin.math.roundToInt
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.TextLayoutResult
@@ -62,8 +70,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.graphicsLayer
@@ -103,6 +113,7 @@ import fm.corus.android.R
 import com.valentinilk.shimmer.shimmer
 import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.data.model.CymbalMessage
+import fm.corus.android.data.model.MessageLinkPreview
 import fm.corus.android.data.model.MessageDeliveryStatus
 import fm.corus.android.data.model.MessageFailureReason
 import fm.corus.android.data.model.MessageSendStatus
@@ -273,6 +284,85 @@ internal fun computeDeliveryStatus(
  */
 internal fun autoScrollKey(messages: List<CymbalMessage>): String? =
     messages.firstOrNull()?.let { "${it.id}:${it.sendStatus}" }
+
+/** Tall outgoing cards / wrapped text use the longer insert curve (iOS parity). */
+internal fun outgoingInsertShouldEase(text: String): Boolean {
+    if (text.contains('\n')) return true
+    val url = MessageLinkPreview.firstHttpUrl(text) ?: return false
+    return MessageLinkPreview.isUrlOnly(text, url)
+}
+
+/** Only animate live arrivals, never initial history, older pages, or updates. */
+private class IncomingMessageInsertTracker {
+    private var ready = false
+    private val seen = mutableSetOf<String>()
+    private var newestTime = Long.MIN_VALUE
+
+    fun observe(messages: List<CymbalMessage>, windowReady: Boolean, currentUserId: String?): Set<String> {
+        val arrivals = if (ready && windowReady) messages.filter {
+            it.id !in seen && it.fromUserId != currentUserId && !it.isSystem &&
+                it.createdAt.time >= newestTime
+        }.mapTo(mutableSetOf()) { it.id } else emptySet()
+        seen.addAll(messages.map { it.id })
+        newestTime = maxOf(newestTime, messages.maxOfOrNull { it.createdAt.time } ?: Long.MIN_VALUE)
+        ready = windowReady
+        return arrivals
+    }
+}
+
+/**
+ * Measure the complete row and grow its reserved height. Outgoing messages
+ * scale about their tail; incoming messages slide upward at full size.
+ * One progress value drives layout and drawing, including tall media/captions.
+ * Each keyed row owns its animation so rapid sends cannot cancel each other.
+ */
+@Composable
+private fun MessageInsert(
+    messageId: String,
+    animate: Boolean,
+    incoming: Boolean = false,
+    onFinished: () -> Unit,
+    content: @Composable (() -> Float) -> Unit,
+) {
+    val progress = remember(messageId) { Animatable(if (incoming) 0f else if (animate) 0.22f else 1f) }
+    val shouldAnimate = remember(messageId) { animate || incoming }
+    val slidesIn = remember(messageId) { incoming }
+    val finished by rememberUpdatedState(onFinished)
+    val measuredHeight = remember(messageId) { intArrayOf(0) }
+    val tallThreshold = with(LocalDensity.current) { 96.dp.roundToPx() }
+    DisposableEffect(messageId) {
+        onDispose { if (shouldAnimate) finished() }
+    }
+    LaunchedEffect(messageId) {
+        if (shouldAnimate) {
+            // Let the list pin to the new bottom and measure the actual content
+            // before advancing; text length is not a reliable height estimate.
+            withFrameNanos { }
+            progress.animateTo(
+                1f,
+                tween(
+                    durationMillis = if (slidesIn || measuredHeight[0] > tallThreshold) 260 else 180,
+                    easing = LinearOutSlowInEasing,
+                ),
+            )
+            finished()
+        }
+    }
+    Box(Modifier.fillMaxWidth()
+        .then(if (slidesIn) Modifier.graphicsLayer { clip = progress.value < 1f } else Modifier)
+        .layout { measurable, constraints ->
+        val row = measurable.measure(constraints.copy(minHeight = 0))
+        measuredHeight[0] = row.height
+        val occupiedHeight = (row.height * progress.value).roundToInt()
+        layout(row.width, occupiedHeight) {
+            // Incoming content stays full-size and enters from the bottom as
+            // its slot opens. Outgoing content scales around its fixed tail.
+            row.placeRelative(0, if (slidesIn) 0 else occupiedHeight - row.height)
+        }
+    }) {
+        content { if (slidesIn) 1f else progress.value }
+    }
+}
 
 private val bubbleTimeFormatter: SimpleDateFormat by lazy {
     SimpleDateFormat("h:mm a", Locale.getDefault())
@@ -707,7 +797,7 @@ private fun ClosedThread(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MessageThreadScreen(
     threadId: String,
@@ -733,6 +823,7 @@ fun MessageThreadScreen(
 
     val nowPlayingManager = viewModel.nowPlayingManager
     val messages by viewModel.messages.collectAsState()
+    val outgoingInsertions by viewModel.outgoingInsertions.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val hasLoadError by viewModel.hasLoadError.collectAsState()
     val hasMoreMessages by viewModel.hasMoreMessages.collectAsState()
@@ -764,15 +855,10 @@ fun MessageThreadScreen(
         groupInfo?.memberIds?.any { it in groupBlocked } == true || messages.any { it.fromUserId in groupBlocked }
     )
     val cityActionError by viewModel.cityActionError.collectAsState()
+    val videoPickNotice by viewModel.videoPickNotice.collectAsState()
     val composerVideo by viewModel.composerVideo.collectAsState()
     var stagedPhotoBytes by remember { mutableStateOf<ByteArray?>(null) }
     var stagedPhotoBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
-    var waitingVideoSend by remember { mutableStateOf(false) }
-    LaunchedEffect(composerVideo, waitingVideoSend) {
-        if (waitingVideoSend && (composerVideo == null || composerVideo?.errorMessage != null)) {
-            waitingVideoSend = false
-        }
-    }
     val hasComposerMedia = stagedPhotoBytes != null || composerVideo != null
     var cityWelcome by remember { mutableStateOf(false) }
     LaunchedEffect(groupInfo?.cityChatId, liveWindowReady) { if (liveWindowReady && isCityChat) cityWelcome = viewModel.claimCityWelcome() }
@@ -791,7 +877,7 @@ fun MessageThreadScreen(
     val canSendComposer = when {
         editingMessage != null -> messageText.text.isNotBlank()
         stagedPhotoBytes != null -> true
-        composerVideo != null -> composerVideo?.errorMessage == null && !waitingVideoSend
+        composerVideo != null -> composerVideo?.errorMessage == null
         else -> messageText.text.isNotBlank()
     }
     // After Send, ignore IME echoes of the outgoing string so they can't refill
@@ -801,6 +887,21 @@ fun MessageThreadScreen(
     var unseenIncomingMessageCount by remember(threadId) { mutableIntStateOf(0) }
     var lastObservedNewestId by remember(threadId) { mutableStateOf<String?>(null) }
     var readerFollowingLatest by remember(threadId) { mutableStateOf(true) }
+    val incomingTracker = remember(threadId) { IncomingMessageInsertTracker() }
+    val incomingInsertions = remember(messages, liveWindowReady) {
+        val arrivals = incomingTracker.observe(messages, liveWindowReady, viewModel.currentUserId)
+        if (readerFollowingLatest) arrivals else emptySet()
+    }
+    var lastPinnedOutgoingId by remember(threadId) { mutableStateOf<String?>(null) }
+    SideEffect {
+        val newestId = messages.firstOrNull()?.id
+        if (newestId != null && newestId in outgoingInsertions && newestId != lastPinnedOutgoingId) {
+            // Apply on the next measure, before even the first small bubble is
+            // drawn. A coroutine scroll allows one frame behind the composer.
+            listState.requestScrollToItem(0)
+            lastPinnedOutgoingId = newestId
+        }
+    }
     var olderPageArmedByUserScroll by remember(threadId) { mutableStateOf(false) }
     var showInitialLoadingIndicator by remember(threadId) { mutableStateOf(false) }
     var reportTarget by remember { mutableStateOf<CymbalMessage?>(null) }
@@ -1018,7 +1119,9 @@ fun MessageThreadScreen(
         }
         if (readerFollowingLatest || newest.fromUserId == viewModel.currentUserId) {
             unseenIncomingMessageCount = 0
-            listState.animateScrollToItem(0)
+            if (newest.id !in outgoingInsertions && newest.id !in incomingInsertions) {
+                listState.animateScrollToItem(0)
+            }
         } else if (newest.id != previousId) {
             unseenIncomingMessageCount += 1
         }
@@ -1097,6 +1200,12 @@ fun MessageThreadScreen(
                 val otherMembers = (groupInfo?.memberIds ?: emptyList())
                     .filter { it != viewModel.currentUserId }
                     .mapNotNull { membersById[it] }
+                val avatarMembers = stackedAvatarMembers(
+                    membersById = membersById,
+                    currentUserId = viewModel.currentUserId,
+                    lastWriterIds = groupInfo?.lastWriterIds ?: emptyList(),
+                    memberIds = groupInfo?.memberIds ?: emptyList(),
+                )
                 // Group avatar + title — tap to open Group Info.
                 Row(
                     modifier = Modifier
@@ -1114,7 +1223,7 @@ fun MessageThreadScreen(
                             size = CorusSpacing.avatarSmall,
                         )
                     } else {
-                        StackedGroupAvatar(members = otherMembers, size = CorusSpacing.avatarSmall)
+                        StackedGroupAvatar(members = avatarMembers, size = CorusSpacing.avatarSmall)
                     }
                     Text(
                         text = groupDisplayTitle(groupInfo?.name, otherMembers, context),
@@ -1168,8 +1277,15 @@ fun MessageThreadScreen(
                 .fillMaxSize()
                 .then(if (liveWindowReady) Modifier else Modifier.alpha(0f)),
             reverseLayout = true,
-            contentPadding = PaddingValues(vertical = CorusSpacing.sm),
+            contentPadding = PaddingValues(top = CorusSpacing.sm),
         ) {
+            // Keep a stable, nonzero bottom anchor like iOS. Otherwise inserting
+            // typing at index 0 preserves the newest message's key and leaves
+            // the indicator below the viewport. Readers in history still keep
+            // their message anchor; no forced scroll is needed.
+            item(key = "thread-bottom-anchor") {
+                Spacer(Modifier.height(CorusSpacing.sm))
+            }
             val visibleTypers = typerIds.filter { it !in groupBlocked }
             if (visibleTypers.isNotEmpty()) {
                 item(key = "typing") {
@@ -1210,98 +1326,106 @@ fun MessageThreadScreen(
                         ) deletedAccountLabel else null
                 else null
 
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    if (shouldShowSeparator(
-                            older?.createdAt,
-                            message.createdAt,
-                            isConversationStart = !hasMoreMessages,
-                        )
-                    ) {
-                        DateSeparatorRow(
-                            separatorText(
+                MessageInsert(
+                    messageId = message.id,
+                    animate = mine && message.id in outgoingInsertions,
+                    incoming = message.id in incomingInsertions,
+                    onFinished = { viewModel.finishOutgoingInsertion(message.id) },
+                ) { insertionScale ->
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        if (shouldShowSeparator(
+                                older?.createdAt,
                                 message.createdAt,
-                                isDayBoundary(
-                                    older?.createdAt,
-                                    message.createdAt,
-                                    isConversationStart = !hasMoreMessages,
-                                ),
-                                context,
+                                isConversationStart = !hasMoreMessages,
                             )
-                        )
-                    }
-                    if (collapseGroupMessage(isGroup, message.fromUserId, message.isSystem, groupBlocked, message.id in revealedBlockedMessages)) {
-                        Row(Modifier.padding(horizontal = CorusSpacing.md), verticalAlignment = Alignment.CenterVertically) {
-                            Text(stringResource(R.string.messaging_blocked_message), style = CorusFont.caption, color = CorusColors.Secondary)
-                            TextButton(onClick = { revealedBlockedMessages = revealedBlockedMessages + message.id }) {
-                                Text(stringResource(R.string.messaging_show_blocked_message))
-                            }
+                        ) {
+                            DateSeparatorRow(
+                                separatorText(
+                                    message.createdAt,
+                                    isDayBoundary(
+                                        older?.createdAt,
+                                        message.createdAt,
+                                        isConversationStart = !hasMoreMessages,
+                                    ),
+                                    context,
+                                )
+                            )
                         }
-                    } else if (message.isSystem) {
-                        GroupSystemRow(GroupSystemMessages.localize(message.text ?: "", context))
-                    } else {
-                        MessageBubble(
-                            message = message,
-                            isFromCurrentUser = mine,
-                            currentUserId = viewModel.currentUserId ?: "",
-                            otherUsername = otherUsername,
-                            messagingRestriction = messagingRestriction,
-                            deliveryStatus = computeDeliveryStatus(
+                        if (collapseGroupMessage(isGroup, message.fromUserId, message.isSystem, groupBlocked, message.id in revealedBlockedMessages)) {
+                            Row(Modifier.padding(horizontal = CorusSpacing.md), verticalAlignment = Alignment.CenterVertically) {
+                                Text(stringResource(R.string.messaging_blocked_message), style = CorusFont.caption, color = CorusColors.Secondary)
+                                TextButton(onClick = { revealedBlockedMessages = revealedBlockedMessages + message.id }) {
+                                    Text(stringResource(R.string.messaging_show_blocked_message))
+                                }
+                            }
+                        } else if (message.isSystem) {
+                            GroupSystemRow(GroupSystemMessages.localize(message.text ?: "", context))
+                        } else {
+                            MessageBubble(
                                 message = message,
-                                currentUserId = viewModel.currentUserId,
-                                messages = messages,
-                                recipientUnread = recipientUnread,
-                                myReadReceiptsEnabled = if (isGroup) false else myReadReceiptsEnabled,
-                            ),
-                            nowPlayingManager = nowPlayingManager,
-                            isGroup = isGroup,
-                            sender = sender,
-                            senderMissing = senderMissing,
-                            showSenderLabel = showSenderLabel,
-                            showAvatar = showAvatar,
-                            replyName = replyName,
-                            hideReply = isBlockedGroupAuthor(isGroup, message.replyToUserId, groupBlocked),
-                            blockedGroupAuthors = if (isGroup) groupBlocked else emptySet(),
-                            onSenderTap = { sender?.id?.let { onNavigateToProfile(it) } },
-                            onLongPress = {
-                                bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
-                                reactionTarget = message
-                            },
-                            onDoubleTap = {
-                                bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
-                                val heart = REACTION_EMOJIS[0]
-                                val isFreshLike = viewModel.currentUserId
-                                    ?.let { it !in (message.reactions[heart] ?: emptyList()) } ?: false
-                                viewModel.toggleReaction(threadId, message.id, heart)
-                                if (isFreshLike) heartBurstMessageId = message.id
-                            },
-                            showHeartBurst = heartBurstMessageId == message.id,
-                            onReactionTap = { emoji ->
-                                bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
-                                viewModel.toggleReaction(threadId, message.id, emoji)
-                            },
-                            onShowReactions = { reactionsSheetMessage = message },
-                            onImageTap = { url ->
-                                if (reactionTarget == null) {
-                                    fullScreenImageUrl = url
-                                }
-                            },
-                            onVideoTap = { url ->
-                                if (reactionTarget == null) {
-                                    fullScreenVideoUrl = url
-                                }
-                            },
-                            onRetry = { viewModel.retrySendMessage(message.id) },
-                            onNavigateToSong = onNavigateToSong,
-                            onNavigateToFilm = onNavigateToFilm,
-                            onNavigateToPost = onNavigateToPost,
-                            onNavigateToArtist = onNavigateToArtist,
-                            onNavigateToAlbum = onNavigateToAlbum,
-                            onNavigateToDirector = onNavigateToDirector,
-                            onNavigateToProfile = onNavigateToProfile,
-                            onMentionTap = handleMentionTap,
-                            onHashtagTap = handleHashtagTap,
-                            resolvePost = { viewModel.fetchSharedPost(it) },
-                        )
+                                isFromCurrentUser = mine,
+                                currentUserId = viewModel.currentUserId ?: "",
+                                otherUsername = otherUsername,
+                                messagingRestriction = messagingRestriction,
+                                deliveryStatus = computeDeliveryStatus(
+                                    message = message,
+                                    currentUserId = viewModel.currentUserId,
+                                    messages = messages,
+                                    recipientUnread = recipientUnread,
+                                    myReadReceiptsEnabled = if (isGroup) false else myReadReceiptsEnabled,
+                                ),
+                                nowPlayingManager = nowPlayingManager,
+                                isGroup = isGroup,
+                                sender = sender,
+                                senderMissing = senderMissing,
+                                showSenderLabel = showSenderLabel,
+                                showAvatar = showAvatar,
+                                replyName = replyName,
+                                hideReply = isBlockedGroupAuthor(isGroup, message.replyToUserId, groupBlocked),
+                                blockedGroupAuthors = if (isGroup) groupBlocked else emptySet(),
+                                onSenderTap = { sender?.id?.let { onNavigateToProfile(it) } },
+                                onLongPress = {
+                                    bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
+                                    reactionTarget = message
+                                },
+                                onDoubleTap = {
+                                    bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
+                                    val heart = REACTION_EMOJIS[0]
+                                    val isFreshLike = viewModel.currentUserId
+                                        ?.let { it !in (message.reactions[heart] ?: emptyList()) } ?: false
+                                    viewModel.toggleReaction(threadId, message.id, heart)
+                                    if (isFreshLike) heartBurstMessageId = message.id
+                                },
+                                showHeartBurst = heartBurstMessageId == message.id,
+                                onReactionTap = { emoji ->
+                                    bubbleHaptics.impact(HapticManager.ImpactStyle.MEDIUM)
+                                    viewModel.toggleReaction(threadId, message.id, emoji)
+                                },
+                                onShowReactions = { reactionsSheetMessage = message },
+                                onImageTap = { url ->
+                                    if (reactionTarget == null) {
+                                        fullScreenImageUrl = url
+                                    }
+                                },
+                                onVideoTap = { url ->
+                                    if (reactionTarget == null) {
+                                        fullScreenVideoUrl = url
+                                    }
+                                },
+                                onRetry = { viewModel.retrySendMessage(message.id) },
+                                onNavigateToSong = onNavigateToSong,
+                                onNavigateToFilm = onNavigateToFilm,
+                                onNavigateToPost = onNavigateToPost,
+                                onNavigateToArtist = onNavigateToArtist,
+                                onNavigateToAlbum = onNavigateToAlbum,
+                                onNavigateToDirector = onNavigateToDirector,
+                                onNavigateToProfile = onNavigateToProfile,
+                                onMentionTap = handleMentionTap,
+                                onHashtagTap = handleHashtagTap,
+                                resolvePost = { viewModel.fetchSharedPost(it) },
+                                insertionScale = insertionScale,
+                            )
+                        }
                     }
                 }
             }
@@ -1531,8 +1655,8 @@ fun MessageThreadScreen(
                 .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Attachment plus button (Photo / Song / Film)
-            Box {
+            // A stable slot keeps the plus and selected attachment aligned.
+            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                 if (stagedPhotoBitmap != null) {
                     ComposerMediaChip(
                         bitmap = stagedPhotoBitmap,
@@ -1558,7 +1682,7 @@ fun MessageThreadScreen(
                         imageVector = Icons.Filled.AddCircle,
                         contentDescription = stringResource(id = R.string.messaging_thread_cd_add_attachment),
                         tint = CorusColors.Accent,
-                        modifier = Modifier.size(28.dp),
+                        modifier = Modifier.offset(x = (-2).dp).size(28.dp),
                     )
                 }
                 DropdownMenu(
@@ -1612,7 +1736,16 @@ fun MessageThreadScreen(
                 }
             }
 
-            OutlinedTextField(
+            Spacer(Modifier.width(4.dp))
+            val composerInteractionSource = remember { MutableInteractionSource() }
+            val composerPlaceholder: @Composable () -> Unit = {
+                Text(
+                    if (hasComposerMedia) "Add a caption..."
+                    else stringResource(id = R.string.messaging_thread_placeholder),
+                    style = CorusFont.body,
+                )
+            }
+            BasicTextField(
                 value = messageText,
                 onValueChange = { newValue ->
                     // IME can echo the just-sent string; don't put it back in the box.
@@ -1646,28 +1779,37 @@ fun MessageThreadScreen(
                 },
                 modifier = Modifier
                     .weight(1f)
+                    .defaultMinSize(minHeight = 48.dp)
                     .focusRequester(composerFocusRequester),
-                placeholder = {
-                    Text(
-                        if (hasComposerMedia) "Add a caption..."
-                        else stringResource(id = R.string.messaging_thread_placeholder),
-                        style = CorusFont.body,
-                    )
-                },
+                textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                cursorBrush = SolidColor(CorusColors.Accent),
+                interactionSource = composerInteractionSource,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 singleLine = false,
                 minLines = 1,
                 maxLines = MESSAGE_COMPOSER_MAX_LINES,
-                shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+                decorationBox = { innerTextField ->
+                    OutlinedTextFieldDefaults.DecorationBox(
+                        value = messageText.text,
+                        innerTextField = innerTextField,
+                        enabled = true,
+                        singleLine = false,
+                        visualTransformation = VisualTransformation.None,
+                        interactionSource = composerInteractionSource,
+                        placeholder = composerPlaceholder,
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                        container = {
+                            OutlinedTextFieldDefaults.Container(
+                                enabled = true,
+                                isError = false,
+                                interactionSource = composerInteractionSource,
+                                shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+                            )
+                        },
+                    )
+                },
             )
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
-            if (waitingVideoSend) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    strokeWidth = 2.dp,
-                    color = CorusColors.Accent,
-                )
-            } else {
             IconButton(
                 onClick = {
                     viewModel.clearMentions()
@@ -1690,7 +1832,8 @@ fun MessageThreadScreen(
                     } else if (composerVideo != null && composerVideo?.errorMessage == null) {
                         val outgoing = messageText.text
                         sentComposerText = outgoing
-                        waitingVideoSend = true
+                        messageText = TextFieldValue("")
+                        draftStore.clear(composerUid, persistThreadId, otherUserId)
                         viewModel.sendStagedVideo(threadId, outgoing)
                     } else if (messageText.text.isNotBlank()) {
                         val outgoing = messageText.text
@@ -1707,7 +1850,6 @@ fun MessageThreadScreen(
                     contentDescription = stringResource(id = R.string.comments_cd_send),
                     tint = if (canSendComposer) CorusColors.Accent else CorusColors.Tertiary,
                 )
-            }
             }
         }
         }
@@ -1860,6 +2002,23 @@ fun MessageThreadScreen(
     deleteTarget?.let { target -> AlertDialog(onDismissRequest = { deleteTarget = null }, title = { Text("Delete message?") }, text = { Text("This message will be removed from the city chat.") },
         confirmButton = { TextButton(onClick = { viewModel.deleteCityMessage(target); deleteTarget = null }) { Text("Delete") } }, dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Cancel") } }) }
     if (cityActionError != null) AlertDialog(onDismissRequest = viewModel::clearCityActionError, text = { Text(cityActionError.orEmpty()) }, confirmButton = { TextButton(onClick = viewModel::clearCityActionError) { Text("OK") } })
+    videoPickNotice?.let { notice ->
+        AlertDialog(
+            onDismissRequest = viewModel::clearVideoPickNotice,
+            title = { Text(notice.title) },
+            text = if (notice.body != null) {
+                { Text(notice.body) }
+            } else {
+                null
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = viewModel::clearVideoPickNotice,
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF007AFF)),
+                ) { Text("OK") }
+            },
+        )
+    }
     if (cityWelcome) CommunityChatWelcomeDialog(
         cityName = groupInfo?.cityName ?: groupInfo?.name.orEmpty(),
         onDismiss = { cityWelcome = false },
@@ -2088,6 +2247,7 @@ private fun MessageBubble(
     onMentionTap: (String) -> Unit = {},
     onHashtagTap: (String) -> Unit = {},
     resolvePost: suspend (String) -> CymbalPost? = { null },
+    insertionScale: () -> Float = { 1f },
 ) {
     val context = LocalContext.current
     val isSending = message.sendStatus == MessageSendStatus.SENDING
@@ -2161,6 +2321,15 @@ private fun MessageBubble(
       }
       Column(
         horizontalAlignment = if (isFromCurrentUser) Alignment.End else Alignment.Start,
+        modifier = Modifier.graphicsLayer {
+            scaleX = insertionScale()
+            scaleY = insertionScale()
+            transformOrigin = if (isFromCurrentUser) {
+                TransformOrigin(1f, 1f)
+            } else {
+                TransformOrigin(0f, 1f)
+            }
+        },
       ) {
         // Sender name at the start of a run (incoming group only).
         if (showSenderLabel && sender != null) {
@@ -2216,7 +2385,6 @@ private fun MessageBubble(
         Box(
             modifier = Modifier
                 .widthIn(max = 280.dp)
-                .then(if (isSending && !heroLink) Modifier.alpha(0.7f) else Modifier)
                 .onGloballyPositioned { bubbleCoords = it }
                 .pointerInput(message.id, annotatedText, onMentionTap, onHashtagTap) {
                     detectTapGestures(
@@ -2320,7 +2488,7 @@ private fun MessageBubble(
                         // image-like dimensions while the photo finishes uploading.
                         Box(
                             modifier = Modifier
-                                .size(width = 200.dp, height = 240.dp)
+                                .size(MessageMediaPreviewSize)
                                 .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
                                 .shimmer()
                                 .background(CorusColors.Skeleton),
@@ -2344,13 +2512,29 @@ private fun MessageBubble(
                                 url = message.thumbnailURL,
                                 contentDescription = stringResource(id = R.string.messaging_thread_attachment_video),
                             )
+                        } else if (message.localPoster != null) {
+                            Image(
+                                bitmap = message.localPoster.asImageBitmap(),
+                                contentDescription = stringResource(id = R.string.messaging_thread_attachment_video),
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.size(MessageMediaPreviewSize),
+                            )
                         } else {
                             Box(
                                 modifier = Modifier
-                                    .size(width = 200.dp, height = 240.dp)
+                                    .size(MessageMediaPreviewSize)
                                     .background(CorusColors.Skeleton),
                             )
                         }
+                        if (isSending) {
+                            CircularProgressIndicator(
+                                modifier = Modifier
+                                    .align(Alignment.Center)
+                                    .size(28.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
                         Icon(
                             imageVector = Icons.Filled.PlayArrow,
                             contentDescription = null,
@@ -2361,6 +2545,7 @@ private fun MessageBubble(
                                 .background(Color.Black.copy(alpha = 0.45f), CircleShape)
                                 .padding(8.dp),
                         )
+                        }
                         val duration = formatMessageVideoDuration(message.mediaDurationMs)
                         if (duration.isNotEmpty()) {
                             Text(
@@ -3160,6 +3345,7 @@ private fun TypingIndicatorRow(isGroup: Boolean, names: List<String>) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag("chat-typing-indicator")
             .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.xxs),
         horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.Bottom,
@@ -3180,8 +3366,8 @@ private fun TypingIndicatorRow(isGroup: Boolean, names: List<String>) {
                         CorusColors.CardBackground,
                         RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
                     )
-                    .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    .padding(horizontal = CorusSpacing.md, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TypingDot(0)
@@ -3196,8 +3382,8 @@ private fun TypingIndicatorRow(isGroup: Boolean, names: List<String>) {
 private fun TypingDot(delayMs: Int) {
     val transition = rememberInfiniteTransition(label = "typing")
     val y by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = -3f,
+        initialValue = 1f,
+        targetValue = -2f,
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = 520, delayMillis = delayMs),
             repeatMode = RepeatMode.Reverse,
@@ -3206,7 +3392,7 @@ private fun TypingDot(delayMs: Int) {
     )
     Box(
         modifier = Modifier
-            .size(8.dp)
+            .size(7.dp)
             .offset(y = y.dp)
             .background(CorusColors.Secondary.copy(alpha = 0.8f), CircleShape),
     )
@@ -3222,7 +3408,7 @@ private fun ComposerMediaChip(
     showsPlay: Boolean,
     onRemove: () -> Unit,
 ) {
-    Box(modifier = Modifier.padding(top = 5.dp, end = 5.dp)) {
+    Box(modifier = Modifier.padding(top = 5.dp, bottom = 5.dp, end = 5.dp)) {
         Box(
             modifier = Modifier
                 .size(36.dp)

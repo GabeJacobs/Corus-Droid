@@ -120,8 +120,8 @@ class TrendingListViewModel @Inject constructor(
 
     val trendingFilmsWindow: StateFlow<TrendingWindow> =
         preferencesDataStore.trendingFilmsWindow
-            .map { TrendingWindow.fromKey(it) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+            .map { TrendingWindow.fromKey(it, TrendingWindow.FILMS_DEFAULT) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.FILMS_DEFAULT)
 
     val trendingHashtagsWindow: StateFlow<TrendingWindow> =
         preferencesDataStore.trendingHashtagsWindow
@@ -187,8 +187,8 @@ class TrendingListViewModel @Inject constructor(
 
     val trendingDirectorsWindow: StateFlow<TrendingWindow> =
         preferencesDataStore.trendingDirectorsWindow
-            .map { TrendingWindow.fromKey(it) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+            .map { TrendingWindow.fromKey(it, TrendingWindow.DIRECTORS_DEFAULT) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DIRECTORS_DEFAULT)
 
     private val _trendingDirectors = MutableStateFlow<List<TrendingDirector>>(emptyList())
     val trendingDirectors: StateFlow<List<TrendingDirector>> = _trendingDirectors.asStateFlow()

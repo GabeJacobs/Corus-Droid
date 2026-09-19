@@ -317,6 +317,7 @@ fun MainTabScreen(
     val feedScrollToTop = remember { mutableIntStateOf(0) }
     val searchScrollToTop = remember { mutableIntStateOf(0) }
     val notificationsScrollToTop = remember { mutableIntStateOf(0) }
+    val messagesScrollToTop = remember { mutableIntStateOf(0) }
     val profileScrollToTop = remember { mutableIntStateOf(0) }
 
     // Tab-activation trigger: increments every time the profile tab is selected
@@ -516,6 +517,7 @@ fun MainTabScreen(
                 MessagesNavGraph(
                     navController = messagesNavController,
                     mainTabViewModel = viewModel,
+                    scrollToTopTrigger = messagesScrollToTop.intValue,
                     isContainingTabSelected = selectedTab == CorusTab.MESSAGES,
                     onShowComments = { commentPostId = it },
                     onShowPhoto = { expandedPhoto = it },
@@ -806,10 +808,16 @@ fun MainTabScreen(
                 } else {
                     val navController = navControllers[tab]!!
                     val startDestinationId = runCatching { navController.graph.startDestinationId }.getOrDefault(0)
+                    val current = navController.currentDestination
                     when (tabReselectAction(
                         alreadySelected = tab == selectedTab,
-                        hasCurrentDestination = navController.currentDestination != null,
-                        isAtStartDestination = startDestinationId != 0 && navController.currentDestination?.id == startDestinationId,
+                        hasCurrentDestination = current != null,
+                        isAtStartDestination = isAtTabStartDestination(
+                            currentRoute = current?.route,
+                            startRouteName = tabStartRouteName(tab),
+                            currentId = current?.id,
+                            startId = startDestinationId,
+                        ),
                     )) {
                         TabReselectAction.SELECT_ONLY -> Unit
                         TabReselectAction.RESTORE_START -> navController.restoreStartIfEmpty()
@@ -820,7 +828,7 @@ fun MainTabScreen(
                                 CorusTab.EXPLORE -> searchScrollToTop.intValue++
                                 CorusTab.NOTIFICATIONS -> notificationsScrollToTop.intValue++
                                 CorusTab.PROFILE -> profileScrollToTop.intValue++
-                                CorusTab.MESSAGES -> {}
+                                CorusTab.MESSAGES -> messagesScrollToTop.intValue++
                                 else -> {}
                             }
                         }

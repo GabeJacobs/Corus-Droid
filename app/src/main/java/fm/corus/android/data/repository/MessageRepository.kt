@@ -152,6 +152,7 @@ class MessageRepository @Inject constructor(
         replyToText: String? = null,
         replyToUserId: String? = null,
         clientMessageId: String? = null,
+        clientCreatedAt: Long? = null,
     ) {
         cloudFunctions.sendMessage(
             threadId = threadId,
@@ -161,6 +162,7 @@ class MessageRepository @Inject constructor(
             replyToText = replyToText,
             replyToUserId = replyToUserId,
             clientMessageId = clientMessageId,
+            clientCreatedAt = clientCreatedAt,
         )
     }
 

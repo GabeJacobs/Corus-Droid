@@ -30,6 +30,18 @@ object PosterCorusQueue {
         return out
     }
 
+    /**
+     * True when this isolated post is still the one playing or loading.
+     *
+     * Do not gate on playback origin. A notification play often starts while
+     * the previous session is still the feed or your own profile.
+     */
+    fun isStillIsolatedPlay(
+        postId: String,
+        currentSourcePostId: String?,
+        loadingSourcePostId: String?,
+    ): Boolean = currentSourcePostId == postId || loadingSourcePostId == postId
+
 }
 
 fun List<CymbalPost>.asPlayableQueuedTracks(): List<QueuedTrack> =

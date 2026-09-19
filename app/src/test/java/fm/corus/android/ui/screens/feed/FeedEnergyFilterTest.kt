@@ -101,7 +101,6 @@ class FeedEnergyFilterTest {
         nowPlayingManager = mock()
         remoteConfig = mock {
             on { revision } doReturn MutableStateFlow(0)
-            on { forceTasteMatchesPaywallFlow } doReturn MutableStateFlow(false)
             on { trendingFeedEnabled } doReturn true
             on { feedDecadeFilterEnabled } doReturn true
             on { feedEnergyFilterEnabled } doReturn true

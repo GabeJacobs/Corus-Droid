@@ -1085,7 +1085,6 @@ class ComposeViewModel @Inject constructor(
 
                 if (result.isFirstPoster) {
                     othersPrefetch?.cancel()
-                    hapticManager.notification(HapticManager.NotificationType.SUCCESS)
                     val track = _selectedTrack.value
                     val movie = _selectedMovie.value
                     _trophyPost.value = CymbalPost(
@@ -1107,7 +1106,7 @@ class ComposeViewModel @Inject constructor(
                         mediaType,
                         prefetched = othersPrefetch?.await(),
                     )
-                    hapticManager.notification(HapticManager.NotificationType.SUCCESS)
+                    hapticManager.play(HapticManager.Pattern.POST_SUCCESS)
                     if (!shown) {
                         _postSuccess.value = true
                     }

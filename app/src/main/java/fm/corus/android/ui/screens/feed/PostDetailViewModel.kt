@@ -19,6 +19,7 @@ import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.FullSongPlayCoordinator
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PlaybackOrigin
 import fm.corus.android.domain.PosterCorusQueue
 import fm.corus.android.domain.asPlayableQueuedTracks
 import fm.corus.android.domain.PostDeletionEvent
@@ -259,6 +260,11 @@ class PostDetailViewModel @Inject constructor(
         skipPlaybackModePrompt: Boolean = false,
     ) {
         nowPlayingManager.lastUserInitiatedSourcePostId = post.id
+        // Opened from a surface whose queue already holds this post (feed,
+        // profile) — that queue stays Next. Only a truly isolated detail
+        // (notification / deep link) hands Next to the poster's corus.
+        val isIsolatedPlay = nowPlayingManager.queueSnapshot().none { it.sourcePostId == post.id }
+        if (isIsolatedPlay) nowPlayingManager.adoptIsolatedPlayContextIfNeeded()
         val musicService = musicServicePreference.current.value
         if (!preferFullSong &&
             nowPlayingManager.isFullSongSessionActive(musicService, post.track.id, post.id)
@@ -304,13 +310,10 @@ class PostDetailViewModel @Inject constructor(
                     audiomackUrl = post.track.audiomackUrl,
                     notOnSpotify = post.track.notOnSpotify,
                 )
-                seedPosterCorusQueue(post)
             },
             scope = viewModelScope,
         )
-        if (outcome == FullSongPlayCoordinator.PlayTapOutcome.HandledByExperiment) {
-            seedPosterCorusQueue(post)
-        }
+        if (isIsolatedPlay) seedPosterCorusQueue(post)
     }
 
     /**
@@ -321,6 +324,14 @@ class PostDetailViewModel @Inject constructor(
         if (!post.isTrack) return
         posterQueueJob?.cancel()
         posterQueueJob = viewModelScope.launch {
+            if (PosterCorusQueue.isStillIsolatedPlay(
+                    post.id,
+                    nowPlayingManager.currentSourcePostId,
+                    nowPlayingManager.loadingSourcePostId.value,
+                )
+            ) {
+                nowPlayingManager.adoptIsolatedPlayContextIfNeeded()
+            }
             val viewerId = authRepository.currentUserId ?: return@launch
             val firstPage = try {
                 postRepository.getProfilePosts(
@@ -359,15 +370,26 @@ class PostDetailViewModel @Inject constructor(
 
     private suspend fun waitUntilPlaying(post: CymbalPost): Boolean {
         repeat(50) {
-            if (nowPlayingManager.currentSourcePostId == post.id) return true
+            if (PosterCorusQueue.isStillIsolatedPlay(
+                    post.id,
+                    nowPlayingManager.currentSourcePostId,
+                    nowPlayingManager.loadingSourcePostId.value,
+                )
+            ) return true
             delay(40)
         }
-        return nowPlayingManager.currentSourcePostId == post.id
+        return PosterCorusQueue.isStillIsolatedPlay(
+            post.id,
+            nowPlayingManager.currentSourcePostId,
+            nowPlayingManager.loadingSourcePostId.value,
+        )
     }
 
     private fun applyPosterQueue(post: CymbalPost) {
         val tracks = posterLoaded.asPlayableQueuedTracks()
         if (tracks.none { it.sourcePostId == post.id }) return
+        nowPlayingManager.adoptIsolatedPlayContextIfNeeded()
+        nowPlayingManager.setPlaybackOrigin(PlaybackOrigin.PosterCorus(post.user.id))
         nowPlayingManager.updateFeedQueue(
             newQueue = tracks,
             hasMore = posterHasMore,
@@ -393,7 +415,8 @@ class PostDetailViewModel @Inject constructor(
         val existing = posterLoaded.map { it.id }.toSet()
         posterLoaded.addAll(page.filter { it.id !in existing })
         if (page.size < PosterCorusQueue.PAGE_SIZE) posterHasMore = false
-        if (nowPlayingManager.currentSourcePostId != post.id) return
+        val ctx = nowPlayingManager.activeContext
+        if (ctx !is PlaybackOrigin.PosterCorus || ctx.userId != post.user.id) return
         applyPosterQueue(post)
     }
 

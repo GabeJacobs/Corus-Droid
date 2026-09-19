@@ -29,6 +29,7 @@ import fm.corus.android.ui.screens.subscription.PaywallSource
 import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.PlaybackOrigin
 import fm.corus.android.domain.PlaylistTrialField
 import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.domain.PostDeletionEvent
@@ -897,6 +898,7 @@ class FeedViewModel @Inject constructor(
                     .filter { it.mediaType == MediaType.TRACK }
                     .map { it.toQueuedTrack() }
                 if (tracks.isEmpty()) return@collect
+                if (nowPlayingManager.activeContext !is PlaybackOrigin.Feed) return@collect
                 nowPlayingManager.updateFeedQueue(
                     newQueue = tracks,
                     hasMore = hasMore,
@@ -1481,6 +1483,7 @@ class FeedViewModel @Inject constructor(
         skipPlaybackModePrompt: Boolean = false,
     ) {
         nowPlayingManager.lastUserInitiatedSourcePostId = post.id
+        nowPlayingManager.setPlaybackOrigin(PlaybackOrigin.Feed)
         val musicService = musicServicePreference.current.value
         if (!preferFullSong &&
             nowPlayingManager.isFullSongSessionActive(musicService, post.track.id, post.id)

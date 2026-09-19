@@ -88,9 +88,58 @@ fun nextMapCitySummary(cities: List<MapCitySummary>, currentId: String?, delta: 
     return cities.first { it.city.cityId == next.cityId }
 }
 
+/**
+ * How much of the map viewport is covered from the bottom by the people
+ * sheet or a playback card. Measured overlay height wins so short and tall
+ * devices (and expanded vs resting sheets) share the same framing math.
+ */
+internal fun mapBottomOcclusionFraction(
+    viewportHeightPx: Int,
+    overlayHeightPx: Int,
+    fallback: Float,
+): Float {
+    if (viewportHeightPx > 0 && overlayHeightPx > 0) {
+        return (overlayHeightPx.toFloat() / viewportHeightPx).coerceIn(0f, 0.95f)
+    }
+    return fallback.coerceIn(0f, 0.95f)
+}
+
+/**
+ * Southward camera shift, as a fraction of latitude span, that places a city
+ * in the middle of the map still visible between the header and the sheet.
+ */
+internal fun mapVisibleFocusLatitudeOffset(
+    topInsetFraction: Float,
+    bottomOcclusionFraction: Float,
+): Double {
+    val top = topInsetFraction.coerceIn(0f, 0.8f)
+    val bottom = bottomOcclusionFraction.coerceIn(0f, 0.95f)
+    return ((bottom - top) / 2f).toDouble()
+}
+
 fun stableMapFaces(previous: List<MapPerson>, candidates: List<MapPerson>): List<MapPerson> {
     val latest = candidates.associateBy { it.user.id }
     return (previous.mapNotNull { latest[it.user.id] } + candidates.mapNotNull { latest[it.user.id] }).distinctBy { it.user.id }.take(3)
+}
+
+fun preservingPaintedCityFaces(previous: List<MapCitySummary>, next: List<MapCitySummary>): List<MapCitySummary> {
+    val oldById = previous.associateBy { it.city.cityId }
+    val relocated = HashMap<String, String>()
+    next.forEach { city ->
+        city.facets.values.forEach { facet ->
+            facet.previews.forEach { person -> relocated[person.user.id] = city.city.cityId }
+        }
+    }
+    return next.map { city ->
+        val old = oldById[city.city.cityId]
+        city.copy(facets = city.facets.mapValues { (filter, facet) ->
+            val kept = old?.facets?.get(filter)?.previews.orEmpty().filter { person ->
+                relocated[person.user.id].let { it == null || it == city.city.cityId }
+                    && person.city.cityId == city.city.cityId
+            }
+            facet.copy(previews = stableMapFaces(kept, kept + facet.previews))
+        })
+    }
 }
 
 // Only deduplicate within the current response. Cached people cannot alter a

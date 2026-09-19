@@ -22,6 +22,17 @@ data class ProfileMapCity(val cityId: String, val label: String) {
             if (audience != "everyone" && audience != "following") return null
             return fromPayload(data)
         }
+
+        /**
+         * Own-profile visible city. Matches iOS `OwnMapCityCache.display`:
+         * never paint a cached cluster unless the live document confirms it.
+         * A failed live read is handled by the caller (leave cache, show nothing).
+         */
+        fun displayOwn(live: ProfileMapCity?, cached: ProfileMapCity?): ProfileMapCity? {
+            if (live == null) return null
+            if (cached != null && cached.cityId == live.cityId) return live
+            return live
+        }
     }
 }
 

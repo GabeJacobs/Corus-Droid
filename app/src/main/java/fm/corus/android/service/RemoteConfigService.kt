@@ -154,6 +154,16 @@ class RemoteConfigService @Inject constructor(
     val groupMessagingEnabled: Boolean
         get() = remoteConfig.getBoolean("group_messaging_enabled")
 
+    /** In-thread typing indicators. Default on; flip `typing_indicators_enabled`
+     *  off to kill the feature with no app release. Mirrors iOS/web. */
+    val typingIndicatorsEnabled: Boolean
+        get() = remoteConfig.getBoolean("typing_indicators_enabled")
+
+    /** DM video attachments. Default off; ON for @gabe + @clifton via RC.
+     *  Shares `dm_video_enabled` with iOS/web. */
+    val dmVideoEnabled: Boolean
+        get() = remoteConfig.getBoolean("dm_video_enabled")
+
     val serverNotificationsEnabled: Boolean
         get() = remoteConfig.getBoolean("server_notifications_enabled")
 
@@ -195,9 +205,8 @@ class RemoteConfigService @Inject constructor(
         get() = remoteConfig.getBoolean("soundcloud_enabled")
 
     /**
-     * Client gate for Bandcamp catalog search. Default OFF; Firebase RC
-     * `bandcamp_enabled` is ON for @gabe / @clifton. Existing `bc:` posts still
-     * render. Flip the RC default after clients have adopted.
+     * Client gate for Bandcamp catalog search. Default ON (launched).
+     * Tester UIDs stay on if RC is killed. Existing `bc:` posts still render.
      */
     val bandcampEnabled: Boolean
         get() = isBandcampEnabled(
@@ -206,7 +215,7 @@ class RemoteConfigService @Inject constructor(
         )
 
     fun isBandcampEnabled(viewerUid: String?, viewerUsername: String? = null): Boolean {
-        if (flagWithDefault("bandcamp_enabled", false)) return true
+        if (flagWithDefault("bandcamp_enabled", true)) return true
         if (viewerUid != null && viewerUid in BANDCAMP_TESTER_UIDS) return true
         val name = viewerUsername?.trim()?.lowercase().orEmpty()
         return name in BANDCAMP_TESTER_USERNAMES
@@ -766,6 +775,8 @@ class RemoteConfigService @Inject constructor(
             "paywall_default_yearly" to false,
             "gif_support" to false,
             "group_messaging_enabled" to false,
+            "typing_indicators_enabled" to true,
+            "dm_video_enabled" to false,
             "server_notifications_enabled" to true,
             "save_count_enabled" to true,
             "save_cap_enforced" to true,
@@ -774,7 +785,7 @@ class RemoteConfigService @Inject constructor(
             "favorite_people_cap_enforced" to true,
             "favorite_people_cap_limit" to 4L,
             "soundcloud_enabled" to false,
-            "bandcamp_enabled" to false,
+            "bandcamp_enabled" to true,
             "tidal_enabled" to true,
             "tidal_full_playback_enabled" to false,
             "youtube_music_enabled" to false,

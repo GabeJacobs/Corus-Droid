@@ -897,6 +897,16 @@ private fun ThreadRow(
     val otherMembers = if (isGroup) {
         thread.memberIds.filter { it != currentUserId }.mapNotNull { membersById[it] }
     } else emptyList()
+    val avatarMembers = if (isGroup) {
+        stackedAvatarMembers(
+            membersById = membersById,
+            currentUserId = currentUserId,
+            lastWriterIds = thread.lastWriterIds,
+            memberIds = thread.memberIds,
+            lastMessageFromUserId = thread.lastMessageFromUserId,
+            lastMessageIsSystem = thread.lastMessageType == MessageType.SYSTEM,
+        )
+    } else emptyList()
     val title = if (isGroup) {
         groupDisplayTitle(thread.groupName, otherMembers, context)
     } else {

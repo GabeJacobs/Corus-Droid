@@ -72,6 +72,19 @@ import javax.inject.Singleton
  * display hints so the return navigation paints the header instantly. Null for
  * feed / search / single-track playback (which keep the song-detail behavior).
  */
+/**
+ * Who owns the now-playing queue. Feed / profile pagination sync must not
+ * overwrite an isolated notification play with the following-feed.
+ * Mirrors iOS `PlaybackOrigin`.
+ */
+sealed interface PlaybackOrigin {
+    data object SingleTrack : PlaybackOrigin
+    data object Feed : PlaybackOrigin
+    data class Profile(val userId: String) : PlaybackOrigin
+    /** Notification / deep-link play continuing through that poster's songs. */
+    data class PosterCorus(val userId: String) : PlaybackOrigin
+}
+
 sealed interface CatalogPlaybackOrigin {
     data class Artist(val id: String, val name: String?, val imageUrl: String?) : CatalogPlaybackOrigin
     data class Album(
@@ -436,6 +449,21 @@ class NowPlayingManager @Inject constructor(
     }
 
     // ── Spotify Connect (auth experiment) ──────────────────────────────────
+
+    @Volatile
+    var activeContext: PlaybackOrigin = PlaybackOrigin.SingleTrack
+        private set
+
+    fun setPlaybackOrigin(origin: PlaybackOrigin) {
+        activeContext = origin
+    }
+
+    /** Isolated post play (notification / deep link) is about to own Next. */
+    fun adoptIsolatedPlayContextIfNeeded() {
+        if (activeContext != PlaybackOrigin.SingleTrack) {
+            activeContext = PlaybackOrigin.SingleTrack
+        }
+    }
 
     @Volatile
     var isSpotifyConnectPlaying: Boolean = false
@@ -1812,8 +1840,13 @@ class NowPlayingManager @Inject constructor(
         loadMore: suspend () -> Unit,
     ) {
         val currentTrackId = _state.value.trackId
+        val currentPostId = _state.value.sourcePostId
         // Don't clobber an unrelated now-playing context (e.g. track started from search).
-        if (currentTrackId != null && newQueue.none { it.trackId == currentTrackId }) return
+        // Prefer the playing *post* so the same song on someone else's profile
+        // can replace the following-feed without matching the wrong copy.
+        if (currentPostId != null) {
+            if (newQueue.none { it.sourcePostId == currentPostId }) return
+        } else if (currentTrackId != null && newQueue.none { it.trackId == currentTrackId }) return
         val preserved = snapshotUserQueuedUpNext()
         if (queueOrderPinnedByUser) {
             appendNewTracksPreservingUserOrder(newQueue)
@@ -2267,6 +2300,7 @@ class NowPlayingManager @Inject constructor(
     }
 
     fun forceSpotifyFeedAdvanceToNextEntry(immediate: Boolean = false) {
+        if (MapPlaybackOwner.advance(_state.value.trackId)) return
         if (adoptSpotifyConnectNextIfMatching(spotifyPlaybackService.currentTrackUri.value)) {
             return
         }
@@ -2556,6 +2590,9 @@ class NowPlayingManager @Inject constructor(
         // per source via currentTrackIsSoundCloud.
         val sessionPlayer = object : ForwardingPlayer(exo) {
             override fun seekToNext() {
+                // Map owns a one-song player queue; its next selection is not
+                // represented by the feed/Spotify queue below.
+                if (MapPlaybackOwner.advance(_state.value.trackId)) return
                 val preferPreview = preferPreviewOnInAppSkip
                 if (shouldRouteSpotifyFeedSkip(preferPreview)) {
                     cancelDebouncedSpotifyRelinquish()
@@ -4372,7 +4409,9 @@ class NowPlayingManager @Inject constructor(
     private fun spotifyInferMisroutedLockScreenSkipIfNeeded(reporting: String) {
         if (!isSpotifyConnectPlaying) return
         if (spotifyFeedSkipRequestedUntil?.let { System.currentTimeMillis() < it } == true) return
-        if (!corusAppIsBackgrounded()) return
+        // Quick Settings can pause Corus without stopping it. Spotify owns the
+        // visible media card there, so its Next bypasses our MediaSession too.
+        if (!corusAppIsAwayFromForeground()) return
         if (spotifyOutgoingChangeWasNaturalFeedTrackEnd()) return
         val idx = currentQueueIndex ?: return
         val current = queue.getOrNull(idx) ?: return

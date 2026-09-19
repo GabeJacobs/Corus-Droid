@@ -14,7 +14,8 @@ class MessageVideoLimitsTest {
     @Test
     fun `error copy is Discord-style`() {
         assertEquals("Videos need to be under 30 MB", MessageVideoException.TOO_LARGE)
-        assertEquals("Videos can be up to 2 minutes", MessageVideoException.TOO_LONG)
+        assertEquals("This video is too long. Please pick a video under 2 minutes.", MessageVideoException.TOO_LONG)
+        assertEquals("You've sent a lot of videos today. Try again tomorrow.", MessageVideoException.DAILY_LIMIT)
     }
 
     @Test

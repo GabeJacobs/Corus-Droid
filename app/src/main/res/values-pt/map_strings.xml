@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<resources>
+  <string name="map_start">Começar</string>
+  <string name="map_cd_start_selected_countries">Começar com os países selecionados</string>
+  <string name="map_unavailable">O Apple Maps n&#xE3;o est&#xE1; dispon&#xED;vel. Tente novamente mais tarde.</string>
+  <string name="map_sharing_label">Compartilhando:</string>
+  <string name="map_latest_post">Publica&#xE7;&#xE3;o mais recente</string>
+  <string name="map_privacy_audience">As pessoas veem sua cidade, nunca sua rua ou localiza&#xE7;&#xE3;o em tempo real. Altere quando quiser.</string>
+  <string name="map_location_needed">Localiza&#xE7;&#xE3;o necess&#xE1;ria para compartilhar</string>
+  <string name="map_privacy_location">O Corus usa sua localiza&#xE7;&#xE3;o apenas para determinar sua cidade. Nunca mostramos sua localiza&#xE7;&#xE3;o exata.</string>
+  <string name="map_try_again">Tentar novamente</string>
+  <string name="map_dont_share">N&#xE3;o compartilhar minha cidade</string>
+  <string name="map_countries">Pa&#xED;ses</string>
+  <string name="map_select_multiple">Selecionar v&#xE1;rios</string>
+  <string name="map_search_countries">Buscar pa&#xED;ses</string>
+  <string name="map_open_chat">Abrir chat</string>
+  <string name="map_join_chat">Entrar no chat</string>
+  <string name="map_please_try_again">Tente novamente</string>
+  <string name="map_no_more_posts">N&#xE3;o h&#xE1; mais publica&#xE7;&#xF5;es para esta sele&#xE7;&#xE3;o.</string>
+  <string name="map_cd_back">Voltar</string>
+  <string name="map_cd_previous_city">Cidade anterior</string>
+  <string name="map_cd_next_city">Pr&#xF3;xima cidade</string>
+  <string name="map_cd_view_profile">Ver perfil</string>
+  <string name="map_cd_previous_trailer">Trailer anterior</string>
+  <string name="map_cd_next_trailer">Pr&#xF3;ximo trailer</string>
+  <string name="map_cd_search">Buscar</string>
+  <string name="map_cd_clear_search">Limpar busca</string>
+  <string name="map_cd_expand_city">Expandir cidade</string>
+  <string name="map_cd_collapse_city">Recolher cidade</string>
+  <string name="map_cd_like">Curtir</string>
+  <string name="map_cd_comments">Coment&#xE1;rios</string>
+  <string name="map_cd_repost">Republicar</string>
+  <string name="map_cd_share">Compartilhar</string>
+  <string name="map_cd_save">Salvar</string>
+  <string name="map_cd_remove_saved">Remover dos salvos</string>
+  <string name="map_cd_catalog">Ver quem mais publicou isto</string>
+  <plurals name="map_people_count">
+    <item quantity="one">%1$d pessoa</item>
+    <item quantity="other">%1$d pessoas</item>
+  </plurals>
+</resources>

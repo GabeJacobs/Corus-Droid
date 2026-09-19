@@ -22,33 +22,45 @@ import java.io.File
 class ClubOnboardingPaywallContractTest {
     @get:Rule val composeRule = createComposeRule()
 
-    @Test fun `supported tall layout shows export in approved order`() {
-        assertEquals(
-            listOf(
-                R.string.club_feature_unlock_all_taste_matches,
-                R.string.club_feature_customization,
-                R.string.club_feature_unlimited_saves,
-                R.string.club_feature_unlimited_playlists,
-                R.string.club_feature_support,
-            ),
-            ClubOnboardingPaywallContract.benefitStringResources(true, 500.dp),
+    @Test fun `supported tall layout fills extra rows in approved order`() {
+        val five = listOf(
+            R.string.club_feature_unlock_all_taste_matches,
+            R.string.club_feature_customization,
+            R.string.club_feature_unlimited_saves,
+            R.string.club_feature_unlimited_playlists,
+            R.string.club_feature_support,
         )
+        assertEquals(five, ClubOnboardingPaywallContract.benefitStringResources(true, 560.dp))
+        assertEquals(five, ClubOnboardingPaywallContract.benefitStringResources(true, 560.dp, mapEnabled = true))
+        assertTrue(ClubOnboardingPaywallContract.showsReviews(440.dp))
+        assertEquals(280.dp, ClubOnboardingPaywallContract.subtitleMaxWidth)
+        assertEquals(7, ClubOnboardingPaywallContract.playStoreReviews.size)
     }
 
-    @Test fun `compact or unsupported layout omits export without replacement`() {
-        val expected = listOf(
+    @Test fun `compact layout keeps the core four and youtube extras replace export`() {
+        val compact = listOf(
             R.string.club_feature_unlock_all_taste_matches,
             R.string.club_feature_customization,
             R.string.club_feature_unlimited_saves,
             R.string.club_feature_support,
         )
-        assertEquals(expected, ClubOnboardingPaywallContract.benefitStringResources(true, 400.dp))
-        assertEquals(expected, ClubOnboardingPaywallContract.benefitStringResources(false, 500.dp))
+        assertEquals(compact, ClubOnboardingPaywallContract.benefitStringResources(true, 400.dp))
+        assertEquals(compact, ClubOnboardingPaywallContract.benefitStringResources(false, 560.dp))
+        assertEquals(
+            listOf(
+                R.string.club_feature_unlock_all_taste_matches,
+                R.string.club_feature_customization,
+                R.string.club_feature_unlimited_playlists,
+                R.string.club_feature_support,
+            ),
+            ClubOnboardingPaywallContract.benefitStringResources(true, 440.dp),
+        )
+        assertFalse(ClubOnboardingPaywallContract.showsReviews(400.dp))
     }
 
     @Test fun `artwork and close target meet layout contract`() {
         assertEquals(112.dp, ClubOnboardingPaywallContract.vinylSize)
-        assertEquals(56.dp, ClubOnboardingPaywallContract.headerVerticalPadding)
+        assertEquals(36.dp, ClubOnboardingPaywallContract.headerVerticalPadding)
         assertTrue(ClubOnboardingPaywallContract.vinylSize < 140.dp)
 
         composeRule.setContent { Box { ClubCloseButton(onClick = {}) } }

@@ -1,45 +1,35 @@
 package fm.corus.android.ui.screens.messaging
 
+import android.app.Application
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertHeightIsEqualTo
+import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
+import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
-/**
- * Frame sizing for DM photos/GIFs. Mirrors iOS `AnimatedGifView.aspectFittedSize`
- * so Android no longer letterboxes landscape media inside a fixed max box.
- */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34], application = Application::class)
 class MessageMediaSizingTest {
-
-    private val maxWidth = 240.dp
-    private val maxHeight = 300.dp
+    @get:Rule val composeRule = createComposeRule()
 
     @Test
-    fun `landscape media keeps full width and shrinks height`() {
-        val size = aspectFittedDp(480f, 270f, maxWidth, maxHeight)!!
-        assertEquals(240.dp, size.width)
-        assertEquals(135.dp, size.height)
-    }
-
-    @Test
-    fun `square media stays within the width cap`() {
-        val size = aspectFittedDp(300f, 300f, maxWidth, maxHeight)!!
-        assertEquals(240.dp, size.width)
-        assertEquals(240.dp, size.height)
-    }
-
-    @Test
-    fun `tall media caps height and shrinks width`() {
-        val size = aspectFittedDp(270f, 480f, maxWidth, maxHeight)!!
-        assertEquals(300.dp, size.height)
-        // 300 * (270/480) = 168.75
-        assertEquals(168.75.dp, size.width)
-    }
-
-    @Test
-    fun `degenerate dimensions fall back to the placeholder path`() {
-        assertNull(aspectFittedDp(0f, 100f, maxWidth, maxHeight))
-        assertNull(aspectFittedDp(100f, 0f, maxWidth, maxHeight))
-        assertNull(aspectFittedDp(-1f, 100f, maxWidth, maxHeight))
+    fun `media reserves the compact iOS square before loading`() {
+        composeRule.setContent {
+            MessageMediaImage(
+                url = "file:///nonexistent-corus-preview.jpg",
+                contentDescription = "Photo preview",
+                modifier = Modifier.testTag("preview"),
+            )
+        }
+        composeRule.onNodeWithTag("preview")
+            .assertWidthIsEqualTo(180.dp)
+            .assertHeightIsEqualTo(180.dp)
     }
 }

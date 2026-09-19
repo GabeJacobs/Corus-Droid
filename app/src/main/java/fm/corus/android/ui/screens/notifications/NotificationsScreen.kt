@@ -1235,12 +1235,12 @@ private fun InlineReplyBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Bottom,
         ) {
             Box {
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(28.dp)
                         .clip(CircleShape)
                         .background(CorusColors.Accent)
                         .clickable(enabled = !hasAttachment) { onAttachmentClick() },
@@ -1250,7 +1250,7 @@ private fun InlineReplyBar(
                         Icons.Filled.Add,
                         contentDescription = stringResource(R.string.comment_attachment_attach),
                         tint = Color.White,
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(16.dp),
                     )
                 }
                 if (gifSupport) {

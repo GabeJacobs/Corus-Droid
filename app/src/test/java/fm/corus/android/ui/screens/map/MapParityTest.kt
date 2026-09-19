@@ -30,22 +30,49 @@ class MapParityTest {
     }
     @Test fun returningPreviewRetainsItsRenderedMapKitSurface() {
         val source = File("src/main/java/fm/corus/android/ui/screens/map/AppleCityMapView.kt").readText()
-        assertTrue(source.contains("if (compact) MapPreviewWebViewCache.take(previewCacheKey) else null"))
+        assertTrue(source.contains("MapPreviewWebViewCache.take(previewCacheKey)"))
         assertTrue(source.contains("MapPreviewWebViewCache.put(previewCacheKey, webView)"))
-        assertTrue(source.contains("retainedPreviewWebView ?: WebView(if (compact) context.applicationContext else context)"))
+        assertTrue(source.contains("retainedPreviewWebView ?: WebView(context.applicationContext)"))
         assertTrue(source.contains("mutableStateOf(retainedPreviewWebView != null)"))
+        assertTrue(source.contains("\"preview\" else \"full\""))
+        assertFalse(source.contains("webView.loadUrl(\"about:blank\")"))
         assertFalse(source.contains("webView.draw(Canvas(it))\n                MapPreview"))
+    }
+
+    @Test fun retappingOpenCityClusterDoesNotReloadDirectory() {
+        val screen = File("src/main/java/fm/corus/android/ui/screens/map/MapExploreScreen.kt").readText()
+        val model = File("src/main/java/fm/corus/android/ui/screens/map/MapExploreViewModel.kt").readText()
+        val skip = "mutable.value.selected?.cityId == city.cityId && mutable.value.mode == null) return"
+        assertTrue(screen.contains("state.selected?.cityId == city.cityId && citySheetVisible && state.playing == null) return"))
+        assertTrue(model.contains(skip))
+        assertTrue(model.indexOf(skip) < model.indexOf("selected = city, people = emptyList()"))
+    }
+
+    @Test fun citySheetPaintsAboveHeaderAndStopsShortOfFullScreen() {
+        val screen = File("src/main/java/fm/corus/android/ui/screens/map/MapExploreScreen.kt").readText()
+        val sheet = File("src/main/java/fm/corus/android/ui/screens/map/MapCityPeopleSheet.kt").readText()
+        assertTrue(screen.contains("Modifier.align(Alignment.BottomCenter).fillMaxWidth().zIndex(2f)"))
+        assertTrue(sheet.contains("MAP_CITY_SHEET_EXPANDED_FRACTION = 0.88f"))
+        assertTrue(sheet.contains("mapCitySheetExpandedOffsetPx"))
+    }
+
+    @Test fun returningCitySheetDoesNotReplayEnterAnimation() {
+        val source = File("src/main/java/fm/corus/android/ui/screens/map/MapExploreScreen.kt").readText()
+        assertTrue(source.contains("var citySheetVisible by remember { mutableStateOf(state.selected != null) }"))
+        assertTrue(source.contains("val citySheetTransition = remember { MutableTransitionState(state.selected != null) }"))
+        assertTrue(source.contains("model.savedMapTopInsetFraction"))
+        assertTrue(source.contains("model.savedMapBottomOcclusionFraction"))
     }
     @Test fun focusedCityIsTopmostWithoutHidingNearbyPreviewClusters() {
         val html = appleMapHtml("token", compact = true, fontData = "font")
         assertTrue(html.contains("const active=city.id===window.CorusAppleMap.data.focus?.id"))
         assertTrue(html.contains("collisionMode:'none'"))
-        assertTrue(html.contains("annotation.selected=active"))
+        assertTrue(html.contains("setAnnotationSelected(annotation,active)"))
         assertFalse(html.contains(".compact .city.active .label"))
-        assertTrue(html.contains("if(!compact||active)b.appendChild(label)"))
-        assertTrue(html.contains("interactive?0:(active?-38.5:-18)"))
+        assertTrue(html.contains("content.append(faces,label)"))
+        assertTrue(html.contains("interactive?0:(active?-10:-18)"))
         assertFalse(html.contains("annotations.forEach(function(a){map.removeAnnotation(a)}"))
-        assertTrue(html.contains(".compact .city:not(.active){--cluster-opacity:.45}"))
+        assertTrue(html.contains(".compact .city:not(.active){--cluster-opacity:.65}"))
         assertTrue(html.contains("transform:scale(.84)"))
         assertTrue(html.contains("transition:opacity .22s ease-in-out"))
         assertTrue(html.contains("transition:transform .22s ease-in-out"))
@@ -88,6 +115,19 @@ class MapParityTest {
         assertTrue(html.contains("body:not(.compact) .city.density-0 .face{width:37px;height:37px"))
         assertTrue(html.contains("compact?compactBadgeSize:23+densityTier"))
     }
+    @Test fun clusterTapsUseMapKitSelectAndSingleTapOnAndroid() {
+        val html = appleMapHtml("token", compact = false, fontData = "font")
+        val source = File("src/main/java/fm/corus/android/ui/screens/map/AppleCityMapView.kt").readText()
+        assertTrue(html.contains("function emitCity("))
+        assertTrue(html.contains("function hitAnnotation("))
+        assertTrue(html.contains("bindAnnotationGestures(map)"))
+        assertTrue(html.contains("owner.addEventListener('select'"))
+        assertTrue(html.contains("owner.addEventListener('single-tap'"))
+        assertTrue(html.contains("b.dataset.cityId=city.id"))
+        assertTrue(source.contains("APPLE_MAP_JS_BRIDGE_TAG"))
+        assertFalse(source.contains("removeJavascriptInterface(\"CorusAndroidMap\")"))
+    }
+
     @Test fun settledCameraSelectsNearestCityAndNotifiesCompose() {
         fun summary(id: String, latitude: Double, longitude: Double) = MapCitySummary(
             MapCity(id, id, "", "US", latitude, longitude),
@@ -100,6 +140,29 @@ class MapParityTest {
         assertTrue(html.contains("window.CorusAndroidMap.cameraSettled"))
         assertTrue(html.contains("const focusKey=focus&&this.data.focusRevision"))
         assertFalse(html.contains("const focusKey=focus&&focus.id"))
+        assertTrue(html.contains("const offset=(bottom-top)/2"))
+        assertTrue(html.contains("function onMapViewportChange("))
+        assertTrue(html.contains("size.width+'x'+size.height"))
+        assertFalse(html.contains("height:100vh"))
+        assertFalse(html.contains("if(map&&map.region)map.region=map.region}window.addEventListener('resize',sizeMap)"))
+        assertFalse(html.contains("visibleFocus?.24"))
+    }
+
+    @Test fun visibleFocusCentersCityInMapGapAboveTheSheet() {
+        assertEquals(0.16, mapVisibleFocusLatitudeOffset(0.20f, 0.52f), 0.0001)
+        assertEquals(0.26, mapVisibleFocusLatitudeOffset(0f, 0.52f), 0.0001)
+        assertEquals(0.31, mapVisibleFocusLatitudeOffset(0.28f, 0.90f), 0.0001)
+        assertEquals(0.52f, mapBottomOcclusionFraction(1000, 0, 0.52f))
+        assertEquals(0.47f, mapBottomOcclusionFraction(1000, 470, 0.52f))
+        val html = appleMapHtml("token", compact = false, fontData = "font")
+        assertTrue(html.contains("html,body{position:fixed;inset:0}"))
+        assertTrue(html.contains("function mapCssSize("))
+        assertTrue(html.contains("latitudeDelta*size.width/size.height"))
+        assertTrue(html.contains("focus.id+':'+focus.latitude+':'+focus.longitude"))
+        assertTrue(html.contains("!geometryChanged&&this.data.playbackMode!=='listen'"))
+        assertTrue(html.contains("const listenBias=this.data.playbackMode==='listen' ? .06*visibleGap : 0"))
+        assertTrue(html.contains("const preserveCamera=!!this.data.preserveCameraOnFocus"))
+        assertTrue(html.contains("if(!preserveCamera){const latitudeDelta="))
     }
     @Test fun cityGroupsUseIosDistanceOrderWithStableFallback() {
         fun summary(id: String, latitude: Double, longitude: Double) = MapCitySummary(
@@ -135,6 +198,21 @@ class MapParityTest {
         assertEquals(listOf("a","b","d"), faces.map { it.user.id })
         assertEquals("updated", faces[1].user.displayName)
     }
+    @Test fun richerDirectoryKeepsPaintedFacesAndAddsNewCities() {
+        val nyc = MapCity("new-york-us", "New York", "NY", "US", 40.7, -74.0)
+        val london = MapCity("london-gb", "London", "", "GB", 51.5, -0.1)
+        fun person(city: MapCity, id: String) = MapPerson(city, CymbalUser(id, id, id))
+        fun summary(city: MapCity, vararg ids: String) = MapCitySummary(
+            city,
+            mapOf("all" to MapFacet(ids.size, ids.map { person(city, it) })),
+        )
+        val kept = preservingPaintedCityFaces(
+            listOf(summary(nyc, "a", "b", "c")),
+            listOf(summary(nyc, "d", "b", "c"), summary(london, "e")),
+        )
+        assertEquals(listOf("a", "b", "c"), kept.first { it.city.cityId == "new-york-us" }.facets.getValue("all").previews.map { it.user.id })
+        assertEquals(listOf("london-gb"), kept.filter { it.city.cityId == "london-gb" }.map { it.city.cityId })
+    }
     @Test fun viewerFaceIsFirstAndPaintedAboveTheirCluster() {
         val city = MapCity("c", "City", "", "US", 0.0, 0.0)
         fun person(id: String) = MapPerson(city, CymbalUser(id, id, id))
@@ -145,6 +223,12 @@ class MapParityTest {
         val html = appleMapHtml("token", compact = true, fontData = "font")
         assertTrue(html.contains(".face:first-child{z-index:3}"))
         assertTrue(html.contains(".count{position:absolute;right:-15px;top:-9px;z-index:4"))
+    }
+    @Test fun listeningAuthorIsIncludedEvenWhenAbsentFromCityPreview() {
+        val city = MapCity("c", "City", "", "US", 0.0, 0.0)
+        fun person(id: String) = MapPerson(city, CymbalUser(id, id, id))
+        val faces = mapFocusedFaces(listOf(person("a"), person("b"), person("c")), listOf(person("playing")), city.cityId, "playing")
+        assertEquals(listOf("playing", "a", "b"), faces.map { it.user.id })
     }
     @Test fun movedPersonReplacesTheirOldLocation() {
         val old = MapCity("old", "Old", "", "AU", 0.0, 0.0)
@@ -221,6 +305,45 @@ class MapParityTest {
         assertTrue(MapPlaybackOwner.advance("map-track")); assertEquals(1, advances)
         MapPlaybackOwner.yield(); assertTrue(abandoned); assertNull(MapPlaybackOwner.current)
     }
+    @Test fun mapExplainerCopyIsLocalizedThroughParityCatalog() {
+        val explainer = File("src/main/java/fm/corus/android/ui/screens/map/MapExploreScreen.kt").readText()
+        val catalog = File("src/main/java/fm/corus/android/ui/components/ParityCopy.kt").readText()
+        listOf(
+            "Explore the Corus Map",
+            "Find people by city",
+            "Message, meet up, or go to concerts together.",
+            "Share your city, not your exact location.",
+            "People can find you in the city you choose.",
+            "No one sees you until you choose.",
+            "Change this anytime.",
+            "Who can see your city",
+            "Everyone",
+            "Anyone on Corus can see your city.",
+            "People I follow",
+            "Only accounts you follow.",
+            "No one",
+            "Don’t share. You can still explore.",
+        ).forEach { key ->
+            assertTrue(key, explainer.contains("\"$key\"") || explainer.contains("parityCopy(\"$key\")"))
+            assertTrue(key, catalog.contains("\"$key\""))
+        }
+        assertFalse(explainer.contains("Only accounts you follow can see your city."))
+        assertFalse(explainer.contains("Stay private while you explore the map."))
+    }
+
+    @Test fun mapFeatureCopyLiteralsAreInParityCatalog() {
+        val catalog = File("src/main/java/fm/corus/android/ui/components/ParityCopy.kt").readText()
+        val files = File("src/main/java/fm/corus/android/ui/screens/map").listFiles().orEmpty().toList() +
+            File("src/main/java/fm/corus/android/ui/screens/profile/EditProfileCitySection.kt")
+        val pattern = Regex("""parityCopy\("((?:\\.|[^"\\])*)"\)""")
+        files.filter { it.extension == "kt" }.forEach { file ->
+            pattern.findAll(file.readText()).forEach { match ->
+                val key = match.groupValues[1]
+                assertTrue("${file.name}: $key", catalog.contains("\"$key\""))
+            }
+        }
+    }
+
     @Test fun ownCityLocatorSitsInTheListenWatchRow() {
         val source = File("src/main/java/fm/corus/android/ui/screens/map/MapExploreScreen.kt").readText()
         val listen = source.indexOf("MapGlassModeButton(\"Listen\"")
@@ -229,5 +352,16 @@ class MapParityTest {
         assertTrue(listen >= 0 && watch > listen && locate > watch)
         val row = source.substring(listen, locate)
         assertFalse(row.contains("Alignment.BottomEnd"))
+        assertTrue(row.contains("state.ownCity?.takeIf { state.ownAudience != \"off\" }"))
+        assertTrue(source.contains("Icons.Outlined.NearMe"))
+        assertFalse(source.contains("Icons.Default.MyLocation"))
+    }
+
+    @Test fun citySheetChatButtonMatchesListenWithIcon() {
+        val source = File("src/main/java/fm/corus/android/ui/screens/map/MapExploreScreen.kt").readText()
+        assertTrue(source.contains("Icons.Outlined.ChatBubbleOutline"))
+        assertTrue(source.contains("parityCopy(if (chat.member) \"Open chat\" else \"Join chat\")"))
+        assertFalse(source.contains("R.string.map_join_chat"))
+        assertFalse(source.contains("R.string.map_open_chat"))
     }
 }

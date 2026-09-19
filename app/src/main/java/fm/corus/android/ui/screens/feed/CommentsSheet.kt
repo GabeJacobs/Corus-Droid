@@ -844,7 +844,7 @@ private fun CommentsSheetContent(
                 Spacer(Modifier.width(CorusSpacing.sm))
             }
 
-            TextField(
+            CompactCommentTextField(
                 value = commentText,
                 onValueChange = { newValue ->
                     if (newValue.text.length <= maxChars) {

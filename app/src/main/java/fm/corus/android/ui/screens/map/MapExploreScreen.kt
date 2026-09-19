@@ -20,7 +20,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -30,13 +29,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -47,6 +47,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
@@ -94,21 +95,26 @@ fun MapExploreScreen(
     LaunchedEffect(view) { model.repository.event("view_changed", mode = view) }
     var introWasShown by remember { mutableStateOf(false) }
     LaunchedEffect(dialog) { if (dialog == "intro") { introWasShown = true; model.repository.event("intro_shown") } else if (introWasShown) { introWasShown = false; model.repository.event("intro_dismissed") } }
-    var browsingCityId by rememberSaveable { mutableStateOf<String?>(null) }
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    var citySheetVisible by remember { mutableStateOf(false) }
+    var browsingCityId by rememberSaveable { mutableStateOf(initialCityId) }
+    // A settled map gesture may change the highlighted city, but must not
+    // turn that highlight back into a camera command.
+    var preserveRoamingCamera by remember { mutableStateOf(false) }
+    var citySheetVisible by remember { mutableStateOf(state.selected != null) }
+    var citySheetDetent by rememberSaveable { mutableStateOf(MapCitySheetValue.Peek.name) }
     var pushDestinationApplied by rememberSaveable { mutableStateOf(false) }
     // Keep the transition alive before a selected city's content is mounted.
     // Otherwise selecting the city and making the sheet visible in one event can
     // compose its first frame already open, which reads as a jump rather than a
-    // sheet entering from the bottom.
-    val citySheetTransition = remember { MutableTransitionState(false) }
+    // sheet entering from the bottom. Returning from a profile must start
+    // already open so the sheet does not replay that enter.
+    val citySheetTransition = remember { MutableTransitionState(state.selected != null) }
     val mapCitySheetPresented = LocalMapCitySheetPresented.current
-    var citySheetFocusRevision by remember { mutableIntStateOf(0) }
-    var playbackFocusRevision by remember { mutableIntStateOf(0) }
+    var citySheetFocusRevision by rememberSaveable { mutableIntStateOf(0) }
+    var playbackFocusRevision by rememberSaveable { mutableIntStateOf(0) }
     var mapViewportHeightPx by remember { mutableIntStateOf(0) }
     var mapHeaderHeightPx by remember { mutableIntStateOf(0) }
     var playbackCardHeightPx by remember { mutableIntStateOf(0) }
+    var citySheetHeightPx by remember { mutableIntStateOf(0) }
     // Every upgrade entry point owned by the map uses the standard Club bottom
     // sheet. Keeping its source here preserves the contextual copy while the
     // presentation, rounded top corners, and legal footer stay consistent.
@@ -144,7 +150,7 @@ fun MapExploreScreen(
         state.ownCity,
     )
     var sharedCityFocus by remember { mutableStateOf<MapCity?>(null) }
-    var shareFocusRevision by remember { mutableIntStateOf(0) }
+    var shareFocusRevision by rememberSaveable { mutableIntStateOf(0) }
     // Stopping Listen Mode clears [state.playing], but the map should remain
     // on the city the listener was viewing. iOS leaves its camera untouched on
     // exit; retain this focus until the user starts another mode or selects a
@@ -159,6 +165,11 @@ fun MapExploreScreen(
         dialog = "countries"
     }
     fun openCitySheet(city: MapCity) {
+        preserveRoamingCamera = false
+        // Same cluster tap as iOS: keep the open directory, camera, and
+        // loaded people instead of pulsing a full reload.
+        if (state.selected?.cityId == city.cityId && citySheetVisible && state.playing == null) return
+        if (state.selected?.cityId != city.cityId) citySheetDetent = MapCitySheetValue.Peek.name
         listeningExitFocus = null
         // Keep sheet visibility and the selected city in the same Compose
         // transaction. MapKit then receives one sheet-aware camera target,
@@ -187,6 +198,7 @@ fun MapExploreScreen(
         }
     }
     fun focusSharedCity(city: MapCity) {
+        preserveRoamingCamera = false
         sharingAnchorFrozen = false
         sharingAnchor = null
         sharedCityFocus = city
@@ -379,8 +391,10 @@ fun MapExploreScreen(
     }
     LaunchedEffect(citySheetVisible, state.selected?.cityId) {
         // Keep the app's persistent player and tab bar behind the city sheet,
-        // as with iOS's native sheet presentation.
-        mapCitySheetPresented.value = citySheetVisible || state.selected != null
+        // as with iOS's native sheet presentation — except when Map was pushed
+        // from Profile. That stack keeps the Profile tab visible so a retap
+        // pops back to the profile, matching iOS.
+        mapCitySheetPresented.value = !fromProfile && (citySheetVisible || state.selected != null)
     }
     LaunchedEffect(citySheetVisible) {
         citySheetTransition.targetState = citySheetVisible
@@ -391,6 +405,7 @@ fun MapExploreScreen(
     fun dismissCitySheet() {
         if (!citySheetVisible) return
         citySheetVisible = false
+        citySheetDetent = MapCitySheetValue.Peek.name
         scope.launch {
             // Let the sheet finish its exit before clearing the selected pin so
             // the map and city marker keep their geometry during the motion.
@@ -411,10 +426,11 @@ fun MapExploreScreen(
             browsing = browsingCityId?.let { id -> cities.firstOrNull { it.city.cityId == id }?.city },
             anchor = if (sharingAnchorFrozen) sharingAnchor else if (state.ownPresenceReady) mapFocusCity(cities, state.filter, state.ownCity)?.city else null,
             selectedPeople = state.people,
-            initialCamera = model.savedCamera,
+            initialCamera = if (fromProfile) null else model.savedCamera,
             onCameraChanged = { position ->
-                model.savedCamera = position
+                if (!fromProfile) model.savedCamera = position
                 if (state.selected == null && state.playing == null) {
+                    preserveRoamingCamera = true
                     nearestMapCity(cities, state.filter, position.latitude, position.longitude)?.let { nearest ->
                         if (browsingCityId != nearest.cityId) {
                             browsingCityId = nearest.cityId
@@ -426,14 +442,39 @@ fun MapExploreScreen(
             showArtwork = true,
             playbackMode = state.mode,
             playingUserId = state.playing?.post?.user?.id,
+            playingPerson = state.playing?.let { MapPerson(it.city, it.post.user) },
             loadLatest = model.repository::latest,
             mapKitToken = mapKitToken,
             focusOverride = sharedCityFocus ?: listeningExitFocus.takeIf { state.mode == null },
             focusRevision = shareFocusRevision + citySheetFocusRevision + playbackFocusRevision,
-            focusInVisibleMap = state.playing != null || (citySheetVisible && state.selected != null),
+            focusInVisibleMap = state.playing != null || (citySheetVisible && state.selected != null) || (fromProfile && initialCityId != null),
+            preserveCameraOnFocus = preserveRoamingCamera && state.playing == null && state.selected == null && sharedCityFocus == null,
             citySheetOpen = citySheetVisible && state.selected != null && state.playing == null,
-            mapTopInsetFraction = if (mapViewportHeightPx > 0) mapHeaderHeightPx.toFloat() / mapViewportHeightPx else 0f,
-            mapBottomOcclusionFraction = if (state.playing != null && mapViewportHeightPx > 0 && playbackCardHeightPx > 0) playbackCardHeightPx.toFloat() / mapViewportHeightPx else if (expanded) .9f else .52f,
+            mapTopInsetFraction = if (mapViewportHeightPx > 0 && mapHeaderHeightPx > 0) {
+                (mapHeaderHeightPx.toFloat() / mapViewportHeightPx).also { model.savedMapTopInsetFraction = it }
+            } else model.savedMapTopInsetFraction,
+            mapBottomOcclusionFraction = run {
+                val overlayHeightPx = when {
+                    state.playing != null -> playbackCardHeightPx
+                    citySheetVisible && state.selected != null -> citySheetHeightPx
+                    else -> 0
+                }
+                if (mapViewportHeightPx > 0 && overlayHeightPx > 0) {
+                    mapBottomOcclusionFraction(
+                        viewportHeightPx = mapViewportHeightPx,
+                        overlayHeightPx = overlayHeightPx,
+                        fallback = MAP_CITY_SHEET_PEEK_FRACTION,
+                    ).also { model.savedMapBottomOcclusionFraction = it }
+                } else if (state.playing != null || (citySheetVisible && state.selected != null)) {
+                    model.savedMapBottomOcclusionFraction
+                } else {
+                    mapBottomOcclusionFraction(
+                        viewportHeightPx = mapViewportHeightPx,
+                        overlayHeightPx = 0,
+                        fallback = MAP_CITY_SHEET_PEEK_FRACTION,
+                    )
+                }
+            },
             onCity = {
                 browsingCityId = it.cityId
                 listeningExitFocus = null
@@ -442,7 +483,11 @@ fun MapExploreScreen(
         )
         // iOS keeps all controls in one compact, opaque three-row header.
         Column(
-            Modifier.fillMaxWidth().background(CorusColors.Background).statusBarsPadding()
+            Modifier
+                .zIndex(1f)
+                .fillMaxWidth()
+                .background(CorusColors.Background)
+                .statusBarsPadding()
                 // Keep the resting header's small breathing room, but let the
                 // resolving banner meet the map edge-to-edge like iOS. The
                 // banner owns its balanced internal vertical padding.
@@ -567,7 +612,7 @@ fun MapExploreScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 fun browse(delta: Int) {
                     val next = nextMapCitySummary(cities, browsingCity.cityId, delta) ?: return
-                    hapticView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                    preserveRoamingCamera = false
                     browsingCityId = next.city.cityId
                     citySheetFocusRevision++
                 }
@@ -576,7 +621,7 @@ fun MapExploreScreen(
                 IconButton(onClick = { browse(1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronRight, stringResource(fm.corus.android.R.string.map_cd_next_city)) }
             }
         }
-        if (state.selected == null && state.playing == null && view == "map") Row(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (state.selected == null && state.playing == null && view == "map") Row(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             MapGlassModeButton("Listen", Icons.Default.Headphones) { openCountryPicker("listen") }
             MapGlassModeButton("Watch", Icons.Default.Movie) { openCountryPicker("watch") }
             val sharedCity = state.ownCity?.takeIf { state.ownAudience != "off" }
@@ -586,6 +631,7 @@ fun MapExploreScreen(
                         hapticView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
                         model.repository.event("own_city_located")
                         sharedCityFocus = sharedCity
+                        preserveRoamingCamera = false
                         shareFocusRevision++
                         browsingCityId = sharedCity.cityId
                     },
@@ -601,40 +647,17 @@ fun MapExploreScreen(
                 // the map-camera transition, which may pan left or right.
                 enter = slideInVertically(animationSpec = tween(280), initialOffsetY = { it }) + fadeIn(tween(180)),
                 exit = slideOutVertically(animationSpec = tween(220), targetOffsetY = { it }) + fadeOut(tween(140)),
-                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+                // Paint above the opaque map header. iOS presents this as a
+                // sheet over the chrome; zIndex 1 on the header was tucking
+                // the grabber underneath when the sheet expanded.
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().zIndex(2f),
             ) {
-            Surface(
-                Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(if (expanded) .9f else .52f)
-                    // Consume sheet taps while leaving every exposed map pixel live.
-                    .clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) {},
-                color = CorusColors.Background,
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                shadowElevation = 12.dp,
+            MapCityPeopleSheet(
+                onDismiss = { dismissCitySheet() },
+                onHeightChanged = { citySheetHeightPx = it },
+                initialValue = MapCitySheetValue.valueOf(citySheetDetent),
+                onDetentChanged = { citySheetDetent = it.name },
             ) {
-                Column {
-                    var dragDistance by remember { mutableFloatStateOf(0f) }
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(28.dp)
-                            .pointerInput(Unit) {
-                                detectVerticalDragGestures(
-                                    onDragStart = { dragDistance = 0f },
-                                    onVerticalDrag = { _, amount -> dragDistance += amount },
-                                    onDragEnd = {
-                                        when {
-                                            dragDistance > 72f -> dismissCitySheet()
-                                            dragDistance < -72f -> expanded = true
-                                            else -> expanded = !expanded
-                                        }
-                                    },
-                                )
-                            }
-                            .clickable { expanded = !expanded },
-                        contentAlignment = Alignment.Center,
-                    ) { Box(Modifier.size(36.dp, 4.dp).clip(CircleShape).background(CorusColors.Secondary.copy(alpha = .4f))) }
                     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         fun step(delta: Int) {
                             val next = nextMapCitySummary(cities, city.cityId, delta) ?: return
@@ -654,9 +677,9 @@ fun MapExploreScreen(
                         // eligibility refresh is in flight. The city did not change,
                         // so dropping it causes a distracting Open chat flicker.
                         FilledTonalButton(onClick = { model.start("listen", emptySet(), city.cityId) }, enabled = !state.busy, modifier = Modifier.weight(1f).height(44.dp), colors = ButtonDefaults.filledTonalButtonColors(containerColor = CorusColors.Accent.copy(alpha = .12f), contentColor = CorusColors.Accent)) { Icon(Icons.Default.Headphones, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(parityCopy("Listen"), style = CorusFont.bodyMedium) }
-                        state.chat?.takeIf { showMapChat(city.cityId, state.currentDeviceCityId, it) }?.let { chat -> Button(onClick = { if (chat.member) openChat(chat.threadId) else if (chat.clusterMember) model.join(city,null,::openChat) else requestLocation { model.join(city, it, ::openChat) } }, modifier = Modifier.weight(1f), enabled = !state.busy) { Text(stringResource(if (chat.member) fm.corus.android.R.string.map_open_chat else fm.corus.android.R.string.map_join_chat)) } }
+                        state.chat?.takeIf { showMapChat(city.cityId, state.currentDeviceCityId, it) }?.let { chat -> Button(onClick = { if (chat.member) openChat(chat.threadId) else if (chat.clusterMember) model.join(city,null,::openChat) else requestLocation { model.join(city, it, ::openChat) } }, modifier = Modifier.weight(1f).height(44.dp), enabled = !state.busy) { Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(parityCopy(if (chat.member) "Open chat" else "Join chat"), style = CorusFont.bodyMedium) } }
                     }
-                    LazyColumn(state = listState, contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
+                    LazyColumn(state = listState, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
                         if (state.peopleLoading && state.people.isEmpty()) {
                             val count = cities.firstOrNull { it.city.cityId == city.cityId }?.facets?.get(state.filter)?.count
                             items((count ?: 3).coerceIn(1, 5)) { MapPersonRowSkeleton() }
@@ -688,7 +711,6 @@ fun MapExploreScreen(
                             item(key = "invite:${city.cityId}") { MapClusterInviteFooter() }
                         }
                     }
-                }
             }
             }
         }
@@ -852,12 +874,12 @@ fun MapExploreScreen(
                 "audience" -> {
                     item { Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(parityCopy("Who can see your city"), style = CorusFont.songTitleLarge)
-                        Text(stringResource(fm.corus.android.R.string.map_privacy_audience), style = CorusFont.caption, color = CorusColors.Secondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        Text(parityCopy("If you share, people see your city — not your street or a live pin. You can change this anytime."), style = CorusFont.caption, color = CorusColors.Secondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     } }
                     listOf(
                         Triple("everyone", "Everyone", "Anyone on Corus can see your city."),
-                        Triple("following", "People I follow", "Only accounts you follow can see your city."),
-                        Triple("off", "No one", "Stay private while you explore the map."),
+                        Triple("following", "People I follow", "Only accounts you follow."),
+                        Triple("off", "No one", "Don’t share. You can still explore."),
                     ).forEach { (value, title, subtitle) -> item {
                         MapAudienceOption(value, title, subtitle, audience == value) { audience = value; model.repository.rememberAudience(value); model.repository.event("audience_selected", value = value) }
                     } }
@@ -964,10 +986,10 @@ private fun MapGlassLocateButton(onClick: () -> Unit, modifier: Modifier = Modif
         contentColor = CorusColors.Text,
         shadowElevation = 6.dp,
         border = androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = .55f)),
-        modifier = modifier.size(48.dp),
+        modifier = modifier.size(44.dp),
     ) {
         Box(
-            Modifier.fillMaxSize().background(
+            Modifier.fillMaxSize().clip(shape).background(
                 androidx.compose.ui.graphics.Brush.verticalGradient(listOf(
                     CorusColors.Background.copy(alpha = .88f),
                     CorusColors.Background.copy(alpha = .68f),
@@ -976,9 +998,9 @@ private fun MapGlassLocateButton(onClick: () -> Unit, modifier: Modifier = Modif
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.Default.MyLocation,
+                Icons.Outlined.NearMe,
                 contentDescription = parityCopy("Show your city on the map"),
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(15.dp),
             )
         }
     }

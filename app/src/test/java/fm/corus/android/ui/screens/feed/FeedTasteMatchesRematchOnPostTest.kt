@@ -105,7 +105,6 @@ class FeedTasteMatchesRematchOnPostTest {
         nowPlayingManager = mock()
         remoteConfig = mock {
             on { revision } doReturn MutableStateFlow(0)
-            on { forceTasteMatchesPaywallFlow } doReturn MutableStateFlow(false)
         }
         analyticsService = mock()
         postDeletionEvent = mock { on { events } doReturn MutableSharedFlow() }

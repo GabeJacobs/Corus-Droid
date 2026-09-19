@@ -11,6 +11,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -174,13 +175,14 @@ fun EditProfileCitySection(viewModel: EditProfileViewModel) {
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                TextButton(
-                    onClick = { openSharingFlow() },
-                    enabled = !findingCity,
-                    contentPadding = PaddingValues(horizontal = 6.dp),
-                ) {
-                    Text(parityCopy("Change"), style = CorusFont.captionMedium, color = CorusColors.Accent)
-                }
+                Text(
+                    parityCopy("Change"),
+                    modifier = Modifier
+                        .clickable(enabled = !findingCity) { openSharingFlow() }
+                        .padding(vertical = 4.dp),
+                    style = CorusFont.captionMedium,
+                    color = CorusColors.Accent,
+                )
             }
             Spacer(modifier = Modifier.height(CorusSpacing.sm))
             Row(
@@ -252,13 +254,13 @@ fun EditProfileCitySection(viewModel: EditProfileViewModel) {
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text(parityCopy("Who can see your city"), style = CorusFont.songTitleLarge)
-                            Text(stringResource(R.string.map_privacy_audience), style = CorusFont.caption, color = CorusColors.Secondary)
+                            Text(parityCopy("If you share, people see your city — not your street or a live pin. You can change this anytime."), style = CorusFont.caption, color = CorusColors.Secondary)
                         }
                     }
                     listOf(
                         Triple("everyone", "Everyone", "Anyone on Corus can see your city."),
-                        Triple("following", "People I follow", "Only accounts you follow can see your city."),
-                        Triple("off", "No one", "Stay private while you explore the map."),
+                        Triple("following", "People I follow", "Only accounts you follow."),
+                        Triple("off", "No one", "Don’t share. You can still explore."),
                     ).forEach { (value, title, subtitle) ->
                         item {
                             MapAudienceOption(value, title, subtitle, audience == value) {

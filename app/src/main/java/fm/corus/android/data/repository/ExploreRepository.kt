@@ -65,7 +65,7 @@ class ExploreRepository @Inject constructor(
     }
 
     suspend fun fetchTrendingMovies(
-        window: TrendingWindow = TrendingWindow.DEFAULT,
+        window: TrendingWindow = TrendingWindow.FILMS_DEFAULT,
         limit: Int = 20,
     ): List<TrendingMovie> {
         trendingMoviesCache?.let { if (it.isValid(TRENDING_TTL_MS)) return it.value[window].orEmpty() }
@@ -109,7 +109,7 @@ class ExploreRepository @Inject constructor(
     }
 
     suspend fun fetchTrendingDirectors(
-        window: TrendingWindow = TrendingWindow.DEFAULT,
+        window: TrendingWindow = TrendingWindow.DIRECTORS_DEFAULT,
         limit: Int = 20,
     ): List<TrendingDirector> {
         trendingDirectorsCache?.let { if (it.isValid(TRENDING_TTL_MS)) return it.value[window].orEmpty() }

@@ -57,9 +57,33 @@ internal fun destinationIsMapExplore(route: String?): Boolean {
     return route?.startsWith(name) == true
 }
 
+internal fun tabStartRouteName(tab: CorusTab): String? = when (tab) {
+    CorusTab.FEED -> FeedTabRoute::class.qualifiedName
+    CorusTab.EXPLORE -> SearchTabRoute::class.qualifiedName
+    CorusTab.NOTIFICATIONS -> NotificationsTabRoute::class.qualifiedName
+    CorusTab.PROFILE -> ProfileTabRoute::class.qualifiedName
+    CorusTab.MESSAGES -> ThreadListRoute::class.qualifiedName
+    CorusTab.COMPOSE -> null
+}
+
+/** Map from a profile city is never the tab root — Profile retap must pop it. */
+internal fun isAtTabStartDestination(
+    currentRoute: String?,
+    startRouteName: String?,
+    currentId: Int?,
+    startId: Int,
+): Boolean {
+    if (destinationIsMapExplore(currentRoute)) return false
+    if (!currentRoute.isNullOrBlank() && !startRouteName.isNullOrBlank()) {
+        return currentRoute == startRouteName ||
+            currentRoute.startsWith("$startRouteName/") ||
+            currentRoute.startsWith("$startRouteName?")
+    }
+    return startId != 0 && currentId == startId
+}
+
 internal fun NavHostController.hasMapExploreInBackStack(): Boolean =
     currentBackStack.value.any { destinationIsMapExplore(it.destination.route) }
-
 
 /** True when a tab NavHost has no destination and must remount its start route. */
 internal fun shouldRestoreTabStart(hasCurrentDestination: Boolean): Boolean =

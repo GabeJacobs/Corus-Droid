@@ -110,6 +110,8 @@ const val CATALOG_SCROLL_TO_TRACK_KEY = "catalogScrollToTrack"
     val initialIsVerified: Boolean? = null,
     val initialIsClubMember: Boolean? = null,
     val initialIsFollowing: Boolean? = null,
+    /** Map → profile: reserve the city-height identity skeleton (iOS `expectMapCity`). */
+    val expectMapCity: Boolean = false,
 )
 @Serializable data class ProfileByUsernameRoute(val username: String)
 @Serializable data class FollowListRoute(

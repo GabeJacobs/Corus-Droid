@@ -10,6 +10,7 @@
     <string name="parity_9a78211436f6" formatted="false">@</string>
     <string name="parity_dfb4c9a14bad" formatted="false">Album</string>
     <string name="parity_6a72085653e4" formatted="false">All</string>
+    <string name="parity_5e15b15b4fa5" formatted="false">All communities</string>
     <string name="parity_29207dfdb31a" formatted="false">All messages</string>
     <string name="parity_253657df34e4" formatted="false">Anyone on Corus can see your city.</string>
     <string name="parity_cdf9bbefc769" formatted="false">Anywhere</string>
@@ -19,21 +20,31 @@
     <string name="parity_4784eb5bdae1" formatted="false">Blue Tie-Dye</string>
     <string name="parity_4a7fdd8c1742" formatted="false">Books</string>
     <string name="parity_f96944302348" formatted="false">Brat Green</string>
+    <string name="parity_55f447a461be" formatted="false">CITY</string>
     <string name="parity_77dfd2135f4d" formatted="false">Cancel</string>
+    <string name="parity_64fbd995d3b6" formatted="false">Change</string>
     <string name="parity_5aff5a1f6aa7" formatted="false">Change this anytime.</string>
     <string name="parity_f5b6616663ea" formatted="false">Channel Orange</string>
     <string name="parity_a4fc7971cb42" formatted="false">Choose a city</string>
+    <string name="parity_4271627f4f0b" formatted="false">City</string>
     <string name="parity_51dc1092be23" formatted="false">Claim artist page</string>
     <string name="parity_512c233088e1" formatted="false">Claim this artist page</string>
     <string name="parity_67300d0fed7c" formatted="false">Clear search</string>
     <string name="parity_bbfa773e5a63" formatted="false">Close</string>
+    <string name="parity_945c744fba00" formatted="false">Close city</string>
     <string name="parity_fce06e20e5f7" formatted="false">Comments</string>
+    <string name="parity_bfd58ee3a270" formatted="false">Community</string>
     <string name="parity_c2f4d4164ba5" formatted="false">Community chat</string>
     <string name="parity_aad755de4295" formatted="false">Compilation</string>
     <string name="parity_9885182153f7" formatted="false">Connect Audiomack</string>
     <string name="parity_726a1ceebd2e" formatted="false">Contact email</string>
+    <string name="parity_b7c3ca0ee379" formatted="false">Copied!</string>
     <string name="parity_16994bdea573" formatted="false">Corus Map</string>
+    <string name="parity_6897038c5beb" formatted="false">Corus city map</string>
+    <string name="parity_a76c16dc843a" formatted="false">Corus will group you in your nearest city and never share or store your precise location.</string>
     <string name="parity_a0e7a6a02cc2" formatted="false">Cotton Candy</string>
+    <string name="parity_4c19241c7fd4" formatted="false">Couldn\'t share your city</string>
+    <string name="parity_5094bccc54b1" formatted="false">Couldn’t load map. Try again.</string>
     <string name="parity_5c419b5daae2" formatted="false">Custom profile badge</string>
     <string name="parity_b4fd6c51ed0f" formatted="false">Depression Cherry</string>
     <string name="parity_19a4b0a062c8" formatted="false">Discography</string>
@@ -47,8 +58,10 @@
     <string name="parity_0137b9ad82f9" formatted="false">FOLLOW</string>
     <string name="parity_f0de6c8aaa3f" formatted="false">FOLLOWING</string>
     <string name="parity_b9aec1112810" formatted="false">Film</string>
+    <string name="parity_b2dc2c4efc03" formatted="false">Films posted by people around the world.</string>
     <string name="parity_08f45c68e588" formatted="false">Find people by city</string>
     <string name="parity_ae0c45f79178" formatted="false">Find your kind of people. Explore your full taste match list and discover what you have in common.</string>
+    <string name="parity_b359e87d1557" formatted="false">Finding your city</string>
     <string name="parity_90eeb1008380" formatted="false">Following</string>
     <string name="parity_3f66052a107e" formatted="false">From</string>
     <string name="parity_eeb692087d62" formatted="false">Full name</string>
@@ -56,15 +69,20 @@
     <string name="parity_42e01b33038c" formatted="false">Get the most out of Corus</string>
     <string name="parity_5b8027fa0e81" formatted="false">Got it</string>
     <string name="parity_323d2167a2f2" formatted="false">Group chat</string>
+    <string name="parity_41c2e9e827d6" formatted="false">Grow your cluster. Invite your friends to join Corus.</string>
     <string name="parity_d88e57bb0db6" formatted="false">How can we verify your connection to this artist?</string>
     <string name="parity_1b4c8b6a463c" formatted="false">Icy Blue</string>
     <string name="parity_5d6f27fadf8c" formatted="false">If you share, people see your city — not your street or a live pin. You can change this anytime.</string>
+    <string name="parity_129daef04d80" formatted="false">Invite friends</string>
     <string name="parity_02a7e31a3140" formatted="false">Join chat</string>
+    <string name="parity_55abf8455833" formatted="false">Join me on Corus — share music &amp; movies with friends!</string>
     <string name="parity_0167dbfec9ad" formatted="false">Join the Club</string>
     <string name="parity_a17525e135dd" formatted="false">Join the Corus Club</string>
     <string name="parity_61453a62e3b0" formatted="false">Keep discovering films. Unlock unlimited Watch Mode with Corus Club.</string>
     <string name="parity_e1a462a5938c" formatted="false">Keep listening around the world. Unlock unlimited Listen Mode with Corus Club.</string>
     <string name="parity_21b98d7b5820" formatted="false">Last free song · Explore Club</string>
+    <string name="parity_dfbdf908e6f2" formatted="false">Last free trailer · Explore Club</string>
+    <string name="parity_f805dcb341e0" formatted="false">Latest post</string>
     <string name="parity_75c88f3a0072" formatted="false">Lavender</string>
     <string name="parity_c7e02c95fe85" formatted="false">Like</string>
     <string name="parity_e9f009d9df80" formatted="false">Likes</string>
@@ -74,11 +92,14 @@
     <string name="parity_c518fb067439" formatted="false">Listen</string>
     <string name="parity_820020256535" formatted="false">Listen Mode</string>
     <string name="parity_36262d2bbd0a" formatted="false">Listen preview · %lld songs left · Explore Club</string>
+    <string name="parity_9e76f7b2d5ca" formatted="false">Listen to music posted by people in the countries you choose.</string>
     <string name="parity_dfe60ca92e8c" formatted="false">Load more</string>
     <string name="parity_ff35c3fdb683" formatted="false">Load more people</string>
+    <string name="parity_8f26c6520d61" formatted="false">Loading</string>
     <string name="parity_c32673783563" formatted="false">Loading people…</string>
     <string name="parity_d0611fff32c6" formatted="false">Loading tour dates</string>
     <string name="parity_33ce417454bf" formatted="false">Loading…</string>
+    <string name="parity_f5340afd9028" formatted="false">Location access is needed to share your city. Enable it and try again.</string>
     <string name="parity_ab478f3efc84" formatted="false">Map</string>
     <string name="parity_cd710fcc23c7" formatted="false">Marquee</string>
     <string name="parity_27ad1d833422" formatted="false">Maybe later</string>
@@ -89,6 +110,7 @@
     <string name="parity_d31edb7b8a94" formatted="false">Monthly</string>
     <string name="parity_4bab2d8fe13f" formatted="false">More</string>
     <string name="parity_131260cbfbb0" formatted="false">Music</string>
+    <string name="parity_640127a5a8b7" formatted="false">Music posted by people around the world.</string>
     <string name="parity_b9e78ced88a4" formatted="false">Muted</string>
     <string name="parity_1ed2e7b50fa1" formatted="false">New message</string>
     <string name="parity_3cdd02963c71" formatted="false">New releases</string>
@@ -96,7 +118,9 @@
     <string name="parity_da87f33ccd24" formatted="false">Next city</string>
     <string name="parity_4bfc194b68a3" formatted="false">Next page</string>
     <string name="parity_6683bd1a6bb4" formatted="false">No films yet</string>
+    <string name="parity_41c06c15c761" formatted="false">No one</string>
     <string name="parity_c758598ebf50" formatted="false">No one sees you until you choose.</string>
+    <string name="parity_35655136006c" formatted="false">No people are sharing their city for this selection yet.</string>
     <string name="parity_1ed0d88c7eb5" formatted="false">No people to show for this filter.</string>
     <string name="parity_b7bbf3d235d6" formatted="false">No trophies yet</string>
     <string name="parity_612eb3c64c41" formatted="false">No users found</string>
@@ -106,8 +130,10 @@
     <string name="parity_e3de5ab0ca4c" formatted="false">Off</string>
     <string name="parity_11546013dc6e" formatted="false">Only accounts you follow.</string>
     <string name="parity_d2104ca30455" formatted="false">Open chat</string>
+    <string name="parity_43b1743b11a0" formatted="false">Or select countries below, then press Start.</string>
     <string name="parity_13f64eb8ae6e" formatted="false">Orange Tie-Dye</string>
     <string name="parity_9d572da10245" formatted="false">Peach</string>
+    <string name="parity_f6f88f09f389" formatted="false">People I follow</string>
     <string name="parity_38be27f3fd1c" formatted="false">People can find you in the city you choose.</string>
     <string name="parity_d01d900383e4" formatted="false">Photo</string>
     <string name="parity_54076359fdc7" formatted="false">Pink</string>
@@ -135,7 +161,8 @@
     <string name="parity_bce06414177f" formatted="false">Search</string>
     <string name="parity_9e867d1a518b" formatted="false">Search KLIPY</string>
     <string name="parity_8008bef0fc1f" formatted="false">Search cities</string>
-    <string name="parity_04142689eeeb" formatted="false">Search cities or people</string>
+    <string name="parity_04142689eeeb" formatted="false">Search cities or countries</string>
+    <string name="parity_72e7521d243f" formatted="false">Search cities or people</string>
     <string name="parity_4579de70a18f" formatted="false">Search films</string>
     <string name="parity_9de9debbfd35" formatted="false">Search songs</string>
     <string name="parity_8d232b28b92f" formatted="false">Search username</string>
@@ -143,32 +170,41 @@
     <string name="parity_017b94f9a480" formatted="false">See taste matches near you on the map — people who share your music and film taste.</string>
     <string name="parity_09ca55ca52d2" formatted="false">Share</string>
     <string name="parity_94023f5a4a52" formatted="false">Share another film</string>
+    <string name="parity_6e01c19a0c7a" formatted="false">Share your city</string>
     <string name="parity_31fab0859db4" formatted="false">Share your city, not your exact location.</string>
+    <string name="parity_45a7df085234" formatted="false">Sharing:</string>
     <string name="parity_5926c3235507" formatted="false">Shop official store</string>
     <string name="parity_4c852b26d1b7" formatted="false">Show less</string>
     <string name="parity_25911d48e023" formatted="false">Show more</string>
+    <string name="parity_67cf9791c36f" formatted="false">Show on profile</string>
     <string name="parity_9e2001f83002" formatted="false">Show trophies</string>
     <string name="parity_8c123a5c30ec" formatted="false">Show trophies on profile</string>
+    <string name="parity_05441bc169a5" formatted="false">Show your city on the map</string>
     <string name="parity_dd1186892a2f" formatted="false">Single</string>
     <string name="parity_02ff65909856" formatted="false">Sold out</string>
     <string name="parity_9a3ea0598e7f" formatted="false">Something went wrong. Please try again.</string>
+    <string name="parity_3ee7638fbe65" formatted="false">Stop playback</string>
     <string name="parity_0e45aee6e595" formatted="false">Stop sharing</string>
     <string name="parity_8a9051c61379" formatted="false">Submit request</string>
     <string name="parity_5f7df6ce6b18" formatted="false">Submitting a request does not automatically verify you or give you control of the artist page.</string>
     <string name="parity_25bdf9860e96" formatted="false">Submitting…</string>
     <string name="parity_f9aa190b1c8b" formatted="false">Taste Matches</string>
     <string name="parity_f035d9bdea71" formatted="false">Taste Matches feed</string>
+    <string name="parity_82543d8b79d0" formatted="false">Taste matches</string>
     <string name="parity_27338a83d773" formatted="false">This is a place for people in %@ to connect.</string>
     <string name="parity_6c50d32835d2" formatted="false">Tour dates</string>
     <string name="parity_e4fc40926893" formatted="false">Unlike</string>
     <string name="parity_29a7a1e058da" formatted="false">Unlimited posts</string>
     <string name="parity_4cb955a437ea" formatted="false">Unlimited saves</string>
     <string name="parity_8d6779fdd977" formatted="false">Upcoming shows</string>
+    <string name="parity_5216b7ce77f3" formatted="false">Use my city</string>
     <string name="parity_03128bed9062" formatted="false">Verification</string>
     <string name="parity_7e06a4c7c4de" formatted="false">View Map</string>
     <string name="parity_d91ebf5887cf" formatted="false">Watch</string>
     <string name="parity_0c1b3cced072" formatted="false">Watch Mode</string>
     <string name="parity_00ec7c4bb4f0" formatted="false">Watch anything good lately?</string>
+    <string name="parity_04036d115a9a" formatted="false">Watch films posted by people in the countries you choose.</string>
+    <string name="parity_3525761a57be" formatted="false">Watch preview · %lld trailers left · Explore Club</string>
     <string name="parity_ed7a37f4f2d4" formatted="false">Watch trailer on YouTube</string>
     <string name="parity_7cc4c50bed35" formatted="false">What are you listening to?</string>
     <string name="parity_1b527ff0e65e" formatted="false">Who can see your city</string>

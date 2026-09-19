@@ -27,6 +27,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -117,7 +118,10 @@ class OtherProfileViewModelTest {
         }
     }
 
-    private fun createViewModel(): OtherProfileViewModel = OtherProfileViewModel(
+    private fun createViewModel(
+        remoteConfig: fm.corus.android.service.RemoteConfigService = mock(),
+        mapRepository: fm.corus.android.ui.screens.map.MapRepository = mock(),
+    ): OtherProfileViewModel = OtherProfileViewModel(
         context = context,
         userRepository = userRepository,
         postRepository = postRepository,
@@ -127,7 +131,7 @@ class OtherProfileViewModelTest {
         cloudFunctions = cloudFunctions,
         musicServicePreference = mock(),
         analyticsService = mock(),
-        remoteConfig = mock(),
+        remoteConfig = remoteConfig,
         engagementManager = engagementManager,
         subscriptionRepository = subscriptionRepository,
         postDeletionEvent = postDeletionEvent,
@@ -135,7 +139,7 @@ class OtherProfileViewModelTest {
         commentEditedEvent = fm.corus.android.domain.CommentEditedEvent(),
         commentDeletedEvent = fm.corus.android.domain.CommentDeletedEvent(),
         networkMonitor = mock<NetworkMonitor> { on { isConnected } doReturn MutableStateFlow(true) },
-        mapRepository = mock(),
+        mapRepository = mapRepository,
     )
 
     private fun makeUser(id: String, cymbalCount: Int): CymbalUser = CymbalUser(
@@ -594,5 +598,117 @@ class OtherProfileViewModelTest {
 
         assertEquals(false, viewModel.hasLoadError.value)
         assertEquals(targetId, viewModel.profile.value?.id)
+    }
+
+    @Test
+    fun `expectCitySkeleton follows iOS map-entry cached-hint rules`() {
+        val mapRepository = mock<fm.corus.android.ui.screens.map.MapRepository> {
+            on { otherProfileHasCity("cached") } doReturn true
+            on { otherProfileHasCity("unknown") } doReturn null
+            on { otherProfileHasCity("none") } doReturn false
+        }
+        val enabled = mock<fm.corus.android.service.RemoteConfigService> {
+            on { mapEnabled } doReturn true
+        }
+        val disabled = mock<fm.corus.android.service.RemoteConfigService> {
+            on { mapEnabled } doReturn false
+        }
+        val viewModel = createViewModel(remoteConfig = enabled, mapRepository = mapRepository)
+
+        assertTrue(viewModel.expectCitySkeleton("map-user", expectMapCity = true))
+        assertTrue(viewModel.expectCitySkeleton("cached"))
+        assertFalse(viewModel.expectCitySkeleton("unknown"))
+        assertFalse(viewModel.expectCitySkeleton("none"))
+        assertFalse(
+            createViewModel(remoteConfig = disabled, mapRepository = mapRepository)
+                .expectCitySkeleton("cached", expectMapCity = true),
+        )
+    }
+
+    @Test
+    fun `loadProfile persists whether the profile has a city for the next skeleton`() = runTest {
+        val targetId = "city-user"
+        val city = fm.corus.android.data.model.ProfileMapCity("rio", "Rio de Janeiro, Brazil")
+        val mapRepository = mock<fm.corus.android.ui.screens.map.MapRepository>()
+        val remoteConfig = mock<fm.corus.android.service.RemoteConfigService> {
+            on { mapEnabled } doReturn true
+        }
+        whenever(postRepository.getProfileData(eq(targetId), any(), anyOrNull()))
+            .thenReturn(
+                CloudFunctionsDataSource.ProfileData(
+                    user = makeUser(targetId, cymbalCount = 1),
+                    posts = listOf(makePost("p1", targetId)),
+                    mapCity = city,
+                    mapCityIncluded = true,
+                ),
+            )
+        whenever(userRepository.isSubscribedToUserPosts(any(), any())).thenReturn(false)
+
+        val viewModel = createViewModel(remoteConfig = remoteConfig, mapRepository = mapRepository)
+        viewModel.start(targetId, initialIsFollowing = false)
+        advanceUntilIdle()
+
+        assertEquals(city, viewModel.mapCity.value)
+        assertEquals(true, viewModel.mapCityResolved.value)
+        verify(mapRepository).saveOtherProfileHasCity(targetId, true)
+    }
+
+    @Test
+    fun `omitted mapCity key falls back to getProfileMapCity and still resolves`() = runTest {
+        val targetId = "legacy-user"
+        val city = fm.corus.android.data.model.ProfileMapCity("nyc", "New York, New York")
+        val mapRepository = mock<fm.corus.android.ui.screens.map.MapRepository>()
+        val remoteConfig = mock<fm.corus.android.service.RemoteConfigService> {
+            on { mapEnabled } doReturn true
+        }
+        whenever(postRepository.getProfileData(eq(targetId), any(), anyOrNull()))
+            .thenReturn(
+                CloudFunctionsDataSource.ProfileData(
+                    user = makeUser(targetId, cymbalCount = 1),
+                    posts = listOf(makePost("p1", targetId)),
+                    mapCityIncluded = false,
+                ),
+            )
+        whenever(cloudFunctions.getProfileMapCity(targetId)).thenReturn(city)
+        whenever(userRepository.isSubscribedToUserPosts(any(), any())).thenReturn(false)
+
+        val viewModel = createViewModel(remoteConfig = remoteConfig, mapRepository = mapRepository)
+        viewModel.start(targetId, initialIsFollowing = false)
+        advanceUntilIdle()
+
+        assertEquals(city, viewModel.mapCity.value)
+        assertEquals(true, viewModel.mapCityResolved.value)
+        verify(mapRepository).saveOtherProfileHasCity(targetId, true)
+    }
+
+    @Test
+    fun `failed getProfileMapCity fallback reveals without overwriting the skeleton hint`() = runTest {
+        val targetId = "legacy-user"
+        val mapRepository = mock<fm.corus.android.ui.screens.map.MapRepository> {
+            on { otherProfileHasCity(targetId) } doReturn true
+        }
+        val remoteConfig = mock<fm.corus.android.service.RemoteConfigService> {
+            on { mapEnabled } doReturn true
+        }
+        whenever(postRepository.getProfileData(eq(targetId), any(), anyOrNull()))
+            .thenReturn(
+                CloudFunctionsDataSource.ProfileData(
+                    user = makeUser(targetId, cymbalCount = 1),
+                    posts = listOf(makePost("p1", targetId)),
+                    mapCityIncluded = false,
+                ),
+            )
+        whenever(cloudFunctions.getProfileMapCity(targetId))
+            .thenThrow(RuntimeException("callable failed"))
+        whenever(userRepository.isSubscribedToUserPosts(any(), any())).thenReturn(false)
+
+        val viewModel = createViewModel(remoteConfig = remoteConfig, mapRepository = mapRepository)
+        viewModel.start(targetId, initialIsFollowing = false)
+        advanceUntilIdle()
+
+        assertEquals(null, viewModel.mapCity.value)
+        assertEquals(true, viewModel.mapCityResolved.value)
+        verify(mapRepository, never()).saveOtherProfileHasCity(eq(targetId), any())
+        assertTrue(viewModel.expectCitySkeleton(targetId))
     }
 }

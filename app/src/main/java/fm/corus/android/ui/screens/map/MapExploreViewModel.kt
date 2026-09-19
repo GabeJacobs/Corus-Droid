@@ -106,6 +106,8 @@ class MapExploreViewModel @Inject constructor(
     private var canonicalJob: kotlinx.coroutines.Job? = null
     private val canonicalCities = mutableMapOf<String,MapCity>()
     var savedCamera: MapCameraPosition? = null
+    var savedMapTopInsetFraction = 0f
+    var savedMapBottomOcclusionFraction = .52f
     private val selectedCountryScopes = mutableMapOf<String, Set<String>>()
     fun selectedCountries(mode: String): Set<String> = selectedCountryScopes[mode].orEmpty()
     var directorySearch = ""
@@ -189,7 +191,7 @@ class MapExploreViewModel @Inject constructor(
                             taste = refreshed
                             val refreshedCities = repository.cities(following, taste, mutable.value.selectedCommunityId)
                             if (auth.currentUser?.uid == current && request == refreshGeneration) {
-                                updateState { it.copy(cities = refreshedCities, error = null) }
+                                updateState { it.copy(cities = preservingPaintedCityFaces(it.cities, refreshedCities), error = null) }
                             }
                         } catch (_: Exception) {
                             // Keep the usable stale result; Retry performs another refresh.
@@ -200,7 +202,10 @@ class MapExploreViewModel @Inject constructor(
         } else taste = emptyList()
         val cities = repository.cities(following, taste, mutable.value.selectedCommunityId)
         if (request != refreshGeneration) return@launch
-        if (auth.currentUser?.uid == current) updateState { it.copy(cities = cities.map { value -> canonicalCities[value.city.cityId]?.let { city -> value.copy(city=value.city.copy(cityName=city.cityName)) } ?: value }, loading = false, user = user, error = null) }
+        if (auth.currentUser?.uid == current) updateState { state ->
+            val named = cities.map { value -> canonicalCities[value.city.cityId]?.let { city -> value.copy(city=value.city.copy(cityName=city.cityName)) } ?: value }
+            state.copy(cities = preservingPaintedCityFaces(state.cities, named), loading = false, user = user, error = null)
+        }
         if(auth.currentUser?.uid != current) return@launch
         canonicalJob?.cancel()
         canonicalJob = viewModelScope.launch { repository.canonicalUpdates(cities.map { it.city.cityId }).collect { city ->
@@ -218,6 +223,9 @@ class MapExploreViewModel @Inject constructor(
         generation++; updateState { it.copy(filter = value, selected = null, people = emptyList(), listPages = emptyMap(), listLoading = emptySet(), listErrors = emptySet(), listPreparing = false, directorySearchPeople = emptyList(), directorySearchLoading = false) }
     }
     fun select(city: MapCity) {
+        // iOS `openCityDirectory` no-ops when the tapped cluster is already
+        // selected. Reloading here blanks the people list into skeletons.
+        if (mutable.value.selected?.cityId == city.cityId && mutable.value.mode == null) return
         repository.event("city_opened", count = mutable.value.cities.firstOrNull { it.city.cityId == city.cityId }?.facets?.get(mutable.value.filter)?.count)
         if (mutable.value.mode != null) stop()
         val gen = ++generation

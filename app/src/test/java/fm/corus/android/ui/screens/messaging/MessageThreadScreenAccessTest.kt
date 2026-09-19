@@ -64,7 +64,11 @@ class MessageThreadScreenAccessTest {
         val viewModel = MessageThreadViewModel(
             messageRepository = messageRepository,
             authRepository = mock<AuthRepository> { on { currentUserId } doReturn "me" },
-            userRepository = mock<UserRepository> { on { blockedIds } doReturn MutableStateFlow(emptySet()) },
+            userRepository = mock<UserRepository> {
+                on { blockedIds } doReturn MutableStateFlow(emptySet())
+                on { blockedIdsLoaded } doReturn MutableStateFlow(true)
+                on { blockedIdsLoadFailed } doReturn MutableStateFlow(false)
+            },
             exploreRepository = mock(),
             postRepository = mock(),
             remoteConfigService = mock<RemoteConfigService>(),
@@ -120,6 +124,8 @@ class MessageThreadScreenAccessTest {
         }
         val userRepository = mock<UserRepository> {
             on { blockedIds } doReturn MutableStateFlow(emptySet())
+            on { blockedIdsLoaded } doReturn MutableStateFlow(true)
+            on { blockedIdsLoadFailed } doReturn MutableStateFlow(false)
             onBlocking { fetchUserProfile(any()) } doReturn fm.corus.android.data.model.CymbalUser(
                 id = "other",
                 username = "devynbrowne",

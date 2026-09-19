@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.data.model.CymbalMessage
+import fm.corus.android.data.model.MessageLinkPreview
 import fm.corus.android.data.local.MessageLocalStore
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.data.model.CymbalPost
@@ -147,6 +148,15 @@ class MessageThreadViewModel @Inject constructor(
      * matches and holding the copy longer can't duplicate a bubble.
      */
     private val _pendingMessages = MutableStateFlow<Map<String, CymbalMessage>>(emptyMap())
+
+    // Track local insertions independently of delivery status: an ack must not
+    // interrupt the animation, and every message type uses launchOutgoing.
+    private val _outgoingInsertions = MutableStateFlow<Set<String>>(emptySet())
+    val outgoingInsertions: StateFlow<Set<String>> = _outgoingInsertions.asStateFlow()
+
+    fun finishOutgoingInsertion(id: String) {
+        _outgoingInsertions.value = _outgoingInsertions.value - id
+    }
 
     /** Merged server + unconfirmed pending messages, reversed for reverseLayout LazyColumn. */
     val messages: StateFlow<List<CymbalMessage>> = combine(
@@ -420,6 +430,9 @@ class MessageThreadViewModel @Inject constructor(
         optimistic: CymbalMessage,
         send: suspend (resolvedThreadId: String) -> Unit,
     ) {
+        if (clientId !in _pendingMessages.value) {
+            _outgoingInsertions.value = _outgoingInsertions.value + clientId
+        }
         _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
         viewModelScope.launch {
             try {
@@ -441,7 +454,14 @@ class MessageThreadViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
+                if (isVideoDailyLimit(e)) {
+                    _pendingMessages.value = _pendingMessages.value - clientId
+                    _videoPickNotice.value = noticeFor(
+                        MessageVideoException(MessageVideoException.DAILY_LIMIT)
+                    )
+                } else {
+                    updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
+                }
             }
         }
     }
@@ -488,6 +508,7 @@ class MessageThreadViewModel @Inject constructor(
                     photoURL = cached.groupPhotoURL,
                     memberIds = cached.memberIds,
                     createdBy = cached.createdBy,
+                    lastWriterIds = cached.lastWriterIds,
                 )
             }
             if (cached.members.isNotEmpty() && _membersById.value.isEmpty()) {
@@ -565,7 +586,7 @@ class MessageThreadViewModel @Inject constructor(
                     val hadNewIncoming = serverMessages.any {
                         it.id !in seenMessageIds && it.fromUserId != myId
                     }
-                    seenMessageIds = confirmedIds
+                    seenMessageIds = serverMessages.map { it.id }.toSet()
 
                     if (hasLoadedInitialMessages && hadNewIncoming && myId != null && isActivelyViewing) {
                         messageRepository.markThreadRead(currentThreadId ?: threadId, myId)
@@ -701,6 +722,22 @@ class MessageThreadViewModel @Inject constructor(
     val cityActionError = _cityActionError.asStateFlow()
     fun clearCityActionError() { _cityActionError.value = null }
 
+    data class VideoPickNotice(val title: String, val body: String? = null)
+
+    private val _videoPickNotice = MutableStateFlow<VideoPickNotice?>(null)
+    val videoPickNotice = _videoPickNotice.asStateFlow()
+    fun clearVideoPickNotice() { _videoPickNotice.value = null }
+
+    private fun noticeFor(error: Exception): VideoPickNotice {
+        val message = error.message ?: MessageVideoException.FAILED
+        return if (message == MessageVideoException.TOO_LONG) {
+            VideoPickNotice(MessageVideoException.TOO_LONG_TITLE, MessageVideoException.TOO_LONG_BODY)
+        } else if (message == MessageVideoException.DAILY_LIMIT) {
+            VideoPickNotice(MessageVideoException.DAILY_LIMIT_TITLE, MessageVideoException.DAILY_LIMIT_BODY)
+        } else {
+            VideoPickNotice(message)
+        }
+    }
     data class ComposerVideoUi(
         val uri: android.net.Uri,
         val preview: android.graphics.Bitmap? = null,
@@ -720,7 +757,6 @@ class MessageThreadViewModel @Inject constructor(
         videoOutgoingStarted = false
         val accepted = CompletableDeferred<Unit>()
         videoAccepted = accepted
-        _composerVideo.value = ComposerVideoUi(uri)
         videoPrepared = viewModelScope.async {
             MessageVideoPreparer.prepare(
                 context,
@@ -731,6 +767,9 @@ class MessageThreadViewModel @Inject constructor(
                 },
                 onAccepted = {
                     if (!accepted.isCompleted) accepted.complete(Unit)
+                    if (_composerVideo.value == null) {
+                        _composerVideo.value = ComposerVideoUi(uri, isPreparing = true)
+                    }
                 },
             )
         }
@@ -742,10 +781,8 @@ class MessageThreadViewModel @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 if (!accepted.isCompleted) accepted.completeExceptionally(e)
-                _composerVideo.value = _composerVideo.value?.copy(
-                    isPreparing = false,
-                    errorMessage = e.message ?: MessageVideoException.FAILED,
-                )
+                _videoPickNotice.value = noticeFor(e)
+                clearComposerVideo()
             }
         }
     }
@@ -1028,9 +1065,9 @@ class MessageThreadViewModel @Inject constructor(
 
     // ── Optimistic send: text ──
 
-    fun sendMessage(threadId: String, text: String) {
+    fun sendMessage(threadId: String, text: String): String? {
         stopTypingBroadcast()
-        val userId = authRepository.currentUserId ?: return
+        val userId = authRepository.currentUserId ?: return null
         val provisionalId = provisionalThreadId(threadId)
         val reply = _replyToMessage.value
         val replySnippet = reply?.let { replyPreviewText(it, context) }
@@ -1062,14 +1099,16 @@ class MessageThreadViewModel @Inject constructor(
                 replyToText = replySnippet,
                 replyToUserId = reply?.fromUserId,
                 clientMessageId = clientId,
+                clientCreatedAt = optimistic.createdAt.time,
             )
         }
+        return clientId
     }
 
     // ── Optimistic send: image ──
 
-    fun sendImageMessage(threadId: String, imageData: ByteArray, caption: String = "") {
-        val userId = authRepository.currentUserId ?: return
+    fun sendImageMessage(threadId: String, imageData: ByteArray, caption: String = ""): String? {
+        val userId = authRepository.currentUserId ?: return null
         val provisionalId = provisionalThreadId(threadId)
         val clientId = UUID.randomUUID().toString()
         val captionTrim = caption.trim()
@@ -1092,41 +1131,54 @@ class MessageThreadViewModel @Inject constructor(
                 text = captionTrim,
             )
         }
+        return clientId
     }
 
-    fun sendStagedVideo(threadId: String, caption: String = "") {
-        if (_composerVideo.value?.errorMessage != null) return
+    fun sendStagedVideo(threadId: String, caption: String = ""): String? {
+        if (_composerVideo.value?.errorMessage != null) return null
+        if (videoOutgoingStarted) return null
+        val userId = authRepository.currentUserId ?: return null
+        if (!dmVideoEnabled) return null
+        val preparedDeferred = videoPrepared ?: return null
+        val poster = _composerVideo.value?.preview
+        _composerVideo.value = null
+        videoOutgoingStarted = true
+        videoPrepared = null
         val provisionalId = provisionalThreadId(threadId)
         val clientId = UUID.randomUUID().toString()
         val captionTrim = caption.trim()
+        val sentAt = Date()
+        val optimistic = CymbalMessage(
+            id = clientId,
+            threadId = provisionalId,
+            fromUserId = userId,
+            text = captionTrim.ifBlank { null },
+            type = MessageType.VIDEO,
+            thumbnailURL = null,
+            localPoster = poster,
+            createdAt = sentAt,
+            sendStatus = MessageSendStatus.SENDING,
+        )
+        _outgoingInsertions.value = _outgoingInsertions.value + clientId
+        _pendingMessages.value = _pendingMessages.value + (clientId to optimistic)
 
         viewModelScope.launch {
             try {
-                if (!dmVideoEnabled) throw MessageVideoException(MessageVideoException.FAILED)
-                val userId = authRepository.currentUserId
-                    ?: throw MessageVideoException(MessageVideoException.FAILED)
-                val preparedDeferred = videoPrepared
-                    ?: throw MessageVideoException(MessageVideoException.FAILED)
                 val prepared = preparedDeferred.await()
-                if (videoOutgoingStarted) return@launch
-                videoOutgoingStarted = true
-                videoPrepared = null
-                val sentAt = Date()
-                val optimistic = CymbalMessage(
-                    id = clientId,
-                    threadId = provisionalId,
-                    fromUserId = userId,
-                    text = captionTrim.ifBlank { null },
-                    type = MessageType.VIDEO,
-                    thumbnailURL = null,
-                    mediaDurationMs = prepared.durationMs,
-                    mediaWidth = prepared.width,
-                    mediaHeight = prepared.height,
-                    createdAt = sentAt,
-                    sendStatus = MessageSendStatus.SENDING,
-                )
-                _composerVideo.value = null
-                launchOutgoing(navThreadId = threadId, clientId = clientId, optimistic = optimistic) { resolvedId ->
+                if (prepared.file.length() > MessageVideoLimits.MAX_BYTES) {
+                    throw MessageVideoException(MessageVideoException.TOO_LARGE)
+                }
+                updatePendingStatus(clientId, MessageSendStatus.SENDING)
+                _pendingMessages.value = _pendingMessages.value.toMutableMap().also { map ->
+                    map[clientId]?.let {
+                        map[clientId] = it.copy(
+                            mediaDurationMs = prepared.durationMs,
+                            mediaWidth = prepared.width,
+                            mediaHeight = prepared.height,
+                        )
+                    }
+                }
+                launchOutgoing(navThreadId = threadId, clientId = clientId, optimistic = _pendingMessages.value[clientId] ?: optimistic) { resolvedId ->
                     messageRepository.sendVideoMessage(
                         threadId = resolvedId,
                         fromUserId = userId,
@@ -1144,12 +1196,17 @@ class MessageThreadViewModel @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 videoOutgoingStarted = false
-                _composerVideo.value = _composerVideo.value?.copy(
-                    isPreparing = false,
-                    errorMessage = e.message ?: MessageVideoException.FAILED,
-                )
+                if (isVideoDailyLimit(e)) {
+                    _pendingMessages.value = _pendingMessages.value - clientId
+                    _videoPickNotice.value = noticeFor(
+                        MessageVideoException(MessageVideoException.DAILY_LIMIT)
+                    )
+                } else {
+                    updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
+                }
             }
         }
+        return clientId
     }
 
     // ── Optimistic send: GIF ──
@@ -1328,6 +1385,7 @@ class MessageThreadViewModel @Inject constructor(
                         replyToText = message.replyToText,
                         replyToUserId = message.replyToUserId,
                         clientMessageId = messageId,
+                        clientCreatedAt = message.createdAt.time,
                     )
                     MessageType.GIF -> messageRepository.sendGifMessage(
                         threadId = message.threadId,
@@ -1514,6 +1572,24 @@ class MessageThreadViewModel @Inject constructor(
             sendStatus = status,
             failureReason = reason,
         ))
+    }
+
+    private fun isVideoDailyLimit(error: Exception): Boolean {
+        if (error is MessageVideoException && error.message == MessageVideoException.DAILY_LIMIT) return true
+        if (error.message.orEmpty().contains("videoDailyLimit")) return true
+        var current: Throwable? = error
+        while (current != null) {
+            val fn = current as? com.google.firebase.functions.FirebaseFunctionsException
+            if (fn != null &&
+                fn.code == com.google.firebase.functions.FirebaseFunctionsException.Code.RESOURCE_EXHAUSTED
+            ) {
+                val details = fn.details as? Map<*, *>
+                if (details?.get("reason") == "videoDailyLimit") return true
+                if (fn.message.orEmpty().contains("videoDailyLimit")) return true
+            }
+            current = current.cause
+        }
+        return false
     }
 
     private fun failureReasonFrom(error: Exception): MessageFailureReason {

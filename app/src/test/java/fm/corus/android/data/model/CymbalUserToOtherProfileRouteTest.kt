@@ -38,9 +38,17 @@ class CymbalUserToOtherProfileRouteTest {
         assertEquals(true, route.initialIsVerified)
         assertEquals(true, route.initialIsClubMember)
         assertEquals(true, route.initialIsFollowing)
+        assertEquals(false, route.expectMapCity)
         assertNull(route.initialCymbalCount)
         assertNull(route.initialFollowerCount)
         assertNull(route.initialFollowingCount)
+    }
+
+    @Test
+    fun `map entry seeds expectMapCity so the skeleton reserves the city line`() {
+        val user = CymbalUser(id = "u3", username = "lulu", displayName = "Lulu")
+        val route = user.toOtherProfileRoute(expectMapCity = true)
+        assertEquals(true, route.expectMapCity)
     }
 
     @Test

@@ -9,7 +9,8 @@
     <string name="parity_b6589fc6ab0d" formatted="false">0</string>
     <string name="parity_9a78211436f6" formatted="false">@</string>
     <string name="parity_dfb4c9a14bad" formatted="false">Album</string>
-    <string name="parity_6a72085653e4" formatted="false">Tout</string>
+    <string name="parity_6a72085653e4" formatted="false">Tous</string>
+    <string name="parity_5e15b15b4fa5" formatted="false">Toutes les communautés</string>
     <string name="parity_29207dfdb31a" formatted="false">Tous les messages</string>
     <string name="parity_253657df34e4" formatted="false">Tout le monde sur Corus peut voir votre ville.</string>
     <string name="parity_cdf9bbefc769" formatted="false">Partout</string>
@@ -19,27 +20,37 @@
     <string name="parity_4784eb5bdae1" formatted="false">Tie-dye bleu</string>
     <string name="parity_4a7fdd8c1742" formatted="false">Livres</string>
     <string name="parity_f96944302348" formatted="false">Vert brat</string>
+    <string name="parity_55f447a461be" formatted="false">VILLE</string>
     <string name="parity_77dfd2135f4d" formatted="false">Annuler</string>
+    <string name="parity_64fbd995d3b6" formatted="false">Modifier</string>
     <string name="parity_5aff5a1f6aa7" formatted="false">Vous pouvez modifier ce choix à tout moment.</string>
     <string name="parity_f5b6616663ea" formatted="false">Channel Orange</string>
-    <string name="parity_a4fc7971cb42" formatted="false">Choose a city</string>
+    <string name="parity_a4fc7971cb42" formatted="false">Choisir une ville</string>
+    <string name="parity_4271627f4f0b" formatted="false">Ville</string>
     <string name="parity_51dc1092be23" formatted="false">Claim artist page</string>
     <string name="parity_512c233088e1" formatted="false">Claim this artist page</string>
     <string name="parity_67300d0fed7c" formatted="false">Effacer la recherche</string>
     <string name="parity_bbfa773e5a63" formatted="false">Fermer</string>
+    <string name="parity_945c744fba00" formatted="false">Fermer la ville</string>
     <string name="parity_fce06e20e5f7" formatted="false">Commentaires</string>
+    <string name="parity_bfd58ee3a270" formatted="false">Communauté</string>
     <string name="parity_c2f4d4164ba5" formatted="false">Discussion communautaire</string>
     <string name="parity_aad755de4295" formatted="false">Compilation</string>
     <string name="parity_9885182153f7" formatted="false">Connecter Audiomack</string>
     <string name="parity_726a1ceebd2e" formatted="false">Contact email</string>
+    <string name="parity_b7c3ca0ee379" formatted="false">Copié !</string>
     <string name="parity_16994bdea573" formatted="false">Carte Corus</string>
+    <string name="parity_6897038c5beb" formatted="false">Carte des villes Corus</string>
+    <string name="parity_a76c16dc843a" formatted="false">Corus te place dans ta ville la plus proche et ne partage ni n\'enregistre jamais ta position exacte.</string>
     <string name="parity_a0e7a6a02cc2" formatted="false">Barbe à papa</string>
+    <string name="parity_4c19241c7fd4" formatted="false">Impossible de partager votre ville</string>
+    <string name="parity_5094bccc54b1" formatted="false">Impossible de charger la carte. Réessayez.</string>
     <string name="parity_5c419b5daae2" formatted="false">Badge de profil personnalisé</string>
     <string name="parity_b4fd6c51ed0f" formatted="false">Depression Cherry</string>
     <string name="parity_19a4b0a062c8" formatted="false">Discographie</string>
     <string name="parity_ed28e0686e12" formatted="false">Disconnect</string>
     <string name="parity_c4b871e217c3" formatted="false">Découvre du contenu de vraies personnes avec qui tu as des affinités. Soutiens une communauté indépendante.</string>
-    <string name="parity_e9b450d14bc2" formatted="false">OK</string>
+    <string name="parity_e9b450d14bc2" formatted="false">Terminé</string>
     <string name="parity_5a140248c0bb" formatted="false">Ne pas partager. Vous pouvez toujours explorer.</string>
     <string name="parity_c756f6af1f03" formatted="false">Tout le monde</string>
     <string name="parity_2f5ac9fb4c6f" formatted="false">Explorez la carte Corus</string>
@@ -47,24 +58,31 @@
     <string name="parity_0137b9ad82f9" formatted="false">SUIVRE</string>
     <string name="parity_f0de6c8aaa3f" formatted="false">ABONNÉ</string>
     <string name="parity_b9aec1112810" formatted="false">Film</string>
+    <string name="parity_b2dc2c4efc03" formatted="false">Des films publiés par des personnes du monde entier.</string>
     <string name="parity_08f45c68e588" formatted="false">Trouvez des personnes par ville</string>
     <string name="parity_ae0c45f79178" formatted="false">Find your kind of people. Explore your full taste match list and discover what you have in common.</string>
-    <string name="parity_90eeb1008380" formatted="false">Abonné</string>
+    <string name="parity_b359e87d1557" formatted="false">Recherche de ta ville</string>
+    <string name="parity_90eeb1008380" formatted="false">Abonnements</string>
     <string name="parity_3f66052a107e" formatted="false">From</string>
     <string name="parity_eeb692087d62" formatted="false">Full name</string>
     <string name="parity_f69ff6e8d889" formatted="false">Galaxie</string>
     <string name="parity_42e01b33038c" formatted="false">Profite au maximum de Corus</string>
     <string name="parity_5b8027fa0e81" formatted="false">Compris</string>
     <string name="parity_323d2167a2f2" formatted="false">Discussion de groupe</string>
+    <string name="parity_41c2e9e827d6" formatted="false">Agrandis ta communauté. Invite tes amis à rejoindre Corus.</string>
     <string name="parity_d88e57bb0db6" formatted="false">How can we verify your connection to this artist?</string>
     <string name="parity_1b4c8b6a463c" formatted="false">Bleu glacé</string>
     <string name="parity_5d6f27fadf8c" formatted="false">Si vous partagez votre localisation, les autres voient votre ville, pas votre rue ni votre position en direct. Vous pouvez modifier ce choix à tout moment.</string>
+    <string name="parity_129daef04d80" formatted="false">Inviter des amis</string>
     <string name="parity_02a7e31a3140" formatted="false">Rejoindre le chat</string>
+    <string name="parity_55abf8455833" formatted="false">Rejoins-moi sur Corus — partage musique et films avec tes ami·es !</string>
     <string name="parity_0167dbfec9ad" formatted="false">Rejoindre le Club</string>
     <string name="parity_a17525e135dd" formatted="false">Rejoindre Corus Club</string>
     <string name="parity_61453a62e3b0" formatted="false">Continuez à découvrir des films. Débloquez le mode vidéo illimité avec Corus Club.</string>
     <string name="parity_e1a462a5938c" formatted="false">Continuez à écouter le monde entier. Débloquez le mode écoute illimité avec Corus Club.</string>
     <string name="parity_21b98d7b5820" formatted="false">Dernier morceau gratuit · Découvrir Club</string>
+    <string name="parity_dfbdf908e6f2" formatted="false">Dernière bande-annonce gratuite · Découvrir Club</string>
+    <string name="parity_f805dcb341e0" formatted="false">Dernière publication</string>
     <string name="parity_75c88f3a0072" formatted="false">Lavande</string>
     <string name="parity_c7e02c95fe85" formatted="false">J\'aime</string>
     <string name="parity_e9f009d9df80" formatted="false">J\'aime</string>
@@ -74,11 +92,14 @@
     <string name="parity_c518fb067439" formatted="false">Écouter</string>
     <string name="parity_820020256535" formatted="false">Mode écoute</string>
     <string name="parity_36262d2bbd0a" formatted="false">Listen preview · %lld songs left · Explore Club</string>
+    <string name="parity_9e76f7b2d5ca" formatted="false">Écoutez la musique publiée par des personnes dans les pays de votre choix.</string>
     <string name="parity_dfe60ca92e8c" formatted="false">Charger plus</string>
     <string name="parity_ff35c3fdb683" formatted="false">Charger plus de personnes</string>
+    <string name="parity_8f26c6520d61" formatted="false">Chargement</string>
     <string name="parity_c32673783563" formatted="false">Chargement des personnes…</string>
     <string name="parity_d0611fff32c6" formatted="false">Loading tour dates</string>
     <string name="parity_33ce417454bf" formatted="false">Chargement…</string>
+    <string name="parity_f5340afd9028" formatted="false">L\'accès à la localisation est nécessaire pour partager votre ville. Activez-le et réessayez.</string>
     <string name="parity_ab478f3efc84" formatted="false">Carte</string>
     <string name="parity_cd710fcc23c7" formatted="false">Marquise</string>
     <string name="parity_27ad1d833422" formatted="false">Peut-être plus tard</string>
@@ -89,6 +110,7 @@
     <string name="parity_d31edb7b8a94" formatted="false">Mensuel</string>
     <string name="parity_4bab2d8fe13f" formatted="false">Plus</string>
     <string name="parity_131260cbfbb0" formatted="false">Musique</string>
+    <string name="parity_640127a5a8b7" formatted="false">De la musique publiée par des personnes du monde entier.</string>
     <string name="parity_b9e78ced88a4" formatted="false">En sourdine</string>
     <string name="parity_1ed2e7b50fa1" formatted="false">Nouveau message</string>
     <string name="parity_3cdd02963c71" formatted="false">Nouveautés</string>
@@ -96,7 +118,9 @@
     <string name="parity_da87f33ccd24" formatted="false">Ville suivante</string>
     <string name="parity_4bfc194b68a3" formatted="false">Page suivante</string>
     <string name="parity_6683bd1a6bb4" formatted="false">Aucun film pour l\'instant</string>
+    <string name="parity_41c06c15c761" formatted="false">Personne</string>
     <string name="parity_c758598ebf50" formatted="false">Personne ne vous voit sans votre accord.</string>
+    <string name="parity_35655136006c" formatted="false">Personne ne partage encore sa ville pour cette sélection.</string>
     <string name="parity_1ed0d88c7eb5" formatted="false">Aucune personne pour ce filtre.</string>
     <string name="parity_b7bbf3d235d6" formatted="false">Aucun trophée pour le moment</string>
     <string name="parity_612eb3c64c41" formatted="false">Aucun utilisateur trouvé</string>
@@ -106,8 +130,10 @@
     <string name="parity_e3de5ab0ca4c" formatted="false">Désactivé</string>
     <string name="parity_11546013dc6e" formatted="false">Uniquement les comptes que vous suivez.</string>
     <string name="parity_d2104ca30455" formatted="false">Ouvrir le chat</string>
+    <string name="parity_43b1743b11a0" formatted="false">Ou sélectionnez des pays ci-dessous, puis appuyez sur Commencer.</string>
     <string name="parity_13f64eb8ae6e" formatted="false">Tie-dye orange</string>
     <string name="parity_9d572da10245" formatted="false">Pêche</string>
+    <string name="parity_f6f88f09f389" formatted="false">Personnes que je suis</string>
     <string name="parity_38be27f3fd1c" formatted="false">Les autres peuvent vous trouver dans la ville choisie.</string>
     <string name="parity_d01d900383e4" formatted="false">Photo</string>
     <string name="parity_54076359fdc7" formatted="false">Rose</string>
@@ -134,8 +160,9 @@
     <string name="parity_ae7e887517b0" formatted="false">Enregistrement...</string>
     <string name="parity_bce06414177f" formatted="false">Rechercher</string>
     <string name="parity_9e867d1a518b" formatted="false">Rechercher sur KLIPY</string>
-    <string name="parity_8008bef0fc1f" formatted="false">Search cities</string>
-    <string name="parity_04142689eeeb" formatted="false">Rechercher des villes ou des personnes</string>
+    <string name="parity_8008bef0fc1f" formatted="false">Rechercher des villes</string>
+    <string name="parity_04142689eeeb" formatted="false">Rechercher des villes ou pays</string>
+    <string name="parity_72e7521d243f" formatted="false">Rechercher des villes ou des personnes</string>
     <string name="parity_4579de70a18f" formatted="false">Rechercher des films</string>
     <string name="parity_9de9debbfd35" formatted="false">Rechercher des chansons</string>
     <string name="parity_8d232b28b92f" formatted="false">Rechercher un nom d\'utilisateur</string>
@@ -143,32 +170,41 @@
     <string name="parity_017b94f9a480" formatted="false">Trouvez sur la carte des personnes près de vous qui partagent vos goûts musicaux et cinématographiques.</string>
     <string name="parity_09ca55ca52d2" formatted="false">Partager</string>
     <string name="parity_94023f5a4a52" formatted="false">Partage un autre film</string>
+    <string name="parity_6e01c19a0c7a" formatted="false">Partagez votre ville</string>
     <string name="parity_31fab0859db4" formatted="false">Partagez votre ville, pas votre position exacte.</string>
+    <string name="parity_45a7df085234" formatted="false">Partage :</string>
     <string name="parity_5926c3235507" formatted="false">Shop official store</string>
     <string name="parity_4c852b26d1b7" formatted="false">Afficher moins</string>
     <string name="parity_25911d48e023" formatted="false">Afficher plus</string>
+    <string name="parity_67cf9791c36f" formatted="false">Afficher sur le profil</string>
     <string name="parity_9e2001f83002" formatted="false">Show trophies</string>
     <string name="parity_8c123a5c30ec" formatted="false">Afficher les trophées sur le profil</string>
+    <string name="parity_05441bc169a5" formatted="false">Affichez votre ville sur la carte</string>
     <string name="parity_dd1186892a2f" formatted="false">Single</string>
     <string name="parity_02ff65909856" formatted="false">Sold out</string>
     <string name="parity_9a3ea0598e7f" formatted="false">Une erreur est survenue. Réessaie.</string>
+    <string name="parity_3ee7638fbe65" formatted="false">Arrêter la lecture</string>
     <string name="parity_0e45aee6e595" formatted="false">Stop sharing</string>
     <string name="parity_8a9051c61379" formatted="false">Submit request</string>
     <string name="parity_5f7df6ce6b18" formatted="false">Submitting a request does not automatically verify you or give you control of the artist page.</string>
     <string name="parity_25bdf9860e96" formatted="false">Submitting…</string>
     <string name="parity_f9aa190b1c8b" formatted="false">Affinités de goûts</string>
     <string name="parity_f035d9bdea71" formatted="false">Fil d\'affinités de goûts</string>
+    <string name="parity_82543d8b79d0" formatted="false">Goûts similaires</string>
     <string name="parity_27338a83d773" formatted="false">Un espace où les personnes de %@ peuvent échanger.</string>
     <string name="parity_6c50d32835d2" formatted="false">Tour dates</string>
     <string name="parity_e4fc40926893" formatted="false">Je n\'aime plus</string>
     <string name="parity_29a7a1e058da" formatted="false">Coruses illimités</string>
     <string name="parity_4cb955a437ea" formatted="false">Enregistrements illimités</string>
     <string name="parity_8d6779fdd977" formatted="false">Upcoming shows</string>
+    <string name="parity_5216b7ce77f3" formatted="false">Utiliser ma ville</string>
     <string name="parity_03128bed9062" formatted="false">Verification</string>
     <string name="parity_7e06a4c7c4de" formatted="false">Voir la carte</string>
-    <string name="parity_d91ebf5887cf" formatted="false">Watch</string>
+    <string name="parity_d91ebf5887cf" formatted="false">Regarder</string>
     <string name="parity_0c1b3cced072" formatted="false">Mode vidéo</string>
     <string name="parity_00ec7c4bb4f0" formatted="false">Tu as vu quelque chose de bien récemment ?</string>
+    <string name="parity_04036d115a9a" formatted="false">Regardez les films publiés par des personnes dans les pays de votre choix.</string>
+    <string name="parity_3525761a57be" formatted="false">Watch preview · %lld trailers left · Explore Club</string>
     <string name="parity_ed7a37f4f2d4" formatted="false">Voir la bande-annonce sur YouTube</string>
     <string name="parity_7cc4c50bed35" formatted="false">Qu\'est-ce que tu écoutes ?</string>
     <string name="parity_1b527ff0e65e" formatted="false">Qui peut voir votre ville</string>

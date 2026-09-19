@@ -97,7 +97,7 @@ class MessageThreadViewModelTest {
     fun `sendMessage adds optimistic message with SENDING status immediately`() = runTest {
         // Suspend the repository call indefinitely so it doesn't complete
         val neverCompletes = CompletableDeferred<Unit>()
-        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
             .doSuspendableAnswer { neverCompletes.await() }
 
         viewModel.sendMessage("thread1", "Hello")
@@ -129,7 +129,7 @@ class MessageThreadViewModelTest {
     @Test
     fun `optimistic message stays visible between send ack and server snapshot`() = runTest {
         // Repository call succeeds immediately; no snapshot has been delivered.
-        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
             .doReturn(Unit)
 
         viewModel.sendMessage("thread1", "Hello")
@@ -157,7 +157,7 @@ class MessageThreadViewModelTest {
         whenever(messageRepository.listenToMessages(any())).doReturn(messagesFlow)
         whenever(messageRepository.listenToRecipientUnreadCount(any(), any())).doReturn(emptyFlow())
         whenever(messageRepository.listenToReadReceiptsEnabled(any())).doReturn(emptyFlow())
-        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
             .doReturn(Unit)
 
         viewModel.loadMessages("thread1", "other")
@@ -189,7 +189,7 @@ class MessageThreadViewModelTest {
 
     @Test
     fun `failed send sets FAILED status with generic reason`() = runTest {
-        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
             .doSuspendableAnswer { throw RuntimeException("Network error") }
 
         viewModel.sendMessage("thread1", "Hello")
@@ -203,7 +203,7 @@ class MessageThreadViewModelTest {
 
     @Test
     fun `failed send detects messaging disabled reason`() = runTest {
-        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
             .doSuspendableAnswer { throw RuntimeException("This user has turned off messaging") }
 
         viewModel.sendMessage("thread1", "Hello")
@@ -220,7 +220,7 @@ class MessageThreadViewModelTest {
     @Test
     fun `retrySendMessage resets status to SENDING and re-attempts`() = runTest {
         // First send fails
-        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
             .doSuspendableAnswer { throw RuntimeException("Network error") }
 
         viewModel.sendMessage("thread1", "Hello")
@@ -230,7 +230,7 @@ class MessageThreadViewModelTest {
         assertEquals(MessageSendStatus.FAILED, viewModel.messages.first()[0].sendStatus)
 
         // Now make retry succeed
-        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
             .doReturn(Unit)
 
         viewModel.retrySendMessage(failedId)
@@ -238,7 +238,7 @@ class MessageThreadViewModelTest {
 
         // The retry was re-attempted against the repository...
         verify(messageRepository, times(2)).sendTextMessage(
-            any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), eq(failedId),
+            any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), eq(failedId), anyOrNull(),
         )
         // ...and the bubble stays put until the snapshot confirms it, rather than
         // blinking out on the ack (see `optimistic message stays visible…`).
@@ -249,7 +249,7 @@ class MessageThreadViewModelTest {
 
     @Test
     fun `retrySendMessage does nothing for messaging disabled`() = runTest {
-        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
             .doSuspendableAnswer { throw RuntimeException("This user has turned off messaging") }
 
         viewModel.sendMessage("thread1", "Hello")
@@ -270,7 +270,7 @@ class MessageThreadViewModelTest {
 
     @Test
     fun `sendMessage clears reply context`() = runTest {
-        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
             .doReturn(Unit)
 
         val replyMsg = CymbalMessage(
@@ -290,7 +290,7 @@ class MessageThreadViewModelTest {
     @Test
     fun `optimistic message includes reply context`() = runTest {
         val neverCompletes = CompletableDeferred<Unit>()
-        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
             .doSuspendableAnswer { neverCompletes.await() }
 
         val replyMsg = CymbalMessage(
@@ -450,7 +450,7 @@ class MessageThreadViewModelTest {
 
     @Test
     fun `sendMessage passes clientMessageId to repository`() = runTest {
-        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
+        whenever(messageRepository.sendTextMessage(any(), any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull()))
             .doReturn(Unit)
 
         viewModel.sendMessage("thread1", "Hello")
@@ -464,6 +464,7 @@ class MessageThreadViewModelTest {
             replyToText = anyOrNull(),
             replyToUserId = anyOrNull(),
             clientMessageId = any(),
+            clientCreatedAt = anyOrNull(),
         )
     }
 

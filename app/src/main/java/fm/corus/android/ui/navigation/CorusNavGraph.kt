@@ -470,6 +470,7 @@ fun ProfileNavGraph(
 fun MessagesNavGraph(
     navController: NavHostController,
     mainTabViewModel: MainTabViewModel,
+    scrollToTopTrigger: Int = 0,
     isContainingTabSelected: Boolean = true,
     onShowComments: (String) -> Unit = {},
     onShowPhoto: (ExpandedPhoto) -> Unit = {},
@@ -490,6 +491,7 @@ fun MessagesNavGraph(
         composable<ThreadListRoute> {
             ThreadListScreen(
                 isTabRoot = true,
+                scrollToTopTrigger = scrollToTopTrigger,
                 onBack = {},
                 onThreadTap = { threadId, otherUserId ->
                     navController.navigate(MessageThreadRoute(threadId, otherUserId))
@@ -627,6 +629,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             initialIsVerified = route.initialIsVerified,
             initialIsClubMember = route.initialIsClubMember,
             initialIsFollowing = route.initialIsFollowing,
+            expectMapCity = route.expectMapCity,
             onBack = { navController.safePopBackStack() },
             onNavigateToProfileFeed = { userId, username, postId, segment ->
                 navController.navigate(ProfileFeedRoute(userId, username, segment, postId))
@@ -1062,7 +1065,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onComments = onShowComments,
             onRepost = { mainTabViewModel.setRepostOriginalPost(it) },
             onBack = { navController.safePopBackStack() },
-            onUser = { navController.navigate(it.toOtherProfileRoute()) },
+            onUser = { navController.navigate(it.toOtherProfileRoute(expectMapCity = true)) },
             onPost = { navController.navigate(PostDetailRoute(it.id)) },
             onChat = { navController.navigate(MessageThreadRoute(it, "")) },
             onPaywall = { navController.navigate(CymbalClubOfferRoute(it)) },
