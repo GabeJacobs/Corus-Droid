@@ -10,7 +10,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
@@ -43,7 +42,6 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -759,10 +757,10 @@ private fun CommentsSheetContent(
                 .fillMaxWidth()
                 .background(CorusColors.Background)
                 .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Bottom,
         ) {
             if (editingComment == null) {
-                Box {
+                Box(modifier = Modifier.padding(bottom = 8.dp)) {
                     val entityAttachments = viewModel.commentEntityAttachmentsEnabled
                     // Opens the attach picker. With comment_entity_attachments_enabled
                     // the picker is single-domain (no toggle): Music searches songs +
@@ -892,10 +890,7 @@ private fun CommentsSheetContent(
                 },
                 singleLine = false,
                 maxLines = 4,
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(
-                    onDone = { keyboardController?.hide() },
-                ),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = CorusColors.CardBackground,
@@ -922,6 +917,7 @@ private fun CommentsSheetContent(
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
             Box(
                 modifier = Modifier
+                    .padding(bottom = 8.dp)
                     .size(32.dp)
                     .clip(CircleShape)
                     .background(if (canSend) CorusColors.Accent else CorusColors.Divider)

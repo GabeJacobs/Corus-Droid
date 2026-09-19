@@ -369,6 +369,13 @@ class NowPlayingManager @Inject constructor(
     private var spotifyCorusBackgroundedAt: Long? = null
     private var spotifyDeviceLockedForQueueDriving = false
 
+    @Volatile
+    private var corusWindowFocused = true
+
+    fun setCorusWindowFocused(focused: Boolean) {
+        corusWindowFocused = focused
+    }
+
     private fun setSpotifyDeviceLockedForQueueDriving(locked: Boolean) {
         spotifyDeviceLockedForQueueDriving = locked
         spotifyPlaybackService.playExpectedOnMisroute =
@@ -3780,9 +3787,10 @@ class NowPlayingManager @Inject constructor(
     private fun corusAppIsBackgrounded(): Boolean =
         !ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
 
-    /** User is not looking at Corus — ON_PAUSE (opened Spotify) or ON_STOP. */
+    /** Includes Quick Settings over Corus, which can leave the process RESUMED. */
     private fun corusAppIsAwayFromForeground(): Boolean =
-        !ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        !corusWindowFocused ||
+            !ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
 
     private fun incomingLooksLikeLibraryPick(): Boolean =
         SpotifyConnectFastPath.contextLooksLikeLibraryPick(

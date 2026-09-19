@@ -175,6 +175,9 @@ class RemoteConfigService @Inject constructor(
     val saveCountEnabled: Boolean
         get() = remoteConfig.getBoolean("save_count_enabled")
 
+    val fullPlayerSaveButtonEnabled: Boolean
+        get() = remoteConfig.getBoolean("full_player_save_button_enabled")
+
     val saveCapEnforced: Boolean
         get() = remoteConfig.getBoolean("save_cap_enforced")
 
@@ -779,6 +782,7 @@ class RemoteConfigService @Inject constructor(
             "dm_video_enabled" to false,
             "server_notifications_enabled" to true,
             "save_count_enabled" to true,
+            "full_player_save_button_enabled" to false,
             "save_cap_enforced" to true,
             "save_cap_limit" to 20L,
             "save_cap_warning_at" to 17L,

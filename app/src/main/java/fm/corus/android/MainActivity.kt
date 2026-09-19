@@ -17,6 +17,7 @@ import fm.corus.android.domain.SpotifyConnectContext
 import kotlinx.coroutines.launch
 import fm.corus.android.domain.SpotifyLibraryAuthService
 import fm.corus.android.domain.SpotifyPlaybackService
+import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.CorusFirebaseMessagingService
 import fm.corus.android.service.DeepLinkDestination
@@ -34,6 +35,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var subscriptionRepository: SubscriptionRepository
     @Inject lateinit var analyticsService: AnalyticsService
     @Inject lateinit var spotifyPlaybackService: SpotifyPlaybackService
+    @Inject lateinit var nowPlayingManager: NowPlayingManager
     @Inject lateinit var audiomackAuthService: fm.corus.android.domain.AudiomackAuthService
     @Inject lateinit var youtubeMusicService: fm.corus.android.domain.YouTubeMusicService
     @Inject lateinit var spotifyLibraryAuthService: SpotifyLibraryAuthService
@@ -86,6 +88,11 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         fm.corus.android.domain.SpotifyConnectContext.setActivity(null)
         super.onPause()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        nowPlayingManager.setCorusWindowFocused(hasFocus)
     }
 
     override fun onDestroy() {

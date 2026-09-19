@@ -52,6 +52,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import fm.corus.android.ui.components.UsernameWithFlair
+import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.LocalMapCitySheetPresented
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalUser
@@ -758,7 +759,13 @@ fun MapExploreScreen(
                             (fadeIn(tween(duration)) + scaleIn(tween(duration), initialScale = .985f)) togetherWith (fadeOut(tween(duration)) + scaleOut(tween(duration), targetScale = .985f))
                         }, label = "mapPostTransition") { animatedPost -> Column {
                         Row(Modifier.fillMaxWidth().clickable { openUser(animatedPost.user) }.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            AsyncImage(model = animatedPost.user.avatarURL, contentDescription = null, modifier = Modifier.size(36.dp).clip(CircleShape))
+                            UserAvatarView(
+                                avatarURL = animatedPost.user.avatarURL,
+                                avatarThumbURL = animatedPost.user.avatarThumbURL,
+                                displayName = animatedPost.user.displayName,
+                                username = animatedPost.user.username,
+                                size = 36.dp,
+                            )
                             Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                                 UsernameWithFlair(username = animatedPost.user.username, isVerified = animatedPost.user.isVerified, isClubMember = animatedPost.user.isClubMember, flairStyle = animatedPost.user.flairStyle, isBot = animatedPost.user.isBot, showAtPrefix = true)
                                 animatedPost.user.displayName.takeIf { it.isNotBlank() }?.let { Text(it, style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1) }

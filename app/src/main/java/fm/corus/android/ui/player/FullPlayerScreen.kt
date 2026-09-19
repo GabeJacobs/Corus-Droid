@@ -40,6 +40,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
@@ -48,6 +49,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.CircularProgressIndicator
@@ -163,6 +165,7 @@ fun FullPlayerScreen(
     fullPlayerViewModel: FullPlayerViewModel = hiltViewModel(),
 ) {
     val state by nowPlayingManager.state.collectAsState()
+    val remoteConfigRevision by remoteConfig?.revision?.collectAsState() ?: remember { mutableStateOf(0) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -259,6 +262,7 @@ fun FullPlayerScreen(
         !state.trackId.isNullOrBlank()
     val engagementStates = engagementManager?.states?.collectAsState()?.value ?: emptyMap()
     val isLiked = state.sourcePostId?.let { engagementStates[it]?.isLiked } ?: false
+    val isSaved = state.sourcePostId?.let { engagementStates[it]?.isSaved } ?: false
     val isPlaying = state.isPlaying
     val hasNext = state.hasNext
     val stagedFeedSkipLoading by nowPlayingManager.stagedFeedSkipLoading.collectAsState()
@@ -418,6 +422,9 @@ fun FullPlayerScreen(
                 showsComposeButton = showsComposeButton,
                 trackSource = state.source,
                 musicService = musicService,
+                showsSaveButton = remoteConfig?.fullPlayerSaveButtonEnabled == true && sourcePost != null,
+                isSaved = isSaved,
+                onSave = { state.sourcePostId?.let(onSavePost) },
                 interactive = interactive,
                 onPrevious = { nowPlayingManager.skipToPreviousOrRestart() },
                 onPlayPause = {
@@ -881,6 +888,9 @@ private fun FullPlayerTransport(
     showsComposeButton: Boolean,
     trackSource: TrackSource,
     musicService: MusicService,
+    showsSaveButton: Boolean,
+    isSaved: Boolean,
+    onSave: () -> Unit,
     interactive: Boolean,
     onPrevious: () -> Unit,
     onPlayPause: () -> Unit,
@@ -1065,11 +1075,20 @@ private fun FullPlayerTransport(
                     enabled = interactive,
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() },
-                    onClick = onOpenInService,
+                    onClick = if (showsSaveButton) onSave else onOpenInService,
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            TransportServiceLogo(trackSource = trackSource, musicService = musicService)
+            if (showsSaveButton) {
+                Icon(
+                    imageVector = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                    contentDescription = if (isSaved) "Remove from saved" else "Save",
+                    tint = CorusColors.Text,
+                    modifier = Modifier.size(26.dp),
+                )
+            } else {
+                TransportServiceLogo(trackSource = trackSource, musicService = musicService)
+            }
         }
     }
 }

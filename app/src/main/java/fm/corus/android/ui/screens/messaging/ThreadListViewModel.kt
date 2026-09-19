@@ -237,19 +237,23 @@ class ThreadListViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _threads.collect { list ->
-                val groups = list.filter { it.isGroup }
-                if (groups.isEmpty()) return@collect
-                val resolved = _groupMembersById.value.toMutableMap()
-                // Seed from any members already resolved by the callable rows.
-                for (g in groups) for (m in g.members) resolved.putIfAbsent(m.id, m)
-                val missing = groups.flatMap { it.memberIds + it.lastWriterIds }.toSet()
-                    .filter { it != currentUserId && it !in resolved }
-                for (id in missing) {
-                    runCatching { userRepository.fetchUserProfile(id) }.getOrNull()?.let { resolved[id] = it }
-                }
-                if (resolved.size != _groupMembersById.value.size) _groupMembersById.value = resolved
+                resolveGroupMembers(list)
             }
         }
+    }
+
+    private suspend fun resolveGroupMembers(threads: List<CymbalThread>) {
+        val groups = threads.filter { it.isGroup }
+        if (groups.isEmpty()) return
+        val resolved = _groupMembersById.value.toMutableMap()
+        // Search can return groups outside the paged inbox; seed and fetch those too.
+        for (g in groups) for (m in g.members) resolved.putIfAbsent(m.id, m)
+        val missing = groups.flatMap { it.memberIds + it.lastWriterIds }.toSet()
+            .filter { it != currentUserId && it !in resolved }
+        for (id in missing) {
+            runCatching { userRepository.fetchUserProfile(id) }.getOrNull()?.let { resolved[id] = it }
+        }
+        if (resolved.size != _groupMembersById.value.size) _groupMembersById.value = resolved
     }
 
     suspend fun createGroup(userIds: List<String>, name: String?): String {
@@ -635,6 +639,7 @@ class ThreadListViewModel @Inject constructor(
             }
             try {
                 val result = messageRepository.searchThreads(userId, trimmed)
+                resolveGroupMembers(result.threads + result.messages.map { it.thread })
                 _inboxSearchResults.value = InboxSearchResult(
                     threads = visible(result.threads.filter { it.lastMessageFromUserId != null }),
                     messages = result.messages.filter { visible(listOf(it.thread)).isNotEmpty() },

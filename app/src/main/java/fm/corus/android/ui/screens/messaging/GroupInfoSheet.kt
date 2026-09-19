@@ -172,7 +172,6 @@ internal fun GroupInfoSheet(
                 Box(
                     modifier = Modifier
                         .size(84.dp)
-                        .clip(CircleShape)
                         .clickable(enabled = !uploadingPhoto && canEditIdentity) { launchPhotoPicker() },
                     contentAlignment = Alignment.Center,
                 ) {

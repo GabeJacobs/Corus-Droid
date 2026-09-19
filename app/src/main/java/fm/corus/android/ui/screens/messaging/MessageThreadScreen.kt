@@ -40,6 +40,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.HorizontalAlignmentLine
 import androidx.compose.ui.layout.layout
 import kotlin.math.roundToInt
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -683,7 +684,11 @@ private fun BubbleWithReactionBadge(
         val overlapPx = overlap.roundToPx()
         // Reserve only the part of the badge that hangs below the bubble.
         val overhang = badgePlaceable?.let { maxOf(0, it.height - overlapPx) } ?: 0
-        layout(bubblePlaceable.width, bubblePlaceable.height + overhang) {
+        layout(
+            bubblePlaceable.width,
+            bubblePlaceable.height + overhang,
+            alignmentLines = mapOf(MessageBubbleBottom to bubblePlaceable.height),
+        ) {
             bubblePlaceable.place(0, 0)
             if (badgePlaceable != null) {
                 val inset = edgeInset.roundToPx()
@@ -694,6 +699,9 @@ private fun BubbleWithReactionBadge(
         }
     }
 }
+
+// Row avatars follow the bubble edge, even when a reaction extends below it.
+private val MessageBubbleBottom = HorizontalAlignmentLine(merger = { old, new -> maxOf(old, new) })
 
 /** Returns true when [text] contains only 1-3 emoji (with optional modifiers/ZWJ). */
 private fun isEmojiOnly(text: String): Boolean {
@@ -1653,7 +1661,7 @@ fun MessageThreadScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Bottom,
         ) {
             // A stable slot keeps the plus and selected attachment aligned.
             Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
@@ -2302,7 +2310,7 @@ private fun MessageBubble(
                 displayName = sender.displayName,
                 username = sender.username,
                 size = 26.dp,
-                modifier = Modifier.clickable(onClick = onSenderTap),
+                modifier = Modifier.alignBy { it.measuredHeight }.clickable(onClick = onSenderTap),
             )
         } else if (showAvatar && senderMissing) {
             // Neutral avatar for a former member (blank name renders the "?"
@@ -2313,15 +2321,18 @@ private fun MessageBubble(
                 displayName = "",
                 username = "",
                 size = 26.dp,
+                modifier = Modifier.alignBy { it.measuredHeight },
             )
         } else {
-            Spacer(modifier = Modifier.width(26.dp))
+            Spacer(modifier = Modifier.width(26.dp).alignBy { it.measuredHeight })
         }
         Spacer(modifier = Modifier.width(6.dp))
       }
       Column(
         horizontalAlignment = if (isFromCurrentUser) Alignment.End else Alignment.Start,
-        modifier = Modifier.graphicsLayer {
+        modifier = Modifier
+            .then(if (isGroup && !isFromCurrentUser) Modifier.alignBy(MessageBubbleBottom) else Modifier)
+            .graphicsLayer {
             scaleX = insertionScale()
             scaleY = insertionScale()
             transformOrigin = if (isFromCurrentUser) {
