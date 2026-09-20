@@ -115,6 +115,7 @@ private data class PersistedTrendingSong(
     val spotifyURI: String = "",
     val spotifyWebURL: String = "",
     val cymbalCount: Int = 0,
+    val distinctAuthors: Int? = null,
 )
 
 @Serializable
@@ -139,6 +140,7 @@ private data class PersistedTrendingMovie(
     val movieCast: List<String> = emptyList(),
     val movieReleaseDate: String? = null,
     val cymbalCount: Int = 0,
+    val distinctAuthors: Int? = null,
 )
 
 @Serializable
@@ -157,6 +159,7 @@ private data class PersistedTrendingAlbum(
     val albumArtURL: String? = null,
     val albumArtLargeURL: String? = null,
     val cymbalCount: Int = 0,
+    val distinctAuthors: Int? = null,
     val openAsSong: Boolean = false,
     val trackId: String = "",
     val trackName: String = "",
@@ -179,6 +182,7 @@ private data class PersistedTrendingDirector(
     val posterURL: String? = null,
     val posterLargeURL: String? = null,
     val cymbalCount: Int = 0,
+    val distinctAuthors: Int? = null,
 )
 
 @Serializable
@@ -219,6 +223,7 @@ private fun fm.corus.android.data.model.TrendingSong.toPersisted() = PersistedTr
     spotifyURI = track.spotifyURI,
     spotifyWebURL = track.spotifyWebURL,
     cymbalCount = cymbalCount,
+    distinctAuthors = distinctAuthors,
 )
 
 private fun PersistedTrendingSong.toModel() = fm.corus.android.data.model.TrendingSong(
@@ -235,6 +240,7 @@ private fun PersistedTrendingSong.toModel() = fm.corus.android.data.model.Trendi
         spotifyWebURL = spotifyWebURL,
     ),
     cymbalCount = cymbalCount,
+    distinctAuthors = distinctAuthors,
 )
 
 private fun fm.corus.android.data.model.TrendingMovie.toPersisted() = PersistedTrendingMovie(
@@ -252,6 +258,7 @@ private fun fm.corus.android.data.model.TrendingMovie.toPersisted() = PersistedT
     movieCast = movieCast,
     movieReleaseDate = movieReleaseDate,
     cymbalCount = cymbalCount,
+    distinctAuthors = distinctAuthors,
 )
 
 private fun PersistedTrendingMovie.toModel() = fm.corus.android.data.model.TrendingMovie(
@@ -269,6 +276,7 @@ private fun PersistedTrendingMovie.toModel() = fm.corus.android.data.model.Trend
     movieCast = movieCast,
     movieReleaseDate = movieReleaseDate,
     cymbalCount = cymbalCount,
+    distinctAuthors = distinctAuthors,
 )
 
 private fun fm.corus.android.data.model.TrendingAlbum.toPersisted() = PersistedTrendingAlbum(
@@ -280,6 +288,7 @@ private fun fm.corus.android.data.model.TrendingAlbum.toPersisted() = PersistedT
     albumArtURL = albumArtURL,
     albumArtLargeURL = albumArtLargeURL,
     cymbalCount = cymbalCount,
+    distinctAuthors = distinctAuthors,
     openAsSong = openAsSong,
     trackId = trackId,
     trackName = trackName,
@@ -296,6 +305,7 @@ private fun PersistedTrendingAlbum.toModel() = fm.corus.android.data.model.Trend
     albumArtURL = albumArtURL,
     albumArtLargeURL = albumArtLargeURL,
     cymbalCount = cymbalCount,
+    distinctAuthors = distinctAuthors,
     openAsSong = openAsSong,
     trackId = trackId,
     trackName = trackName,
@@ -311,6 +321,7 @@ private fun fm.corus.android.data.model.TrendingDirector.toPersisted() = Persist
     posterURL = posterURL,
     posterLargeURL = posterLargeURL,
     cymbalCount = cymbalCount,
+    distinctAuthors = distinctAuthors,
 )
 
 private fun PersistedTrendingDirector.toModel() = fm.corus.android.data.model.TrendingDirector(
@@ -321,6 +332,7 @@ private fun PersistedTrendingDirector.toModel() = fm.corus.android.data.model.Tr
     posterURL = posterURL,
     posterLargeURL = posterLargeURL,
     cymbalCount = cymbalCount,
+    distinctAuthors = distinctAuthors,
 )
 
 private fun CymbalUser.toBrowsePersisted() = PersistedBrowseUser(

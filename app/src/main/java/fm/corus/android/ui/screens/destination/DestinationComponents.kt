@@ -556,6 +556,7 @@ internal fun CatalogTrackRow(
     track: CymbalTrack,
     discovery: Boolean = false,
     discoveryRank: Int? = null,
+    discoveryPeopleCount: Int? = null,
     nowPlaying: NowPlayingManager,
     /** null → 52dp art leading (artist Popular); non-null → this 1-based
      *  number leading (album tracklist). */
@@ -745,7 +746,7 @@ internal fun CatalogTrackRow(
         // place of the duration — on artist Popular and album tracklist rows.
         // Album (numbered) rows stay blank when unshared; artist rows fall back to
         // the duration (catalogRowShowsDuration).
-        val sharedCount = catalogRowSharedCount(corusStats)
+        val sharedCount = discoveryPeopleCount?.takeIf { it > 0 } ?: catalogRowSharedCount(corusStats)
         val showsDuration = !discovery && catalogRowShowsDuration(number, track.durationMs)
         if (rowTapPlays) {
             // Navigation lives here on numbered rows: duration/shared + chevron

@@ -1871,7 +1871,7 @@ private fun LazyListScope.compactTrendingSongsSection(
     }
     item {
         val expanded by viewModel.discoveryExpanded.collectAsState()
-        ExpandableDiscoverySongs(songs.map { it.track }, isLoading, nowPlaying, expanded = "trending" in expanded, onToggle = { viewModel.toggleDiscoveryExpanded("trending") }, ranked = true, onSong = onSongTap)
+        ExpandableDiscoverySongs(songs.map { it.track }, isLoading, nowPlaying, expanded = "trending" in expanded, onToggle = { viewModel.toggleDiscoveryExpanded("trending") }, ranked = true, peopleCounts = songs.associate { it.track.id to it.distinctAuthors }, onSong = onSongTap)
     }
 
 }
@@ -3287,7 +3287,10 @@ private fun TrendingSongRow(
             Text(song.track.name, style = CorusFont.bodyMedium, color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(song.track.artistName, style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Text("${song.cymbalCount}", style = CorusFont.caption, color = CorusColors.Tertiary)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs)) {
+            song.distinctAuthors?.takeIf { it > 0 }?.let { TrendingPeopleCount(it) }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = CorusColors.Tertiary, modifier = Modifier.size(16.dp))
+        }
     }
 }
 
@@ -3388,9 +3391,15 @@ private fun TrendingArtistRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        if (artist.cymbalCount > 0) {
-            Text("${artist.cymbalCount}", style = CorusFont.caption, color = CorusColors.Tertiary)
-        }
+        artist.distinctAuthors?.takeIf { it > 0 }?.let { TrendingPeopleCount(it) }
+    }
+}
+
+@Composable
+private fun TrendingPeopleCount(count: Int) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        Icon(Icons.Filled.People, contentDescription = null, tint = CorusColors.Tertiary, modifier = Modifier.size(14.dp))
+        Text("$count", style = CorusFont.caption.copy(fontFeatureSettings = "tnum"), color = CorusColors.Tertiary)
     }
 }
 
@@ -3495,9 +3504,7 @@ private fun TrendingAlbumRow(
                 )
             }
         }
-        if (album.cymbalCount > 0) {
-            Text("${album.cymbalCount}", style = CorusFont.caption, color = CorusColors.Tertiary)
-        }
+        album.distinctAuthors?.takeIf { it > 0 }?.let { TrendingPeopleCount(it) }
     }
 }
 
@@ -3760,7 +3767,7 @@ private fun TrendingFilmRow(
             Text(movie.movieTitle, style = CorusFont.bodyMedium, color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(movie.directorName, style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Text("${movie.cymbalCount}", style = CorusFont.caption, color = CorusColors.Tertiary)
+        movie.distinctAuthors?.takeIf { it > 0 }?.let { TrendingPeopleCount(it) }
     }
 }
 
@@ -3808,9 +3815,7 @@ private fun TrendingDirectorRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        if (director.cymbalCount > 0) {
-            Text("${director.cymbalCount}", style = CorusFont.caption, color = CorusColors.Tertiary)
-        }
+        director.distinctAuthors?.takeIf { it > 0 }?.let { TrendingPeopleCount(it) }
     }
 }
 
@@ -4562,6 +4567,7 @@ private fun ExpandableDiscoverySongs(
     tracks: List<CymbalTrack>, loading: Boolean,
     nowPlaying: fm.corus.android.domain.NowPlayingManager,
     expanded: Boolean, onToggle: () -> Unit, ranked: Boolean = false,
+    peopleCounts: Map<String, Int?> = emptyMap(),
     onSong: (CymbalTrack) -> Unit,
 ) {
     val queue = remember(tracks) { tracks.filter { it.source != TrackSource.TIDAL && it.source != TrackSource.DEEZER }.map { it.toQueuedTrack() } }
@@ -4569,14 +4575,14 @@ private fun ExpandableDiscoverySongs(
         if (loading) repeat(3) { SkeletonTrendingSongRow() }
         else {
             tracks.take(3).forEach { track ->
-                CatalogTrackRow(discovery = true, discoveryRank = if (ranked) tracks.indexOf(track) + 1 else null, track = track, nowPlaying = nowPlaying, queue = queue,
+                CatalogTrackRow(discovery = true, discoveryRank = if (ranked) tracks.indexOf(track) + 1 else null, discoveryPeopleCount = peopleCounts[track.id], track = track, nowPlaying = nowPlaying, queue = queue,
                     onRowTap = { nowPlaying.stageCatalogQueue(queue); onSong(track) }, onPreviewStarted = {})
             }
             androidx.compose.animation.AnimatedVisibility(visible = expanded,
                 enter = androidx.compose.animation.expandVertically(animationSpec = androidx.compose.animation.core.tween(200)),
                 exit = androidx.compose.animation.shrinkVertically(animationSpec = androidx.compose.animation.core.tween(200))) {
                 Column { tracks.drop(3).take(7).forEach { track ->
-                    CatalogTrackRow(discovery = true, discoveryRank = if (ranked) tracks.indexOf(track) + 1 else null, track = track, nowPlaying = nowPlaying, queue = queue,
+                    CatalogTrackRow(discovery = true, discoveryRank = if (ranked) tracks.indexOf(track) + 1 else null, discoveryPeopleCount = peopleCounts[track.id], track = track, nowPlaying = nowPlaying, queue = queue,
                         onRowTap = { nowPlaying.stageCatalogQueue(queue); onSong(track) }, onPreviewStarted = {})
                 } }
             }

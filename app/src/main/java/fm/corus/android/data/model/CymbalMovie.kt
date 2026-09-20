@@ -91,6 +91,7 @@ data class TrendingSong(
     val rank: Int,
     val track: CymbalTrack,
     val cymbalCount: Int,
+    val distinctAuthors: Int? = null,
 )
 
 /** One row of trending_cache/artists — song counters re-merged by artist
@@ -103,6 +104,7 @@ data class TrendingArtist(
     val albumArtURL: String? = null,
     val albumArtLargeURL: String? = null,
     val cymbalCount: Int = 0,
+    val distinctAuthors: Int? = null,
     /** Catalog headshot from getArtistDetail. Null until hydrated. */
     val catalogImageURL: String? = null,
 )
@@ -119,6 +121,7 @@ data class TrendingAlbum(
     val albumArtURL: String? = null,
     val albumArtLargeURL: String? = null,
     val cymbalCount: Int = 0,
+    val distinctAuthors: Int? = null,
     val openAsSong: Boolean = false,
     val trackId: String = "",
     val trackName: String = "",
@@ -179,6 +182,7 @@ data class TrendingMovie(
      *  film page can badge NEW RELEASE on the first frame. Null for older entries. */
     val movieReleaseDate: String? = null,
     val cymbalCount: Int = 0,
+    val distinctAuthors: Int? = null,
 ) {
     fun asCymbalMovie(): CymbalMovie = CymbalMovie(
         id = movieId,
@@ -206,6 +210,7 @@ data class TrendingDirector(
     val posterURL: String? = null,
     val posterLargeURL: String? = null,
     val cymbalCount: Int = 0,
+    val distinctAuthors: Int? = null,
     /** Catalog headshot from getDirectorDetail. Null until hydrated. */
     val catalogImageURL: String? = null,
 )

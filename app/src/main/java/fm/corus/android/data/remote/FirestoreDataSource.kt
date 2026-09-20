@@ -1130,6 +1130,7 @@ class FirestoreDataSource @Inject constructor(
             rank = (item["rank"] as? Number)?.toInt() ?: 0,
             track = CymbalTrack.fromMap(item),
             cymbalCount = (item["cymbalCount"] as? Number)?.toInt() ?: 0,
+            distinctAuthors = (item["distinctAuthors"] as? Number)?.toInt(),
         )
     }
 
@@ -1152,6 +1153,7 @@ class FirestoreDataSource @Inject constructor(
             movieCast = (item["movieCast"] as? List<String>) ?: emptyList(),
             movieReleaseDate = (item["movieReleaseDate"] as? String)?.ifEmpty { null },
             cymbalCount = (item["cymbalCount"] as? Number)?.toInt() ?: 0,
+            distinctAuthors = (item["distinctAuthors"] as? Number)?.toInt(),
         )
     }
 
@@ -1199,6 +1201,7 @@ class FirestoreDataSource @Inject constructor(
             albumArtURL = (item["albumArtURL"] as? String)?.takeIf { it.isNotBlank() },
             albumArtLargeURL = (item["albumArtLargeURL"] as? String)?.takeIf { it.isNotBlank() },
             cymbalCount = (item["cymbalCount"] as? Number)?.toInt() ?: 0,
+            distinctAuthors = (item["distinctAuthors"] as? Number)?.toInt(),
         )
     }
 
@@ -1230,6 +1233,7 @@ class FirestoreDataSource @Inject constructor(
             albumArtURL = (item["albumArtURL"] as? String)?.takeIf { it.isNotBlank() },
             albumArtLargeURL = (item["albumArtLargeURL"] as? String)?.takeIf { it.isNotBlank() },
             cymbalCount = (item["cymbalCount"] as? Number)?.toInt() ?: 0,
+            distinctAuthors = (item["distinctAuthors"] as? Number)?.toInt(),
         )
     }
 
@@ -1260,6 +1264,7 @@ class FirestoreDataSource @Inject constructor(
             posterURL = (item["posterURL"] as? String)?.takeIf { it.isNotBlank() },
             posterLargeURL = (item["posterLargeURL"] as? String)?.takeIf { it.isNotBlank() },
             cymbalCount = (item["cymbalCount"] as? Number)?.toInt() ?: 0,
+            distinctAuthors = (item["distinctAuthors"] as? Number)?.toInt(),
         )
     }
 
