@@ -627,6 +627,8 @@
     <string name="search_tab_films">Films</string>
     <string name="search_tab_hashtags">Hashtags</string>
     <string name="search_section_trending_hashtags">TRENDING HASHTAGS</string>
+    <string name="search_trending_person">person</string>
+    <string name="search_trending_people">people</string>
     <string name="search_no_trending_hashtags">No trending hashtags yet</string>
     <string name="search_no_hashtags_found">No hashtags found</string>
     <string name="search_recent">Recent</string>

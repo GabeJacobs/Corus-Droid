@@ -784,6 +784,7 @@ class FirestoreDataSource @Inject constructor(
                 name = name,
                 cymbalCount = (item["cymbalCount"] as? Number)?.toInt() ?: 0,
                 followerCount = (item["followerCount"] as? Number)?.toInt() ?: 0,
+                distinctAuthors = (item["distinctAuthors"] as? Number)?.toInt(),
             )
         }
     }

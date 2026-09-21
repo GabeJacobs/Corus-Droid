@@ -2117,19 +2117,20 @@ private fun LazyListScope.compactTrendingHashtagsSection(
     } else {
         val visible = hashtags.take(3)
         itemsIndexed(visible, key = { _, tag -> "th-${tag.id}" }) { index, tag ->
-            val postNoun = stringResource(fm.corus.android.R.string.post_noun)
-            val postNounPlural = stringResource(fm.corus.android.R.string.post_noun_plural)
+            val people = tag.distinctAuthors ?: 0
+            val person = stringResource(fm.corus.android.R.string.search_trending_person)
+            val peoplePlural = stringResource(fm.corus.android.R.string.search_trending_people)
             val followerWord = stringResource(fm.corus.android.R.string.hashtag_followers)
-            val noun = if (tag.cymbalCount == 1) postNoun else postNounPlural
+            val noun = if (people == 1) person else peoplePlural
             val subtitle = if (tag.followerCount > 0) {
                 val fNoun = if (tag.followerCount == 1) followerWord.removeSuffix("s") else followerWord
-                "${tag.cymbalCount} $noun · ${tag.followerCount} $fNoun"
+                "$people $noun · ${tag.followerCount} $fNoun"
             } else {
-                "${tag.cymbalCount} $noun"
+                "$people $noun"
             }
             HashtagRow(
                 name = tag.name,
-                fallbackCount = tag.cymbalCount,
+                fallbackCount = people,
                 subtitleOverride = subtitle,
                 isFollowing = followedHashtagNames.contains(tag.name.lowercase()),
                 onClick = { onHashtagTap(tag) },
@@ -4288,8 +4289,8 @@ internal fun TrendingHashtagsContent(
     onHashtagTap: (TrendingHashtag) -> Unit,
     onToggleFollow: (TrendingHashtag) -> Unit,
 ) {
-    val postNoun = stringResource(fm.corus.android.R.string.post_noun)
-    val postNounPlural = stringResource(fm.corus.android.R.string.post_noun_plural)
+    val person = stringResource(fm.corus.android.R.string.search_trending_person)
+    val peoplePlural = stringResource(fm.corus.android.R.string.search_trending_people)
     val followerWord = stringResource(fm.corus.android.R.string.hashtag_followers)
     val followerSingular = followerWord.removeSuffix("s")
     LazyColumn(
@@ -4330,16 +4331,17 @@ internal fun TrendingHashtagsContent(
             }
         } else {
             itemsIndexed(hashtags) { index, tag ->
-                val noun = if (tag.cymbalCount == 1) postNoun else postNounPlural
+                val people = tag.distinctAuthors ?: 0
+                val noun = if (people == 1) person else peoplePlural
                 val subtitle = if (tag.followerCount > 0) {
                     val fNoun = if (tag.followerCount == 1) followerSingular else followerWord
-                    "${tag.cymbalCount} $noun · ${tag.followerCount} $fNoun"
+                    "$people $noun · ${tag.followerCount} $fNoun"
                 } else {
-                    "${tag.cymbalCount} $noun"
+                    "$people $noun"
                 }
                 HashtagRow(
                     name = tag.name,
-                    fallbackCount = tag.cymbalCount,
+                    fallbackCount = people,
                     subtitleOverride = subtitle,
                     isFollowing = followedHashtagNames.contains(tag.name.lowercase()),
                     onClick = { onHashtagTap(tag) },

@@ -74,6 +74,7 @@ data class TrendingHashtag(
     val name: String,
     val cymbalCount: Int,
     val followerCount: Int = 0,
+    val distinctAuthors: Int? = null,
 )
 
 /** One contributor row, denormalized onto `hashtags/{tag}/contributors/{uid}`
