@@ -422,7 +422,8 @@ fun FullPlayerScreen(
                 showsComposeButton = showsComposeButton,
                 trackSource = state.source,
                 musicService = musicService,
-                showsSaveButton = remoteConfig?.fullPlayerSaveButtonEnabled == true && sourcePost != null,
+                showsSaveButton = remoteConfig?.fullPlayerSaveButtonEnabled == true && !state.sourcePostId.isNullOrBlank(),
+                canSave = !state.sourcePostId.isNullOrBlank() && sourcePost?.id == state.sourcePostId,
                 isSaved = isSaved,
                 onSave = { state.sourcePostId?.let(onSavePost) },
                 interactive = interactive,
@@ -889,6 +890,7 @@ private fun FullPlayerTransport(
     trackSource: TrackSource,
     musicService: MusicService,
     showsSaveButton: Boolean,
+    canSave: Boolean,
     isSaved: Boolean,
     onSave: () -> Unit,
     interactive: Boolean,
@@ -1072,7 +1074,7 @@ private fun FullPlayerTransport(
                 .height(44.dp)
                 .widthIn(min = 36.dp)
                 .clickable(
-                    enabled = interactive,
+                    enabled = interactive && (!showsSaveButton || canSave),
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() },
                     onClick = if (showsSaveButton) onSave else onOpenInService,
@@ -1082,8 +1084,8 @@ private fun FullPlayerTransport(
             if (showsSaveButton) {
                 Icon(
                     imageVector = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                    contentDescription = if (isSaved) "Remove from saved" else "Save",
-                    tint = CorusColors.Text,
+                    contentDescription = if (!canSave) "Save loading" else if (isSaved) "Remove from saved" else "Save",
+                    tint = if (canSave) CorusColors.Text else CorusColors.Text.copy(alpha = 0.3f),
                     modifier = Modifier.size(26.dp),
                 )
             } else {

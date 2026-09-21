@@ -30,7 +30,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
-import coil3.compose.AsyncImage
+import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.ui.theme.CorusColors
@@ -159,7 +159,13 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
                         label = "mapDirectoryPersonFade",
                     )
                     Row(Modifier.fillMaxWidth().alpha(contentAlpha).clickable { onUser(person.user) }.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        AsyncImage(person.user.avatarThumbURL ?: person.user.avatarURL, contentDescription = null, modifier = Modifier.size(44.dp).clip(CircleShape))
+                        UserAvatarView(
+                            avatarURL = person.user.avatarURL,
+                            avatarThumbURL = person.user.avatarThumbURL,
+                            displayName = person.user.displayName,
+                            username = person.user.username,
+                            size = 44.dp,
+                        )
                         Column(Modifier.weight(1f)) { UsernameWithFlair(username = person.user.username, isVerified = person.user.isVerified, isClubMember = person.user.isClubMember, flairStyle = person.user.flairStyle, isBot = person.user.isBot, showAtPrefix = true); Text(person.user.displayName, style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1); if (person.user.bio.isNotBlank()) Text(person.user.bio, style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     }
                 }

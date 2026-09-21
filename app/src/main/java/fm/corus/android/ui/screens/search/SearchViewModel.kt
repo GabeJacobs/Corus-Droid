@@ -87,9 +87,6 @@ class SearchViewModel @Inject constructor(
     private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
     val remoteConfigReady = remoteConfigService.initialFetchComplete
-    private val _discoveryExpanded = kotlinx.coroutines.flow.MutableStateFlow<Set<String>>(emptySet())
-    val discoveryExpanded = _discoveryExpanded.asStateFlow()
-    fun toggleDiscoveryExpanded(section: String) { _discoveryExpanded.value = _discoveryExpanded.value.let { if (section in it) it - section else it + section } }
 
 
     /** True when the most recent [search] threw AND the current tab is empty. */
@@ -180,6 +177,7 @@ class SearchViewModel @Inject constructor(
 
     val artistsOnCorusSectionEnabled: Boolean get() = remoteConfigService.artistsOnCorusSectionEnabled
     val trendingArtistsSectionEnabled: Boolean get() = remoteConfigService.trendingArtistsSectionEnabled
+    val trendingSongsPreviewContextEnabled: Boolean get() = remoteConfigService.trendingSongsPreviewContextEnabled
 
     // ── Unified search state ──
 
@@ -291,10 +289,10 @@ class SearchViewModel @Inject constructor(
     // TrendingHashtag (with windowed cymbalCount + followerCount denormalized
     // off `trending_cache/hashtags`) so the row subtitle can render
     // "N coruses · M followers" without a per-row Firestore read.
-    private val _trendingHashtags = MutableStateFlow<List<TrendingHashtag>>(emptyList())
+    private val _trendingHashtags = TrendingChartSessions.hashtags.rows
     val trendingHashtags: StateFlow<List<TrendingHashtag>> = _trendingHashtags.asStateFlow()
 
-    private val _isTrendingHashtagsLoading = MutableStateFlow(true)
+    private val _isTrendingHashtagsLoading = TrendingChartSessions.hashtags.loading
     val isTrendingHashtagsLoading: StateFlow<Boolean> = _isTrendingHashtagsLoading.asStateFlow()
 
     private var hasLoadedTrendingHashtags = false
@@ -329,44 +327,29 @@ class SearchViewModel @Inject constructor(
     val followedHashtagNames: StateFlow<Set<String>> = _followedHashtagNames.asStateFlow()
 
     // Trending
-    private val _trendingSongs = MutableStateFlow<List<TrendingSong>>(emptyList())
-    val trendingSongs: StateFlow<List<TrendingSong>> = _trendingSongs.asStateFlow()
+    val trendingSongs: StateFlow<List<TrendingSong>> = TrendingSongsSession.songs
 
-    private val _trendingMovies = MutableStateFlow<List<TrendingMovie>>(emptyList())
+    private val _trendingMovies = TrendingChartSessions.films.rows
     val trendingMovies: StateFlow<List<TrendingMovie>> = _trendingMovies.asStateFlow()
 
-    private val _isTrendingLoading = MutableStateFlow(true)
-    val isTrendingLoading: StateFlow<Boolean> = _isTrendingLoading.asStateFlow()
+    val isTrendingLoading: StateFlow<Boolean> = TrendingSongsSession.loading
 
-    private val _isTrendingMoviesLoading = MutableStateFlow(true)
+    private val _isTrendingMoviesLoading = TrendingChartSessions.films.loading
     val isTrendingMoviesLoading: StateFlow<Boolean> = _isTrendingMoviesLoading.asStateFlow()
 
-    // Selected time window per tab. Persisted in DataStore so the user's
-    // last choice survives app restarts. Songs and films are independent.
-    val trendingSongsWindow: StateFlow<TrendingWindow> =
-        preferencesDataStore.trendingSongsWindow
-            .map { TrendingWindow.fromKey(it) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+    // Shared with See All for this app process; a fresh launch starts at Week.
+    val trendingSongsWindow: StateFlow<TrendingWindow> = TrendingSongsSession.window
 
-    val trendingFilmsWindow: StateFlow<TrendingWindow> =
-        preferencesDataStore.trendingFilmsWindow
-            .map { TrendingWindow.fromKey(it, TrendingWindow.FILMS_DEFAULT) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.FILMS_DEFAULT)
+    val trendingFilmsWindow: StateFlow<TrendingWindow> = TrendingChartSessions.films.window
 
-    val trendingHashtagsWindow: StateFlow<TrendingWindow> =
-        preferencesDataStore.trendingHashtagsWindow
-            .map { TrendingWindow.fromKey(it) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+    val trendingHashtagsWindow: StateFlow<TrendingWindow> = TrendingChartSessions.hashtags.window
 
-    val trendingArtistsWindow: StateFlow<TrendingWindow> =
-        preferencesDataStore.trendingArtistsWindow
-            .map { TrendingWindow.fromKey(it) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+    val trendingArtistsWindow: StateFlow<TrendingWindow> = TrendingChartSessions.artists.window
 
-    private val _trendingArtists = MutableStateFlow<List<TrendingArtist>>(emptyList())
+    private val _trendingArtists = TrendingChartSessions.artists.rows
     val trendingArtists: StateFlow<List<TrendingArtist>> = _trendingArtists.asStateFlow()
 
-    private val _isTrendingArtistsLoading = MutableStateFlow(true)
+    private val _isTrendingArtistsLoading = TrendingChartSessions.artists.loading
     val isTrendingArtistsLoading: StateFlow<Boolean> = _isTrendingArtistsLoading.asStateFlow()
 
     private var hasLoadedTrendingArtists = false
@@ -374,15 +357,12 @@ class SearchViewModel @Inject constructor(
     private val _isResolvingArtist = MutableStateFlow(false)
     val isResolvingArtist: StateFlow<Boolean> = _isResolvingArtist.asStateFlow()
 
-    val trendingAlbumsWindow: StateFlow<TrendingWindow> =
-        preferencesDataStore.trendingAlbumsWindow
-            .map { TrendingWindow.fromKey(it) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+    val trendingAlbumsWindow: StateFlow<TrendingWindow> = TrendingChartSessions.albums.window
 
-    private val _trendingAlbums = MutableStateFlow<List<TrendingAlbum>>(emptyList())
+    private val _trendingAlbums = TrendingChartSessions.albums.rows
     val trendingAlbums: StateFlow<List<TrendingAlbum>> = _trendingAlbums.asStateFlow()
 
-    private val _isTrendingAlbumsLoading = MutableStateFlow(true)
+    private val _isTrendingAlbumsLoading = TrendingChartSessions.albums.loading
     val isTrendingAlbumsLoading: StateFlow<Boolean> = _isTrendingAlbumsLoading.asStateFlow()
 
     private val _newReleaseAlbums = MutableStateFlow<List<TrendingAlbum>>(emptyList())
@@ -402,15 +382,12 @@ class SearchViewModel @Inject constructor(
 
     private var hasLoadedNewReleaseMovies = false
 
-    val trendingDirectorsWindow: StateFlow<TrendingWindow> =
-        preferencesDataStore.trendingDirectorsWindow
-            .map { TrendingWindow.fromKey(it, TrendingWindow.DIRECTORS_DEFAULT) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DIRECTORS_DEFAULT)
+    val trendingDirectorsWindow: StateFlow<TrendingWindow> = TrendingChartSessions.directors.window
 
-    private val _trendingDirectors = MutableStateFlow<List<TrendingDirector>>(emptyList())
+    private val _trendingDirectors = TrendingChartSessions.directors.rows
     val trendingDirectors: StateFlow<List<TrendingDirector>> = _trendingDirectors.asStateFlow()
 
-    private val _isTrendingDirectorsLoading = MutableStateFlow(true)
+    private val _isTrendingDirectorsLoading = TrendingChartSessions.directors.loading
     val isTrendingDirectorsLoading: StateFlow<Boolean> = _isTrendingDirectorsLoading.asStateFlow()
 
     private var hasLoadedTrendingDirectors = false
@@ -422,91 +399,38 @@ class SearchViewModel @Inject constructor(
     val isResolvingAlbum: StateFlow<Boolean> = _isResolvingAlbum.asStateFlow()
 
     fun setTrendingSongsWindow(window: TrendingWindow) {
+        TrendingSongsSession.choose(window)
         viewModelScope.launch {
-            preferencesDataStore.setTrendingSongsWindow(window.key)
-            // Flash the skeleton briefly so the user gets feedback that the
-            // selection registered, even when the new list is in-cache. The
-            // delay ensures Compose actually paints the loading state — without
-            // it, the loading flag flips true→false in the same frame and the
-            // skeleton never appears. Matches the iOS/web behavior.
-            _isTrendingLoading.value = true
-            _trendingSongs.value = emptyList()
-            val start = System.currentTimeMillis()
-            val fetched = try {
-                exploreRepository.fetchTrendingSongs(window)
-            } catch (e: Exception) {
-                Log.e("SearchVM", "Failed to switch trending songs window", e)
-                emptyList()
+            TrendingSongsSession.load(TRENDING_WINDOW_MIN_DISPLAY_MS) {
+                exploreRepository.fetchTrendingSongs(it)
             }
-            val elapsed = System.currentTimeMillis() - start
-            if (elapsed < TRENDING_WINDOW_MIN_DISPLAY_MS) {
-                kotlinx.coroutines.delay(TRENDING_WINDOW_MIN_DISPLAY_MS - elapsed)
-            }
-            _trendingSongs.value = fetched
-            _isTrendingLoading.value = false
         }
     }
 
     fun setTrendingFilmsWindow(window: TrendingWindow) {
+        TrendingChartSessions.films.choose(window)
         viewModelScope.launch {
-            preferencesDataStore.setTrendingFilmsWindow(window.key)
-            _isTrendingMoviesLoading.value = true
-            _trendingMovies.value = emptyList()
-            val start = System.currentTimeMillis()
-            val fetched = try {
-                exploreRepository.fetchTrendingMovies(window)
-            } catch (e: Exception) {
-                Log.e("SearchVM", "Failed to switch trending films window", e)
-                emptyList()
+            TrendingChartSessions.films.load(TRENDING_WINDOW_MIN_DISPLAY_MS) {
+                exploreRepository.fetchTrendingMovies(it)
             }
-            val elapsed = System.currentTimeMillis() - start
-            if (elapsed < TRENDING_WINDOW_MIN_DISPLAY_MS) {
-                kotlinx.coroutines.delay(TRENDING_WINDOW_MIN_DISPLAY_MS - elapsed)
-            }
-            _trendingMovies.value = fetched
-            _isTrendingMoviesLoading.value = false
         }
     }
 
     fun setTrendingHashtagsWindow(window: TrendingWindow) {
+        TrendingChartSessions.hashtags.choose(window)
         viewModelScope.launch {
-            preferencesDataStore.setTrendingHashtagsWindow(window.key)
-            _isTrendingHashtagsLoading.value = true
-            _trendingHashtags.value = emptyList()
-            val start = System.currentTimeMillis()
-            val fetched = try {
-                firestoreDataSource.fetchTrendingHashtagsWindowed(window, limit = 20)
-            } catch (e: Exception) {
-                Log.e("SearchVM", "Failed to switch trending hashtags window", e)
-                emptyList()
+            TrendingChartSessions.hashtags.load(TRENDING_WINDOW_MIN_DISPLAY_MS) {
+                firestoreDataSource.fetchTrendingHashtagsWindowed(it, limit = 20)
             }
-            val elapsed = System.currentTimeMillis() - start
-            if (elapsed < TRENDING_WINDOW_MIN_DISPLAY_MS) {
-                kotlinx.coroutines.delay(TRENDING_WINDOW_MIN_DISPLAY_MS - elapsed)
-            }
-            _trendingHashtags.value = fetched
-            _isTrendingHashtagsLoading.value = false
         }
     }
 
     fun setTrendingArtistsWindow(window: TrendingWindow) {
+        TrendingChartSessions.artists.choose(window)
         viewModelScope.launch {
-            preferencesDataStore.setTrendingArtistsWindow(window.key)
-            _isTrendingArtistsLoading.value = true
-            _trendingArtists.value = emptyList()
-            val start = System.currentTimeMillis()
-            val fetched = try {
-                exploreRepository.fetchTrendingArtists(window)
-            } catch (e: Exception) {
-                Log.e("SearchVM", "Failed to switch trending artists window", e)
-                emptyList()
+            TrendingChartSessions.artists.load(TRENDING_WINDOW_MIN_DISPLAY_MS) {
+                exploreRepository.fetchTrendingArtists(it)
             }
-            val elapsed = System.currentTimeMillis() - start
-            if (elapsed < TRENDING_WINDOW_MIN_DISPLAY_MS) {
-                kotlinx.coroutines.delay(TRENDING_WINDOW_MIN_DISPLAY_MS - elapsed)
-            }
-            _trendingArtists.value = fetched
-            _isTrendingArtistsLoading.value = false
             hydrateArtistPortraits()
         }
     }
@@ -541,23 +465,11 @@ class SearchViewModel @Inject constructor(
     }
 
     fun setTrendingAlbumsWindow(window: TrendingWindow) {
+        TrendingChartSessions.albums.choose(window)
         viewModelScope.launch {
-            preferencesDataStore.setTrendingAlbumsWindow(window.key)
-            _isTrendingAlbumsLoading.value = true
-            _trendingAlbums.value = emptyList()
-            val start = System.currentTimeMillis()
-            val fetched = try {
-                exploreRepository.fetchTrendingAlbums(window)
-            } catch (e: Exception) {
-                Log.e("SearchVM", "Failed to switch trending albums window", e)
-                emptyList()
+            TrendingChartSessions.albums.load(TRENDING_WINDOW_MIN_DISPLAY_MS) {
+                exploreRepository.fetchTrendingAlbums(it)
             }
-            val elapsed = System.currentTimeMillis() - start
-            if (elapsed < TRENDING_WINDOW_MIN_DISPLAY_MS) {
-                kotlinx.coroutines.delay(TRENDING_WINDOW_MIN_DISPLAY_MS - elapsed)
-            }
-            _trendingAlbums.value = fetched
-            _isTrendingAlbumsLoading.value = false
         }
     }
 
@@ -584,23 +496,11 @@ class SearchViewModel @Inject constructor(
     }
 
     fun setTrendingDirectorsWindow(window: TrendingWindow) {
+        TrendingChartSessions.directors.choose(window)
         viewModelScope.launch {
-            preferencesDataStore.setTrendingDirectorsWindow(window.key)
-            _isTrendingDirectorsLoading.value = true
-            _trendingDirectors.value = emptyList()
-            val start = System.currentTimeMillis()
-            val fetched = try {
-                exploreRepository.fetchTrendingDirectors(window)
-            } catch (e: Exception) {
-                Log.e("SearchVM", "Failed to switch trending directors window", e)
-                emptyList()
+            TrendingChartSessions.directors.load(TRENDING_WINDOW_MIN_DISPLAY_MS) {
+                exploreRepository.fetchTrendingDirectors(it)
             }
-            val elapsed = System.currentTimeMillis() - start
-            if (elapsed < TRENDING_WINDOW_MIN_DISPLAY_MS) {
-                kotlinx.coroutines.delay(TRENDING_WINDOW_MIN_DISPLAY_MS - elapsed)
-            }
-            _trendingDirectors.value = fetched
-            _isTrendingDirectorsLoading.value = false
             hydrateDirectorPortraits()
         }
     }
@@ -913,24 +813,17 @@ class SearchViewModel @Inject constructor(
             if (!_tasteMatchLoadFailed.value) pollTasteMatchesIfMissing(uid)
         }
         viewModelScope.launch {
-            try {
-                val songs = exploreRepository.fetchTrendingSongs(trendingSongsWindow.value)
-                _trendingSongs.value = songs
-                if (songs.isNotEmpty()) preferencesDataStore.persistSearchTrendingSongs(songs)
-            } catch (e: Exception) {
-                Log.e("SearchVM", "Failed to load trending songs", e)
+            TrendingSongsSession.load {
+                exploreRepository.fetchTrendingSongs(it)
             }
-            _isTrendingLoading.value = false
         }
         viewModelScope.launch {
-            try {
-                val movies = exploreRepository.fetchTrendingMovies(trendingFilmsWindow.value)
-                _trendingMovies.value = movies
-                if (movies.isNotEmpty()) preferencesDataStore.persistSearchTrendingMovies(movies)
-            } catch (e: Exception) {
-                Log.e("SearchVM", "Failed to load trending movies", e)
+            TrendingChartSessions.films.load { window ->
+                exploreRepository.fetchTrendingMovies(window).also { movies ->
+                    if (window == TrendingWindow.FILMS_DEFAULT && movies.isNotEmpty())
+                        preferencesDataStore.persistSearchTrendingMovies(movies)
+                }
             }
-            _isTrendingMoviesLoading.value = false
         }
         // Match iOS: seed following IDs before firing the new-users fetch so its
         // server-side excludeIds actually exclude already-followed users.
@@ -1049,12 +942,9 @@ class SearchViewModel @Inject constructor(
 
     private suspend fun hydrateBrowseSnapshot(uid: String) {
         val songs = preferencesDataStore.loadSearchTrendingSongs()
-        if (!songs.isNullOrEmpty() && _trendingSongs.value.isEmpty()) {
-            _trendingSongs.value = songs
-            _isTrendingLoading.value = false
-        }
+        if (!songs.isNullOrEmpty()) TrendingSongsSession.seedWeek(songs)
         val movies = preferencesDataStore.loadSearchTrendingMovies()
-        if (!movies.isNullOrEmpty() && _trendingMovies.value.isEmpty()) {
+        if (!movies.isNullOrEmpty() && trendingFilmsWindow.value == TrendingWindow.FILMS_DEFAULT && _trendingMovies.value.isEmpty()) {
             _trendingMovies.value = movies
             _isTrendingMoviesLoading.value = false
         }
@@ -1069,7 +959,7 @@ class SearchViewModel @Inject constructor(
             _isClubMembersLoading.value = false
         }
         val albums = preferencesDataStore.loadSearchTrendingAlbums()
-        if (!albums.isNullOrEmpty() && _trendingAlbums.value.isEmpty()) {
+        if (!albums.isNullOrEmpty() && trendingAlbumsWindow.value == TrendingWindow.DEFAULT && _trendingAlbums.value.isEmpty()) {
             _trendingAlbums.value = albums
             _isTrendingAlbumsLoading.value = false
         }
@@ -1084,7 +974,7 @@ class SearchViewModel @Inject constructor(
             _isNewReleaseMoviesLoading.value = false
         }
         val directors = preferencesDataStore.loadSearchTrendingDirectors()
-        if (!directors.isNullOrEmpty() && _trendingDirectors.value.isEmpty()) {
+        if (!directors.isNullOrEmpty() && trendingDirectorsWindow.value == TrendingWindow.DIRECTORS_DEFAULT && _trendingDirectors.value.isEmpty()) {
             _trendingDirectors.value = directors
             _isTrendingDirectorsLoading.value = false
             hydrateDirectorPortraits()
@@ -1407,15 +1297,9 @@ class SearchViewModel @Inject constructor(
         if (hasLoadedTrendingHashtags) return
         hasLoadedTrendingHashtags = true
         viewModelScope.launch {
-            try {
-                val window = trendingHashtagsWindow.value
-                _trendingHashtags.value =
-                    firestoreDataSource.fetchTrendingHashtagsWindowed(window, limit = 20)
-            } catch (e: Exception) {
-                Log.e("SearchVM", "Failed to load trending hashtags", e)
-                hasLoadedTrendingHashtags = false
+            TrendingChartSessions.hashtags.load {
+                firestoreDataSource.fetchTrendingHashtagsWindowed(it, limit = 20)
             }
-            _isTrendingHashtagsLoading.value = false
         }
     }
 
@@ -1423,16 +1307,10 @@ class SearchViewModel @Inject constructor(
         if (hasLoadedTrendingArtists) return
         hasLoadedTrendingArtists = true
         viewModelScope.launch {
-            try {
-                val window = trendingArtistsWindow.value
-                val loaded = exploreRepository.fetchTrendingArtists(window)
-                _trendingArtists.value = loaded
-                hydrateArtistPortraits()
-            } catch (e: Exception) {
-                Log.e("SearchVM", "Failed to load trending artists", e)
-                hasLoadedTrendingArtists = false
+            TrendingChartSessions.artists.load {
+                exploreRepository.fetchTrendingArtists(it)
             }
-            _isTrendingArtistsLoading.value = false
+            hydrateArtistPortraits()
         }
     }
 
@@ -1440,15 +1318,12 @@ class SearchViewModel @Inject constructor(
         if (hasLoadedTrendingAlbums) return
         hasLoadedTrendingAlbums = true
         viewModelScope.launch {
-            try {
-                val loaded = exploreRepository.fetchTrendingAlbums(trendingAlbumsWindow.value)
-                _trendingAlbums.value = loaded
-                if (loaded.isNotEmpty()) preferencesDataStore.persistSearchTrendingAlbums(loaded)
-            } catch (e: Exception) {
-                Log.e("SearchVM", "Failed to load trending albums", e)
-                hasLoadedTrendingAlbums = false
+            TrendingChartSessions.albums.load { window ->
+                exploreRepository.fetchTrendingAlbums(window).also { loaded ->
+                    if (window == TrendingWindow.DEFAULT && loaded.isNotEmpty())
+                        preferencesDataStore.persistSearchTrendingAlbums(loaded)
+                }
             }
-            _isTrendingAlbumsLoading.value = false
         }
     }
 
@@ -1488,16 +1363,13 @@ class SearchViewModel @Inject constructor(
         if (hasLoadedTrendingDirectors) return
         hasLoadedTrendingDirectors = true
         viewModelScope.launch {
-            try {
-                val loaded = exploreRepository.fetchTrendingDirectors(trendingDirectorsWindow.value)
-                _trendingDirectors.value = loaded
-                if (loaded.isNotEmpty()) preferencesDataStore.persistSearchTrendingDirectors(loaded)
-                hydrateDirectorPortraits()
-            } catch (e: Exception) {
-                Log.e("SearchVM", "Failed to load trending directors", e)
-                hasLoadedTrendingDirectors = false
+            TrendingChartSessions.directors.load { window ->
+                exploreRepository.fetchTrendingDirectors(window).also { loaded ->
+                    if (window == TrendingWindow.DIRECTORS_DEFAULT && loaded.isNotEmpty())
+                        preferencesDataStore.persistSearchTrendingDirectors(loaded)
+                }
             }
-            _isTrendingDirectorsLoading.value = false
+            hydrateDirectorPortraits()
         }
     }
 

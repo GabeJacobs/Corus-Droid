@@ -51,7 +51,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
@@ -1660,7 +1660,7 @@ fun MessageThreadScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+                .padding(horizontal = CorusSpacing.md, vertical = 9.dp),
             verticalAlignment = Alignment.Bottom,
         ) {
             // A stable slot keeps the plus and selected attachment aligned.
@@ -1686,12 +1686,21 @@ fun MessageThreadScreen(
                     )
                 } else {
                 IconButton(onClick = { showAttachmentMenu = true }) {
-                    Icon(
-                        imageVector = Icons.Filled.AddCircle,
-                        contentDescription = stringResource(id = R.string.messaging_thread_cd_add_attachment),
-                        tint = CorusColors.Accent,
-                        modifier = Modifier.offset(x = (-2).dp).size(28.dp),
-                    )
+                    Box(
+                        modifier = Modifier
+                            .offset(x = (-2).dp)
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(CorusColors.Accent),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = stringResource(id = R.string.messaging_thread_cd_add_attachment),
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
                 DropdownMenu(
                     expanded = showAttachmentMenu,

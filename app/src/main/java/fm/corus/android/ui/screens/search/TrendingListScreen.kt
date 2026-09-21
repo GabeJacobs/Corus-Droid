@@ -73,9 +73,8 @@ import javax.inject.Inject
  * `hiltViewModel<SearchViewModel>()` here would be a FRESH, empty instance —
  * not the one the search page populated. It therefore loads its own data.
  *
- * The window selections are DataStore-backed (same keys SearchViewModel
- * reads), so this screen stays in sync with the search page's compact strips
- * for free.
+ * Songs share a process-lifetime chart with Search, including the selected
+ * window and loaded rows. A fresh app process starts at Week.
  */
 @HiltViewModel
 class TrendingListViewModel @Inject constructor(
@@ -89,71 +88,52 @@ class TrendingListViewModel @Inject constructor(
     val nowPlayingManager: NowPlayingManager,
 ) : ViewModel() {
 
-    private val _trendingSongs = MutableStateFlow<List<TrendingSong>>(emptyList())
-    val trendingSongs: StateFlow<List<TrendingSong>> = _trendingSongs.asStateFlow()
+    val trendingSongs: StateFlow<List<TrendingSong>> = TrendingSongsSession.songs
 
-    private val _trendingMovies = MutableStateFlow<List<TrendingMovie>>(emptyList())
+    private val _trendingMovies = TrendingChartSessions.films.rows
     val trendingMovies: StateFlow<List<TrendingMovie>> = _trendingMovies.asStateFlow()
 
-    private val _trendingHashtags = MutableStateFlow<List<TrendingHashtag>>(emptyList())
+    private val _trendingHashtags = TrendingChartSessions.hashtags.rows
     val trendingHashtags: StateFlow<List<TrendingHashtag>> = _trendingHashtags.asStateFlow()
 
-    private val _isSongsLoading = MutableStateFlow(true)
-    val isSongsLoading: StateFlow<Boolean> = _isSongsLoading.asStateFlow()
+    val isSongsLoading: StateFlow<Boolean> = TrendingSongsSession.loading
 
-    private val _isMoviesLoading = MutableStateFlow(true)
+    private val _isMoviesLoading = TrendingChartSessions.films.loading
     val isMoviesLoading: StateFlow<Boolean> = _isMoviesLoading.asStateFlow()
 
-    private val _isHashtagsLoading = MutableStateFlow(true)
+    private val _isHashtagsLoading = TrendingChartSessions.hashtags.loading
     val isHashtagsLoading: StateFlow<Boolean> = _isHashtagsLoading.asStateFlow()
 
     private val _followedHashtagNames = MutableStateFlow<Set<String>>(emptySet())
     val followedHashtagNames: StateFlow<Set<String>> = _followedHashtagNames.asStateFlow()
 
-    // Selected time window per kind. Persisted in DataStore (same keys as
-    // SearchViewModel) so the choice survives restarts AND mirrors the search
-    // page's strips. Mirrors SearchViewModel's window StateFlow pattern.
-    val trendingSongsWindow: StateFlow<TrendingWindow> =
-        preferencesDataStore.trendingSongsWindow
-            .map { TrendingWindow.fromKey(it) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+    // Same window and rows as the compact songs preview.
+    val trendingSongsWindow: StateFlow<TrendingWindow> = TrendingSongsSession.window
 
-    val trendingFilmsWindow: StateFlow<TrendingWindow> =
-        preferencesDataStore.trendingFilmsWindow
-            .map { TrendingWindow.fromKey(it, TrendingWindow.FILMS_DEFAULT) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.FILMS_DEFAULT)
+    val trendingFilmsWindow: StateFlow<TrendingWindow> = TrendingChartSessions.films.window
 
-    val trendingHashtagsWindow: StateFlow<TrendingWindow> =
-        preferencesDataStore.trendingHashtagsWindow
-            .map { TrendingWindow.fromKey(it) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+    val trendingHashtagsWindow: StateFlow<TrendingWindow> = TrendingChartSessions.hashtags.window
 
-    val trendingArtistsWindow: StateFlow<TrendingWindow> =
-        preferencesDataStore.trendingArtistsWindow
-            .map { TrendingWindow.fromKey(it) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+    val trendingArtistsWindow: StateFlow<TrendingWindow> = TrendingChartSessions.artists.window
 
-    private val _trendingArtists = MutableStateFlow<List<TrendingArtist>>(emptyList())
+    private val _trendingArtists = TrendingChartSessions.artists.rows
     val trendingArtists: StateFlow<List<TrendingArtist>> = _trendingArtists.asStateFlow()
 
-    private val _isArtistsLoading = MutableStateFlow(true)
+    private val _isArtistsLoading = TrendingChartSessions.artists.loading
     val isArtistsLoading: StateFlow<Boolean> = _isArtistsLoading.asStateFlow()
 
     private val _isResolvingArtist = MutableStateFlow(false)
     val isResolvingArtist: StateFlow<Boolean> = _isResolvingArtist.asStateFlow()
 
-    val trendingAlbumsWindow: StateFlow<TrendingWindow> =
-        preferencesDataStore.trendingAlbumsWindow
-            .map { TrendingWindow.fromKey(it) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DEFAULT)
+    val trendingAlbumsWindow: StateFlow<TrendingWindow> = TrendingChartSessions.albums.window
 
-    private val _trendingAlbums = MutableStateFlow<List<TrendingAlbum>>(emptyList())
+    private val _trendingAlbums = TrendingChartSessions.albums.rows
     val trendingAlbums: StateFlow<List<TrendingAlbum>> = _trendingAlbums.asStateFlow()
 
     private val _newReleaseAlbums = MutableStateFlow<List<TrendingAlbum>>(emptyList())
     val newReleaseAlbums: StateFlow<List<TrendingAlbum>> = _newReleaseAlbums.asStateFlow()
 
-    private val _isAlbumsLoading = MutableStateFlow(true)
+    private val _isAlbumsLoading = TrendingChartSessions.albums.loading
     val isAlbumsLoading: StateFlow<Boolean> = _isAlbumsLoading.asStateFlow()
 
     private val _isNewReleaseAlbumsLoading = MutableStateFlow(true)
@@ -163,40 +143,42 @@ class TrendingListViewModel @Inject constructor(
     val isResolvingAlbum: StateFlow<Boolean> = _isResolvingAlbum.asStateFlow()
 
     fun setTrendingAlbumsWindow(window: TrendingWindow) {
-        viewModelScope.launch { preferencesDataStore.setTrendingAlbumsWindow(window.key) }
+        TrendingChartSessions.albums.choose(window)
+        viewModelScope.launch { loadAlbums(window) }
     }
 
     // The setters only persist; the screen collects the window StateFlow and
     // refetches on every emission, so persistence IS the refetch trigger.
 
     fun setTrendingSongsWindow(window: TrendingWindow) {
-        viewModelScope.launch { preferencesDataStore.setTrendingSongsWindow(window.key) }
+        TrendingSongsSession.choose(window)
+        viewModelScope.launch { loadSongs(window) }
     }
 
     fun setTrendingFilmsWindow(window: TrendingWindow) {
-        viewModelScope.launch { preferencesDataStore.setTrendingFilmsWindow(window.key) }
+        TrendingChartSessions.films.choose(window)
+        viewModelScope.launch { loadMovies(window) }
     }
 
     fun setTrendingHashtagsWindow(window: TrendingWindow) {
-        viewModelScope.launch { preferencesDataStore.setTrendingHashtagsWindow(window.key) }
+        TrendingChartSessions.hashtags.choose(window)
+        viewModelScope.launch { loadHashtags(window) }
     }
 
     fun setTrendingArtistsWindow(window: TrendingWindow) {
-        viewModelScope.launch { preferencesDataStore.setTrendingArtistsWindow(window.key) }
+        TrendingChartSessions.artists.choose(window)
+        viewModelScope.launch { loadArtists(window) }
     }
 
-    val trendingDirectorsWindow: StateFlow<TrendingWindow> =
-        preferencesDataStore.trendingDirectorsWindow
-            .map { TrendingWindow.fromKey(it, TrendingWindow.DIRECTORS_DEFAULT) }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, TrendingWindow.DIRECTORS_DEFAULT)
+    val trendingDirectorsWindow: StateFlow<TrendingWindow> = TrendingChartSessions.directors.window
 
-    private val _trendingDirectors = MutableStateFlow<List<TrendingDirector>>(emptyList())
+    private val _trendingDirectors = TrendingChartSessions.directors.rows
     val trendingDirectors: StateFlow<List<TrendingDirector>> = _trendingDirectors.asStateFlow()
 
     private val _newReleaseMovies = MutableStateFlow<List<TrendingMovie>>(emptyList())
     val newReleaseMovies: StateFlow<List<TrendingMovie>> = _newReleaseMovies.asStateFlow()
 
-    private val _isDirectorsLoading = MutableStateFlow(true)
+    private val _isDirectorsLoading = TrendingChartSessions.directors.loading
     val isDirectorsLoading: StateFlow<Boolean> = _isDirectorsLoading.asStateFlow()
 
     private val _isNewReleaseMoviesLoading = MutableStateFlow(true)
@@ -206,7 +188,8 @@ class TrendingListViewModel @Inject constructor(
     val isResolvingDirector: StateFlow<Boolean> = _isResolvingDirector.asStateFlow()
 
     fun setTrendingDirectorsWindow(window: TrendingWindow) {
-        viewModelScope.launch { preferencesDataStore.setTrendingDirectorsWindow(window.key) }
+        TrendingChartSessions.directors.choose(window)
+        viewModelScope.launch { loadDirectors(window) }
     }
 
     private fun hydrateArtistPortraits() {
@@ -235,47 +218,23 @@ class TrendingListViewModel @Inject constructor(
     }
 
     suspend fun loadSongs(window: TrendingWindow) {
-        _isSongsLoading.value = true
-        _trendingSongs.value = try {
-            exploreRepository.fetchTrendingSongs(window)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load trending songs", e)
-            emptyList()
-        }
-        _isSongsLoading.value = false
+        if (TrendingSongsSession.window.value != window) return
+        TrendingSongsSession.load { exploreRepository.fetchTrendingSongs(it) }
     }
 
     suspend fun loadMovies(window: TrendingWindow) {
-        _isMoviesLoading.value = true
-        _trendingMovies.value = try {
-            exploreRepository.fetchTrendingMovies(window)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load trending films", e)
-            emptyList()
-        }
-        _isMoviesLoading.value = false
+        if (TrendingChartSessions.films.window.value != window) return
+        TrendingChartSessions.films.load { exploreRepository.fetchTrendingMovies(it) }
     }
 
     suspend fun loadHashtags(window: TrendingWindow) {
-        _isHashtagsLoading.value = true
-        _trendingHashtags.value = try {
-            firestoreDataSource.fetchTrendingHashtagsWindowed(window, limit = 20)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load trending hashtags", e)
-            emptyList()
-        }
-        _isHashtagsLoading.value = false
+        if (TrendingChartSessions.hashtags.window.value != window) return
+        TrendingChartSessions.hashtags.load { firestoreDataSource.fetchTrendingHashtagsWindowed(it, limit = 20) }
     }
 
     suspend fun loadArtists(window: TrendingWindow) {
-        _isArtistsLoading.value = true
-        _trendingArtists.value = try {
-            exploreRepository.fetchTrendingArtists(window)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load trending artists", e)
-            emptyList()
-        }
-        _isArtistsLoading.value = false
+        if (TrendingChartSessions.artists.window.value != window) return
+        TrendingChartSessions.artists.load { exploreRepository.fetchTrendingArtists(it) }
         hydrateArtistPortraits()
     }
 
@@ -309,14 +268,8 @@ class TrendingListViewModel @Inject constructor(
     }
 
     suspend fun loadAlbums(window: TrendingWindow) {
-        _isAlbumsLoading.value = true
-        _trendingAlbums.value = try {
-            exploreRepository.fetchTrendingAlbums(window)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load trending albums", e)
-            emptyList()
-        }
-        _isAlbumsLoading.value = false
+        if (TrendingChartSessions.albums.window.value != window) return
+        TrendingChartSessions.albums.load { exploreRepository.fetchTrendingAlbums(it) }
     }
 
     suspend fun loadNewReleaseAlbums() {
@@ -342,14 +295,8 @@ class TrendingListViewModel @Inject constructor(
     }
 
     suspend fun loadDirectors(window: TrendingWindow) {
-        _isDirectorsLoading.value = true
-        _trendingDirectors.value = try {
-            exploreRepository.fetchTrendingDirectors(window)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load trending directors", e)
-            emptyList()
-        }
-        _isDirectorsLoading.value = false
+        if (TrendingChartSessions.directors.window.value != window) return
+        TrendingChartSessions.directors.load { exploreRepository.fetchTrendingDirectors(it) }
         hydrateDirectorPortraits()
     }
 
@@ -511,7 +458,7 @@ fun TrendingListScreen(
     // whenever the user picks a different window (the setter just persists).
     LaunchedEffect(kind) {
         when (kind) {
-            KIND_SONGS -> viewModel.trendingSongsWindow.collect { viewModel.loadSongs(it) }
+            KIND_SONGS -> viewModel.loadSongs(viewModel.trendingSongsWindow.value)
             KIND_FILMS -> viewModel.trendingFilmsWindow.collect { viewModel.loadMovies(it) }
             KIND_HASHTAGS -> {
                 viewModel.refreshFollowedHashtags()

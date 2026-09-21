@@ -394,6 +394,8 @@ class RemoteConfigService @Inject constructor(
     /// `trending_artists_section_enabled` with iOS/web.
     val trendingArtistsSectionEnabled: Boolean
         get() = feedFlag("trending_artists_section_enabled")
+    val trendingSongsPreviewContextEnabled: Boolean
+        get() = flagWithDefault("trending_songs_preview_context_enabled", true)
 
     /// Profile → artist-page card ("View artist page" + optional taste-match
     /// row). Default OFF. @gabe is hardcoded on in [isProfileArtistLinkEnabled]
@@ -696,6 +698,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("segmented_search_enabled", remoteConfig.getBoolean("segmented_search_enabled"))
             .putBoolean("artists_on_corus_section_enabled", remoteConfig.getBoolean("artists_on_corus_section_enabled"))
             .putBoolean("trending_artists_section_enabled", remoteConfig.getBoolean("trending_artists_section_enabled"))
+            .putBoolean("trending_songs_preview_context_enabled", remoteConfig.getBoolean("trending_songs_preview_context_enabled"))
             .putBoolean("profile_artist_link_enabled", remoteConfig.getBoolean("profile_artist_link_enabled"))
             .putBoolean("compose_unified_search_enabled", remoteConfig.getBoolean("compose_unified_search_enabled"))
             .putBoolean("notification_filters_enabled", remoteConfig.getBoolean("notification_filters_enabled"))
@@ -818,6 +821,7 @@ class RemoteConfigService @Inject constructor(
             "segmented_search_enabled" to true,
             "artists_on_corus_section_enabled" to false,
             "trending_artists_section_enabled" to false,
+            "trending_songs_preview_context_enabled" to true,
             "profile_artist_link_enabled" to false,
             "compose_unified_search_enabled" to false,
             "post_success_others_enabled" to false,

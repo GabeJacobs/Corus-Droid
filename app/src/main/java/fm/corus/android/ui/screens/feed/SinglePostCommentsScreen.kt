@@ -351,7 +351,7 @@ fun SinglePostCommentsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(CorusColors.Background)
-                        .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+                        .padding(horizontal = CorusSpacing.lg, vertical = 9.dp),
                     verticalAlignment = Alignment.Bottom,
                 ) {
                     if (editingComment == null) {

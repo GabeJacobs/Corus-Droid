@@ -1857,12 +1857,15 @@ private fun LazyListScope.compactTrendingSongsSection(
     onSongTap: (CymbalTrack) -> Unit,
     onSeeAll: () -> Unit,
 ) {
-    if (!isLoading && songs.isEmpty()) return
     item {
+        val window by viewModel.trendingSongsWindow.collectAsState()
         SectionHeader(
             icon = "music",
             title = stringResource(fm.corus.android.R.string.search_trending_songs_title).uppercase(),
             showSeeAll = true,
+            trailingAction = if (viewModel.trendingSongsPreviewContextEnabled) {
+                { CompactTrendingWindowPicker(window, viewModel::setTrendingSongsWindow) }
+            } else null,
             onSeeAll = {
                 viewModel.logSearchSectionSeeAllTapped(SearchSection.TrendingSongs)
                 onSeeAll()
@@ -1870,8 +1873,11 @@ private fun LazyListScope.compactTrendingSongsSection(
         )
     }
     item {
-        val expanded by viewModel.discoveryExpanded.collectAsState()
-        ExpandableDiscoverySongs(songs.map { it.track }, isLoading, nowPlaying, expanded = "trending" in expanded, onToggle = { viewModel.toggleDiscoveryExpanded("trending") }, ranked = true, peopleCounts = songs.associate { it.track.id to it.distinctAuthors }, onSong = onSongTap)
+        if (!isLoading && songs.isEmpty()) {
+            Text(stringResource(fm.corus.android.R.string.search_nothing_trending), style = CorusFont.caption, color = CorusColors.Secondary, modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md))
+        } else {
+            CompactDiscoverySongs(songs.map { it.track }, isLoading, nowPlaying, ranked = true, peopleCounts = if (viewModel.trendingSongsPreviewContextEnabled) songs.associate { it.track.id to it.distinctAuthors } else emptyMap(), onSong = onSongTap)
+        }
     }
 
 }
@@ -1891,7 +1897,7 @@ private fun LazyListScope.compactTrendingFilmsSection(
     icon: String = "film",
     itemKeyPrefix: String = "tf",
 ) {
-    if (!isLoading && movies.isEmpty()) return
+    if (!isLoading && movies.isEmpty() && !showRank) return
     item {
         SectionHeader(
             icon = icon,
@@ -1976,7 +1982,6 @@ private fun LazyListScope.compactTrendingDirectorsSection(
     onDirectorTap: (TrendingDirector) -> Unit,
     onSeeAll: () -> Unit,
 ) {
-    if (!isLoading && directors.isEmpty()) return
     item {
         SectionHeader(
             icon = "clapper",
@@ -2096,7 +2101,6 @@ private fun LazyListScope.compactTrendingHashtagsSection(
     onToggleFollow: (TrendingHashtag) -> Unit,
     onSeeAll: () -> Unit,
 ) {
-    if (!isLoading && hashtags.isEmpty()) return
     item {
         SectionHeader(
             icon = "hashtag",
@@ -2155,8 +2159,7 @@ private fun LazyListScope.compactTrendingAlbumsSection(
     if (!showRank) {
         item {
             SectionHeader(icon = icon, title = stringResource(titleRes).uppercase(), showSeeAll = true, onSeeAll = onSeeAll)
-            val expanded by viewModel.discoveryExpanded.collectAsState()
-            ExpandableDiscoverySongs(albums.mapNotNull { it.asSongTrack() }, isLoading, nowPlaying, expanded = "new-releases" in expanded, onToggle = { viewModel.toggleDiscoveryExpanded("new-releases") }) { track ->
+                CompactDiscoverySongs(albums.mapNotNull { it.asSongTrack() }, isLoading, nowPlaying) { track ->
                 albums.firstOrNull { it.trackId == track.id }?.let(onAlbumTap)
             }
         }
@@ -2189,7 +2192,6 @@ private fun CompactTrendingAlbumsRail(
     onAlbumTap: (TrendingAlbum) -> Unit,
     onSeeAll: () -> Unit,
 ) {
-    if (!isLoading && albums.isEmpty()) return
     Column {
         SectionHeader(
             icon = icon,
@@ -2269,7 +2271,6 @@ private fun LazyListScope.compactTrendingArtistsSection(
     onArtistTap: (TrendingArtist) -> Unit,
     onSeeAll: () -> Unit,
 ) {
-    if (!isLoading && artists.isEmpty()) return
     item {
         SectionHeader(
             icon = "mic",
@@ -3017,7 +3018,14 @@ internal fun SectionHeader(
             )
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
         }
-        Text(title, style = CorusFont.sectionHeader, color = CorusColors.Secondary)
+        Text(
+            title,
+            style = CorusFont.sectionHeader,
+            color = CorusColors.Secondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier,
+        )
         if (trailingAction != null) {
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
             trailingAction()
@@ -3245,7 +3253,7 @@ internal fun TrendingSongsContent(
         LazyColumn(state = listState, modifier = modifier.fillMaxSize(), contentPadding = PaddingValues(top = CorusSpacing.md, bottom = CorusSpacing.xxxl)) {
             item { header() }
             itemsIndexed(songs) { index, song ->
-                CatalogTrackRow(discovery = true, discoveryRank = index + 1, track = song.track, nowPlaying = nowPlaying, queue = queue,
+                CatalogTrackRow(discovery = true, discoveryRank = index + 1, discoveryPeopleCount = song.distinctAuthors, track = song.track, nowPlaying = nowPlaying, queue = queue,
                     onRowTap = { nowPlaying.stageCatalogQueue(queue); onSongTap(song.track) }, onPreviewStarted = {})
 
             }
@@ -3633,14 +3641,42 @@ internal fun TrendingDirectorsContent(
  *  re-render as one unit even during pull-to-refresh / state changes. Mirrors
  *  the iOS `trendingSectionHeader`. */
 @Composable
+private fun CompactTrendingWindowPicker(window: TrendingWindow, onWindowChange: (TrendingWindow) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    val labelRes = when (window) {
+        TrendingWindow.WEEK -> fm.corus.android.R.string.search_trending_window_week
+        TrendingWindow.MONTH -> fm.corus.android.R.string.search_trending_window_month
+        TrendingWindow.YEAR -> fm.corus.android.R.string.search_trending_window_year
+    }
+    Box {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { expanded = true }) {
+            Text("·", style = CorusFont.sectionHeader, color = CorusColors.Secondary)
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(stringResource(labelRes), style = CorusFont.sectionHeader, color = CorusColors.Text)
+            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = stringResource(fm.corus.android.R.string.search_trending_window_aria), tint = CorusColors.Text, modifier = Modifier.size(14.dp))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            TrendingWindow.values().forEach { option ->
+                val optionLabel = when (option) {
+                    TrendingWindow.WEEK -> fm.corus.android.R.string.search_trending_window_week
+                    TrendingWindow.MONTH -> fm.corus.android.R.string.search_trending_window_month
+                    TrendingWindow.YEAR -> fm.corus.android.R.string.search_trending_window_year
+                }
+                DropdownMenuItem(text = { Text(stringResource(optionLabel)) }, onClick = {
+                    expanded = false
+                    if (option != window) onWindowChange(option)
+                })
+            }
+        }
+    }
+}
+
+@Composable
 private fun TrendingHeader(
     iconName: String,
     window: TrendingWindow,
     onWindowChange: (TrendingWindow) -> Unit,
-    /** Optional noun to inject between "TRENDING" and "THIS" — e.g. "hashtags"
-     *  renders "TRENDING HASHTAGS THIS WEEK ▾". Omit for songs/films (header
-     *  reads just "TRENDING THIS WEEK ▾"); the surrounding tab already says
-     *  Songs/Films. */
+    /** Optional noun to render "TRENDING HASHTAGS · WEEK ▾". */
     noun: String? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -3660,10 +3696,9 @@ private fun TrendingHeader(
     }
     val prefixText = if (!noun.isNullOrEmpty()) {
         stringResource(fm.corus.android.R.string.search_section_trending) +
-            " " + noun.uppercase() + " " +
-            stringResource(fm.corus.android.R.string.search_section_trending_this_suffix) + " "
+            " " + noun.uppercase() + " · "
     } else {
-        stringResource(fm.corus.android.R.string.search_section_trending_this) + " "
+        stringResource(fm.corus.android.R.string.search_section_trending) + " · "
     }
     Row(
         modifier = Modifier
@@ -4563,10 +4598,10 @@ private fun HashtagFollowPill(
 }
 
 @Composable
-private fun ExpandableDiscoverySongs(
+private fun CompactDiscoverySongs(
     tracks: List<CymbalTrack>, loading: Boolean,
     nowPlaying: fm.corus.android.domain.NowPlayingManager,
-    expanded: Boolean, onToggle: () -> Unit, ranked: Boolean = false,
+    ranked: Boolean = false,
     peopleCounts: Map<String, Int?> = emptyMap(),
     onSong: (CymbalTrack) -> Unit,
 ) {
@@ -4578,17 +4613,7 @@ private fun ExpandableDiscoverySongs(
                 CatalogTrackRow(discovery = true, discoveryRank = if (ranked) tracks.indexOf(track) + 1 else null, discoveryPeopleCount = peopleCounts[track.id], track = track, nowPlaying = nowPlaying, queue = queue,
                     onRowTap = { nowPlaying.stageCatalogQueue(queue); onSong(track) }, onPreviewStarted = {})
             }
-            androidx.compose.animation.AnimatedVisibility(visible = expanded,
-                enter = androidx.compose.animation.expandVertically(animationSpec = androidx.compose.animation.core.tween(200)),
-                exit = androidx.compose.animation.shrinkVertically(animationSpec = androidx.compose.animation.core.tween(200))) {
-                Column { tracks.drop(3).take(7).forEach { track ->
-                    CatalogTrackRow(discovery = true, discoveryRank = if (ranked) tracks.indexOf(track) + 1 else null, discoveryPeopleCount = peopleCounts[track.id], track = track, nowPlaying = nowPlaying, queue = queue,
-                        onRowTap = { nowPlaying.stageCatalogQueue(queue); onSong(track) }, onPreviewStarted = {})
-                } }
-            }
-            if (tracks.size > 3) TextButton(onClick = onToggle, modifier = Modifier.padding(horizontal = CorusSpacing.sm)) {
-                Text(stringResource(if (expanded) fm.corus.android.R.string.parity_show_less else fm.corus.android.R.string.parity_see_more), color = CorusColors.Secondary)
-            }
+
         }
     }
 }
