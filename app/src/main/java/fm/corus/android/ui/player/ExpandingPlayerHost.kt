@@ -5,6 +5,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.AnchoredDraggableState
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.anchoredDraggable
+import androidx.compose.foundation.gestures.animateTo
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -199,6 +200,9 @@ private fun playerSheetNestedScrollConnection(
     override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
         contentFlingActive = false
         if (available.y > 0f && !playerSheetTakesLeftoverFling(consumed.y)) {
+            // A child-owned fling must not leave the player between its full
+            // and mini anchors if a few drag pixels reached the parent first.
+            state.animateTo(state.currentValue)
             return available
         }
         state.settle(available.y)

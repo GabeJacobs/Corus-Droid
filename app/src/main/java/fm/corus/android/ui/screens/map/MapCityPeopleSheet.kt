@@ -58,6 +58,13 @@ internal enum class MapCitySheetValue { Hidden, Peek, Expanded }
 internal fun mapCitySheetTakesLeftoverFling(listConsumedVelocityY: Float): Boolean =
     kotlin.math.abs(listConsumedVelocityY) <= 1f
 
+/** The city sheet has exactly two visible detents; a downward fling advances one. */
+internal fun mapCitySheetNextDown(value: MapCitySheetValue): MapCitySheetValue = when (value) {
+    MapCitySheetValue.Expanded -> MapCitySheetValue.Peek
+    MapCitySheetValue.Peek -> MapCitySheetValue.Hidden
+    MapCitySheetValue.Hidden -> MapCitySheetValue.Hidden
+}
+
 /**
  * Height of the bottom-aligned city sheet for a drag [offset] from the top of
  * the map. NaN (anchors not ready) uses the peek fraction so the first frame
@@ -246,13 +253,16 @@ private fun mapCitySheetNestedScrollConnection(
         // List consumed this fling — leftover velocity is rubber-banding, not a
         // sheet dismiss. A fling that started at the top has consumed ≈ 0.
         if (!mapCitySheetTakesLeftoverFling(consumed.y) && available.y > 0f) {
+            // Never leave the panel stranded between its expanded and peek
+            // anchors when part of the drag reached the sheet before the fling.
+            state.animateTo(state.currentValue)
             return available
         }
         if (available.y > dismissVelocityThresholdPx &&
             state.currentValue != MapCitySheetValue.Hidden &&
             state.anchors.hasAnchorFor(MapCitySheetValue.Hidden)
         ) {
-            state.animateTo(MapCitySheetValue.Hidden)
+            state.animateTo(mapCitySheetNextDown(state.currentValue))
         } else {
             state.settle(available.y)
         }

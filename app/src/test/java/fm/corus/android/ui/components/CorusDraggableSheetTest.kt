@@ -16,4 +16,10 @@ class CorusDraggableSheetTest {
         assertTrue(corusSheetTakesLeftoverFling(childConsumedVelocityY = 0f))
         assertTrue(corusSheetTakesLeftoverFling(childConsumedVelocityY = 0.5f))
     }
+
+    @Test
+    fun downwardFlingAdvancesExactlyOneDetent() {
+        assertTrue(corusSheetNextDown(CorusSheetValue.Expanded) == CorusSheetValue.PartiallyExpanded)
+        assertTrue(corusSheetNextDown(CorusSheetValue.PartiallyExpanded) == CorusSheetValue.Hidden)
+    }
 }

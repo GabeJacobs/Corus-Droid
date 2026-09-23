@@ -21,4 +21,10 @@ class MapCityPeopleSheetTest {
         assertEquals(false, mapCitySheetTakesLeftoverFling(listConsumedVelocityY = 800f))
         assertEquals(true, mapCitySheetTakesLeftoverFling(listConsumedVelocityY = 0f))
     }
+
+    @Test
+    fun downwardFlingAdvancesExactlyOneDetent() {
+        assertEquals(MapCitySheetValue.Peek, mapCitySheetNextDown(MapCitySheetValue.Expanded))
+        assertEquals(MapCitySheetValue.Hidden, mapCitySheetNextDown(MapCitySheetValue.Peek))
+    }
 }

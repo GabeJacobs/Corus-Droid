@@ -155,6 +155,13 @@ fun corusSheetScrimAlpha(
 internal fun corusSheetTakesLeftoverFling(childConsumedVelocityY: Float): Boolean =
     kotlin.math.abs(childConsumedVelocityY) <= 1f
 
+/** The comments sheet has exactly two visible detents; a downward fling advances one. */
+internal fun corusSheetNextDown(value: CorusSheetValue): CorusSheetValue = when (value) {
+    CorusSheetValue.Expanded -> CorusSheetValue.PartiallyExpanded
+    CorusSheetValue.PartiallyExpanded -> CorusSheetValue.Hidden
+    CorusSheetValue.Hidden -> CorusSheetValue.Hidden
+}
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun CorusDraggableSheet(
@@ -245,9 +252,9 @@ fun CorusDraggableSheet(
                 }
             }
 
-            // A downward fling faster than this skips the peek and dismisses outright,
-            // matching iOS where a quick flick from the large detent closes the sheet
-            // instead of stopping at medium. Slower drags still settle to the nearest anchor.
+            // A fast downward fling advances exactly one detent: expanded -> peek -> hidden.
+            // This matches the native two-visible-state sheet model and prevents a fling from
+            // either skipping the medium state or parking between anchors.
             val dismissVelocityThresholdPx = with(density) { 300.dp.toPx() }
             val nestedScroll = remember(state, dismissVelocityThresholdPx) {
                 sheetNestedScrollConnection(state, dismissVelocityThresholdPx)
@@ -354,15 +361,19 @@ private fun sheetNestedScrollConnection(
         // scroll overshoot. Only a fling that began at the child's top edge may
         // collapse or dismiss the sheet.
         if (available.y > 0f && !corusSheetTakesLeftoverFling(consumed.y)) {
+            // Some of the finger drag may already have reached the sheet before
+            // the child fling reported its consumed velocity. Return to the
+            // settled detent instead of leaving the panel between anchors.
+            state.animateTo(state.currentValue)
             return available
         }
-        // Fast downward flick → dismiss the whole sheet, skipping the peek detent (iOS
-        // parity). A slower fling falls through to settle() and lands on the nearest anchor.
+        // Fast downward flick -> exactly one lower detent. A slower release
+        // settles to the nearest anchor based on drag distance.
         if (available.y > dismissVelocityThresholdPx &&
             state.currentValue != CorusSheetValue.Hidden &&
             state.anchors.hasAnchorFor(CorusSheetValue.Hidden)
         ) {
-            state.animateTo(CorusSheetValue.Hidden)
+            state.animateTo(corusSheetNextDown(state.currentValue))
         } else {
             state.settle(available.y)
         }
