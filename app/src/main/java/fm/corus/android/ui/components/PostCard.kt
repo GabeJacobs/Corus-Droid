@@ -125,6 +125,18 @@ internal fun AlbumArtPlaybackOverlayGlyph(
     }
 }
 
+@Composable
+private fun NewOnCorusTag() {
+    Text(
+        text = "New on Corus",
+        style = CorusFont.caption.copy(fontWeight = FontWeight.SemiBold),
+        color = CorusColors.Accent,
+        modifier = Modifier
+            .background(CorusColors.Accent.copy(alpha = 0.18f), RoundedCornerShape(50))
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    )
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PostCard(
@@ -376,6 +388,9 @@ fun PostCard(
                     style = CorusFont.username,
                     color = CorusColors.Text,
                 )
+                if (post.isNewOnCorus) {
+                    NewOnCorusTag()
+                }
 
                 // Repost indicator — only the @username is tappable so a near-miss on
                 // the poster's username above doesn't accidentally land on the original poster's handle

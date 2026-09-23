@@ -162,6 +162,7 @@ fun PostMenuSheets(
                 isSearching = isShareSearching,
                 isLoadingContacts = isLoadingShareContacts,
                 instagramShareEnabled = actions.remoteConfig.instagramShareEnabled,
+                postToInstagramV2 = actions.remoteConfig.postToInstagramV2,
                 sheetState = shareSheetState,
                 onSearchQueryChange = { query -> actions.searchShareUsers(query) },
                 onSendToUser = { userId, message ->

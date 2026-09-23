@@ -115,6 +115,8 @@
     <string name="notifications_row_plays">Reproduções</string>
     <string name="notifications_row_messages">Mensagens</string>
     <string name="notifications_row_reactions">Reações</string>
+    <string name="notifications_row_updates_reminders">Atualizações e Lembretes</string>
+    <string name="notifications_row_updates_reminders_subtitle">Avisos ocasionais e novidades do Corus</string>
 
     <!-- Settings: Appearance -->
     <string name="settings_section_appearance">APARÊNCIA</string>

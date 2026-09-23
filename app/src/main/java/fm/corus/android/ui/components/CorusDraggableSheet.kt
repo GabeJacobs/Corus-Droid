@@ -146,6 +146,15 @@ fun corusSheetScrimAlpha(
     return openFraction * maxAlpha
 }
 
+/**
+ * A fling that already scrolled child content must not reuse its leftover
+ * velocity to collapse or dismiss the sheet. A fling that began with the child
+ * already at its edge consumes approximately no velocity and remains a valid
+ * sheet gesture.
+ */
+internal fun corusSheetTakesLeftoverFling(childConsumedVelocityY: Float): Boolean =
+    kotlin.math.abs(childConsumedVelocityY) <= 1f
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun CorusDraggableSheet(
@@ -303,6 +312,8 @@ private fun sheetNestedScrollConnection(
     state: AnchoredDraggableState<CorusSheetValue>,
     dismissVelocityThresholdPx: Float,
 ): NestedScrollConnection = object : NestedScrollConnection {
+    private var childFlingActive = false
+
     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
         val delta = available.y
         return if (delta < 0f && source == NestedScrollSource.UserInput) {
@@ -317,11 +328,12 @@ private fun sheetNestedScrollConnection(
         available: Offset,
         source: NestedScrollSource,
     ): Offset {
-        return if (source == NestedScrollSource.UserInput) {
-            Offset(0f, state.dispatchRawDelta(available.y))
-        } else {
-            Offset.Zero
-        }
+        if (source != NestedScrollSource.UserInput) return Offset.Zero
+        // When a downward fling scrolls the comment list to its top, Compose
+        // reports the remaining movement here. Keep that overshoot on the list
+        // instead of turning the same gesture into a sheet dismissal.
+        if (childFlingActive && available.y > 0f) return Offset.Zero
+        return Offset(0f, state.dispatchRawDelta(available.y))
     }
 
     override suspend fun onPreFling(available: Velocity): Velocity {
@@ -331,11 +343,19 @@ private fun sheetNestedScrollConnection(
             state.settle(toFling)
             available
         } else {
+            if (toFling > 0f) childFlingActive = true
             Velocity.Zero
         }
     }
 
     override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+        childFlingActive = false
+        // The child consumed this downward fling, so any remaining velocity is
+        // scroll overshoot. Only a fling that began at the child's top edge may
+        // collapse or dismiss the sheet.
+        if (available.y > 0f && !corusSheetTakesLeftoverFling(consumed.y)) {
+            return available
+        }
         // Fast downward flick → dismiss the whole sheet, skipping the peek detent (iOS
         // parity). A slower fling falls through to settle() and lands on the nearest anchor.
         if (available.y > dismissVelocityThresholdPx &&

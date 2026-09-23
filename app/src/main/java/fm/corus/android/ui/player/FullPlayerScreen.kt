@@ -423,7 +423,7 @@ fun FullPlayerScreen(
                 trackSource = state.source,
                 musicService = musicService,
                 showsSaveButton = remoteConfig?.fullPlayerSaveButtonEnabled == true && !state.sourcePostId.isNullOrBlank(),
-                canSave = !state.sourcePostId.isNullOrBlank() && sourcePost?.id == state.sourcePostId,
+                canSave = !state.sourcePostId.isNullOrBlank(),
                 isSaved = isSaved,
                 onSave = { state.sourcePostId?.let(onSavePost) },
                 interactive = interactive,

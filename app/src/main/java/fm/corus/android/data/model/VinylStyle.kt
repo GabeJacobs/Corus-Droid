@@ -97,14 +97,15 @@ enum class VinylStyle(val value: String) {
 
     val canvasH: Float get() = canvasW * canvasRatio
 
-    // Vinyl label position fractions (from Figma)
+    // Vinyl label position fractions (from Figma). Clear, White, Icy Blue and Peach
+    // extend 2 canvas points per edge to cover the printed rim, keeping the center.
     val labelXFrac: Float
         get() = when (this) {
             BLACK -> 330.77f / 585f
             BLUE -> 320f / 585f
-            WHITE -> 325f / 585f
+            WHITE -> 323f / 585f
             RED_MATTE -> 324f / 585f
-            CLEAR -> 327f / 585f
+            CLEAR -> 325f / 585f
             PURPLE -> 326f / 585f
             GREEN -> 322f / 585f
             GOLD -> 319.91f / 585f
@@ -116,9 +117,9 @@ enum class VinylStyle(val value: String) {
             PURPLE_TIE_DYE -> 325f / 582f
             BLUE_TIE_DYE -> 318f / 582f
             ORANGE_TIE_DYE -> 324f / 582f
-            ICY_BLUE -> 321f / 582f
+            ICY_BLUE -> 319f / 582f
             GALAXY -> 322f / 582f
-            PEACH -> 321f / 582f
+            PEACH -> 319f / 582f
             LAVENDER -> 324f / 582f
             BLOOD_RED -> 325f / 582f
         }
@@ -127,13 +128,13 @@ enum class VinylStyle(val value: String) {
         get() = when (this) {
             BLACK -> 153.98f / 447f
             BLUE -> 151f / 447f
-            WHITE -> 158f / 447f
+            WHITE -> 156f / 447f
             RED_MATTE -> 150f / 447f
-            CLEAR -> 154f / 447f
+            CLEAR -> 152f / 447f
             PURPLE -> 153f / 447f
             GREEN -> 148f / 447f
             GOLD -> 151.6f / 447f
-            PINK -> 142f / 441f
+            PINK -> 141f / 441f
             ORANGE -> 152f / 440f
             YELLOW -> 151f / 440f
             LIME -> 146f / 440f
@@ -141,9 +142,9 @@ enum class VinylStyle(val value: String) {
             PURPLE_TIE_DYE -> 147f / 440f
             BLUE_TIE_DYE -> 150f / 440f
             ORANGE_TIE_DYE -> 150f / 440f
-            ICY_BLUE -> 150f / 440f
+            ICY_BLUE -> 148f / 440f
             GALAXY -> 150f / 440f
-            PEACH -> 151f / 440f
+            PEACH -> 149f / 440f
             LAVENDER, BLOOD_RED -> 153f / 440f
         }
 
@@ -151,9 +152,9 @@ enum class VinylStyle(val value: String) {
         get() = when (this) {
             BLACK -> 82.44f / 585f
             BLUE -> 99f / 585f
-            WHITE -> 87f / 585f
+            WHITE -> 91f / 585f
             RED_MATTE -> 96f / 585f
-            CLEAR -> 88f / 585f
+            CLEAR -> 92f / 585f
             PURPLE -> 90f / 585f
             GREEN -> 98f / 585f
             GOLD -> 89.29f / 585f
@@ -165,9 +166,9 @@ enum class VinylStyle(val value: String) {
             PURPLE_TIE_DYE -> 85f / 582f
             BLUE_TIE_DYE -> 91f / 582f
             ORANGE_TIE_DYE -> 89f / 582f
-            ICY_BLUE -> 88f / 582f
+            ICY_BLUE -> 92f / 582f
             GALAXY -> 88f / 582f
-            PEACH -> 85f / 582f
+            PEACH -> 89f / 582f
             LAVENDER, BLOOD_RED -> 82f / 582f
         }
 
@@ -175,9 +176,9 @@ enum class VinylStyle(val value: String) {
         get() = when (this) {
             BLACK -> 84.43f / 447f
             BLUE -> 101f / 447f
-            WHITE -> 89f / 447f
+            WHITE -> 93f / 447f
             RED_MATTE -> 98f / 447f
-            CLEAR -> 90f / 447f
+            CLEAR -> 94f / 447f
             PURPLE -> 92f / 447f
             GREEN -> 100f / 447f
             GOLD -> 91.25f / 447f
@@ -189,9 +190,9 @@ enum class VinylStyle(val value: String) {
             PURPLE_TIE_DYE -> 86f / 440f
             BLUE_TIE_DYE -> 92f / 440f
             ORANGE_TIE_DYE -> 90f / 440f
-            ICY_BLUE -> 89f / 440f
+            ICY_BLUE -> 93f / 440f
             GALAXY -> 89f / 440f
-            PEACH -> 86f / 440f
+            PEACH -> 90f / 440f
             LAVENDER, BLOOD_RED -> 83f / 440f
         }
 

@@ -298,7 +298,7 @@ suspend fun generateShareCardBitmap(
 }
 
 /** A Paint using the Nunito brand font at the given variable-font weight (falls back to system bold). */
-private fun nunitoPaint(
+internal fun nunitoPaint(
     context: Context,
     size: Float,
     weight: Int,
@@ -318,7 +318,7 @@ private fun nunitoPaint(
 }
 
 /** Layers shadow + tinted vinyl + circular center label + big album art, matching FeaturedCymbalView. */
-private fun drawVinylComposite(
+internal fun drawVinylComposite(
     canvas: android.graphics.Canvas,
     context: Context,
     style: VinylStyle,

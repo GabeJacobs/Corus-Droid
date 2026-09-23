@@ -1094,6 +1094,8 @@ fun SongDetailScreen(
             BackHandler { showShareSheet = false }
             ShareMediaSheet(
                 subject = ShareMediaSubject.Track(resolvedTrack),
+                postToInstagramV2 = viewModel.postToInstagramV2,
+                instagramShareEnabled = viewModel.instagramShareEnabled,
                 recentContacts = recentShareContacts,
                 searchResults = shareSearchResults,
                 isSearching = isShareSearching,

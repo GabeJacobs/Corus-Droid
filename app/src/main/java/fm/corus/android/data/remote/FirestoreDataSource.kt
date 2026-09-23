@@ -168,6 +168,7 @@ class FirestoreDataSource @Inject constructor(
                     "newFollowers" to true,
                     "followRequests" to true,
                     "contactJoined" to true,
+                    "updatesAndReminders" to true,
                 ),
             ),
             "vinylColor" to "black",

@@ -122,6 +122,14 @@ fun ExpandingPlayerHost(
 }
 
 /**
+ * Residual velocity from content that was already scrolling must not collapse
+ * the player. A fling that starts with content at its top edge consumes
+ * approximately no velocity and remains a valid player-collapse gesture.
+ */
+internal fun playerSheetTakesLeftoverFling(contentConsumedVelocityY: Float): Boolean =
+    kotlin.math.abs(contentConsumedVelocityY) <= 1f
+
+/**
  * Nested-scroll handoff matching iOS PlayerSlideContainer:
  * - Pull up: expand sheet before content scrolls.
  * - Pull down at content top (or while already mid-collapse): sheet tracks the
@@ -132,6 +140,8 @@ private fun playerSheetNestedScrollConnection(
     state: AnchoredDraggableState<PlayerSheetValue>,
     isContentAtTop: () -> Boolean,
 ): NestedScrollConnection = object : NestedScrollConnection {
+    private var contentFlingActive = false
+
     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
         if (source != NestedScrollSource.UserInput) return Offset.Zero
         val delta = available.y
@@ -161,11 +171,11 @@ private fun playerSheetNestedScrollConnection(
         available: Offset,
         source: NestedScrollSource,
     ): Offset {
-        return if (source == NestedScrollSource.UserInput) {
-            Offset(0f, state.dispatchRawDelta(available.y))
-        } else {
-            Offset.Zero
-        }
+        if (source != NestedScrollSource.UserInput) return Offset.Zero
+        // Do not turn the overshoot from a downward content fling into a
+        // player-collapse drag when the content reaches its top edge.
+        if (contentFlingActive && available.y > 0f) return Offset.Zero
+        return Offset(0f, state.dispatchRawDelta(available.y))
     }
 
     override suspend fun onPreFling(available: Velocity): Velocity {
@@ -182,10 +192,15 @@ private fun playerSheetNestedScrollConnection(
             state.settle(toFling)
             return available
         }
+        if (toFling > 0f) contentFlingActive = true
         return Velocity.Zero
     }
 
     override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+        contentFlingActive = false
+        if (available.y > 0f && !playerSheetTakesLeftoverFling(consumed.y)) {
+            return available
+        }
         state.settle(available.y)
         return available
     }

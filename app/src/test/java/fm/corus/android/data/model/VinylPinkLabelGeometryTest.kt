@@ -18,7 +18,7 @@ class VinylPinkLabelGeometryTest {
 
     @Test fun `pink label matches Figma InnerCircle`() {
         assertEquals(311f / 582f, VinylStyle.PINK.labelXFrac, delta)
-        assertEquals(142f / 441f, VinylStyle.PINK.labelYFrac, delta)
+        assertEquals(141f / 441f, VinylStyle.PINK.labelYFrac, delta)
         assertEquals(102f / 582f, VinylStyle.PINK.labelWFrac, delta)
         assertEquals(104f / 441f, VinylStyle.PINK.labelHFrac, delta)
     }

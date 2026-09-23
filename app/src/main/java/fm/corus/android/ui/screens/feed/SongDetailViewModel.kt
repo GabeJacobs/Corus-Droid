@@ -51,6 +51,9 @@ class SongDetailViewModel @Inject constructor(
 
     /** Prototype gate for the immersive (blurred-cover hero + frosted collapsing
      *  bar) song header. Shares the artist header's debug-on / RC-gated flag. */
+    val postToInstagramV2: Boolean get() = remoteConfigService.postToInstagramV2
+    val instagramShareEnabled: Boolean get() = remoteConfigService.instagramShareEnabled
+
     val immersiveHeaderEnabled: Boolean
         get() = remoteConfigService.immersiveArtistHeaderEnabled
 

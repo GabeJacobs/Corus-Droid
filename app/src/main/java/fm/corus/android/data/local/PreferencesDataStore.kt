@@ -736,7 +736,7 @@ class PreferencesDataStore @Inject constructor(
     /**
      * Opt-in: once the user turns on the Settings "Add Saved Songs to Library"
      * toggle for Spotify, every subsequent song save also adds the track to
-     * their Spotify library over App Remote. Default OFF (opt-in) when the
+     * their Spotify library over App Remote. Default ON when the
      * account has never saved a value; [MusicServicePreference.syncFromFirestore]
      * overlays `users_v2.settings.autoAddToSpotify` so a login doesn't flash
      * the unset default over the account's stored preference. Mirrored to
@@ -744,7 +744,7 @@ class PreferencesDataStore @Inject constructor(
      * DataStore (avoids an off→on flash when the user has it enabled).
      */
     val autoAddSavedToSpotify: Flow<Boolean> = dataStore.data.map { prefs ->
-        (prefs[AUTO_ADD_SPOTIFY] ?: false).also { mirrorAutoAddSavedToSpotifySync(it) }
+        (prefs[AUTO_ADD_SPOTIFY] ?: true).also { mirrorAutoAddSavedToSpotifySync(it) }
     }
 
     suspend fun setAutoAddSavedToSpotify(value: Boolean) {
@@ -768,7 +768,7 @@ class PreferencesDataStore @Inject constructor(
     /** Synchronous seed for Settings — same default as the DataStore flow. */
     fun autoAddSavedToSpotifySync(): Boolean =
         context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean("auto_add_saved_to_spotify", false)
+            .getBoolean("auto_add_saved_to_spotify", true)
 
     /**
      * Spotify library saves that couldn't be delivered yet (JSON-encoded array

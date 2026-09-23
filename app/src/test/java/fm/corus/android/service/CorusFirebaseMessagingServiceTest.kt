@@ -93,4 +93,16 @@ class CorusFirebaseMessagingServiceTest {
         ActiveThreadTracker.activeThreadId = null
         assertNull(ActiveThreadTracker.activeThreadId)
     }
+
+    @Test
+    fun `updates and reminders use a dedicated notification channel`() {
+        assertEquals(
+            "corus_updates_reminders" to "Updates & Reminders",
+            CorusFirebaseMessagingService.notificationChannel("updates_and_reminders"),
+        )
+        assertEquals(
+            "corus_default" to "Corus",
+            CorusFirebaseMessagingService.notificationChannel("like"),
+        )
+    }
 }

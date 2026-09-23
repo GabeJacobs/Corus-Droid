@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="instagram_v2_share_post">Share post</string>
+    <string name="instagram_v2_share_song">Share song</string>
+    <string name="instagram_v2_cover">Cover</string>
+    <string name="instagram_v2_vinyl">Vinyl</string>
+    <string name="instagram_v2_artwork">Artwork</string>
+    <string name="instagram_v2_gradient">Gradient</string>
+    <string name="instagram_v2_light">Light</string>
+    <string name="instagram_v2_dark">Dark</string>
+    <string name="instagram_v2_done">Done</string>
+    <string name="instagram_v2_close">Close</string>
+    <string name="instagram_v2_options">Sharing options</string>
+    <string name="instagram_v2_share_image">Share image</string>
+    <string name="instagram_v2_show_caption">Show caption</string>
+    <string name="instagram_v2_hide_caption">Hide caption</string>
+    <string name="instagram_v2_retry">Retry</string>
+    <string name="instagram_v2_preview">Instagram Story preview</string>
+    <string name="instagram_v2_copied">Copied link to clipboard</string>
+    <string name="instagram_v2_paste_hint">Paste it into a Link sticker in Instagram.</string>
+    <string name="instagram_v2_artwork_error">Couldn’t load artwork. Try again.</string>
+    <string name="instagram_v2_share_error">Couldn’t open Instagram. Use Share image or Copy link.</string>
+    <string name="instagram_v2_unavailable">Instagram isn’t available. Use Share image or Copy link.</string>
+</resources>

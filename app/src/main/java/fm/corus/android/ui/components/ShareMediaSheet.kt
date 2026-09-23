@@ -135,8 +135,21 @@ fun ShareMediaSheet(
     onAnalyticsLog: ((method: String) -> Unit)? = null,
     isOwnProfile: Boolean = false,
     instagramShareEnabled: Boolean = false,
+    postToInstagramV2: Boolean = false,
     profileShareAnalytics: ProfileShareAnalytics? = null,
 ) {
+    if (postToInstagramV2 && subject is ShareMediaSubject.Track) {
+        val track = subject.track
+        PostToInstagramV2Sheet(
+            subject = InstagramV2Subject(track.name, track.artistName, track.albumArtLargeURL ?: track.albumArtURL,
+                "https://corus.fm/song/${track.id}", "https://corus.fm/song/${track.id}"),
+            recentContacts = recentContacts, searchResults = searchResults, isSearching = isSearching,
+            isLoadingContacts = isLoadingContacts, instagramShareEnabled = instagramShareEnabled,
+            onSearchQueryChange = onSearchQueryChange, onSendToUser = onSendToUser,
+            onDismiss = onDismiss, onAnalyticsLog = onAnalyticsLog,
+        )
+        return
+    }
     val sharedProfile = (subject as? ShareMediaSubject.Profile)?.profile
     val showOwnProfileSheet = isOwnProfile && sharedProfile != null
 

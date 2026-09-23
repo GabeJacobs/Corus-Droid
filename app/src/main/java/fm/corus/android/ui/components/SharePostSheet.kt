@@ -64,12 +64,24 @@ fun SharePostSheet(
     isLoadingContacts: Boolean,
     instagramShareEnabled: Boolean,
     sheetState: SheetState,
+    postToInstagramV2: Boolean = false,
     onSearchQueryChange: (String) -> Unit,
     onSendToUser: (userId: String, message: String) -> Unit,
     onRepost: () -> Unit,
     onDismiss: () -> Unit,
     onAnalyticsLog: ((method: String) -> Unit)? = null,
 ) {
+    if (postToInstagramV2 && post.isTrack) {
+        PostToInstagramV2Sheet(
+            subject = InstagramV2Subject(post.track.name, post.track.artistName, post.displayImageLargeURL ?: post.displayImageURL,
+                "https://corus.fm/song/${post.track.id}", "https://corus.fm/post/${post.id}", post.user.username, post.caption, post.user.avatarURL),
+            recentContacts = recentContacts, searchResults = searchResults, isSearching = isSearching,
+            isLoadingContacts = isLoadingContacts, instagramShareEnabled = instagramShareEnabled,
+            onSearchQueryChange = onSearchQueryChange, onSendToUser = onSendToUser,
+            onDismiss = onDismiss, onRepost = onRepost, onAnalyticsLog = onAnalyticsLog,
+        )
+        return
+    }
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     var searchQuery by remember { mutableStateOf("") }

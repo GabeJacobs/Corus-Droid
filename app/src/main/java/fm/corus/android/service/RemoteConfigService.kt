@@ -115,6 +115,9 @@ class RemoteConfigService @Inject constructor(
         get() = remoteConfig.getBoolean("maintenance_mode")
 
     // New flags (matching iOS RemoteConfigService)
+    val postToInstagramV2: Boolean
+        get() = remoteConfig.getBoolean("post_to_instagram_v2")
+
     val instagramShareEnabled: Boolean
         get() = remoteConfig.getBoolean("instagram_share_enabled")
 
@@ -773,6 +776,7 @@ class RemoteConfigService @Inject constructor(
             "movie_mode" to true,
             "maintenance_mode" to false,
             "instagram_share_enabled" to true,
+            "post_to_instagram_v2" to false,
             "corus_club_enabled" to true,
             "vinyl_flip_enabled" to true,
             "review_prompt_enabled" to true,

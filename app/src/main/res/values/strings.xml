@@ -152,6 +152,8 @@
     <string name="notifications_row_trending">Trending</string>
     <string name="notifications_row_messages">Messages</string>
     <string name="notifications_row_reactions">Reactions</string>
+    <string name="notifications_row_updates_reminders">Updates &amp; Reminders</string>
+    <string name="notifications_row_updates_reminders_subtitle">Occasional prompts and news from Corus</string>
     <string name="notifications_row_read_receipts">Read receipts</string>
 
     <!-- Settings: Appearance -->

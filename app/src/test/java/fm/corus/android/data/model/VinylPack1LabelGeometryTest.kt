@@ -46,19 +46,19 @@ class VinylPack1LabelGeometryTest {
         assertEquals(57f / 440f, VinylStyle.BLUE_TIE_DYE.artYFrac, delta)
     }
 
-    @Test fun `peach label matches Figma InnerCircle`() {
-        assertEquals(321f / 582f, VinylStyle.PEACH.labelXFrac, delta)
-        assertEquals(151f / 440f, VinylStyle.PEACH.labelYFrac, delta)
-        assertEquals(85f / 582f, VinylStyle.PEACH.labelWFrac, delta)
-        assertEquals(86f / 440f, VinylStyle.PEACH.labelHFrac, delta)
+    @Test fun `peach label covers the printed center`() {
+        assertEquals(319f / 582f, VinylStyle.PEACH.labelXFrac, delta)
+        assertEquals(149f / 440f, VinylStyle.PEACH.labelYFrac, delta)
+        assertEquals(89f / 582f, VinylStyle.PEACH.labelWFrac, delta)
+        assertEquals(90f / 440f, VinylStyle.PEACH.labelHFrac, delta)
         assertEquals(57f / 440f, VinylStyle.PEACH.artYFrac, delta)
     }
 
     @Test fun `icy blue label covers the printed center`() {
-        assertEquals(321f / 582f, VinylStyle.ICY_BLUE.labelXFrac, delta)
-        assertEquals(150f / 440f, VinylStyle.ICY_BLUE.labelYFrac, delta)
-        assertEquals(88f / 582f, VinylStyle.ICY_BLUE.labelWFrac, delta)
-        assertEquals(89f / 440f, VinylStyle.ICY_BLUE.labelHFrac, delta)
+        assertEquals(319f / 582f, VinylStyle.ICY_BLUE.labelXFrac, delta)
+        assertEquals(148f / 440f, VinylStyle.ICY_BLUE.labelYFrac, delta)
+        assertEquals(92f / 582f, VinylStyle.ICY_BLUE.labelWFrac, delta)
+        assertEquals(93f / 440f, VinylStyle.ICY_BLUE.labelHFrac, delta)
         assertEquals(57f / 440f, VinylStyle.ICY_BLUE.artYFrac, delta)
     }
 

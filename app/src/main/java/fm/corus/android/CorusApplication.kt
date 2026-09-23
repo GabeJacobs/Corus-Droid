@@ -114,6 +114,14 @@ class CorusApplication : Application(), SingletonImageLoader.Factory {
             description = "Direct messages"
         }
 
+        val updatesAndReminders = NotificationChannel(
+            "corus_updates_reminders",
+            "Updates & Reminders",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Occasional prompts and news from Corus"
+        }
+
         // Silent low-importance channel for the playback foreground-service
         // placeholder notification. media3 replaces it with the rich media
         // notification once the session attaches; the channel just has to
@@ -127,6 +135,6 @@ class CorusApplication : Application(), SingletonImageLoader.Factory {
             setShowBadge(false)
         }
 
-        manager.createNotificationChannels(listOf(general, social, messages, playback))
+        manager.createNotificationChannels(listOf(general, social, messages, updatesAndReminders, playback))
     }
 }

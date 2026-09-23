@@ -39,6 +39,7 @@ data class CymbalPost(
      *  home feed because the user follows the hashtag (not the author).
      *  `null` for posts from followed users and for direct-Firestore reads. */
     val injectedByHashtag: String? = null,
+    val isNewOnCorus: Boolean = false,
 
     val energyLevel: String? = null,
 
@@ -307,6 +308,7 @@ data class CymbalPost(
                 sendCount = ((data["sendCount"] as? Number)?.toInt() ?: 0).coerceAtLeast(0),
                 saveCount = ((data["saveCount"] as? Number)?.toInt() ?: 0).coerceAtLeast(0),
                 injectedByHashtag = (data["injectedByHashtag"] as? String)?.ifEmpty { null },
+                isNewOnCorus = data["isNewOnCorus"] as? Boolean ?: false,
                 mediaType = mediaType,
                 movieId = data["movieId"] as? String,
                 movieTitle = data["movieTitle"] as? String,

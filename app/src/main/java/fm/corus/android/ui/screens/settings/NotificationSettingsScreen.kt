@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddReaction
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.HowToReg
 import androidx.compose.material.icons.filled.Map
@@ -142,6 +143,14 @@ fun NotificationSettingsScreen(
                 title = stringResource(R.string.notifications_row_reactions),
                 checked = settings.reactions,
                 onCheckedChange = viewModel::setReactions,
+            )
+
+            NotifToggleRow(
+                icon = Icons.Filled.NotificationsActive,
+                title = stringResource(R.string.notifications_row_updates_reminders),
+                subtitle = stringResource(R.string.notifications_row_updates_reminders_subtitle),
+                checked = settings.updatesAndReminders,
+                onCheckedChange = viewModel::setUpdatesAndReminders,
             )
         }
     }

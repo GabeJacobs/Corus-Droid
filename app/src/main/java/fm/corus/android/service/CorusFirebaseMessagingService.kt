@@ -36,6 +36,8 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
         // these from system settings without silencing all of Corus.
         private const val CHANNEL_ID_PLAYS = "corus_plays"
         private const val CHANNEL_NAME_PLAYS = "Plays"
+        private const val CHANNEL_ID_UPDATES_AND_REMINDERS = "corus_updates_reminders"
+        private const val CHANNEL_NAME_UPDATES_AND_REMINDERS = "Updates & Reminders"
         const val EXTRA_FROM_NOTIFICATION = "from_notification"
         const val EXTRA_NOTIF_PREFIX = "notif_"
         // Payload `type` for a direct-message push.
@@ -54,6 +56,12 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
          */
         fun shouldSuppress(type: String?, threadId: String?, activeThreadId: String?): Boolean =
             type == MESSAGE_TYPE && !threadId.isNullOrEmpty() && threadId == activeThreadId
+
+        fun notificationChannel(type: String?): Pair<String, String> = when (type) {
+            "play_milestone" -> CHANNEL_ID_PLAYS to CHANNEL_NAME_PLAYS
+            "updates_and_reminders" -> CHANNEL_ID_UPDATES_AND_REMINDERS to CHANNEL_NAME_UPDATES_AND_REMINDERS
+            else -> CHANNEL_ID to CHANNEL_NAME
+        }
     }
 
     override fun onNewToken(token: String) {
@@ -126,11 +134,9 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        // Route play-milestone pushes to their own channel so they can be muted
-        // independently in system settings.
-        val isPlay = data["type"] == "play_milestone"
-        val channelId = if (isPlay) CHANNEL_ID_PLAYS else CHANNEL_ID
-        val channelName = if (isPlay) CHANNEL_NAME_PLAYS else CHANNEL_NAME
+        // Route categories with their own preference to matching Android system
+        // channels so users can also mute them from system settings.
+        val (channelId, channelName) = notificationChannel(data["type"])
 
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
             // Dedicated monochrome notification icon. logo_no_background is a UI
