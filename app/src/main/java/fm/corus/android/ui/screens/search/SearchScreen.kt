@@ -168,6 +168,8 @@ enum class SearchTab(val labelRes: Int) {
 fun SearchScreen(
     viewModel: SearchViewModel = hiltViewModel(),
     scrollToTopTrigger: Int = 0,
+    onNavigateToConcerts: () -> Unit = {},
+    onNavigateToConcert: (String) -> Unit = {},
     onNavigateToUser: (CymbalUser) -> Unit = {},
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (FilmDetailRoute) -> Unit = {},
@@ -680,6 +682,9 @@ fun SearchScreen(
                                     onAlbumTap = openTrendingAlbum,
                                     onSeeAll = { onNavigateToTrending("albums") },
                                 )
+                                if (viewModel.concertsEnabled) {
+                                    item { ConcertPreview(onSeeAll = onNavigateToConcerts, onConcert = onNavigateToConcert) }
+                                }
                                 if (trendingArtistsSectionEnabled || segmentedSearchEnabled) {
                                     compactTrendingArtistsSection(
                                         artists = trendingArtists,

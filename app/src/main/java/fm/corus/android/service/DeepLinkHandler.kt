@@ -12,6 +12,7 @@ sealed class DeepLinkDestination {
     data class Hashtag(val tag: String) : DeepLinkDestination()
     data object Club : DeepLinkDestination()
     data class Map(val cityId: String?, val userIds: List<String>) : DeepLinkDestination()
+    data class Concert(val eventId: String) : DeepLinkDestination()
 
     /**
      * A catalog page named by a public URL. [key] is exactly what the path
@@ -30,6 +31,7 @@ sealed class DeepLinkDestination {
         is Club -> "club"
         is Entity -> segment.segment
         is Map -> "map_follow_join"
+        is Concert -> "concert"
     }
 }
 
@@ -68,6 +70,7 @@ object DeepLinkHandler {
             "thread" -> uri.pathSegments.firstOrNull()?.let { DeepLinkDestination.Thread(it) }
             "hashtag" -> uri.pathSegments.firstOrNull()?.let { DeepLinkDestination.Hashtag(it) }
             "club" -> DeepLinkDestination.Club
+            "concert" -> uri.pathSegments.lastOrNull()?.takeIf { it.isNotBlank() }?.let(DeepLinkDestination::Concert)
             else -> entityDestination(uri.host, uri.pathSegments.firstOrNull())
         }
     }
@@ -84,6 +87,7 @@ object DeepLinkHandler {
         return when (segments[0]) {
             "post" -> segments.getOrNull(1)?.let { DeepLinkDestination.Post(it) }
             "u" -> segments.getOrNull(1)?.let { DeepLinkDestination.ProfileByUsername(it) }
+            "concert" -> segments.lastOrNull()?.takeIf { it.isNotBlank() }?.let(DeepLinkDestination::Concert)
             else -> entityDestination(segments[0], segments.getOrNull(1))
         }
     }
@@ -95,6 +99,7 @@ object DeepLinkHandler {
     fun parseNotificationData(data: Map<String, String>): DeepLinkDestination? {
         val type = data["type"] ?: return fallbackParse(data)
         return when (type) {
+            "concert_going" -> data["eventId"]?.takeIf { it.isNotBlank() }?.let(DeepLinkDestination::Concert)
             "map_follow_join" -> {
                 val cityId = data["cityId"]?.takeIf { it.isNotEmpty() }
                 val ids = runCatching {

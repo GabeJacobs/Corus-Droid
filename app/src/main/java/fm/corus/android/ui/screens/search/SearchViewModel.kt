@@ -165,6 +165,7 @@ class SearchViewModel @Inject constructor(
     /** Live flag read — gates the search-row fetches, the tab labels, and the
      *  placeholders. */
     val artistPagesEnabled: Boolean get() = remoteConfigService.artistPagesEnabled
+    val concertsEnabled: Boolean get() = remoteConfigService.concertsEnabled
 
     /** Live flag read — unified search (blended zero state + filter chips). */
     val unifiedSearchEnabled: Boolean get() = remoteConfigService.unifiedSearchEnabled

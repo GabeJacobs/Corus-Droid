@@ -327,6 +327,10 @@ class RemoteConfigService @Inject constructor(
     val artistPagesEnabled: Boolean
         get() = feedFlag("artist_pages_enabled")
 
+    /** Shared concert switch. Android's first rollout is limited to Gabe. */
+    val concertsEnabled: Boolean
+        get() = feedFlag("concerts_enabled") && auth.currentUser?.uid == "FUQZIrZR08T2Ux2vYpPzWx7B1rv1"
+
     /** Option B gate for pre-release album destination pages. OFF = Option A only. */
     val prereleaseAlbumPagesEnabled: Boolean
         get() = feedFlag("prerelease_album_pages_enabled")
@@ -769,6 +773,7 @@ class RemoteConfigService @Inject constructor(
         /// fetchAndActivate(). Single source of truth — keep in sync with the
         /// server template and the iOS/web defaults.
         private val DEFAULTS: Map<String, Any> = mapOf(
+            "concerts_enabled" to false,
             "map_enabled" to false,
             "mapkit_js_token" to "",
             "artist_merch_enabled" to false,

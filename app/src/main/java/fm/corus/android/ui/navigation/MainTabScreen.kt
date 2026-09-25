@@ -371,7 +371,7 @@ fun MainTabScreen(
         val navController = if (isThread) {
             selectedTab = CorusTab.MESSAGES
             messagesNavController
-        } else if (isMap) {
+        } else if (isMap || notificationDestination is DeepLinkDestination.Concert) {
             selectedTab = CorusTab.EXPLORE
             searchNavController
         } else {
@@ -405,6 +405,7 @@ fun MainTabScreen(
             is DeepLinkDestination.Map -> navController.navigate(
                 MapExploreRoute(notificationDestination.cityId, notificationDestination.userIds)
             )
+            is DeepLinkDestination.Concert -> navController.navigate(ConcertDetailRoute(notificationDestination.eventId))
         }
         onNotificationDestinationConsumed()
     }

@@ -12,6 +12,7 @@ enum class MessageType(val value: String) {
     SHARED_ALBUM("sharedAlbum"),
     SHARED_DIRECTOR("sharedDirector"),
     SHARED_PROFILE("sharedProfile"),
+    SHARED_CONCERT("sharedConcert"),
 
     /** Group lifecycle event ("X added Y"), rendered as a centered system row. */
     SYSTEM("system");

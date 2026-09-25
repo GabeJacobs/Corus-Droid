@@ -106,6 +106,15 @@ fun NotificationSettingsScreen(
                 onCheckedChange = viewModel::setMapUpdates,
             )
 
+            if (viewModel.concertsEnabled) {
+                NotifToggleRow(
+                    icon = Icons.Filled.NotificationsActive,
+                    title = stringResource(R.string.concerts_title),
+                    checked = settings.concerts,
+                    onCheckedChange = viewModel::setConcerts,
+                )
+            }
+
             NotifToggleRow(
                 icon = Icons.Filled.AutoAwesome,
                 title = "Taste Matches",

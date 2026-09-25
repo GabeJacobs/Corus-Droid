@@ -43,6 +43,8 @@ import fm.corus.android.ui.screens.settings.ChangeUsernameScreen
 import fm.corus.android.ui.screens.settings.FeedbackFormScreen
 import fm.corus.android.ui.screens.search.BotListScreen
 import fm.corus.android.ui.screens.search.SearchScreen
+import fm.corus.android.ui.screens.search.ConcertsScreen
+import fm.corus.android.ui.screens.search.ConcertDetailScreen
 import fm.corus.android.ui.screens.search.TrendingListScreen
 import fm.corus.android.ui.screens.messaging.MessageThreadScreen
 import fm.corus.android.ui.screens.messaging.ThreadListScreen
@@ -255,6 +257,8 @@ fun SearchNavGraph(
     ) {
         composable<SearchTabRoute> {
             SearchScreen(
+                onNavigateToConcerts = { navController.navigate(ConcertsRoute) },
+                onNavigateToConcert = { eventId -> navController.navigate(ConcertDetailRoute(eventId)) },
                 onNavigateToMap = { navController.navigate(MapExploreRoute()) },
                 scrollToTopTrigger = scrollToTopTrigger,
                 onNavigateToUser = { user ->
@@ -335,6 +339,7 @@ fun NotificationsNavGraph(
                 scrollToTopTrigger = scrollToTopTrigger,
                 tabActivationTrigger = tabActivationTrigger,
                 onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
+                onNavigateToConcert = { eventId -> navController.navigate(ConcertDetailRoute(eventId)) },
                 onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
                 hasRequestedPushPermission = hasRequestedPush,
                 onMarkPushPermissionRequested = {
@@ -1074,6 +1079,8 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     composable<SearchRoute> {
         CompositionLocalProvider(LocalSkipImageRevealWhenCached provides true) {
         SearchScreen(
+            onNavigateToConcerts = { navController.navigate(ConcertsRoute) },
+            onNavigateToConcert = { eventId -> navController.navigate(ConcertDetailRoute(eventId)) },
             onNavigateToMap = { navController.navigate(MapExploreRoute()) },
             onNavigateToUser = { user -> navController.navigate(user.toOtherProfileRoute()) },
             onNavigateToSong = { track -> navController.navigate(track.toSongDetailRoute()) },
@@ -1087,6 +1094,23 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToTrending = { kind -> navController.navigate(TrendingListRoute(kind)) },
         )
         }
+    }
+
+    composable<ConcertsRoute> {
+        ConcertsScreen(
+            onBack = { navController.safePopBackStack() },
+            onConcert = { navController.navigate(ConcertDetailRoute(it)) },
+        )
+    }
+    composable<ConcertDetailRoute> { entry ->
+        val route = entry.toRoute<ConcertDetailRoute>()
+        ConcertDetailScreen(
+            eventId = route.eventId,
+            onBack = { navController.safePopBackStack() },
+            onArtist = { navController.navigate(it) },
+            onThread = { navController.navigate(MessageThreadRoute(it, "")) },
+            onProfile = { navController.navigate(OtherProfileRoute(it)) },
+        )
     }
 
     composable<TrendingListRoute> { backStackEntry ->
@@ -1173,6 +1197,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
                 navController.navigate(movie.toFilmDetailRoute())
             },
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
+            onNavigateToConcert = { eventId -> navController.navigate(ConcertDetailRoute(eventId)) },
             onNavigateToArtist = { id, name, image ->
                 navigateToArtist?.invoke(ArtistPageRoute(id, name, image))
             },

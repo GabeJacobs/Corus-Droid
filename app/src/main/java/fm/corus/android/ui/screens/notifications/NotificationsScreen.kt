@@ -115,6 +115,7 @@ fun NotificationsScreen(
     tabActivationTrigger: Int = 0,
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToPost: (String) -> Unit = {},
+    onNavigateToConcert: (String) -> Unit = {},
     onNavigateToPostComments: (postId: String, commentId: String) -> Unit = { _, _ -> },
     hasRequestedPushPermission: Boolean = false,
     onMarkPushPermissionRequested: () -> Unit = {},
@@ -391,6 +392,8 @@ fun NotificationsScreen(
                                     viewModel.markNotificationTapped(notification.id)
                                     if (notification.type == NotificationType.FAVORITE) {
                                         showFavoriteInfo = true
+                                    } else if (notification.type == NotificationType.CONCERT_GOING) {
+                                        notification.eventId?.let(onNavigateToConcert)
                                     } else if (notification.type == NotificationType.TASTE_MATCH) {
                                         val isActivity = notification.subtype == "activity_song" ||
                                                 notification.subtype == "activity_film"
@@ -1387,6 +1390,9 @@ private fun localizedNotificationMessage(
         NotificationType.FAVORITE -> context.getString(R.string.notif_msg_favorite)
         NotificationType.PLAY_MILESTONE -> context.getString(R.string.notif_msg_play_milestone, notification.playCount ?: 0)
         NotificationType.TRENDING -> context.getString(R.string.notif_msg_trending)
+        NotificationType.CONCERT_GOING -> notification.concertTitle?.let {
+            context.getString(R.string.concert_notif_going, it)
+        } ?: context.getString(R.string.concert_notif_going_fallback)
     }
 }
 

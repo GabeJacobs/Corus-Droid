@@ -31,6 +31,7 @@ data class NotificationSettings(
     val trending: Boolean = true,
     val reactions: Boolean = true,
     val mapUpdates: Boolean = true,
+    val concerts: Boolean = true,
     val updatesAndReminders: Boolean = true,
     val messagePush: Boolean = true,
     val readReceipts: Boolean = true,
@@ -53,6 +54,8 @@ class NotificationSettingsViewModel @Inject constructor(
      *  notifications are launched (same flag the backend + other clients use). */
     val playMilestoneEnabled: Boolean
         get() = remoteConfigService.playMilestoneEnabled
+    val concertsEnabled: Boolean
+        get() = remoteConfigService.concertsEnabled
 
     private val firestore: FirebaseFirestore = Firebase.firestore
 
@@ -79,6 +82,7 @@ class NotificationSettingsViewModel @Inject constructor(
                     trending = notif["trending"] as? Boolean ?: true,
                     reactions = notif["reactions"] as? Boolean ?: true,
                     mapUpdates = notif["mapUpdates"] as? Boolean ?: true,
+                    concerts = notif["concerts"] as? Boolean ?: true,
                     updatesAndReminders = notif["updatesAndReminders"] as? Boolean ?: true,
                     messagePush = msg["pushEnabled"] as? Boolean ?: true,
                     readReceipts = msg["readReceiptsEnabled"] as? Boolean ?: true,
@@ -122,6 +126,10 @@ class NotificationSettingsViewModel @Inject constructor(
     }
     fun setMapUpdates(enabled: Boolean) = updateNotif("mapUpdates", enabled) {
         _settings.value = _settings.value.copy(mapUpdates = enabled)
+    }
+    fun setConcerts(enabled: Boolean) = updateNotif("concerts", enabled) {
+        _settings.value = _settings.value.copy(concerts = enabled)
+        analyticsService.logEvent("concert_event", mapOf("action" to "notifications_toggled", "source" to "settings", "enabled" to enabled))
     }
     fun setUpdatesAndReminders(enabled: Boolean) = updateNotif("updatesAndReminders", enabled) {
         _settings.value = _settings.value.copy(updatesAndReminders = enabled)

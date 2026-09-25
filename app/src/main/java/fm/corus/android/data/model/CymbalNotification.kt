@@ -12,6 +12,8 @@ data class CymbalNotification(
     val type: NotificationType,
     val fromUser: CymbalUser,
     val postId: String? = null,
+    val eventId: String? = null,
+    val concertTitle: String? = null,
     val postAlbumArtURL: String? = null,
     val commentText: String? = null,
     val commentId: String? = null,
@@ -49,6 +51,7 @@ data class CymbalNotification(
             // Anonymous aggregate — the row prepends "{playCount} people".
             NotificationType.PLAY_MILESTONE -> "played your corus."
             NotificationType.TRENDING -> "Your corus is trending."
+            NotificationType.CONCERT_GOING -> bodyText ?: "is also going to ${concertTitle ?: "this concert"}."
         }
 
     companion object {
@@ -72,6 +75,8 @@ data class CymbalNotification(
                 type = NotificationType.from(data["type"] as? String),
                 fromUser = fromUser,
                 postId = data["postId"] as? String,
+                eventId = data["eventId"] as? String,
+                concertTitle = data["concertTitle"] as? String,
                 postAlbumArtURL = data["postAlbumArtURL"] as? String,
                 commentText = data["commentText"] as? String,
                 commentId = data["commentId"] as? String,

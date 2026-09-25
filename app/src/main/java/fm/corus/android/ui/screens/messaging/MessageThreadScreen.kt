@@ -234,6 +234,7 @@ internal fun replyPreviewText(msg: CymbalMessage, context: android.content.Conte
         MessageType.SHARED_TRACK -> msg.trackName?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_song)
         MessageType.SHARED_FILM -> msg.movieTitle?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_film)
         MessageType.SHARED_ARTIST -> msg.artistName?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_artist)
+        MessageType.SHARED_CONCERT -> msg.concertTitle?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messages_preview_shared_concert)
         MessageType.SHARED_ALBUM -> msg.albumTitle?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_album)
         MessageType.SHARED_DIRECTOR -> msg.directorName?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_director)
         MessageType.SHARED_PROFILE -> msg.sharedUsername?.takeIf { it.isNotBlank() }?.let { "@$it" } ?: context.getString(R.string.messaging_thread_shared_profile)
@@ -816,6 +817,7 @@ fun MessageThreadScreen(
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (CymbalMovie) -> Unit = {},
     onNavigateToPost: (String) -> Unit = {},
+    onNavigateToConcert: (String) -> Unit = {},
     onNavigateToArtist: (artistId: String, name: String?, imageUrl: String?) -> Unit = { _, _, _ -> },
     onNavigateToAlbum: (albumId: String, title: String?, artist: String?, coverUrl: String?, year: Int?) -> Unit = { _, _, _, _, _ -> },
     onNavigateToDirector: (directorId: String, name: String?, imageUrl: String?) -> Unit = { _, _, _ -> },
@@ -1424,6 +1426,7 @@ fun MessageThreadScreen(
                                 onNavigateToSong = onNavigateToSong,
                                 onNavigateToFilm = onNavigateToFilm,
                                 onNavigateToPost = onNavigateToPost,
+                                onNavigateToConcert = onNavigateToConcert,
                                 onNavigateToArtist = onNavigateToArtist,
                                 onNavigateToAlbum = onNavigateToAlbum,
                                 onNavigateToDirector = onNavigateToDirector,
@@ -2257,6 +2260,7 @@ private fun MessageBubble(
     onNavigateToSong: (CymbalTrack) -> Unit = {},
     onNavigateToFilm: (CymbalMovie) -> Unit = {},
     onNavigateToPost: (String) -> Unit = {},
+    onNavigateToConcert: (String) -> Unit = {},
     onNavigateToArtist: (artistId: String, name: String?, imageUrl: String?) -> Unit = { _, _, _ -> },
     onNavigateToAlbum: (albumId: String, title: String?, artist: String?, coverUrl: String?, year: Int?) -> Unit = { _, _, _, _, _ -> },
     onNavigateToDirector: (directorId: String, name: String?, imageUrl: String?) -> Unit = { _, _, _ -> },
@@ -2653,6 +2657,11 @@ private fun MessageBubble(
                     )
                     if (!message.text.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                    }
+                }
+                if (message.type == MessageType.SHARED_CONCERT) {
+                    SharedConcertContent(message, isFromCurrentUser) {
+                        message.concertId?.takeIf { it.isNotBlank() }?.let(onNavigateToConcert)
                     }
                 }
                 if (message.type == MessageType.SHARED_ALBUM) {
@@ -3139,6 +3148,26 @@ private fun SharedFilmContent(
             tint = subtitleColor,
             modifier = Modifier.size(14.dp),
         )
+    }
+}
+
+@Composable
+private fun SharedConcertContent(message: CymbalMessage, isFromCurrentUser: Boolean, onNavigate: () -> Unit) {
+    val primary = if (isFromCurrentUser) Color.White else CorusColors.Text
+    val secondary = if (isFromCurrentUser) Color.White.copy(alpha = 0.85f) else CorusColors.Secondary
+    Row(Modifier.widthIn(max = 260.dp).clickable(onClick = onNavigate), verticalAlignment = Alignment.CenterVertically) {
+        ShimmerAsyncImage(
+            model = message.concertImageURL,
+            contentDescription = null,
+            modifier = Modifier.size(60.dp).clip(RoundedCornerShape(10.dp)),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+        )
+        Spacer(Modifier.width(CorusSpacing.sm))
+        Column(Modifier.weight(1f)) {
+            Text(message.concertArtistName ?: message.concertTitle.orEmpty(), style = CorusFont.body, color = primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (message.concertTitle != message.concertArtistName) Text(message.concertTitle.orEmpty(), style = CorusFont.caption, color = secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(listOfNotNull(message.concertDate, message.concertVenue, message.concertCity).filter { it.isNotBlank() }.joinToString(" · "), style = CorusFont.caption, color = secondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
