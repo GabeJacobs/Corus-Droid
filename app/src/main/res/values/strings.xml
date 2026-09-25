@@ -408,6 +408,9 @@
     <string name="song_detail_try_again">Try Again</string>
     <string name="song_detail_empty">No one has posted this song yet</string>
     <string name="song_detail_be_the_first">Be the first!</string>
+    <string name="song_detail_like_all">Like all</string>
+    <string name="song_detail_all_liked">All liked</string>
+    <string name="song_detail_like_all_message">Each person may be notified that you liked their post.</string>
 
     <!-- Feed: detail counts (plurals) -->
     <plurals name="film_detail_posted_by_count">
@@ -417,6 +420,10 @@
     <plurals name="song_detail_posted_by_count">
         <item quantity="one">Posted by %1$s user</item>
         <item quantity="other">Posted by %1$s users</item>
+    </plurals>
+    <plurals name="song_detail_like_all_title">
+        <item quantity="one">Like %1$d post?</item>
+        <item quantity="other">Like %1$d posts?</item>
     </plurals>
 
     <!-- Profile -->

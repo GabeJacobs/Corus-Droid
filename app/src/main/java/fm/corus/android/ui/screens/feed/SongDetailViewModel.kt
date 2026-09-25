@@ -122,6 +122,15 @@ class SongDetailViewModel @Inject constructor(
     private val _uniquePosterCount = MutableStateFlow<Int?>(null)
     val uniquePosterCount: StateFlow<Int?> = _uniquePosterCount.asStateFlow()
 
+    private val _likeAllEligibleCount = MutableStateFlow<Int?>(null)
+    val likeAllEligibleCount: StateFlow<Int?> = _likeAllEligibleCount.asStateFlow()
+
+    private val _likeAllTargetCount = MutableStateFlow<Int?>(null)
+    val likeAllTargetCount: StateFlow<Int?> = _likeAllTargetCount.asStateFlow()
+
+    private val _isLikingAll = MutableStateFlow(false)
+    val isLikingAll: StateFlow<Boolean> = _isLikingAll.asStateFlow()
+
     val nowPlayingState = nowPlayingManager.state
     val previewLoadingTrackId = nowPlayingManager.loadingTrackId
 
@@ -164,6 +173,8 @@ class SongDetailViewModel @Inject constructor(
                 )
                 firstPosterId = page.firstPosterId
                 _uniquePosterCount.value = page.uniquePosterCount
+                _likeAllEligibleCount.value = page.likeAllEligibleCount
+                _likeAllTargetCount.value = page.likeAllTargetCount
                 paginationCursor = page.posts.lastOrNull()?.timestamp?.time
 
                 val unique = deduplicateByUser(page.posts)
@@ -173,6 +184,27 @@ class SongDetailViewModel @Inject constructor(
                 _loadError.value = "Couldn't load posts for this song."
             }
             _isLoading.value = false
+        }
+    }
+
+    fun likeAllSongPosts(track: CymbalTrack) {
+        val pendingCount = _likeAllEligibleCount.value ?: return
+        if (pendingCount <= 0 || _isLikingAll.value) return
+        _isLikingAll.value = true
+        _likeAllEligibleCount.value = 0
+        viewModelScope.launch {
+            try {
+                val result = postRepository.likeAllSongPosts(track)
+                _likeAllEligibleCount.value = result.failedCount
+                if (result.failedCount > 0) {
+                    ToastManager.show("Liked most posts. Try again for the rest.")
+                }
+            } catch (_: Exception) {
+                _likeAllEligibleCount.value = pendingCount
+                ToastManager.show("Couldn't like all posts. Try again.")
+            } finally {
+                _isLikingAll.value = false
+            }
         }
     }
 

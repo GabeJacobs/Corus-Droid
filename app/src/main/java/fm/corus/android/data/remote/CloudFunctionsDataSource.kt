@@ -834,6 +834,26 @@ class CloudFunctionsDataSource @Inject constructor(
             .call(mapOf("postId" to postId)).await()
     }
 
+    /** Additive-only bulk like for a complete canonical song group. */
+    suspend fun likeAllSongPosts(track: CymbalTrack): LikeAllSongPostsResult {
+        val params = mutableMapOf<String, Any>(
+            "trackId" to track.id,
+            "trackName" to track.name,
+            "artistName" to track.artistName,
+            "albumName" to track.albumName,
+            "durationMs" to track.durationMs,
+        )
+        track.spotifyURI.takeIf { it.isNotBlank() }?.let { params["spotifyURI"] = it }
+        track.isrc?.takeIf { it.isNotBlank() }?.let { params["isrc"] = it }
+        val response = functions.getHttpsCallable("likeAllSongPosts").call(params).await()
+        val data = response.getData() as? Map<*, *> ?: emptyMap<Any, Any>()
+        return LikeAllSongPostsResult(
+            likedCount = (data["likedCount"] as? Number)?.toInt() ?: 0,
+            alreadyLikedCount = (data["alreadyLikedCount"] as? Number)?.toInt() ?: 0,
+            failedCount = (data["failedCount"] as? Number)?.toInt() ?: 0,
+        )
+    }
+
     // Records a UNIQUE in-app listener for a corus. Server-side the `recordPlay`
     // callable writes posts/{postId}/plays/{uid} (lifetime-unique by uid) and
     // bumps posts.playCount — excluding self-plays and repeat listeners. Plays
@@ -938,6 +958,14 @@ class CloudFunctionsDataSource @Inject constructor(
         val posts: List<CymbalPost>,
         val uniquePosterCount: Int?,
         val firstPosterId: String?,
+        val likeAllEligibleCount: Int? = null,
+        val likeAllTargetCount: Int? = null,
+    )
+
+    data class LikeAllSongPostsResult(
+        val likedCount: Int,
+        val alreadyLikedCount: Int,
+        val failedCount: Int,
     )
 
     data class MoviePostsPage(
@@ -980,10 +1008,12 @@ class CloudFunctionsDataSource @Inject constructor(
         val postsData = data["posts"] as? List<Map<String, Any?>> ?: emptyList()
         val uniquePosterCount = (data["uniquePosterCount"] as? Number)?.toInt()
         val firstPosterId = data["firstPosterId"] as? String
+        val likeAllEligibleCount = (data["likeAllEligibleCount"] as? Number)?.toInt()
+        val likeAllTargetCount = (data["likeAllTargetCount"] as? Number)?.toInt()
 
         val posts = applyFirstPoster(postsData.map { CymbalPost.fromCloudData(it) }, firstPosterId)
 
-        return SongPostsPage(posts, uniquePosterCount, firstPosterId)
+        return SongPostsPage(posts, uniquePosterCount, firstPosterId, likeAllEligibleCount, likeAllTargetCount)
     }
 
     @Suppress("UNCHECKED_CAST")

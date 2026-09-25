@@ -235,6 +235,9 @@ class PostRepository @Inject constructor(
         cloudFunctions.unlikePost(postId)
     }
 
+    suspend fun likeAllSongPosts(track: fm.corus.android.data.model.CymbalTrack) =
+        cloudFunctions.likeAllSongPosts(track)
+
     suspend fun isPostLiked(userId: String, postId: String): Boolean {
         return firestoreDataSource.isPostLiked(userId, postId)
     }

@@ -17,11 +17,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -130,6 +132,9 @@ fun SongDetailScreen(
     val hasMore by viewModel.hasMore.collectAsState()
     val loadError by viewModel.loadError.collectAsState()
     val uniquePosterCount by viewModel.uniquePosterCount.collectAsState()
+    val likeAllEligibleCount by viewModel.likeAllEligibleCount.collectAsState()
+    val likeAllTargetCount by viewModel.likeAllTargetCount.collectAsState()
+    val isLikingAll by viewModel.isLikingAll.collectAsState()
     val resolvedArtistId by viewModel.resolvedArtistId.collectAsState()
     val vmResolvedAlbumId by viewModel.resolvedAlbumId.collectAsState()
     val isResolvingDestination by viewModel.isResolvingDestination.collectAsState()
@@ -144,6 +149,7 @@ fun SongDetailScreen(
     val scope = rememberCoroutineScope()
 
     var showShareSheet by remember { mutableStateOf(false) }
+    var showLikeAllConfirmation by remember { mutableStateOf(false) }
     val shareSearchResults by viewModel.shareSearchResults.collectAsState()
     val recentShareContacts by viewModel.recentShareContacts.collectAsState()
     val isShareSearching by viewModel.isShareSearching.collectAsState()
@@ -248,6 +254,28 @@ fun SongDetailScreen(
         releaseDate = releaseDate,
         releaseDatePrecision = releaseDatePrecision,
     )
+
+    if (showLikeAllConfirmation) {
+        val count = likeAllEligibleCount ?: 0
+        AlertDialog(
+            onDismissRequest = { showLikeAllConfirmation = false },
+            title = { Text(pluralStringResource(R.plurals.song_detail_like_all_title, count, count)) },
+            text = { Text(stringResource(R.string.song_detail_like_all_message)) },
+            dismissButton = {
+                TextButton(onClick = { showLikeAllConfirmation = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLikeAllConfirmation = false
+                    viewModel.likeAllSongPosts(composeTrack)
+                }) {
+                    Text(stringResource(R.string.song_detail_like_all))
+                }
+            },
+        )
+    }
 
     // Fast-path ids for the "Go to Artist" / "Go to Album" rows + tappable
     // artist/album lines: the seed track, a loaded post, the route hint, or an
@@ -947,15 +975,50 @@ fun SongDetailScreen(
                 // Header with count
                 item {
                     val count = uniquePosterCount ?: posts.map { it.user.id }.toSet().size
-                    Text(
-                        text = pluralStringResource(R.plurals.song_detail_posted_by_count, count, formatUserCount(count)),
-                        style = CorusFont.sectionHeader,
-                        color = CorusColors.Secondary,
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = CorusSpacing.lg)
                             .padding(top = CorusSpacing.lg, bottom = CorusSpacing.md),
-                    )
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = pluralStringResource(R.plurals.song_detail_posted_by_count, count, formatUserCount(count)),
+                            style = CorusFont.sectionHeader,
+                            color = CorusColors.Secondary,
+                        )
+                        Spacer(Modifier.weight(1f))
+                        if ((likeAllTargetCount ?: 0) > 0 && likeAllEligibleCount != null) {
+                            if (likeAllEligibleCount == 0) {
+                                Icon(
+                                    Icons.Filled.Favorite,
+                                    contentDescription = null,
+                                    tint = CorusColors.Like,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                                Spacer(Modifier.width(CorusSpacing.xxs))
+                                Text(
+                                    stringResource(R.string.song_detail_all_liked),
+                                    style = CorusFont.sectionHeader,
+                                    color = CorusColors.Like,
+                                )
+                            } else {
+                                TextButton(
+                                    onClick = { showLikeAllConfirmation = true },
+                                    enabled = !isLikingAll,
+                                    contentPadding = PaddingValues(horizontal = 0.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.FavoriteBorder,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                    Spacer(Modifier.width(CorusSpacing.xxs))
+                                    Text(stringResource(R.string.song_detail_like_all), style = CorusFont.sectionHeader)
+                                }
+                            }
+                        }
+                    }
                 }
 
                 items(posts, key = { it.id }) { post ->
