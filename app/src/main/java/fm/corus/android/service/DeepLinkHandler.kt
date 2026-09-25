@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 
 sealed class DeepLinkDestination {
+    data object FollowingFeed : DeepLinkDestination()
     data class Profile(val userId: String) : DeepLinkDestination()
     data class ProfileByUsername(val username: String) : DeepLinkDestination()
     data class Post(val postId: String) : DeepLinkDestination()
@@ -21,6 +22,7 @@ sealed class DeepLinkDestination {
     data class Entity(val segment: EntitySegment, val key: String) : DeepLinkDestination()
 
     fun analyticsType(): String = when (this) {
+        is FollowingFeed -> "following_feed"
         is Profile -> "profile"
         is ProfileByUsername -> "profile"
         is Post -> "post"
@@ -95,6 +97,7 @@ object DeepLinkHandler {
     fun parseNotificationData(data: Map<String, String>): DeepLinkDestination? {
         val type = data["type"] ?: return fallbackParse(data)
         return when (type) {
+            "updates_and_reminders" -> parseCampaignDestination(data)
             "map_follow_join" -> {
                 val cityId = data["cityId"]?.takeIf { it.isNotEmpty() }
                 val ids = runCatching {
@@ -132,6 +135,28 @@ object DeepLinkHandler {
                 }
             }
             else -> fallbackParse(data)
+        }
+    }
+
+    private fun parseCampaignDestination(data: Map<String, String>): DeepLinkDestination? {
+        val key = data["destinationKey"].orEmpty().trim()
+        return when (data["destinationType"].orEmpty().trim().lowercase()) {
+            "home" -> null
+            "following_feed" -> DeepLinkDestination.FollowingFeed
+            "hashtag" -> key.trimStart('#').lowercase()
+                .takeIf { it.isNotEmpty() && it.none(Char::isWhitespace) }
+                ?.let { DeepLinkDestination.Hashtag(it) }
+            "entity" -> {
+                val segment = data["entityType"]?.let(EntitySegment::from)
+                if (segment != null && key.isNotEmpty()) DeepLinkDestination.Entity(segment, key) else null
+            }
+            "post" -> key.takeIf(String::isNotEmpty)?.let(DeepLinkDestination::Post)
+            "profile" -> key.takeIf(String::isNotEmpty)?.let(DeepLinkDestination::Profile)
+            "profile_username" -> key.lowercase().takeIf(String::isNotEmpty)
+                ?.let(DeepLinkDestination::ProfileByUsername)
+            "map" -> DeepLinkDestination.Map(key.ifEmpty { null }, emptyList())
+            "club" -> DeepLinkDestination.Club
+            else -> null
         }
     }
 

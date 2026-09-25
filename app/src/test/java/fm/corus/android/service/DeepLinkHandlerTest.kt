@@ -9,6 +9,18 @@ import org.mockito.kotlin.mock
 
 class DeepLinkHandlerTest {
 
+    @Test
+    fun `campaign notification opens following feed`() {
+        val destination = DeepLinkHandler.parseNotificationData(
+            mapOf(
+                "type" to "updates_and_reminders",
+                "campaignId" to "following_digest",
+                "destinationType" to "following_feed",
+            ),
+        )
+        assertEquals(DeepLinkDestination.FollowingFeed, destination)
+    }
+
     // Android's Uri is a non-functional stub in local unit tests, so build a
     // mock exposing just the fields DeepLinkHandler.parse reads. Keeps this file
     // pure-JVM / CLI-runnable (no Robolectric) like the notification-data tests.

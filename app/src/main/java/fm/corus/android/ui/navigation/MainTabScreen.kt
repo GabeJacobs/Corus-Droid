@@ -368,6 +368,14 @@ fun MainTabScreen(
         }
         val isThread = notificationDestination is DeepLinkDestination.Thread
         val isMap = notificationDestination is DeepLinkDestination.Map
+        if (notificationDestination is DeepLinkDestination.FollowingFeed) {
+            focusManager.clearFocus()
+            viewModel.selectFollowingFeed()
+            feedNavController.popToStart()
+            selectedTab = CorusTab.FEED
+            onNotificationDestinationConsumed()
+            return@LaunchedEffect
+        }
         val navController = if (isThread) {
             selectedTab = CorusTab.MESSAGES
             messagesNavController
@@ -405,6 +413,7 @@ fun MainTabScreen(
             is DeepLinkDestination.Map -> navController.navigate(
                 MapExploreRoute(notificationDestination.cityId, notificationDestination.userIds)
             )
+            is DeepLinkDestination.FollowingFeed -> Unit
         }
         onNotificationDestinationConsumed()
     }
