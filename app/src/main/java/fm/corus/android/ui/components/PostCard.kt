@@ -1098,6 +1098,8 @@ fun PostCard(
             }
         }
 
+        if (post.giftCount > 0) PostGiftRow(post.id, post.giftCount)
+
         // 4. ENGAGEMENT ROW — naturally sized buttons matching iOS HStack(spacing: .lg)
         Row(
             modifier = Modifier
