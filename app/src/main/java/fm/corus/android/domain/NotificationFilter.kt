@@ -12,7 +12,8 @@ enum class NotificationFilter(val value: String) {
     PEOPLE_YOU_FOLLOW("people_you_follow"),
     COMMENTS("comments"),
     FOLLOWS("follows"),
-    TAGS_AND_MENTIONS("tags_and_mentions");
+    TAGS_AND_MENTIONS("tags_and_mentions"),
+    GIFTS("gifts");
 
     /** Callable / Firestore `types`. Null means no type constraint. */
     val queryTypes: List<NotificationType>?
@@ -21,6 +22,7 @@ enum class NotificationFilter(val value: String) {
             COMMENTS -> listOf(NotificationType.COMMENT, NotificationType.REPLY)
             FOLLOWS -> listOf(NotificationType.FOLLOW)
             TAGS_AND_MENTIONS -> listOf(NotificationType.MENTION, NotificationType.TAG)
+            GIFTS -> listOf(NotificationType.GIFT)
         }
 
     val isTypeScoped: Boolean get() = queryTypes != null
@@ -69,7 +71,8 @@ object NotificationFilterVisibility {
         }
         NotificationFilter.COMMENTS,
         NotificationFilter.FOLLOWS,
-        NotificationFilter.TAGS_AND_MENTIONS -> {
+        NotificationFilter.TAGS_AND_MENTIONS,
+        NotificationFilter.GIFTS -> {
             if (holdForServer(filteredReady, filterLoading, filtered.isEmpty())) {
                 emptyList()
             } else if (filteredReady || filtered.isNotEmpty()) {

@@ -81,6 +81,7 @@ import fm.corus.android.data.model.CommentAttachedSong
 import fm.corus.android.data.model.CymbalNotification
 import fm.corus.android.data.model.TasteMatchDiscoveryItem
 import fm.corus.android.data.model.NotificationType
+import fm.corus.android.data.model.GiftDefinition
 import fm.corus.android.domain.NotificationFilter
 import fm.corus.android.domain.NotificationFilterListPhase
 import fm.corus.android.domain.NotificationFilterVisibility
@@ -129,6 +130,7 @@ fun NotificationsScreen(
     val loadedChips by viewModel.loadedChips.collectAsState()
     val hasMoreToLoad by viewModel.hasMoreToLoad.collectAsState()
     var showFavoriteInfo by remember { mutableStateOf(false) }
+    var selectedGift by remember { mutableStateOf<CymbalNotification?>(null) }
     val isLoading by viewModel.isLoading.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val hasLoadError by viewModel.hasLoadError.collectAsState()
@@ -197,6 +199,12 @@ fun NotificationsScreen(
 
     if (showFavoriteInfo) {
         FavoriteInfoDialog(onDismiss = { showFavoriteInfo = false })
+    }
+    selectedGift?.let { gift ->
+        GiftNotificationSheet(gift, onDismiss = { selectedGift = null }, onViewCorus = {
+            selectedGift = null
+            gift.postId?.let(onNavigateToPost)
+        })
     }
 
     // Activity stays composed off-screen. The tab-bar badge is owned by
@@ -389,7 +397,9 @@ fun NotificationsScreen(
                                 isNew = newNotificationIds.contains(notification.id),
                                 onClick = {
                                     viewModel.markNotificationTapped(notification.id)
-                                    if (notification.type == NotificationType.FAVORITE) {
+                                    if (notification.type == NotificationType.GIFT) {
+                                        selectedGift = notification
+                                    } else if (notification.type == NotificationType.FAVORITE) {
                                         showFavoriteInfo = true
                                     } else if (notification.type == NotificationType.TASTE_MATCH) {
                                         val isActivity = notification.subtype == "activity_song" ||
@@ -601,6 +611,7 @@ private fun NotificationFilterChipRow(
                     NotificationFilter.COMMENTS -> R.string.notifications_filter_comments
                     NotificationFilter.FOLLOWS -> R.string.notifications_filter_follows
                     NotificationFilter.TAGS_AND_MENTIONS -> R.string.notifications_filter_tags_mentions
+                    NotificationFilter.GIFTS -> R.string.notifications_filter_gifts
                 },
             )
             Button(
@@ -656,7 +667,9 @@ private fun NotificationRow(
     ) {
         // Left: avatar (taps to profile) — or, for anonymous favorites, a star,
         // or, for play milestones, a headphones glyph.
-        if (notification.type == NotificationType.FAVORITE) {
+        if (notification.type == NotificationType.GIFT) {
+            GiftNotificationArtwork(notification.giftType, CorusSpacing.avatarMedium)
+        } else if (notification.type == NotificationType.FAVORITE) {
             Box(
                 modifier = Modifier
                     .size(CorusSpacing.avatarMedium)
@@ -727,7 +740,14 @@ private fun NotificationRow(
         val timeString = DateUtils.relativeTime(context, notification.timestamp)
         val timeSuffix = " $timeString"
 
-        val fullAnnotatedText = if (notification.type == NotificationType.FAVORITE) {
+        val fullAnnotatedText = if (notification.type == NotificationType.GIFT) {
+            val gift = GiftDefinition.from(notification.giftType)
+            buildAnnotatedString {
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(notification.fromUser.username) }
+                append(" sent you ${gift.article}")
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(gift.name) }
+            }
+        } else if (notification.type == NotificationType.FAVORITE) {
             // Anonymous — "Someone" is NOT bolded here (special case): there's no
             // real actor to name, so it reads as normal prose, not a username.
             buildAnnotatedString {
@@ -848,6 +868,13 @@ private fun NotificationRow(
                 },
             )
 
+            if (notification.type == NotificationType.GIFT) {
+                Text(GiftDefinition.context(notification.postTitle) + " · " + timeString,
+                    style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                notification.giftNote?.takeIf { it.isNotBlank() }?.let { note ->
+                    Text(note, style = CorusFont.caption, color = CorusColors.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
             if (showCommentActions) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(
@@ -1365,6 +1392,7 @@ private fun localizedNotificationMessage(
         if (it.length == 100 && !it.endsWith("…")) "$it…" else it
     }
     return when (notification.type) {
+        NotificationType.GIFT -> notification.message
         NotificationType.LIKE -> context.getString(R.string.notif_msg_like, postNoun)
         NotificationType.COMMENT -> commentExcerpt
             ?.let { context.getString(R.string.notif_msg_comment_with_text, it) }

@@ -26,12 +26,16 @@ data class CymbalNotification(
     val sharedFilms: Int? = null,
     val sharedArtists: Int? = null,
     val discoveryItems: List<TasteMatchDiscoveryItem>? = null,
+    val giftType: String? = null,
+    val giftNote: String? = null,
+    val postTitle: String? = null,
 ) {
     val supportsCommentActions: Boolean
         get() = commentId != null && postId != null && type.supportsCommentActions
 
     val message: String
         get() = when (type) {
+            NotificationType.GIFT -> "sent you ${GiftDefinition.from(giftType).sentPhrase}"
             NotificationType.LIKE -> "liked your corus."
             NotificationType.COMMENT -> if (commentText != null) "commented: $commentText" else "commented on your corus."
             NotificationType.COMMENT_LIKE -> "liked your comment."
@@ -84,6 +88,9 @@ data class CymbalNotification(
                 sharedFilms = (data["sharedFilms"] as? Number)?.toInt(),
                 sharedArtists = (data["sharedArtists"] as? Number)?.toInt(),
                 discoveryItems = parseDiscoveryItems(data["discoveryItems"]),
+                giftType = data["giftType"] as? String,
+                giftNote = data["giftNote"] as? String,
+                postTitle = data["postTitle"] as? String,
             )
         }
 
