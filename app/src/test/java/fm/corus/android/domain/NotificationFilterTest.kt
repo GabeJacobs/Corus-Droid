@@ -346,6 +346,9 @@ class NotificationFilterTest {
 
     @Test
     fun analyticsValuesMatchIOSAndWeb() {
+        assertEquals(NotificationFilter.GIFTS, NotificationFilter.entries.last())
+        assertEquals(listOf(NotificationType.GIFT), NotificationFilter.GIFTS.queryTypes)
+        assertEquals("gifts", NotificationFilter.GIFTS.value)
         assertEquals("all", NotificationFilter.ALL.value)
         assertEquals("people_you_follow", NotificationFilter.PEOPLE_YOU_FOLLOW.value)
         assertEquals("comments", NotificationFilter.COMMENTS.value)

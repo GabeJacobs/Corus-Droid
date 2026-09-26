@@ -118,6 +118,11 @@ android {
 }
 
 dependencies {
+    // Classic View runtime; avoids upgrading the app's Compose BOM for gifts.
+    implementation("app.rive:rive-android:10.5.3") {
+        // We embed RiveAnimationView, not Rive's experimental Compose wrapper.
+        exclude(group = "androidx.lifecycle")
+    }
     // Compose BOM
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)
