@@ -207,6 +207,8 @@ fun PostDetailScreen(
                 val isLiked = engagement?.isLiked ?: currentPost.isLiked
                 val isSaved = engagement?.isSaved ?: false
                 val saveCount = engagement?.saveCount ?: currentPost.saveCount
+                val localGiftCounts by fm.corus.android.ui.components.GiftPresentationStore.giftCounts.collectAsState()
+                val displayedGiftCount = maxOf(currentPost.giftCount, localGiftCounts[currentPost.id] ?: 0)
 
                 LazyColumn(
                     modifier = Modifier
@@ -379,6 +381,19 @@ fun PostDetailScreen(
                                 }
                             },
                         )
+                    }
+
+                    if (viewModel.remoteConfig.giftsEnabledForCurrentUser) {
+                        if (displayedGiftCount > 0) {
+                            item {
+                                fm.corus.android.ui.components.PostGiftRow(
+                                    currentPost.id,
+                                    displayedGiftCount,
+                                    currentPost.recentGifts,
+                                    onSenderTap = onNavigateToUser,
+                                )
+                            }
+                        }
                     }
 
                     // Liked by section

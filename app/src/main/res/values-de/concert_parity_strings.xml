@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="concert_make_personal">Für dich personalisieren</string>
+    <string name="concert_personal_message">Poste Musik, die du liebst. Wir merken uns deine Lieblingskünstler und zeigen dir, wenn sie in der Nähe spielen.</string>
+    <string name="concert_post_music">Musik posten</string>
+    <string name="concert_view_all">Alle Konzerte ansehen</string>
+    <string name="concert_no_matches">Noch keine Treffer von deinen Künstlern</string>
+    <string name="concert_find_nearby">Konzerte in deiner Nähe finden</string>
+    <string name="concert_choose_location_message">Wähle eine Stadt oder verwende deinen aktuellen Standort, um bevorstehende Konzerte zu sehen.</string>
+    <string name="concert_remove">Entfernen</string>
+    <string name="concert_calendar_error">Keine Kalender-App konnte geöffnet werden. Installiere eine und versuche es erneut.</string>
+</resources>

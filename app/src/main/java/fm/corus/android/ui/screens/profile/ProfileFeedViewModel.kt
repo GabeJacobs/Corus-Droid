@@ -574,11 +574,13 @@ class ProfileFeedViewModel @Inject constructor(
 
     // ── Share contacts & search ──
 
-    override fun loadRecentShareContacts() {
+    override fun loadRecentShareContacts(includeCachedFallbacks: Boolean) {
         val userId = authRepository.currentUserId ?: return
         loadRecentShareRecipients(
             userId = userId,
             messageRepository = messageRepository,
+            userRepository = userRepository,
+            includeCachedFallbacks = includeCachedFallbacks,
             setContacts = { _recentShareContacts.value = it },
             setLoading = { _isLoadingShareContacts.value = it },
             scope = viewModelScope,

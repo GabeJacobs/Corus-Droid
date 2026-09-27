@@ -411,6 +411,7 @@
     <string name="other_profile_menu_block">차단</string>
     <string name="other_profile_menu_unblock">차단 해제</string>
     <string name="other_profile_blocked_message">이 사용자를 차단했어요</string>
+    <string name="other_profile_blocked_body">차단을 해제할 때까지 프로필과 게시물이 숨겨집니다.</string>
     <string name="other_profile_button_message">메시지</string>
     <string name="other_profile_button_follow">팔로우</string>
     <string name="other_profile_button_following">팔로잉</string>
@@ -1496,4 +1497,10 @@
     <string name="map_watch_mode_preview">시청 모드 미리보기 · Corus Club 둘러보기</string>
     <string name="club_feature_unlimited_playlists">플레이리스트 무제한 내보내기</string>
     <string name="club_feature_unlock_all_taste_matches">모든 취향 매치 잠금 해제</string>
+    <string name="gift_club_offer_title">선물 3개 잠금 해제</string>
+    <string name="gift_club_offer_body">Corus Club에 가입하고 매주 선물 3개를 받으세요.</string>
+    <string name="gift_club_offer_cta_trial">무료로 잠금 해제</string>
+    <string name="gift_club_offer_cta_standard">Corus Club으로 잠금 해제</string>
+    <string name="club_subtitle_gift">오늘 선물 3개를 잠금 해제하세요.</string>
+    <string name="club_feature_gifts">매주 선물 슬롯 3개</string>
 </resources>

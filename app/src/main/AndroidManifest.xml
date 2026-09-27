@@ -20,6 +20,8 @@
 
     <!-- Package visibility (Android 11+): the share sheet detects Instagram and
          WhatsApp via PackageManager.getPackageInfo(); without these <queries>
+        <package android:name="com.google.android.calendar" />
+        <package android:name="com.google.android.apps.maps" />
          entries that call always throws NameNotFoundException, so the Instagram
          Stories and WhatsApp buttons would silently never appear. -->
     <queries>

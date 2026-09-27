@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Star
@@ -92,6 +91,8 @@ import fm.corus.android.ui.components.ShareMediaSubject
 import fm.corus.android.ui.components.ShareProfileSubject
 import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.ui.components.OfflineRetryState
+import fm.corus.android.ui.components.ReportContentType
+import fm.corus.android.ui.components.ReportSheet
 import fm.corus.android.ui.components.SkeletonProfileGrid
 import fm.corus.android.ui.components.SkeletonProfileView
 import fm.corus.android.ui.components.SkeletonProfileWithAvatar
@@ -214,6 +215,7 @@ fun OtherProfileScreen(
     var isFeaturedArtReady by rememberSaveable { mutableStateOf(false) }
     var didRevealFromSkeleton by rememberSaveable { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var showBlockedReportSheet by remember { mutableStateOf(false) }
     var showFollowingSheet by remember { mutableStateOf(false) }
     var showShareSheet by remember { mutableStateOf(false) }
     val recentShareContacts by viewModel.recentShareContacts.collectAsState()
@@ -527,7 +529,7 @@ fun OtherProfileScreen(
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(fm.corus.android.R.string.common_back), tint = CorusColors.Text)
                         }
                     },
-                    actions = profileActions,
+                    actions = { if (!isBlocked && !profileUnavailable) profileActions() },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
                     windowInsets = WindowInsets(0, 0, 0, 0),
                 )
@@ -567,6 +569,64 @@ fun OtherProfileScreen(
                         color = CorusColors.Secondary,
                         textAlign = TextAlign.Center,
                     )
+                }
+            }
+            return@run
+        }
+        if (isBlocked) {
+            val blockedProfile = profile
+            val blockedUsername = blockedProfile?.username ?: initialUsername.orEmpty()
+            val blockedDisplayName = blockedProfile?.displayName
+                ?: initialDisplayName
+                ?: blockedUsername
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(horizontal = CorusSpacing.xl),
+                ) {
+                    UserAvatarView(
+                        avatarURL = blockedProfile?.avatarURL ?: initialAvatarURL,
+                        avatarThumbURL = blockedProfile?.avatarThumbURL ?: initialAvatarThumbURL,
+                        displayName = blockedDisplayName,
+                        size = headerAvatarSize,
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.md))
+                    Text(
+                        text = if (blockedUsername.isBlank()) "" else "@$blockedUsername",
+                        style = CorusFont.usernameLarge,
+                        color = CorusColors.Text,
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.md))
+                    Text(
+                        stringResource(fm.corus.android.R.string.other_profile_blocked_message),
+                        style = CorusFont.bodyMedium,
+                        color = CorusColors.Secondary,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.xs))
+                    Text(
+                        stringResource(fm.corus.android.R.string.other_profile_blocked_body),
+                        style = CorusFont.body,
+                        color = CorusColors.Tertiary,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(modifier = Modifier.height(CorusSpacing.md))
+                    Row(horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm)) {
+                        Button(onClick = { viewModel.unblockUser(userId) }) {
+                            Text(stringResource(fm.corus.android.R.string.common_unblock))
+                        }
+                        OutlinedButton(onClick = { showBlockedReportSheet = true }) {
+                            Text(
+                                stringResource(fm.corus.android.R.string.other_profile_menu_report),
+                                color = CorusColors.Error,
+                            )
+                        }
+                    }
                 }
             }
             return@run
@@ -804,31 +864,6 @@ fun OtherProfileScreen(
         }
 
         val currentProfile = profile ?: return@run
-
-        if (isBlocked) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Filled.Block,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = CorusColors.Tertiary,
-                    )
-                    Spacer(modifier = Modifier.height(CorusSpacing.md))
-                    Text(stringResource(fm.corus.android.R.string.other_profile_blocked_message), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
-                    Spacer(modifier = Modifier.height(CorusSpacing.sm))
-                    TextButton(onClick = { viewModel.unblockUser(userId) }) {
-                        Text(stringResource(fm.corus.android.R.string.common_unblock), style = CorusFont.button, color = CorusColors.Accent)
-                    }
-                }
-            }
-            return@run
-        }
 
         // Helper: populate cache and navigate to profile feed
         val navigateToFeed: (String) -> Unit = { postId ->
@@ -1484,7 +1519,7 @@ fun OtherProfileScreen(
                 onBack = onBack,
                 topInset = frost.statusBarPadding,
                 titleContent = otherProfileTitle,
-                actions = profileActions,
+                actions = { if (!isBlocked && !profileUnavailable) profileActions() },
             )
         }
         }
@@ -1534,6 +1569,19 @@ fun OtherProfileScreen(
                     showFollowingSheet = false
                     viewModel.toggleFollow(userId)
                 },
+            )
+        }
+    }
+
+    if (showBlockedReportSheet) {
+        ModalBottomSheet(onDismissRequest = { showBlockedReportSheet = false }) {
+            ReportSheet(
+                contentType = ReportContentType.USER,
+                contentId = userId,
+                authRepository = viewModel.authRepository,
+                userRepository = viewModel.userRepository,
+                analyticsService = viewModel.analyticsService,
+                onDismiss = { showBlockedReportSheet = false },
             )
         }
     }

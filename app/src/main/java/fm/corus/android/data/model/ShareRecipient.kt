@@ -24,6 +24,41 @@ fun recentShareRecipients(threads: List<CymbalThread>, cap: Int = 20): List<Shar
             else thread.otherUser?.takeIf { it.id.isNotBlank() }?.let { ShareRecipient(user = it) }
         }.distinctBy { it.id }.take(cap)
 
+/**
+ * Builds the Instagram V2 recipient rail without fetching recommendation data.
+ * Existing conversations keep inbox order; remaining slots use only cached
+ * follows, mutual connections, and qualified Taste Matches.
+ */
+fun shareSheetRecipients(
+    recent: List<ShareRecipient>,
+    cachedMatches: List<SuggestedUserMatch>,
+    followedUserIds: Set<String>,
+    currentUserId: String?,
+    cap: Int = 20,
+): List<ShareRecipient> {
+    if (cap <= 0) return emptyList()
+    val result = mutableListOf<ShareRecipient>()
+    val seen = mutableSetOf<String>()
+
+    fun append(recipient: ShareRecipient) {
+        if (result.size < cap && seen.add(recipient.id)) result += recipient
+    }
+
+    recent.forEach(::append)
+    val eligible = cachedMatches.filter { it.user.id != currentUserId && !it.user.isBot }
+    val followed = eligible.filter { it.user.id in followedUserIds }
+    val mutuals = eligible.filter {
+        it.user.id !in followedUserIds && (it.suggestionReason?.mutualCount ?: 0) > 0
+    }
+    val tasteMatches = eligible.filter {
+        it.user.id !in followedUserIds &&
+            (it.suggestionReason?.mutualCount ?: 0) == 0 &&
+            it.isTasteMatch
+    }
+    (followed + mutuals + tasteMatches).forEach { append(ShareRecipient(user = it.user)) }
+    return result
+}
+
 fun groupMatchesShareQuery(thread: CymbalThread, query: String): Boolean =
     thread.isGroup && (thread.groupName.orEmpty().contains(query.trim(), ignoreCase = true) ||
         thread.members.any { it.username.contains(query.trim(), ignoreCase = true) || it.displayName.contains(query.trim(), ignoreCase = true) })

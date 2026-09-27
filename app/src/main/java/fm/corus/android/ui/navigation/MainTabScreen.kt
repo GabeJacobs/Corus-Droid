@@ -125,6 +125,7 @@ fun MainTabScreen(
         if (showCompose) viewModel.beginPostMilestoneSession()
     }
     var composeMovieMode by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(viewModel) { viewModel.musicComposeRequests.collect { composeMovieMode = false; showCompose = true } }
     var postSuccessOthers by remember { mutableStateOf<PostSuccessOthersPayload?>(null) }
     var showPostSuccessOthers by remember { mutableStateOf(false) }
     val composeViewModel: ComposeViewModel = hiltViewModel()

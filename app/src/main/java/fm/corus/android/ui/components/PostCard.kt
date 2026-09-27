@@ -150,6 +150,10 @@ fun PostCard(
     /** Gates the per-post save count next to the bookmark (`save_count_enabled`
      *  Remote Config flag). When false the bookmark renders with no number. */
     saveCountEnabled: Boolean = false,
+    /** Gift receipts stay invisible until the closed pilot is explicitly
+     *  enabled for this viewer. Defaults false so every existing call site has
+     *  the pre-Gifts experience. */
+    showGifts: Boolean = false,
     currentUser: CymbalUser? = null,
     onLikeTap: () -> Unit = {},
     onSaveTap: () -> Unit = {},
@@ -176,6 +180,7 @@ fun PostCard(
     musicService: fm.corus.android.data.model.MusicService = fm.corus.android.data.model.MusicService.SPOTIFY,
     onLikesTap: () -> Unit = {},
     onLikerTap: (CymbalUser) -> Unit = {},
+    onGiftSenderTap: (String) -> Unit = {},
     onMentionTap: (String) -> Unit = {},
     onHashtagTap: (String) -> Unit = {},
     trackPostCount: Int = post.trackPostCount ?: 0,
@@ -217,6 +222,8 @@ fun PostCard(
     // detail screens immediately — the backend `backfillPostAuthorOnUserUpdate`
     // trigger propagates the same change to other viewers within a few seconds.
     val hiddenUserIds = rememberHiddenUserIds()
+    val giftCountOverrides by GiftPresentationStore.giftCounts.collectAsState()
+    val displayedGiftCount = maxOf(post.giftCount, giftCountOverrides[post.id] ?: 0)
     val visiblePreviewComments = remember(post.comments, hiddenUserIds) {
         post.comments.filter { it.user.id !in hiddenUserIds }
     }
@@ -1098,8 +1105,6 @@ fun PostCard(
             }
         }
 
-        if (post.giftCount > 0) PostGiftRow(post.id, post.giftCount)
-
         // 4. ENGAGEMENT ROW — naturally sized buttons matching iOS HStack(spacing: .lg)
         Row(
             modifier = Modifier
@@ -1267,6 +1272,10 @@ fun PostCard(
                     tint = CorusColors.Text,
                 )
             }
+        }
+
+        if (showGifts && displayedGiftCount > 0) {
+            PostGiftRow(post.id, displayedGiftCount, post.recentGifts, onSenderTap = onGiftSenderTap)
         }
 
         // 5. LIKED BY

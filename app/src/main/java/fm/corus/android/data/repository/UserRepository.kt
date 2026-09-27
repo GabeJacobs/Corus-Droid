@@ -87,6 +87,7 @@ class UserRepository @Inject constructor(
 
     // People who blocked me. Combined with blockedIds for content hiding.
     private val _blockedByIds = MutableStateFlow<Set<String>>(emptySet())
+    val blockedByIds: StateFlow<Set<String>> = _blockedByIds.asStateFlow()
     private val _hiddenUserIds = MutableStateFlow<Set<String>>(emptySet())
     val hiddenUserIds: StateFlow<Set<String>> = _hiddenUserIds.asStateFlow()
 
@@ -499,6 +500,14 @@ class UserRepository @Inject constructor(
         val (matches, fetchedAt) = persisted
         suggestedMatchesCache = CacheEntry(matches, fetchedAt)
         return matches
+    }
+
+    /** Recommendation rows already available locally for the share rail. This
+     * never starts a callable or Firestore request. */
+    suspend fun cachedShareSuggestions(userId: String): List<SuggestedUserMatch> {
+        val onboarding = cloudFunctions.cachedOnboardingTasteMatches(userId).orEmpty()
+        val persisted = peekPersistedSuggestions(userId).orEmpty()
+        return (onboarding + persisted).distinctBy { it.user.id }
     }
 
     suspend fun getSuggestedUsers(userId: String, forceRefresh: Boolean = false): List<SuggestedUserMatch> {

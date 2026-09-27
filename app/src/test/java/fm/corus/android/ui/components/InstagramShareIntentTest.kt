@@ -56,4 +56,18 @@ class InstagramShareIntentTest {
 
         assertEquals("https://corus.fm/u/gabe", intent.getStringExtra("content_url"))
     }
+
+    @Test
+    fun `adds a separately movable frame sticker`() {
+        val sticker = Uri.parse("content://fm.corus.android.provider/cache/instagram_frame_sticker.png")
+        val intent = buildAddToStoryIntent(
+            uri,
+            "https://corus.fm/post/p1",
+            "fm.corus.android",
+            sticker,
+        )
+
+        assertEquals(sticker, intent.getParcelableExtra<Uri>("interactive_asset_uri"))
+        assertEquals(sticker, intent.clipData?.getItemAt(0)?.uri)
+    }
 }

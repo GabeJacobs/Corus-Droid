@@ -257,6 +257,7 @@ fun SearchNavGraph(
     ) {
         composable<SearchTabRoute> {
             SearchScreen(
+                onPostMusic = { mainTabViewModel.requestMusicCompose() },
                 onNavigateToConcerts = { navController.navigate(ConcertsRoute) },
                 onNavigateToConcert = { eventId -> navController.navigate(ConcertDetailRoute(eventId)) },
                 onNavigateToMap = { navController.navigate(MapExploreRoute()) },
@@ -1079,6 +1080,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     composable<SearchRoute> {
         CompositionLocalProvider(LocalSkipImageRevealWhenCached provides true) {
         SearchScreen(
+            onPostMusic = { mainTabViewModel.requestMusicCompose() },
             onNavigateToConcerts = { navController.navigate(ConcertsRoute) },
             onNavigateToConcert = { eventId -> navController.navigate(ConcertDetailRoute(eventId)) },
             onNavigateToMap = { navController.navigate(MapExploreRoute()) },
@@ -1098,6 +1100,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
 
     composable<ConcertsRoute> {
         ConcertsScreen(
+            onPostMusic = { mainTabViewModel.requestMusicCompose() },
             onBack = { navController.safePopBackStack() },
             onConcert = { navController.navigate(ConcertDetailRoute(it)) },
         )

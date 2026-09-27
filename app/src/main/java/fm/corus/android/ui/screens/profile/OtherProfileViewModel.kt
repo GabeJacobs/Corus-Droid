@@ -43,9 +43,9 @@ import javax.inject.Inject
 @HiltViewModel
 class OtherProfileViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val userRepository: UserRepository,
+    val userRepository: UserRepository,
     private val postRepository: PostRepository,
-    private val authRepository: AuthRepository,
+    val authRepository: AuthRepository,
     private val messageRepository: MessageRepository,
     val nowPlayingManager: NowPlayingManager,
     private val cloudFunctions: fm.corus.android.data.remote.CloudFunctionsDataSource,
@@ -55,7 +55,7 @@ class OtherProfileViewModel @Inject constructor(
     private val postDeletionEvent: PostDeletionEvent,
     private val commentEditedEvent: CommentEditedEvent,
     private val commentDeletedEvent: CommentDeletedEvent,
-    private val analyticsService: AnalyticsService,
+    val analyticsService: AnalyticsService,
     private val remoteConfig: RemoteConfigService,
     private val networkMonitor: NetworkMonitor,
     private val favoriteChangedEvent: fm.corus.android.domain.FavoriteChangedEvent,
@@ -426,6 +426,13 @@ class OtherProfileViewModel @Inject constructor(
         // correct on first paint instead of defaulting to a stale value.
         // loadProfile() reconciles against the server regardless.
         _isFollowing.value = initialIsFollowing ?: userRepository.isFollowing(userId)
+        val visibility = blockedProfileVisibility(
+            userId,
+            userRepository.blockedIds.value,
+            userRepository.blockedByIds.value,
+        )
+        _isBlocked.value = visibility == BlockedProfileVisibility.LIMITED
+        _profileUnavailable.value = visibility == BlockedProfileVisibility.UNAVAILABLE
         loadProfile(userId)
     }
 
@@ -438,7 +445,18 @@ class OtherProfileViewModel @Inject constructor(
 
     fun loadProfile(userId: String) {
         loadedUserId = userId
-        _profileUnavailable.value = false
+        val initialVisibility = blockedProfileVisibility(
+            userId,
+            userRepository.blockedIds.value,
+            userRepository.blockedByIds.value,
+        )
+        _isBlocked.value = initialVisibility == BlockedProfileVisibility.LIMITED
+        _profileUnavailable.value = initialVisibility == BlockedProfileVisibility.UNAVAILABLE
+        if (initialVisibility == BlockedProfileVisibility.UNAVAILABLE) {
+            _isLoading.value = false
+            _mapCityResolved.value = true
+            return
+        }
         // Reset the lazily-loaded LIKES state so a reused ViewModel (profile ->
         // profile navigation) never shows the previous owner's likes or a stale
         // loaded/empty flag while the new owner's likes fetch.
@@ -497,13 +515,23 @@ class OtherProfileViewModel @Inject constructor(
                         data.posts
                     } else {
                         _mapCityResolved.value = true
-                        _profile.value = userRepository.fetchUserProfile(userId)
-                        postRepository.getProfilePosts(
-                            userId = userId,
-                            viewerId = viewerId,
-                            limit = PAGE_SIZE,
-                            lastTimestamp = null,
-                        )
+                        when (blockedProfileVisibility(
+                            userId,
+                            userRepository.blockedIds.value,
+                            userRepository.blockedByIds.value,
+                        )) {
+                            BlockedProfileVisibility.LIMITED -> {
+                                _isBlocked.value = true
+                                _profile.value = userRepository.fetchUserProfile(userId)
+                                emptyList()
+                            }
+                            BlockedProfileVisibility.FULL,
+                            BlockedProfileVisibility.UNAVAILABLE -> {
+                                _profileUnavailable.value = true
+                                _isLoading.value = false
+                                return@launch
+                            }
+                        }
                     }
                 } catch (e: Exception) {
                     // Banned (shadow or hard) or deleted → getProfileData returns
@@ -969,6 +997,8 @@ class OtherProfileViewModel @Inject constructor(
             try {
                 userRepository.unblockUser(currentUserId, userId)
                 _isBlocked.value = false
+                loadedUserId = null
+                loadProfile(userId)
             } catch (_: Exception) { }
         }
     }

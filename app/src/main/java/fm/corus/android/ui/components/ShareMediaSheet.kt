@@ -117,9 +117,8 @@ private fun logShareMethod(
  * and external channels carry a `corus.fm/song/{id}` or `corus.fm/film/{id}`
  * link.
  *
- * Repost and Instagram Stories are intentionally omitted — a detail page has no
- * underlying post to repost, and the Instagram card is built around a poster's
- * avatar + caption, which bare media has neither of.
+ * Repost is omitted because a detail page has no underlying post. With V2 on,
+ * song and film detail pages can share an artwork-led Instagram Story.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -138,11 +137,27 @@ fun ShareMediaSheet(
     postToInstagramV2: Boolean = false,
     profileShareAnalytics: ProfileShareAnalytics? = null,
 ) {
-    if (postToInstagramV2 && subject is ShareMediaSubject.Track) {
-        val track = subject.track
+    if (postToInstagramV2 && (subject is ShareMediaSubject.Track || subject is ShareMediaSubject.Film)) {
+        val instagramSubject = when (subject) {
+            is ShareMediaSubject.Track -> InstagramV2Subject(
+                subject.track.name,
+                subject.track.artistName,
+                subject.track.albumArtLargeURL ?: subject.track.albumArtURL,
+                "https://corus.fm/song/${subject.track.id}",
+                "https://corus.fm/song/${subject.track.id}",
+            )
+            is ShareMediaSubject.Film -> InstagramV2Subject(
+                title = subject.movie.title,
+                artist = subject.movie.directorName,
+                artworkUrl = subject.movie.posterLargeURL ?: subject.movie.posterURL,
+                songLink = "https://corus.fm/film/${subject.movie.id}",
+                outboundLink = "https://corus.fm/film/${subject.movie.id}",
+                isFilm = true,
+            )
+            else -> error("Unsupported Instagram V2 subject")
+        }
         PostToInstagramV2Sheet(
-            subject = InstagramV2Subject(track.name, track.artistName, track.albumArtLargeURL ?: track.albumArtURL,
-                "https://corus.fm/song/${track.id}", "https://corus.fm/song/${track.id}"),
+            subject = instagramSubject,
             recentContacts = recentContacts, searchResults = searchResults, isSearching = isSearching,
             isLoadingContacts = isLoadingContacts, instagramShareEnabled = instagramShareEnabled,
             onSearchQueryChange = onSearchQueryChange, onSendToUser = onSendToUser,

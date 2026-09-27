@@ -411,6 +411,7 @@
     <string name="other_profile_menu_block">屏蔽</string>
     <string name="other_profile_menu_unblock">取消屏蔽</string>
     <string name="other_profile_blocked_message">你已屏蔽此用户</string>
+    <string name="other_profile_blocked_body">取消屏蔽前，对方的个人资料和帖子将保持隐藏。</string>
     <string name="other_profile_button_message">私信</string>
     <string name="other_profile_button_follow">关注</string>
     <string name="other_profile_button_following">已关注</string>
@@ -1496,4 +1497,10 @@
     <string name="map_watch_mode_preview">观看模式预览 · 探索 Corus Club</string>
     <string name="club_feature_unlimited_playlists">无限导出歌单</string>
     <string name="club_feature_unlock_all_taste_matches">解锁所有品味匹配</string>
+    <string name="gift_club_offer_title">解锁 3 份礼物</string>
+    <string name="gift_club_offer_body">加入 Corus Club，每周可获得 3 份礼物。</string>
+    <string name="gift_club_offer_cta_trial">免费解锁</string>
+    <string name="gift_club_offer_cta_standard">通过 Corus Club 解锁</string>
+    <string name="club_subtitle_gift">今天解锁 3 份礼物。</string>
+    <string name="club_feature_gifts">每周 3 个礼物名额</string>
 </resources>

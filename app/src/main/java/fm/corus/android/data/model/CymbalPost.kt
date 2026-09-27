@@ -16,6 +16,7 @@ data class CymbalPost(
     val featuredHashtag: String? = null,
     val likeCount: Int = 0,
     val giftCount: Int = 0,
+    val recentGifts: List<PostGiftPreview> = emptyList(),
     val commentCount: Int = 0,
     val isLiked: Boolean = false,
     val timestamp: Date = Date(),
@@ -292,6 +293,9 @@ data class CymbalPost(
                 featuredHashtag = data["featuredHashtag"] as? String,
                 likeCount = (data["likeCount"] as? Number)?.toInt() ?: 0,
                 giftCount = (data["giftCount"] as? Number)?.toInt() ?: 0,
+                recentGifts = (data["recentGifts"] as? List<*>)
+                    ?.mapNotNull { (it as? Map<*, *>)?.let(PostGiftPreview::fromMap) }
+                    .orEmpty(),
                 commentCount = (data["commentCount"] as? Number)?.toInt() ?: 0,
                 isLiked = data["isLiked"] as? Boolean ?: false,
                 timestamp = timestamp,

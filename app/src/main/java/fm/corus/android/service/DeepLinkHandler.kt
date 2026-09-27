@@ -99,6 +99,7 @@ object DeepLinkHandler {
     fun parseNotificationData(data: Map<String, String>): DeepLinkDestination? {
         val type = data["type"] ?: return fallbackParse(data)
         return when (type) {
+            "updates_and_reminders" -> parseCampaignDestination(data)
             "concert_going" -> data["eventId"]?.takeIf { it.isNotBlank() }?.let(DeepLinkDestination::Concert)
             "map_follow_join" -> {
                 val cityId = data["cityId"]?.takeIf { it.isNotEmpty() }
@@ -123,7 +124,7 @@ object DeepLinkHandler {
                 if (commentId != null) DeepLinkDestination.PostComment(postId, commentId)
                 else DeepLinkDestination.Post(postId)
             }
-            "like", "save", "new_post", "trending", "play_milestone" -> data["postId"]?.let { DeepLinkDestination.Post(it) }
+            "like", "save", "new_post", "trending", "play_milestone", "gift" -> data["postId"]?.let { DeepLinkDestination.Post(it) }
             "taste_match" -> {
                 val subtype = data["subtype"]
                 val postId = data["postId"]
@@ -137,6 +138,33 @@ object DeepLinkHandler {
                 }
             }
             else -> fallbackParse(data)
+        }
+    }
+
+    /**
+     * Direct campaigns use a typed allowlist instead of an arbitrary URL.
+     * Returning null is the safe app-home fallback: the notification tap still
+     * launches Corus, but malformed or future targets cannot misroute users.
+     */
+    private fun parseCampaignDestination(data: Map<String, String>): DeepLinkDestination? {
+        val destinationType = data["destinationType"]?.trim()?.lowercase().orEmpty()
+        val key = data["destinationKey"]?.trim().orEmpty()
+        return when (destinationType) {
+            "home" -> null
+            "hashtag" -> key.trimStart('#').lowercase()
+                .takeIf { it.isNotEmpty() && it.none(Char::isWhitespace) }
+                ?.let(DeepLinkDestination::Hashtag)
+            "entity" -> {
+                val segment = data["entityType"]?.lowercase()?.let(EntitySegment::from)
+                if (segment != null && key.isNotEmpty()) DeepLinkDestination.Entity(segment, key) else null
+            }
+            "post" -> key.takeIf(String::isNotEmpty)?.let(DeepLinkDestination::Post)
+            "profile" -> key.takeIf(String::isNotEmpty)?.let(DeepLinkDestination::Profile)
+            "profile_username" -> key.lowercase().takeIf(String::isNotEmpty)
+                ?.let(DeepLinkDestination::ProfileByUsername)
+            "map" -> DeepLinkDestination.Map(key.takeIf(String::isNotEmpty), emptyList())
+            "club" -> DeepLinkDestination.Club
+            else -> null
         }
     }
 

@@ -1,8 +1,18 @@
 package fm.corus.android.ui.components
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -11,80 +21,292 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
+import com.valentinilk.shimmer.shimmer
 import fm.corus.android.data.model.GiftDefinition
 import fm.corus.android.data.model.GiftSender
 import fm.corus.android.data.model.PostGiftSummary
+import fm.corus.android.data.model.PostGiftPreview
 import fm.corus.android.ui.screens.notifications.GiftNotificationArtwork
 import fm.corus.android.ui.theme.CorusColors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-private data class GiftReceipt(val id: String, val sender: String, val type: String, val note: String?) {
+private data class GiftReceipt(val id: String, val senderId: String, val sender: String, val type: String, val note: String?) {
     val title get() = "$sender sent ${GiftDefinition.from(type).sentPhrase}"
+}
+
+private fun PostGiftPreview.toReceipt() = GiftReceipt(
+    id = "preview_${senderId}_${sentAtMs}_$giftType",
+    senderId = senderId,
+    sender = senderUsername.ifBlank { senderDisplayName.ifBlank { "Someone" } },
+    type = giftType,
+    note = note,
+)
+
+private fun previewSummary(gifts: List<PostGiftPreview>, total: Int): PostGiftSummary {
+    val senders = gifts.distinctBy { it.senderId }.map {
+        GiftSender(it.senderId, it.senderUsername.ifBlank { it.senderDisplayName.ifBlank { "Someone" } })
+    }
+    return PostGiftSummary(total.coerceAtLeast(gifts.size), if (gifts.size >= total) senders.size else null, senders)
+}
+
+private data class GiftReceiptPage(
+    val receipts: List<GiftReceipt>,
+    val summary: PostGiftSummary?,
+    val cursor: Map<*, *>?,
+)
+
+private suspend fun fetchGiftReceiptPage(
+    postId: String,
+    fallbackTotal: Int,
+    cursor: Map<*, *>? = null,
+): GiftReceiptPage {
+    val args = mutableMapOf<String, Any>("postId" to postId)
+    cursor?.let { args["cursor"] = it }
+    val data = FirebaseFunctions.getInstance("us-central1")
+        .getHttpsCallable("getPostGifts")
+        .call(args).await().getData() as? Map<*, *> ?: error("Invalid Gift response")
+    val receipts = (data["gifts"] as? List<*>)?.mapNotNull { value ->
+        val gift = value as? Map<*, *> ?: return@mapNotNull null
+        val id = gift["giftId"] as? String ?: return@mapNotNull null
+        GiftReceipt(
+            id = id,
+            senderId = gift["senderId"] as? String ?: "",
+            sender = (gift["senderUsername"] as? String)?.takeIf { it.isNotBlank() }
+                ?: gift["senderDisplayName"] as? String ?: "Someone",
+            type = gift["giftType"] as? String ?: "",
+            note = gift["note"] as? String,
+        )
+    }.orEmpty()
+    val summary = (data["summary"] as? Map<*, *>)?.let { raw ->
+        PostGiftSummary(
+            (raw["total"] as? Number)?.toInt() ?: fallbackTotal,
+            (raw["senderCount"] as? Number)?.toInt(),
+            (raw["senders"] as? List<*>)?.mapNotNull { value ->
+                val sender = value as? Map<*, *> ?: return@mapNotNull null
+                val id = sender["senderId"] as? String ?: return@mapNotNull null
+                GiftSender(id, (sender["senderUsername"] as? String)?.takeIf { it.isNotBlank() }
+                    ?: sender["senderDisplayName"] as? String ?: "Someone")
+            }.orEmpty(),
+        )
+    }
+    return GiftReceiptPage(receipts, summary, data["nextCursor"] as? Map<*, *>)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PostGiftRow(postId: String, giftCount: Int) {
+fun PostGiftRow(
+    postId: String,
+    giftCount: Int,
+    recentGifts: List<PostGiftPreview> = emptyList(),
+    onSenderTap: (String) -> Unit = {},
+) {
     val uid = FirebaseAuth.getInstance().currentUser?.uid
-    var receipts by remember(postId, uid, giftCount) { mutableStateOf(emptyList<GiftReceipt>()) }
-    var summary by remember(postId, uid, giftCount) { mutableStateOf<PostGiftSummary?>(null) }
-    var cursor by remember(postId, uid, giftCount) { mutableStateOf<Map<*, *>?>(null) }
+    val previewReceipts = remember(recentGifts) { recentGifts.map(PostGiftPreview::toReceipt) }
+    val initialSummary = remember(recentGifts, giftCount) { previewSummary(recentGifts, giftCount) }
+    var rowReceipts by remember(postId, uid, giftCount, recentGifts) { mutableStateOf(previewReceipts) }
+    var rowSummary by remember(postId, uid, giftCount, recentGifts) {
+        mutableStateOf(initialSummary.takeIf { previewReceipts.isNotEmpty() })
+    }
     var open by remember(postId, uid) { mutableStateOf(false) }
     var index by remember(postId, uid) { mutableIntStateOf(0) }
-    var loading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf(false) }
+    var sheetReceipts by remember(postId, uid) { mutableStateOf(emptyList<GiftReceipt>()) }
+    var sheetSummary by remember(postId, uid) { mutableStateOf<PostGiftSummary?>(null) }
+    var sheetCursor by remember(postId, uid) { mutableStateOf<Map<*, *>?>(null) }
+    var sheetLoading by remember(postId, uid) { mutableStateOf(false) }
+    var sheetLoaded by remember(postId, uid) { mutableStateOf(false) }
+    var sheetError by remember(postId, uid) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    suspend fun load(reset: Boolean): Boolean {
-        loading = true; error = false
+
+    suspend fun loadSheet(reset: Boolean): Boolean {
+        if (sheetLoading) return false
+        sheetLoading = true
+        sheetError = false
         return try {
-            val args = mutableMapOf<String, Any>("postId" to postId)
-            if (!reset) cursor?.let { args["cursor"] = it }
-            val data = FirebaseFunctions.getInstance("us-central1").getHttpsCallable("getPostGifts").call(args).await().getData() as? Map<*, *> ?: return false
-            val rows = (data["gifts"] as? List<*>)?.mapNotNull { value ->
-                val g = value as? Map<*, *> ?: return@mapNotNull null
-                val id = g["giftId"] as? String ?: return@mapNotNull null
-                GiftReceipt(id, (g["senderUsername"] as? String)?.takeIf { it.isNotBlank() } ?: g["senderDisplayName"] as? String ?: "Someone", g["giftType"] as? String ?: "", g["note"] as? String)
-            }.orEmpty()
-            receipts = (if (reset) rows else receipts + rows).distinctBy { it.id }
-            cursor = data["nextCursor"] as? Map<*, *>
-            (data["summary"] as? Map<*, *>)?.let { s ->
-                summary = PostGiftSummary((s["total"] as? Number)?.toInt() ?: giftCount, (s["senderCount"] as? Number)?.toInt(),
-                    (s["senders"] as? List<*>)?.mapNotNull { value ->
-                        val person = value as? Map<*, *> ?: return@mapNotNull null
-                        val id = person["senderId"] as? String ?: return@mapNotNull null
-                        GiftSender(id, (person["senderUsername"] as? String)?.takeIf { it.isNotBlank() } ?: person["senderDisplayName"] as? String ?: "Someone")
-                    }.orEmpty())
-            }
+            val page = fetchGiftReceiptPage(postId, giftCount, if (reset) null else sheetCursor)
+            sheetReceipts = if (reset) page.receipts else (sheetReceipts + page.receipts).distinctBy { it.id }
+            sheetSummary = page.summary ?: sheetSummary
+            sheetCursor = page.cursor
+            sheetLoaded = true
             true
-        } catch (e: CancellationException) { throw e }
-        catch (_: Exception) { error = true; false }
-        finally { loading = false }
-    }
-    LaunchedEffect(postId, uid, giftCount) { if (giftCount > 0 && uid != null) load(true) }
-    val currentSummary = summary ?: return
-    val first = receipts.firstOrNull() ?: return
-    Row(Modifier.fillMaxWidth().clickable { index = 0; open = true }.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        Row { receipts.map { it.type }.distinct().take(3).forEach { GiftNotificationArtwork(it, 34.dp) } }
-        Text(if (currentSummary.total == 1) first.title else currentSummary.attribution(), color = CorusColors.Text, modifier = Modifier.weight(1f))
-    }
-    if (open) ModalBottomSheet(onDismissRequest = { open = false }, containerColor = CorusColors.Background) {
-        val gift = receipts.getOrElse(index) { first }
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            if (currentSummary.total > 1) Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(enabled = index > 0, onClick = { index-- }) { Text("Previous") }
-                Text("${index + 1} of ${currentSummary.total}", color = CorusColors.Secondary)
-                TextButton(enabled = !loading && (index + 1 < receipts.size || cursor != null), onClick = {
-                    if (index + 1 < receipts.size) index++ else scope.launch { if (load(false) && index + 1 < receipts.size) index++ }
-                }) { Text("Next") }
-            }
-            GiftNotificationArtwork(gift.type, 164.dp)
-            Text(GiftDefinition.from(gift.type).name, style = MaterialTheme.typography.headlineSmall, color = CorusColors.Text)
-            Text(gift.title, color = CorusColors.Text)
-            gift.note?.takeIf { it.isNotBlank() }?.let { Text(it, color = CorusColors.Text) }
-            if (error) Text("Couldn’t load the next gift. Tap Next to retry.", color = CorusColors.Secondary)
-            TextButton(onClick = { open = false }) { Text("Close") }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            sheetError = true
+            false
+        } finally {
+            sheetLoading = false
         }
     }
+
+    LaunchedEffect(postId, uid, giftCount) {
+        if (giftCount <= 0 || uid == null || previewReceipts.isNotEmpty()) return@LaunchedEffect
+        try {
+            val page = fetchGiftReceiptPage(postId, giftCount)
+            rowReceipts = page.receipts
+            rowSummary = page.summary
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            // The bounded feed row is optional; a later post refresh can retry it.
+        }
+    }
+
+    val currentRowSummary = rowSummary ?: return
+    val firstRowGift = rowReceipts.firstOrNull() ?: return
+    val rowArtworkSize = if (currentRowSummary.total <= 2) 34.dp else 30.dp
+    val rowArtworkSpacing = if (currentRowSummary.total == 2) 1.dp else 3.dp
+    Row(
+        Modifier.fillMaxWidth().clickable {
+            index = 0
+            sheetReceipts = rowReceipts
+            sheetSummary = rowSummary
+            sheetCursor = null
+            sheetLoaded = false
+            sheetError = false
+            open = true
+        }.padding(start = 12.5.dp, end = 16.dp, top = 5.dp, bottom = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.5.dp),
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(rowArtworkSpacing)) {
+            rowReceipts.map { it.type }.distinct().take(3).forEach {
+                GiftNotificationArtwork(it, rowArtworkSize)
+            }
+        }
+        Text(
+            if (currentRowSummary.total == 1) firstRowGift.title else currentRowSummary.attribution(),
+            color = CorusColors.Text,
+            modifier = Modifier.weight(1f),
+        )
+    }
+
+    if (open) {
+        LaunchedEffect(Unit) { loadSheet(reset = true) }
+        val displayedTotal = sheetSummary?.total ?: giftCount
+        val sheetState = rememberModalBottomSheetState()
+        ModalBottomSheet(
+            onDismissRequest = { open = false },
+            sheetState = sheetState,
+            containerColor = CorusColors.Background,
+        ) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(if (displayedTotal > 1) "Gifts" else "Gift", style = MaterialTheme.typography.titleLarge, color = CorusColors.Text)
+                AnimatedContent(
+                    targetState = sheetReceipts.isNotEmpty(),
+                    transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(100)) },
+                    label = "giftReceiptContent",
+                ) { hasReceipt ->
+                    if (!hasReceipt) {
+                        if (sheetError) {
+                            Column(
+                                Modifier.fillMaxWidth().padding(vertical = 48.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Text("Couldn’t load gifts. Please try again.", color = CorusColors.Secondary)
+                                TextButton(onClick = { scope.launch { loadSheet(reset = true) } }) { Text("Try Again") }
+                            }
+                        } else GiftReceiptSkeleton(displayedTotal)
+                    } else {
+                        val first = sheetReceipts.firstOrNull()
+                        if (first == null) {
+                            Text("No gifts yet", color = CorusColors.Secondary, modifier = Modifier.padding(48.dp))
+                        } else {
+                            val gift = sheetReceipts.getOrElse(index) { first }
+                            Column(
+                                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                            ) {
+                                if (displayedTotal > 1) GiftPager(
+                                    index, displayedTotal, index > 0,
+                                    index + 1 < sheetReceipts.size || (!sheetLoading && sheetCursor != null),
+                                    { index-- },
+                                    {
+                                        if (index + 1 < sheetReceipts.size) index++
+                                        else scope.launch { if (loadSheet(false) && index + 1 < sheetReceipts.size) index++ }
+                                    },
+                                )
+                                GiftNotificationArtwork(gift.type, 164.dp)
+                                Text(GiftDefinition.from(gift.type).name, style = MaterialTheme.typography.headlineSmall, color = CorusColors.Text)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        gift.sender,
+                                        color = CorusColors.Text,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                        modifier = Modifier.clickable(enabled = gift.senderId.isNotBlank()) {
+                                            scope.launch {
+                                                sheetState.hide()
+                                                open = false
+                                                onSenderTap(gift.senderId)
+                                            }
+                                        },
+                                    )
+                                    Text(" sent ${GiftDefinition.from(gift.type).sentPhrase}", color = CorusColors.Text)
+                                }
+                                AnimatedVisibility(
+                                    visible = !gift.note.isNullOrBlank(),
+                                    enter = fadeIn(tween(240)) + expandVertically(tween(240)),
+                                    exit = fadeOut(tween(120)) + shrinkVertically(tween(120)),
+                                ) {
+                                    gift.note?.takeIf { it.isNotBlank() }?.let { note ->
+                                        Text(note, color = CorusColors.Text)
+                                    }
+                                }
+                                if (sheetError) {
+                                    Text("Couldn’t refresh Gift details.", color = CorusColors.Secondary)
+                                    TextButton(onClick = { scope.launch { loadSheet(reset = true) } }) { Text("Try Again") }
+                                }
+                                TextButton(onClick = { open = false }) { Text("Close") }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GiftPager(
+    index: Int, total: Int, previousEnabled: Boolean, nextEnabled: Boolean,
+    onPrevious: () -> Unit, onNext: () -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        TextButton(enabled = previousEnabled, onClick = onPrevious) { Text("‹") }
+        Text("${index + 1} of $total", color = CorusColors.Secondary)
+        TextButton(enabled = nextEnabled, onClick = onNext) { Text("›") }
+    }
+}
+
+@Composable
+private fun GiftReceiptSkeleton(total: Int) {
+    Column(
+        Modifier.fillMaxWidth().padding(bottom = 28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (total > 1) GiftPager(0, total, false, false, {}, {})
+        Column(
+            Modifier.fillMaxWidth().shimmer(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            Spacer(Modifier.height(2.dp))
+            SkeletonBone(164, 164, 42)
+            SkeletonBone(142, 28, 9)
+            SkeletonBone(226, 17, 6)
+            SkeletonBone(176, 17, 6)
+        }
+    }
+}
+
+@Composable
+private fun SkeletonBone(width: Int, height: Int, radius: Int) {
+    Box(Modifier.size(width.dp, height.dp).background(CorusColors.Skeleton, RoundedCornerShape(radius.dp)))
 }

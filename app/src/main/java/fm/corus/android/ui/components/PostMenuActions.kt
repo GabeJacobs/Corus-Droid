@@ -28,7 +28,7 @@ interface PostMenuActions {
     val engagementStates: StateFlow<Map<String, EngagementState>>
 
     fun isOwnPost(post: CymbalPost): Boolean
-    fun loadRecentShareContacts()
+    fun loadRecentShareContacts(includeCachedFallbacks: Boolean = false)
     fun searchShareUsers(query: String)
     fun sendPostToUser(userId: String, post: CymbalPost, message: String)
     fun reportPost(postId: String, postUserId: String)

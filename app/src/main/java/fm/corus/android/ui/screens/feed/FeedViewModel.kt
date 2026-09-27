@@ -1561,11 +1561,13 @@ class FeedViewModel @Inject constructor(
 
     // ── Share contacts & search ──
 
-    override fun loadRecentShareContacts() {
+    override fun loadRecentShareContacts(includeCachedFallbacks: Boolean) {
         val userId = authRepository.currentUserId ?: return
         loadRecentShareRecipients(
             userId = userId,
             messageRepository = messageRepository,
+            userRepository = userRepository,
+            includeCachedFallbacks = includeCachedFallbacks,
             setContacts = { _recentShareContacts.value = it },
             setLoading = { _isLoadingShareContacts.value = it },
             scope = viewModelScope,
@@ -1741,6 +1743,8 @@ const val SHARE_CONTACTS_CAP = 20
 fun loadRecentShareRecipients(
     userId: String,
     messageRepository: MessageRepository,
+    userRepository: UserRepository? = null,
+    includeCachedFallbacks: Boolean = false,
     setContacts: (List<ShareRecipient>) -> Unit,
     setLoading: (Boolean) -> Unit,
     scope: CoroutineScope,
@@ -1751,7 +1755,17 @@ fun loadRecentShareRecipients(
             val threads = messageRepository.listThreads(userId).map { thread ->
                 thread.copy(members = thread.members.filter { it.id != userId })
             }
-            setContacts(fm.corus.android.data.model.recentShareRecipients(threads))
+            val recent = fm.corus.android.data.model.recentShareRecipients(threads)
+            val contacts = if (includeCachedFallbacks && userRepository != null) {
+                fm.corus.android.data.model.shareSheetRecipients(
+                    recent = recent,
+                    cachedMatches = userRepository.cachedShareSuggestions(userId),
+                    followedUserIds = userRepository.followingIds.value,
+                    currentUserId = userId,
+                    cap = SHARE_CONTACTS_CAP,
+                )
+            } else recent
+            setContacts(contacts)
         } catch (error: kotlinx.coroutines.CancellationException) {
             throw error
         } catch (_: Exception) { }

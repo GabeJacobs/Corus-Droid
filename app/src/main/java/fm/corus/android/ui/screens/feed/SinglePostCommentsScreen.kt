@@ -621,6 +621,7 @@ fun SinglePostCommentsScreen(
                         isSaved = isSaved,
                         saveCount = saveCount,
                         saveCountEnabled = viewModel.remoteConfig.saveCountEnabled,
+                        showGifts = viewModel.remoteConfig.giftsEnabledForCurrentUser,
                         currentUser = currentUserProfile,
                         isPreviewLoading = p.isTrack && PostPlaybackHighlight.isAlbumArtLoading(
                             loadingTrackId = loadingTrackId,
@@ -720,6 +721,7 @@ fun SinglePostCommentsScreen(
                         musicService = musicService,
                         onLikesTap = { onNavigateToLikes(p.id) },
                         onLikerTap = { liker -> onNavigateToUser(liker.id) },
+                        onGiftSenderTap = onNavigateToUser,
                         onMentionTap = { username ->
                             scope.launch {
                                 val userId = viewModel.resolveUsernameToId(username.removePrefix("@"))

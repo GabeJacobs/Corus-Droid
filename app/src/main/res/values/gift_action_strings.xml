@@ -1,0 +1,5 @@
+<resources>
+    <string name="gift_send_action">Send a Gift</string>
+    <string name="gift_picker_intro">Send a gift to %1$s as a special thank you.</string>
+    <string name="gift_picker_empty_intro">You’ve used all your gifts for now.</string>
+</resources>

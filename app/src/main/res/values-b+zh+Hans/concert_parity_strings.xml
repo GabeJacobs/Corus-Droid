@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="concert_make_personal">打造个性推荐</string>
+    <string name="concert_personal_message">发布你喜欢的音乐。我们会关注你喜爱的艺人，并在他们到附近演出时告诉你。</string>
+    <string name="concert_post_music">发布音乐</string>
+    <string name="concert_view_all">查看所有演出</string>
+    <string name="concert_no_matches">你的艺人暂时没有匹配的演出</string>
+    <string name="concert_find_nearby">查找附近的演出</string>
+    <string name="concert_choose_location_message">选择城市或使用当前位置查看即将举行的演出。</string>
+    <string name="concert_remove">移除</string>
+    <string name="concert_calendar_error">无法打开日历应用。请安装一个日历应用后重试。</string>
+</resources>

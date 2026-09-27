@@ -283,6 +283,7 @@ fun ProfileFeedScreen(
                     isSaved = engagement?.isSaved ?: false,
                     saveCount = engagement?.saveCount ?: post.saveCount,
                     saveCountEnabled = viewModel.remoteConfig.saveCountEnabled,
+                    showGifts = viewModel.remoteConfig.giftsEnabledForCurrentUser,
                     currentUser = currentUserProfile,
                     isPreviewLoading = post.isTrack && PostPlaybackHighlight.isAlbumArtLoading(
                         loadingTrackId = loadingTrackId,
@@ -334,6 +335,7 @@ fun ProfileFeedScreen(
                     onCommentTap = { onNavigateToComments(post.id) },
                     onLikesTap = { onNavigateToLikes(post.id) },
                     onLikerTap = { liker -> onNavigateToUser(liker.id) },
+                    onGiftSenderTap = onNavigateToUser,
                     onRepostTap = { onRepost(post) },
                     onRepostLongPress = if (viewModel.remoteConfig.repostersListEnabled && post.repostCount > 0) {
                         { onShowReposters(post.id) }

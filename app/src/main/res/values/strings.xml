@@ -490,6 +490,7 @@
     <string name="other_profile_menu_block">Block</string>
     <string name="other_profile_menu_unblock">Unblock</string>
     <string name="other_profile_blocked_message">You blocked this user</string>
+    <string name="other_profile_blocked_body">Their profile and posts stay hidden until you unblock them.</string>
     <string name="other_profile_unavailable_title">This account is unavailable</string>
     <string name="other_profile_unavailable_subtitle">This user may no longer exist.</string>
     <string name="other_profile_button_message">MESSAGE</string>
@@ -1595,4 +1596,10 @@
     <string name="map_finding_city">Finding your city</string>
     <string name="map_listen_mode_preview">Listen mode preview · Explore Corus Club</string>
     <string name="map_watch_mode_preview">Watch mode preview · Explore Corus Club</string>
+    <string name="gift_club_offer_title">Unlock 3 Gifts</string>
+    <string name="gift_club_offer_body">Join Corus Club and get 3 Gifts every week.</string>
+    <string name="gift_club_offer_cta_trial">Unlock for Free</string>
+    <string name="gift_club_offer_cta_standard">Unlock with Corus Club</string>
+    <string name="club_subtitle_gift">Unlock 3 Gifts today.</string>
+    <string name="club_feature_gifts">3 Gift slots every week</string>
 </resources>

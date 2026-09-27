@@ -21,6 +21,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import fm.corus.android.data.repository.ConcertPage
+import fm.corus.android.data.repository.ConcertPerson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import javax.inject.Inject
@@ -37,14 +41,32 @@ class ConcertsViewModel @Inject constructor(
     private val mapRepository: MapRepository,
 ) : AndroidViewModel(app) {
     val enabled get() = remoteConfig.concertsEnabled
+    val calendarEnabled get() = remoteConfig.concertCalendarEnabled
+    val discoveryFilter = concerts.discoveryFilter
+    private val _previewPage = MutableStateFlow<ConcertPage?>(null)
+    val previewPage = _previewPage.asStateFlow()
+    private val _previewLoading = MutableStateFlow(false)
+    val previewLoading = _previewLoading.asStateFlow()
+    private val _previewError = MutableStateFlow(false)
+    val previewError = _previewError.asStateFlow()
+    private var previewKey: String? = null
+    private var previewAt = 0L
+    private val _hasPostedArtists = MutableStateFlow(true)
+    val hasPostedArtists = _hasPostedArtists.asStateFlow()
+    private var currentPerson: ConcertPerson? = null
+    private var confirmedAttendance: ConcertAttendance? = null
+    private var planRevision = 0
+    private val planMutex = Mutex()
+    private var detailJob: Job? = null
+
     private val prefs = app.getSharedPreferences("concerts", 0)
     private val uid get() = auth.currentUser?.uid.orEmpty()
     private val cityKey get() = "selectedCity.$uid"
     private val _cityId = MutableStateFlow(prefs.getString(cityKey, null))
     val cityId = _cityId.asStateFlow()
-    private val _cityName = MutableStateFlow(POPULAR_CONCERT_CITIES.firstOrNull { it.first == _cityId.value }?.second.orEmpty())
+    private val _cityName = MutableStateFlow(prefs.getString("selectedCityName.$uid", null) ?: POPULAR_CONCERT_CITIES.firstOrNull { it.first == _cityId.value }?.second.orEmpty())
     val cityName = _cityName.asStateFlow()
-    private val _tab = MutableStateFlow("all")
+    private val _tab = MutableStateFlow(concerts.discoveryFilter.value)
     val tab = _tab.asStateFlow()
     private val _shows = MutableStateFlow<List<ConcertShow>>(emptyList())
     val shows = _shows.asStateFlow()
@@ -98,7 +120,17 @@ class ConcertsViewModel @Inject constructor(
         finally { _citySearching.value = false }
     }
 
-    init { viewModelScope.launch { concerts.planUpdates.collect { _plans.value = it } } }
+    private val cityPreferenceListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == cityKey || key == "selectedCityName.$uid") {
+            _cityId.value = prefs.getString(cityKey, null)
+            _cityName.value = prefs.getString("selectedCityName.$uid", "").orEmpty()
+        }
+    }
+    init {
+        prefs.registerOnSharedPreferenceChangeListener(cityPreferenceListener)
+        viewModelScope.launch { concerts.planUpdates.collect { _plans.value = it } }
+    }
+    override fun onCleared() { prefs.unregisterOnSharedPreferenceChangeListener(cityPreferenceListener); super.onCleared() }
 
     fun log(action: String, show: ConcertShow? = null, source: String = "concerts_list", extra: Map<String, Any> = emptyMap()) {
         analytics.logEvent("concert_event", buildMap {
@@ -108,17 +140,28 @@ class ConcertsViewModel @Inject constructor(
         })
     }
 
-    suspend fun preview(): List<ConcertShow> {
-        if (!enabled) return emptyList()
-        return runCatching {
-            val matches = concerts.page(_cityId.value, "forYou", suggestions = true, preview = true).shows
-            matches.ifEmpty { concerts.page(_cityId.value, "all", preview = true).shows }
-        }.getOrDefault(emptyList())
+    suspend fun preview(force: Boolean = false) {
+        if (!enabled) return
+        val key = "$uid|${_cityId.value}|${discoveryFilter.value}"
+        if (!force && key == previewKey && _previewPage.value != null && System.currentTimeMillis() - previewAt < 60_000) return
+        if (key != previewKey) _previewPage.value = null
+        previewKey = key
+        _previewLoading.value = true; _previewError.value = false
+        try {
+            val page = concerts.page(_cityId.value, discoveryFilter.value, suggestions = true, preview = true)
+            if (key != previewKey) return
+            _previewPage.value = page; previewAt = System.currentTimeMillis()
+            log("preview_impression", source = "search_music_preview", extra = mapOf("filter" to discoveryFilter.value, "count" to page.shows.size))
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { if (key == previewKey) _previewError.value = true }
+        finally { if (key == previewKey) _previewLoading.value = false }
     }
 
-    fun selectTab(value: String) { _tab.value = value; log("tab_changed", extra = mapOf("filter" to value)); refresh() }
+    fun rememberDiscoveryTab(value: String) { concerts.selectDiscoveryFilter(value) }
+
+    fun selectTab(value: String) { concerts.selectDiscoveryFilter(value); _tab.value = value; log("tab_changed", extra = mapOf("filter" to value)); refresh() }
     fun selectCity(id: String, name: String) {
-        prefs.edit().putString(cityKey, id).apply(); _cityId.value = id; _cityName.value = name
+        prefs.edit().putString(cityKey, id).putString("selectedCityName.$uid", name).apply(); _cityId.value = id; _cityName.value = name
         _needsCity.value = false; log("city_selected", extra = mapOf("city_id" to id)); refresh()
     }
     fun selectCurrentLocation(location: Location, done: (Boolean) -> Unit) {
@@ -154,6 +197,7 @@ class ConcertsViewModel @Inject constructor(
                     _shows.value = if (next == null) result.shows else (_shows.value + result.shows).distinctBy { it.id }
                     _cursor.value = result.nextCursor; _total.value = result.total
                     _needsCity.value = result.needsCity; _genres.value = result.availableGenres
+                    _hasPostedArtists.value = result.hasPostedArtists
                     if (!result.cityName.isNullOrEmpty()) _cityName.value = result.cityName
                     log(if (next == null) "page_loaded" else "page_appended", extra = mapOf(
                         "filter" to requestedTab, "count" to result.shows.size,
@@ -165,11 +209,24 @@ class ConcertsViewModel @Inject constructor(
         }
     }
     fun open(eventId: String) {
+        detailJob?.cancel()
         _show.value = concerts.cached(eventId)
-        _attendance.value = null
+        _attendance.value = concerts.rememberedAttendance(eventId)
+        confirmedAttendance = _attendance.value
         _detailError.value = false
         _detailLoading.value = _show.value == null
-        viewModelScope.launch {
+        val revision = planRevision
+        detailJob = viewModelScope.launch {
+            launch {
+                runCatching { users.fetchUserProfile(uid) }.getOrNull()?.let { user ->
+                    currentPerson = ConcertPerson(user.id, user.displayName, user.username, user.avatarThumbURL ?: user.avatarURL, "")
+                    val current = _attendance.value
+                    if (current?.status != null) {
+                        _attendance.value = current.copy(people = listOf(currentPerson!!.copy(status = current.status)) + current.people.filterNot { it.id == uid })
+                        concerts.rememberAttendance(eventId, _attendance.value!!)
+                    }
+                }
+            }
             if (_show.value == null) {
                 _show.value = runCatching { concerts.concert(eventId) }.getOrNull()
                     ?: runCatching { concerts.myConcerts().firstOrNull { it.id == eventId } }.getOrNull()
@@ -178,7 +235,15 @@ class ConcertsViewModel @Inject constructor(
             _detailLoading.value = false
             _show.value?.let { show ->
                 log("detail_viewed", show, "concert_detail")
-                runCatching { concerts.attendance(show) }.onSuccess { _attendance.value = it }
+                if (_attendance.value == null) {
+                    val status = concerts.rememberedPlans().firstOrNull { it.id == eventId }?.status
+                    _attendance.value = ConcertAttendance(status, if (status == "going") 1 else 0, if (status == "interested") 1 else 0, emptyList(), null)
+                }
+                try {
+                    val result = concerts.attendance(show)
+                    if (planRevision == revision) { confirmedAttendance = result; _attendance.value = result; concerts.rememberAttendance(eventId, result) }
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) { /* Keep cached/optimistic state usable. */ }
             }
         }
     }
@@ -190,18 +255,34 @@ class ConcertsViewModel @Inject constructor(
         val show = _show.value ?: return
         val old = _attendance.value ?: return
         val next = if (old.status == choice) null else choice
-        if ((show.date < java.time.LocalDate.now().toString() || show.eventStatus in listOf("canceled", "postponed")) && next != null) return
+        if ((ConcertCalendarPolicy.hasStarted(show.date, show.time, show.timezone) || show.eventStatus in listOf("canceled", "postponed")) && next != null) return
+        val revision = ++planRevision
+        val people = old.people.filterNot { it.id == uid }.toMutableList()
+        if (next != null) currentPerson?.let { people.add(0, it.copy(status = next)) }
         _attendance.value = old.copy(
+            people = people,
             status = next,
             goingCount = (old.goingCount + (if (next == "going") 1 else 0) - (if (old.status == "going") 1 else 0)).coerceAtLeast(0),
             interestedCount = (old.interestedCount + (if (next == "interested") 1 else 0) - (if (old.status == "interested") 1 else 0)).coerceAtLeast(0),
         )
+        val optimisticAttendance = _attendance.value!!
+        concerts.rememberAttendance(show.id, optimisticAttendance)
         concerts.rememberPlan(show, next, optimistic = true); _plans.value = concerts.rememberedPlans()
         log("rsvp_tapped", show, "concert_detail", mapOf("status_from" to (old.status ?: "none"), "status_to" to (next ?: "none")))
         viewModelScope.launch {
-            runCatching { concerts.setInterest(show, next ?: "none") }.onFailure {
-                _attendance.value = old; concerts.clearPending(show.id); concerts.rememberPlan(show, old.status); _plans.value = concerts.rememberedPlans()
-                _error.value = true
+            planMutex.withLock {
+                // Serialize writes so a slow earlier tap cannot overwrite a later choice.
+                if (revision != planRevision) return@withLock
+                runCatching { concerts.setInterest(show, next ?: "none") }
+                    .onSuccess { confirmedAttendance = optimisticAttendance }
+                    .onFailure {
+                    if (revision == planRevision) {
+                        val restored = confirmedAttendance ?: old
+                        _attendance.value = restored; concerts.rememberAttendance(show.id, restored)
+                        concerts.clearPending(show.id); concerts.rememberPlan(show, restored.status)
+                        _plans.value = concerts.rememberedPlans(); _error.value = true
+                    }
+                }
             }
         }
     }

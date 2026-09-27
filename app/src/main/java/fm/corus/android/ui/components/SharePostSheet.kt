@@ -71,10 +71,47 @@ fun SharePostSheet(
     onDismiss: () -> Unit,
     onAnalyticsLog: ((method: String) -> Unit)? = null,
 ) {
-    if (postToInstagramV2 && post.isTrack) {
+    if (postToInstagramV2 && (post.isTrack || post.isMovie)) {
+        val postLink = "https://corus.fm/post/${post.id}"
+        val filmLink = post.movieId?.takeIf { it.isNotBlank() }?.let { "https://corus.fm/film/$it" } ?: postLink
+        val subject = if (post.isMovie) {
+            InstagramV2Subject(
+                title = post.movieTitle ?: post.displayTitle,
+                artist = post.directorName ?: post.displaySubtitle,
+                artworkUrl = post.displayImageLargeURL ?: post.displayImageURL,
+                songLink = filmLink,
+                outboundLink = postLink,
+                username = post.user.username,
+                caption = post.caption,
+                avatarUrl = post.user.avatarURL,
+                isFilm = true,
+                isVerified = post.user.isVerified,
+                isClubMember = post.user.isClubMember,
+                isBot = post.user.isBot,
+                flairStyle = post.user.flairStyle,
+                isFirstPoster = post.isFirstPoster,
+                isNewRelease = post.isNewRelease(),
+            )
+        } else {
+            InstagramV2Subject(
+                title = post.track.name,
+                artist = post.track.artistName,
+                artworkUrl = post.displayImageLargeURL ?: post.displayImageURL,
+                songLink = "https://corus.fm/song/${post.track.id}",
+                outboundLink = postLink,
+                username = post.user.username,
+                caption = post.caption,
+                avatarUrl = post.user.avatarURL,
+                isVerified = post.user.isVerified,
+                isClubMember = post.user.isClubMember,
+                isBot = post.user.isBot,
+                flairStyle = post.user.flairStyle,
+                isFirstPoster = post.isFirstPoster,
+                isNewRelease = post.isNewRelease(),
+            )
+        }
         PostToInstagramV2Sheet(
-            subject = InstagramV2Subject(post.track.name, post.track.artistName, post.displayImageLargeURL ?: post.displayImageURL,
-                "https://corus.fm/song/${post.track.id}", "https://corus.fm/post/${post.id}", post.user.username, post.caption, post.user.avatarURL),
+            subject = subject,
             recentContacts = recentContacts, searchResults = searchResults, isSearching = isSearching,
             isLoadingContacts = isLoadingContacts, instagramShareEnabled = instagramShareEnabled,
             onSearchQueryChange = onSearchQueryChange, onSendToUser = onSendToUser,
@@ -430,6 +467,7 @@ internal fun SkeletonShareContactsGrid() {
 internal fun ShareContactCell(
     user: ShareRecipient,
     isSelected: Boolean,
+    showRemoveAffordance: Boolean = false,
     onClick: () -> Unit,
 ) {
     Column(
@@ -449,8 +487,8 @@ internal fun ShareContactCell(
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        Icons.Filled.Check,
-                        contentDescription = stringResource(R.string.share_post_cd_selected),
+                        if (showRemoveAffordance) Icons.Filled.Close else Icons.Filled.Check,
+                        contentDescription = stringResource(if (showRemoveAffordance) R.string.instagram_v2_remove_recipient else R.string.share_post_cd_selected),
                         tint = Color.White,
                         modifier = Modifier.size(11.dp),
                     )
@@ -473,6 +511,7 @@ internal fun ShareContactCell(
 internal fun ShareUserRow(
     user: ShareRecipient,
     isSelected: Boolean,
+    showRemoveAffordance: Boolean = false,
     onClick: () -> Unit,
 ) {
     Row(
@@ -501,8 +540,8 @@ internal fun ShareUserRow(
         }
         if (isSelected) {
             Icon(
-                Icons.Filled.Check,
-                contentDescription = stringResource(R.string.share_post_cd_selected),
+                if (showRemoveAffordance) Icons.Filled.Close else Icons.Filled.Check,
+                contentDescription = stringResource(if (showRemoveAffordance) R.string.instagram_v2_remove_recipient else R.string.share_post_cd_selected),
                 tint = CorusColors.Accent,
                 modifier = Modifier.size(22.dp),
             )

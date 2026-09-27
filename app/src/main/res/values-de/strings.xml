@@ -411,6 +411,7 @@
     <string name="other_profile_menu_block">Blockieren</string>
     <string name="other_profile_menu_unblock">Entsperren</string>
     <string name="other_profile_blocked_message">Du hast diesen Nutzer blockiert</string>
+    <string name="other_profile_blocked_body">Profil und Beiträge bleiben verborgen, bis du die Blockierung aufhebst.</string>
     <string name="other_profile_button_message">NACHRICHT</string>
     <string name="other_profile_button_follow">FOLGEN</string>
     <string name="other_profile_button_following">FOLGE ICH</string>
@@ -1506,4 +1507,10 @@
     <string name="map_watch_mode_preview">Vorschau des Watch-Modus · Corus Club entdecken</string>
     <string name="club_feature_unlimited_playlists">Unbegrenzt viele Playlists exportieren</string>
     <string name="club_feature_unlock_all_taste_matches">Alle Taste Matches freischalten</string>
+    <string name="gift_club_offer_title">3 Geschenke freischalten</string>
+    <string name="gift_club_offer_body">Werde Mitglied im Corus Club und erhalte jede Woche 3 Geschenke.</string>
+    <string name="gift_club_offer_cta_trial">Kostenlos freischalten</string>
+    <string name="gift_club_offer_cta_standard">Mit Corus Club freischalten</string>
+    <string name="club_subtitle_gift">Schalte heute 3 Geschenke frei.</string>
+    <string name="club_feature_gifts">3 Geschenkplätze pro Woche</string>
 </resources>

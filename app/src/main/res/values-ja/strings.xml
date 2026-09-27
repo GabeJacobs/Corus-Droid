@@ -367,6 +367,7 @@
     <string name="other_profile_menu_block">ブロック</string>
     <string name="other_profile_menu_unblock">ブロックを解除</string>
     <string name="other_profile_blocked_message">このユーザーをブロックしました</string>
+    <string name="other_profile_blocked_body">ブロックを解除するまで、プロフィールと投稿は非表示になります。</string>
     <string name="other_profile_button_message">メッセージ</string>
     <string name="other_profile_button_follow">フォロー</string>
     <string name="other_profile_button_following">フォロー中</string>
@@ -1369,4 +1370,10 @@
     <string name="map_watch_mode_preview">視聴モードのプレビュー · Corus Clubを見る</string>
     <string name="club_feature_unlimited_playlists">プレイリストを無制限に書き出す</string>
     <string name="club_feature_unlock_all_taste_matches">すべてのテイストマッチをアンロック</string>
+    <string name="gift_club_offer_title">ギフトを3つアンロック</string>
+    <string name="gift_club_offer_body">Corus Clubに参加すると、毎週3つのギフトを利用できます。</string>
+    <string name="gift_club_offer_cta_trial">無料でアンロック</string>
+    <string name="gift_club_offer_cta_standard">Corus Clubでアンロック</string>
+    <string name="club_subtitle_gift">今日、ギフトを3つアンロック。</string>
+    <string name="club_feature_gifts">毎週3つのギフトスロット</string>
 </resources>

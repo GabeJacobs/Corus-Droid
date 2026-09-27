@@ -1253,6 +1253,7 @@ fun FeedScreen(
                             isSaved = engagement?.isSaved ?: false,
                             saveCount = engagement?.saveCount ?: post.saveCount,
                             saveCountEnabled = viewModel.remoteConfig.saveCountEnabled,
+                            showGifts = viewModel.remoteConfig.giftsEnabledForCurrentUser,
                             currentUser = currentUserProfile,
                             isPreviewLoading = PostPlaybackHighlight.isAlbumArtLoading(
                                 loadingTrackId = loadingTrackId,
@@ -1308,6 +1309,7 @@ fun FeedScreen(
                             onCommentTap = { onNavigateToComments(post.id) },
                             onLikesTap = { onNavigateToLikes(post.id) },
                             onLikerTap = { liker -> onNavigateToUser(liker) },
+                            onGiftSenderTap = onNavigateToUserById,
                             onRepostTap = { onRepost(post) },
                             onRepostLongPress = if (viewModel.remoteConfig.repostersListEnabled && post.repostCount > 0) {
                                 { onShowReposters(post.id) }

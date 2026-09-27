@@ -145,6 +145,7 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
             .setSmallIcon(R.drawable.ic_stat_corus)
             .setContentTitle(title)
             .setContentText(body)
+            .apply { if (data["type"] == "gift") setStyle(NotificationCompat.BigTextStyle().bigText(body)) }
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
 

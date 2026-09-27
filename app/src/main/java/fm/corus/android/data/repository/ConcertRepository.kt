@@ -15,12 +15,14 @@ data class ConcertShow(
     val lineup: List<String>, val info: String?, val pleaseNote: String?,
     val matchedArtist: String?, val suggestionSource: String?,
     val eventStatus: String, val status: String? = null,
+    val timezone: String? = null,
 )
 
 data class ConcertPage(
     val shows: List<ConcertShow>, val cityId: String?, val cityName: String?,
     val nextCursor: String?, val total: Int, val needsCity: Boolean,
     val availableGenres: List<String>,
+    val hasPostedArtists: Boolean = true, val nearbyTotal: Int = 0,
 )
 
 data class ConcertPerson(
@@ -34,12 +36,36 @@ data class ConcertAttendance(
 )
 
 @Singleton
-class ConcertRepository @Inject constructor(private val functions: FirebaseFunctions, private val auth: FirebaseAuth) {
+class ConcertRepository @Inject constructor(private val functions: FirebaseFunctions, private val auth: FirebaseAuth, @dagger.hilt.android.qualifiers.ApplicationContext context: android.content.Context) {
+    private val prefs = context.getSharedPreferences("concert_discovery", 0)
+    private var owner = auth.currentUser?.uid
+    private val _discoveryFilter = MutableStateFlow(savedDiscoveryFilter())
+    val discoveryFilter = _discoveryFilter.asStateFlow()
+    private fun savedDiscoveryFilter() = prefs.getString("filter.${auth.currentUser?.uid}", "forYou")
+        ?.takeIf { it == "all" || it == "forYou" } ?: "forYou"
+    fun selectDiscoveryFilter(filter: String) {
+        if (filter != "all" && filter != "forYou") return
+        prefs.edit().putString("filter.${auth.currentUser?.uid}", filter).apply()
+        _discoveryFilter.value = filter
+    }
+    private val attendanceCache = java.util.concurrent.ConcurrentHashMap<String, ConcertAttendance>()
+    fun rememberedAttendance(id: String) = attendanceCache[id]
+    fun rememberAttendance(id: String, attendance: ConcertAttendance) { attendanceCache[id] = attendance }
     private val cachedShows = java.util.concurrent.ConcurrentHashMap<String, ConcertShow>()
     private val cachedPlans = java.util.concurrent.ConcurrentHashMap<String, ConcertShow>()
     private val pendingPlans = java.util.concurrent.ConcurrentHashMap<String, String>()
     private val _planUpdates = MutableStateFlow<List<ConcertShow>>(emptyList())
     val planUpdates = _planUpdates.asStateFlow()
+    init {
+        auth.addAuthStateListener {
+            if (owner != it.currentUser?.uid) {
+                owner = it.currentUser?.uid
+                cachedShows.clear(); cachedPlans.clear(); pendingPlans.clear(); attendanceCache.clear()
+                _planUpdates.value = emptyList()
+                _discoveryFilter.value = savedDiscoveryFilter()
+            }
+        }
+    }
     fun cached(eventId: String): ConcertShow? = cachedShows[eventId] ?: cachedPlans[eventId]
     fun remember(show: ConcertShow) { cachedShows[show.id] = show }
     fun rememberedPlans(): List<ConcertShow> = cachedPlans.values.sortedBy { it.date }
@@ -65,13 +91,15 @@ class ConcertRepository @Inject constructor(private val functions: FirebaseFunct
         ))
         val city = result["city"] as? Map<*, *>
         val page = ConcertPage(
-            shows = (result["shows"] as? List<*>)?.mapNotNull { (it as? Map<*, *>)?.toConcert() } ?: emptyList(),
+            shows = (result["shows"] as? List<*>)?.mapNotNull { (it as? Map<*, *>)?.toConcert()?.let { show -> if (show.cityId.isBlank()) show.copy(cityId = city?.get("cityId") as? String ?: "") else show } } ?: emptyList(),
             cityId = city?.get("cityId") as? String,
             cityName = city?.get("cityName") as? String,
             nextCursor = result["nextCursor"] as? String,
             total = (result["total"] as? Number)?.toInt() ?: 0,
             needsCity = result["needsCity"] as? Boolean ?: false,
             availableGenres = (result["availableGenres"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
+            hasPostedArtists = result["hasPostedArtists"] as? Boolean ?: true,
+            nearbyTotal = (result["nearbyTotal"] as? Number)?.toInt() ?: 0,
         )
         page.shows.forEach(::remember)
         return page
@@ -157,5 +185,6 @@ private fun Map<*, *>.toConcert(): ConcertShow? {
         info = this["info"] as? String, pleaseNote = this["pleaseNote"] as? String,
         matchedArtist = this["matchedArtist"] as? String, suggestionSource = this["suggestionSource"] as? String,
         eventStatus = this["eventStatus"] as? String ?: "scheduled", status = this["status"] as? String,
+        timezone = this["timezone"] as? String,
     )
 }

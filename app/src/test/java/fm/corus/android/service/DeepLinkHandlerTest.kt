@@ -121,6 +121,45 @@ class DeepLinkHandlerTest {
     }
 
     @Test
+    fun `campaign notification opens hashtag`() {
+        val dest = DeepLinkHandler.parseNotificationData(
+            mapOf(
+                "type" to "updates_and_reminders",
+                "campaignId" to "jazz-tuesday-2026-09-29",
+                "destinationType" to "hashtag",
+                "destinationKey" to "jazztuesday",
+            ),
+        )
+        assertEquals(DeepLinkDestination.Hashtag("jazztuesday"), dest)
+    }
+
+    @Test
+    fun `campaign notification opens artist from public slug`() {
+        val dest = DeepLinkHandler.parseNotificationData(
+            mapOf(
+                "type" to "updates_and_reminders",
+                "destinationType" to "entity",
+                "entityType" to "artist",
+                "destinationKey" to "radiohead",
+            ),
+        )
+        assertEquals(DeepLinkDestination.Entity(EntitySegment.ARTIST, "radiohead"), dest)
+    }
+
+    @Test
+    fun `malformed campaign destination safely falls back to app home`() {
+        val dest = DeepLinkHandler.parseNotificationData(
+            mapOf(
+                "type" to "updates_and_reminders",
+                "destinationType" to "entity",
+                "entityType" to "website",
+                "destinationKey" to "https://example.com",
+            ),
+        )
+        assertNull(dest)
+    }
+
+    @Test
     fun `fallback ignores empty postId and uses fromUserId`() {
         val data = mapOf(
             "postId" to "",

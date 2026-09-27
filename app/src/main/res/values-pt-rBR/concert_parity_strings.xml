@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="concert_make_personal">Deixe do seu jeito</string>
+    <string name="concert_personal_message">Poste as músicas que você ama. Vamos acompanhar seus artistas favoritos e mostrar quando eles tocarem por perto.</string>
+    <string name="concert_post_music">Postar música</string>
+    <string name="concert_view_all">Ver todos os shows</string>
+    <string name="concert_no_matches">Ainda não há shows dos seus artistas</string>
+    <string name="concert_find_nearby">Encontre shows perto de você</string>
+    <string name="concert_choose_location_message">Escolha uma cidade ou use sua localização atual para ver os próximos shows.</string>
+    <string name="concert_remove">Remover</string>
+    <string name="concert_calendar_error">Não foi possível abrir um app de calendário. Instale um e tente novamente.</string>
+</resources>

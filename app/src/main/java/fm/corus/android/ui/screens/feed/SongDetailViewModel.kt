@@ -391,6 +391,8 @@ class SongDetailViewModel @Inject constructor(
         loadRecentShareRecipients(
             userId = userId,
             messageRepository = messageRepository,
+            userRepository = userRepository,
+            includeCachedFallbacks = remoteConfigService.postToInstagramV2,
             setContacts = { _recentShareContacts.value = it },
             setLoading = { _isLoadingShareContacts.value = it },
             scope = viewModelScope,

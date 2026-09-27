@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
@@ -896,6 +897,7 @@ fun CymbalClubOfferSheet(
             val trial = trialDurationText(context, selectedPackage, source == PaywallSource.ONBOARDING || source == PaywallSource.THIRD_POST)
             val subtitleText = when {
                 source == PaywallSource.TASTE_DISCOVERY -> stringResource(R.string.taste_discovery_subtitle)
+                source == PaywallSource.GIFT -> stringResource(R.string.club_subtitle_gift)
                 source == PaywallSource.POST_LIMIT && trial != null ->
                     context.getString(R.string.club_subtitle_post_limit_trial_format, trial)
                 source == PaywallSource.PLAYLIST_LIMIT && playlistTrialContext != null ->
@@ -933,6 +935,9 @@ fun CymbalClubOfferSheet(
                 }
                 if (source == PaywallSource.FAVORITE_LIMIT) {
                     FeatureRow(icon = Icons.Filled.Star, text = stringResource(R.string.club_feature_favorites))
+                }
+                if (source == PaywallSource.GIFT) {
+                    FeatureRow(icon = Icons.Filled.CardGiftcard, text = stringResource(R.string.club_feature_gifts))
                 }
                 if (source != PaywallSource.TASTE_DISCOVERY && tasteMatchesEnabled) {
                     FeatureRow(text = stringResource(R.string.club_feature_taste_matches)) {

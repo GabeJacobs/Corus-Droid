@@ -1,6 +1,7 @@
 package fm.corus.android.ui.components
 
 import android.content.Context
+import android.content.ClipData
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -489,13 +490,22 @@ private const val IG_SHARE_TAG = "InstagramShare"
  * the iOS Facebook app id (1364343535452154): that was tried and silently regressed real
  * devices (the share spun and did nothing). The package name is the value verified to work.
  */
-internal fun buildAddToStoryIntent(uri: Uri, contentUrl: String, sourceApplication: String): Intent =
+internal fun buildAddToStoryIntent(
+    uri: Uri,
+    contentUrl: String,
+    sourceApplication: String,
+    interactiveAssetUri: Uri? = null,
+): Intent =
     Intent("com.instagram.share.ADD_TO_STORY").apply {
         setDataAndType(uri, "image/png")
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         putExtra("source_application", sourceApplication)
         putExtra("content_url", contentUrl)
+        if (interactiveAssetUri != null) {
+            putExtra("interactive_asset_uri", interactiveAssetUri)
+            clipData = ClipData.newRawUri("interactive_asset_uri", interactiveAssetUri)
+        }
     }
 
 /**

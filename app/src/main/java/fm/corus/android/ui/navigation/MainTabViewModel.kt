@@ -229,6 +229,10 @@ class MainTabViewModel @Inject constructor(
         }
     }
 
+    private val _musicComposeRequests = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val musicComposeRequests: kotlinx.coroutines.flow.SharedFlow<Unit> = _musicComposeRequests
+    fun requestMusicCompose() { _musicComposeRequests.tryEmit(Unit) }
+
     // Pre-selected media for compose-with-preselection flow.
     // When non-null, MainTabScreen opens ComposeScreen with this track/movie pre-selected.
     private val _preSelectedTrackId = MutableStateFlow<String?>(null)

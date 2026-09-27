@@ -26,6 +26,43 @@ class ShareRecipientTest {
         assertFalse(groupMatchesShareQuery(group().copy(lastMessageText = "secret"), "secret"))
     }
 
+    @Test fun shareSheetAddsOnlyCredibleCachedFallbacksAfterRecentRecipients() {
+        fun user(id: String) = CymbalUser(id = id, username = id, displayName = id)
+        fun match(
+            user: CymbalUser,
+            sharedArtists: List<String> = emptyList(),
+            mutualCount: Int = 0,
+        ) = SuggestedUserMatch(
+            user = user,
+            matchData = MusicMatchData(sharedArtistNames = sharedArtists),
+            suggestionReason = mutualCount.takeIf { it > 0 }?.let {
+                SuggestionReason(mutualNames = listOf("friend"), mutualCount = it)
+            },
+        )
+
+        val recentUser = user("recent")
+        val followedUser = user("followed")
+        val mutualUser = user("mutual")
+        val tasteUser = user("taste")
+        val weakUser = user("weak")
+
+        val result = shareSheetRecipients(
+            recent = listOf(ShareRecipient(user = recentUser)),
+            cachedMatches = listOf(
+                match(recentUser, listOf("A", "B", "C")),
+                match(tasteUser, listOf("A", "B", "C")),
+                match(weakUser, listOf("A")),
+                match(mutualUser, mutualCount = 2),
+                match(followedUser),
+            ),
+            followedUserIds = setOf(followedUser.id),
+            currentUserId = "me",
+            cap = 20,
+        )
+
+        assertEquals(listOf("recent", "followed", "mutual", "taste"), result.map { it.id })
+    }
+
     @Test fun pinLeadsInboxAndUnpinRestoresRecency() {
         val old = direct().copy(isPinned = true)
         assertEquals(listOf("dm", "grp"), visibleInboxRows(listOf(group(), old), emptySet()) { false }.map { it.id })
