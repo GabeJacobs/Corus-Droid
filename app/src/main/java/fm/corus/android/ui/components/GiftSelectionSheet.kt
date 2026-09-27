@@ -160,8 +160,8 @@ fun GiftSelectionSheet(
                     onValueChange = viewModel::updateNote,
                     modifier = Modifier.fillMaxWidth().alpha(if (controlsEnabled) 1f else .5f),
                     enabled = controlsEnabled,
-                    label = { Text("Add a note (optional)") },
-                    supportingText = { Text("${state.note.length}/240") },
+                    label = { Text(stringResource(R.string.gift_note_optional)) },
+                    supportingText = { Text(stringResource(R.string.gift_note_count, state.note.length)) },
                     minLines = 2,
                     maxLines = 4,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
@@ -226,7 +226,7 @@ fun GiftSelectionSheet(
                         } else {
                             Icon(Icons.Filled.CardGiftcard, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
-                            Text("Send ${selected.sentPhrase}")
+                            Text(stringResource(R.string.gift_send_selected, selected.sentPhrase))
                         }
                     }
                 }
@@ -295,7 +295,18 @@ private fun GiftGrid(
 
 @Composable
 private fun InventorySection(inventory: GiftInventory) {
-    val plural = if (inventory.available == 1) "1 Gift Available" else "${inventory.available} Gifts Available"
+    var nowMs by remember(inventory.nextRefillAtMs) { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(inventory.nextRefillAtMs) {
+        while (inventory.nextRefillAtMs != null) {
+            delay(60_000)
+            nowMs = System.currentTimeMillis()
+        }
+    }
+    val availableText = if (inventory.available == 1) {
+        stringResource(R.string.gift_available_one)
+    } else {
+        stringResource(R.string.gift_available_many, inventory.available)
+    }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
             if (inventory.isEmpty) Icons.Filled.HourglassBottom else Icons.Filled.CardGiftcard,
@@ -303,18 +314,19 @@ private fun InventorySection(inventory: GiftInventory) {
             tint = CorusColors.Accent,
         )
         Spacer(Modifier.width(7.dp))
-        Text(plural, style = CorusFont.bodyMedium, color = CorusColors.Text)
+        Text(availableText, style = CorusFont.bodyMedium, color = CorusColors.Text)
     }
     Spacer(Modifier.height(5.dp))
     Text(
-        inventory.nextRefillAtMs?.let { "Resets in ${giftRefillCountdown(it, System.currentTimeMillis())}" }
-            ?: "Each Gift resets 7 days after you send it.",
+        inventory.nextRefillAtMs?.let {
+            stringResource(R.string.gift_refills_in, giftRefillCountdown(it, nowMs))
+        } ?: stringResource(R.string.gift_reset_cycle),
         style = CorusFont.caption,
         color = CorusColors.Secondary,
         textAlign = TextAlign.Center,
     )
     if (inventory.capacity <= 1 && !inventory.isEmpty) {
-        Text("Corus Club gives you 3 Gift slots.", style = CorusFont.caption, color = CorusColors.Secondary)
+        Text(stringResource(R.string.gift_club_slots), style = CorusFont.caption, color = CorusColors.Secondary)
     }
 }
 
@@ -327,7 +339,7 @@ private fun SentGiftConfirmation(giftId: String) {
     ) {
         GiftNotificationArtwork(giftId, 132.dp)
         Spacer(Modifier.height(18.dp))
-        Text("Gift sent", style = MaterialTheme.typography.headlineSmall, color = CorusColors.Text)
+        Text(stringResource(R.string.gift_sent), style = MaterialTheme.typography.headlineSmall, color = CorusColors.Text)
     }
 }
 
@@ -340,7 +352,7 @@ private fun GiftPickerSkeleton() {
     ) {
         CircularProgressIndicator(color = CorusColors.Accent)
         Spacer(Modifier.height(12.dp))
-        Text("Loading your Gifts", color = CorusColors.Secondary)
+        Text(stringResource(R.string.gift_loading), color = CorusColors.Secondary)
     }
 }
 
@@ -351,7 +363,7 @@ private fun GiftLoadError(message: String?, retry: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(message ?: "Corus couldn't load your Gifts.", color = CorusColors.Secondary, textAlign = TextAlign.Center)
-        TextButton(onClick = retry) { Text("Try Again") }
+        Text(message ?: stringResource(R.string.gift_load_error), color = CorusColors.Secondary, textAlign = TextAlign.Center)
+        TextButton(onClick = retry) { Text(stringResource(R.string.gift_try_again)) }
     }
 }

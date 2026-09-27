@@ -36,6 +36,8 @@ private data class GiftReceipt(val id: String, val senderId: String, val sender:
     val title get() = "$sender sent ${GiftDefinition.from(type).sentPhrase}"
 }
 
+internal fun shouldShowGiftNote(note: String?): Boolean = !note.isNullOrBlank()
+
 private fun PostGiftPreview.toReceipt() = GiftReceipt(
     id = "preview_${senderId}_${sentAtMs}_$giftType",
     senderId = senderId,
@@ -115,7 +117,6 @@ fun PostGiftRow(
     var sheetSummary by remember(postId, uid) { mutableStateOf<PostGiftSummary?>(null) }
     var sheetCursor by remember(postId, uid) { mutableStateOf<Map<*, *>?>(null) }
     var sheetLoading by remember(postId, uid) { mutableStateOf(false) }
-    var sheetLoaded by remember(postId, uid) { mutableStateOf(false) }
     var sheetError by remember(postId, uid) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -128,7 +129,6 @@ fun PostGiftRow(
             sheetReceipts = if (reset) page.receipts else (sheetReceipts + page.receipts).distinctBy { it.id }
             sheetSummary = page.summary ?: sheetSummary
             sheetCursor = page.cursor
-            sheetLoaded = true
             true
         } catch (error: CancellationException) {
             throw error
@@ -163,7 +163,6 @@ fun PostGiftRow(
             sheetReceipts = rowReceipts
             sheetSummary = rowSummary
             sheetCursor = null
-            sheetLoaded = false
             sheetError = false
             open = true
         }.padding(start = 12.5.dp, end = 16.dp, top = 5.dp, bottom = 9.dp),
@@ -250,7 +249,7 @@ fun PostGiftRow(
                                     Text(" sent ${GiftDefinition.from(gift.type).sentPhrase}", color = CorusColors.Text)
                                 }
                                 AnimatedVisibility(
-                                    visible = !gift.note.isNullOrBlank(),
+                                    visible = shouldShowGiftNote(gift.note),
                                     enter = fadeIn(tween(240)) + expandVertically(tween(240)),
                                     exit = fadeOut(tween(120)) + shrinkVertically(tween(120)),
                                 ) {

@@ -203,6 +203,10 @@ class MainTabViewModel @Inject constructor(
         _tasteMatchesFeedRequests.tryEmit(Unit)
     }
 
+    fun selectFollowingFeed() {
+        viewModelScope.launch { preferencesDataStore.setFeedMode("following") }
+    }
+
     val notificationCount: StateFlow<Int> = unreadCountsRepository.notificationCount
     val unreadMessageCount: StateFlow<Int> = unreadCountsRepository.unreadMessageCount
 

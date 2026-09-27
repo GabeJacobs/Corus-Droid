@@ -409,6 +409,10 @@ class AnalyticsService @Inject constructor(
     // discovering the switcher via feed_switcher_opened). Mirrors iOS/web.
     fun logFeedSwitchHintDismissed() = logEvent("feed_switch_hint_dismissed")
     fun logDeepLinkOpened(linkType: String) = logEvent("deep_link_opened", mapOf("link_type" to linkType))
+    fun logCampaignOpened(campaignId: String, runId: String, destination: String) = logEvent(
+        "campaign_opened",
+        mapOf("campaign_id" to campaignId, "campaign_run_id" to runId, "destination" to destination),
+    )
 
     // Cross-section search-page events. Pair with `logMusicMatchTapped` for Taste Matches
     // (both fire on that section so similarity_score stays available).

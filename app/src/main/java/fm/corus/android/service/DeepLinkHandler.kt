@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 
 sealed class DeepLinkDestination {
+    data object FollowingFeed : DeepLinkDestination()
     data class Profile(val userId: String) : DeepLinkDestination()
     data class ProfileByUsername(val username: String) : DeepLinkDestination()
     data class Post(val postId: String) : DeepLinkDestination()
@@ -22,6 +23,7 @@ sealed class DeepLinkDestination {
     data class Entity(val segment: EntitySegment, val key: String) : DeepLinkDestination()
 
     fun analyticsType(): String = when (this) {
+        is FollowingFeed -> "following_feed"
         is Profile -> "profile"
         is ProfileByUsername -> "profile"
         is Post -> "post"
@@ -151,6 +153,7 @@ object DeepLinkHandler {
         val key = data["destinationKey"]?.trim().orEmpty()
         return when (destinationType) {
             "home" -> null
+            "following_feed" -> DeepLinkDestination.FollowingFeed
             "hashtag" -> key.trimStart('#').lowercase()
                 .takeIf { it.isNotEmpty() && it.none(Char::isWhitespace) }
                 ?.let(DeepLinkDestination::Hashtag)

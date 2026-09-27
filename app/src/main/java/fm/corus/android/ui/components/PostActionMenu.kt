@@ -113,6 +113,13 @@ fun PostActionMenu(
                 )
             }
         } else {
+            if (canSendGift) {
+                MenuRow(
+                    icon = Icons.Filled.CardGiftcard,
+                    label = stringResource(R.string.gift_send_action),
+                    onClick = { onSendGift(); onDismiss() },
+                )
+            }
             MenuRow(
                 icon = Icons.Filled.MusicNote,
                 label = stringResource(R.string.post_menu_view_song_page),
