@@ -746,8 +746,8 @@ private fun NotificationRow(
             val gift = GiftDefinition.from(notification.giftType)
             buildAnnotatedString {
                 withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(notification.fromUser.username) }
-                append(" sent you ${gift.article}")
-                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(gift.name) }
+                append(" ")
+                append(context.getString(R.string.gift_sender_sent_you, "", gift.sentPhrase(context)).trimStart())
             }
         } else if (notification.type == NotificationType.FAVORITE) {
             // Anonymous — "Someone" is NOT bolded here (special case): there's no
@@ -871,7 +871,7 @@ private fun NotificationRow(
             )
 
             if (notification.type == NotificationType.GIFT) {
-                Text(GiftDefinition.context(notification.postTitle) + " · " + timeString,
+                Text(GiftDefinition.context(context, notification.postTitle) + " · " + timeString,
                     style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 notification.giftNote?.takeIf { it.isNotBlank() }?.let { note ->
                     Text(note, style = CorusFont.caption, color = CorusColors.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -1394,7 +1394,11 @@ private fun localizedNotificationMessage(
         if (it.length == 100 && !it.endsWith("…")) "$it…" else it
     }
     return when (notification.type) {
-        NotificationType.GIFT -> notification.message
+        NotificationType.GIFT -> context.getString(
+            R.string.gift_sender_sent_you,
+            "",
+            GiftDefinition.from(notification.giftType).sentPhrase(context),
+        ).trim()
         NotificationType.LIKE -> context.getString(R.string.notif_msg_like, postNoun)
         NotificationType.COMMENT -> commentExcerpt
             ?.let { context.getString(R.string.notif_msg_comment_with_text, it) }

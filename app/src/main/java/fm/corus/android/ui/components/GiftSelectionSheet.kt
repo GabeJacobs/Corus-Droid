@@ -46,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -79,6 +80,7 @@ fun GiftSelectionSheet(
     onDismiss: () -> Unit,
     onSent: (GiftSendResult) -> Unit,
 ) {
+    val context = LocalContext.current
     val viewModel: GiftSelectionViewModel = hiltViewModel(key = "gift-${post.id}")
     val state by viewModel.state.collectAsState()
     val hasClubIntroTrial by viewModel.hasClubIntroTrial.collectAsState()
@@ -116,7 +118,7 @@ fun GiftSelectionSheet(
                 onClick = onDismiss,
                 modifier = Modifier.background(CorusColors.CardBackground, CircleShape),
             ) {
-                Icon(Icons.Filled.Close, contentDescription = "Close", tint = CorusColors.Secondary)
+                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.gift_close), tint = CorusColors.Secondary)
             }
         }
 
@@ -132,7 +134,7 @@ fun GiftSelectionSheet(
         when {
             state.sentGiftId != null -> SentGiftConfirmation(state.sentGiftId!!)
             state.loading && state.inventory == null -> GiftPickerSkeleton()
-            state.inventory == null -> GiftLoadError(state.error, viewModel::refresh)
+            state.inventory == null -> GiftLoadError(viewModel::refresh)
             else -> {
                 val availableGifts = GiftDefinition.selectable.filter {
                     state.catalogIds.isEmpty() || it.id in state.catalogIds
@@ -213,13 +215,13 @@ fun GiftSelectionSheet(
                         } else {
                             Icon(Icons.Filled.CardGiftcard, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
-                            Text(stringResource(R.string.gift_send_selected, selected.sentPhrase))
+                            Text(stringResource(R.string.gift_send_selected, selected.sentPhrase(context)))
                         }
                     }
                 }
                 state.error?.let {
                     Spacer(Modifier.height(8.dp))
-                    Text(it, color = CorusColors.Error, textAlign = TextAlign.Center, style = CorusFont.caption)
+                    Text(stringResource(R.string.gift_send_error), color = CorusColors.Error, textAlign = TextAlign.Center, style = CorusFont.caption)
                 }
             }
         }
@@ -248,6 +250,7 @@ private fun GiftGrid(
     selectedGiftId: String,
     onSelect: (String) -> Unit,
 ) {
+    val context = LocalContext.current
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         modifier = Modifier.fillMaxWidth().height(((gifts.size + 1) / 2 * 142).dp),
@@ -269,8 +272,8 @@ private fun GiftGrid(
                 ) {
                     GiftNotificationArtwork(gift.id, 76.dp)
                     Spacer(Modifier.height(8.dp))
-                    Text(gift.name, color = CorusColors.Text, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text(gift.shortMeaning, color = CorusColors.Secondary, fontSize = 11.sp, maxLines = 1)
+                    Text(gift.name(context), color = CorusColors.Text, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text(gift.shortMeaning(context), color = CorusColors.Secondary, fontSize = 11.sp, maxLines = 1)
                 }
             }
         }
@@ -344,13 +347,13 @@ private fun GiftPickerSkeleton() {
 }
 
 @Composable
-private fun GiftLoadError(message: String?, retry: () -> Unit) {
+private fun GiftLoadError(retry: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth().height(250.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(message ?: stringResource(R.string.gift_load_error), color = CorusColors.Secondary, textAlign = TextAlign.Center)
+        Text(stringResource(R.string.gift_load_error), color = CorusColors.Secondary, textAlign = TextAlign.Center)
         TextButton(onClick = retry) { Text(stringResource(R.string.gift_try_again)) }
     }
 }

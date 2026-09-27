@@ -8,9 +8,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
+import fm.corus.android.R
 import fm.corus.android.data.model.GiftDefinition
 import fm.corus.android.data.model.GiftSender
 import fm.corus.android.data.model.PostGiftSummary
@@ -21,12 +24,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 private data class GiftReceipt(val id: String, val sender: String, val type: String, val note: String?) {
-    val title get() = "$sender sent ${GiftDefinition.from(type).sentPhrase}"
+    fun title(context: android.content.Context): String = context.getString(
+        R.string.gift_sender_sent,
+        sender.ifBlank { context.getString(R.string.gift_someone) },
+        GiftDefinition.from(type).sentPhrase(context),
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PostGiftRow(postId: String, giftCount: Int) {
+    val context = LocalContext.current
     val uid = FirebaseAuth.getInstance().currentUser?.uid
     var receipts by remember(postId, uid, giftCount) { mutableStateOf(emptyList<GiftReceipt>()) }
     var summary by remember(postId, uid, giftCount) { mutableStateOf<PostGiftSummary?>(null) }
@@ -67,24 +75,36 @@ fun PostGiftRow(postId: String, giftCount: Int) {
     val first = receipts.firstOrNull() ?: return
     Row(Modifier.fillMaxWidth().clickable { index = 0; open = true }.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
         Row { receipts.map { it.type }.distinct().take(3).forEach { GiftNotificationArtwork(it, 34.dp) } }
-        Text(if (currentSummary.total == 1) first.title else currentSummary.attribution(), color = CorusColors.Text, modifier = Modifier.weight(1f))
+        Text(if (currentSummary.total == 1) first.title(context) else localizedGiftAttribution(context, currentSummary), color = CorusColors.Text, modifier = Modifier.weight(1f))
     }
     if (open) ModalBottomSheet(onDismissRequest = { open = false }, containerColor = CorusColors.Background) {
         val gift = receipts.getOrElse(index) { first }
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (currentSummary.total > 1) Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(enabled = index > 0, onClick = { index-- }) { Text("Previous") }
-                Text("${index + 1} of ${currentSummary.total}", color = CorusColors.Secondary)
+                TextButton(enabled = index > 0, onClick = { index-- }) { Text("‹") }
+                Text(stringResource(R.string.gift_pager_count, index + 1, currentSummary.total), color = CorusColors.Secondary)
                 TextButton(enabled = !loading && (index + 1 < receipts.size || cursor != null), onClick = {
                     if (index + 1 < receipts.size) index++ else scope.launch { if (load(false) && index + 1 < receipts.size) index++ }
-                }) { Text("Next") }
+                }) { Text("›") }
             }
             GiftNotificationArtwork(gift.type, 164.dp)
-            Text(GiftDefinition.from(gift.type).name, style = MaterialTheme.typography.headlineSmall, color = CorusColors.Text)
-            Text(gift.title, color = CorusColors.Text)
+            Text(GiftDefinition.from(gift.type).name(context), style = MaterialTheme.typography.headlineSmall, color = CorusColors.Text)
+            Text(gift.title(context), color = CorusColors.Text)
             gift.note?.takeIf { it.isNotBlank() }?.let { Text(it, color = CorusColors.Text) }
-            if (error) Text("Couldn’t load the next gift. Tap Next to retry.", color = CorusColors.Secondary)
-            TextButton(onClick = { open = false }) { Text("Close") }
+            if (error) Text(stringResource(R.string.gift_refresh_details_error), color = CorusColors.Secondary)
+            TextButton(onClick = { open = false }) { Text(stringResource(R.string.gift_close)) }
         }
+    }
+}
+
+private fun localizedGiftAttribution(context: android.content.Context, summary: PostGiftSummary): String {
+    val people = summary.senders.distinctBy { it.id }
+    val count = context.getString(R.string.gift_count, summary.total)
+    val first = people.firstOrNull()?.name ?: return count
+    return when {
+        summary.senderCount == 1 -> context.getString(R.string.gift_attribution_single, first, count)
+        summary.senderCount == 2 && people.size >= 2 -> context.getString(R.string.gift_attribution_two, count, first, people[1].name)
+        summary.senderCount != null && summary.senderCount > 2 -> context.getString(R.string.gift_attribution_others, count, first, summary.senderCount - 1)
+        else -> context.getString(R.string.gift_attribution_latest, count, first)
     }
 }

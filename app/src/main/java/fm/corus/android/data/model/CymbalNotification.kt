@@ -35,6 +35,8 @@ data class CymbalNotification(
 
     val message: String
         get() = when (type) {
+            // UI surfaces rebuild Gift copy from localized resources. This is
+            // only an English context-free fallback for legacy callers.
             NotificationType.GIFT -> "sent you ${GiftDefinition.from(giftType).sentPhrase}"
             NotificationType.LIKE -> "liked your corus."
             NotificationType.COMMENT -> if (commentText != null) "commented: $commentText" else "commented on your corus."
