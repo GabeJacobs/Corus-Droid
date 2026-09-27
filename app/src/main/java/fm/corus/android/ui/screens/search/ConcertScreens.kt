@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,7 +47,6 @@ import fm.corus.android.data.repository.ConcertShow
 import fm.corus.android.ui.navigation.ArtistPageRoute
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import androidx.compose.animation.animateContentSize
@@ -65,6 +65,7 @@ fun ConcertPreview(
     vm: ConcertsViewModel = hiltViewModel(),
 ) {
     if (!vm.enabled) return
+    val appLocale = LocalConfiguration.current.locales[0]
     val cityId by vm.cityId.collectAsState()
     val discovery by vm.discoveryFilter.collectAsState()
     val page by vm.previewPage.collectAsState()
@@ -77,7 +78,7 @@ fun ConcertPreview(
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.ConfirmationNumber, null, tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.concerts_title).uppercase(Locale.getDefault()), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.concerts_title).uppercase(appLocale), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
             TextButton(onClick = { vm.log("preview_see_all_tapped", source = "search_music_preview"); onSeeAll() }) { Text(stringResource(R.string.concert_see_all)) }
         }
         when {
@@ -261,11 +262,12 @@ fun ConcertsScreen(
 
 @Composable
 fun ConcertRow(show: ConcertShow, onClick: () -> Unit) {
+    val appLocale = LocalConfiguration.current.locales[0]
     Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp).clickable(onClick = onClick), shape = RoundedCornerShape(18.dp)) {
         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.width(54.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 val date = runCatching { LocalDate.parse(show.date) }.getOrNull()
-                Text(date?.month?.getDisplayName(java.time.format.TextStyle.SHORT, Locale.getDefault())?.uppercase() ?: "", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                Text(date?.month?.getDisplayName(java.time.format.TextStyle.SHORT, appLocale)?.uppercase(appLocale) ?: "", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                 Text(date?.dayOfMonth?.toString() ?: "", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             }
             VerticalDivider(Modifier.height(56.dp).padding(horizontal = 8.dp))
@@ -391,10 +393,11 @@ fun ConcertDetailScreen(
 @Composable
 private fun formatConcertDate(show: ConcertShow): String {
     val context = LocalContext.current
+    val appLocale = LocalConfiguration.current.locales[0]
     val pattern = if (android.text.format.DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm a"
     return runCatching {
-        LocalDate.parse(show.date).format(DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM).withLocale(Locale.getDefault())) +
-            (show.time?.let { " · " + java.time.LocalTime.parse(it).format(DateTimeFormatter.ofPattern(pattern, Locale.getDefault())) } ?: "")
+        LocalDate.parse(show.date).format(DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM).withLocale(appLocale)) +
+            (show.time?.let { " · " + java.time.LocalTime.parse(it).format(DateTimeFormatter.ofPattern(pattern, appLocale)) } ?: "")
     }.getOrDefault(show.date)
 }
 

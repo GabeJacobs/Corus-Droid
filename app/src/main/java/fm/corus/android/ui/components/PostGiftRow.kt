@@ -18,10 +18,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.valentinilk.shimmer.shimmer
+import fm.corus.android.R
 import fm.corus.android.data.model.GiftDefinition
 import fm.corus.android.data.model.GiftSender
 import fm.corus.android.data.model.PostGiftSummary
@@ -33,7 +36,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 private data class GiftReceipt(val id: String, val senderId: String, val sender: String, val type: String, val note: String?) {
-    val title get() = "$sender sent ${GiftDefinition.from(type).sentPhrase}"
+    fun title(context: android.content.Context): String = context.getString(
+        R.string.gift_sender_sent,
+        sender.ifBlank { context.getString(R.string.gift_someone) },
+        GiftDefinition.from(type).sentPhrase(context),
+    )
 }
 
 internal fun shouldShowGiftNote(note: String?): Boolean = !note.isNullOrBlank()
@@ -104,6 +111,7 @@ fun PostGiftRow(
     recentGifts: List<PostGiftPreview> = emptyList(),
     onSenderTap: (String) -> Unit = {},
 ) {
+    val context = LocalContext.current
     val uid = FirebaseAuth.getInstance().currentUser?.uid
     val previewReceipts = remember(recentGifts) { recentGifts.map(PostGiftPreview::toReceipt) }
     val initialSummary = remember(recentGifts, giftCount) { previewSummary(recentGifts, giftCount) }
@@ -175,7 +183,7 @@ fun PostGiftRow(
             }
         }
         Text(
-            if (currentRowSummary.total == 1) firstRowGift.title else currentRowSummary.attribution(),
+            if (currentRowSummary.total == 1) firstRowGift.title(context) else localizedGiftAttribution(context, currentRowSummary),
             color = CorusColors.Text,
             modifier = Modifier.weight(1f),
         )
@@ -194,7 +202,7 @@ fun PostGiftRow(
                 Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(if (displayedTotal > 1) "Gifts" else "Gift", style = MaterialTheme.typography.titleLarge, color = CorusColors.Text)
+                Text(stringResource(if (displayedTotal > 1) R.string.gift_sheet_title_many else R.string.gift_sheet_title_one), style = MaterialTheme.typography.titleLarge, color = CorusColors.Text)
                 AnimatedContent(
                     targetState = sheetReceipts.isNotEmpty(),
                     transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(100)) },
@@ -207,14 +215,14 @@ fun PostGiftRow(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
-                                Text("Couldn’t load gifts. Please try again.", color = CorusColors.Secondary)
-                                TextButton(onClick = { scope.launch { loadSheet(reset = true) } }) { Text("Try Again") }
+                                Text(stringResource(R.string.gift_load_details_error), color = CorusColors.Secondary)
+                                TextButton(onClick = { scope.launch { loadSheet(reset = true) } }) { Text(stringResource(R.string.gift_try_again)) }
                             }
                         } else GiftReceiptSkeleton(displayedTotal)
                     } else {
                         val first = sheetReceipts.firstOrNull()
                         if (first == null) {
-                            Text("No gifts yet", color = CorusColors.Secondary, modifier = Modifier.padding(48.dp))
+                            Text(stringResource(R.string.gift_no_gifts), color = CorusColors.Secondary, modifier = Modifier.padding(48.dp))
                         } else {
                             val gift = sheetReceipts.getOrElse(index) { first }
                             Column(
@@ -232,7 +240,7 @@ fun PostGiftRow(
                                     },
                                 )
                                 GiftNotificationArtwork(gift.type, 164.dp)
-                                Text(GiftDefinition.from(gift.type).name, style = MaterialTheme.typography.headlineSmall, color = CorusColors.Text)
+                                Text(GiftDefinition.from(gift.type).name(context), style = MaterialTheme.typography.headlineSmall, color = CorusColors.Text)
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         gift.sender,
@@ -246,7 +254,14 @@ fun PostGiftRow(
                                             }
                                         },
                                     )
-                                    Text(" sent ${GiftDefinition.from(gift.type).sentPhrase}", color = CorusColors.Text)
+                                    Text(
+                                        context.getString(
+                                            R.string.gift_sender_sent,
+                                            "",
+                                            GiftDefinition.from(gift.type).sentPhrase(context),
+                                        ).trimEnd(),
+                                        color = CorusColors.Text,
+                                    )
                                 }
                                 AnimatedVisibility(
                                     visible = shouldShowGiftNote(gift.note),
@@ -258,10 +273,10 @@ fun PostGiftRow(
                                     }
                                 }
                                 if (sheetError) {
-                                    Text("Couldn’t refresh Gift details.", color = CorusColors.Secondary)
-                                    TextButton(onClick = { scope.launch { loadSheet(reset = true) } }) { Text("Try Again") }
+                                    Text(stringResource(R.string.gift_refresh_details_error), color = CorusColors.Secondary)
+                                    TextButton(onClick = { scope.launch { loadSheet(reset = true) } }) { Text(stringResource(R.string.gift_try_again)) }
                                 }
-                                TextButton(onClick = { open = false }) { Text("Close") }
+                                TextButton(onClick = { open = false }) { Text(stringResource(R.string.gift_close)) }
                             }
                         }
                     }
@@ -278,8 +293,20 @@ private fun GiftPager(
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         TextButton(enabled = previousEnabled, onClick = onPrevious) { Text("‹") }
-        Text("${index + 1} of $total", color = CorusColors.Secondary)
+        Text(stringResource(R.string.gift_pager_count, index + 1, total), color = CorusColors.Secondary)
         TextButton(enabled = nextEnabled, onClick = onNext) { Text("›") }
+    }
+}
+
+private fun localizedGiftAttribution(context: android.content.Context, summary: PostGiftSummary): String {
+    val people = summary.senders.distinctBy { it.id }
+    val count = context.getString(R.string.gift_count, summary.total)
+    val first = people.firstOrNull()?.name ?: return count
+    return when {
+        summary.senderCount == 1 -> context.getString(R.string.gift_attribution_single, first, count)
+        summary.senderCount == 2 && people.size >= 2 -> context.getString(R.string.gift_attribution_two, count, first, people[1].name)
+        summary.senderCount != null && summary.senderCount > 2 -> context.getString(R.string.gift_attribution_others, count, first, summary.senderCount - 1)
+        else -> context.getString(R.string.gift_attribution_latest, count, first)
     }
 }
 

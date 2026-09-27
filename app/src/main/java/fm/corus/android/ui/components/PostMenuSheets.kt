@@ -144,7 +144,8 @@ fun PostMenuSheets(
                 post = post,
                 onDismiss = { giftPost = null },
                 onSent = { result ->
-                    ToastManager.show("${fm.corus.android.data.model.GiftDefinition.from(result.giftType).name} sent")
+                    val giftName = fm.corus.android.data.model.GiftDefinition.from(result.giftType).name(context)
+                    ToastManager.show(context.getString(R.string.gift_sent_named, giftName))
                 },
             )
         }

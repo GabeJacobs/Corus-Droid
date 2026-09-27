@@ -11,7 +11,7 @@
     <string name="concert_date_filter">Data</string>
     <string name="concert_date_pending">Data a confirmar</string>
     <string name="concert_date_time">Data e hora</string>
-    <string name="concert_device_calendar">Calendar</string>
+    <string name="concert_device_calendar">Calendário</string>
     <string name="concert_event_info">Informações do evento</string>
     <string name="concert_filter_title">Filtrar shows</string>
     <string name="concert_genre_filter">Gênero</string>
@@ -53,7 +53,7 @@
     <string name="concert_status_rescheduled">Os detalhes do show mudaram. Confira a página do evento antes de fazer planos.</string>
     <string name="concert_status_unverified">Não foi possível confirmar os detalhes do show recentemente. Confira a página do evento antes de fazer planos.</string>
     <string name="concert_tab_all">Todos</string>
-    <string name="concert_tab_for_you">Para Você</string>
+    <string name="concert_tab_for_you">Para você</string>
     <string name="concert_tab_my">Meus shows</string>
     <string name="concert_tickets">Ingressos</string>
     <string name="concert_unavailable">Este show não está disponível.</string>
