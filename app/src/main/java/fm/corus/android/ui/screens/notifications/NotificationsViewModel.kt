@@ -64,6 +64,9 @@ class NotificationsViewModel @Inject constructor(
     val immersiveArtistHeaderEnabled: Boolean
         get() = remoteConfigService.immersiveArtistHeaderEnabled
 
+    val giftsEnabled: Boolean
+        get() = remoteConfigService.giftsEnabledForCurrentUser
+
     private val pageSize = 15
 
     private val _notifications = MutableStateFlow<List<CymbalNotification>>(emptyList())
@@ -117,7 +120,7 @@ class NotificationsViewModel @Inject constructor(
     ) { chip, following, hidden ->
         NotificationFilterVisibility.apply(
             chip.filter, chip.all, chip.filtered, following, chip.ready, chip.loading,
-        ).filter { it.fromUser.id !in hidden }
+        ).filter { it.fromUser.id !in hidden && (giftsEnabled || it.type != fm.corus.android.data.model.NotificationType.GIFT) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val showFilterChips: StateFlow<Boolean> = combine(_notifications, _filtersUnlocked) { all, unlocked ->
@@ -472,6 +475,7 @@ class NotificationsViewModel @Inject constructor(
     }
 
     fun selectFilter(filter: NotificationFilter) {
+        if (filter == NotificationFilter.GIFTS && !giftsEnabled) return
         if (_selectedFilter.value == filter) return
         analyticsService.logNotificationFilterChanged(filter.value)
         if (!filter.isServerScoped) {

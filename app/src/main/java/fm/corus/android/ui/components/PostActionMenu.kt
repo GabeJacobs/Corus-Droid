@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
@@ -71,6 +72,8 @@ fun PostActionMenu(
     onGoToAlbum: () -> Unit = {},
     onGoToDirector: () -> Unit = {},
     onSharePost: () -> Unit = {},
+    canSendGift: Boolean = false,
+    onSendGift: () -> Unit = {},
     onToggleSave: () -> Unit = {},
     onEditCaption: () -> Unit = {},
     onDeletePost: () -> Unit = {},
@@ -110,6 +113,13 @@ fun PostActionMenu(
                 )
             }
         } else {
+            if (canSendGift) {
+                MenuRow(
+                    icon = Icons.Filled.CardGiftcard,
+                    label = stringResource(R.string.gift_send_action),
+                    onClick = { onSendGift(); onDismiss() },
+                )
+            }
             MenuRow(
                 icon = Icons.Filled.MusicNote,
                 label = stringResource(R.string.post_menu_view_song_page),

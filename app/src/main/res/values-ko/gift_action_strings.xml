@@ -1,0 +1,4 @@
+<resources>
+    <string name="gift_send_action">선물 보내기</string>
+    <string name="gift_picker_intro">특별한 감사의 마음을 담아 %1$s님에게 선물을 보내세요.</string>
+</resources>

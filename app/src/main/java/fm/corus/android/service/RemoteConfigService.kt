@@ -327,6 +327,15 @@ class RemoteConfigService @Inject constructor(
     val artistPagesEnabled: Boolean
         get() = feedFlag("artist_pages_enabled")
 
+    /** Closed Gifts pilot. The server independently checks both participants. */
+    val giftsEnabledForCurrentUser: Boolean
+        get() = feedFlag("gifts_enabled") && auth.currentUser?.uid in GIFT_TESTER_UIDS
+
+    fun canSendGiftTo(recipientId: String): Boolean {
+        val senderId = auth.currentUser?.uid ?: return false
+        return giftsEnabledForCurrentUser && senderId != recipientId && recipientId in GIFT_TESTER_UIDS
+    }
+
     /** Option B gate for pre-release album destination pages. OFF = Option A only. */
     val prereleaseAlbumPagesEnabled: Boolean
         get() = feedFlag("prerelease_album_pages_enabled")
@@ -764,11 +773,19 @@ class RemoteConfigService @Inject constructor(
         )
         val BANDCAMP_TESTER_USERNAMES = setOf("gabe", "clifton")
 
+        val GIFT_TESTER_UIDS = setOf(
+            "FUQZIrZR08T2Ux2vYpPzWx7B1rv1", // @gabe
+            "u3UmswvOg5c2r9zYlOidJYFzqbp2", // @clifton
+            "nk8dhIwzgNT63C0NY9Qt7Dd8YlL2", // @farleythethird
+            "knpW2V2LkMNK4KzyIcmMnlhgEor1", // @din
+        )
+
         /// In-app Remote Config defaults. Applied locally in init() (so flag-gated
         /// UI is correct before any network fetch) and re-applied in
         /// fetchAndActivate(). Single source of truth — keep in sync with the
         /// server template and the iOS/web defaults.
         private val DEFAULTS: Map<String, Any> = mapOf(
+            "gifts_enabled" to false,
             "map_enabled" to false,
             "mapkit_js_token" to "",
             "artist_merch_enabled" to false,

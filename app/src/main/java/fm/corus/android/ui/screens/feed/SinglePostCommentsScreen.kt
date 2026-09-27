@@ -621,6 +621,7 @@ fun SinglePostCommentsScreen(
                         isSaved = isSaved,
                         saveCount = saveCount,
                         saveCountEnabled = viewModel.remoteConfig.saveCountEnabled,
+                        showGifts = viewModel.remoteConfig.giftsEnabledForCurrentUser,
                         currentUser = currentUserProfile,
                         isPreviewLoading = p.isTrack && PostPlaybackHighlight.isAlbumArtLoading(
                             loadingTrackId = loadingTrackId,

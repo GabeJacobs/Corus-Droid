@@ -289,6 +289,7 @@ fun NotificationsScreen(
             if (showFilterChips) {
                 NotificationFilterChipRow(
                     selected = selectedFilter,
+                    showGifts = viewModel.giftsEnabled,
                     onSelect = {
                         // Mirrors iOS NotificationsView.selectFilter haptic.
                         haptics.impact(HapticManager.ImpactStyle.LIGHT)
@@ -592,6 +593,7 @@ private fun ActivityStandaloneTitle() {
 @Composable
 private fun NotificationFilterChipRow(
     selected: NotificationFilter,
+    showGifts: Boolean,
     onSelect: (NotificationFilter) -> Unit,
 ) {
     LazyRow(
@@ -602,7 +604,7 @@ private fun NotificationFilterChipRow(
         contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
     ) {
-        items(NotificationFilter.entries, key = { it.value }) { filter ->
+        items(NotificationFilter.entries.filter { showGifts || it != NotificationFilter.GIFTS }, key = { it.value }) { filter ->
             val isActive = filter == selected
             val label = stringResource(
                 when (filter) {

@@ -1506,4 +1506,10 @@
     <string name="map_watch_mode_preview">Aperçu du mode Visionnage · Découvrir Corus Club</string>
     <string name="club_feature_unlimited_playlists">Exporter des playlists en illimité</string>
     <string name="club_feature_unlock_all_taste_matches">Débloquez toutes les affinités de goûts</string>
+    <string name="gift_club_offer_title">Débloquez 3 cadeaux</string>
+    <string name="gift_club_offer_body">Rejoignez Corus Club et obtenez 3 cadeaux par semaine.</string>
+    <string name="gift_club_offer_cta_trial">Débloquer gratuitement</string>
+    <string name="gift_club_offer_cta_standard">Débloquer avec Corus Club</string>
+    <string name="club_subtitle_gift">Débloquez 3 cadeaux aujourd’hui.</string>
+    <string name="club_feature_gifts">3 emplacements de cadeau par semaine</string>
 </resources>

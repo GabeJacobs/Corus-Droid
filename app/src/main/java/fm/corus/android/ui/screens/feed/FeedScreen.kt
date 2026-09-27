@@ -1253,6 +1253,7 @@ fun FeedScreen(
                             isSaved = engagement?.isSaved ?: false,
                             saveCount = engagement?.saveCount ?: post.saveCount,
                             saveCountEnabled = viewModel.remoteConfig.saveCountEnabled,
+                            showGifts = viewModel.remoteConfig.giftsEnabledForCurrentUser,
                             currentUser = currentUserProfile,
                             isPreviewLoading = PostPlaybackHighlight.isAlbumArtLoading(
                                 loadingTrackId = loadingTrackId,

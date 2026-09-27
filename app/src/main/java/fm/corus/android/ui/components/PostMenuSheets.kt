@@ -111,11 +111,42 @@ fun PostMenuSheets(
     // sheet never appears. Stash the post here, dismiss the menu, then open
     // the share sheet once the menu is fully gone.
     var pendingSharePost by remember { mutableStateOf<CymbalPost?>(null) }
+    var giftPost by remember { mutableStateOf<CymbalPost?>(null) }
+    var pendingGiftPost by remember { mutableStateOf<CymbalPost?>(null) }
     LaunchedEffect(menuPost, pendingSharePost) {
         val pending = pendingSharePost
         if (menuPost == null && pending != null) {
             onSharePostChange(pending)
             pendingSharePost = null
+        }
+    }
+    LaunchedEffect(menuPost, pendingGiftPost) {
+        val pending = pendingGiftPost
+        if (menuPost == null && pending != null) {
+            giftPost = pending
+            pendingGiftPost = null
+        }
+    }
+
+    giftPost?.let { post ->
+        val giftSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { giftPost = null },
+            sheetState = giftSheetState,
+            containerColor = CorusColors.Background,
+            dragHandle = null,
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+            contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Bottom) },
+        ) {
+            CorusSystemBars()
+            BackHandler { giftPost = null }
+            GiftSelectionSheet(
+                post = post,
+                onDismiss = { giftPost = null },
+                onSent = { result ->
+                    ToastManager.show("${fm.corus.android.data.model.GiftDefinition.from(result.giftType).name} sent")
+                },
+            )
         }
     }
 
@@ -261,6 +292,8 @@ fun PostMenuSheets(
                     }
                 },
                 onSharePost = { pendingSharePost = post },
+                canSendGift = actions.remoteConfig.canSendGiftTo(post.user.id),
+                onSendGift = { pendingGiftPost = post },
                 onToggleSave = { actions.toggleSave(post.id) },
                 onEditCaption = { onEditCaptionPostChange(post) },
                 onDeletePost = { onDeleteConfirmPostChange(post) },
