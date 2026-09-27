@@ -201,10 +201,18 @@ fun NotificationsScreen(
         FavoriteInfoDialog(onDismiss = { showFavoriteInfo = false })
     }
     selectedGift?.let { gift ->
-        GiftNotificationSheet(gift, onDismiss = { selectedGift = null }, onViewCorus = {
-            selectedGift = null
-            gift.postId?.let(onNavigateToPost)
-        })
+        GiftNotificationSheet(
+            notification = gift,
+            onDismiss = { selectedGift = null },
+            onViewCorus = {
+                selectedGift = null
+                gift.postId?.let(onNavigateToPost)
+            },
+            onThankStateChange = { thankedAt ->
+                selectedGift = selectedGift?.copy(giftThankedAt = thankedAt)
+                viewModel.setGiftThankState(gift.id, thankedAt)
+            },
+        )
     }
 
     // Activity stays composed off-screen. The tab-bar badge is owned by

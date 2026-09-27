@@ -77,7 +77,12 @@ internal fun GiftNotificationArtwork(type: String?, size: Dp = 44.dp) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun GiftNotificationSheet(notification: CymbalNotification, onDismiss: () -> Unit, onViewCorus: () -> Unit) {
+internal fun GiftNotificationSheet(
+    notification: CymbalNotification,
+    onDismiss: () -> Unit,
+    onViewCorus: () -> Unit,
+    onThankStateChange: (java.util.Date?) -> Unit = {},
+) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     val gift = GiftDefinition.from(notification.giftType)
@@ -111,19 +116,26 @@ internal fun GiftNotificationSheet(notification: CymbalNotification, onDismiss: 
                         onClick = {
                             val postId = notification.postId ?: return@Button
                             val giftId = notification.giftId ?: return@Button
+                            val priorThankedAt = notification.giftThankedAt
+                            val optimisticThankedAt = java.util.Date()
                             thankError = false
+                            thanked = true
                             sendingThanks = true
+                            onThankStateChange(optimisticThankedAt)
                             scope.launch {
                                 try {
-                                    FirebaseFunctions.getInstance("us-central1")
+                                    val result = FirebaseFunctions.getInstance("us-central1")
                                         .getHttpsCallable("thankGift")
                                         .call(mapOf("postId" to postId, "giftId" to giftId))
                                         .await()
-                                    thanked = true
+                                    val confirmedMs = (result.getData() as? Map<*, *>)?.get("thankedAt") as? Number
+                                    onThankStateChange(confirmedMs?.toLong()?.let { java.util.Date(it) } ?: optimisticThankedAt)
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 } catch (error: CancellationException) {
                                     throw error
                                 } catch (_: Exception) {
+                                    thanked = priorThankedAt != null
+                                    onThankStateChange(priorThankedAt)
                                     thankError = true
                                 } finally {
                                     sendingThanks = false

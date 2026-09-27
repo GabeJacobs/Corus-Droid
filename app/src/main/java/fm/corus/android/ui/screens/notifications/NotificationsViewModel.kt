@@ -442,6 +442,20 @@ class NotificationsViewModel @Inject constructor(
         }
     }
 
+    /** Immediately reflects a Gift acknowledgement in every Activity cache.
+     * The notification listener remains authoritative and replaces this
+     * optimistic value after the backend transaction completes. */
+    fun setGiftThankState(notificationId: String, thankedAt: java.util.Date?) {
+        fun updated(rows: List<CymbalNotification>) = rows.map { notification ->
+            if (notification.id == notificationId) notification.copy(giftThankedAt = thankedAt) else notification
+        }
+        _notifications.value = updated(_notifications.value)
+        _filteredNotifications.value = updated(_filteredNotifications.value)
+        chipCache.keys.toList().forEach { filter ->
+            chipCache[filter] = updated(chipCache[filter].orEmpty())
+        }
+    }
+
     /**
      * Merges incoming real-time listener results (first page) with existing
      * paginated items via [mergedNotificationList] — see its doc for the

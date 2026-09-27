@@ -116,7 +116,9 @@ fun PostGiftRow(postId: String, giftCount: Int) {
                 Button(
                     enabled = !isThanked && thankingId != gift.id,
                     onClick = {
+                        val wasAlreadyThanked = isThanked
                         thankErrorId = null
+                        thankedIds = thankedIds + gift.id
                         thankingId = gift.id
                         scope.launch {
                             try {
@@ -124,11 +126,11 @@ fun PostGiftRow(postId: String, giftCount: Int) {
                                     .getHttpsCallable("thankGift")
                                     .call(mapOf("postId" to postId, "giftId" to gift.id))
                                     .await()
-                                thankedIds = thankedIds + gift.id
                                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             } catch (error: CancellationException) {
                                 throw error
                             } catch (_: Exception) {
+                                if (!wasAlreadyThanked) thankedIds = thankedIds - gift.id
                                 thankErrorId = gift.id
                             } finally {
                                 thankingId = null
