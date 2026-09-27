@@ -39,6 +39,13 @@
     <string name="gift_context_sharing">For sharing “%1$s”</string>
     <string name="gift_context_generic">For something you shared on Corus</string>
     <string name="gift_view_corus">View corus</string>
+    <string name="gift_say_thanks">Say thanks</string>
+    <string name="gift_thanked">Thanked ✓</string>
+    <string name="gift_sending_thanks">Sending…</string>
+    <string name="gift_thanks_failed">Couldn’t send thanks. Please try again.</string>
+    <string name="gift_go_to_post">Go to Post</string>
+    <string name="notif_msg_gift_thanks">thanked you for your gift.</string>
+    <string name="notif_gift_thanks_full">%1$s thanked you for your gift.</string>
     <string name="gift_sheet_title_many">Gifts</string>
     <string name="gift_sheet_title_one">Gift</string>
     <string name="gift_no_gifts">No gifts yet</string>

@@ -21,4 +21,17 @@ class GiftNotificationTest {
         assertEquals("For something you shared on Corus", GiftDefinition.context(null))
         assertEquals("For sharing “Dried Roses”", GiftDefinition.context(" Dried Roses "))
     }
+
+    @Test fun giftThanksDecodesAsItsOwnActivityType() {
+        val notification = CymbalNotification.fromMap("gift_thanks_1", mapOf(
+            "type" to "gift_thanks",
+            "giftId" to "gift-1",
+            "giftType" to "flowers",
+            "postId" to "post",
+            "createdAt" to 123L,
+        ))
+        assertEquals(NotificationType.GIFT_THANKS, notification.type)
+        assertEquals("gift-1", notification.giftId)
+        assertEquals("thanked you for your gift.", notification.message)
+    }
 }

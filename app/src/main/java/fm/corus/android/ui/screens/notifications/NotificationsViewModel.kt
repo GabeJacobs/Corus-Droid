@@ -120,7 +120,12 @@ class NotificationsViewModel @Inject constructor(
     ) { chip, following, hidden ->
         NotificationFilterVisibility.apply(
             chip.filter, chip.all, chip.filtered, following, chip.ready, chip.loading,
-        ).filter { it.fromUser.id !in hidden && (giftsEnabled || it.type != fm.corus.android.data.model.NotificationType.GIFT) }
+        ).filter { notification ->
+            notification.fromUser.id !in hidden && (giftsEnabled || notification.type !in setOf(
+                fm.corus.android.data.model.NotificationType.GIFT,
+                fm.corus.android.data.model.NotificationType.GIFT_THANKS,
+            ))
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val showFilterChips: StateFlow<Boolean> = combine(_notifications, _filtersUnlocked) { all, unlocked ->

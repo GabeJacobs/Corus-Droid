@@ -398,7 +398,7 @@ fun NotificationsScreen(
                                 isNew = newNotificationIds.contains(notification.id),
                                 onClick = {
                                     viewModel.markNotificationTapped(notification.id)
-                                    if (notification.type == NotificationType.GIFT) {
+                                    if (notification.type == NotificationType.GIFT || notification.type == NotificationType.GIFT_THANKS) {
                                         selectedGift = notification
                                     } else if (notification.type == NotificationType.FAVORITE) {
                                         showFavoriteInfo = true
@@ -669,7 +669,7 @@ private fun NotificationRow(
     ) {
         // Left: avatar (taps to profile) — or, for anonymous favorites, a star,
         // or, for play milestones, a headphones glyph.
-        if (notification.type == NotificationType.GIFT) {
+        if (notification.type == NotificationType.GIFT || notification.type == NotificationType.GIFT_THANKS) {
             GiftNotificationArtwork(notification.giftType, CorusSpacing.avatarMedium)
         } else if (notification.type == NotificationType.FAVORITE) {
             Box(
@@ -1399,6 +1399,7 @@ private fun localizedNotificationMessage(
             "",
             GiftDefinition.from(notification.giftType).sentPhrase(context),
         ).trim()
+        NotificationType.GIFT_THANKS -> context.getString(R.string.notif_msg_gift_thanks)
         NotificationType.LIKE -> context.getString(R.string.notif_msg_like, postNoun)
         NotificationType.COMMENT -> commentExcerpt
             ?.let { context.getString(R.string.notif_msg_comment_with_text, it) }

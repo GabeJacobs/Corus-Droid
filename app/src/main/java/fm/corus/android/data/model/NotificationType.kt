@@ -2,6 +2,7 @@ package fm.corus.android.data.model
 
 enum class NotificationType(val value: String) {
     GIFT("gift"),
+    GIFT_THANKS("gift_thanks"),
     LIKE("like"),
     COMMENT("comment"),
     COMMENT_LIKE("comment_like"),

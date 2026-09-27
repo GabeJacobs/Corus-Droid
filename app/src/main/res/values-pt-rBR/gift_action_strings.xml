@@ -41,6 +41,13 @@
     <string name="gift_context_sharing">Por compartilhar “%1$s”</string>
     <string name="gift_context_generic">Por algo que você compartilhou no Corus</string>
     <string name="gift_view_corus">Ver corus</string>
+    <string name="gift_say_thanks">Agradecer</string>
+    <string name="gift_thanked">Agradecido ✓</string>
+    <string name="gift_sending_thanks">Enviando…</string>
+    <string name="gift_thanks_failed">Não foi possível agradecer. Tente novamente.</string>
+    <string name="gift_go_to_post">Ir para a publicação</string>
+    <string name="notif_msg_gift_thanks">agradeceu seu presente.</string>
+    <string name="notif_gift_thanks_full">%1$s agradeceu seu presente.</string>
     <string name="gift_sheet_title_many">Presentes</string>
     <string name="gift_sheet_title_one">Presente</string>
     <string name="gift_no_gifts">Nenhum presente ainda</string>

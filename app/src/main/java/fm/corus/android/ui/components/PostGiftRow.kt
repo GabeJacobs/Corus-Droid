@@ -9,7 +9,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
@@ -23,7 +25,14 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-private data class GiftReceipt(val id: String, val sender: String, val type: String, val note: String?) {
+private data class GiftReceipt(
+    val id: String,
+    val sender: String,
+    val type: String,
+    val note: String?,
+    val canThank: Boolean,
+    val wasThanked: Boolean,
+) {
     fun title(context: android.content.Context): String = context.getString(
         R.string.gift_sender_sent,
         sender.ifBlank { context.getString(R.string.gift_someone) },
@@ -35,6 +44,7 @@ private data class GiftReceipt(val id: String, val sender: String, val type: Str
 @Composable
 fun PostGiftRow(postId: String, giftCount: Int) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     val uid = FirebaseAuth.getInstance().currentUser?.uid
     var receipts by remember(postId, uid, giftCount) { mutableStateOf(emptyList<GiftReceipt>()) }
     var summary by remember(postId, uid, giftCount) { mutableStateOf<PostGiftSummary?>(null) }
@@ -43,6 +53,9 @@ fun PostGiftRow(postId: String, giftCount: Int) {
     var index by remember(postId, uid) { mutableIntStateOf(0) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf(false) }
+    var thankingId by remember { mutableStateOf<String?>(null) }
+    var thankErrorId by remember { mutableStateOf<String?>(null) }
+    var thankedIds by remember { mutableStateOf(setOf<String>()) }
     val scope = rememberCoroutineScope()
     suspend fun load(reset: Boolean): Boolean {
         loading = true; error = false
@@ -53,7 +66,14 @@ fun PostGiftRow(postId: String, giftCount: Int) {
             val rows = (data["gifts"] as? List<*>)?.mapNotNull { value ->
                 val g = value as? Map<*, *> ?: return@mapNotNull null
                 val id = g["giftId"] as? String ?: return@mapNotNull null
-                GiftReceipt(id, (g["senderUsername"] as? String)?.takeIf { it.isNotBlank() } ?: g["senderDisplayName"] as? String ?: "Someone", g["giftType"] as? String ?: "", g["note"] as? String)
+                GiftReceipt(
+                    id,
+                    (g["senderUsername"] as? String)?.takeIf { it.isNotBlank() } ?: g["senderDisplayName"] as? String ?: "Someone",
+                    g["giftType"] as? String ?: "",
+                    g["note"] as? String,
+                    g["canThank"] as? Boolean ?: false,
+                    g["wasThanked"] as? Boolean ?: false,
+                )
             }.orEmpty()
             receipts = (if (reset) rows else receipts + rows).distinctBy { it.id }
             cursor = data["nextCursor"] as? Map<*, *>
@@ -79,6 +99,7 @@ fun PostGiftRow(postId: String, giftCount: Int) {
     }
     if (open) ModalBottomSheet(onDismissRequest = { open = false }, containerColor = CorusColors.Background) {
         val gift = receipts.getOrElse(index) { first }
+        val isThanked = gift.wasThanked || gift.id in thankedIds
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (currentSummary.total > 1) Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(enabled = index > 0, onClick = { index-- }) { Text("‹") }
@@ -91,6 +112,42 @@ fun PostGiftRow(postId: String, giftCount: Int) {
             Text(GiftDefinition.from(gift.type).name(context), style = MaterialTheme.typography.headlineSmall, color = CorusColors.Text)
             Text(gift.title(context), color = CorusColors.Text)
             gift.note?.takeIf { it.isNotBlank() }?.let { Text(it, color = CorusColors.Text) }
+            if (gift.canThank || isThanked) {
+                Button(
+                    enabled = !isThanked && thankingId != gift.id,
+                    onClick = {
+                        thankErrorId = null
+                        thankingId = gift.id
+                        scope.launch {
+                            try {
+                                FirebaseFunctions.getInstance("us-central1")
+                                    .getHttpsCallable("thankGift")
+                                    .call(mapOf("postId" to postId, "giftId" to gift.id))
+                                    .await()
+                                thankedIds = thankedIds + gift.id
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            } catch (error: CancellationException) {
+                                throw error
+                            } catch (_: Exception) {
+                                thankErrorId = gift.id
+                            } finally {
+                                thankingId = null
+                            }
+                        }
+                    },
+                ) {
+                    Text(stringResource(
+                        when {
+                            isThanked -> R.string.gift_thanked
+                            thankingId == gift.id -> R.string.gift_sending_thanks
+                            else -> R.string.gift_say_thanks
+                        }
+                    ))
+                }
+            }
+            if (thankErrorId == gift.id) {
+                Text(stringResource(R.string.gift_thanks_failed), color = CorusColors.Secondary)
+            }
             if (error) Text(stringResource(R.string.gift_refresh_details_error), color = CorusColors.Secondary)
             TextButton(onClick = { open = false }) { Text(stringResource(R.string.gift_close)) }
         }

@@ -27,6 +27,8 @@ data class CymbalNotification(
     val sharedArtists: Int? = null,
     val discoveryItems: List<TasteMatchDiscoveryItem>? = null,
     val giftType: String? = null,
+    val giftId: String? = null,
+    val giftThankedAt: Date? = null,
     val giftNote: String? = null,
     val postTitle: String? = null,
 ) {
@@ -38,6 +40,7 @@ data class CymbalNotification(
             // UI surfaces rebuild Gift copy from localized resources. This is
             // only an English context-free fallback for legacy callers.
             NotificationType.GIFT -> "sent you ${GiftDefinition.from(giftType).sentPhrase}"
+            NotificationType.GIFT_THANKS -> "thanked you for your gift."
             NotificationType.LIKE -> "liked your corus."
             NotificationType.COMMENT -> if (commentText != null) "commented: $commentText" else "commented on your corus."
             NotificationType.COMMENT_LIKE -> "liked your comment."
@@ -91,6 +94,12 @@ data class CymbalNotification(
                 sharedArtists = (data["sharedArtists"] as? Number)?.toInt(),
                 discoveryItems = parseDiscoveryItems(data["discoveryItems"]),
                 giftType = data["giftType"] as? String,
+                giftId = (data["giftId"] as? String) ?: inferGiftId(id, data),
+                giftThankedAt = when (val thankedAt = data["thankedAt"]) {
+                    is com.google.firebase.Timestamp -> thankedAt.toDate()
+                    is Number -> Date(thankedAt.toLong())
+                    else -> null
+                },
                 giftNote = data["giftNote"] as? String,
                 postTitle = data["postTitle"] as? String,
             )
@@ -105,6 +114,15 @@ data class CymbalNotification(
                 TasteMatchDiscoveryItem(kind = map["kind"] as? String ?: "artist", name = name)
             }
             return items.ifEmpty { null }
+        }
+
+        private fun inferGiftId(notificationId: String, data: Map<String, Any?>): String? {
+            if (data["type"] != NotificationType.GIFT.value) return null
+            val postId = data["postId"] as? String ?: return null
+            val prefix = "gift_"
+            val suffix = "_$postId"
+            if (!notificationId.startsWith(prefix) || !notificationId.endsWith(suffix)) return null
+            return notificationId.removePrefix(prefix).removeSuffix(suffix).takeIf { it.isNotBlank() }
         }
     }
 }
