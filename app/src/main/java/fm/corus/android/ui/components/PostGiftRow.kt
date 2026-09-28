@@ -22,6 +22,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -43,7 +45,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-private data class GiftReceipt(val id: String, val senderId: String, val sender: String, val type: String, val note: String?)
+private data class GiftReceipt(
+    val id: String, val senderId: String, val sender: String, val type: String, val note: String?,
+    val canThank: Boolean = false, val wasThanked: Boolean = false,
+)
 
 internal fun shouldShowGiftNote(note: String?): Boolean = !note.isNullOrBlank()
 
@@ -88,6 +93,8 @@ private suspend fun fetchGiftReceiptPage(
                 ?: gift["senderDisplayName"] as? String ?: "Someone",
             type = gift["giftType"] as? String ?: "",
             note = gift["note"] as? String,
+            canThank = gift["canThank"] as? Boolean ?: false,
+            wasThanked = gift["wasThanked"] as? Boolean ?: false,
         )
     }.orEmpty()
     val summary = (data["summary"] as? Map<*, *>)?.let { raw ->
@@ -115,6 +122,7 @@ fun PostGiftRow(
     contentPadding: PaddingValues = PaddingValues(start = 12.5.dp, end = 16.dp, top = 5.dp, bottom = 9.dp),
 ) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     val uid = FirebaseAuth.getInstance().currentUser?.uid
     val previewReceipts = remember(recentGifts) { recentGifts.map(PostGiftPreview::toReceipt) }
     val initialSummary = remember(recentGifts, giftCount) { previewSummary(recentGifts, giftCount) }
@@ -129,6 +137,9 @@ fun PostGiftRow(
     var sheetCursor by remember(postId, uid) { mutableStateOf<Map<*, *>?>(null) }
     var sheetLoading by remember(postId, uid) { mutableStateOf(false) }
     var sheetError by remember(postId, uid) { mutableStateOf(false) }
+    var thankingId by remember(postId, uid) { mutableStateOf<String?>(null) }
+    var thankErrorId by remember(postId, uid) { mutableStateOf<String?>(null) }
+    var thankedIds by remember(postId, uid) { mutableStateOf(setOf<String>()) }
     val scope = rememberCoroutineScope()
 
     suspend fun loadSheet(reset: Boolean): Boolean {
@@ -275,6 +286,42 @@ fun PostGiftRow(
                                     gift.note?.takeIf { it.isNotBlank() }?.let { note ->
                                         Text(note, color = CorusColors.Text)
                                     }
+                                }
+                                val isThanked = gift.wasThanked || gift.id in thankedIds
+                                if (gift.canThank || isThanked) {
+                                    Button(
+                                        enabled = !isThanked && thankingId != gift.id,
+                                        onClick = {
+                                            thankErrorId = null
+                                            thankedIds = thankedIds + gift.id
+                                            thankingId = gift.id
+                                            scope.launch {
+                                                try {
+                                                    FirebaseFunctions.getInstance("us-central1")
+                                                        .getHttpsCallable("thankGift")
+                                                        .call(mapOf("postId" to postId, "giftId" to gift.id))
+                                                        .await()
+                                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                } catch (error: CancellationException) {
+                                                    throw error
+                                                } catch (_: Exception) {
+                                                    thankedIds = thankedIds - gift.id
+                                                    thankErrorId = gift.id
+                                                } finally {
+                                                    thankingId = null
+                                                }
+                                            }
+                                        },
+                                    ) {
+                                        Text(stringResource(when {
+                                            isThanked -> R.string.gift_thanked
+                                            thankingId == gift.id -> R.string.gift_thanks_sending
+                                            else -> R.string.gift_say_thanks
+                                        }))
+                                    }
+                                }
+                                if (thankErrorId == gift.id) {
+                                    Text(stringResource(R.string.gift_thanks_error), color = CorusColors.Secondary)
                                 }
                                 if (sheetError) {
                                     Text(stringResource(R.string.gift_refresh_details_error), color = CorusColors.Secondary)
