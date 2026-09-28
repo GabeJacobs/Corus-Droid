@@ -462,8 +462,8 @@ class PostDetailViewModel @Inject constructor(
 
         shareSearchJob?.cancel()
         _shareSearchResults.value = emptyList()
+        _isShareSearching.value = true
         shareSearchJob = viewModelScope.launch {
-            _isShareSearching.value = true
             delay(250)
             try {
                 _shareSearchResults.value = messageRepository.searchShareRecipients(authRepository.currentUserId ?: return@launch, trimmed, userRepository)

@@ -1111,7 +1111,6 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             eventId = route.eventId,
             onBack = { navController.safePopBackStack() },
             onArtist = { navController.navigate(it) },
-            onThread = { navController.navigate(MessageThreadRoute(it, "")) },
             onProfile = { navController.navigate(OtherProfileRoute(it)) },
         )
     }

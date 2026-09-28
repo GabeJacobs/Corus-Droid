@@ -28,7 +28,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.google.firebase.auth.FirebaseAuth
@@ -41,6 +40,7 @@ import fm.corus.android.data.model.PostGiftSummary
 import fm.corus.android.data.model.PostGiftPreview
 import fm.corus.android.ui.screens.notifications.GiftNotificationArtwork
 import fm.corus.android.ui.theme.CorusColors
+import fm.corus.android.ui.theme.CorusFont
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -199,6 +199,7 @@ fun PostGiftRow(
         Text(
             if (currentRowSummary.total == 1) localizedGiftReceiptTitle(context, firstRowGift)
             else localizedGiftAttribution(context, currentRowSummary),
+            style = CorusFont.body,
             color = CorusColors.Text,
             modifier = Modifier.weight(1f),
         )
@@ -207,17 +208,21 @@ fun PostGiftRow(
     if (open) {
         LaunchedEffect(Unit) { loadSheet(reset = true) }
         val displayedTotal = sheetSummary?.total ?: giftCount
-        val sheetState = rememberModalBottomSheetState()
+        val actionGift = sheetReceipts.getOrNull(index) ?: sheetReceipts.firstOrNull()
+        val actionIsThanked = actionGift?.let { it.wasThanked || it.id in thankedIds } == true
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
             onDismissRequest = { open = false },
             sheetState = sheetState,
             containerColor = CorusColors.Background,
         ) {
             Column(
-                Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+                Modifier.fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(stringResource(if (displayedTotal > 1) R.string.gift_sheet_title_many else R.string.gift_sheet_title_one), style = MaterialTheme.typography.titleLarge, color = CorusColors.Text)
+                Text(stringResource(if (displayedTotal > 1) R.string.gift_sheet_title_many else R.string.gift_sheet_title_one), style = CorusFont.screenTitle, color = CorusColors.Text)
                 AnimatedContent(
                     targetState = sheetReceipts.isNotEmpty(),
                     transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(100)) },
@@ -230,14 +235,14 @@ fun PostGiftRow(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
-                                Text(stringResource(R.string.gift_load_details_error), color = CorusColors.Secondary)
-                                TextButton(onClick = { scope.launch { loadSheet(reset = true) } }) { Text(stringResource(R.string.gift_try_again)) }
+                                Text(stringResource(R.string.gift_load_details_error), style = CorusFont.body, color = CorusColors.Secondary)
+                                TextButton(onClick = { scope.launch { loadSheet(reset = true) } }) { Text(stringResource(R.string.gift_try_again), style = CorusFont.button) }
                             }
                         } else GiftReceiptSkeleton(displayedTotal)
                     } else {
                         val first = sheetReceipts.firstOrNull()
                         if (first == null) {
-                            Text(stringResource(R.string.gift_no_gifts), color = CorusColors.Secondary, modifier = Modifier.padding(48.dp))
+                            Text(stringResource(R.string.gift_no_gifts), color = CorusColors.Secondary, style = CorusFont.body, modifier = Modifier.padding(48.dp))
                         } else {
                             val gift = sheetReceipts.getOrElse(index) { first }
                             Column(
@@ -255,12 +260,12 @@ fun PostGiftRow(
                                     },
                                 )
                                 GiftNotificationArtwork(gift.type, 164.dp)
-                                Text(GiftDefinition.from(gift.type).name(context), style = MaterialTheme.typography.headlineSmall, color = CorusColors.Text)
+                                Text(GiftDefinition.from(gift.type).name(context), style = CorusFont.custom(800, 28), color = CorusColors.Text)
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         gift.sender,
                                         color = CorusColors.Text,
-                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                        style = CorusFont.username,
                                         modifier = Modifier.clickable(enabled = gift.senderId.isNotBlank()) {
                                             scope.launch {
                                                 sheetState.hide()
@@ -276,6 +281,7 @@ fun PostGiftRow(
                                             GiftDefinition.from(gift.type).sentPhrase(context),
                                         ).trimEnd(),
                                         color = CorusColors.Text,
+                                        style = CorusFont.body,
                                     )
                                 }
                                 AnimatedVisibility(
@@ -284,51 +290,55 @@ fun PostGiftRow(
                                     exit = fadeOut(tween(120)) + shrinkVertically(tween(120)),
                                 ) {
                                     gift.note?.takeIf { it.isNotBlank() }?.let { note ->
-                                        Text(note, color = CorusColors.Text)
-                                    }
-                                }
-                                val isThanked = gift.wasThanked || gift.id in thankedIds
-                                if (gift.canThank || isThanked) {
-                                    Button(
-                                        enabled = !isThanked && thankingId != gift.id,
-                                        onClick = {
-                                            thankErrorId = null
-                                            thankedIds = thankedIds + gift.id
-                                            thankingId = gift.id
-                                            scope.launch {
-                                                try {
-                                                    FirebaseFunctions.getInstance("us-central1")
-                                                        .getHttpsCallable("thankGift")
-                                                        .call(mapOf("postId" to postId, "giftId" to gift.id))
-                                                        .await()
-                                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                } catch (error: CancellationException) {
-                                                    throw error
-                                                } catch (_: Exception) {
-                                                    thankedIds = thankedIds - gift.id
-                                                    thankErrorId = gift.id
-                                                } finally {
-                                                    thankingId = null
-                                                }
-                                            }
-                                        },
-                                    ) {
-                                        Text(stringResource(when {
-                                            isThanked -> R.string.gift_thanked
-                                            thankingId == gift.id -> R.string.gift_thanks_sending
-                                            else -> R.string.gift_say_thanks
-                                        }))
+                                        Text(note, style = CorusFont.body, color = CorusColors.Text)
                                     }
                                 }
                                 if (thankErrorId == gift.id) {
-                                    Text(stringResource(R.string.gift_thanks_error), color = CorusColors.Secondary)
+                                    Text(stringResource(R.string.gift_thanks_error), style = CorusFont.caption, color = CorusColors.Secondary)
                                 }
                                 if (sheetError) {
-                                    Text(stringResource(R.string.gift_refresh_details_error), color = CorusColors.Secondary)
-                                    TextButton(onClick = { scope.launch { loadSheet(reset = true) } }) { Text(stringResource(R.string.gift_try_again)) }
+                                    Text(stringResource(R.string.gift_refresh_details_error), style = CorusFont.caption, color = CorusColors.Secondary)
+                                    TextButton(onClick = { scope.launch { loadSheet(reset = true) } }) { Text(stringResource(R.string.gift_try_again), style = CorusFont.button) }
                                 }
                             }
                         }
+                    }
+                }
+                // Cached previews omit canThank. Keep a fixed footer from the
+                // first frame so hydration cannot resize the sheet.
+                if (actionGift != null) Box(
+                    Modifier.fillMaxWidth().height(96.dp),
+                    contentAlignment = Alignment.TopCenter,
+                ) {
+                    if (actionGift.canThank || actionIsThanked) Button(
+                        enabled = !actionIsThanked && thankingId != actionGift.id,
+                        onClick = {
+                            thankErrorId = null
+                            thankedIds = thankedIds + actionGift.id
+                            thankingId = actionGift.id
+                            scope.launch {
+                                try {
+                                    FirebaseFunctions.getInstance("us-central1")
+                                        .getHttpsCallable("thankGift")
+                                        .call(mapOf("postId" to postId, "giftId" to actionGift.id))
+                                        .await()
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                } catch (error: CancellationException) {
+                                    throw error
+                                } catch (_: Exception) {
+                                    thankedIds = thankedIds - actionGift.id
+                                    thankErrorId = actionGift.id
+                                } finally {
+                                    thankingId = null
+                                }
+                            }
+                        },
+                    ) {
+                        Text(stringResource(when {
+                            actionIsThanked -> R.string.gift_thanked
+                            thankingId == actionGift.id -> R.string.gift_thanks_sending
+                            else -> R.string.gift_say_thanks
+                        }), style = CorusFont.button)
                     }
                 }
             }
@@ -354,7 +364,7 @@ private fun GiftPager(
                 modifier = Modifier.size(32.dp),
             )
         }
-        Text(stringResource(R.string.gift_pager_count, index + 1, total), color = CorusColors.Secondary)
+        Text(stringResource(R.string.gift_pager_count, index + 1, total), style = CorusFont.caption, color = CorusColors.Secondary)
         IconButton(
             enabled = nextEnabled,
             onClick = onNext,
@@ -375,8 +385,8 @@ private const val GIFT_SENDER_ONE_TOKEN = "__CORUS_GIFT_SENDER_ONE__"
 private const val GIFT_SENDER_TWO_TOKEN = "__CORUS_GIFT_SENDER_TWO__"
 private const val GIFT_TYPE_TOKEN = "__CORUS_GIFT_TYPE__"
 
-/** Replaces formatting sentinels with bold text while leaving all localized
- * connecting copy in its resource-defined order. */
+/** Replaces formatting sentinels with iOS-sized username text while leaving
+ * all localized connecting copy in its resource-defined order. */
 internal fun emphasizedGiftAttribution(
     template: String,
     replacements: Map<String, String>,
@@ -396,7 +406,12 @@ internal fun emphasizedGiftAttribution(
             break
         }
         append(template.substring(cursor, next.first))
-        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(next.third) }
+        withStyle(
+            SpanStyle(
+                fontSize = CorusFont.username.fontSize,
+                fontWeight = CorusFont.username.fontWeight,
+            ),
+        ) { append(next.third) }
         cursor = next.first + next.second.length
     }
 }

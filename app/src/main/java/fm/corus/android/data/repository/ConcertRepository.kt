@@ -3,6 +3,10 @@ package fm.corus.android.data.repository
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
@@ -37,6 +41,7 @@ data class ConcertAttendance(
 
 @Singleton
 class ConcertRepository @Inject constructor(private val functions: FirebaseFunctions, private val auth: FirebaseAuth, @dagger.hilt.android.qualifiers.ApplicationContext context: android.content.Context) {
+    private val sendScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val prefs = context.getSharedPreferences("concert_discovery", 0)
     private var owner = auth.currentUser?.uid
     private val _discoveryFilter = MutableStateFlow(savedDiscoveryFilter())
@@ -54,12 +59,16 @@ class ConcertRepository @Inject constructor(private val functions: FirebaseFunct
     private val cachedShows = java.util.concurrent.ConcurrentHashMap<String, ConcertShow>()
     private val cachedPlans = java.util.concurrent.ConcurrentHashMap<String, ConcertShow>()
     private val pendingPlans = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private var planMutationVersion = 0L
+    private var planReadVersion = 0L
     private val _planUpdates = MutableStateFlow<List<ConcertShow>>(emptyList())
     val planUpdates = _planUpdates.asStateFlow()
     init {
         auth.addAuthStateListener {
             if (owner != it.currentUser?.uid) {
                 owner = it.currentUser?.uid
+                planMutationVersion++
+                planReadVersion++
                 cachedShows.clear(); cachedPlans.clear(); pendingPlans.clear(); attendanceCache.clear()
                 _planUpdates.value = emptyList()
                 _discoveryFilter.value = savedDiscoveryFilter()
@@ -70,7 +79,10 @@ class ConcertRepository @Inject constructor(private val functions: FirebaseFunct
     fun remember(show: ConcertShow) { cachedShows[show.id] = show }
     fun rememberedPlans(): List<ConcertShow> = cachedPlans.values.sortedBy { it.date }
     fun rememberPlan(show: ConcertShow, status: String?, optimistic: Boolean = false) {
-        if (optimistic) pendingPlans[show.id] = status ?: "none"
+        if (optimistic) {
+            planMutationVersion++
+            pendingPlans[show.id] = status ?: "none"
+        }
         if (status == null || status == "none") cachedPlans.remove(show.id)
         else cachedPlans[show.id] = show.copy(status = status)
         _planUpdates.value = rememberedPlans()
@@ -106,14 +118,20 @@ class ConcertRepository @Inject constructor(private val functions: FirebaseFunct
     }
 
     suspend fun myConcerts(): List<ConcertShow> {
+        val mutationAtStart = planMutationVersion
+        val readVersion = ++planReadVersion
         val plans = (call("getMyConcerts")["plans"] as? List<*>)?.mapNotNull { (it as? Map<*, *>)?.toConcert() } ?: emptyList()
+        // A response begun before a local RSVP change (or superseded by a newer
+        // read) must not resurrect a plan that the user just removed.
+        if (mutationAtStart != planMutationVersion || readVersion != planReadVersion) return rememberedPlans()
         val returned = plans.associateBy { it.id }
         pendingPlans.entries.removeIf { (id, status) ->
             (returned[id]?.status ?: "none") == status
         }
         val retained = cachedPlans.filterKeys { pendingPlans.containsKey(it) }
         cachedPlans.clear()
-        plans.forEach { rememberPlan(it, it.status) }
+        plans.filter { it.status == "going" || it.status == "interested" }
+            .forEach { cachedPlans[it.id] = it }
         retained.forEach { (id, show) -> cachedPlans[id] = show }
         pendingPlans.filterValues { it == "none" }.keys.forEach(cachedPlans::remove)
         _planUpdates.value = rememberedPlans()
@@ -158,8 +176,12 @@ class ConcertRepository @Inject constructor(private val functions: FirebaseFunct
     suspend fun invite(show: ConcertShow, userId: String, message: String): String {
         prepare(show)
         val fromUserId = auth.currentUser?.uid ?: error("Sign in to invite someone")
-        val threadId = call("getOrCreateThread", mapOf("userId" to fromUserId, "otherUserId" to userId))["threadId"] as? String
-            ?: error("Could not open conversation")
+        val threadId = if (userId.startsWith("group:")) {
+            userId.removePrefix("group:")
+        } else {
+            call("getOrCreateThread", mapOf("userId" to fromUserId, "otherUserId" to userId))["threadId"] as? String
+                ?: error("Could not open conversation")
+        }
         val fields = mapOf(
             "threadId" to threadId, "fromUserId" to fromUserId, "text" to "", "type" to "sharedConcert", "concertId" to show.id,
             "concertTitle" to show.title, "concertDate" to show.date, "concertTime" to (show.time ?: ""),
@@ -170,6 +192,10 @@ class ConcertRepository @Inject constructor(private val functions: FirebaseFunct
         call("sendMessage", fields)
         if (message.isNotBlank()) call("sendMessage", mapOf("threadId" to threadId, "fromUserId" to fromUserId, "type" to "text", "text" to message.trim()))
         return threadId
+    }
+
+    fun sendInviteInBackground(show: ConcertShow, userId: String, message: String, onResult: (Result<String>) -> Unit) {
+        sendScope.launch { onResult(runCatching { invite(show, userId, message) }) }
     }
 }
 

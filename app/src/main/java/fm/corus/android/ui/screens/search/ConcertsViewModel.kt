@@ -6,17 +6,19 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
-import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.ShareRecipient
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.ConcertAttendance
 import fm.corus.android.data.repository.ConcertRepository
 import fm.corus.android.data.repository.ConcertShow
+import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.screens.map.MapCity
 import fm.corus.android.ui.screens.map.MapRepository
 import fm.corus.android.ui.navigation.ArtistPageRoute
+import fm.corus.android.ui.screens.feed.loadRecentShareRecipients
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -34,6 +36,7 @@ class ConcertsViewModel @Inject constructor(
     app: Application,
     private val concerts: ConcertRepository,
     private val users: UserRepository,
+    private val messages: MessageRepository,
     private val cloud: CloudFunctionsDataSource,
     private val analytics: AnalyticsService,
     private val auth: FirebaseAuth,
@@ -100,8 +103,17 @@ class ConcertsViewModel @Inject constructor(
     val detailError = _detailError.asStateFlow()
     private val _attendance = MutableStateFlow<ConcertAttendance?>(null)
     val attendance = _attendance.asStateFlow()
-    private val _friends = MutableStateFlow<List<CymbalUser>>(emptyList())
-    val friends = _friends.asStateFlow()
+    private val _attendanceError = MutableStateFlow(false)
+    val attendanceError = _attendanceError.asStateFlow()
+    private val _recentShareContacts = MutableStateFlow<List<ShareRecipient>>(emptyList())
+    val recentShareContacts = _recentShareContacts.asStateFlow()
+    private val _shareSearchResults = MutableStateFlow<List<ShareRecipient>>(emptyList())
+    val shareSearchResults = _shareSearchResults.asStateFlow()
+    private val _isShareSearching = MutableStateFlow(false)
+    val isShareSearching = _isShareSearching.asStateFlow()
+    private val _isLoadingShareContacts = MutableStateFlow(true)
+    val isLoadingShareContacts = _isLoadingShareContacts.asStateFlow()
+    private var shareSearchJob: Job? = null
     private var loadJob: Job? = null
     private val _cityResults = MutableStateFlow<List<MapCity>>(emptyList())
     val cityResults = _cityResults.asStateFlow()
@@ -214,10 +226,16 @@ class ConcertsViewModel @Inject constructor(
     fun open(eventId: String) {
         detailJob?.cancel()
         _show.value = concerts.cached(eventId)
+        val cachedStatus = concerts.rememberedPlans().firstOrNull { it.id == eventId }?.status
+            ?: _show.value?.status
         _attendance.value = concerts.rememberedAttendance(eventId)
+            ?: cachedStatus?.let { status ->
+                ConcertAttendance(status, if (status == "going") 1 else 0, if (status == "interested") 1 else 0, emptyList(), null)
+            }
         confirmedAttendance = _attendance.value
         _detailError.value = false
         _detailLoading.value = _show.value == null
+        _attendanceError.value = false
         val revision = planRevision
         detailJob = viewModelScope.launch {
             launch {
@@ -238,21 +256,52 @@ class ConcertsViewModel @Inject constructor(
             _detailLoading.value = false
             _show.value?.let { show ->
                 log("detail_viewed", show, "concert_detail")
-                if (_attendance.value == null) {
-                    val status = concerts.rememberedPlans().firstOrNull { it.id == eventId }?.status
-                    _attendance.value = ConcertAttendance(status, if (status == "going") 1 else 0, if (status == "interested") 1 else 0, emptyList(), null)
-                }
                 try {
                     val result = concerts.attendance(show)
                     if (planRevision == revision) { confirmedAttendance = result; _attendance.value = result; concerts.rememberAttendance(eventId, result) }
                 } catch (cancelled: CancellationException) { throw cancelled }
-                catch (_: Exception) { /* Keep cached/optimistic state usable. */ }
+                catch (_: Exception) { _attendanceError.value = true }
             }
         }
     }
     fun select(show: ConcertShow) { concerts.remember(show); log("concert_selected", show) }
     fun share(show: ConcertShow, onReady: (String?) -> Unit) {
         viewModelScope.launch { onReady(runCatching { concerts.prepare(show) }.getOrNull()) }
+    }
+    fun loadRecentShareContacts() {
+        val userId = auth.currentUser?.uid ?: return
+        loadRecentShareRecipients(
+            userId = userId,
+            messageRepository = messages,
+            setContacts = { _recentShareContacts.value = it },
+            setLoading = { _isLoadingShareContacts.value = it },
+            scope = viewModelScope,
+        )
+    }
+    fun searchShareUsers(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            shareSearchJob?.cancel()
+            _shareSearchResults.value = emptyList()
+            _isShareSearching.value = false
+            return
+        }
+        shareSearchJob?.cancel()
+        _shareSearchResults.value = emptyList()
+        shareSearchJob = viewModelScope.launch {
+            _isShareSearching.value = true
+            delay(250)
+            try {
+                auth.currentUser?.uid?.let { userId ->
+                    _shareSearchResults.value = messages.searchShareRecipients(userId, trimmed, users)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _shareSearchResults.value = emptyList()
+            }
+            _isShareSearching.value = false
+        }
     }
     fun updatePlan(choice: String) {
         val show = _show.value ?: return
@@ -297,25 +346,22 @@ class ConcertsViewModel @Inject constructor(
             _attendance.value = old.copy(people = (old.people + next.people).distinctBy { it.id }, nextCursor = next.nextCursor)
         } }
     }
-    fun searchFriends(query: String) {
-        viewModelScope.launch {
-            _friends.value = if (query.length < 2) emptyList() else runCatching {
-                users.searchUsers(query, limit = 15, includeFollowed = true).filter { it.id != uid }
-            }.getOrDefault(emptyList())
-        }
-    }
-    fun sendInvite(friend: CymbalUser, note: String, onSent: (String) -> Unit, onError: () -> Unit) {
+    fun sendInvite(userId: String, note: String, onError: () -> Unit) {
         val show = _show.value ?: return
-        viewModelScope.launch {
-            runCatching { concerts.invite(show, friend.id, note) }
-                .onSuccess { log("invite_sent", show, "concert_detail"); onSent(it) }
+        concerts.sendInviteInBackground(show, userId, note) { result ->
+            result
+                .onSuccess { log("invite_sent", show, "concert_detail") }
                 .onFailure { log("invite_failed", show, "concert_detail"); onError() }
         }
     }
     fun resolveArtist(name: String, onResolved: (ArtistPageRoute?) -> Unit) {
         viewModelScope.launch {
-            val artist = runCatching { cloud.resolveArtistByName(name) }.getOrNull()
+            val trimmed = name.trim()
+            val artist = runCatching { cloud.resolveArtistByName(trimmed) }.getOrNull()
+            // Concert lineups only contain names. The artist destination accepts
+            // nm: IDs and builds a page by name when catalog search misses.
             val route = artist?.let { ArtistPageRoute(it.id, it.name, it.imageUrl) }
+                ?: trimmed.takeIf { it.isNotEmpty() }?.let { ArtistPageRoute("nm:$it", it) }
             if (route != null) log("artist_tapped", _show.value, "concert_detail")
             onResolved(route)
         }

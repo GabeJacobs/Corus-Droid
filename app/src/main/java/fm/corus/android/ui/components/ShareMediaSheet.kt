@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -54,8 +55,10 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import java.text.Normalizer
+import java.util.Locale
 
-/** Minimal payloads for sharing a catalog entity (artist / album / director). */
+/** Minimal payloads for sharing a media entity (artist / album / director / concert). */
 data class ShareArtistSubject(val id: String, val name: String, val imageUrl: String?)
 data class ShareAlbumSubject(
     val id: String,
@@ -65,6 +68,15 @@ data class ShareAlbumSubject(
     val year: String?,
 )
 data class ShareDirectorSubject(val id: String, val name: String, val imageUrl: String?)
+data class ShareConcertSubject(
+    val id: String,
+    val title: String,
+    val artistName: String,
+    val venue: String,
+    val city: String,
+    val date: String,
+    val imageUrl: String?,
+)
 
 /** Minimal payload for sharing a user's *profile* — the uid (for in-app nav +
  *  the DM message), the username (for the `/u/{username}` deep link), and
@@ -83,7 +95,7 @@ data class ShareProfileSubject(
         get() = !avatarUrl.isNullOrBlank() || artworkUrls.isNotEmpty() || !bio.isNullOrBlank()
 }
 
-/** What the share sheet is sharing — a song, film, artist, album, director, or
+/** What the share sheet is sharing — a song, film, artist, album, director, concert, or
  *  a user's profile. Lets one sheet back every detail / destination screen. */
 sealed interface ShareMediaSubject {
     data class Track(val track: CymbalTrack) : ShareMediaSubject
@@ -91,7 +103,21 @@ sealed interface ShareMediaSubject {
     data class Artist(val artist: ShareArtistSubject) : ShareMediaSubject
     data class Album(val album: ShareAlbumSubject) : ShareMediaSubject
     data class Director(val director: ShareDirectorSubject) : ShareMediaSubject
+    data class Concert(val concert: ShareConcertSubject) : ShareMediaSubject
     data class Profile(val profile: ShareProfileSubject) : ShareMediaSubject
+}
+
+private fun ShareConcertSubject.canonicalShareUrl(): String {
+    val source = listOf(title, venue, city, date).filter { it.isNotEmpty() }.joinToString(" ")
+    val folded = Normalizer.normalize(source, Normalizer.Form.NFD)
+        .replace(Regex("\\p{M}+"), "")
+        .lowercase(Locale.ROOT)
+    val slug = folded.split(Regex("[^a-z0-9]+"))
+        .filter { it.isNotEmpty() }
+        .joinToString("-")
+        .take(140)
+        .trim('-')
+    return "https://corus.fm/concert/$slug/$id"
 }
 
 /** Hooks for profile share Firebase events. Passed only for profile subjects. */
@@ -691,6 +717,7 @@ private fun RecipientPickerShareMediaSheet(
 ) {
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     var searchQuery by remember { mutableStateOf("") }
     var selectedUser by remember { mutableStateOf<ShareRecipient?>(null) }
     var messageText by remember { mutableStateOf("") }
@@ -723,13 +750,20 @@ private fun RecipientPickerShareMediaSheet(
         is ShareMediaSubject.Artist -> "https://corus.fm/artist/${subject.artist.id}"
         is ShareMediaSubject.Album -> "https://corus.fm/album/${subject.album.id}"
         is ShareMediaSubject.Director -> "https://corus.fm/director/${subject.director.id}"
+        is ShareMediaSubject.Concert -> subject.concert.canonicalShareUrl()
         is ShareMediaSubject.Profile -> "https://corus.fm/u/${subject.profile.username}"
     }
 
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+    val safeTop = WindowInsets.systemBars
+        .union(WindowInsets.displayCutout)
+        .asPaddingValues()
+        .calculateTopPadding() + CorusSpacing.md
+    val topGap = maxOf(safeTop, maxHeight * 0.15f)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (isSearchActive) Modifier.fillMaxHeight() else Modifier),
+            .then(if (isSearchActive) Modifier.height((maxHeight - topGap).coerceAtLeast(0.dp)) else Modifier),
     ) {
         ShareSheetDragIndicator()
 
@@ -783,6 +817,8 @@ private fun RecipientPickerShareMediaSheet(
                     searchQuery = ""
                     onSearchQueryChange("")
                     isSearchFocused = false
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
                 }) {
                     Text(stringResource(R.string.share_post_cancel), style = CorusFont.bodyMedium, color = CorusColors.Accent)
                 }
@@ -834,6 +870,7 @@ private fun RecipientPickerShareMediaSheet(
                             onSearchQueryChange("")
                             isSearchFocused = false
                             focusManager.clearFocus()
+                            keyboardController?.hide()
                         }
                     }
                 }
@@ -991,6 +1028,7 @@ private fun RecipientPickerShareMediaSheet(
             }
         }
     }
+    }
 }
 
 /**
@@ -1022,6 +1060,9 @@ private fun shareMediaToX(context: Context, subject: ShareMediaSubject) {
         is ShareMediaSubject.Director ->
             "${subject.director.name} on @corusapp" to
                 "https://corus.fm/director/${subject.director.id}"
+        is ShareMediaSubject.Concert ->
+            "${subject.concert.title} on @corusapp" to
+                subject.concert.canonicalShareUrl()
         is ShareMediaSubject.Profile ->
             "@${subject.profile.username} on @corusapp" to
                 "https://corus.fm/u/${subject.profile.username}"

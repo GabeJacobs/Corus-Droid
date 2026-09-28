@@ -23,12 +23,15 @@
     <string name="concert_im_interested">I\'m interested</string>
     <string name="concert_interested_section">Interested</string>
     <string name="concert_invite">Invite someone</string>
+    <string name="concert_sent">Sent</string>
     <string name="concert_invite_error">Couldn\'t send. Try again.</string>
     <string name="concert_label">Concert</string>
     <string name="concert_lineup">Lineup</string>
     <string name="concert_lineup_note">Lineup order and performance times may change. Check the event listing for updates.</string>
-    <string name="concert_load_error">Concerts couldn\'t load. Please try again.</string>
+    <string name="concert_load_error">Concerts couldn\'t load</string>
     <string name="concert_loading">Loading concerts</string>
+    <string name="concert_plans_loading">Loading your plans…</string>
+    <string name="concert_plans_load_error">Couldn\'t load your plans.</string>
     <string name="concert_my_empty">Shows you mark as interested or going to will appear here.</string>
     <string name="concert_next_30">Next 30 days</string>
     <string name="concert_next_7">Next 7 days</string>

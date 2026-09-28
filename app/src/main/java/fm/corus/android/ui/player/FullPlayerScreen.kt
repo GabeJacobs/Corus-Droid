@@ -713,7 +713,7 @@ private fun FullPlayerTopChrome(
                 onDismissRequest = { menuOpen = false },
             ) {
                 DropdownMenuItem(
-                    text = { Text(openInServiceTitle) },
+                    text = { Text(openInServiceTitle, style = CorusFont.body) },
                     leadingIcon = {
                         Icon(Icons.Filled.PlayArrow, contentDescription = null)
                     },
@@ -724,7 +724,7 @@ private fun FullPlayerTopChrome(
                 )
                 if (showsArtistRow) {
                     DropdownMenuItem(
-                        text = { Text(stringResource(R.string.post_menu_go_to_artist)) },
+                        text = { Text(stringResource(R.string.post_menu_go_to_artist), style = CorusFont.body) },
                         leadingIcon = {
                             Icon(Icons.Filled.Person, contentDescription = null)
                         },
@@ -736,7 +736,7 @@ private fun FullPlayerTopChrome(
                 }
                 if (showsAlbumRow) {
                     DropdownMenuItem(
-                        text = { Text(stringResource(R.string.post_menu_go_to_album)) },
+                        text = { Text(stringResource(R.string.post_menu_go_to_album), style = CorusFont.body) },
                         leadingIcon = {
                             Icon(Icons.Filled.Album, contentDescription = null)
                         },
@@ -748,7 +748,7 @@ private fun FullPlayerTopChrome(
                 }
                 if (showsShareRow) {
                     DropdownMenuItem(
-                        text = { Text(stringResource(R.string.post_menu_share)) },
+                        text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
                         leadingIcon = {
                             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
                         },
@@ -760,7 +760,7 @@ private fun FullPlayerTopChrome(
                 }
                 if (onSendGift != null) {
                     DropdownMenuItem(
-                        text = { Text(stringResource(R.string.gift_send_action)) },
+                        text = { Text(stringResource(R.string.gift_send_action), style = CorusFont.body) },
                         leadingIcon = { Icon(Icons.Filled.CardGiftcard, contentDescription = null) },
                         onClick = {
                             menuOpen = false
@@ -769,7 +769,7 @@ private fun FullPlayerTopChrome(
                     )
                 }
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.full_player_queue_title)) },
+                    text = { Text(stringResource(R.string.full_player_queue_title), style = CorusFont.body) },
                     leadingIcon = {
                         Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null)
                     },

@@ -737,10 +737,10 @@ fun ArtistPageScreen(
                 }
             }
 
-            // ── Ticketmaster tour dates — immediately above music videos. ──
+            // ── Concerts — immediately above music videos. ──
             if (!artistId.startsWith("bc:") && isTourDatesLoading) {
                 item {
-                    DestinationSectionHeader(title = stringResource(R.string.destination_tour_dates))
+                    DestinationSectionHeader(title = stringResource(R.string.concerts_title))
                 }
                 items(3) {
                     SkeletonTourDateRow()
@@ -748,7 +748,7 @@ fun ArtistPageScreen(
             } else if (tourDates.isNotEmpty()) {
                 item {
                     DestinationSectionHeader(
-                        title = stringResource(R.string.destination_tour_dates),
+                        title = stringResource(R.string.concerts_title),
                         onSeeAll = if (tourDates.size > 4 && !showAllTourDates) {
                             { showAllTourDates = true }
                         } else null,

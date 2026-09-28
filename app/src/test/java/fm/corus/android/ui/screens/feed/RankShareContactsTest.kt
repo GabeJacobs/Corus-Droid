@@ -29,7 +29,7 @@ class RankShareContactsTest {
     fun `group threads preserve existing destinations`() {
         val result = recentShareRecipients(
             listOf(
-                thread("g1", isGroup = true),
+                thread("g1", isGroup = true).copy(lastMessageFromUserId = null),
                 thread("t1", user("a")),
                 thread("g2", user("skip"), isGroup = true),
             ),

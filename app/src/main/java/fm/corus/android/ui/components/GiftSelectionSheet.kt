@@ -31,7 +31,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -51,11 +50,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
@@ -116,36 +113,22 @@ fun GiftSelectionSheet(
             .padding(bottom = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
+        Box(
+            modifier = Modifier.fillMaxWidth().height(64.dp),
+            contentAlignment = Alignment.Center,
         ) {
-            Spacer(Modifier.size(44.dp))
             Text(
                 text = stringResource(R.string.gift_send_action),
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                style = CorusFont.custom(700, 22),
                 color = CorusColors.Text,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 56.dp),
             )
-            IconButton(
+            CorusSheetCloseButton(
                 onClick = onDismiss,
-                modifier = Modifier.size(48.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(CorusColors.CardBackground, CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Filled.Close,
-                        contentDescription = stringResource(R.string.gift_close),
-                        tint = CorusColors.Secondary,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-            }
+                contentDescription = stringResource(R.string.gift_close),
+                modifier = Modifier.align(Alignment.TopEnd),
+            )
         }
 
         Spacer(Modifier.height(10.dp))
@@ -182,8 +165,9 @@ fun GiftSelectionSheet(
                     onValueChange = viewModel::updateNote,
                     modifier = Modifier.fillMaxWidth().alpha(if (controlsEnabled) 1f else .5f),
                     enabled = controlsEnabled,
-                    label = { Text(stringResource(R.string.gift_note_optional)) },
-                    supportingText = { Text(stringResource(R.string.gift_note_count, state.note.length)) },
+                    textStyle = CorusFont.body,
+                    label = { Text(stringResource(R.string.gift_note_optional), style = CorusFont.body) },
+                    supportingText = { Text(stringResource(R.string.gift_note_count, state.note.length), style = CorusFont.caption) },
                     minLines = 2,
                     maxLines = 4,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
@@ -225,6 +209,7 @@ fun GiftSelectionSheet(
                                             if (hasClubIntroTrial) R.string.gift_club_offer_cta_trial
                                             else R.string.gift_club_offer_cta_standard,
                                         ),
+                                        style = CorusFont.button,
                                     )
                                 }
                             }
@@ -248,7 +233,7 @@ fun GiftSelectionSheet(
                         } else {
                             Icon(Icons.Filled.CardGiftcard, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
-                            Text(stringResource(R.string.gift_send_selected, selected.sentPhrase(context)))
+                            Text(stringResource(R.string.gift_send_selected, selected.sentPhrase(context)), style = CorusFont.button)
                         }
                     }
                 }
@@ -316,8 +301,7 @@ private fun GiftGrid(
                     Text(
                         gift.name(context),
                         color = CorusColors.Text,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
+                        style = CorusFont.custom(700, 14),
                         maxLines = 1,
                     )
                 }
@@ -372,7 +356,7 @@ private fun SentGiftConfirmation(giftId: String) {
     ) {
         GiftNotificationArtwork(giftId, 132.dp)
         Spacer(Modifier.height(18.dp))
-        Text(stringResource(R.string.gift_sent), style = MaterialTheme.typography.headlineSmall, color = CorusColors.Text)
+        Text(stringResource(R.string.gift_sent), style = CorusFont.displayName, color = CorusColors.Text)
     }
 }
 
@@ -385,7 +369,7 @@ private fun GiftPickerSkeleton() {
     ) {
         CircularProgressIndicator(color = CorusColors.Accent)
         Spacer(Modifier.height(12.dp))
-        Text(stringResource(R.string.gift_loading), color = CorusColors.Secondary)
+        Text(stringResource(R.string.gift_loading), style = CorusFont.body, color = CorusColors.Secondary)
     }
 }
 
@@ -396,7 +380,7 @@ private fun GiftLoadError(retry: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(stringResource(R.string.gift_load_error), color = CorusColors.Secondary, textAlign = TextAlign.Center)
-        TextButton(onClick = retry) { Text(stringResource(R.string.gift_try_again)) }
+        Text(stringResource(R.string.gift_load_error), style = CorusFont.body, color = CorusColors.Secondary, textAlign = TextAlign.Center)
+        TextButton(onClick = retry) { Text(stringResource(R.string.gift_try_again), style = CorusFont.button) }
     }
 }

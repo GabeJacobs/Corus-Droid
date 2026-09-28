@@ -1585,8 +1585,8 @@ class FeedViewModel @Inject constructor(
 
         shareSearchJob?.cancel()
         _shareSearchResults.value = emptyList()
+        _isShareSearching.value = true
         shareSearchJob = viewModelScope.launch {
-            _isShareSearching.value = true
             delay(250)
             try {
                 _shareSearchResults.value = messageRepository.searchShareRecipients(authRepository.currentUserId ?: return@launch, trimmed, userRepository)
@@ -1751,7 +1751,21 @@ fun loadRecentShareRecipients(
 ) {
     setLoading(true)
     scope.launch {
+        var cachedMatches: List<SuggestedUserMatch> = emptyList()
         try {
+            if (includeCachedFallbacks && userRepository != null) {
+                cachedMatches = userRepository.cachedShareSuggestions(userId)
+                val followedUserIds = userRepository.followingIds.value
+                val fallbackContacts = fm.corus.android.data.model.shareSheetRecipients(
+                    recent = emptyList(),
+                    cachedMatches = cachedMatches,
+                    followedUserIds = followedUserIds,
+                    currentUserId = userId,
+                    cap = SHARE_CONTACTS_CAP,
+                )
+                if (fallbackContacts.isNotEmpty()) setContacts(fallbackContacts)
+            }
+
             val threads = messageRepository.listThreads(userId).map { thread ->
                 thread.copy(members = thread.members.filter { it.id != userId })
             }
@@ -1759,7 +1773,7 @@ fun loadRecentShareRecipients(
             val contacts = if (includeCachedFallbacks && userRepository != null) {
                 fm.corus.android.data.model.shareSheetRecipients(
                     recent = recent,
-                    cachedMatches = userRepository.cachedShareSuggestions(userId),
+                    cachedMatches = cachedMatches,
                     followedUserIds = userRepository.followingIds.value,
                     currentUserId = userId,
                     cap = SHARE_CONTACTS_CAP,

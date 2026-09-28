@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -163,8 +164,7 @@ internal fun catalogRowSharedCount(corusStats: TrackCorusStats?): Int? =
 internal fun catalogRowShowsDuration(number: Int?, durationMs: Int): Boolean =
     number == null && durationMs > 0
 
-/** Section header ("Popular" / "Discography" / "Recent posts"…) with an
- *  optional trailing "See all". Matches the song-detail header treatment. */
+/** Uppercase destination section header with an optional trailing "See all". */
 @Composable
 internal fun DestinationSectionHeader(
     title: String,
@@ -177,7 +177,7 @@ internal fun DestinationSectionHeader(
             .padding(top = CorusSpacing.lg, bottom = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(title, style = CorusFont.sectionHeader, color = CorusColors.Secondary)
+        Text(title.uppercase(LocalConfiguration.current.locales[0]), style = CorusFont.sectionHeader, color = CorusColors.Secondary)
         Spacer(modifier = Modifier.weight(1f))
         if (onSeeAll != null) {
             Text(
@@ -235,7 +235,7 @@ internal fun SharedByPeopleRow(
                 count,
                 formatDestinationCount(count),
             ),
-            style = CorusFont.bodyMedium,
+            style = CorusFont.username,
             color = CorusColors.Text,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

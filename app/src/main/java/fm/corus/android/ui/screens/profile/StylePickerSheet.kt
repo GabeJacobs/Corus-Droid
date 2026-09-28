@@ -72,6 +72,7 @@ import fm.corus.android.ui.components.StandingFrameShadow
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.components.CorusSheetCloseButton
 import fm.corus.android.ui.theme.LocalCorusDarkTheme
 
 data class StyleSelections(
@@ -196,20 +197,13 @@ fun StylePickerSheet(
             // flings do not slide the picker. Dismiss stays on X / scrim.
             .nestedScroll(ConsumeSheetDragAfterChildScroll),
     ) {
-        // Top bar with close button
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            IconButton(onClick = onDismiss) {
-                Icon(
-                    Icons.Filled.Close,
-                    contentDescription = stringResource(R.string.style_picker_cd_close),
-                    tint = CorusColors.Secondary,
-                )
-            }
+        // Shared sheet close placement leaves consistent breathing room above the content.
+        Box(modifier = Modifier.fillMaxWidth().height(64.dp)) {
+            CorusSheetCloseButton(
+                onClick = onDismiss,
+                contentDescription = stringResource(R.string.style_picker_cd_close),
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = CorusSpacing.md),
+            )
         }
 
         // Page indicator dots

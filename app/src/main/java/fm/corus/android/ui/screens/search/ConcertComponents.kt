@@ -14,6 +14,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,7 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -29,6 +31,8 @@ import coil3.compose.AsyncImage
 import com.valentinilk.shimmer.shimmer
 import fm.corus.android.R
 import fm.corus.android.data.repository.ConcertAttendance
+import fm.corus.android.ui.components.CorusSheetCloseButton
+import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.theme.CorusFont
 import kotlinx.coroutines.delay
 
@@ -67,18 +71,15 @@ internal fun ConcertPreviewSkeleton() {
 internal fun ConcertDetailSkeleton(onBack: () -> Unit) {
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         Box(
-            Modifier.fillMaxWidth().height(84.dp).padding(horizontal = 16.dp),
+            Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 16.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Surface(
-                onClick = onBack,
-                modifier = Modifier.align(Alignment.CenterStart).shadow(16.dp, CircleShape),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surface,
-            ) {
-                Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.share_back))
-                }
+            Box(Modifier.align(Alignment.CenterStart)) {
+                CorusHeaderIconButton(
+                    onClick = onBack,
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.common_back),
+                )
             }
             Text(stringResource(R.string.concert_label), style = CorusFont.screenTitle)
         }
@@ -96,7 +97,7 @@ internal fun ConcertDetailSkeleton(onBack: () -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun ConcertPlansCard(attendance: ConcertAttendance?, past: Boolean, unavailable: Boolean, onChoice: (String) -> Unit, onPeople: () -> Unit) {
+internal fun ConcertPlansCard(attendance: ConcertAttendance?, past: Boolean, unavailable: Boolean, onChoice: (String) -> Unit, onPeople: () -> Unit, boxed: Boolean = true, loadError: Boolean = false, onRetry: () -> Unit = {}) {
     val hasPeople = attendance != null && attendance.goingCount + attendance.interestedCount > 0
     var showPeople by remember { mutableStateOf(hasPeople) }
     LaunchedEffect(hasPeople) {
@@ -106,29 +107,43 @@ internal fun ConcertPlansCard(attendance: ConcertAttendance?, past: Boolean, una
     val opacity by animateFloatAsState(if (showPeople && hasPeople) 1f else 0f, tween(150), label = "concertPeopleFade")
     Surface(
         Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .07f)),
+        shape = if (boxed) RoundedCornerShape(16.dp) else RectangleShape,
+        color = if (boxed) MaterialTheme.colorScheme.surfaceVariant else androidx.compose.ui.graphics.Color.Transparent,
+        border = if (boxed) BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .07f)) else null,
     ) {
-        Column(Modifier.animateContentSize(tween(220)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(Modifier.animateContentSize(tween(220)).padding(if (boxed) 16.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text(stringResource(R.string.concert_your_plans), style = CorusFont.bodyMedium)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (attendance == null && loadError) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.concert_plans_load_error), Modifier.weight(1f), style = CorusFont.caption)
+                    TextButton(onClick = onRetry) { Text(stringResource(R.string.concert_retry), style = CorusFont.buttonSmall) }
+                }
+            } else if (attendance == null) {
+                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Text(stringResource(R.string.concert_plans_loading), style = CorusFont.caption, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("interested", "going").forEach { status ->
                     val selected = attendance?.status == status
                     val label = if (status == "going") { if (past && selected) R.string.concert_went else R.string.concert_im_going }
                         else { if (past && selected) R.string.concert_was_interested else R.string.concert_im_interested }
                     val active = (!past && !unavailable) || selected
                     OutlinedButton(onClick = { onChoice(status) }, enabled = active,
-                        colors = ButtonDefaults.outlinedButtonColors(containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent,
-                            contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
-                        Icon(if (status == "going") Icons.Default.CheckCircle else Icons.Default.Star, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp)); Text(stringResource(label))
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (selected) MaterialTheme.colorScheme.surfaceVariant else androidx.compose.ui.graphics.Color.Transparent,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .38f),
+                        ),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)) {
+                        Icon(if (status == "going") Icons.Outlined.CheckCircle else Icons.Outlined.Star, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp)); Text(stringResource(label), style = CorusFont.button)
                     }
                 }
             }
             if ((past || unavailable) && attendance?.status != null) {
-                TextButton(onClick = { onChoice(attendance.status) }) { Text(stringResource(R.string.concert_remove)) }
+                TextButton(onClick = { onChoice(attendance.status) }) { Text(stringResource(R.string.concert_remove), style = CorusFont.buttonSmall) }
             }
             if (hasPeople) {
                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).alpha(opacity).clickable(onClick = onPeople), verticalAlignment = Alignment.CenterVertically) {
@@ -138,10 +153,10 @@ internal fun ConcertPlansCard(attendance: ConcertAttendance?, past: Boolean, una
                     }
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("${attendance!!.goingCount} ${stringResource(R.string.concert_going_section)} · ${attendance.interestedCount} ${stringResource(R.string.concert_interested_section)}", style = MaterialTheme.typography.bodySmall)
-                        if (attendance.people.isNotEmpty()) Text(attendance.people.take(2).joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        Text("${attendance!!.goingCount} ${stringResource(R.string.concert_going_section)} · ${attendance.interestedCount} ${stringResource(R.string.concert_interested_section)}", style = CorusFont.captionMedium)
+                        if (attendance.people.isNotEmpty()) Text(attendance.people.take(2).joinToString(", ") { it.name }, style = CorusFont.caption, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                     }
-                    Text(stringResource(R.string.concert_see_all), style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.concert_see_all), style = CorusFont.captionMedium)
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
                 }
             }
@@ -150,18 +165,15 @@ internal fun ConcertPlansCard(attendance: ConcertAttendance?, past: Boolean, una
 }
 
 @Composable
-internal fun ConcertSheetHeader(title: String, onClose: () -> Unit) {
-    Box(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+internal fun ConcertSheetHeader(title: String, showCloseButton: Boolean = true, onClose: () -> Unit) {
+    Box(Modifier.fillMaxWidth().height(72.dp), contentAlignment = Alignment.Center) {
         Text(title, style = CorusFont.screenTitle)
-        Surface(
-            onClick = onClose,
-            modifier = Modifier.align(Alignment.CenterEnd),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceVariant,
-        ) {
-            Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) {
-                Icon(androidx.compose.material.icons.Icons.Default.Close, stringResource(R.string.share_close), Modifier.size(18.dp))
-            }
+        if (showCloseButton) {
+            CorusSheetCloseButton(
+                onClick = onClose,
+                contentDescription = stringResource(R.string.share_close),
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 16.dp),
+            )
         }
     }
 }

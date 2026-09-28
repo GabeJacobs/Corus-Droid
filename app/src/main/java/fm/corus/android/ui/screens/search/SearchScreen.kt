@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contacts
+import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -2990,6 +2991,7 @@ internal fun SectionHeader(
             "film" -> Icons.Filled.Movie
             "mic" -> Icons.Filled.Mic
             "album" -> Icons.Filled.Album
+            "ticket" -> Icons.Filled.ConfirmationNumber
             "new_release" -> Icons.Filled.NewReleases
             "sparkle" -> Icons.Filled.AutoAwesome
             "clapper" -> Icons.Filled.MovieCreation

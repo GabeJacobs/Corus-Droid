@@ -23,12 +23,15 @@
     <string name="concert_im_interested">Me interesa</string>
     <string name="concert_interested_section">Interesado</string>
     <string name="concert_invite">Invitar a alguien</string>
+    <string name="concert_sent">Enviado</string>
     <string name="concert_invite_error">No se pudo enviar. Inténtalo de nuevo.</string>
     <string name="concert_label">Concierto</string>
     <string name="concert_lineup">Artistas</string>
     <string name="concert_lineup_note">El orden y los horarios pueden cambiar. Consulta la ficha del evento para ver las novedades.</string>
-    <string name="concert_load_error">No se pudieron cargar los conciertos. Inténtalo de nuevo.</string>
+    <string name="concert_load_error">No se pudieron cargar los conciertos.</string>
     <string name="concert_loading">Cargando conciertos</string>
+    <string name="concert_plans_loading">Cargando tus planes…</string>
+    <string name="concert_plans_load_error">No se pudieron cargar tus planes.</string>
     <string name="concert_my_empty">Los conciertos que marques como «Me interesa» o «Asistiré» aparecerán aquí.</string>
     <string name="concert_next_30">Próximos 30 días</string>
     <string name="concert_next_7">Próximos 7 días</string>

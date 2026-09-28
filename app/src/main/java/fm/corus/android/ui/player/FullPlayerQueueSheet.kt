@@ -74,6 +74,7 @@ import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.QueuedTrack
 import fm.corus.android.ui.LocalHapticManager
+import fm.corus.android.ui.components.CorusSheetCloseButton
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -303,7 +304,7 @@ private fun QueueSheetToolbar(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = CorusSpacing.sm)
-            .height(44.dp),
+            .height(56.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -330,18 +331,11 @@ private fun QueueSheetToolbar(
             textAlign = TextAlign.Center,
             modifier = Modifier.weight(1f),
         )
-        Box(
+        CorusSheetCloseButton(
+            onClick = onClose,
+            contentDescription = stringResource(R.string.full_player_queue_close),
             modifier = Modifier.width(72.dp),
-            contentAlignment = Alignment.CenterEnd,
-        ) {
-            IconButton(onClick = onClose) {
-                Icon(
-                    imageVector = Icons.Filled.Close,
-                    contentDescription = stringResource(R.string.full_player_queue_close),
-                    tint = CorusColors.Secondary,
-                )
-            }
-        }
+        )
     }
 }
 

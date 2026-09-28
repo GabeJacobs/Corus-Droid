@@ -521,7 +521,7 @@ internal fun ShareUserRow(
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ShareRecipientAvatar(user, 56.dp)
+        ShareRecipientAvatar(user, CorusSpacing.avatarMedium)
         Spacer(modifier = Modifier.width(CorusSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
             UsernameWithFlair(
@@ -534,7 +534,7 @@ internal fun ShareUserRow(
                 color = CorusColors.Text,
             )
             Text(
-                user.group?.let { stringResource(R.string.messaging_group_member_count, it.memberIds.size) } ?: user.displayName,
+                if (user.group != null) stringResource(R.string.messaging_group_fallback_title) else user.displayName,
                 style = CorusFont.caption, color = CorusColors.Secondary,
             )
         }

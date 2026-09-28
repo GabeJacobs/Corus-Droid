@@ -17,7 +17,9 @@ data class ShareRecipient(val user: CymbalUser? = null, val group: CymbalThread?
 }
 
 fun recentShareRecipients(threads: List<CymbalThread>, cap: Int = 20): List<ShareRecipient> =
-    threads.filter { !it.blocked && it.lastMessageFromUserId != null }
+    // Keep newly created groups and threads whose latest item is a system
+    // message, as iOS does, while preserving the existing recency ranking.
+    threads.filter { !it.blocked }
         .sortedByDescending { it.lastMessageAt }
         .mapNotNull { thread ->
             if (thread.isGroup) ShareRecipient(group = thread)

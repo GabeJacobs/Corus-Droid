@@ -912,6 +912,7 @@ fun MainTabScreen(
         val immersiveRoutes = buildList {
             add("SongDetailRoute"); add("FilmDetailRoute"); add("ArtistPageRoute")
             add("AlbumPageRoute"); add("DirectorPageRoute")
+            add("ConcertDetailRoute")
             // The profile feed + other-profile pages paint their own frosted status
             // strip (no-hero immersive bar) only while the flag is on; otherwise
             // they're plain pages that still want the cover.

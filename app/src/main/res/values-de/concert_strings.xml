@@ -23,12 +23,15 @@
     <string name="concert_im_interested">Ich bin interessiert</string>
     <string name="concert_interested_section">Interessiert</string>
     <string name="concert_invite">Jemanden einladen</string>
+    <string name="concert_sent">Gesendet</string>
     <string name="concert_invite_error">Senden nicht möglich. Versuche es erneut.</string>
     <string name="concert_label">Konzert</string>
     <string name="concert_lineup">Line-up</string>
     <string name="concert_lineup_note">Reihenfolge und Auftrittszeiten können sich ändern. Prüfe den Veranstaltungseintrag auf Aktualisierungen.</string>
-    <string name="concert_load_error">Konzerte konnten nicht geladen werden. Versuche es erneut.</string>
+    <string name="concert_load_error">Konzerte konnten nicht geladen werden.</string>
     <string name="concert_loading">Konzerte werden geladen</string>
+    <string name="concert_plans_loading">Deine Pläne werden geladen…</string>
+    <string name="concert_plans_load_error">Deine Pläne konnten nicht geladen werden.</string>
     <string name="concert_my_empty">Shows, die du als interessiert oder als „Dabei“ markierst, erscheinen hier.</string>
     <string name="concert_next_30">Nächste 30 Tage</string>
     <string name="concert_next_7">Nächste 7 Tage</string>

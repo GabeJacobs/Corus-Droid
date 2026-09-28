@@ -23,12 +23,15 @@
     <string name="concert_im_interested">我感兴趣</string>
     <string name="concert_interested_section">感兴趣</string>
     <string name="concert_invite">邀请朋友</string>
+    <string name="concert_sent">已发送</string>
     <string name="concert_invite_error">发送失败。请重试。</string>
     <string name="concert_label">演出</string>
     <string name="concert_lineup">阵容</string>
     <string name="concert_lineup_note">演出顺序和时间可能会有变化。请查看活动页面了解最新信息。</string>
-    <string name="concert_load_error">无法加载演出。请重试。</string>
+    <string name="concert_load_error">无法加载演出</string>
     <string name="concert_loading">正在加载演出</string>
+    <string name="concert_plans_loading">正在加载你的计划…</string>
+    <string name="concert_plans_load_error">无法加载你的计划。</string>
     <string name="concert_my_empty">你标记为“感兴趣”或“参加”的演出会显示在这里。</string>
     <string name="concert_next_30">未来 30 天</string>
     <string name="concert_next_7">未来 7 天</string>

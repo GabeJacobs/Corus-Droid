@@ -22,6 +22,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -38,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.draw.blur
@@ -49,6 +52,8 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.core.content.FileProvider
 import fm.corus.android.R
 import fm.corus.android.data.model.ShareRecipient
@@ -652,8 +657,19 @@ internal fun PostToInstagramV2Sheet(
         }
     }
 
-    Column(Modifier.fillMaxWidth().fillMaxHeight(.94f).imePadding()) {
-        Box(Modifier.fillMaxWidth().height(60.dp).padding(horizontal = 20.dp)) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+    val safeTop = WindowInsets.systemBars
+        .union(WindowInsets.displayCutout)
+        .asPaddingValues()
+        .calculateTopPadding() + 12.dp
+    val searchHeight = (maxHeight - safeTop).coerceAtLeast(0.dp)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .then(if (searching) Modifier.height(searchHeight) else Modifier.fillMaxHeight(.94f))
+            .imePadding(),
+    ) {
+        Box(Modifier.fillMaxWidth().height(32.dp)) {
             Box(
                 Modifier
                     .align(Alignment.TopCenter)
@@ -661,47 +677,108 @@ internal fun PostToInstagramV2Sheet(
                     .size(width = 36.dp, height = 5.dp)
                     .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .35f), RoundedCornerShape(50)),
             )
-            IconButton(
-                onClick = onDismiss,
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .size(44.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
-            ) {
-                Icon(
-                    Icons.Default.Close,
-                    stringResource(R.string.instagram_v2_close),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
         if (searching) {
-            Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                TextField(value = query, onValueChange = { query = it; onSearchQueryChange(it) }, singleLine = true,
-                    modifier = Modifier.weight(1f).focusRequester(requester), placeholder = { Text(stringResource(R.string.share_post_search_placeholder)) })
-                TextButton(onClick = { searching = false; query = ""; onSearchQueryChange(""); focus.clearFocus() }) { Text(stringResource(R.string.instagram_v2_done)) }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                BasicTextField(
+                    value = query,
+                    onValueChange = { query = it; onSearchQueryChange(it) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .focusRequester(requester),
+                    singleLine = true,
+                    textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                    cursorBrush = SolidColor(CorusColors.Accent),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.None,
+                        imeAction = ImeAction.Search,
+                    ),
+                    decorationBox = { innerTextField ->
+                        Row(
+                            modifier = Modifier.fillMaxSize().padding(start = 12.dp, end = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Default.Search, contentDescription = null, tint = CorusColors.Tertiary, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Box(Modifier.weight(1f)) {
+                                if (query.isEmpty()) Text(stringResource(R.string.share_post_search_placeholder), style = CorusFont.body, color = CorusColors.Tertiary)
+                                innerTextField()
+                            }
+                            if (query.isNotEmpty()) {
+                                IconButton(onClick = { query = ""; onSearchQueryChange("") }, modifier = Modifier.size(32.dp)) {
+                                    Icon(Icons.Default.Cancel, contentDescription = stringResource(R.string.share_post_cd_clear), tint = CorusColors.Tertiary, modifier = Modifier.size(20.dp))
+                                }
+                            }
+                        }
+                    },
+                )
+                TextButton(onClick = { searching = false; query = ""; onSearchQueryChange(""); focus.clearFocus() }) {
+                    Text(stringResource(R.string.instagram_v2_done), style = CorusFont.bodyMedium, color = CorusColors.Accent)
+                }
             }
             selected?.let { Text(it.username, style = CorusFont.captionMedium, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) }
             LazyColumn(Modifier.weight(1f)) {
-                if (isSearching) item { CircularProgressIndicator(Modifier.padding(20.dp)) }
-                else {
-                    val recipients = if (query.isBlank()) contacts else searchResults
-                    if (recipients.isEmpty()) item { Text(stringResource(R.string.share_post_no_results), modifier = Modifier.padding(20.dp)) }
+                val hasQuery = query.isNotBlank()
+                if (hasQuery && isSearching) item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    }
+                } else {
+                    val recipients = if (hasQuery) searchResults else contacts
+                    if (!hasQuery && isLoadingContacts && recipients.isEmpty()) {
+                        items(4) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().height(72.dp).padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(Modifier.size(36.dp).clip(CircleShape).background(CorusColors.Skeleton))
+                                Spacer(Modifier.width(12.dp))
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Box(Modifier.size(width = 110.dp, height = 12.dp).clip(RoundedCornerShape(4.dp)).background(CorusColors.Skeleton))
+                                    Box(Modifier.size(width = 70.dp, height = 10.dp).clip(RoundedCornerShape(4.dp)).background(CorusColors.Skeleton))
+                                }
+                            }
+                        }
+                    } else if (hasQuery && recipients.isEmpty()) {
+                        item { Text(stringResource(R.string.share_post_no_results), style = CorusFont.body, color = CorusColors.Secondary, modifier = Modifier.fillMaxWidth().padding(top = 32.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
+                    }
                     items(recipients, key = { it.id }) { recipient ->
                         ShareUserRow(recipient, selected?.id == recipient.id, showRemoveAffordance = true) { selected = if (selected?.id == recipient.id) null else recipient }
                     }
                 }
             }
         } else {
-            Box(Modifier.weight(1f).fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
+            BoxWithConstraints(
+                modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp),
+                contentAlignment = Alignment.BottomCenter,
+            ) {
+                // Let the portrait preview use more of the available space while
+                // keeping room for the layout, background, recipient, and action rows.
+                val previewWidth = minOf(maxWidth * .68f, maxHeight * (9f / 16f))
                 Box(
-                    Modifier.fillMaxWidth(.52f).aspectRatio(9f / 16f).offset(y = (-14).dp),
+                    Modifier.width(previewWidth).aspectRatio(9f / 16f),
                     contentAlignment = Alignment.Center,
                 ) {
                     image?.let {
                         Image(it.asImageBitmap(), stringResource(R.string.instagram_v2_preview), modifier = Modifier.fillMaxSize())
                     } ?: if (loading || artwork != null) {
-                        CircularProgressIndicator()
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp,
+                        )
                     } else {
                         TextButton(onClick = { retry++ }) { Text(stringResource(R.string.instagram_v2_retry)) }
                     }
@@ -746,18 +823,18 @@ internal fun PostToInstagramV2Sheet(
                 stringResource(R.string.instagram_v2_preview_label),
                 style = CorusFont.caption,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.align(Alignment.CenterHorizontally).offset(y = (-49).dp),
+                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp, bottom = 12.dp),
             )
             if (!subject.isFilm) {
                 InstagramV2LayoutPicker(
                     layout = layout,
                     enabled = !sharing,
                     onLayoutChange = { layout = it },
-                    modifier = Modifier.align(Alignment.CenterHorizontally).offset(y = (-49).dp),
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
                 )
             }
             Row(
-                modifier = Modifier.fillMaxWidth().offset(y = (-49).dp).padding(vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
             ) {
                 listOf(
@@ -776,16 +853,36 @@ internal fun PostToInstagramV2Sheet(
                     )
                 }
             }
-            error?.let { Text(it, style = CorusFont.caption, modifier = Modifier.offset(y = (-49).dp).padding(horizontal = 16.dp)) }
+            error?.let { Text(it, style = CorusFont.caption, modifier = Modifier.padding(horizontal = 16.dp)) }
             LazyRow(
-                modifier = Modifier.offset(y = (-38).dp),
-                contentPadding = PaddingValues(16.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                item { ShareActionButton(icon = Icons.Default.Search, label = stringResource(R.string.share_post_search_placeholder)) { searching = true } }
-                if (isLoadingContacts) item { CircularProgressIndicator(Modifier.size(48.dp)) }
-                items(contacts, key = { it.id }) { recipient ->
-                    Box(Modifier.width(80.dp)) { ShareContactCell(recipient, selected?.id == recipient.id, showRemoveAffordance = true) { selected = if (selected?.id == recipient.id) null else recipient } }
+                item {
+                    Column(
+                        modifier = Modifier.width(80.dp).clickable { searching = true },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box(
+                            modifier = Modifier.size(72.dp).background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(25.dp))
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(stringResource(R.string.share_post_search_placeholder), style = CorusFont.caption)
+                    }
+                }
+                if (isLoadingContacts && contacts.isEmpty()) {
+                    items(4) {
+                        Box(Modifier.width(80.dp), contentAlignment = Alignment.TopCenter) {
+                            Box(Modifier.size(72.dp).background(CorusColors.Skeleton, CircleShape))
+                        }
+                    }
+                } else {
+                    items(contacts, key = { it.id }) { recipient ->
+                        Box(Modifier.width(80.dp)) { ShareContactCell(recipient, selected?.id == recipient.id, showRemoveAffordance = true) { selected = if (selected?.id == recipient.id) null else recipient } }
+                    }
                 }
             }
         }
@@ -831,6 +928,7 @@ internal fun PostToInstagramV2Sheet(
             }
         }
     }
+    }
 }
 
 @Composable
@@ -843,8 +941,8 @@ private fun InstagramV2LayoutPicker(
     Row(
         modifier = modifier
             .width(260.dp)
-            .height(40.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(20.dp)),
+            .height(32.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp)),
     ) {
         listOf(
             "cover" to stringResource(R.string.instagram_v2_cover),
@@ -858,13 +956,13 @@ private fun InstagramV2LayoutPicker(
                     .border(
                         width = if (selected) 1.dp else 0.dp,
                         color = if (selected) MaterialTheme.colorScheme.outlineVariant else Color.Transparent,
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(16.dp),
                     )
                     .background(
                         color = if (selected) MaterialTheme.colorScheme.surface else Color.Transparent,
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(16.dp),
                     )
-                    .clip(RoundedCornerShape(20.dp))
+                    .clip(RoundedCornerShape(16.dp))
                     .clickable(enabled = enabled) { onLayoutChange(value) },
                 contentAlignment = Alignment.Center,
             ) {
