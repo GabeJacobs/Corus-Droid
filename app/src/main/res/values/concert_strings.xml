@@ -67,6 +67,7 @@
     <string name="concert_went">Went</string>
     <string name="concert_you_might_like">You might like</string>
     <string name="concert_your_plans">Your plans</string>
+    <string name="concert_plans_started">This concert already happened</string>
     <string name="concerts_title">Concerts</string>
     <string name="messages_preview_shared_concert">Shared a concert</string>
     <string name="concert_notif_going">is also going to %1$s.</string>

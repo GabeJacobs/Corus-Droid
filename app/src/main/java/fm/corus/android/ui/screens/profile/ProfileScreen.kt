@@ -164,13 +164,11 @@ fun ProfileScreen(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    // Responsive header spacing — see OtherProfileScreen for rationale.
-    val isWideHeader = LocalConfiguration.current.screenWidthDp >= 400
-    val headerHPad = if (isWideHeader) 28.dp else CorusSpacing.xl
+    // Match the 16pt horizontal inset in iOS ProfileHeaderView.
+    val headerHPad = CorusSpacing.lg
     val headerAvatarSize = 88.dp
-    // Avatar + username sit slightly inside the screen's outer margin —
-    // matches OtherProfileScreen for visual consistency.
-    val avatarHPad = headerHPad + 8.dp
+    // Align the avatar and bio with the actions and other-profile header.
+    val avatarHPad = headerHPad
     val usernameStartPad = avatarHPad
     val usernameEndPad = avatarHPad
 
@@ -635,7 +633,7 @@ fun ProfileScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(CorusSpacing.md))
+                    Spacer(modifier = Modifier.width(CorusSpacing.profileAvatarTextGap))
 
                     // Right side: stats + edit button
                         Column(

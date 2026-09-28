@@ -67,6 +67,7 @@
     <string name="concert_went">参加済み</string>
     <string name="concert_you_might_like">あなたへのおすすめ</string>
     <string name="concert_your_plans">あなたの予定</string>
+    <string name="concert_plans_started">このコンサートはすでに開催されました。</string>
     <string name="concerts_title">コンサート</string>
     <string name="messages_preview_shared_concert">コンサートを共有しました</string>
     <string name="concert_notif_going">さんも「%1$s」に行く予定です。</string>

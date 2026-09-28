@@ -9,6 +9,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -59,6 +61,8 @@ class ConcertRepository @Inject constructor(private val functions: FirebaseFunct
     private val cachedShows = java.util.concurrent.ConcurrentHashMap<String, ConcertShow>()
     private val cachedPlans = java.util.concurrent.ConcurrentHashMap<String, ConcertShow>()
     private val pendingPlans = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val interestWriteMutex = Mutex()
+    private val interestWriteVersions = mutableMapOf<String, Long>()
     private var planMutationVersion = 0L
     private var planReadVersion = 0L
     private val _planUpdates = MutableStateFlow<List<ConcertShow>>(emptyList())
@@ -70,6 +74,7 @@ class ConcertRepository @Inject constructor(private val functions: FirebaseFunct
                 planMutationVersion++
                 planReadVersion++
                 cachedShows.clear(); cachedPlans.clear(); pendingPlans.clear(); attendanceCache.clear()
+                interestWriteVersions.clear()
                 _planUpdates.value = emptyList()
                 _discoveryFilter.value = savedDiscoveryFilter()
             }
@@ -171,6 +176,19 @@ class ConcertRepository @Inject constructor(private val functions: FirebaseFunct
 
     suspend fun setInterest(show: ConcertShow, status: String) {
         call("setConcertInterest", mapOf("eventId" to show.id, "cityId" to show.cityId, "status" to status))
+    }
+
+    fun sendInterest(show: ConcertShow, status: String, onResult: (Result<Unit>) -> Unit) {
+        val userId = owner
+        val version = (interestWriteVersions[show.id] ?: 0L) + 1
+        interestWriteVersions[show.id] = version
+        sendScope.launch {
+            interestWriteMutex.withLock {
+                if (owner != userId || interestWriteVersions[show.id] != version) return@withLock
+                val result = runCatching { setInterest(show, status) }
+                if (owner == userId) onResult(result)
+            }
+        }
     }
 
     suspend fun invite(show: ConcertShow, userId: String, message: String): String {

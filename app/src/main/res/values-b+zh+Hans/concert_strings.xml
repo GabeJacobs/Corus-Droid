@@ -67,6 +67,7 @@
     <string name="concert_went">已参加</string>
     <string name="concert_you_might_like">你可能会喜欢</string>
     <string name="concert_your_plans">你的计划</string>
+    <string name="concert_plans_started">这场演出已经举行过了。</string>
     <string name="concerts_title">演出</string>
     <string name="messages_preview_shared_concert">分享了演出</string>
     <string name="concert_notif_going">也会去看 %1$s。</string>

@@ -2,7 +2,7 @@
 <resources>
     <string name="concert_make_personal">나에게 맞게 설정</string>
     <string name="concert_personal_message">좋아하는 음악을 게시하면 즐겨 찾는 아티스트의 근처 공연을 알려드릴게요.</string>
-    <string name="concert_keep_posting_message">좋아하는 음악을 계속 게시하면 즐겨 찾는 아티스트의 근처 공연을 알려드릴게요.</string>
+    <string name="concert_keep_posting_message">새 콘서트가 있는지 나중에 다시 확인해 주세요. 좋아하는 음악을 계속 게시하면 여기에서 더 많은 아티스트를 팔로우할 수 있어요.</string>
     <string name="concert_post_music">음악 게시</string>
     <string name="concert_view_all">모든 콘서트 보기</string>
     <string name="concert_no_matches">내 아티스트의 공연이 아직 없어요</string>

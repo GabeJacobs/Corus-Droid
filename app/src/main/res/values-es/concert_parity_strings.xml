@@ -2,7 +2,7 @@
 <resources>
     <string name="concert_make_personal">Hazlo personal</string>
     <string name="concert_personal_message">Publica la música que te gusta. Seguiremos a tus artistas favoritos y te avisaremos cuando toquen cerca.</string>
-    <string name="concert_keep_posting_message">Sigue publicando la música que te gusta. Seguiremos a tus artistas favoritos y te avisaremos cuando toquen cerca.</string>
+    <string name="concert_keep_posting_message">Vuelve pronto para ver nuevos conciertos. Sigue publicando la música que te gusta para seguir aquí a más artistas.</string>
     <string name="concert_post_music">Publicar música</string>
     <string name="concert_view_all">Ver todos los conciertos</string>
     <string name="concert_no_matches">Aún no hay coincidencias de tus artistas</string>

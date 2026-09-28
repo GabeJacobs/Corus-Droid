@@ -24,7 +24,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -436,15 +435,12 @@ fun SkeletonProfileView(
     showIconHeaderRow: Boolean = true,
     reserveCityLine: Boolean = false,
 ) {
-    val isWideHeader = LocalConfiguration.current.screenWidthDp >= 400
-    val headerHPad = if (isWideHeader) 28.dp else CorusSpacing.xl
+    val headerHPad = CorusSpacing.lg
     // Both loaded profile headers render their avatar at 88dp. Keep the
     // placeholder identical so the header does not reflow when data arrives.
     val headerAvatarSize = 88.dp
-    // Own profile tucks avatar + bio 8dp inside headerHPad. Other profiles
-    // keep avatar, bio, and Follow/Message on headerHPad so the avatar does
-    // not sit inboard of the live header.
-    val identityHPad = if (showIconHeaderRow) headerHPad + 8.dp else headerHPad
+    // Keep the placeholder aligned with both loaded profile headers.
+    val identityHPad = headerHPad
 
     Column(
         modifier = Modifier
@@ -473,7 +469,7 @@ fun SkeletonProfileView(
                     .background(CorusColors.Skeleton)
             )
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(CorusSpacing.profileAvatarTextGap))
 
             SkeletonProfileStatsColumn(reserveCityLine = reserveCityLine)
         }
@@ -493,8 +489,7 @@ fun SkeletonProfileWithAvatar(
     avatarThumbURL: String? = null,
     reserveCityLine: Boolean = false,
 ) {
-    val isWideHeader = LocalConfiguration.current.screenWidthDp >= 400
-    val headerHPad = if (isWideHeader) 28.dp else CorusSpacing.xl
+    val headerHPad = CorusSpacing.lg
     val headerAvatarSize = 88.dp
 
     Column(
@@ -513,7 +508,7 @@ fun SkeletonProfileWithAvatar(
                 size = headerAvatarSize,
             )
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(CorusSpacing.profileAvatarTextGap))
 
             SkeletonProfileStatsColumn(
                 reserveCityLine = reserveCityLine,

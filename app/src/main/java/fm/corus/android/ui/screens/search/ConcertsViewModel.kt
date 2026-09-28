@@ -23,8 +23,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import fm.corus.android.data.repository.ConcertPage
 import fm.corus.android.data.repository.ConcertPerson
 import kotlinx.coroutines.CancellationException
@@ -59,7 +57,6 @@ class ConcertsViewModel @Inject constructor(
     private var currentPerson: ConcertPerson? = null
     private var confirmedAttendance: ConcertAttendance? = null
     private var planRevision = 0
-    private val planMutex = Mutex()
     private var detailJob: Job? = null
 
     private val prefs = app.getSharedPreferences("concerts", 0)
@@ -93,6 +90,8 @@ class ConcertsViewModel @Inject constructor(
     val suggestions = _suggestions.asStateFlow()
     private val _loading = MutableStateFlow(false)
     val loading = _loading.asStateFlow()
+    private val _pullRefreshing = MutableStateFlow(false)
+    val pullRefreshing = _pullRefreshing.asStateFlow()
     private val _error = MutableStateFlow(false)
     val error = _error.asStateFlow()
     private val _show = MutableStateFlow<ConcertShow?>(null)
@@ -190,6 +189,13 @@ class ConcertsViewModel @Inject constructor(
         log("filters_applied", extra = mapOf("date_range" to range, "genre" to (genre ?: "any"), "recommendations" to suggestions))
         refresh()
     }
+    fun pullRefresh() {
+        if (!enabled || _pullRefreshing.value) return
+        _pullRefreshing.value = true
+        log("pull_to_refresh", source = if (_tab.value == "myConcerts") "my_concerts" else "concerts_list",
+            extra = mapOf("filter" to _tab.value))
+        refresh()
+    }
     fun refresh(next: String? = null) {
         if (!enabled) return
         if (next != null && _loading.value) return
@@ -220,7 +226,12 @@ class ConcertsViewModel @Inject constructor(
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { _error.value = true; log("page_load_failed") }
-            finally { if (loadJob === coroutineContext[Job]) _loading.value = false }
+            finally {
+                if (loadJob === coroutineContext[Job]) {
+                    _loading.value = false
+                    _pullRefreshing.value = false
+                }
+            }
         }
     }
     fun open(eventId: String) {
@@ -260,7 +271,7 @@ class ConcertsViewModel @Inject constructor(
                     val result = concerts.attendance(show)
                     if (planRevision == revision) { confirmedAttendance = result; _attendance.value = result; concerts.rememberAttendance(eventId, result) }
                 } catch (cancelled: CancellationException) { throw cancelled }
-                catch (_: Exception) { _attendanceError.value = true }
+                catch (_: Exception) { if (planRevision == revision) _attendanceError.value = true }
             }
         }
     }
@@ -305,9 +316,12 @@ class ConcertsViewModel @Inject constructor(
     }
     fun updatePlan(choice: String) {
         val show = _show.value ?: return
-        val old = _attendance.value ?: return
+        // The buttons are available before getConcertAttendance returns.
+        // Start from a neutral snapshot so the first tap can update immediately.
+        val old = _attendance.value ?: ConcertAttendance(null, 0, 0, emptyList(), null)
         val next = if (old.status == choice) null else choice
         if ((ConcertCalendarPolicy.hasStarted(show.date, show.time, show.timezone) || show.eventStatus in listOf("canceled", "postponed")) && next != null) return
+        _attendanceError.value = false
         val revision = ++planRevision
         val people = old.people.filterNot { it.id == uid }.toMutableList()
         if (next != null) currentPerson?.let { people.add(0, it.copy(status = next)) }
@@ -321,19 +335,28 @@ class ConcertsViewModel @Inject constructor(
         concerts.rememberAttendance(show.id, optimisticAttendance)
         concerts.rememberPlan(show, next, optimistic = true); _plans.value = concerts.rememberedPlans()
         log("rsvp_tapped", show, "concert_detail", mapOf("status_from" to (old.status ?: "none"), "status_to" to (next ?: "none")))
-        viewModelScope.launch {
-            planMutex.withLock {
-                // Serialize writes so a slow earlier tap cannot overwrite a later choice.
-                if (revision != planRevision) return@withLock
-                runCatching { concerts.setInterest(show, next ?: "none") }
-                    .onSuccess { confirmedAttendance = optimisticAttendance }
-                    .onFailure {
-                    if (revision == planRevision) {
-                        val restored = confirmedAttendance ?: old
-                        _attendance.value = restored; concerts.rememberAttendance(show.id, restored)
-                        concerts.clearPending(show.id); concerts.rememberPlan(show, restored.status)
-                        _plans.value = concerts.rememberedPlans(); _error.value = true
+        concerts.sendInterest(show, next ?: "none") { result ->
+            result.onSuccess {
+                confirmedAttendance = optimisticAttendance
+                if (revision == planRevision) {
+                    // The first tap may precede the initial attendance response.
+                    // Refresh counts after saving without replacing a newer tap.
+                    viewModelScope.launch {
+                        runCatching { concerts.attendance(show) }.onSuccess { saved ->
+                            if (revision == planRevision && _show.value?.id == show.id) {
+                                confirmedAttendance = saved
+                                _attendance.value = saved
+                                concerts.rememberAttendance(show.id, saved)
+                            }
+                        }
                     }
+                }
+            }.onFailure {
+                if (revision == planRevision) {
+                    val restored = confirmedAttendance ?: old
+                    _attendance.value = restored; concerts.rememberAttendance(show.id, restored)
+                    concerts.clearPending(show.id); concerts.rememberPlan(show, restored.status)
+                    _plans.value = concerts.rememberedPlans(); _error.value = true
                 }
             }
         }

@@ -2,7 +2,7 @@
 <resources>
     <string name="concert_make_personal">Make it personal</string>
     <string name="concert_personal_message">Post music you love. We\'ll keep track of your favorite artists and show you when they\'re playing nearby.</string>
-    <string name="concert_keep_posting_message">Keep posting music you love. We\'ll track your favorite artists and show you when they\'re playing nearby.</string>
+    <string name="concert_keep_posting_message">Check back for new concerts. Keep posting music you love to track more artists here.</string>
     <string name="concert_post_music">Post music</string>
     <string name="concert_view_all">View all concerts</string>
     <string name="concert_no_matches">No matches from your artists yet</string>

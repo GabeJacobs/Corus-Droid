@@ -137,19 +137,13 @@ fun OtherProfileScreen(
     onNavigateToArtist: ((ArtistPageRoute) -> Unit)? = null,
     suppressMapCityNavigation: Boolean = false,
 ) {
-    // Responsive header spacing: wider phones (~Pixel 9 Pro) get a more generous
-    // inset; narrower phones (~Galaxy S) keep the original tighter layout so the
-    // PLAYLIST/FOLLOW labels never truncate and the avatar aligns with the
-    // taste-match pill below it.
-    val isWideHeader = LocalConfiguration.current.screenWidthDp >= 400
-    val headerHPad = if (isWideHeader) 28.dp else CorusSpacing.xl
+    // Match the 16pt horizontal inset in iOS ProfileHeaderView.
+    val headerHPad = CorusSpacing.lg
     // The FOLLOWING pill no longer carries its own horizontal padding: it's
     // weighted to fill the leftover row width with a shrink-to-fit label, so
     // only the unweighted PLAYLIST pill needs an explicit inset.
     val headerAvatarSize = 88.dp
-    // Avatar + username + bio sit slightly inside the taste-match pill's left
-    // edge — matches iOS.
-    val pillHPad = headerHPad - 4.dp
+    val pillHPad = headerHPad
 
     val profile by viewModel.profile.collectAsState()
     val mapCity by viewModel.mapCity.collectAsState()
@@ -662,7 +656,7 @@ fun OtherProfileScreen(
                                     size = headerAvatarSize,
                                 )
 
-                                Spacer(modifier = Modifier.width(16.dp))
+                                Spacer(modifier = Modifier.width(CorusSpacing.profileAvatarTextGap))
 
                                 Column(
                                     modifier = Modifier
@@ -933,7 +927,7 @@ fun OtherProfileScreen(
                             modifier = Modifier.clickable { showAvatarFullScreen = true },
                         )
 
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(CorusSpacing.profileAvatarTextGap))
 
                         Column(
                             modifier = Modifier

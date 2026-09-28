@@ -547,6 +547,7 @@ internal fun PostToInstagramV2Sheet(
     var artwork by remember(subject) { mutableStateOf<Bitmap?>(null) }
     var accent by remember(subject) { mutableIntStateOf(0xff444444.toInt()) }
     var image by remember(subject) { mutableStateOf<Bitmap?>(null) }
+    var renderedSelection by remember(subject) { mutableStateOf<Triple<String, String, InstagramV2Subject>?>(null) }
     var loading by remember { mutableStateOf(true) }
     var sharing by remember { mutableStateOf(false) }
     var sent by remember { mutableStateOf(false) }
@@ -561,10 +562,13 @@ internal fun PostToInstagramV2Sheet(
         isFirstPoster = subject.isFirstPoster && includeTags,
         isNewRelease = subject.isNewRelease && includeTags,
     )
+    val previewSelection = Triple(layout, background, renderedSubject)
+    val canShareImage = image != null && renderedSelection == previewSelection
     val contacts = remember(recentContacts, selected) { selected?.let { s -> listOf(s) + recentContacts.filter { it.id != s.id } } ?: recentContacts }
     LaunchedEffect(subject, retry) {
         loading = true; error = null
         image = null
+        renderedSelection = null
         // Fetch both author assets together and expose them as one complete
         // preview. Previously artwork rendered first, then the avatar update
         // rebuilt the author row and made its flair appear to arrive late.
@@ -587,11 +591,11 @@ internal fun PostToInstagramV2Sheet(
         loading = false
     }
     LaunchedEffect(artwork, avatar, accent, layout, background, renderedSubject, loading) {
-        image = null
         if (loading) return@LaunchedEffect
         prefs.edit().putString("layout", layout).putString("background", background).apply()
         val art = artwork ?: return@LaunchedEffect
         image = withContext(Dispatchers.Default) { renderInstagramV2(context, renderedSubject, art, accent, layout, background, avatar) }
+        renderedSelection = previewSelection
     }
     LaunchedEffect(searching) { if (searching) requester.requestFocus() }
     LaunchedEffect(copied) { if (copied && !sharing) { delay(2500); copied = false } }
@@ -873,16 +877,8 @@ internal fun PostToInstagramV2Sheet(
                         Text(stringResource(R.string.share_post_search_placeholder), style = CorusFont.caption)
                     }
                 }
-                if (isLoadingContacts && contacts.isEmpty()) {
-                    items(4) {
-                        Box(Modifier.width(80.dp), contentAlignment = Alignment.TopCenter) {
-                            Box(Modifier.size(72.dp).background(CorusColors.Skeleton, CircleShape))
-                        }
-                    }
-                } else {
-                    items(contacts, key = { it.id }) { recipient ->
-                        Box(Modifier.width(80.dp)) { ShareContactCell(recipient, selected?.id == recipient.id, showRemoveAffordance = true) { selected = if (selected?.id == recipient.id) null else recipient } }
-                    }
+                items(contacts, key = { it.id }) { recipient ->
+                    Box(Modifier.width(80.dp)) { ShareContactCell(recipient, selected?.id == recipient.id, showRemoveAffordance = true) { selected = if (selected?.id == recipient.id) null else recipient } }
                 }
             }
         }
@@ -902,7 +898,7 @@ internal fun PostToInstagramV2Sheet(
             LazyRow(contentPadding = PaddingValues(16.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 if (onRepost != null) item { ShareActionButton(icon = Icons.Default.Repeat, label = stringResource(R.string.share_post_repost), isProminent = true) { onAnalyticsLog?.invoke("repost"); onRepost() } }
                 if (instagramShareEnabled && isInstagramAvailable(context)) item {
-                    InstagramShareButton(isLoading = sharing, onClick = { if (image != null) shareImage(true) })
+                    InstagramShareButton(isLoading = sharing, onClick = { if (canShareImage) shareImage(true) })
                 }
                 if (isWhatsAppAvailable(context)) item {
                     ShareActionButton(label = stringResource(R.string.share_post_whatsapp), painter = painterResource(R.drawable.whatsapp_logo), backgroundColor = Color(0xff25D366), iconTint = Color.White) {
@@ -921,6 +917,7 @@ internal fun PostToInstagramV2Sheet(
                 item { ShareActionButton(icon = Icons.Default.ContentCopy, label = stringResource(R.string.share_post_copy_link)) { copyLink(subject.outboundLink); onAnalyticsLog?.invoke("copy_link") } }
                 if (image != null) item {
                     ShareActionButton(icon = Icons.Default.Image, label = stringResource(R.string.instagram_v2_share_image)) {
+                        if (!canShareImage) return@ShareActionButton
                         onAnalyticsLog?.invoke("share_image")
                         shareImage(false)
                     }

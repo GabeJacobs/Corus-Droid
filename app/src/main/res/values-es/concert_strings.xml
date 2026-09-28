@@ -67,6 +67,7 @@
     <string name="concert_went">Asistí</string>
     <string name="concert_you_might_like">Quizá te guste</string>
     <string name="concert_your_plans">Tus planes</string>
+    <string name="concert_plans_started">Este concierto ya tuvo lugar.</string>
     <string name="concerts_title">Conciertos</string>
     <string name="messages_preview_shared_concert">Compartió un concierto</string>
     <string name="concert_notif_going">también irá a %1$s.</string>

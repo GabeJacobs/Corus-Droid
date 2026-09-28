@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.outlined.Navigation
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.Alignment
@@ -111,7 +112,8 @@ fun ConcertPreview(
     val appLocale = LocalConfiguration.current.locales[0]
     val cityId by vm.cityId.collectAsState()
     val discovery by vm.discoveryFilter.collectAsState()
-    val page by vm.previewPage.collectAsState()
+    // Capture one page value for this composition; LazyRow evaluates its content later.
+    val page = vm.previewPage.collectAsState().value
     val loading by vm.previewLoading.collectAsState()
     val error by vm.previewError.collectAsState()
     val scope = rememberCoroutineScope()
@@ -140,7 +142,7 @@ fun ConcertPreview(
                 if ((page?.nearbyTotal ?: 0) == 0) null else R.string.concert_keep_posting_message,
                 R.string.concert_view_all, browseAll)
             else -> LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(page!!.shows, key = { it.id }) { show ->
+                items(page?.shows.orEmpty(), key = { it.id }) { show ->
                     val artist = show.matchedArtist ?: show.lineup.firstOrNull() ?: show.title
                     Surface(Modifier.width(218.dp).height(170.dp).clickable { vm.select(show); onConcert(show.id) }, shape = RoundedCornerShape(18.dp)) {
                         Box(Modifier.fillMaxSize()) {
@@ -337,6 +339,7 @@ fun ConcertsScreen(
     val range by vm.dateRange.collectAsState(); val genre by vm.genre.collectAsState()
     val suggestions by vm.suggestions.collectAsState()
     val hasPostedArtists by vm.hasPostedArtists.collectAsState()
+    val pullRefreshing by vm.pullRefreshing.collectAsState()
     val isDark = LocalCorusDarkTheme.current
     var citySheet by remember { mutableStateOf(false) }; var filterSheet by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -376,10 +379,15 @@ fun ConcertsScreen(
             )
         },
     ) { padding ->
-        LazyColumn(
-            Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(bottom = 96.dp),
+        PullToRefreshBox(
+            isRefreshing = pullRefreshing,
+            onRefresh = vm::pullRefresh,
+            modifier = Modifier.fillMaxSize().padding(padding),
         ) {
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 96.dp),
+            ) {
             item {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
@@ -503,6 +511,7 @@ fun ConcertsScreen(
                 }
             }
             if (loading && !missingCity && (if (tab == "myConcerts") plans.isEmpty() else shows.isEmpty())) items(5) { ConcertRowSkeleton(); Spacer(Modifier.height(10.dp)) }
+            }
         }
     }
     if (citySheet) {
@@ -584,7 +593,6 @@ fun ConcertsScreen(
             onDismissRequest = { filterSheet = false },
             sheetState = sheetState,
             containerColor = MaterialTheme.colorScheme.background,
-            dragHandle = null,
             contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
         ) {
             var localRange by remember(range) { mutableStateOf(range) }
@@ -603,7 +611,7 @@ fun ConcertsScreen(
                 val safeInsets = WindowInsets.systemBars
                     .union(WindowInsets.displayCutout)
                     .asPaddingValues()
-                val topGap = safeInsets.calculateTopPadding() + CorusSpacing.md
+                val topGap = safeInsets.calculateTopPadding() + CorusSpacing.md + 32.dp
                 Column(Modifier.fillMaxWidth().height((maxHeight - topGap).coerceAtLeast(0.dp))) {
                     Box(
                         Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 20.dp),
@@ -611,20 +619,9 @@ fun ConcertsScreen(
                     ) {
                         Text(
                             stringResource(R.string.concert_filter_title),
-                            style = CorusFont.custom(800, 16),
+                            style = CorusFont.screenTitle,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
-                        TextButton(
-                            onClick = { filterSheet = false },
-                            modifier = Modifier.align(Alignment.CenterStart).offset(x = (-12).dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp),
-                        ) {
-                            Text(
-                                stringResource(R.string.common_cancel),
-                                style = CorusFont.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
                     }
 
                     LazyColumn(

@@ -2,7 +2,7 @@
 <resources>
     <string name="concert_make_personal">打造个性推荐</string>
     <string name="concert_personal_message">发布你喜欢的音乐。我们会关注你喜爱的艺人，并在他们到附近演出时告诉你。</string>
-    <string name="concert_keep_posting_message">继续发布你喜欢的音乐。我们会关注你喜爱的艺人，并在他们到附近演出时告诉你。</string>
+    <string name="concert_keep_posting_message">稍后回来查看新的演出。继续发布你喜欢的音乐，就能在这里关注更多艺人。</string>
     <string name="concert_post_music">发布音乐</string>
     <string name="concert_view_all">查看所有演出</string>
     <string name="concert_no_matches">你的艺人暂时没有匹配的演出</string>

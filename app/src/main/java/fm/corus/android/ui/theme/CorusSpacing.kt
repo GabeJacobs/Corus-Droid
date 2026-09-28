@@ -18,6 +18,7 @@ object CorusSpacing {
     val avatarSmall = 28.dp
     val avatarMedium = 36.dp
     val avatarLarge = 72.dp
+    val profileAvatarTextGap = 18.dp
 
     /** Follow / Message / Edit / playlist pills. Matches iOS `instagramActionHeight`. */
     val profileActionHeight = 34.dp

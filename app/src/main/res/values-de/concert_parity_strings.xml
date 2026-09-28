@@ -2,7 +2,7 @@
 <resources>
     <string name="concert_make_personal">Für dich personalisieren</string>
     <string name="concert_personal_message">Poste Musik, die du liebst. Wir merken uns deine Lieblingskünstler und zeigen dir, wenn sie in der Nähe spielen.</string>
-    <string name="concert_keep_posting_message">Poste weiter Musik, die du liebst. Wir merken uns deine Lieblingskünstler und zeigen dir, wenn sie in der Nähe spielen.</string>
+    <string name="concert_keep_posting_message">Schau bald wieder nach neuen Konzerten. Poste weiter Musik, die du liebst, um hier mehr Künstler im Blick zu behalten.</string>
     <string name="concert_post_music">Musik posten</string>
     <string name="concert_view_all">Alle Konzerte ansehen</string>
     <string name="concert_no_matches">Noch keine Treffer von deinen Künstlern</string>

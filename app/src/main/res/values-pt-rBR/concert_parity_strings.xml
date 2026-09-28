@@ -2,7 +2,7 @@
 <resources>
     <string name="concert_make_personal">Deixe do seu jeito</string>
     <string name="concert_personal_message">Poste as músicas que você ama. Vamos acompanhar seus artistas favoritos e mostrar quando eles tocarem por perto.</string>
-    <string name="concert_keep_posting_message">Continue postando as músicas que você ama. Vamos acompanhar seus artistas favoritos e mostrar quando eles tocarem por perto.</string>
+    <string name="concert_keep_posting_message">Volte para conferir novos shows. Continue postando as músicas que você ama para acompanhar mais artistas por aqui.</string>
     <string name="concert_post_music">Postar música</string>
     <string name="concert_view_all">Ver todos os shows</string>
     <string name="concert_no_matches">Ainda não há shows dos seus artistas</string>

@@ -67,6 +67,7 @@
     <string name="concert_went">참석함</string>
     <string name="concert_you_might_like">좋아할 만한 공연</string>
     <string name="concert_your_plans">내 계획</string>
+    <string name="concert_plans_started">이 공연은 이미 열렸어요.</string>
     <string name="concerts_title">콘서트</string>
     <string name="messages_preview_shared_concert">콘서트를 공유함</string>
     <string name="concert_notif_going">님도 %1$s에 갑니다.</string>

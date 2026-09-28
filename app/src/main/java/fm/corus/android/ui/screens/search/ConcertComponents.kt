@@ -113,17 +113,7 @@ internal fun ConcertPlansCard(attendance: ConcertAttendance?, past: Boolean, una
     ) {
         Column(Modifier.animateContentSize(tween(220)).padding(if (boxed) 16.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text(stringResource(R.string.concert_your_plans), style = CorusFont.bodyMedium)
-            if (attendance == null && loadError) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.concert_plans_load_error), Modifier.weight(1f), style = CorusFont.caption)
-                    TextButton(onClick = onRetry) { Text(stringResource(R.string.concert_retry), style = CorusFont.buttonSmall) }
-                }
-            } else if (attendance == null) {
-                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    Text(stringResource(R.string.concert_plans_loading), style = CorusFont.caption, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            } else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("interested", "going").forEach { status ->
                     val selected = attendance?.status == status
                     val label = if (status == "going") { if (past && selected) R.string.concert_went else R.string.concert_im_going }
@@ -133,13 +123,34 @@ internal fun ConcertPlansCard(attendance: ConcertAttendance?, past: Boolean, una
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.outlinedButtonColors(
                             containerColor = if (selected) MaterialTheme.colorScheme.surfaceVariant else androidx.compose.ui.graphics.Color.Transparent,
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .38f),
+                            contentColor = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .65f),
                         ),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)) {
-                        Icon(if (status == "going") Icons.Outlined.CheckCircle else Icons.Outlined.Star, null, Modifier.size(18.dp))
+                        Icon(
+                            if (status == "going") {
+                                if (selected) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle
+                            } else {
+                                if (selected) Icons.Filled.Star else Icons.Outlined.Star
+                            },
+                            null,
+                            Modifier.size(18.dp),
+                        )
                         Spacer(Modifier.width(6.dp)); Text(stringResource(label), style = CorusFont.button)
                     }
+                }
+            }
+            if (past) {
+                Text(
+                    stringResource(R.string.concert_plans_started),
+                    style = CorusFont.captionMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (loadError) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.concert_plans_load_error), Modifier.weight(1f), style = CorusFont.caption)
+                    TextButton(onClick = onRetry) { Text(stringResource(R.string.concert_retry), style = CorusFont.buttonSmall) }
                 }
             }
             if ((past || unavailable) && attendance?.status != null) {

@@ -2,6 +2,7 @@ package fm.corus.android.ui.components
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -10,11 +11,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import kotlinx.coroutines.delay
@@ -100,8 +101,8 @@ fun ToastHost(
     val toast = current
     LaunchedEffect(toast?.id, toast?.isLoading, toast?.text) {
         if (toast != null && !toast.isLoading && visible) {
-            // iOS ToastOverlay on Add to Queue holds ~1.4s before fade-out.
-            delay(1400)
+            // Match the app's top confirmation toasts: enough time to read a short message.
+            delay(2000)
             visible = false
             delay(300) // wait for exit animation
             if (current?.id == toast.id) current = null
@@ -124,26 +125,29 @@ fun ToastHost(
                     enter = fadeIn() + slideInVertically { -it / 2 },
                     exit = fadeOut() + slideOutVertically { -it / 2 },
                 ) {
+                    val shape = RoundedCornerShape(50)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
                         modifier = Modifier
                             .padding(top = 72.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(Color.Black.copy(alpha = 0.7f))
-                            .padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.sm),
+                            .shadow(8.dp, shape)
+                            .clip(shape)
+                            .background(CorusColors.CardBackground)
+                            .border(1.dp, CorusColors.Divider, shape)
+                            .padding(horizontal = CorusSpacing.xl, vertical = CorusSpacing.md),
                     ) {
                         if (toast.isLoading) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(14.dp),
                                 strokeWidth = 2.dp,
-                                color = Color.White,
+                                color = CorusColors.Accent,
                             )
                         }
                         Text(
                             text = toast.text,
-                            style = CorusFont.caption.copy(fontWeight = FontWeight.Medium),
-                            color = Color.White,
+                            style = CorusFont.bodyMedium,
+                            color = CorusColors.Text,
                         )
                     }
                 }
