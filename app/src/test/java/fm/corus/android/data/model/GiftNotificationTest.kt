@@ -4,6 +4,35 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GiftNotificationTest {
+    @Test fun receiptDecodesThankStateFromCallableAndFirestore() {
+        for (value in listOf(1234L, com.google.firebase.Timestamp(java.util.Date(1234L)))) {
+            val notification = CymbalNotification.fromMap("receipt", mapOf(
+                "type" to "gift", "giftId" to "gift-id", "postId" to "post", "thankedAt" to value))
+            assertEquals("gift-id", notification.giftId)
+            assertEquals(1234L, notification.giftThankedAt?.time)
+            assertFalse(notification.canThankGift)
+        }
+    }
+
+    @Test fun legacyReceiptResolvesGiftIdWithoutTruncatingUnderscores() {
+        val notification = CymbalNotification.fromMap("gift_sender_with_underscores_post_id", mapOf(
+            "type" to "gift", "postId" to "post_id"))
+        assertEquals("sender_with_underscores", notification.giftId)
+        assertTrue(notification.canThankGift)
+        assertFalse(notification.copy(postId = null).canThankGift)
+        assertFalse(notification.copy(giftId = null).canThankGift)
+        assertNull(CymbalNotification.fromMap("gift__post_id", mapOf(
+            "type" to "gift", "postId" to "post_id")).giftId)
+        assertNull(CymbalNotification.fromMap("unrelated", mapOf(
+            "type" to "gift", "postId" to "post_id")).giftId)
+    }
+
+    @Test fun giftThanksReceiptsDoNotBecomeLikes() {
+        val notification = CymbalNotification.fromMap("thanks", mapOf(
+            "type" to "gift_thanks", "giftType" to "flowers", "postId" to "post"))
+        assertEquals("gift_thanks", notification.type.value)
+        assertEquals("thanked you for your gift.", notification.message)
+    }
     @Test fun giftReceiptsDecodeWithoutBecomingLikes() {
         for ((type, phrase) in listOf("corus_heart" to "a Super Like", "flowers" to "Flowers", "mind_blown" to "Mind Blown", "boombox" to "a Boombox")) {
             val notification = CymbalNotification.fromMap("receipt", mapOf(

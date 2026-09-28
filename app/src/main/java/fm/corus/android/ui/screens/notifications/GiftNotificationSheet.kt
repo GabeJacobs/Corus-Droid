@@ -2,6 +2,19 @@ package fm.corus.android.ui.screens.notifications
 
 import android.animation.ValueAnimator
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import fm.corus.android.data.model.NotificationType
+import fm.corus.android.ui.components.emphasizedGiftAttribution
+import fm.corus.android.ui.theme.CorusFont
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -68,22 +81,141 @@ internal fun GiftNotificationArtwork(type: String?, size: Dp = 44.dp) {
     }
 }
 
+/** Keep the localized article/connector regular and emphasize only sender and Gift name. */
+internal fun giftReceiptSenderLine(
+    context: android.content.Context,
+    notification: CymbalNotification,
+    sentToYou: Boolean = false,
+): AnnotatedString {
+    val senderToken = "__GIFT_SENDER__"
+    val nameToken = "__GIFT_NAME__"
+    val gift = GiftDefinition.from(notification.giftType)
+    val sender = notification.fromUser.username.ifBlank {
+        notification.fromUser.displayName.ifBlank { context.getString(R.string.gift_someone) }
+    }
+    val phrase = gift.sentPhrase(context).replace(gift.name(context), nameToken)
+    val text = emphasizedGiftAttribution(
+        context.getString(if (sentToYou) R.string.gift_sender_sent_you else R.string.gift_sender_sent,
+            senderToken, phrase),
+        linkedMapOf(senderToken to sender, nameToken to gift.name(context)),
+    )
+    return buildAnnotatedString {
+        append(text)
+        // Match the app's Nunito username weight and preserve wrapping in every language.
+        text.spanStyles.forEach { addStyle(SpanStyle(fontWeight = FontWeight.ExtraBold), it.start, it.end) }
+        val start = text.text.indexOf(sender)
+        if (start >= 0 && notification.fromUser.id.isNotBlank()) {
+            addStringAnnotation("USER", notification.fromUser.id, start, start + sender.length)
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun GiftNotificationSheet(notification: CymbalNotification, onDismiss: () -> Unit, onViewCorus: () -> Unit) {
+internal fun GiftNotificationSheet(
+    notification: CymbalNotification,
+    onDismiss: () -> Unit,
+    onViewCorus: () -> Unit,
+    onSenderTap: () -> Unit,
+    thanksState: GiftThanksState,
+    onThank: () -> Unit,
+) {
     val context = LocalContext.current
     val gift = GiftDefinition.from(notification.giftType)
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = CorusColors.Background) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text(gift.name(context), style = MaterialTheme.typography.titleLarge, color = CorusColors.Text)
+    val isThanksReceipt = notification.type == NotificationType.GIFT_THANKS
+    val isThanked = notification.giftThankedAt != null || thanksState.thankedAt != null
+    val showsThankAction = !isThanksReceipt && (notification.canThankGift || isThanked)
+    val sender = notification.fromUser.username.ifBlank {
+        notification.fromUser.displayName.ifBlank { stringResource(R.string.gift_someone) }
+    }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = CorusColors.Background,
+    ) {
+        // Intrinsic content height opens fully. Oversized notes and large text can scroll;
+        // ModalBottomSheet supplies the navigation-bar inset below this bottom padding.
+        Column(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+                .padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(stringResource(R.string.gift_sheet_title_one), style = CorusFont.screenTitle, color = CorusColors.Text)
+            Spacer(Modifier.height(24.dp))
             GiftNotificationArtwork(notification.giftType, 164.dp)
-            Text(context.getString(R.string.gift_sender_sent_you, notification.fromUser.username, gift.sentPhrase(context)), color = CorusColors.Text)
-            Text(GiftDefinition.context(context, notification.postTitle), color = CorusColors.Secondary)
-            notification.giftNote?.takeIf { it.isNotBlank() }?.let { Text(it, color = CorusColors.Text) }
-            Text(java.text.DateFormat.getDateTimeInstance().format(notification.timestamp), color = CorusColors.Secondary)
-            if (notification.postId != null) Button(onClick = onViewCorus) { Text(stringResource(R.string.gift_view_corus)) }
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.gift_close)) }
+            Spacer(Modifier.height(22.dp))
+            if (isThanksReceipt) {
+                Text(
+                    stringResource(R.string.gift_thanks_sender, sender),
+                    style = CorusFont.body, color = CorusColors.Text, textAlign = TextAlign.Center,
+                )
+            } else {
+                Text(gift.name(context), style = CorusFont.custom(800, 28), color = CorusColors.Text,
+                    textAlign = TextAlign.Center)
+                Spacer(Modifier.height(7.dp))
+                val senderLine = giftReceiptSenderLine(context, notification)
+                ClickableText(
+                    text = senderLine,
+                    style = CorusFont.body.copy(color = CorusColors.Text, textAlign = TextAlign.Center),
+                    onClick = { offset ->
+                        if (senderLine.getStringAnnotations("USER", offset, offset).isNotEmpty()) onSenderTap()
+                    },
+                )
+                notification.giftNote?.trim()?.takeIf { it.isNotEmpty() }?.let { note ->
+                    Spacer(Modifier.height(22.dp))
+                    Column(
+                        Modifier.fillMaxWidth().background(CorusColors.CardBackground, RoundedCornerShape(16.dp))
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(9.dp),
+                    ) {
+                        Text(stringResource(R.string.gift_note_from, sender), style = CorusFont.captionMedium,
+                            color = CorusColors.Secondary)
+                        Text(note, style = CorusFont.body, color = CorusColors.Text)
+                    }
+                }
+            }
+            if (showsThankAction || !notification.postId.isNullOrBlank()) {
+                Spacer(Modifier.height(22.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (showsThankAction) {
+                        Button(
+                            onClick = onThank,
+                            enabled = !isThanked && !thanksState.sending,
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                            shape = RoundedCornerShape(50),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 13.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = CorusColors.Accent, contentColor = Color.White,
+                                disabledContainerColor = CorusColors.Accent, disabledContentColor = Color.White,
+                            ),
+                        ) {
+                            Text(stringResource(when {
+                                isThanked -> R.string.gift_thanked
+                                thanksState.sending -> R.string.gift_thanks_sending
+                                else -> R.string.gift_say_thanks
+                            }), style = CorusFont.button, textAlign = TextAlign.Center)
+                        }
+                    }
+                    if (!notification.postId.isNullOrBlank()) {
+                        OutlinedButton(
+                            onClick = onViewCorus,
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                            shape = RoundedCornerShape(50),
+                            border = if (isThanksReceipt) null else BorderStroke(1.dp, CorusColors.Divider),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 13.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (isThanksReceipt) CorusColors.Accent else Color.Transparent,
+                                contentColor = if (isThanksReceipt) Color.White else CorusColors.Text,
+                            ),
+                        ) { Text(stringResource(R.string.gift_open_post), style = CorusFont.button, textAlign = TextAlign.Center) }
+                    }
+                }
+            }
+            if (thanksState.error) {
+                Spacer(Modifier.height(22.dp))
+                Text(stringResource(R.string.gift_thanks_error), style = CorusFont.caption,
+                    color = CorusColors.Secondary, textAlign = TextAlign.Center)
+            }
         }
     }
 }

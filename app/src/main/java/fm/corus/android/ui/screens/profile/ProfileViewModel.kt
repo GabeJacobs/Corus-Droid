@@ -158,6 +158,7 @@ class ProfileViewModel @Inject constructor(
 
     /** Send-side gate for the in-app "Share Profile Link" Corus share sheet. */
     val profileShareEnabled: Boolean get() = remoteConfigService.profileShareEnabled
+    val profileSharingV2: Boolean get() = remoteConfigService.profileSharingV2
     val instagramShareEnabled: Boolean get() = remoteConfigService.instagramShareEnabled
 
     // ── Profile share sheet ──

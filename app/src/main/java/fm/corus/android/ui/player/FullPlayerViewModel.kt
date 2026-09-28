@@ -11,6 +11,8 @@ import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.ShareRecipient
 import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.data.model.PostGiftPreview
+import fm.corus.android.data.repository.GiftSendResult
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.MessageRepository
@@ -51,6 +53,24 @@ class FullPlayerViewModel @Inject constructor(
 
     private val _sourcePost = MutableStateFlow<CymbalPost?>(null)
     val sourcePost: StateFlow<CymbalPost?> = _sourcePost.asStateFlow()
+
+    fun onGiftSent(target: CymbalPost, result: GiftSendResult) {
+        val current = _sourcePost.value?.takeIf { it.id == target.id } ?: return
+        _sourcePost.value = current.copy(
+            giftCount = maxOf(current.giftCount, target.giftCount + if (result.alreadySent) 0 else 1),
+            recentGifts = result.recentGifts.map { gift ->
+                PostGiftPreview(
+                    senderId = gift.senderId,
+                    senderUsername = gift.senderUsername,
+                    senderDisplayName = gift.senderDisplayName,
+                    senderAvatarUrl = gift.senderAvatarUrl,
+                    giftType = gift.giftType,
+                    note = gift.note,
+                    sentAtMs = gift.sentAtMs,
+                )
+            },
+        )
+    }
 
     private val _isLoadingSourcePost = MutableStateFlow(false)
     val isLoadingSourcePost: StateFlow<Boolean> = _isLoadingSourcePost.asStateFlow()

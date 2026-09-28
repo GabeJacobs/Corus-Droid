@@ -2506,6 +2506,8 @@ private fun MessageBubble(
                             url = message.mediaURL,
                             contentDescription = stringResource(id = R.string.messaging_thread_cd_shared_image),
                             onClick = { onImageTap(message.mediaURL!!) },
+                            onDoubleClick = onDoubleTap,
+                            onLongClick = onLongPress,
                         )
                     } else {
                         // Pending upload — show a shimmering skeleton so the bubble has

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -36,6 +37,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -60,6 +62,8 @@ import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.GiftDefinition
 import fm.corus.android.data.repository.GiftInventory
 import fm.corus.android.data.repository.GiftSendResult
+import fm.corus.android.domain.HapticManager
+import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.screens.notifications.GiftNotificationArtwork
 import fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet
 import fm.corus.android.ui.screens.subscription.PaywallSource
@@ -87,6 +91,7 @@ fun GiftSelectionSheet(
     onSent: (GiftSendResult) -> Unit,
 ) {
     val context = LocalContext.current
+    val haptics = LocalHapticManager.current
     val viewModel: GiftSelectionViewModel = hiltViewModel(key = "gift-${post.id}")
     val state by viewModel.state.collectAsState()
     val hasClubIntroTrial by viewModel.hasClubIntroTrial.collectAsState()
@@ -95,6 +100,7 @@ fun GiftSelectionSheet(
     LaunchedEffect(post.id) { viewModel.open() }
     LaunchedEffect(state.sentGiftId) {
         if (state.sentGiftId != null) {
+            haptics.play(HapticManager.Pattern.GIFT_SENT)
             delay(1_150)
             onDismiss()
         }
@@ -102,9 +108,11 @@ fun GiftSelectionSheet(
 
     Column(
         modifier = Modifier
+            .fillMaxHeight()
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = CorusSpacing.lg)
+            .padding(top = 12.dp)
             .padding(bottom = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -122,9 +130,21 @@ fun GiftSelectionSheet(
             )
             IconButton(
                 onClick = onDismiss,
-                modifier = Modifier.background(CorusColors.CardBackground, CircleShape),
+                modifier = Modifier.size(48.dp),
             ) {
-                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.gift_close), tint = CorusColors.Secondary)
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(CorusColors.CardBackground, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = stringResource(R.string.gift_close),
+                        tint = CorusColors.Secondary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
             }
         }
 
@@ -243,6 +263,7 @@ fun GiftSelectionSheet(
     if (showClubOffer) {
         ModalBottomSheet(
             onDismissRequest = { showClubOffer = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             containerColor = CorusColors.Background,
         ) {
             CymbalClubOfferSheet(
@@ -265,9 +286,11 @@ private fun GiftGrid(
     onSelect: (String) -> Unit,
 ) {
     val context = LocalContext.current
+    val rowCount = (gifts.size + 1) / 2
+    val gridHeight = (rowCount * 136 + (rowCount - 1).coerceAtLeast(0) * 12).dp
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
-        modifier = Modifier.fillMaxWidth().height(((gifts.size + 1) / 2 * 142).dp),
+        modifier = Modifier.fillMaxWidth().height(gridHeight),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         userScrollEnabled = false,
@@ -277,7 +300,9 @@ private fun GiftGrid(
             Surface(
                 onClick = { onSelect(gift.id) },
                 enabled = enabled,
-                modifier = Modifier.alpha(if (enabled) 1f else .5f),
+                modifier = Modifier
+                    .height(136.dp)
+                    .alpha(if (enabled) 1f else .5f),
                 shape = RoundedCornerShape(16.dp),
                 color = if (selected) CorusColors.Accent.copy(alpha = .12f) else CorusColors.CardBackground,
                 border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) CorusColors.Accent else CorusColors.Divider),
@@ -288,8 +313,13 @@ private fun GiftGrid(
                 ) {
                     GiftNotificationArtwork(gift.id, 76.dp)
                     Spacer(Modifier.height(8.dp))
-                    Text(gift.name(context), color = CorusColors.Text, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text(gift.shortMeaning(context), color = CorusColors.Secondary, fontSize = 11.sp, maxLines = 1)
+                    Text(
+                        gift.name(context),
+                        color = CorusColors.Text,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                    )
                 }
             }
         }

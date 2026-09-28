@@ -397,6 +397,11 @@ class RemoteConfigService @Inject constructor(
     val profileShareEnabled: Boolean
         get() = feedFlag("profile_share_enabled")
 
+    /** Preview the vertical Instagram Story card in the own-profile share
+     * sheet. OFF preserves the existing horizontal OG-link preview exactly. */
+    val profileSharingV2: Boolean
+        get() = feedFlag("profile_sharing_v2")
+
     /// Unified search: blended zero-state discovery feed + All/Users/Music/
     /// Film/Hashtags filter chips instead of the pre-segmented tabs. Shares
     /// the key with web (already released there). Uses the init-race-safe
@@ -723,6 +728,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("entity_share_enabled", remoteConfig.getBoolean("entity_share_enabled"))
             .putBoolean("comment_entity_attachments_enabled", remoteConfig.getBoolean("comment_entity_attachments_enabled"))
             .putBoolean("profile_share_enabled", remoteConfig.getBoolean("profile_share_enabled"))
+            .putBoolean("profile_sharing_v2", remoteConfig.getBoolean("profile_sharing_v2"))
             .putBoolean("unified_search_enabled", remoteConfig.getBoolean("unified_search_enabled"))
             .putBoolean("segmented_search_enabled", remoteConfig.getBoolean("segmented_search_enabled"))
             .putBoolean("artists_on_corus_section_enabled", remoteConfig.getBoolean("artists_on_corus_section_enabled"))
@@ -857,6 +863,7 @@ class RemoteConfigService @Inject constructor(
             "immersive_artist_header_enabled" to true,
             "comment_entity_attachments_enabled" to false,
             "profile_share_enabled" to false,
+            "profile_sharing_v2" to false,
             "unified_search_enabled" to false,
             "segmented_search_enabled" to true,
             "artists_on_corus_section_enabled" to false,

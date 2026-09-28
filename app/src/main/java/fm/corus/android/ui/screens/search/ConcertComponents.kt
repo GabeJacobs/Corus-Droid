@@ -4,6 +4,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -20,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -27,6 +29,7 @@ import coil3.compose.AsyncImage
 import com.valentinilk.shimmer.shimmer
 import fm.corus.android.R
 import fm.corus.android.data.repository.ConcertAttendance
+import fm.corus.android.ui.theme.CorusFont
 import kotlinx.coroutines.delay
 
 @Composable
@@ -36,7 +39,12 @@ private fun Bone(modifier: Modifier) {
 
 @Composable
 internal fun ConcertRowSkeleton() {
-    Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp), shape = RoundedCornerShape(18.dp)) {
+    Surface(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .07f)),
+    ) {
         Row(Modifier.fillMaxWidth().padding(16.dp).shimmer(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Bone(Modifier.size(26.dp, 10.dp)); Bone(Modifier.size(32.dp, 30.dp)) }
             VerticalDivider(Modifier.height(58.dp))
@@ -48,7 +56,7 @@ internal fun ConcertRowSkeleton() {
 
 @Composable
 internal fun ConcertPreviewSkeleton() {
-    Card(Modifier.size(218.dp, 170.dp), shape = RoundedCornerShape(18.dp)) {
+    Surface(Modifier.size(218.dp, 170.dp), shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
         Column(Modifier.fillMaxSize().padding(16.dp).shimmer(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Spacer(Modifier.weight(1f)); Bone(Modifier.size(150.dp, 20.dp)); Bone(Modifier.size(120.dp, 12.dp)); Bone(Modifier.size(170.dp, 12.dp))
         }
@@ -58,9 +66,24 @@ internal fun ConcertPreviewSkeleton() {
 @Composable
 internal fun ConcertDetailSkeleton(onBack: () -> Unit) {
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        IconButton(onClick = onBack, modifier = Modifier.padding(12.dp)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
+        Box(
+            Modifier.fillMaxWidth().height(84.dp).padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                onClick = onBack,
+                modifier = Modifier.align(Alignment.CenterStart).shadow(16.dp, CircleShape),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surface,
+            ) {
+                Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.share_back))
+                }
+            }
+            Text(stringResource(R.string.concert_label), style = CorusFont.screenTitle)
+        }
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).shimmer(), verticalArrangement = Arrangement.spacedBy(22.dp)) {
-            Bone(Modifier.fillMaxWidth().height(260.dp))
+            Bone(Modifier.fillMaxWidth().aspectRatio(5f / 3f))
             Bone(Modifier.fillMaxWidth(.75f).height(25.dp))
             repeat(2) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Bone(Modifier.size(70.dp, 12.dp)); Bone(Modifier.fillMaxWidth(.7f).height(20.dp)) }
@@ -81,9 +104,14 @@ internal fun ConcertPlansCard(attendance: ConcertAttendance?, past: Boolean, una
         showPeople = hasPeople
     }
     val opacity by animateFloatAsState(if (showPeople && hasPeople) 1f else 0f, tween(150), label = "concertPeopleFade")
-    Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp), shape = RoundedCornerShape(18.dp)) {
+    Surface(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .07f)),
+    ) {
         Column(Modifier.animateContentSize(tween(220)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text(stringResource(R.string.concert_your_plans), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.concert_your_plans), style = CorusFont.bodyMedium)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("interested", "going").forEach { status ->
                     val selected = attendance?.status == status
@@ -123,8 +151,17 @@ internal fun ConcertPlansCard(attendance: ConcertAttendance?, past: Boolean, una
 
 @Composable
 internal fun ConcertSheetHeader(title: String, onClose: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-        IconButton(onClick = onClose) { Icon(androidx.compose.material.icons.Icons.Default.Close, stringResource(R.string.share_close)) }
+    Box(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+        Text(title, style = CorusFont.screenTitle)
+        Surface(
+            onClick = onClose,
+            modifier = Modifier.align(Alignment.CenterEnd),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceVariant,
+        ) {
+            Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) {
+                Icon(androidx.compose.material.icons.Icons.Default.Close, stringResource(R.string.share_close), Modifier.size(18.dp))
+            }
+        }
     }
 }

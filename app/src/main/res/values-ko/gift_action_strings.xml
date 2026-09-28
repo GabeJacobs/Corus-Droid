@@ -2,4 +2,5 @@
     <string name="gift_send_action">선물 보내기</string>
     <string name="gift_picker_intro">특별한 감사의 마음을 담아 %1$s님에게 선물을 보내세요.</string>
     <string name="gift_picker_empty_intro">지금은 모든 선물을 사용했어요.</string>
+    <string name="gift_club_slots">Corus Club에 가입하면 선물 3개를 보낼 수 있어요.</string>
 </resources>

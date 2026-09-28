@@ -1497,10 +1497,10 @@
     <string name="map_watch_mode_preview">시청 모드 미리보기 · Corus Club 둘러보기</string>
     <string name="club_feature_unlimited_playlists">플레이리스트 무제한 내보내기</string>
     <string name="club_feature_unlock_all_taste_matches">모든 취향 매치 잠금 해제</string>
-    <string name="gift_club_offer_title">선물 3개 잠금 해제</string>
-    <string name="gift_club_offer_body">Corus Club에 가입하고 매주 선물 3개를 받으세요.</string>
-    <string name="gift_club_offer_cta_trial">무료로 잠금 해제</string>
-    <string name="gift_club_offer_cta_standard">Corus Club으로 잠금 해제</string>
-    <string name="club_subtitle_gift">오늘 선물 3개를 잠금 해제하세요.</string>
-    <string name="club_feature_gifts">매주 선물 슬롯 3개</string>
+    <string name="gift_club_offer_title">선물 3개 이용하기</string>
+    <string name="gift_club_offer_body">Corus Club에 가입하고 매주 선물 3개를 보내세요.</string>
+    <string name="gift_club_offer_cta_trial">무료로 이용하기</string>
+    <string name="gift_club_offer_cta_standard">Corus Club으로 이용하기</string>
+    <string name="club_subtitle_gift">오늘부터 선물 3개를 보낼 수 있어요.</string>
+    <string name="club_feature_gifts">매주 선물 3개 보내기</string>
 </resources>

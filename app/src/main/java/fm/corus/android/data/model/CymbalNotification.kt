@@ -31,7 +31,13 @@ data class CymbalNotification(
     val giftType: String? = null,
     val giftNote: String? = null,
     val postTitle: String? = null,
+    val giftId: String? = null,
+    val giftThankedAt: Date? = null,
 ) {
+    val canThankGift: Boolean
+        get() = type == NotificationType.GIFT && !giftId.isNullOrBlank() &&
+            !postId.isNullOrBlank() && giftThankedAt == null
+
     val supportsCommentActions: Boolean
         get() = commentId != null && postId != null && type.supportsCommentActions
 
@@ -40,6 +46,7 @@ data class CymbalNotification(
             // UI surfaces rebuild Gift copy from localized resources. This is
             // only an English context-free fallback for legacy callers.
             NotificationType.GIFT -> "sent you ${GiftDefinition.from(giftType).sentPhrase}"
+            NotificationType.GIFT_THANKS -> "thanked you for your gift."
             NotificationType.LIKE -> "liked your corus."
             NotificationType.COMMENT -> if (commentText != null) "commented: $commentText" else "commented on your corus."
             NotificationType.COMMENT_LIKE -> "liked your comment."
@@ -98,7 +105,22 @@ data class CymbalNotification(
                 giftType = data["giftType"] as? String,
                 giftNote = data["giftNote"] as? String,
                 postTitle = data["postTitle"] as? String,
+                giftId = resolveGiftId(id, data),
+                giftThankedAt = when (val value = data["thankedAt"]) {
+                    is com.google.firebase.Timestamp -> value.toDate()
+                    is Number -> Date(value.toLong())
+                    else -> null
+                },
             )
+        }
+
+        private fun resolveGiftId(id: String, data: Map<String, Any?>): String? {
+            (data["giftId"] as? String)?.takeIf { it.isNotBlank() }?.let { return it }
+            if (data["type"] != "gift") return null
+            val postId = (data["postId"] as? String)?.takeIf { it.isNotBlank() } ?: return null
+            val suffix = "_$postId"
+            if (!id.startsWith("gift_") || !id.endsWith(suffix)) return null
+            return id.removePrefix("gift_").removeSuffix(suffix).takeIf { it.isNotBlank() }
         }
 
         private fun parseDiscoveryItems(raw: Any?): List<TasteMatchDiscoveryItem>? {

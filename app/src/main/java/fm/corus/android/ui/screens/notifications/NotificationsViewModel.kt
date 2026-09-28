@@ -41,6 +41,12 @@ import kotlinx.coroutines.launch
 import android.util.Log
 import javax.inject.Inject
 
+internal data class GiftThanksState(
+    val thankedAt: java.util.Date? = null,
+    val sending: Boolean = false,
+    val error: Boolean = false,
+)
+
 @HiltViewModel
 class NotificationsViewModel @Inject constructor(
     private val notificationRepository: NotificationRepository,
@@ -55,6 +61,8 @@ class NotificationsViewModel @Inject constructor(
     private val remoteConfigService: fm.corus.android.service.RemoteConfigService,
     private val gifRepository: fm.corus.android.data.repository.GifRepository,
     private val networkMonitor: NetworkMonitor,
+    private val giftRepository: fm.corus.android.data.repository.GiftRepository,
+    private val hapticManager: fm.corus.android.domain.HapticManager,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -71,6 +79,33 @@ class NotificationsViewModel @Inject constructor(
 
     private val _notifications = MutableStateFlow<List<CymbalNotification>>(emptyList())
     val notifications: StateFlow<List<CymbalNotification>> = _notifications.asStateFlow()
+
+    private val _giftThanks = MutableStateFlow<Map<String, GiftThanksState>>(emptyMap())
+    internal val giftThanks = _giftThanks.asStateFlow()
+
+    internal fun thankGift(notification: CymbalNotification) {
+        val current = _giftThanks.value[notification.id]
+        if (!notification.canThankGift || current?.sending == true || current?.thankedAt != null) return
+        _giftThanks.value += notification.id to GiftThanksState(thankedAt = java.util.Date(), sending = true)
+        // Keep the request alive if the sheet is dismissed while sending.
+        viewModelScope.launch {
+            try {
+                val confirmed = giftRepository.thankGift(notification.postId!!, notification.giftId!!)
+                _giftThanks.value += notification.id to GiftThanksState(thankedAt = confirmed)
+                fun List<CymbalNotification>.updated() = map {
+                    if (it.id == notification.id) it.copy(giftThankedAt = confirmed) else it
+                }
+                _notifications.value = _notifications.value.updated()
+                _filteredNotifications.value = _filteredNotifications.value.updated()
+                chipCache.keys.toList().forEach { key -> chipCache[key] = chipCache.getValue(key).updated() }
+                hapticManager.impact()
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                _giftThanks.value += notification.id to GiftThanksState(error = true)
+            }
+        }
+    }
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -120,7 +155,7 @@ class NotificationsViewModel @Inject constructor(
     ) { chip, following, hidden ->
         NotificationFilterVisibility.apply(
             chip.filter, chip.all, chip.filtered, following, chip.ready, chip.loading,
-        ).filter { it.fromUser.id !in hidden && (giftsEnabled || it.type != fm.corus.android.data.model.NotificationType.GIFT) }
+        ).filter { it.fromUser.id !in hidden && (giftsEnabled || !it.type.isGift) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val showFilterChips: StateFlow<Boolean> = combine(_notifications, _filtersUnlocked) { all, unlocked ->

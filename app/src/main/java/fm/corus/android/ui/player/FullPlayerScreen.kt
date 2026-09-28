@@ -109,6 +109,9 @@ import fm.corus.android.ui.components.BandcampLogo
 import fm.corus.android.ui.components.DoubleTapLikeHeartIcon
 import fm.corus.android.ui.components.MarqueeText
 import fm.corus.android.ui.components.ShareMediaSheet
+import fm.corus.android.ui.components.GiftSelectionSheet
+import fm.corus.android.data.model.CymbalPost
+import androidx.compose.material.icons.filled.CardGiftcard
 import fm.corus.android.ui.components.ShareMediaSubject
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.MiniPlayerPlaybackModeToggle
@@ -165,7 +168,8 @@ fun FullPlayerScreen(
     fullPlayerViewModel: FullPlayerViewModel = hiltViewModel(),
 ) {
     val state by nowPlayingManager.state.collectAsState()
-    val remoteConfigRevision by remoteConfig?.revision?.collectAsState() ?: remember { mutableStateOf(0) }
+    // Read the revision here so flag changes also update a paused player's menus.
+    remoteConfig?.revision?.collectAsState()?.value
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -202,6 +206,11 @@ fun FullPlayerScreen(
         )
 
     val sourcePost by fullPlayerViewModel.sourcePost.collectAsState()
+    // A sheet owns its target independently of playback and source-post loading.
+    var giftPost by remember { mutableStateOf<CymbalPost?>(null) }
+    val giftEligiblePost = sourcePost?.takeIf {
+        it.id == state.sourcePostId && remoteConfig?.canSendGiftTo(it.user.id) == true
+    }
     val menuPost = remember(sourcePost, state) { fullPlayerMenuPost(sourcePost, state) }
     val menuSource = remember(sourcePost, state) { fullPlayerMenuTrackSource(sourcePost, state) }
     val shareTrack = remember(sourcePost, state) { fullPlayerShareTrack(sourcePost, state) }
@@ -298,6 +307,7 @@ fun FullPlayerScreen(
                 showsArtistRow = showsArtistRow,
                 showsAlbumRow = fullPlayerShowsAlbumRow(menuSource, artistPagesEnabled),
                 showsShareRow = fullPlayerShowsShareRow(shareTrack),
+                onSendGift = giftEligiblePost?.let { post -> { giftPost = post } },
                 showsPlaybackModeToggle = showsPlaybackModeToggle,
                 playFullSongs = playFullSongs,
                 onDismiss = onDismiss,
@@ -463,6 +473,7 @@ fun FullPlayerScreen(
                 artistName = artist,
                 interactive = interactive,
                 saveCountEnabled = remoteConfig?.saveCountEnabled == true,
+                giftsEnabled = remoteConfig?.giftsEnabledForCurrentUser == true,
                 onOpenPost = onOpenPost,
                 onOpenUser = onOpenUser,
                 onOpenComments = onOpenComments,
@@ -547,6 +558,26 @@ fun FullPlayerScreen(
         }
     }
 
+    giftPost?.let { post ->
+        val giftSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { giftPost = null },
+            sheetState = giftSheetState,
+            containerColor = CorusColors.Background,
+            dragHandle = null,
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+            contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Vertical) },
+        ) {
+            CorusSystemBars()
+            BackHandler { giftPost = null }
+            GiftSelectionSheet(
+                post = post,
+                onDismiss = { giftPost = null },
+                onSent = { result -> fullPlayerViewModel.onGiftSent(post, result) },
+            )
+        }
+    }
+
     if (showShareSheet && shareTrack != null) {
         val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         val songSharedMsg = stringResource(R.string.song_detail_toast_song_sent)
@@ -613,6 +644,7 @@ private fun FullPlayerTopChrome(
     showsArtistRow: Boolean,
     showsAlbumRow: Boolean,
     showsShareRow: Boolean,
+    onSendGift: (() -> Unit)?,
     showsPlaybackModeToggle: Boolean,
     playFullSongs: Boolean,
     onDismiss: () -> Unit,
@@ -723,6 +755,16 @@ private fun FullPlayerTopChrome(
                         onClick = {
                             menuOpen = false
                             onSharePost()
+                        },
+                    )
+                }
+                if (onSendGift != null) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.gift_send_action)) },
+                        leadingIcon = { Icon(Icons.Filled.CardGiftcard, contentDescription = null) },
+                        onClick = {
+                            menuOpen = false
+                            onSendGift()
                         },
                     )
                 }

@@ -98,6 +98,7 @@ fun ProfileFeedScreen(
     val subtitleArtistNotFound = androidx.compose.ui.res.stringResource(fm.corus.android.R.string.song_detail_artist_not_found)
 
     var sharePost by remember { mutableStateOf<CymbalPost?>(null) }
+    var giftPost by remember { mutableStateOf<CymbalPost?>(null) }
     var menuPost by remember { mutableStateOf<CymbalPost?>(null) }
     var filmInfoPost by remember { mutableStateOf<CymbalPost?>(null) }
     var editCaptionPost by remember { mutableStateOf<CymbalPost?>(null) }
@@ -308,6 +309,9 @@ fun ProfileFeedScreen(
                         nowPlayingState.trackId == post.track.id &&
                         nowPlayingState.sourcePostId == post.id,
                     onLikeTap = { viewModel.toggleLike(post.id) },
+                    onLikeLongPress = if (viewModel.remoteConfig.canSendGiftTo(post.user.id)) {
+                        { giftPost = post }
+                    } else null,
                     onSaveTap = { viewModel.toggleSave(post.id) },
                     onUserTap = { onNavigateToUser(post.user.id) },
                     onPostTap = { /* Already viewing post in feed */ },
@@ -473,10 +477,12 @@ fun ProfileFeedScreen(
     PostMenuSheets(
         menuPost = menuPost,
         sharePost = sharePost,
+        giftPost = giftPost,
         editCaptionPost = editCaptionPost,
         deleteConfirmPost = showDeleteConfirm,
         onMenuPostChange = { menuPost = it },
         onSharePostChange = { sharePost = it },
+        onGiftPostChange = { giftPost = it },
         onEditCaptionPostChange = { editCaptionPost = it },
         onDeleteConfirmPostChange = { showDeleteConfirm = it },
         actions = viewModel,

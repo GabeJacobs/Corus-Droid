@@ -1,0 +1,10 @@
+<resources>
+    <string name="gift_say_thanks">お礼を言う</string>
+    <string name="gift_thanked">お礼済み ✓</string>
+    <string name="gift_thanks_sending">送信中…</string>
+    <string name="gift_open_post">投稿を開く</string>
+    <string name="gift_thanks_error">お礼を送信できませんでした。もう一度お試しください。</string>
+    <string name="gift_note_from">%1$sからのメッセージ</string>
+    <string name="gift_thanks_message">がギフトのお礼を伝えました。</string>
+    <string name="gift_thanks_sender">%1$sがギフトのお礼を伝えました。</string>
+</resources>

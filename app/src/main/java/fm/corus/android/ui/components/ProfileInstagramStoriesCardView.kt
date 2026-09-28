@@ -33,7 +33,32 @@ internal data class ProfileStoriesGridLayout(
     val displayCount: Int,
 )
 
-internal fun profileStoriesGridLayout(count: Int): ProfileStoriesGridLayout = when (count) {
+enum class ProfileStoryGridSize(val artworkLimit: Int) {
+    STANDARD(9),
+    LARGE(16),
+}
+
+enum class ProfileStoryBackground(
+    val label: String,
+    val color: Int,
+    val usesDarkInk: Boolean,
+) {
+    CORUS_BLUE("Blue", 0xff6495ed.toInt(), true),
+    LIGHT("Light", 0xffffffff.toInt(), true),
+    DARK("Dark", 0xff000000.toInt(), false),
+    PURPLE("Purple", 0xff7657d5.toInt(), false),
+    ROSE("Rose", 0xffc9577d.toInt(), false),
+    ORANGE("Orange", 0xffe78345.toInt(), true),
+    GREEN("Green", 0xff4a9c78.toInt(), true),
+}
+
+internal fun profileStoriesGridLayout(
+    count: Int,
+    size: ProfileStoryGridSize = ProfileStoryGridSize.STANDARD,
+): ProfileStoriesGridLayout = if (size == ProfileStoryGridSize.LARGE && count > 0) {
+    val displayCount = min(count, size.artworkLimit)
+    ProfileStoriesGridLayout(4, (displayCount + 3) / 4, displayCount)
+} else when (count) {
     0 -> ProfileStoriesGridLayout(0, 0, 0)
     1 -> ProfileStoriesGridLayout(1, 1, 1)
     2 -> ProfileStoriesGridLayout(2, 1, 2)
@@ -68,6 +93,22 @@ private data class ProfileStoriesPalette(
                 backdrop = android.graphics.Color.BLACK,
             )
         }
+
+        fun forSelection(theme: ShareCardTheme, background: ProfileStoryBackground?): ProfileStoriesPalette {
+            if (background == null) return forTheme(theme)
+            if (background == ProfileStoryBackground.LIGHT) return forTheme(ShareCardTheme.LIGHT)
+            if (background == ProfileStoryBackground.DARK) return forTheme(ShareCardTheme.DARK)
+            val ink = if (background.usesDarkInk) 0xff15151a.toInt() else 0xffffffff.toInt()
+            val muted = (0xb8 shl 24) or (ink and 0x00ffffff)
+            val surface = (0x24 shl 24) or (ink and 0x00ffffff)
+            return ProfileStoriesPalette(
+                ink = ink,
+                muted = muted,
+                accent = ink,
+                surface = surface,
+                backdrop = background.color,
+            )
+        }
     }
 }
 
@@ -75,6 +116,9 @@ suspend fun generateProfileStoriesCardBitmap(
     context: Context,
     profile: ShareProfileSubject,
     theme: ShareCardTheme,
+    showBio: Boolean = true,
+    gridSize: ProfileStoryGridSize = ProfileStoryGridSize.STANDARD,
+    background: ProfileStoryBackground? = null,
 ): Bitmap = withContext(Dispatchers.IO) {
     val canvasWidth = 1080
     val canvasHeight = 1920
@@ -84,7 +128,7 @@ suspend fun generateProfileStoriesCardBitmap(
     val spacer = 36f
     val brandMarkYOffset = 5f
 
-    val palette = ProfileStoriesPalette.forTheme(theme)
+    val palette = ProfileStoriesPalette.forSelection(theme, background)
     val bitmap = Bitmap.createBitmap(canvasWidth, canvasHeight, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     canvas.drawColor(palette.backdrop)
@@ -93,7 +137,7 @@ suspend fun generateProfileStoriesCardBitmap(
 
     val avatarBitmap = profile.avatarUrl?.takeIf { it.isNotBlank() }?.let { downloadShareBitmap(it) }
     val artworkUrls = profile.artworkUrls
-    val artworkBitmaps = artworkUrls.take(9).mapNotNull { downloadShareBitmap(it) }
+    val artworkBitmaps = artworkUrls.take(gridSize.artworkLimit).mapNotNull { downloadShareBitmap(it) }
 
     val handlePaint = shareNunitoPaint(context, 40f, 800, palette.accent)
     val namePaint = shareNunitoPaint(context, 64f, 800, palette.ink)
@@ -124,7 +168,7 @@ suspend fun generateProfileStoriesCardBitmap(
         cursorY += namePaint.descent() - namePaint.ascent()
     }
 
-    profile.bio?.takeIf { it.isNotBlank() }?.let { bio ->
+    profile.bio?.takeIf { showBio && it.isNotBlank() }?.let { bio ->
         cursorY += 16f
         val bioLines = ellipsizeShareLines(bio, bioPaint, canvasWidth - hPad * 2, 3)
         bioLines.forEachIndexed { index, line ->
@@ -142,7 +186,7 @@ suspend fun generateProfileStoriesCardBitmap(
     val footerTop = canvasHeight - footerBottom - footerHeight
     val gridWidth = canvasWidth - hPad * 2f
     val maxGridHeight = 980f
-    val layout = profileStoriesGridLayout(artworkBitmaps.size)
+    val layout = profileStoriesGridLayout(artworkBitmaps.size, gridSize)
     val tile = if (layout.displayCount == 0) {
         0f
     } else {
@@ -363,10 +407,13 @@ suspend fun shareProfileToInstagramStories(
     context: Context,
     profile: ShareProfileSubject,
     theme: ShareCardTheme,
+    showBio: Boolean = true,
+    gridSize: ProfileStoryGridSize = ProfileStoryGridSize.STANDARD,
+    background: ProfileStoryBackground? = null,
 ): Boolean = withContext(Dispatchers.IO) {
     try {
         Log.i(IG_PROFILE_SHARE_TAG, "Building Stories card theme=${theme.analyticsValue} user=${profile.username}")
-        val bitmap = generateProfileStoriesCardBitmap(context, profile, theme)
+        val bitmap = generateProfileStoriesCardBitmap(context, profile, theme, showBio, gridSize, background)
         // Unique filename per theme + share so Instagram can't reuse a stale cached URI.
         val file = File(
             context.cacheDir,

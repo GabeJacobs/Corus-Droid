@@ -76,6 +76,8 @@ class ConcertsViewModel @Inject constructor(
     val cursor = _cursor.asStateFlow()
     private val _total = MutableStateFlow(0)
     val total = _total.asStateFlow()
+    private val _nearbyTotal = MutableStateFlow(0)
+    val nearbyTotal = _nearbyTotal.asStateFlow()
     private val _needsCity = MutableStateFlow(false)
     val needsCity = _needsCity.asStateFlow()
     private val _genres = MutableStateFlow<List<String>>(emptyList())
@@ -196,6 +198,7 @@ class ConcertsViewModel @Inject constructor(
                     val result = concerts.page(requestedCity, requestedTab, next, requestedRange, requestedGenre, requestedSuggestions)
                     _shows.value = if (next == null) result.shows else (_shows.value + result.shows).distinctBy { it.id }
                     _cursor.value = result.nextCursor; _total.value = result.total
+                    _nearbyTotal.value = result.nearbyTotal
                     _needsCity.value = result.needsCity; _genres.value = result.availableGenres
                     _hasPostedArtists.value = result.hasPostedArtists
                     if (!result.cityName.isNullOrEmpty()) _cityName.value = result.cityName

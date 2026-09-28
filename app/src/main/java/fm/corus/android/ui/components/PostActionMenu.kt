@@ -40,11 +40,11 @@ import fm.corus.android.ui.theme.CorusSpacing
  * Shows different options based on whether the current user owns the post.
  *
  * Layout mirrors iOS `PostMenuItems` — most important at top, grouped by purpose:
- *   1. Discover          — Go to Song / Film, Artist, Album / Director, Back Cover
+ *   1. Act on the post   — Send a Gift (eligible), Save / Edit Caption, Share
  *   ── divider ──
- *   2. Playback (tracks) — Play in service, Add to Queue
+ *   2. Discover          — Go to Song / Film, Artist, Album / Director, Back Cover
  *   ── divider ──
- *   3. Act on the post   — Save / Edit Caption, Share
+ *   3. Playback (tracks) — Play in service, Add to Queue
  *   ── divider ──
  *   4. Social / danger   — Report + Block (others) / Delete (own)
  */
@@ -97,7 +97,42 @@ fun PostActionMenu(
                 .padding(top = CorusSpacing.sm),
         )
 
-        // ── 1. Discover ──
+        // ── 1. Act on the post ──
+        if (isMine) {
+            MenuRow(
+                icon = Icons.Filled.Edit,
+                label = stringResource(R.string.post_menu_edit_caption),
+                onClick = { onEditCaption(); onDismiss() },
+            )
+        } else {
+            if (canSendGift) {
+                MenuRow(
+                    icon = Icons.Filled.CardGiftcard,
+                    label = stringResource(R.string.gift_send_action),
+                    onClick = { onSendGift(); onDismiss() },
+                )
+            }
+            MenuRow(
+                icon = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                label = stringResource(
+                    if (isSaved) R.string.post_menu_unsave else R.string.post_menu_save
+                ),
+                onClick = { onToggleSave(); onDismiss() },
+            )
+        }
+
+        MenuRow(
+            icon = Icons.AutoMirrored.Filled.Send,
+            label = stringResource(R.string.post_menu_share),
+            onClick = { onSharePost(); onDismiss() },
+        )
+
+        HorizontalDivider(
+            color = CorusColors.Divider,
+            modifier = Modifier.padding(horizontal = CorusSpacing.lg),
+        )
+
+        // ── 2. Discover ──
         if (isMovie) {
             MenuRow(
                 icon = Icons.Filled.Movie,
@@ -113,13 +148,6 @@ fun PostActionMenu(
                 )
             }
         } else {
-            if (canSendGift) {
-                MenuRow(
-                    icon = Icons.Filled.CardGiftcard,
-                    label = stringResource(R.string.gift_send_action),
-                    onClick = { onSendGift(); onDismiss() },
-                )
-            }
             MenuRow(
                 icon = Icons.Filled.MusicNote,
                 label = stringResource(R.string.post_menu_view_song_page),
@@ -153,7 +181,7 @@ fun PostActionMenu(
             )
         }
 
-        // ── 2. Playback (tracks) — under View Back Cover ──
+        // ── 3. Playback (tracks) — under View Back Cover ──
         if (!isMovie) {
             HorizontalDivider(
                 color = CorusColors.Divider,
@@ -185,41 +213,6 @@ fun PostActionMenu(
                 )
             }
         }
-
-        // ── 3. Act on the post ──
-        HorizontalDivider(
-            color = CorusColors.Divider,
-            modifier = Modifier.padding(horizontal = CorusSpacing.lg),
-        )
-
-        if (isMine) {
-            MenuRow(
-                icon = Icons.Filled.Edit,
-                label = stringResource(R.string.post_menu_edit_caption),
-                onClick = { onEditCaption(); onDismiss() },
-            )
-        } else {
-            if (canSendGift) {
-                MenuRow(
-                    icon = Icons.Filled.CardGiftcard,
-                    label = stringResource(R.string.gift_send_action),
-                    onClick = { onSendGift(); onDismiss() },
-                )
-            }
-            MenuRow(
-                icon = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                label = stringResource(
-                    if (isSaved) R.string.post_menu_unsave else R.string.post_menu_save
-                ),
-                onClick = { onToggleSave(); onDismiss() },
-            )
-        }
-
-        MenuRow(
-            icon = Icons.AutoMirrored.Filled.Send,
-            label = stringResource(R.string.post_menu_share),
-            onClick = { onSharePost(); onDismiss() },
-        )
 
         // ── 4. Destructive / social ──
         val showReportBlockActions = showPostReportBlockActions(isMine = isMine, authorIsBot = post.user.isBot)

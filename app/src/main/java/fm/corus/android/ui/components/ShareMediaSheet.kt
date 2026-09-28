@@ -5,7 +5,12 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -14,6 +19,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -21,6 +27,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
@@ -135,6 +143,7 @@ fun ShareMediaSheet(
     isOwnProfile: Boolean = false,
     instagramShareEnabled: Boolean = false,
     postToInstagramV2: Boolean = false,
+    profileSharingV2: Boolean = false,
     profileShareAnalytics: ProfileShareAnalytics? = null,
 ) {
     if (postToInstagramV2 && (subject is ShareMediaSubject.Track || subject is ShareMediaSubject.Film)) {
@@ -176,6 +185,7 @@ fun ShareMediaSheet(
         OwnProfileShareSheet(
             profile = sharedProfile!!,
             instagramShareEnabled = instagramShareEnabled,
+            profileSharingV2 = profileSharingV2,
             onDismiss = onDismiss,
             profileShareAnalytics = profileShareAnalytics,
             onAnalyticsLog = onAnalyticsLog,
@@ -202,6 +212,7 @@ fun ShareMediaSheet(
 private fun OwnProfileShareSheet(
     profile: ShareProfileSubject,
     instagramShareEnabled: Boolean,
+    profileSharingV2: Boolean,
     onDismiss: () -> Unit,
     profileShareAnalytics: ProfileShareAnalytics? = null,
     onAnalyticsLog: ((method: String) -> Unit)? = null,
@@ -216,6 +227,33 @@ private fun OwnProfileShareSheet(
     var showCopied by remember { mutableStateOf(false) }
     var isSharingToInstagram by remember { mutableStateOf(false) }
     var showInstagramPasteHint by remember { mutableStateOf(false) }
+    var storyPreviewBitmap by remember(profile) { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var profileStoryShowsBio by remember { mutableStateOf(true) }
+    var profileStoryGridSize by remember { mutableStateOf(ProfileStoryGridSize.STANDARD) }
+    var profileStoryBackground by remember(isDarkTheme) {
+        mutableStateOf(if (isDarkTheme) ProfileStoryBackground.DARK else ProfileStoryBackground.LIGHT)
+    }
+    var profileOptionsExpanded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(
+        profileSharingV2,
+        profile,
+        shareCardTheme,
+        profileStoryShowsBio,
+        profileStoryGridSize,
+        profileStoryBackground,
+    ) {
+        if (!profileSharingV2) return@LaunchedEffect
+        storyPreviewBitmap = null
+        storyPreviewBitmap = generateProfileStoriesCardBitmap(
+            context,
+            profile,
+            shareCardTheme,
+            showBio = profileStoryShowsBio,
+            gridSize = profileStoryGridSize,
+            background = profileStoryBackground,
+        )
+    }
 
     LaunchedEffect(shareCardTheme) {
         if (!hasLoggedInitialTheme) {
@@ -252,42 +290,128 @@ private fun OwnProfileShareSheet(
     ) {
         ShareSheetDragIndicator()
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.xxl)
-                .padding(bottom = CorusSpacing.sm),
-        ) {
-            Text(
-                stringResource(R.string.share_profile_title),
-                style = CorusFont.songTitleLarge,
-                color = CorusColors.Text,
-            )
-            Text(
-                stringResource(R.string.share_profile_subtitle),
-                style = CorusFont.caption,
-                color = CorusColors.Secondary,
-            )
+        if (!profileSharingV2) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CorusSpacing.xxl)
+                    .padding(bottom = CorusSpacing.sm),
+            ) {
+                Text(
+                    stringResource(R.string.share_profile_title),
+                    style = CorusFont.songTitleLarge,
+                    color = CorusColors.Text,
+                )
+                Text(
+                    stringResource(R.string.share_profile_subtitle),
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
+                )
+            }
         }
 
-        SingleChoiceSegmentedButtonRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.xxl)
-                .padding(bottom = CorusSpacing.sm),
-        ) {
-            ShareCardTheme.entries.forEachIndexed { index, theme ->
-                SegmentedButton(
-                    selected = shareCardTheme == theme,
-                    onClick = { shareCardTheme = theme },
-                    shape = SegmentedButtonDefaults.itemShape(index, ShareCardTheme.entries.size),
-                ) {
-                    Text(theme.label, style = CorusFont.bodyMedium)
+        if (!profileSharingV2) {
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CorusSpacing.xxl)
+                    .padding(bottom = CorusSpacing.sm),
+            ) {
+                ShareCardTheme.entries.forEachIndexed { index, theme ->
+                    SegmentedButton(
+                        selected = shareCardTheme == theme,
+                        onClick = { shareCardTheme = theme },
+                        shape = SegmentedButtonDefaults.itemShape(index, ShareCardTheme.entries.size),
+                    ) {
+                        Text(theme.label, style = CorusFont.bodyMedium)
+                    }
                 }
             }
         }
 
-        if (profile.hasLocalPreview) {
+        if (profileSharingV2) {
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                val previewModifier = Modifier
+                    .width(244.dp)
+                    .aspectRatio(9f / 16f)
+                    .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
+                Box(modifier = previewModifier) {
+                    val bitmap = storyPreviewBitmap
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = stringResource(R.string.share_profile_instagram_preview_cd),
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier.fillMaxSize().background(CorusColors.CardBackground),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator(
+                                color = CorusColors.Secondary,
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier.align(Alignment.TopEnd).offset(x = 22.dp, y = (-22).dp),
+                    ) {
+                        Box(
+                            modifier = Modifier.size(44.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            IconButton(
+                                onClick = { profileOptionsExpanded = true },
+                                modifier = Modifier.size(30.dp).background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+                            ) {
+                                Icon(
+                                    Icons.Filled.Settings,
+                                    contentDescription = stringResource(R.string.share_profile_options),
+                                    modifier = Modifier.size(15.dp),
+                                )
+                            }
+                        }
+                        DropdownMenu(
+                            expanded = profileOptionsExpanded,
+                            onDismissRequest = { profileOptionsExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.share_profile_show_bio)) },
+                                leadingIcon = { Checkbox(checked = profileStoryShowsBio, onCheckedChange = null) },
+                                onClick = { profileStoryShowsBio = !profileStoryShowsBio },
+                            )
+                        }
+                    }
+                }
+            }
+
+            Text(
+                stringResource(R.string.instagram_v2_preview_label),
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            )
+
+            ProfileStoryGridPicker(
+                gridSize = profileStoryGridSize,
+                onGridSizeChange = { profileStoryGridSize = it },
+                modifier = Modifier.fillMaxWidth().padding(top = CorusSpacing.xs),
+            )
+
+            ProfileStoryBackgroundPicker(
+                background = profileStoryBackground,
+                onBackgroundChange = { selected ->
+                    profileStoryBackground = selected
+                    if (selected == ProfileStoryBackground.LIGHT) shareCardTheme = ShareCardTheme.LIGHT
+                    if (selected == ProfileStoryBackground.DARK) shareCardTheme = ShareCardTheme.DARK
+                },
+                modifier = Modifier.fillMaxWidth().padding(top = CorusSpacing.xs),
+            )
+        } else if (profile.hasLocalPreview) {
             LocalProfileSharePreviewCard(profile = profile, theme = shareCardTheme)
         } else {
             ShareLinkPreviewCard(
@@ -334,8 +458,18 @@ private fun OwnProfileShareSheet(
                             showInstagramPasteHint = true
                             isSharingToInstagram = true
                             val themeToShare = shareCardTheme
+                            val showBioToShare = profileStoryShowsBio
+                            val gridSizeToShare = profileStoryGridSize
+                            val backgroundToShare = if (profileSharingV2) profileStoryBackground else null
                             coroutineScope.launch {
-                                shareProfileToInstagramStories(context, profile, themeToShare)
+                                shareProfileToInstagramStories(
+                                    context,
+                                    profile,
+                                    themeToShare,
+                                    showBio = showBioToShare,
+                                    gridSize = gridSizeToShare,
+                                    background = backgroundToShare,
+                                )
                                 isSharingToInstagram = false
                             }
                         },
@@ -436,6 +570,88 @@ private fun OwnProfileShareSheet(
                         color = CorusColors.Text,
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileStoryGridPicker(
+    gridSize: ProfileStoryGridSize,
+    onGridSizeChange: (ProfileStoryGridSize) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(modifier = modifier, horizontalArrangement = Arrangement.Center) {
+        Row(
+            modifier = Modifier
+                .width(260.dp)
+                .height(40.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(20.dp)),
+        ) {
+            listOf(
+                ProfileStoryGridSize.STANDARD to "3 × 3",
+                ProfileStoryGridSize.LARGE to "4 × 4",
+            ).forEach { (size, label) ->
+                val selected = gridSize == size
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .border(
+                            width = if (selected) 1.dp else 0.dp,
+                            color = if (selected) MaterialTheme.colorScheme.outlineVariant else Color.Transparent,
+                            shape = RoundedCornerShape(20.dp),
+                        )
+                        .background(
+                            color = if (selected) MaterialTheme.colorScheme.surface else Color.Transparent,
+                            shape = RoundedCornerShape(20.dp),
+                        )
+                        .clip(RoundedCornerShape(20.dp))
+                        .clickable { onGridSizeChange(size) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(label, style = CorusFont.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileStoryBackgroundPicker(
+    background: ProfileStoryBackground,
+    onBackgroundChange: (ProfileStoryBackground) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = CorusSpacing.xxl),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        ProfileStoryBackground.entries.forEach { option ->
+            Column(
+                modifier = Modifier
+                    .widthIn(min = 64.dp)
+                    .clickable { onBackgroundChange(option) }
+                    .padding(vertical = 2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .border(
+                            width = 2.dp,
+                            color = if (background == option) CorusColors.Accent else Color.Transparent,
+                            shape = CircleShape,
+                        )
+                        .padding(4.dp)
+                        .clip(CircleShape)
+                        .background(Color(option.color))
+                        .border(1.dp, CorusColors.Tertiary.copy(alpha = .35f), CircleShape),
+                )
+                Text(option.label, style = CorusFont.captionMedium, color = CorusColors.Text)
             }
         }
     }

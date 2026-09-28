@@ -22,7 +22,7 @@ enum class NotificationFilter(val value: String) {
             COMMENTS -> listOf(NotificationType.COMMENT, NotificationType.REPLY)
             FOLLOWS -> listOf(NotificationType.FOLLOW)
             TAGS_AND_MENTIONS -> listOf(NotificationType.MENTION, NotificationType.TAG)
-            GIFTS -> listOf(NotificationType.GIFT)
+            GIFTS -> listOf(NotificationType.GIFT, NotificationType.GIFT_THANKS)
         }
 
     val isTypeScoped: Boolean get() = queryTypes != null

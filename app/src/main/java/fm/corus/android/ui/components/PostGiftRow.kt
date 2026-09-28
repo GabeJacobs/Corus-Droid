@@ -14,12 +14,20 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
@@ -35,13 +43,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-private data class GiftReceipt(val id: String, val senderId: String, val sender: String, val type: String, val note: String?) {
-    fun title(context: android.content.Context): String = context.getString(
-        R.string.gift_sender_sent,
-        sender.ifBlank { context.getString(R.string.gift_someone) },
-        GiftDefinition.from(type).sentPhrase(context),
-    )
-}
+private data class GiftReceipt(val id: String, val senderId: String, val sender: String, val type: String, val note: String?)
 
 internal fun shouldShowGiftNote(note: String?): Boolean = !note.isNullOrBlank()
 
@@ -110,6 +112,7 @@ fun PostGiftRow(
     giftCount: Int,
     recentGifts: List<PostGiftPreview> = emptyList(),
     onSenderTap: (String) -> Unit = {},
+    contentPadding: PaddingValues = PaddingValues(start = 12.5.dp, end = 16.dp, top = 5.dp, bottom = 9.dp),
 ) {
     val context = LocalContext.current
     val uid = FirebaseAuth.getInstance().currentUser?.uid
@@ -173,7 +176,7 @@ fun PostGiftRow(
             sheetCursor = null
             sheetError = false
             open = true
-        }.padding(start = 12.5.dp, end = 16.dp, top = 5.dp, bottom = 9.dp),
+        }.padding(contentPadding),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.5.dp),
     ) {
@@ -183,7 +186,8 @@ fun PostGiftRow(
             }
         }
         Text(
-            if (currentRowSummary.total == 1) firstRowGift.title(context) else localizedGiftAttribution(context, currentRowSummary),
+            if (currentRowSummary.total == 1) localizedGiftReceiptTitle(context, firstRowGift)
+            else localizedGiftAttribution(context, currentRowSummary),
             color = CorusColors.Text,
             modifier = Modifier.weight(1f),
         )
@@ -276,7 +280,6 @@ fun PostGiftRow(
                                     Text(stringResource(R.string.gift_refresh_details_error), color = CorusColors.Secondary)
                                     TextButton(onClick = { scope.launch { loadSheet(reset = true) } }) { Text(stringResource(R.string.gift_try_again)) }
                                 }
-                                TextButton(onClick = { open = false }) { Text(stringResource(R.string.gift_close)) }
                             }
                         }
                     }
@@ -292,22 +295,119 @@ private fun GiftPager(
     onPrevious: () -> Unit, onNext: () -> Unit,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-        TextButton(enabled = previousEnabled, onClick = onPrevious) { Text("‹") }
+        IconButton(
+            enabled = previousEnabled,
+            onClick = onPrevious,
+            modifier = Modifier.size(48.dp),
+            colors = IconButtonDefaults.iconButtonColors(contentColor = CorusColors.Accent),
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                contentDescription = stringResource(R.string.full_player_cd_previous),
+                modifier = Modifier.size(32.dp),
+            )
+        }
         Text(stringResource(R.string.gift_pager_count, index + 1, total), color = CorusColors.Secondary)
-        TextButton(enabled = nextEnabled, onClick = onNext) { Text("›") }
+        IconButton(
+            enabled = nextEnabled,
+            onClick = onNext,
+            modifier = Modifier.size(48.dp),
+            colors = IconButtonDefaults.iconButtonColors(contentColor = CorusColors.Accent),
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = stringResource(R.string.full_player_cd_next),
+                modifier = Modifier.size(32.dp),
+            )
+        }
     }
 }
 
-private fun localizedGiftAttribution(context: android.content.Context, summary: PostGiftSummary): String {
+private const val GIFT_COUNT_TOKEN = "__CORUS_GIFT_COUNT__"
+private const val GIFT_SENDER_ONE_TOKEN = "__CORUS_GIFT_SENDER_ONE__"
+private const val GIFT_SENDER_TWO_TOKEN = "__CORUS_GIFT_SENDER_TWO__"
+private const val GIFT_TYPE_TOKEN = "__CORUS_GIFT_TYPE__"
+
+/** Replaces formatting sentinels with bold text while leaving all localized
+ * connecting copy in its resource-defined order. */
+internal fun emphasizedGiftAttribution(
+    template: String,
+    replacements: Map<String, String>,
+): AnnotatedString = buildAnnotatedString {
+    var cursor = 0
+    while (cursor < template.length) {
+        val next = replacements.entries
+            .mapNotNull { entry ->
+                template.indexOf(entry.key, startIndex = cursor)
+                    .takeIf { it >= 0 }
+                    ?.let { index -> Triple(index, entry.key, entry.value) }
+            }
+            .minByOrNull { it.first }
+
+        if (next == null) {
+            append(template.substring(cursor))
+            break
+        }
+        append(template.substring(cursor, next.first))
+        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(next.third) }
+        cursor = next.first + next.second.length
+    }
+}
+
+private fun localizedGiftReceiptTitle(
+    context: android.content.Context,
+    receipt: GiftReceipt,
+): AnnotatedString {
+    val sender = receipt.sender.ifBlank { context.getString(R.string.gift_someone) }
+    val gift = GiftDefinition.from(receipt.type).sentPhrase(context)
+    return emphasizedGiftAttribution(
+        context.getString(R.string.gift_sender_sent, GIFT_SENDER_ONE_TOKEN, GIFT_TYPE_TOKEN),
+        linkedMapOf(GIFT_SENDER_ONE_TOKEN to sender, GIFT_TYPE_TOKEN to gift),
+    )
+}
+
+private fun localizedGiftAttribution(
+    context: android.content.Context,
+    summary: PostGiftSummary,
+): AnnotatedString {
     val people = summary.senders.distinctBy { it.id }
     val count = context.getString(R.string.gift_count, summary.total)
-    val first = people.firstOrNull()?.name ?: return count
-    return when {
-        summary.senderCount == 1 -> context.getString(R.string.gift_attribution_single, first, count)
-        summary.senderCount == 2 && people.size >= 2 -> context.getString(R.string.gift_attribution_two, count, first, people[1].name)
-        summary.senderCount != null && summary.senderCount > 2 -> context.getString(R.string.gift_attribution_others, count, first, summary.senderCount - 1)
-        else -> context.getString(R.string.gift_attribution_latest, count, first)
+    val first = people.firstOrNull()?.name ?: return emphasizedGiftAttribution(
+        GIFT_COUNT_TOKEN,
+        mapOf(GIFT_COUNT_TOKEN to count),
+    )
+    val replacements = linkedMapOf(
+        GIFT_COUNT_TOKEN to count,
+        GIFT_SENDER_ONE_TOKEN to first,
+    )
+    val template = when {
+        summary.senderCount == 1 -> context.getString(
+            R.string.gift_attribution_single,
+            GIFT_SENDER_ONE_TOKEN,
+            GIFT_COUNT_TOKEN,
+        )
+        summary.senderCount == 2 && people.size >= 2 -> {
+            replacements[GIFT_SENDER_TWO_TOKEN] = people[1].name
+            context.getString(
+                R.string.gift_attribution_two,
+                GIFT_COUNT_TOKEN,
+                GIFT_SENDER_ONE_TOKEN,
+                GIFT_SENDER_TWO_TOKEN,
+            )
+        }
+        summary.senderCount != null && summary.senderCount > 2 -> context.getString(
+            R.string.gift_attribution_others,
+            GIFT_COUNT_TOKEN,
+            GIFT_SENDER_ONE_TOKEN,
+            summary.senderCount - 1,
+        )
+        else -> context.getString(
+            R.string.gift_attribution_latest,
+            GIFT_COUNT_TOKEN,
+            GIFT_SENDER_ONE_TOKEN,
+        )
     }
+    return emphasizedGiftAttribution(template, replacements)
 }
 
 @Composable

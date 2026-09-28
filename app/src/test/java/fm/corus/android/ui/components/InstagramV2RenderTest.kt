@@ -15,6 +15,23 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [35], application = android.app.Application::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class InstagramV2RenderTest {
+    @Test fun `frosted background uses a smooth story-ratio blur source`() {
+        val art = Bitmap.createBitmap(300, 300, Bitmap.Config.ARGB_8888).apply {
+            for (y in 0 until height) for (x in 0 until width) {
+                setPixel(x, y, if (x < width / 2) Color.RED else Color.BLUE)
+            }
+        }
+
+        val frost = bakeInstagramV2FrostedBackground(art)
+
+        assertEquals(270, frost.width)
+        assertEquals(480, frost.height)
+        assertNotEquals(Color.RED, frost.getPixel(frost.width / 2 - 12, frost.height / 2))
+        assertNotEquals(Color.BLUE, frost.getPixel(frost.width / 2 + 12, frost.height / 2))
+        frost.recycle()
+        art.recycle()
+    }
+
     @Test fun `post identity flair and active tags are included in the author row`() {
         val context = RuntimeEnvironment.getApplication()
         val art = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }

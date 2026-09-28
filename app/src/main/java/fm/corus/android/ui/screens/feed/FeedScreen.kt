@@ -260,6 +260,7 @@ fun FeedScreen(
     val context = LocalContext.current
     var filterMenuExpanded by remember { mutableStateOf(false) }
     var sharePost by remember { mutableStateOf<CymbalPost?>(null) }
+    var giftPost by remember { mutableStateOf<CymbalPost?>(null) }
     var menuPost by remember { mutableStateOf<CymbalPost?>(null) }
     var editCaptionPost by remember { mutableStateOf<CymbalPost?>(null) }
     var showDeleteConfirm by remember { mutableStateOf<CymbalPost?>(null) }
@@ -1278,6 +1279,9 @@ fun FeedScreen(
                                 nowPlayingState.trackId == post.track.id &&
                                 nowPlayingState.sourcePostId == post.id,
                             onLikeTap = { viewModel.toggleLike(post.id) },
+                            onLikeLongPress = if (viewModel.remoteConfig.canSendGiftTo(post.user.id)) {
+                                { giftPost = post }
+                            } else null,
                             onSaveTap = { viewModel.toggleSave(post.id) },
                             onUserTap = { onNavigateToUser(post.user) },
                             onPostTap = { onNavigateToPost(post.id) },
@@ -1580,10 +1584,12 @@ fun FeedScreen(
     PostMenuSheets(
         menuPost = menuPost,
         sharePost = sharePost,
+        giftPost = giftPost,
         editCaptionPost = editCaptionPost,
         deleteConfirmPost = showDeleteConfirm,
         onMenuPostChange = { menuPost = it },
         onSharePostChange = { sharePost = it },
+        onGiftPostChange = { giftPost = it },
         onEditCaptionPostChange = { editCaptionPost = it },
         onDeleteConfirmPostChange = { showDeleteConfirm = it },
         actions = viewModel,

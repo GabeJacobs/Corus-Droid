@@ -20,12 +20,14 @@ import android.text.TextPaint
 import android.text.TextUtils
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -329,28 +331,108 @@ private fun drawInstagramV2Background(
     canvas.drawRect(0f, 0f, 1080f, 1920f, paint)
     paint.shader = null
     if (background == "frosted") {
-        val tiny = Bitmap.createBitmap(20, 36, Bitmap.Config.ARGB_8888)
-        val targetRatio = 20f / 36f
-        val sourceRatio = art.width.toFloat() / art.height.coerceAtLeast(1)
-        val source = if (sourceRatio > targetRatio) {
-            val width = (art.height * targetRatio).toInt().coerceAtLeast(1)
-            val left = (art.width - width) / 2
-            android.graphics.Rect(left, 0, left + width, art.height)
-        } else {
-            val height = (art.width / targetRatio).toInt().coerceAtLeast(1)
-            val topCrop = (art.height - height) / 2
-            android.graphics.Rect(0, topCrop, art.width, topCrop + height)
-        }
-        Canvas(tiny).drawBitmap(art, source, Rect(0, 0, 20, 36), paint)
-        val blurred = Bitmap.createScaledBitmap(tiny, 1080, 1920, true)
+        val blurred = bakeInstagramV2FrostedBackground(art)
         canvas.drawBitmap(blurred, null, RectF(0f, 0f, 1080f, 1920f), paint)
-        if (tiny !== blurred) tiny.recycle()
-        if (blurred !== art) blurred.recycle()
+        blurred.recycle()
         paint.color = 0x57000000
         canvas.drawRect(0f, 0f, 1080f, 1920f, paint)
     }
     paint.alpha = 255
     paint.shader = null
+}
+
+/**
+ * Produces the same smooth, artwork-led wash as the player backdrop and iOS
+ * Story renderer. The old implementation enlarged a 20 x 36 thumbnail
+ * directly to Story size, leaving obvious square color blocks. A three-pass
+ * box blur at quarter resolution approximates iOS's large Gaussian blur while
+ * keeping preview re-renders inexpensive.
+ */
+internal fun bakeInstagramV2FrostedBackground(
+    art: Bitmap,
+    width: Int = 270,
+    height: Int = 480,
+): Bitmap {
+    val target = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val targetRatio = width.toFloat() / height
+    val sourceRatio = art.width.toFloat() / art.height.coerceAtLeast(1)
+    val source = if (sourceRatio > targetRatio) {
+        val cropWidth = (art.height * targetRatio).toInt().coerceAtLeast(1)
+        val left = (art.width - cropWidth) / 2
+        Rect(left, 0, left + cropWidth, art.height)
+    } else {
+        val cropHeight = (art.width / targetRatio).toInt().coerceAtLeast(1)
+        val top = (art.height - cropHeight) / 2
+        Rect(0, top, art.width, top + cropHeight)
+    }
+    Canvas(target).drawBitmap(
+        art,
+        source,
+        Rect(0, 0, width, height),
+        Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG),
+    )
+
+    var pixels = IntArray(width * height).also { target.getPixels(it, 0, width, 0, 0, width, height) }
+    repeat(3) { pixels = boxBlurInstagramV2(pixels, width, height, radius = 12) }
+    target.setPixels(pixels, 0, width, 0, 0, width, height)
+    return target
+}
+
+private fun boxBlurInstagramV2(source: IntArray, width: Int, height: Int, radius: Int): IntArray {
+    if (radius <= 0) return source.copyOf()
+    val horizontal = IntArray(source.size)
+    val output = IntArray(source.size)
+    val divisor = radius * 2 + 1
+
+    for (y in 0 until height) {
+        val row = y * width
+        var alpha = 0
+        var red = 0
+        var green = 0
+        var blue = 0
+        for (offset in -radius..radius) {
+            val color = source[row + offset.coerceIn(0, width - 1)]
+            alpha += color ushr 24
+            red += color shr 16 and 255
+            green += color shr 8 and 255
+            blue += color and 255
+        }
+        for (x in 0 until width) {
+            horizontal[row + x] = (alpha / divisor shl 24) or (red / divisor shl 16) or
+                (green / divisor shl 8) or (blue / divisor)
+            val outgoing = source[row + (x - radius).coerceIn(0, width - 1)]
+            val incoming = source[row + (x + radius + 1).coerceIn(0, width - 1)]
+            alpha += (incoming ushr 24) - (outgoing ushr 24)
+            red += (incoming shr 16 and 255) - (outgoing shr 16 and 255)
+            green += (incoming shr 8 and 255) - (outgoing shr 8 and 255)
+            blue += (incoming and 255) - (outgoing and 255)
+        }
+    }
+
+    for (x in 0 until width) {
+        var alpha = 0
+        var red = 0
+        var green = 0
+        var blue = 0
+        for (offset in -radius..radius) {
+            val color = horizontal[offset.coerceIn(0, height - 1) * width + x]
+            alpha += color ushr 24
+            red += color shr 16 and 255
+            green += color shr 8 and 255
+            blue += color and 255
+        }
+        for (y in 0 until height) {
+            output[y * width + x] = (alpha / divisor shl 24) or (red / divisor shl 16) or
+                (green / divisor shl 8) or (blue / divisor)
+            val outgoing = horizontal[(y - radius).coerceIn(0, height - 1) * width + x]
+            val incoming = horizontal[(y + radius + 1).coerceIn(0, height - 1) * width + x]
+            alpha += (incoming ushr 24) - (outgoing ushr 24)
+            red += (incoming shr 16 and 255) - (outgoing shr 16 and 255)
+            green += (incoming shr 8 and 255) - (outgoing shr 8 and 255)
+            blue += (incoming and 255) - (outgoing and 255)
+        }
+    }
+    return output
 }
 
 internal fun instagramV2FrameBounds(contentHeight: Int): Rect {
@@ -571,9 +653,27 @@ internal fun PostToInstagramV2Sheet(
     }
 
     Column(Modifier.fillMaxWidth().fillMaxHeight(.94f).imePadding()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-            Spacer(Modifier.weight(1f))
-            IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, stringResource(R.string.instagram_v2_close)) }
+        Box(Modifier.fillMaxWidth().height(60.dp).padding(horizontal = 20.dp)) {
+            Box(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 8.dp)
+                    .size(width = 36.dp, height = 5.dp)
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .35f), RoundedCornerShape(50)),
+            )
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .size(44.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+            ) {
+                Icon(
+                    Icons.Default.Close,
+                    stringResource(R.string.instagram_v2_close),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         if (searching) {
             Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -594,7 +694,10 @@ internal fun PostToInstagramV2Sheet(
             }
         } else {
             Box(Modifier.weight(1f).fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
-                Box(Modifier.fillMaxHeight().aspectRatio(9f / 16f), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier.fillMaxWidth(.52f).aspectRatio(9f / 16f).offset(y = (-14).dp),
+                    contentAlignment = Alignment.Center,
+                ) {
                     image?.let {
                         Image(it.asImageBitmap(), stringResource(R.string.instagram_v2_preview), modifier = Modifier.fillMaxSize())
                     } ?: if (loading || artwork != null) {
@@ -603,7 +706,7 @@ internal fun PostToInstagramV2Sheet(
                         TextButton(onClick = { retry++ }) { Text(stringResource(R.string.instagram_v2_retry)) }
                     }
                     if (!subject.caption.isNullOrBlank() || subject.isFirstPoster || subject.isNewRelease) {
-                        Box(Modifier.align(Alignment.TopEnd)) {
+                        Box(Modifier.align(Alignment.TopEnd).offset(x = 22.dp, y = (-22).dp)) {
                             Box(
                                 modifier = Modifier.size(44.dp).clickable { optionsExpanded = true },
                                 contentAlignment = Alignment.Center,
@@ -643,48 +746,42 @@ internal fun PostToInstagramV2Sheet(
                 stringResource(R.string.instagram_v2_preview_label),
                 style = CorusFont.caption,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.align(Alignment.CenterHorizontally),
+                modifier = Modifier.align(Alignment.CenterHorizontally).offset(y = (-49).dp),
             )
             if (!subject.isFilm) {
-                Row(Modifier.align(Alignment.CenterHorizontally), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = layout == "cover", onClick = { if (!sharing) layout = "cover" }, label = { Text(stringResource(R.string.instagram_v2_cover)) })
-                    FilterChip(
-                        selected = layout == "vinyl",
+                InstagramV2LayoutPicker(
+                    layout = layout,
+                    enabled = !sharing,
+                    onLayoutChange = { layout = it },
+                    modifier = Modifier.align(Alignment.CenterHorizontally).offset(y = (-49).dp),
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().offset(y = (-49).dp).padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+            ) {
+                listOf(
+                    "frosted" to R.string.instagram_v2_frosted,
+                    "solid" to R.string.instagram_v2_solid,
+                    "gradient" to R.string.instagram_v2_gradient,
+                ).forEach { (value, label) ->
+                    InstagramV2BackgroundOption(
+                        value = value,
+                        label = stringResource(label),
+                        selected = background == value,
                         enabled = !sharing,
-                        onClick = { layout = "vinyl" },
-                        label = { Text(stringResource(R.string.instagram_v2_vinyl)) },
+                        accent = accent,
+                        artwork = artwork,
+                        onClick = { background = value },
                     )
                 }
             }
-            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(listOf("frosted" to R.string.instagram_v2_frosted, "solid" to R.string.instagram_v2_solid, "gradient" to R.string.instagram_v2_gradient)) { (value, label) ->
-                    FilterChip(selected = background == value, onClick = {
-                        if (!sharing) background = value
-                    }, label = {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                            val color = Color(accent)
-                            val swatchArtwork = artwork
-                            if (value == "frosted" && swatchArtwork != null) {
-                                Box(Modifier.size(18.dp).clip(CircleShape)) {
-                                    Image(
-                                        swatchArtwork.asImageBitmap(),
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize().scale(1.12f).blur(2.dp),
-                                    )
-                                    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .34f)))
-                                }
-                            } else {
-                                val end = if (value == "gradient") Color(InstagramV2Palette.darken(accent)) else color
-                                Box(Modifier.size(18.dp).background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(color, end)), CircleShape))
-                            }
-                            Text(stringResource(label))
-                        }
-                    })
-                }
-            }
-            error?.let { Text(it, style = CorusFont.caption, modifier = Modifier.padding(horizontal = 16.dp)) }
-            LazyRow(contentPadding = PaddingValues(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            error?.let { Text(it, style = CorusFont.caption, modifier = Modifier.offset(y = (-49).dp).padding(horizontal = 16.dp)) }
+            LazyRow(
+                modifier = Modifier.offset(y = (-38).dp),
+                contentPadding = PaddingValues(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
                 item { ShareActionButton(icon = Icons.Default.Search, label = stringResource(R.string.share_post_search_placeholder)) { searching = true } }
                 if (isLoadingContacts) item { CircularProgressIndicator(Modifier.size(48.dp)) }
                 items(contacts, key = { it.id }) { recipient ->
@@ -710,12 +807,6 @@ internal fun PostToInstagramV2Sheet(
                 if (instagramShareEnabled && isInstagramAvailable(context)) item {
                     InstagramShareButton(isLoading = sharing, onClick = { if (image != null) shareImage(true) })
                 }
-                if (image != null) item {
-                    ShareActionButton(icon = Icons.Default.Image, label = stringResource(R.string.instagram_v2_share_image)) {
-                        onAnalyticsLog?.invoke("share_image")
-                        shareImage(false)
-                    }
-                }
                 if (isWhatsAppAvailable(context)) item {
                     ShareActionButton(label = stringResource(R.string.share_post_whatsapp), painter = painterResource(R.drawable.whatsapp_logo), backgroundColor = Color(0xff25D366), iconTint = Color.White) {
                         onAnalyticsLog?.invoke("whatsapp")
@@ -731,7 +822,114 @@ internal fun PostToInstagramV2Sheet(
                     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, subject.outboundLink) }, context.getString(R.string.share_post_share_chooser)))
                 } }
                 item { ShareActionButton(icon = Icons.Default.ContentCopy, label = stringResource(R.string.share_post_copy_link)) { copyLink(subject.outboundLink); onAnalyticsLog?.invoke("copy_link") } }
+                if (image != null) item {
+                    ShareActionButton(icon = Icons.Default.Image, label = stringResource(R.string.instagram_v2_share_image)) {
+                        onAnalyticsLog?.invoke("share_image")
+                        shareImage(false)
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun InstagramV2LayoutPicker(
+    layout: String,
+    enabled: Boolean,
+    onLayoutChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .width(260.dp)
+            .height(40.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(20.dp)),
+    ) {
+        listOf(
+            "cover" to stringResource(R.string.instagram_v2_cover),
+            "vinyl" to stringResource(R.string.instagram_v2_vinyl),
+        ).forEach { (value, label) ->
+            val selected = layout == value
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .border(
+                        width = if (selected) 1.dp else 0.dp,
+                        color = if (selected) MaterialTheme.colorScheme.outlineVariant else Color.Transparent,
+                        shape = RoundedCornerShape(20.dp),
+                    )
+                    .background(
+                        color = if (selected) MaterialTheme.colorScheme.surface else Color.Transparent,
+                        shape = RoundedCornerShape(20.dp),
+                    )
+                    .clip(RoundedCornerShape(20.dp))
+                    .clickable(enabled = enabled) { onLayoutChange(value) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = label,
+                    style = CorusFont.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InstagramV2BackgroundOption(
+    value: String,
+    label: String,
+    selected: Boolean,
+    enabled: Boolean,
+    accent: Int,
+    artwork: Bitmap?,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .widthIn(min = 64.dp)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .border(
+                    width = 2.dp,
+                    color = if (selected) CorusColors.Accent else Color.Transparent,
+                    shape = CircleShape,
+                )
+                .padding(4.dp)
+                .clip(CircleShape),
+        ) {
+            val color = Color(accent)
+            if (value == "frosted" && artwork != null) {
+                Image(
+                    artwork.asImageBitmap(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize().scale(1.12f).blur(2.5.dp),
+                )
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .34f)))
+            } else {
+                val end = if (value == "gradient") Color(InstagramV2Palette.darken(accent)) else color
+                Box(
+                    Modifier.fillMaxSize().background(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(listOf(color, end)),
+                    ),
+                )
+            }
+        }
+        Text(
+            text = label,
+            style = CorusFont.captionMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+        )
     }
 }

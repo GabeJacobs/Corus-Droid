@@ -1135,6 +1135,9 @@
     <string name="share_post_cd_x">Share to X</string>
     <string name="share_profile_title">Share your profile</string>
     <string name="share_profile_subtitle">Preview of how your link will look when shared</string>
+    <string name="share_profile_instagram_preview_cd">Instagram Story preview</string>
+    <string name="share_profile_options">Profile options</string>
+    <string name="share_profile_show_bio">Show bio</string>
     <string name="share_profile_toast_instagram_link">Link copied — paste it onto your story</string>
 
     <!-- Song/Film picker sheet -->

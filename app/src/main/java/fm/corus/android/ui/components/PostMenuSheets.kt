@@ -64,10 +64,12 @@ import kotlinx.coroutines.launch
 fun PostMenuSheets(
     menuPost: CymbalPost?,
     sharePost: CymbalPost?,
+    giftPost: CymbalPost?,
     editCaptionPost: CymbalPost?,
     deleteConfirmPost: CymbalPost?,
     onMenuPostChange: (CymbalPost?) -> Unit,
     onSharePostChange: (CymbalPost?) -> Unit,
+    onGiftPostChange: (CymbalPost?) -> Unit,
     onEditCaptionPostChange: (CymbalPost?) -> Unit,
     onDeleteConfirmPostChange: (CymbalPost?) -> Unit,
     actions: PostMenuActions,
@@ -111,7 +113,6 @@ fun PostMenuSheets(
     // sheet never appears. Stash the post here, dismiss the menu, then open
     // the share sheet once the menu is fully gone.
     var pendingSharePost by remember { mutableStateOf<CymbalPost?>(null) }
-    var giftPost by remember { mutableStateOf<CymbalPost?>(null) }
     var pendingGiftPost by remember { mutableStateOf<CymbalPost?>(null) }
     LaunchedEffect(menuPost, pendingSharePost) {
         val pending = pendingSharePost
@@ -123,7 +124,7 @@ fun PostMenuSheets(
     LaunchedEffect(menuPost, pendingGiftPost) {
         val pending = pendingGiftPost
         if (menuPost == null && pending != null) {
-            giftPost = pending
+            onGiftPostChange(pending)
             pendingGiftPost = null
         }
     }
@@ -131,18 +132,18 @@ fun PostMenuSheets(
     giftPost?.let { post ->
         val giftSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
-            onDismissRequest = { giftPost = null },
+            onDismissRequest = { onGiftPostChange(null) },
             sheetState = giftSheetState,
             containerColor = CorusColors.Background,
             dragHandle = null,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-            contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Bottom) },
+            contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Vertical) },
         ) {
             CorusSystemBars()
-            BackHandler { giftPost = null }
+            BackHandler { onGiftPostChange(null) }
             GiftSelectionSheet(
                 post = post,
-                onDismiss = { giftPost = null },
+                onDismiss = { onGiftPostChange(null) },
                 onSent = { result ->
                     val giftName = fm.corus.android.data.model.GiftDefinition.from(result.giftType).name(context)
                     ToastManager.show(context.getString(R.string.gift_sent_named, giftName))

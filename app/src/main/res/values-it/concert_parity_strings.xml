@@ -2,9 +2,18 @@
 <resources>
     <string name="concert_make_personal">Rendilo personale</string>
     <string name="concert_personal_message">Pubblica la musica che ami. Seguiremo i tuoi artisti preferiti e ti mostreremo quando suonano nelle vicinanze.</string>
+    <string name="concert_keep_posting_message">Continua a pubblicare la musica che ami. Seguiremo i tuoi artisti preferiti e ti mostreremo quando suonano nelle vicinanze.</string>
     <string name="concert_post_music">Pubblica musica</string>
     <string name="concert_view_all">Vedi tutti i concerti</string>
     <string name="concert_no_matches">Ancora nessuna corrispondenza con i tuoi artisti</string>
+    <string name="concert_choose_your_city">Scegli la tua città</string>
+    <string name="concert_choose_location">Scegli posizione</string>
+    <string name="concert_browse">Scopri i concerti</string>
+    <string name="concert_choose_another_city">Scegli un\'altra città</string>
+    <string name="concert_no_plans_title">Nessun concerto in programma</string>
+    <string name="concert_post_personal_title">Pubblica musica per ricevere consigli personalizzati</string>
+    <string name="concert_no_artist_shows">Ancora nessun concerto dei tuoi artisti</string>
+    <string name="concert_no_shows_around">Non abbiamo trovato concerti vicino a %1$s. Prova un’altra città.</string>
     <string name="concert_find_nearby">Trova concerti vicino a te</string>
     <string name="concert_choose_location_message">Scegli una città o usa la tua posizione attuale per vedere i prossimi concerti.</string>
     <string name="concert_remove">Rimuovi</string>

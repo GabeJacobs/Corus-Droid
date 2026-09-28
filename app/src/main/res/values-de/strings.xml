@@ -1508,9 +1508,9 @@
     <string name="club_feature_unlimited_playlists">Unbegrenzt viele Playlists exportieren</string>
     <string name="club_feature_unlock_all_taste_matches">Alle Taste Matches freischalten</string>
     <string name="gift_club_offer_title">3 Geschenke freischalten</string>
-    <string name="gift_club_offer_body">Werde Mitglied im Corus Club und erhalte jede Woche 3 Geschenke.</string>
+    <string name="gift_club_offer_body">Werde Mitglied im Corus Club und versende jede Woche 3 Geschenke.</string>
     <string name="gift_club_offer_cta_trial">Kostenlos freischalten</string>
     <string name="gift_club_offer_cta_standard">Mit Corus Club freischalten</string>
     <string name="club_subtitle_gift">Schalte heute 3 Geschenke frei.</string>
-    <string name="club_feature_gifts">3 Geschenkplätze pro Woche</string>
+    <string name="club_feature_gifts">Jede Woche 3 Geschenke versenden</string>
 </resources>

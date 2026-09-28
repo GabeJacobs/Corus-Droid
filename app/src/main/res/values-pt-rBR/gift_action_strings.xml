@@ -9,7 +9,7 @@
     <string name="gift_available_many">%1$d presentes disponíveis</string>
     <string name="gift_refills_in">Renova em %1$s</string>
     <string name="gift_reset_cycle">Cada presente é renovado 7 dias depois do envio.</string>
-    <string name="gift_club_slots">O Corus Club oferece 3 espaços para presentes.</string>
+    <string name="gift_club_slots">Com o Corus Club, você pode enviar 3 presentes.</string>
     <string name="gift_sent">Presente enviado</string>
     <string name="gift_loading">Carregando seus presentes</string>
     <string name="gift_load_error">Não foi possível carregar seus presentes.</string>

@@ -169,6 +169,7 @@ fun SinglePostCommentsScreen(
     var mentionSearchJob by remember { mutableStateOf<Job?>(null) }
     var menuPost by remember { mutableStateOf<CymbalPost?>(null) }
     var sharePost by remember { mutableStateOf<CymbalPost?>(null) }
+    var giftPost by remember { mutableStateOf<CymbalPost?>(null) }
     var editCaptionPost by remember { mutableStateOf<CymbalPost?>(null) }
     var deleteConfirmPost by remember { mutableStateOf<CymbalPost?>(null) }
     val backCoverFlipState = fm.corus.android.ui.components.rememberBackCoverFlipState()
@@ -647,6 +648,9 @@ fun SinglePostCommentsScreen(
                             nowPlayingState.sourcePostId == p.id,
                         hideComments = true,
                         onLikeTap = { viewModel.togglePostLike(p.id) },
+                        onLikeLongPress = if (viewModel.remoteConfig.canSendGiftTo(p.user.id)) {
+                            { giftPost = p }
+                        } else null,
                         onSaveTap = { viewModel.togglePostSave(p.id) },
                         onUserTap = { onNavigateToUser(p.user.id) },
                         onPreviewTap = {
@@ -860,10 +864,12 @@ fun SinglePostCommentsScreen(
     fm.corus.android.ui.components.PostMenuSheets(
         menuPost = menuPost,
         sharePost = sharePost,
+        giftPost = giftPost,
         editCaptionPost = editCaptionPost,
         deleteConfirmPost = deleteConfirmPost,
         onMenuPostChange = { menuPost = it },
         onSharePostChange = { sharePost = it },
+        onGiftPostChange = { giftPost = it },
         onEditCaptionPostChange = { editCaptionPost = it },
         onDeleteConfirmPostChange = { deleteConfirmPost = it },
         actions = viewModel,

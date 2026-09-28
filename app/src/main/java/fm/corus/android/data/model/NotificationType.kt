@@ -2,6 +2,7 @@ package fm.corus.android.data.model
 
 enum class NotificationType(val value: String) {
     GIFT("gift"),
+    GIFT_THANKS("gift_thanks"),
     LIKE("like"),
     COMMENT("comment"),
     COMMENT_LIKE("comment_like"),
@@ -21,6 +22,8 @@ enum class NotificationType(val value: String) {
 
     val supportsCommentActions: Boolean
         get() = this in listOf(COMMENT, REPLY, MENTION)
+
+    val isGift: Boolean get() = this == GIFT || this == GIFT_THANKS
 
     companion object {
         fun from(value: String?): NotificationType =

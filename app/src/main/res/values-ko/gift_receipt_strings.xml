@@ -1,0 +1,10 @@
+<resources>
+    <string name="gift_say_thanks">감사 전하기</string>
+    <string name="gift_thanked">감사 전함 ✓</string>
+    <string name="gift_thanks_sending">보내는 중…</string>
+    <string name="gift_open_post">게시물 열기</string>
+    <string name="gift_thanks_error">감사를 전하지 못했어요. 다시 시도해 주세요.</string>
+    <string name="gift_note_from">%1$s님의 메시지</string>
+    <string name="gift_thanks_message">님이 선물에 감사를 전했어요.</string>
+    <string name="gift_thanks_sender">%1$s님이 선물에 감사를 전했어요.</string>
+</resources>

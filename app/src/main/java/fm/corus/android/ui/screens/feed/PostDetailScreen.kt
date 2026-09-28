@@ -142,6 +142,7 @@ fun PostDetailScreen(
     val subtitleArtistNotFound = stringResource(R.string.song_detail_artist_not_found)
     var menuPost by remember { mutableStateOf<CymbalPost?>(null) }
     var sharePost by remember { mutableStateOf<CymbalPost?>(null) }
+    var giftPost by remember { mutableStateOf<CymbalPost?>(null) }
     var editCaptionPost by remember { mutableStateOf<CymbalPost?>(null) }
     var deleteConfirmPost by remember { mutableStateOf<CymbalPost?>(null) }
     val backCoverFlipState = rememberBackCoverFlipState()
@@ -366,6 +367,9 @@ fun PostDetailScreen(
                             saveCountEnabled = viewModel.remoteConfig.saveCountEnabled,
                             trackPostCount = currentPost.trackPostCount ?: 0,
                             onLikeTap = { viewModel.toggleLike(currentPost.id) },
+                            onLikeLongPress = if (viewModel.remoteConfig.canSendGiftTo(currentPost.user.id)) {
+                                { giftPost = currentPost }
+                            } else null,
                             onCommentTap = { onNavigateToComments(currentPost.id) },
                             onRepostTap = { onRepost(currentPost) },
                             onRepostLongPress = if (viewModel.remoteConfig.repostersListEnabled && currentPost.repostCount > 0) {
@@ -521,10 +525,12 @@ fun PostDetailScreen(
     PostMenuSheets(
         menuPost = menuPost,
         sharePost = sharePost,
+        giftPost = giftPost,
         editCaptionPost = editCaptionPost,
         deleteConfirmPost = deleteConfirmPost,
         onMenuPostChange = { menuPost = it },
         onSharePostChange = { sharePost = it },
+        onGiftPostChange = { giftPost = it },
         onEditCaptionPostChange = { editCaptionPost = it },
         onDeleteConfirmPostChange = { deleteConfirmPost = it },
         actions = viewModel,
@@ -1009,6 +1015,7 @@ private fun PostDetailEngagementRow(
     saveCountEnabled: Boolean,
     trackPostCount: Int,
     onLikeTap: () -> Unit,
+    onLikeLongPress: (() -> Unit)? = null,
     onCommentTap: () -> Unit,
     onRepostTap: () -> Unit,
     onRepostLongPress: (() -> Unit)? = null,
@@ -1030,6 +1037,7 @@ private fun PostDetailEngagementRow(
             count = likeCount,
             tint = if (isLiked) CorusColors.Like else CorusColors.Text,
             onClick = onLikeTap,
+            onLongClick = onLikeLongPress,
         )
 
         // Comment

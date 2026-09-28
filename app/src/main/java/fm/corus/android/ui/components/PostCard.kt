@@ -156,6 +156,10 @@ fun PostCard(
     showGifts: Boolean = false,
     currentUser: CymbalUser? = null,
     onLikeTap: () -> Unit = {},
+    /** When non-null, press-and-hold on the heart opens the Gift picker. Call
+     *  sites only provide this for an eligible sender/recipient pair, leaving
+     *  the flag-off and ineligible experience tap-only. */
+    onLikeLongPress: (() -> Unit)? = null,
     onSaveTap: () -> Unit = {},
     onUserTap: () -> Unit = {},
     onPostTap: () -> Unit = {},
@@ -1115,12 +1119,23 @@ fun PostCard(
             horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
         ) {
             // Like button
+            val likeInteraction = remember { MutableInteractionSource() }
             Row(
-                modifier = Modifier.clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onLikeTap,
-                ),
+                modifier = if (onLikeLongPress != null) {
+                    Modifier.combinedClickable(
+                        interactionSource = likeInteraction,
+                        indication = null,
+                        onClick = onLikeTap,
+                        onLongClickLabel = stringResource(R.string.gift_send_action),
+                        onLongClick = onLikeLongPress,
+                    )
+                } else {
+                    Modifier.clickable(
+                        interactionSource = likeInteraction,
+                        indication = null,
+                        onClick = onLikeTap,
+                    )
+                },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
             ) {

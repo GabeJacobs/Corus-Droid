@@ -41,5 +41,19 @@ class ShareCardThemeTest {
         assertEquals(ProfileStoriesGridLayout(3, 3, 9), profileStoriesGridLayout(12))
         assertEquals(ProfileStoriesGridLayout(2, 3, 5), profileStoriesGridLayout(5))
         assertEquals(ProfileStoriesGridLayout(0, 0, 0), profileStoriesGridLayout(0))
+        assertEquals(
+            ProfileStoriesGridLayout(4, 4, 16),
+            profileStoriesGridLayout(20, ProfileStoryGridSize.LARGE),
+        )
+        assertEquals(
+            ProfileStoriesGridLayout(4, 3, 9),
+            profileStoriesGridLayout(9, ProfileStoryGridSize.LARGE),
+        )
+    }
+
+    @Test
+    fun `profile story background palette starts with Corus blue`() {
+        assertEquals(ProfileStoryBackground.CORUS_BLUE, ProfileStoryBackground.entries.first())
+        assertEquals(0xff6495ed.toInt(), ProfileStoryBackground.CORUS_BLUE.color)
     }
 }

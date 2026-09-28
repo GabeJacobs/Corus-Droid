@@ -1508,9 +1508,9 @@
     <string name="club_feature_unlimited_playlists">Esporta playlist illimitate</string>
     <string name="club_feature_unlock_all_taste_matches">Sblocca tutte le affinità di gusto</string>
     <string name="gift_club_offer_title">Sblocca 3 regali</string>
-    <string name="gift_club_offer_body">Unisciti a Corus Club e ricevi 3 regali ogni settimana.</string>
+    <string name="gift_club_offer_body">Unisciti a Corus Club e invia 3 regali ogni settimana.</string>
     <string name="gift_club_offer_cta_trial">Sblocca gratis</string>
     <string name="gift_club_offer_cta_standard">Sblocca con Corus Club</string>
     <string name="club_subtitle_gift">Sblocca 3 regali oggi.</string>
-    <string name="club_feature_gifts">3 slot regalo ogni settimana</string>
+    <string name="club_feature_gifts">3 regali da inviare ogni settimana</string>
 </resources>

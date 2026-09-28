@@ -96,6 +96,14 @@ internal fun parseGiftSendResult(raw: Map<*, *>?): GiftSendResult? {
 class GiftRepository @Inject constructor(
     private val functions: FirebaseFunctions,
 ) {
+    suspend fun thankGift(postId: String, giftId: String): java.util.Date {
+        val raw = functions.getHttpsCallable("thankGift")
+            .call(mapOf("postId" to postId, "giftId" to giftId)).await().getData() as? Map<*, *>
+        val thankedAt = (raw?.get("thankedAt") as? Number)?.toLong()
+            ?: throw GiftRepositoryException.InvalidResponse()
+        return java.util.Date(thankedAt)
+    }
+
     suspend fun getStatus(): GiftStatus {
         val raw = functions.getHttpsCallable("getGiftStatus").call().await().getData() as? Map<*, *>
         return parseGiftStatus(raw) ?: throw GiftRepositoryException.InvalidResponse()

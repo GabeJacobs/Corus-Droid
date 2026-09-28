@@ -988,7 +988,7 @@ fun SongDetailScreen(
                             color = CorusColors.Secondary,
                         )
                         Spacer(Modifier.weight(1f))
-                        if ((likeAllTargetCount ?: 0) > 0 && likeAllEligibleCount != null) {
+                        if (count > 1 && (likeAllTargetCount ?: 0) > 0 && likeAllEligibleCount != null) {
                             if (likeAllEligibleCount == 0) {
                                 Icon(
                                     Icons.Filled.Favorite,

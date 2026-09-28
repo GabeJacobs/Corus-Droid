@@ -163,6 +163,7 @@ class HapticManager @Inject constructor(
     enum class Pattern {
         TROPHY,
         POST_SUCCESS,
+        GIFT_SENT,
         ;
 
         internal val primitives: List<PrimitiveStep>
@@ -179,6 +180,12 @@ class HapticManager @Inject constructor(
                     PrimitiveStep(VibrationEffect.Composition.PRIMITIVE_TICK, 0.55f, 0),
                     PrimitiveStep(VibrationEffect.Composition.PRIMITIVE_CLICK, 0.90f, 80),
                 )
+                GIFT_SENT -> listOf(
+                    PrimitiveStep(VibrationEffect.Composition.PRIMITIVE_CLICK, 0.72f, 0),
+                    PrimitiveStep(VibrationEffect.Composition.PRIMITIVE_TICK, 0.48f, 75),
+                    PrimitiveStep(VibrationEffect.Composition.PRIMITIVE_TICK, 0.82f, 55),
+                    PrimitiveStep(VibrationEffect.Composition.PRIMITIVE_TICK, 0.55f, 45),
+                )
             }
 
         internal val waveform: Pair<LongArray, IntArray>
@@ -186,6 +193,8 @@ class HapticManager @Inject constructor(
                 TROPHY -> longArrayOf(0, 24, 120, 18, 100, 12, 50, 10, 50, 10, 70, 22) to
                     intArrayOf(0, 255, 0, 170, 0, 90, 0, 140, 0, 110, 0, 210)
                 POST_SUCCESS -> longArrayOf(0, 16, 70, 22) to intArrayOf(0, 90, 0, 200)
+                GIFT_SENT -> longArrayOf(0, 22, 72, 12, 44, 14, 40, 10) to
+                    intArrayOf(0, 185, 0, 120, 0, 210, 0, 140)
             }
     }
 

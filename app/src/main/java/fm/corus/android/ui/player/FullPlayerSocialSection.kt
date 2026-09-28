@@ -72,6 +72,8 @@ import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.ui.components.CommentAttachmentCard
 import fm.corus.android.ui.components.CommentAttachmentSurface
 import fm.corus.android.ui.components.LikedBySection
+import fm.corus.android.ui.components.PostGiftRow
+import androidx.compose.foundation.layout.PaddingValues
 import fm.corus.android.ui.components.TappableMentionText
 import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.VennDiagramIcon
@@ -95,6 +97,7 @@ fun FullPlayerSocialSection(
     artistName: String,
     interactive: Boolean,
     saveCountEnabled: Boolean,
+    giftsEnabled: Boolean,
     onOpenPost: (String) -> Unit,
     onOpenUser: (String) -> Unit,
     onOpenComments: (postId: String, replyToCommentId: String?) -> Unit,
@@ -163,6 +166,8 @@ fun FullPlayerSocialSection(
                     isSaved = engagement?.isSaved ?: false,
                     saveCount = engagement?.saveCount ?: post.saveCount,
                     saveCountEnabled = saveCountEnabled,
+                    giftsEnabled = giftsEnabled,
+                    onGiftSenderTap = onOpenUser,
                     interactive = interactive,
                     onOpenPost = { onOpenPost(post.id) },
                     onOpenUser = { onOpenUser(post.user.id) },
@@ -280,6 +285,8 @@ private fun FullPlayerSourcePostCard(
     isSaved: Boolean,
     saveCount: Int,
     saveCountEnabled: Boolean,
+    giftsEnabled: Boolean,
+    onGiftSenderTap: (String) -> Unit,
     interactive: Boolean,
     onOpenPost: () -> Unit,
     onOpenUser: () -> Unit,
@@ -497,6 +504,16 @@ private fun FullPlayerSourcePostCard(
                     tint = CorusColors.Text.copy(alpha = 0.85f),
                 )
             }
+        }
+
+        if (giftsEnabled && post.giftCount > 0) {
+            PostGiftRow(
+                postId = post.id,
+                giftCount = post.giftCount,
+                recentGifts = post.recentGifts,
+                onSenderTap = onGiftSenderTap,
+                contentPadding = PaddingValues(top = 5.dp, bottom = 9.dp),
+            )
         }
 
         if (likeCount > 0 || isLiked) {

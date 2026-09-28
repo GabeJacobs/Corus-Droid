@@ -9,6 +9,9 @@ import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirestoreDataSource
 import android.content.Context
 import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.data.repository.GiftInventory
+import fm.corus.android.data.repository.GiftReceiptPreview
+import fm.corus.android.data.repository.GiftSendResult
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
@@ -149,6 +152,47 @@ class FullPlayerViewModelTest {
 
         assertNull(viewModel.sourcePost.value)
         assertTrue(viewModel.comments.value.isEmpty())
+    }
+
+    private fun sentGift(alreadySent: Boolean = false) = GiftSendResult(
+        giftType = "flowers",
+        alreadySent = alreadySent,
+        inventory = GiftInventory(capacity = 3, available = 2, used = 1, nextRefillAtMs = null),
+        recentGifts = listOf(GiftReceiptPreview("me", "sender", "Sender", null, "flowers", "Great song", 123L)),
+    )
+
+    @Test
+    fun giftResultUpdatesTheCapturedPostWithoutDoubleCountingRetries() = runTest {
+        val target = post("p1").copy(giftCount = 5)
+        whenever(postRepo.getPostDetail("p1", "me")).doReturn(target)
+        val viewModel = vm()
+        viewModel.loadSourcePost("p1")
+        advanceUntilIdle()
+
+        viewModel.onGiftSent(target, sentGift())
+        assertEquals(6, viewModel.sourcePost.value?.giftCount)
+        assertEquals("Great song", viewModel.sourcePost.value?.recentGifts?.first()?.note)
+        viewModel.onGiftSent(target, sentGift(alreadySent = true))
+        assertEquals(6, viewModel.sourcePost.value?.giftCount)
+    }
+
+    @Test
+    fun giftResultDoesNotChangeTheNextSongsPost() = runTest {
+        val target = post("p1", "recipient1")
+        val next = post("p2", "recipient2").copy(giftCount = 2)
+        whenever(postRepo.getPostDetail("p1", "me")).doReturn(target)
+        whenever(postRepo.getPostDetail("p2", "me")).doReturn(next)
+        val viewModel = vm()
+        viewModel.loadSourcePost("p1")
+        advanceUntilIdle()
+        viewModel.onPlaybackIdentityChanged("p2", "t2")
+        advanceUntilIdle()
+
+        viewModel.onGiftSent(target, sentGift())
+        assertEquals("p2", viewModel.sourcePost.value?.id)
+        assertEquals("recipient2", viewModel.sourcePost.value?.user?.id)
+        assertEquals(2, viewModel.sourcePost.value?.giftCount)
+        assertTrue(viewModel.sourcePost.value?.recentGifts?.isEmpty() == true)
     }
 
     @Test

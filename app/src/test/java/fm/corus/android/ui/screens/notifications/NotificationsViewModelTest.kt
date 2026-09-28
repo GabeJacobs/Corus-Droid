@@ -46,6 +46,7 @@ class NotificationsViewModelTest {
     private lateinit var userRepository: UserRepository
     private lateinit var postRepository: PostRepository
     private lateinit var engagementManager: PostEngagementManager
+    private val giftRepository = mock<fm.corus.android.data.repository.GiftRepository>()
     private lateinit var commentLikeChangedEvent: CommentLikeChangedEvent
 
     @Before
@@ -84,6 +85,8 @@ class NotificationsViewModelTest {
         remoteConfigService = mock(),
         gifRepository = mock(),
         networkMonitor = mock { on { isConnected } doReturn MutableStateFlow(true) },
+        giftRepository = giftRepository,
+        hapticManager = mock(),
         context = mock(),
     )
 
@@ -100,6 +103,49 @@ class NotificationsViewModelTest {
         postId = postId,
         commentId = commentId,
     )
+
+    @Test
+    fun `thanks is optimistic ignores duplicate taps and retains confirmed state`() = runTest {
+        whenever(giftRepository.thankGift("p1", "gift1")).thenReturn(java.util.Date(1234L))
+        val vm = createViewModel()
+        val gift = commentNotification(type = NotificationType.GIFT).copy(giftId = "gift1")
+        vm.thankGift(gift)
+        assertTrue(vm.giftThanks.value.getValue(gift.id).sending)
+        assertTrue(vm.giftThanks.value.getValue(gift.id).thankedAt != null)
+        vm.thankGift(gift)
+        advanceUntilIdle()
+        assertEquals(GiftThanksState(thankedAt = java.util.Date(1234L)), vm.giftThanks.value[gift.id])
+        vm.thankGift(gift)
+        advanceUntilIdle()
+        verify(giftRepository, times(1)).thankGift("p1", "gift1")
+    }
+
+    @Test
+    fun `failed thanks rolls back and allows retry`() = runTest {
+        whenever(giftRepository.thankGift("p1", "gift1"))
+            .thenThrow(RuntimeException("offline")).thenReturn(java.util.Date(1234L))
+        val vm = createViewModel()
+        val gift = commentNotification(type = NotificationType.GIFT).copy(giftId = "gift1")
+        vm.thankGift(gift)
+        advanceUntilIdle()
+        assertEquals(GiftThanksState(error = true), vm.giftThanks.value[gift.id])
+        vm.thankGift(gift)
+        advanceUntilIdle()
+        assertEquals(GiftThanksState(thankedAt = java.util.Date(1234L)), vm.giftThanks.value[gift.id])
+        verify(giftRepository, times(2)).thankGift("p1", "gift1")
+    }
+
+    @Test
+    fun `thanks rejects missing identifiers and already thanked receipts`() = runTest {
+        val vm = createViewModel()
+        val gift = commentNotification(type = NotificationType.GIFT).copy(giftId = "gift1")
+        vm.thankGift(gift.copy(giftId = null))
+        vm.thankGift(gift.copy(postId = null))
+        vm.thankGift(gift.copy(giftThankedAt = java.util.Date()))
+        vm.thankGift(gift.copy(type = NotificationType.GIFT_THANKS))
+        advanceUntilIdle()
+        verify(giftRepository, never()).thankGift(any(), any())
+    }
 
     // ── Mark-as-viewed is driven by tab activation, NOT by loadNotifications ──
     //
@@ -167,6 +213,8 @@ class NotificationsViewModelTest {
             remoteConfigService = mock(),
             gifRepository = mock(),
             networkMonitor = mock { on { isConnected } doReturn MutableStateFlow(true) },
+            giftRepository = giftRepository,
+            hapticManager = mock(),
             context = mock(),
         )
 

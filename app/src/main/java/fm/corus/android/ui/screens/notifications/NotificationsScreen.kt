@@ -201,11 +201,16 @@ fun NotificationsScreen(
     if (showFavoriteInfo) {
         FavoriteInfoDialog(onDismiss = { showFavoriteInfo = false })
     }
-    selectedGift?.let { gift ->
+    val giftThanks by viewModel.giftThanks.collectAsState()
+    selectedGift?.let { selected ->
+        val gift = displayedNotifications.firstOrNull { it.id == selected.id } ?: selected
         GiftNotificationSheet(gift, onDismiss = { selectedGift = null }, onViewCorus = {
             selectedGift = null
             gift.postId?.let(onNavigateToPost)
-        })
+        }, onSenderTap = {
+            selectedGift = null
+            onNavigateToUser(gift.fromUser.id)
+        }, thanksState = giftThanks[gift.id] ?: GiftThanksState(), onThank = { viewModel.thankGift(gift) })
     }
 
     // Activity stays composed off-screen. The tab-bar badge is owned by
@@ -399,7 +404,7 @@ fun NotificationsScreen(
                                 isNew = newNotificationIds.contains(notification.id),
                                 onClick = {
                                     viewModel.markNotificationTapped(notification.id)
-                                    if (notification.type == NotificationType.GIFT) {
+                                    if (notification.type.isGift) {
                                         selectedGift = notification
                                     } else if (notification.type == NotificationType.FAVORITE) {
                                         showFavoriteInfo = true
@@ -672,7 +677,7 @@ private fun NotificationRow(
     ) {
         // Left: avatar (taps to profile) — or, for anonymous favorites, a star,
         // or, for play milestones, a headphones glyph.
-        if (notification.type == NotificationType.GIFT) {
+        if (notification.type.isGift) {
             GiftNotificationArtwork(notification.giftType, CorusSpacing.avatarMedium)
         } else if (notification.type == NotificationType.FAVORITE) {
             Box(
@@ -746,12 +751,7 @@ private fun NotificationRow(
         val timeSuffix = " $timeString"
 
         val fullAnnotatedText = if (notification.type == NotificationType.GIFT) {
-            val gift = GiftDefinition.from(notification.giftType)
-            buildAnnotatedString {
-                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(notification.fromUser.username) }
-                append(" ")
-                append(context.getString(R.string.gift_sender_sent_you, "", gift.sentPhrase(context)).trimStart())
-            }
+            giftReceiptSenderLine(context, notification, sentToYou = true)
         } else if (notification.type == NotificationType.FAVORITE) {
             // Anonymous — "Someone" is NOT bolded here (special case): there's no
             // real actor to name, so it reads as normal prose, not a username.
@@ -1402,6 +1402,7 @@ private fun localizedNotificationMessage(
             "",
             GiftDefinition.from(notification.giftType).sentPhrase(context),
         ).trim()
+        NotificationType.GIFT_THANKS -> context.getString(R.string.gift_thanks_message)
         NotificationType.LIKE -> context.getString(R.string.notif_msg_like, postNoun)
         NotificationType.COMMENT -> commentExcerpt
             ?.let { context.getString(R.string.notif_msg_comment_with_text, it) }

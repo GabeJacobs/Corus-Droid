@@ -2,9 +2,18 @@
 <resources>
     <string name="concert_make_personal">自分好みにする</string>
     <string name="concert_personal_message">好きな音楽を投稿すると、お気に入りのアーティストが近くで公演するときにお知らせします。</string>
+    <string name="concert_keep_posting_message">好きな音楽を投稿し続けると、お気に入りのアーティストが近くで公演するときにお知らせします。</string>
     <string name="concert_post_music">音楽を投稿</string>
     <string name="concert_view_all">すべてのコンサートを見る</string>
     <string name="concert_no_matches">あなたのアーティストの公演はまだありません</string>
+    <string name="concert_choose_your_city">都市を選択</string>
+    <string name="concert_choose_location">場所を選択</string>
+    <string name="concert_browse">コンサートを見る</string>
+    <string name="concert_choose_another_city">別の都市を選択</string>
+    <string name="concert_no_plans_title">コンサートの予定はまだありません</string>
+    <string name="concert_post_personal_title">音楽を投稿して自分向けのおすすめを見る</string>
+    <string name="concert_no_artist_shows">あなたのアーティストの公演はまだありません</string>
+    <string name="concert_no_shows_around">%1$s周辺でコンサートが見つかりませんでした。別の都市をお試しください。</string>
     <string name="concert_find_nearby">近くのコンサートを探す</string>
     <string name="concert_choose_location_message">都市を選択するか現在地を使って、今後のコンサートを表示します。</string>
     <string name="concert_remove">削除</string>

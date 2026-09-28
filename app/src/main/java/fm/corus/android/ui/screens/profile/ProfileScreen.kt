@@ -1371,14 +1371,15 @@ fun ProfileScreen(
         val shareCardVersion = remember(currentProfile.id, currentProfile.cymbalCount, posts.firstOrNull()?.id) {
             "${currentProfile.cymbalCount}-${posts.firstOrNull()?.id ?: "none"}"
         }
-        val shareProfileSubject = remember(currentProfile, posts, shareCardVersion) {
+        val shareProfileSubject = remember(currentProfile, posts, shareCardVersion, viewModel.profileSharingV2) {
             ShareProfileSubject(
                 id = currentProfile.id,
                 username = currentProfile.username,
                 displayName = currentProfile.displayName,
                 avatarUrl = currentProfile.avatarURL ?: currentProfile.avatarThumbURL,
                 bio = currentProfile.bio.takeIf { it.isNotBlank() },
-                artworkUrls = posts.take(9).mapNotNull { it.displayImageLargeURL ?: it.displayImageURL },
+                artworkUrls = posts.take(if (viewModel.profileSharingV2) 16 else 9)
+                    .mapNotNull { it.displayImageLargeURL ?: it.displayImageURL },
                 previewVersion = shareCardVersion,
             )
         }
@@ -1419,6 +1420,7 @@ fun ProfileScreen(
                 onDismiss = { showShareSheet = false },
                 isOwnProfile = true,
                 instagramShareEnabled = viewModel.instagramShareEnabled,
+                profileSharingV2 = viewModel.profileSharingV2,
                 profileShareAnalytics = ProfileShareAnalytics(
                     profileUserId = currentProfile.id,
                     isOwnProfile = true,
