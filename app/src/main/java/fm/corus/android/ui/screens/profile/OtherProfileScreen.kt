@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.profile
 
+import fm.corus.android.ui.components.rememberGuardedSheetState
+
 import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.EaseInOut
@@ -1529,7 +1531,7 @@ fun OtherProfileScreen(
     )
 
     if (showFollowingSheet) {
-        val followingSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val followingSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
         val followingSheetContext = LocalContext.current
         CorusModalBottomSheet(
             onDismissRequest = { showFollowingSheet = false },
@@ -1604,7 +1606,7 @@ fun OtherProfileScreen(
         if (p == null) {
             showShareSheet = false
         } else {
-            val shareSheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            val shareSheetState = fm.corus.android.ui.components.rememberGuardedSheetState(skipPartiallyExpanded = true)
             val sentMsg = stringResource(fm.corus.android.R.string.profile_share_toast_profile_sent)
             LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
             fm.corus.android.ui.components.CorusModalBottomSheet(

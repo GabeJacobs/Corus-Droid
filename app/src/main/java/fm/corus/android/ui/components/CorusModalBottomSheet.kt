@@ -1,5 +1,6 @@
 package fm.corus.android.ui.components
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.BottomSheetDefaults
@@ -9,7 +10,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalBottomSheetDefaults
 import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.SheetState
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
@@ -57,13 +57,13 @@ internal fun CorusSheetTheme(content: @Composable () -> Unit) {
     }
 }
 
-/** All app sheets share surface colors; callers retain their existing gestures and layout. */
+/** Shared modal surface with keyboard-first drags and short-drag snap-back protection. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CorusModalBottomSheet(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
-    sheetState: SheetState = rememberModalBottomSheetState(),
+    sheetState: SheetState = rememberGuardedSheetState(skipPartiallyExpanded = false),
     sheetMaxWidth: Dp = BottomSheetDefaults.SheetMaxWidth,
     shape: Shape = BottomSheetDefaults.ExpandedShape,
     contentColor: Color = CorusColors.Text,
@@ -84,7 +84,9 @@ fun CorusModalBottomSheet(
             contentColor = contentColor,
             tonalElevation = 0.dp,
             scrimColor = scrimColor,
-            dragHandle = dragHandle,
+            dragHandle = dragHandle?.let { handle ->
+                { Box(Modifier.dismissKeyboardOnDownwardDrag()) { handle() } }
+            },
             contentWindowInsets = contentWindowInsets,
             properties = properties,
             content = content,

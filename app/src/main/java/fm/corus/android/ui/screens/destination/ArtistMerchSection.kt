@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.destination
 
+import fm.corus.android.ui.components.rememberGuardedSheetState
+
 import fm.corus.android.ui.components.CorusModalBottomSheet
 import fm.corus.android.ui.components.parityCopy
 import androidx.compose.foundation.clickable
@@ -84,7 +86,7 @@ fun ArtistMerchSection(artistId: String, artistName: String, viewModel: ArtistMe
     }
     if (artistName.isNotBlank()) TextButton(onClick = { claim = true }, modifier = Modifier.padding(horizontal = 8.dp)) { Text(parityCopy("Claim this artist page"), color = CorusColors.Secondary) }
     if (claim) {
-        val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = { !submitting })
+        val sheet = rememberGuardedSheetState(skipPartiallyExpanded = true, confirmValueChange = { !submitting })
         CorusModalBottomSheet(onDismissRequest = { if (!submitting) claim = false }, sheetState = sheet) {
             ArtistClaimForm(artistId, artistName, viewModel, onBusy = { submitting = it }, done = { claim = false })
         }

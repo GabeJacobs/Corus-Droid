@@ -42,7 +42,7 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
+import fm.corus.android.ui.components.rememberGuardedSheetState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -104,7 +104,7 @@ fun FullPlayerQueueSheet(
     val currentIndex = remember(state.trackId, state.sourcePostId, revision) {
         nowPlayingManager.currentQueueIndexSnapshot()
     }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    val sheetState = rememberGuardedSheetState(skipPartiallyExpanded = false)
     var isEditing by remember { mutableStateOf(false) }
     // One shared progress for minus / drag-handle — avoids N× expandHorizontally
     // remeasures in the LazyColumn (was the main Edit toggle hitch).

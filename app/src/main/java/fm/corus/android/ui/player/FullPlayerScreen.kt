@@ -60,7 +60,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
+import fm.corus.android.ui.components.rememberGuardedSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -580,7 +580,7 @@ fun FullPlayerScreen(
     }
 
     if (showShareSheet && shareTrack != null) {
-        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val shareSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
         val songSharedMsg = stringResource(R.string.song_detail_toast_song_sent)
         val recentShareContacts by fullPlayerViewModel.recentShareContacts.collectAsState()
         val shareSearchResults by fullPlayerViewModel.shareSearchResults.collectAsState()

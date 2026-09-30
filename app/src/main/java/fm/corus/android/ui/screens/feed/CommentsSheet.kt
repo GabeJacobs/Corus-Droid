@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.feed
 
+import fm.corus.android.ui.components.rememberGuardedSheetState
+
 import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -428,7 +430,7 @@ private fun CommentsSheetContent(
     }
 
     reportingComment?.let { comment ->
-        val reportSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val reportSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
         CorusModalBottomSheet(
             onDismissRequest = { reportingComment = null },
             sheetState = reportSheetState,

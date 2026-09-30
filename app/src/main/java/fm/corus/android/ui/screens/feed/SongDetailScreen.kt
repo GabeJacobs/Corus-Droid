@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.feed
 
+import fm.corus.android.ui.components.rememberGuardedSheetState
+
 import fm.corus.android.ui.components.CorusModalBottomSheet
 import android.content.Intent
 import android.net.Uri
@@ -1141,7 +1143,7 @@ fun SongDetailScreen(
 
     // ── Share Song bottom sheet ──
     if (showShareSheet) {
-        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val shareSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
         val songSharedMsg = stringResource(R.string.song_detail_toast_song_sent)
 
         LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }

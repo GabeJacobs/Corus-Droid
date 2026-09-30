@@ -72,6 +72,7 @@ import fm.corus.android.data.repository.ConcertShow
 import fm.corus.android.domain.DestinationResolvingOverlay
 import fm.corus.android.ui.navigation.ArtistPageRoute
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.dismissKeyboardOnDownwardDrag
 import fm.corus.android.ui.components.hideKeyboardOnScroll
 import fm.corus.android.ui.components.rememberGuardedSheetState
 import fm.corus.android.ui.components.ToastManager
@@ -536,32 +537,34 @@ fun ConcertsScreen(
             LaunchedEffect(Unit) { vm.log("city_picker_viewed") }
             LaunchedEffect(cityQuery) { vm.searchCities(cityQuery) }
             Column(Modifier.fillMaxWidth().heightIn(max = bottomSheetMaxHeight())) {
-                Text(
-                    stringResource(R.string.concert_choose_city),
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 10.dp),
-                    style = CorusFont.custom(700, 22),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                )
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = !locating) {
-                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-                                ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) locate()
-                            else locationPermission.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
+                Column(Modifier.fillMaxWidth().dismissKeyboardOnDownwardDrag()) {
+                    Text(
+                        stringResource(R.string.concert_choose_city),
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 10.dp),
+                        style = CorusFont.custom(700, 22),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = !locating) {
+                                if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                                    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) locate()
+                                else locationPermission.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
+                            }
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        if (locating) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                        else Icon(Icons.Default.Navigation, null, Modifier.size(22.dp))
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(stringResource(R.string.concert_use_location), style = CorusFont.bodyMedium)
+                            Text(stringResource(R.string.concert_find_nearby), style = CorusFont.caption, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        .padding(horizontal = 20.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    if (locating) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
-                    else Icon(Icons.Default.Navigation, null, Modifier.size(22.dp))
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(stringResource(R.string.concert_use_location), style = CorusFont.bodyMedium)
-                        Text(stringResource(R.string.concert_find_nearby), style = CorusFont.caption, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    if (locationError) Text(stringResource(R.string.concert_location_error), Modifier.padding(horizontal = 20.dp), style = CorusFont.caption, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (locationError) Text(stringResource(R.string.concert_location_error), Modifier.padding(horizontal = 20.dp), style = CorusFont.caption, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextField(
                     cityQuery,
                     { cityQuery = it },
@@ -578,7 +581,7 @@ fun ConcertsScreen(
                     ),
                 )
                 val popular = if (cityQuery.trim().length < 2) POPULAR_CONCERT_CITIES else POPULAR_CONCERT_CITIES.filter { it.second.contains(cityQuery.trim(), ignoreCase = true) }
-                LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false).heightIn(max = 500.dp).hideKeyboardOnScroll()) {
+                LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false).heightIn(max = 500.dp).dismissKeyboardOnDownwardDrag().hideKeyboardOnScroll()) {
                     items(popular) { (id, name) ->
                         ListItem(
                             headlineContent = { Text(name, style = CorusFont.bodyMedium) },
@@ -605,7 +608,7 @@ fun ConcertsScreen(
         }
     }
     if (filterSheet) {
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val sheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
         CorusModalBottomSheet(
             onDismissRequest = { filterSheet = false },
             sheetState = sheetState,
@@ -1017,7 +1020,7 @@ fun ConcertDetailScreen(
         }
     }
     if (showShareSheet) {
-        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val shareSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
         LaunchedEffect(Unit) { vm.loadRecentShareContacts() }
         val recentShareContacts by vm.recentShareContacts.collectAsState()
         val shareSearchResults by vm.shareSearchResults.collectAsState()
@@ -1068,7 +1071,7 @@ fun ConcertDetailScreen(
         }
     }
     if (peopleSheet) {
-        val peopleSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val peopleSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
         val peopleSheetHeight = LocalConfiguration.current.screenHeightDp.dp * 0.72f
         LaunchedEffect(Unit) { vm.log("attendees_viewed", concert, "concert_detail", count = (attendance?.goingCount ?: 0) + (attendance?.interestedCount ?: 0)) }
         CorusModalBottomSheet(

@@ -33,7 +33,6 @@ import androidx.compose.material3.Icon
 import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -205,7 +204,7 @@ private sealed class PreviewItem {
 fun TasteMatchSheet(
     username: String,
     match: MusicMatchData,
-    sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    sheetState: SheetState = rememberGuardedSheetState(skipPartiallyExpanded = true),
     onDismiss: () -> Unit,
     onSelectPost: (postId: String) -> Unit,
 ) {

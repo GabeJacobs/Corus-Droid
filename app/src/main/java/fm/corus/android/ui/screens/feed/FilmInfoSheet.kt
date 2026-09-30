@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.feed
 
+import fm.corus.android.ui.components.rememberGuardedSheetState
+
 import fm.corus.android.ui.components.CorusModalBottomSheet
 import android.content.Intent
 import android.net.Uri
@@ -43,7 +45,7 @@ fun FilmInfoSheet(
     onDismiss: () -> Unit,
     fetchMovieDetails: suspend (Int) -> TMDBMovieDetails?,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    val sheetState = rememberGuardedSheetState(skipPartiallyExpanded = false)
     var isLoading by remember { mutableStateOf(true) }
     var movieDetails by remember { mutableStateOf<TMDBMovieDetails?>(null) }
 

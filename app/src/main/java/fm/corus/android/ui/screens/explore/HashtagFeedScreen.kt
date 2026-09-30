@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.explore
 
+import fm.corus.android.ui.components.rememberGuardedSheetState
+
 import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border

@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.feed
 
+import fm.corus.android.ui.components.rememberGuardedSheetState
+
 import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -42,7 +44,7 @@ fun LikesBottomSheet(
     onDismiss: () -> Unit,
     onNavigateToUser: (String) -> Unit = {},
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    val sheetState = rememberGuardedSheetState(skipPartiallyExpanded = false)
 
     CorusModalBottomSheet(
         onDismissRequest = onDismiss,

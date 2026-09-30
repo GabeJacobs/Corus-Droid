@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.notifications
 
+import fm.corus.android.ui.components.rememberGuardedSheetState
+
 import fm.corus.android.ui.components.CorusModalBottomSheet
 import android.animation.ValueAnimator
 import androidx.compose.foundation.layout.*
@@ -173,7 +175,7 @@ internal fun GiftNotificationSheet(
     }
     CorusModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState = rememberGuardedSheetState(skipPartiallyExpanded = true),
     ) {
         // Intrinsic content height opens fully. Oversized notes and large text can scroll;
         // ModalBottomSheet supplies the navigation-bar inset below this bottom padding.

@@ -34,7 +34,7 @@ import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
+import fm.corus.android.ui.components.rememberGuardedSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -220,7 +220,7 @@ fun EditProfileCitySection(viewModel: EditProfileViewModel) {
     if (dialog.isNotEmpty()) {
         CorusModalBottomSheet(
             onDismissRequest = { if (dialog != "intro") dialog = "" },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            sheetState = rememberGuardedSheetState(skipPartiallyExpanded = true),
         ) {
             LazyColumn(
                 contentPadding = PaddingValues(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 24.dp),

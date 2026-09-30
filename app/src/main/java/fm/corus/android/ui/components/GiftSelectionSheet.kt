@@ -43,7 +43,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -58,8 +57,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.material3.SheetState
-import androidx.compose.material3.SheetValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
@@ -104,13 +101,6 @@ import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.bottomSheetMaxHeight
 import com.valentinilk.shimmer.shimmer
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
-import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.delay
 import kotlin.math.ceil
 
@@ -123,52 +113,6 @@ internal fun shouldShowGiftClubOffer(capacity: Int): Boolean = capacity < 3
 internal fun areGiftControlsEnabled(available: Int): Boolean = available > 0
 internal fun giftPickerIntroResource(available: Int?): Int =
     if (available == 0) R.string.gift_picker_empty_intro else R.string.gift_picker_intro
-
-/** Sheet state for the gift picker hosts, with two guards against accidental
- *  dismissal (Instagram-style):
- *  1. While the keyboard is up, a swipe-down only closes the keyboard.
- *  2. Releasing after a short drag springs the sheet back up instead of
- *     dismissing it. A deliberate drag past ~a quarter of the screen, a tap on
- *     the dimmed area, or the back gesture still dismiss. */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, FlowPreview::class)
-@Composable
-fun rememberGuardedSheetState(): SheetState {
-    val imeVisible by rememberUpdatedState(WindowInsets.isImeVisible)
-    val keyboard = LocalSoftwareKeyboardController.current
-    val density = LocalDensity.current
-    val dismissDragPx = with(density) { LocalConfiguration.current.screenHeightDp.dp.toPx() } * DISMISS_DRAG_FRACTION
-    val dismissDrag by rememberUpdatedState(dismissDragPx)
-    // Top edge of the sheet when it is at rest (updated whenever it settles).
-    val restingTop = remember { mutableFloatStateOf(Float.NaN) }
-    val holder = remember { arrayOfNulls<SheetState>(1) }
-    val confirm = remember {
-        { target: SheetValue ->
-            if (target != SheetValue.Hidden) {
-                true
-            } else {
-                val top = runCatching { holder[0]?.requireOffset() }.getOrNull()
-                val dragged = if (top != null && !restingTop.floatValue.isNaN()) top - restingTop.floatValue else 0f
-                // dragged ~ 0 means scrim tap / back / a programmatic hide(): always allow.
-                // A real drag with the keyboard up only closes the keyboard; a real but
-                // short drag springs back instead of dismissing.
-                when {
-                    dragged <= 4f -> true
-                    imeVisible -> { keyboard?.hide(); false }
-                    else -> dragged >= dismissDrag
-                }
-            }
-        }
-    }
-    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = confirm)
-    holder[0] = state
-    LaunchedEffect(state) {
-        snapshotFlow { runCatching { state.requireOffset() }.getOrNull() }
-            .filterNotNull()
-            .debounce(500)
-            .collect { if (state.currentValue == SheetValue.Expanded) restingTop.floatValue = it }
-    }
-    return state
-}
 
 /** Hides the keyboard when the user starts scrolling and leaves the gesture
  *  untouched, so the list still scrolls and the sheet is never dismissed. */
@@ -188,7 +132,6 @@ fun Modifier.hideKeyboardOnScroll(): Modifier {
     return nestedScroll(connection)
 }
 
-private const val DISMISS_DRAG_FRACTION = 0.25f
 private const val GIFT_SENT_HOLD_MS = 2_000L
 private const val GIFT_ALREADY_SENT_HOLD_MS = 2_600L
 

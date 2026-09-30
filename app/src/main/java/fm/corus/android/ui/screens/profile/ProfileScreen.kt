@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.profile
 
+import fm.corus.android.ui.components.rememberGuardedSheetState
+
 import fm.corus.android.ui.components.CorusModalBottomSheet
 import android.content.Intent
 import android.net.Uri
@@ -262,7 +264,7 @@ fun ProfileScreen(
             onStylePickerConsumed()
         }
     }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
     val clubSheetState = fm.corus.android.ui.components.rememberGuardedSheetState()
 
     // Avatar context menu state
@@ -1363,7 +1365,7 @@ fun ProfileScreen(
 
     // ── Profile Share Sheet (in-app Corus DM share), gated by profile_share_enabled ──
     if (showShareSheet) {
-        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val shareSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
         val sentMsg = stringResource(fm.corus.android.R.string.profile_share_toast_profile_sent)
         val shareCardVersion = remember(currentProfile.id, currentProfile.cymbalCount, posts.firstOrNull()?.id) {
             "${currentProfile.cymbalCount}-${posts.firstOrNull()?.id ?: "none"}"

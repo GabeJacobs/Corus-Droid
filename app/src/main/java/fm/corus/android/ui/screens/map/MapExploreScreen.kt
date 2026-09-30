@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.map
 
+import fm.corus.android.ui.components.rememberGuardedSheetState
+
 import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
@@ -830,11 +832,11 @@ fun MapExploreScreen(
         }
         state.error?.let { message -> AlertDialog(onDismissRequest = { model.error(null) }, title = { Text(stringResource(fm.corus.android.R.string.map_please_try_again)) }, text = { Text(message) }, confirmButton = { TextButton(onClick = { model.error(null) }) { Text(parityCopy("OK")) } }) }
     }
-    val sharingSheet = rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = { value -> value != SheetValue.Hidden || (dialog != "intro" && dialog != "confirm" && !state.busy) })
+    val sharingSheet = rememberGuardedSheetState(skipPartiallyExpanded = true, confirmValueChange = { value -> value != SheetValue.Hidden || (dialog != "intro" && dialog != "confirm" && !state.busy) })
     // Give the growing country directory enough initial room for roughly three
     // rows without turning it into a full-screen page. The capped LazyColumn is
     // the scrolling surface, and the remaining top gap protects the cutout.
-    val countryPickerSheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val countryPickerSheet = rememberGuardedSheetState(skipPartiallyExpanded = true)
     val countryPickerMaxHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * .65f
     val clubOfferSheet = fm.corus.android.ui.components.rememberGuardedSheetState()
     mapPaywallSource?.let { source -> CorusModalBottomSheet(

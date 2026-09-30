@@ -1,5 +1,7 @@
 package fm.corus.android.ui.navigation
 
+import fm.corus.android.ui.components.rememberGuardedSheetState
+
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -982,7 +984,7 @@ fun MainTabScreen(
     if (showPostSuccessOthers) {
         val others = postSuccessOthers
         if (others != null) {
-            val othersSheetState = androidx.compose.material3.rememberModalBottomSheetState(
+            val othersSheetState = fm.corus.android.ui.components.rememberGuardedSheetState(
                 skipPartiallyExpanded = true,
             )
             fm.corus.android.ui.components.CorusModalBottomSheet(

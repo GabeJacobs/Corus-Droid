@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.feed
 
+import fm.corus.android.ui.components.rememberGuardedSheetState
+
 import fm.corus.android.ui.components.CorusModalBottomSheet
 import android.content.Intent
 import android.net.Uri
@@ -759,7 +761,7 @@ fun FilmDetailScreen(
 
     // ── Share Film bottom sheet ──
     if (showShareSheet) {
-        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val shareSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
         val filmSharedMsg = stringResource(R.string.film_detail_toast_film_sent)
 
         LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }

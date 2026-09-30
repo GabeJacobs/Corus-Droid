@@ -21,7 +21,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -171,7 +170,7 @@ fun PostMenuSheets(
 
     // ── Share Post Bottom Sheet ──
     sharePost?.let { post ->
-        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val shareSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
         val shareSearchResults by actions.shareSearchResults.collectAsState()
         val recentShareContacts by actions.recentShareContacts.collectAsState()
         val isShareSearching by actions.isShareSearching.collectAsState()
@@ -230,7 +229,7 @@ fun PostMenuSheets(
 
     // ── Post Action Menu Bottom Sheet ──
     menuPost?.let { post ->
-        val menuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val menuSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
         val isOwn = actions.isOwnPost(post)
         val isSaved = engagementStates[post.id]?.isSaved ?: false
 
@@ -346,7 +345,7 @@ fun PostMenuSheets(
 
     // ── Edit Caption Sheet ──
     editCaptionPost?.let { post ->
-        val editSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val editSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
 
         CorusModalBottomSheet(
             onDismissRequest = { onEditCaptionPostChange(null) },

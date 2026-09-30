@@ -87,7 +87,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import fm.corus.android.ui.components.CorusModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
+import fm.corus.android.ui.components.rememberGuardedSheetState
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.ExpandedPhoto
@@ -884,7 +884,7 @@ fun ArtistPageScreen(
     }
 
     if (showShareSheet) {
-        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val shareSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
         val sentMsg = stringResource(R.string.artist_detail_toast_artist_sent)
         LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
         CorusModalBottomSheet(

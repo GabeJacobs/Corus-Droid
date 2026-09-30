@@ -61,7 +61,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import fm.corus.android.ui.components.CorusModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
+import fm.corus.android.ui.components.rememberGuardedSheetState
 import fm.corus.android.R
 import fm.corus.android.data.model.TrackCorusStats
 import fm.corus.android.data.model.primaryNameHint
@@ -621,7 +621,7 @@ fun AlbumPageScreen(
     }
 
     if (showShareSheet) {
-        val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val shareSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
         val sentMsg = stringResource(R.string.album_detail_toast_album_sent)
         LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
         CorusModalBottomSheet(

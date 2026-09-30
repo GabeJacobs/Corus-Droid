@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.map
 
+import fm.corus.android.ui.components.rememberGuardedSheetState
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -91,7 +93,7 @@ fun MapPostEngagement(post: CymbalPost, onComments: () -> Unit, onRepost: (Cymba
             saveAction()
         }
     }
-    shareTarget?.let { tapped -> SharePostSheet(post = tapped, recentContacts = recent, searchResults = results, isSearching = searching, isLoadingContacts = loading, instagramShareEnabled = model.remoteConfig.instagramShareEnabled, sheetState = rememberModalBottomSheetState(), onSearchQueryChange = model::searchShareUsers, onSendToUser = { user, message -> model.sendPostToUser(user, tapped, message); shareTarget = null }, onRepost = { shareTarget = null; onRepost(tapped) }, onDismiss = { shareTarget = null }) }
+    shareTarget?.let { tapped -> SharePostSheet(post = tapped, recentContacts = recent, searchResults = results, isSearching = searching, isLoadingContacts = loading, instagramShareEnabled = model.remoteConfig.instagramShareEnabled, sheetState = rememberGuardedSheetState(skipPartiallyExpanded = false), onSearchQueryChange = model::searchShareUsers, onSendToUser = { user, message -> model.sendPostToUser(user, tapped, message); shareTarget = null }, onRepost = { shareTarget = null; onRepost(tapped) }, onDismiss = { shareTarget = null }) }
 }
 
 @Composable

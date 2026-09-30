@@ -192,6 +192,43 @@ fun SearchScreen(
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         return
     }
+    var isSearchFocused by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    // Release the search input before starting a destination transition.
+    val dismissSearchInput: () -> Unit = {
+        focusManager.clearFocus()
+        keyboardController?.hide()
+        isSearchFocused = false
+    }
+    val navigateToUser: (CymbalUser) -> Unit = { destination ->
+        dismissSearchInput()
+        onNavigateToUser(destination)
+    }
+    val navigateToSong: (CymbalTrack) -> Unit = { destination ->
+        dismissSearchInput()
+        onNavigateToSong(destination)
+    }
+    val navigateToFilm: (FilmDetailRoute) -> Unit = { destination ->
+        dismissSearchInput()
+        onNavigateToFilm(destination)
+    }
+    val navigateToHashtag: (String) -> Unit = { destination ->
+        dismissSearchInput()
+        onNavigateToHashtag(destination)
+    }
+    val navigateToArtist: (fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit = { destination ->
+        dismissSearchInput()
+        onNavigateToArtist(destination)
+    }
+    val navigateToAlbum: (fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit = { destination ->
+        dismissSearchInput()
+        onNavigateToAlbum(destination)
+    }
+    val navigateToDirector: (fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit = { destination ->
+        dismissSearchInput()
+        onNavigateToDirector(destination)
+    }
     val searchQuery by viewModel.searchQuery.collectAsState()
     val userResults by viewModel.userSearchResults.collectAsState()
     val songSearchResults by viewModel.songSearchResults.collectAsState()
@@ -260,7 +297,7 @@ fun SearchScreen(
         if (director.directorId.isEmpty()) DestinationResolvingOverlay.arm()
         searchScope.launch {
             val route = viewModel.resolveTrendingDirector(director)
-            if (route != null) onNavigateToDirector(route)
+            if (route != null) navigateToDirector(route)
             else android.widget.Toast.makeText(
                 searchContext,
                 searchContext.getString(fm.corus.android.R.string.film_detail_director_not_found),
@@ -272,7 +309,7 @@ fun SearchScreen(
         val cached = TrendingAlbumDestinationCache.peek(album)
         if (cached != null) {
             when (cached) {
-                is TrendingAlbumOpen.Album -> onNavigateToAlbum(
+                is TrendingAlbumOpen.Album -> navigateToAlbum(
                     AlbumPageRoute(
                         albumId = cached.albumId,
                         title = cached.title,
@@ -280,13 +317,13 @@ fun SearchScreen(
                         coverUrl = cached.coverUrl,
                     ),
                 )
-                is TrendingAlbumOpen.Song -> onNavigateToSong(cached.track)
+                is TrendingAlbumOpen.Song -> navigateToSong(cached.track)
             }
         } else {
             DestinationResolvingOverlay.arm()
             searchScope.launch {
                 when (val dest = viewModel.resolveTrendingAlbum(album)) {
-                    is TrendingAlbumOpen.Album -> onNavigateToAlbum(
+                    is TrendingAlbumOpen.Album -> navigateToAlbum(
                         AlbumPageRoute(
                             albumId = dest.albumId,
                             title = dest.title,
@@ -294,7 +331,7 @@ fun SearchScreen(
                             coverUrl = dest.coverUrl,
                         ),
                     )
-                    is TrendingAlbumOpen.Song -> onNavigateToSong(dest.track)
+                    is TrendingAlbumOpen.Song -> navigateToSong(dest.track)
                     null -> android.widget.Toast.makeText(
                         searchContext,
                         searchContext.getString(fm.corus.android.R.string.search_no_matches),
@@ -329,8 +366,6 @@ fun SearchScreen(
         SearchTab.HASHTAGS -> hashtagSearchResults.isEmpty()
     }
     val showSearchOfflineRetry = hasSearchQuery && !isSearching && searchHasError && currentTabIsEmpty
-    var isSearchFocused by remember { mutableStateOf(false) }
-    val focusManager = LocalFocusManager.current
     // Recents overlay on focus, matching iOS `showingRecents`: only when
     // there are items. Empty recents leave browse / discovery visible.
     // Unified search has no Users tab; recents overlay on focus everywhere.
@@ -354,25 +389,24 @@ fun SearchScreen(
     // nav callbacks is what makes every result type (not just users) show up in
     // the "Recent" list — the user path already records via onUserSelected.
     val recordAndNavArtist: (fm.corus.android.ui.navigation.ArtistPageRoute) -> Unit = { route ->
-        viewModel.recordRecent(RecentSearchItem.fromArtist(route)); onNavigateToArtist(route)
+        viewModel.recordRecent(RecentSearchItem.fromArtist(route)); navigateToArtist(route)
     }
     val recordAndNavAlbum: (fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit = { route ->
-        viewModel.recordRecent(RecentSearchItem.fromAlbum(route)); onNavigateToAlbum(route)
+        viewModel.recordRecent(RecentSearchItem.fromAlbum(route)); navigateToAlbum(route)
     }
     val recordAndNavDirector: (fm.corus.android.ui.navigation.DirectorPageRoute) -> Unit = { route ->
-        viewModel.recordRecent(RecentSearchItem.fromDirector(route)); onNavigateToDirector(route)
+        viewModel.recordRecent(RecentSearchItem.fromDirector(route)); navigateToDirector(route)
     }
     val recordAndNavFilm: (FilmDetailRoute) -> Unit = { route ->
-        viewModel.recordRecent(RecentSearchItem.fromFilm(route)); onNavigateToFilm(route)
+        viewModel.recordRecent(RecentSearchItem.fromFilm(route)); navigateToFilm(route)
     }
     val recordAndNavSong: (CymbalTrack) -> Unit = { track ->
-        viewModel.recordRecent(RecentSearchItem.fromTrack(track)); onNavigateToSong(track)
+        viewModel.recordRecent(RecentSearchItem.fromTrack(track)); navigateToSong(track)
     }
     val recordAndNavHashtag: (String) -> Unit = { name ->
-        viewModel.recordRecent(RecentSearchItem.fromHashtag(name)); onNavigateToHashtag(name)
+        viewModel.recordRecent(RecentSearchItem.fromHashtag(name)); navigateToHashtag(name)
     }
 
-    val keyboardController = LocalSoftwareKeyboardController.current
     val scrollDismissConnection = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
@@ -652,7 +686,7 @@ fun SearchScreen(
                             tasteMatchLoadFailed = tasteMatchLoadFailed,
                             belowTasteMatchThreshold = belowTasteMatchThreshold,
                             viewModel = viewModel,
-                            onNavigateToUser = onNavigateToUser,
+                            onNavigateToUser = navigateToUser,
                             onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
                             onNavigateToContactFriends = onNavigateToContactFriends,
                         )
@@ -669,7 +703,7 @@ fun SearchScreen(
                                     isLoading = isTrendingLoading,
                                     nowPlaying = viewModel.nowPlayingManager,
                                     viewModel = viewModel,
-                                    onSongTap = onNavigateToSong,
+                                    onSongTap = navigateToSong,
                                     onSeeAll = { onNavigateToTrending("songs") },
                                 )
                                 compactTrendingAlbumsSection(
@@ -695,7 +729,7 @@ fun SearchScreen(
                                         onArtistTap = { artist ->
                                             searchScope.launch {
                                                 val route = viewModel.resolveTrendingArtist(artist)
-                                                if (route != null) onNavigateToArtist(route)
+                                                if (route != null) navigateToArtist(route)
                                                 else android.widget.Toast.makeText(
                                                     searchContext,
                                                     searchContext.getString(fm.corus.android.R.string.song_detail_artist_not_found),
@@ -716,7 +750,7 @@ fun SearchScreen(
                                     titleRes = fm.corus.android.R.string.search_new_release_albums_title,
                                     icon = "sparkle",
                                     onAlbumTap = { album ->
-                                        album.asSongTrack()?.let { onNavigateToSong(it) }
+                                        album.asSongTrack()?.let { navigateToSong(it) }
                                     },
                                     onSeeAll = { onNavigateToTrending("new_release_albums") },
                                 )
@@ -725,7 +759,7 @@ fun SearchScreen(
                                         artists = artistsOnCorus,
                                         allFollowedIds = allFollowedIds,
                                         viewModel = viewModel,
-                                        onNavigateToUser = onNavigateToUser,
+                                        onNavigateToUser = navigateToUser,
                                         onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
                                     )
                                 }
@@ -737,7 +771,7 @@ fun SearchScreen(
                                 isLoading = isTrendingLoading,
                                 window = trendingSongsWindow,
                                 onWindowChange = { viewModel.setTrendingSongsWindow(it) },
-                                onSongTap = onNavigateToSong,
+                                onSongTap = navigateToSong,
                                 nowPlaying = viewModel.nowPlayingManager,
                             )
                         }
@@ -753,14 +787,14 @@ fun SearchScreen(
                                     movies = trendingMovies,
                                     isLoading = isTrendingMoviesLoading,
                                     viewModel = viewModel,
-                                    onFilmTap = onNavigateToFilm,
+                                    onFilmTap = navigateToFilm,
                                     onSeeAll = { onNavigateToTrending("films") },
                                 )
                                 compactTrendingFilmsSection(
                                     movies = newReleaseMovies,
                                     isLoading = isNewReleaseMoviesLoading,
                                     viewModel = viewModel,
-                                    onFilmTap = onNavigateToFilm,
+                                    onFilmTap = navigateToFilm,
                                     onSeeAll = { onNavigateToTrending("new_release_films") },
                                     showRank = false,
                                     showYear = true,
@@ -784,7 +818,7 @@ fun SearchScreen(
                                 isLoading = isTrendingMoviesLoading,
                                 window = trendingFilmsWindow,
                                 onWindowChange = { viewModel.setTrendingFilmsWindow(it) },
-                                onFilmTap = onNavigateToFilm,
+                                onFilmTap = navigateToFilm,
                             )
                         }
                     }
@@ -796,7 +830,7 @@ fun SearchScreen(
                             followedHashtagNames = followedHashtagNames,
                             window = trendingHashtagsWindow,
                             onWindowChange = { viewModel.setTrendingHashtagsWindow(it) },
-                            onHashtagTap = { tag -> onNavigateToHashtag(tag.name) },
+                            onHashtagTap = { tag -> navigateToHashtag(tag.name) },
                             onToggleFollow = { tag -> viewModel.toggleHashtagFollowByName(tag.name) },
                         )
                     }
@@ -824,7 +858,7 @@ fun SearchScreen(
                                 onSelectFilter = { viewModel.setUnifiedFilter(it) },
                                 onNavigateToUser = { user ->
                                     viewModel.onUserSelected(user)
-                                    onNavigateToUser(user)
+                                    navigateToUser(user)
                                 },
                                 onNavigateToSong = recordAndNavSong,
                                 onNavigateToFilm = recordAndNavFilm,
@@ -838,7 +872,7 @@ fun SearchScreen(
                                 viewModel = viewModel,
                                 onNavigateToUser = { user ->
                                     viewModel.onUserSelected(user)
-                                    onNavigateToUser(user)
+                                    navigateToUser(user)
                                 },
                             )
                             UnifiedSearchFilter.MUSIC -> SongSearchResultsList(
@@ -905,16 +939,16 @@ fun SearchScreen(
                             trendingArtistsSectionEnabled = trendingArtistsSectionEnabled,
                             followedHashtagNames = followedHashtagNames,
                             viewModel = viewModel,
-                            onNavigateToUser = onNavigateToUser,
+                            onNavigateToUser = navigateToUser,
                             onNavigateToSuggestedUsers = onNavigateToSuggestedUsers,
                             onNavigateToContactFriends = onNavigateToContactFriends,
-                            onNavigateToSong = onNavigateToSong,
-                            onNavigateToFilm = onNavigateToFilm,
-                            onNavigateToHashtag = onNavigateToHashtag,
+                            onNavigateToSong = navigateToSong,
+                            onNavigateToFilm = navigateToFilm,
+                            onNavigateToHashtag = navigateToHashtag,
                             onNavigateToArtist = { artist ->
                                 searchScope.launch {
                                     val route = viewModel.resolveTrendingArtist(artist)
-                                    if (route != null) onNavigateToArtist(route)
+                                    if (route != null) navigateToArtist(route)
                                     else android.widget.Toast.makeText(
                                         searchContext,
                                         searchContext.getString(fm.corus.android.R.string.song_detail_artist_not_found),
@@ -946,13 +980,13 @@ fun SearchScreen(
                         // the user's finger. The new order shows next time recents
                         // open (the flow reflects storage).
                         when (item) {
-                            is RecentSearchItem.UserEntry -> onNavigateToUser(item.toUser())
-                            is RecentSearchItem.ArtistEntry -> onNavigateToArtist(item.toRoute())
-                            is RecentSearchItem.AlbumEntry -> onNavigateToAlbum(item.toRoute())
-                            is RecentSearchItem.SongEntry -> onNavigateToSong(item.toTrack())
-                            is RecentSearchItem.FilmEntry -> onNavigateToFilm(item.toRoute())
-                            is RecentSearchItem.DirectorEntry -> onNavigateToDirector(item.toRoute())
-                            is RecentSearchItem.HashtagEntry -> onNavigateToHashtag(item.tag)
+                            is RecentSearchItem.UserEntry -> navigateToUser(item.toUser())
+                            is RecentSearchItem.ArtistEntry -> navigateToArtist(item.toRoute())
+                            is RecentSearchItem.AlbumEntry -> navigateToAlbum(item.toRoute())
+                            is RecentSearchItem.SongEntry -> navigateToSong(item.toTrack())
+                            is RecentSearchItem.FilmEntry -> navigateToFilm(item.toRoute())
+                            is RecentSearchItem.DirectorEntry -> navigateToDirector(item.toRoute())
+                            is RecentSearchItem.HashtagEntry -> navigateToHashtag(item.tag)
                         }
                         viewModel.recordRecent(item)
                     },
