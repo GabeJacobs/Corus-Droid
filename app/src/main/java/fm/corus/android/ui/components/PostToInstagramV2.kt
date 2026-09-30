@@ -1,5 +1,7 @@
 package fm.corus.android.ui.components
 
+import androidx.compose.ui.text.input.TextFieldValue
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -573,7 +575,7 @@ internal fun PostToInstagramV2Sheet(
     var searching by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<ShareRecipient?>(null) }
-    var message by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf(TextFieldValue("")) }
     var messageFocused by remember { mutableStateOf(false) }
     val composing = messageFocused && WindowInsets.ime.getBottom(LocalDensity.current) > 0 && selected != null
     var avatar by remember(subject) { mutableStateOf<Bitmap?>(null) }
@@ -597,7 +599,27 @@ internal fun PostToInstagramV2Sheet(
     )
     val previewSelection = Triple(layout, background, renderedSubject)
     val canShareImage = image != null && renderedSelection == previewSelection
-    val contacts = remember(recentContacts, selected) { selected?.let { s -> listOf(s) + recentContacts.filter { it.id != s.id } } ?: recentContacts }
+    // Selection only changes the checkmark for a recipient already in the row.
+    // Add a searched recipient only when they are absent from the recents.
+    val contacts = remember(recentContacts, selected) {
+        val recipient = selected
+        if (recipient != null && recentContacts.none { it.id == recipient.id }) {
+            listOf(recipient) + recentContacts
+        } else {
+            recentContacts
+        }
+    }
+    // Keep recent rows in place while selecting. Moving the selection ahead of
+    // the first visible keyed row makes LazyColumn retain that row's position
+    // and scroll the selected recipient out of view.
+    val searchContacts = remember(recentContacts, selected) {
+        val recipient = selected
+        if (recipient != null && recentContacts.none { it.id == recipient.id }) {
+            recentContacts + recipient
+        } else {
+            recentContacts
+        }
+    }
     LaunchedEffect(subject, retry) {
         loading = true; error = null
         image = null
@@ -646,22 +668,14 @@ internal fun PostToInstagramV2Sheet(
         scope.launch {
             try {
                 val (uri, stickerUri) = withContext(Dispatchers.IO) {
-                    val useMovableSticker = instagram
+                    // Instagram applies its own initial scale to movable stickers,
+                    // shrinking Vinyl's artwork and text compared with our preview.
+                    // Export the complete Vinyl story to preserve preview proportions.
+                    val useMovableSticker = instagram && (subject.isFilm || layout == "cover")
                     val backgroundBitmap = if (useMovableSticker) renderInstagramV2FrameBackground(art, accent, background) else rendered
-                    val stickerBitmap = when {
-                        !useMovableSticker -> null
-                        subject.isFilm || layout == "cover" ->
-                            renderInstagramV2FrameSticker(rendered, instagramV2FrameBoundsForSubject(context, renderedSubject))
-                        else -> {
-                            val foreground = renderInstagramV2(
-                                context, renderedSubject, art, accent, "vinyl", background, avatar,
-                                includesBackground = false,
-                            )
-                            cropInstagramV2TransparentSticker(foreground).also {
-                                if (it !== foreground) foreground.recycle()
-                            }
-                        }
-                    }
+                    val stickerBitmap = if (useMovableSticker) {
+                        renderInstagramV2FrameSticker(rendered, instagramV2FrameBoundsForSubject(context, renderedSubject))
+                    } else null
                     val backgroundFile = File.createTempFile("instagram_v2_background_", ".png", context.cacheDir)
                     backgroundFile.outputStream().use { backgroundBitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
                     val backgroundUri = FileProvider.getUriForFile(context, "${context.packageName}.provider", backgroundFile)
@@ -703,10 +717,14 @@ internal fun PostToInstagramV2Sheet(
     Column(
         Modifier
             .fillMaxWidth()
-            .then(if (searching) Modifier.height(searchHeight) else Modifier.fillMaxHeight(.94f))
+            .then(when {
+                searching -> Modifier.height(searchHeight)
+                composing -> Modifier
+                else -> Modifier.fillMaxHeight(.94f)
+            })
             .imePadding(),
     ) {
-        Box(Modifier.fillMaxWidth().height(32.dp)) {
+        Box(Modifier.fillMaxWidth().height(32.dp).dismissKeyboardOnDownwardDrag()) {
             Box(
                 Modifier
                     .align(Alignment.TopCenter)
@@ -761,24 +779,13 @@ internal fun PostToInstagramV2Sheet(
                 }
             }
             selected?.let { recipient ->
-                Row(
+                ShareSelectedRecipientRow(
+                    recipient = recipient,
+                    onRemove = { selected = null },
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    ShareRecipientAvatar(recipient, 28.dp)
-                    Text(recipient.username, style = CorusFont.captionMedium, color = CorusColors.Text)
-                    IconButton(onClick = { selected = null }, modifier = Modifier.size(40.dp)) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = stringResource(R.string.instagram_v2_remove_recipient),
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp).background(CorusColors.Accent, CircleShape).padding(3.dp),
-                        )
-                    }
-                }
+                )
             }
-            LazyColumn(Modifier.weight(1f)) {
+            LazyColumn(Modifier.weight(1f).dismissKeyboardOnDownwardDrag()) {
                 val hasQuery = query.isNotBlank()
                 if (hasQuery && isSearching) item {
                     Box(
@@ -791,7 +798,7 @@ internal fun PostToInstagramV2Sheet(
                         )
                     }
                 } else {
-                    val recipients = if (hasQuery) searchResults else contacts
+                    val recipients = if (hasQuery) searchResults else searchContacts
                     if (!hasQuery && isLoadingContacts && recipients.isEmpty()) {
                         items(4) {
                             Row(
@@ -816,7 +823,7 @@ internal fun PostToInstagramV2Sheet(
             }
         } else if (composing) {
             Row(
-                Modifier.fillMaxWidth().padding(16.dp)
+                Modifier.fillMaxWidth().dismissKeyboardOnDownwardDrag().padding(16.dp)
                     .background(CorusColors.CardBackground, RoundedCornerShape(12.dp)).padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -832,17 +839,12 @@ internal fun PostToInstagramV2Sheet(
                 }
             }
             selected?.let { recipient ->
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ShareRecipientAvatar(recipient, 28.dp)
-                    Text(recipient.username, style = CorusFont.captionMedium, color = CorusColors.Text, maxLines = 1,
-                        overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                    IconButton(onClick = { selected = null; focus.clearFocus() }) {
-                        Icon(Icons.Default.Cancel, stringResource(R.string.instagram_v2_remove_recipient), tint = CorusColors.Accent)
-                    }
-                }
+                ShareSelectedRecipientRow(
+                    recipient = recipient,
+                    onRemove = { selected = null; focus.clearFocus() },
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                )
             }
-            Spacer(Modifier.weight(1f))
         } else {
             BoxWithConstraints(
                 modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp),
@@ -963,35 +965,46 @@ internal fun PostToInstagramV2Sheet(
         }
         if (selected != null) {
             HorizontalDivider(color = CorusColors.Divider)
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                BasicTextField(
-                    value = message,
-                    onValueChange = { message = it },
-                    modifier = Modifier.weight(1f).heightIn(min = 44.dp).onFocusChanged { messageFocused = it.isFocused },
-                    textStyle = CorusFont.body.copy(color = CorusColors.Text),
-                    cursorBrush = SolidColor(CorusColors.Accent),
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                    minLines = 1,
-                    maxLines = 4,
-                    decorationBox = { innerTextField ->
-                        Box(Modifier.fillMaxWidth().heightIn(min = 44.dp), contentAlignment = Alignment.CenterStart) {
-                            if (message.isEmpty()) Text(stringResource(R.string.share_post_message_placeholder), style = CorusFont.body, color = CorusColors.Tertiary)
-                            innerTextField()
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                // Column supplies the space left after the summary and recipient.
+                // Constrain the editor by that space so long drafts scroll above IME.
+                val editorMaxHeight = if (composing) {
+                    (maxHeight - 24.dp).coerceAtLeast(44.dp)
+                } else {
+                    androidx.compose.ui.unit.Dp.Infinity
+                }
+                ShareMessageAutocomplete(message, { message = it }, active = messageFocused) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        BasicTextField(
+                            value = message,
+                            onValueChange = { message = it },
+                            modifier = Modifier.weight(1f).heightIn(min = 44.dp, max = editorMaxHeight).onFocusChanged { messageFocused = it.isFocused },
+                            textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                            cursorBrush = SolidColor(CorusColors.Accent),
+                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                            minLines = 1,
+                            maxLines = if (composing) Int.MAX_VALUE else 4,
+                            decorationBox = { innerTextField ->
+                                Box(Modifier.fillMaxWidth().heightIn(min = 44.dp), contentAlignment = Alignment.CenterStart) {
+                                    if (message.text.isEmpty()) Text(stringResource(R.string.share_post_message_placeholder), style = CorusFont.body, color = CorusColors.Tertiary)
+                                    innerTextField()
+                                }
+                            },
+                        )
+                        Button(
+                            enabled = !sent,
+                            onClick = { selected?.let { sent = true; onAnalyticsLog?.invoke("direct_message"); onSendToUser(it.id, message.text); onDismiss() } },
+                            colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+                            shape = RoundedCornerShape(50),
+                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
+                        ) {
+                            Text(stringResource(R.string.share_post_send), style = CorusFont.buttonSmall, color = Color.White)
                         }
-                    },
-                )
-                Button(
-                    enabled = !sent,
-                    onClick = { selected?.let { sent = true; onAnalyticsLog?.invoke("direct_message"); onSendToUser(it.id, message); onDismiss() } },
-                    colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
-                    shape = RoundedCornerShape(50),
-                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
-                ) {
-                    Text(stringResource(R.string.share_post_send), style = CorusFont.buttonSmall, color = Color.White)
+                    }
                 }
             }
         } else if (!searching) {
@@ -1052,6 +1065,48 @@ internal fun PostToInstagramV2Sheet(
             }
         }
     }
+    }
+}
+
+@Composable
+private fun ShareSelectedRecipientRow(
+    recipient: ShareRecipient,
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth().dismissKeyboardOnDownwardDrag(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(stringResource(R.string.share_recipient_to), style = CorusFont.captionMedium, color = CorusColors.Secondary)
+        Row(
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .clip(RoundedCornerShape(50))
+                .background(CorusColors.CardBackground)
+                .padding(start = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ShareRecipientAvatar(recipient, 28.dp)
+            Text(
+                recipient.username,
+                style = CorusFont.captionMedium,
+                color = CorusColors.Text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            IconButton(onClick = onRemove, modifier = Modifier.size(48.dp)) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = stringResource(R.string.instagram_v2_remove_recipient),
+                    tint = CorusColors.Secondary,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+        }
     }
 }
 

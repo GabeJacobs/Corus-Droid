@@ -31,16 +31,25 @@ class GiftSelectionSheetTest {
     @Test
     fun `user scroll hides the keyboard without consuming the gesture`() {
         var hidden = 0
-        val connection = HideKeyboardOnScrollConnection { hidden++ }
+        val connection = HideKeyboardOnScrollConnection(isDragging = { true }) { hidden++ }
         val consumed = connection.onPreScroll(Offset(0f, -40f), NestedScrollSource.UserInput)
         assertEquals(1, hidden)
         assertEquals(Offset.Zero, consumed)
     }
 
     @Test
+    fun `focus relocation labeled UserInput keeps the keyboard open`() {
+        var hidden = 0
+        val connection = HideKeyboardOnScrollConnection(isDragging = { false }) { hidden++ }
+        val consumed = connection.onPreScroll(Offset(0f, -40f), NestedScrollSource.UserInput)
+        assertEquals(0, hidden)
+        assertEquals(Offset.Zero, consumed)
+    }
+
+    @Test
     fun `programmatic or horizontal scroll leaves the keyboard alone`() {
         var hidden = 0
-        val connection = HideKeyboardOnScrollConnection { hidden++ }
+        val connection = HideKeyboardOnScrollConnection(isDragging = { true }) { hidden++ }
         connection.onPreScroll(Offset(0f, -40f), NestedScrollSource.SideEffect)
         connection.onPreScroll(Offset(30f, 0f), NestedScrollSource.UserInput)
         assertEquals(0, hidden)

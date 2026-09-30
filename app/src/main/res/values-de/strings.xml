@@ -1513,4 +1513,5 @@
     <string name="gift_club_offer_cta_standard">Mit Corus Club freischalten</string>
     <string name="club_subtitle_gift">Schalte heute 3 Geschenke frei.</string>
     <string name="club_feature_gifts">Jede Woche 3 Geschenke versenden</string>
+    <string name="share_recipient_to">An</string>
 </resources>

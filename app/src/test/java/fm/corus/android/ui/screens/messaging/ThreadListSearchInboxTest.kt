@@ -63,6 +63,7 @@ class ThreadListSearchInboxTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         messageRepository = mock {
+            on { confirmedSends } doReturn kotlinx.coroutines.flow.MutableSharedFlow()
             on { leftThreads } doReturn kotlinx.coroutines.flow.MutableSharedFlow()
             on { listenToThreadSummaries(any(), any()) } doReturn kotlinx.coroutines.flow.emptyFlow()
         }

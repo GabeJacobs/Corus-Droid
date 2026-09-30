@@ -34,24 +34,19 @@ class RemoteConfigServiceGiftGateTest {
         return RemoteConfigService(remoteConfig, auth, context)
     }
 
-    @Test fun `gifts require both remote config and an exact tester uid`() {
-        for (uid in RemoteConfigService.GIFT_TESTER_UIDS) {
-            assertTrue(service(uid).giftsEnabledForCurrentUser)
-        }
-        assertFalse(service("gabe").giftsEnabledForCurrentUser)
-        assertFalse(service("some-other-uid").giftsEnabledForCurrentUser)
+    @Test fun `gifts require remote config and a signed in user`() {
+        assertTrue(service("ordinary-user").giftsEnabledForCurrentUser)
         assertFalse(service(null).giftsEnabledForCurrentUser)
-        assertFalse(service(RemoteConfigService.GIFT_TESTER_UIDS.first(), remoteValue = false).giftsEnabledForCurrentUser)
+        assertFalse(service("ordinary-user", remoteValue = false).giftsEnabledForCurrentUser)
     }
 
-    @Test fun `gift sending requires distinct approved sender and recipient`() {
-        val sender = RemoteConfigService.GIFT_TESTER_UIDS.first()
-        val anotherTester = RemoteConfigService.GIFT_TESTER_UIDS.first { it != sender }
-        val service = service(sender)
-
-        assertTrue(service.canSendGiftTo(anotherTester))
-        assertFalse(service.canSendGiftTo(sender))
-        assertFalse(service.canSendGiftTo("not-approved"))
-        assertFalse(service(sender, remoteValue = false).canSendGiftTo(anotherTester))
+    @Test fun `gift sending accepts any distinct recipient while respecting the release gate`() {
+        val service = service("sender")
+        assertTrue(service.canSendGiftTo("ordinary-recipient"))
+        assertFalse(service.canSendGiftTo("sender"))
+        assertFalse(service.canSendGiftTo(""))
+        assertFalse(service.canSendGiftTo(" "))
+        assertFalse(service(null).canSendGiftTo("ordinary-recipient"))
+        assertFalse(service("sender", remoteValue = false).canSendGiftTo("ordinary-recipient"))
     }
 }

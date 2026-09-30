@@ -32,8 +32,15 @@ internal fun mergeRefreshedThreads(
     keepOlderTail: Boolean = true,
 ): List<CymbalThread> {
     val refreshedIds = refreshed.map { it.id }.toSet()
-    val tail = if (keepOlderTail) existing.filter { it.id !in refreshedIds } else emptyList()
-    return refreshed + tail
+    val byId = existing.associateBy { it.id }
+    val newestRefreshed = refreshed.maxOfOrNull { it.lastMessageAt.time }
+    val tail = existing.filter {
+        it.id !in refreshedIds && (keepOlderTail ||
+            (newestRefreshed != null && it.lastMessageAt.time > newestRefreshed))
+    }
+    return refreshed.map { row ->
+        byId[row.id]?.takeIf { it.lastMessageAt.time > row.lastMessageAt.time } ?: row
+    } + tail
 }
 
 /**
@@ -131,7 +138,7 @@ internal fun applyLiveThreadUpdates(
     val recentWindow = live.filterNot { it.isOutsideRecentWindow }
     val snapshotComplete = recentWindow.size < pageSize
     val windowFloor = recentWindow.mapNotNull { it.updatedAt?.time }.minOrNull()
-    if (live.isNotEmpty()) {
+    if (live.isNotEmpty() && live.none { it.isCachedSummary }) {
         val kept = byId.filterValues { t ->
             val updated = t.updatedAt?.time
             val covered = snapshotComplete ||
@@ -379,12 +386,12 @@ class ThreadListViewModel @Inject constructor(
             threadSummaryJob = startThreadSummaryListener(userId)
         }
         if (hasLoadedThreads) {
-            viewModelScope.launch { refreshThreads(userId) }
+            requestRefresh(userId)
             return
         }
         viewModelScope.launch {
             _isLoading.value = true
-            refreshThreads(userId)
+            requestRefresh(userId)?.join()
             // An empty page is a real inbox for a new account — don't wait
             // on a live snapshot that may never confirm "zero" from cache.
             _isLoading.value = false
@@ -474,9 +481,7 @@ class ThreadListViewModel @Inject constructor(
                     _threads.value
                 }
                 publishThreads(
-                    (base + resolved)
-                        .associateBy { it.id }
-                        .values
+                    mergeRefreshedThreads(base, resolved)
                         .sortedByDescending { it.lastMessageAt.time }
                 )
             }
@@ -495,14 +500,49 @@ class ThreadListViewModel @Inject constructor(
         if (_isRefreshing.value) return
         viewModelScope.launch {
             _isRefreshing.value = true
-            refreshThreads(userId)
+            requestRefresh(userId)?.join()
             _isRefreshing.value = false
         }
+    }
+
+    private val _scrollToNewestRequest = MutableStateFlow(0L)
+    val scrollToNewestRequest = _scrollToNewestRequest.asStateFlow()
+
+    private var refreshJob: Job? = null
+    private var refreshRequested = false
+
+    init {
+        viewModelScope.launch {
+            messageRepository.confirmedSends.collect { userId ->
+                if (userId == authRepository.currentUserId) {
+                    val refresh = requestRefresh(userId)
+                    viewModelScope.launch {
+                        refresh?.join()
+                        if (userId == authRepository.currentUserId) _scrollToNewestRequest.value++
+                    }
+                }
+            }
+        }
+    }
+
+    // Coalesce refreshes, but a send accepted during an in-flight request must
+    // get a subsequent read: that earlier request may predate the send.
+    private fun requestRefresh(userId: String): Job? {
+        refreshRequested = true
+        if (refreshJob?.isActive == true) return refreshJob
+        refreshJob = viewModelScope.launch {
+            do {
+                refreshRequested = false
+                refreshThreads(userId)
+            } while (refreshRequested && authRepository.currentUserId == userId)
+        }
+        return refreshJob
     }
 
     private suspend fun refreshThreads(userId: String) {
         try {
             val page = messageRepository.listThreadsPage(userId, limit = pageSize)
+            if (authRepository.currentUserId != userId) return
             val left = messageRepository.recentlyLeftThreadIds()
             val refreshed = page.threads.filter { it.lastMessageFromUserId != null && it.id !in left }
             val merged = mergeRefreshedThreads(

@@ -1513,4 +1513,5 @@
     <string name="gift_club_offer_cta_standard">Desbloquear con Corus Club</string>
     <string name="club_subtitle_gift">Desbloquea 3 regalos hoy.</string>
     <string name="club_feature_gifts">3 regalos para enviar cada semana</string>
+    <string name="share_recipient_to">Para</string>
 </resources>

@@ -85,6 +85,7 @@ class ThreadListBlockedRowTest {
         Dispatchers.setMain(testDispatcher)
         live = MutableSharedFlow(replay = 1)
         messageRepository = mock {
+            on { confirmedSends } doReturn kotlinx.coroutines.flow.MutableSharedFlow()
             on { leftThreads } doReturn MutableSharedFlow()
             on { cachedInbox } doReturn null
             on { recentlyLeftThreadIds() } doReturn emptySet()

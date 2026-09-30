@@ -1503,4 +1503,5 @@
     <string name="gift_club_offer_cta_standard">通过 Corus Club 解锁</string>
     <string name="club_subtitle_gift">今天解锁 3 份礼物。</string>
     <string name="club_feature_gifts">每周可发送 3 份礼物</string>
+    <string name="share_recipient_to">收件人</string>
 </resources>

@@ -19,6 +19,8 @@ data class CymbalThread(
     val isPinned: Boolean = false,
     /** Listener-only metadata: this row must not lower the recent window's pruning boundary. */
     val isOutsideRecentWindow: Boolean = false,
+    /** Offline summaries can update rows, but cannot prove another row was removed. */
+    val isCachedSummary: Boolean = false,
     val groupName: String? = null,
     val groupPhotoURL: String? = null,
     val memberIds: List<String> = emptyList(),

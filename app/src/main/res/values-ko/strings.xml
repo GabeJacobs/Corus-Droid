@@ -1503,4 +1503,5 @@
     <string name="gift_club_offer_cta_standard">Corus Club으로 이용하기</string>
     <string name="club_subtitle_gift">오늘부터 선물 3개를 보낼 수 있어요.</string>
     <string name="club_feature_gifts">매주 선물 3개 보내기</string>
+    <string name="share_recipient_to">받는 사람</string>
 </resources>

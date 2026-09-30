@@ -581,7 +581,13 @@ fun ConcertsScreen(
                     ),
                 )
                 val popular = if (cityQuery.trim().length < 2) POPULAR_CONCERT_CITIES else emptyList()
-                LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false).heightIn(max = 500.dp).dismissKeyboardOnDownwardDrag().hideKeyboardOnScroll()) {
+                val cityListState = rememberLazyListState()
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().weight(1f, fill = false).heightIn(max = 500.dp)
+                        .dismissKeyboardOnDownwardDrag()
+                        .hideKeyboardOnScroll(cityListState.interactionSource),
+                    state = cityListState,
+                ) {
                     items(popular) { (id, name) ->
                         ListItem(
                             headlineContent = { Text(name, style = CorusFont.bodyMedium) },

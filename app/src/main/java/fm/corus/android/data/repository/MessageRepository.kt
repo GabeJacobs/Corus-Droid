@@ -48,6 +48,15 @@ class MessageRepository @Inject constructor(
         /** Small enough for an instant first paint; older history is paged on demand. */
         const val MESSAGE_PAGE_SIZE = 40L
     }
+    // Replay the latest confirmed send so an inbox opened after a share also
+    // reconciles. This is emitted only after the backend accepts the message.
+    private val _confirmedSends = MutableSharedFlow<String>(replay = 1, extraBufferCapacity = 8)
+    val confirmedSends: SharedFlow<String> = _confirmedSends.asSharedFlow()
+
+    fun notifyMessageSent(userId: String) {
+        _confirmedSends.tryEmit(userId)
+    }
+
     // Emits a threadId when the caller leaves a group, so the inbox can drop the
     // row immediately (the live snapshot merge only adds/updates, never removes).
     private val _leftThreads = MutableSharedFlow<String>(extraBufferCapacity = 8)
@@ -164,6 +173,7 @@ class MessageRepository @Inject constructor(
             clientMessageId = clientMessageId,
             clientCreatedAt = clientCreatedAt,
         )
+        notifyMessageSent(fromUserId)
     }
 
     suspend fun toggleReaction(threadId: String, messageId: String, emoji: String) {
@@ -192,6 +202,7 @@ class MessageRepository @Inject constructor(
             mediaURL = url,
             clientMessageId = clientMessageId,
         )
+        notifyMessageSent(fromUserId)
         return url
     }
 
@@ -223,11 +234,13 @@ class MessageRepository @Inject constructor(
             clientMessageId = clientMessageId,
             clientCreatedAt = clientCreatedAt,
         )
+        notifyMessageSent(fromUserId)
         return url
     }
 
     suspend fun sendGifMessage(threadId: String, fromUserId: String, gifURL: String, clientMessageId: String? = null) {
         cloudFunctions.sendMessage(threadId = threadId, fromUserId = fromUserId, text = "", type = "gif", mediaURL = gifURL, clientMessageId = clientMessageId)
+        notifyMessageSent(fromUserId)
     }
 
     suspend fun sendSharedTrackMessage(
@@ -260,6 +273,7 @@ class MessageRepository @Inject constructor(
             soundcloudPermalinkUrl = if (isSoundCloud) track.soundcloudPermalinkUrl else null,
             clientMessageId = clientMessageId,
         )
+        notifyMessageSent(fromUserId)
     }
 
     /**
@@ -282,6 +296,7 @@ class MessageRepository @Inject constructor(
             sharedPostId = postId,
             clientMessageId = clientMessageId,
         )
+        notifyMessageSent(fromUserId)
     }
 
     suspend fun sendSharedFilmMessage(
@@ -306,6 +321,7 @@ class MessageRepository @Inject constructor(
             tmdbWebURL = movie.tmdbWebURL,
             clientMessageId = clientMessageId,
         )
+        notifyMessageSent(fromUserId)
     }
 
     suspend fun sendSharedArtistMessage(
@@ -327,6 +343,7 @@ class MessageRepository @Inject constructor(
             artistImageURL = imageUrl,
             clientMessageId = clientMessageId,
         )
+        notifyMessageSent(fromUserId)
     }
 
     suspend fun sendSharedAlbumMessage(
@@ -352,6 +369,7 @@ class MessageRepository @Inject constructor(
             albumYear = year,
             clientMessageId = clientMessageId,
         )
+        notifyMessageSent(fromUserId)
     }
 
     suspend fun sendSharedDirectorMessage(
@@ -373,6 +391,7 @@ class MessageRepository @Inject constructor(
             directorImageURL = imageUrl,
             clientMessageId = clientMessageId,
         )
+        notifyMessageSent(fromUserId)
     }
 
     suspend fun sendSharedProfileMessage(
@@ -396,6 +415,7 @@ class MessageRepository @Inject constructor(
             sharedAvatarURL = avatarUrl,
             clientMessageId = clientMessageId,
         )
+        notifyMessageSent(fromUserId)
     }
 
     suspend fun getOrCreateThread(userId: String, otherUserId: String): String {
@@ -587,10 +607,10 @@ class MessageRepository @Inject constructor(
         fun publish() { recent?.let { trySend((it + pinned).distinctBy { row -> row.id }) } }
         val pinsRegistration = firestore.collection("users_v2").document(userId).collection("threads")
             .whereEqualTo("isPinned", true)
-            .addSnapshotListener { snapshot, error ->
+            .addSnapshotListener(MetadataChanges.INCLUDE) { snapshot, error ->
                 if (error != null) { close(subscriptionFailure(error)); return@addSnapshotListener }
                 if (snapshot == null) return@addSnapshotListener
-                pinned = snapshot.documents.mapNotNull { doc -> doc.data?.let { parseThreadSummary(doc.id, it).copy(isOutsideRecentWindow = true) } }
+                pinned = snapshot.documents.mapNotNull { doc -> doc.data?.let { parseThreadSummary(doc.id, it).copy(isOutsideRecentWindow = true, isCachedSummary = snapshot.metadata.isFromCache) } }
                 publish()
             }
         val registration = firestore
@@ -599,12 +619,12 @@ class MessageRepository @Inject constructor(
             .collection("threads")
             .orderBy("updatedAt", Query.Direction.DESCENDING)
             .limit(limit)
-            .addSnapshotListener { snapshot, error ->
+            .addSnapshotListener(MetadataChanges.INCLUDE) { snapshot, error ->
                 if (error != null) { close(subscriptionFailure(error)); return@addSnapshotListener }
                 if (snapshot == null) return@addSnapshotListener
                 val summaries = snapshot.documents.mapNotNull { doc ->
                     val data = doc.data ?: return@mapNotNull null
-                    parseThreadSummary(doc.id, data)
+                    parseThreadSummary(doc.id, data).copy(isCachedSummary = snapshot.metadata.isFromCache)
                 }
                 recent = summaries
                 publish()

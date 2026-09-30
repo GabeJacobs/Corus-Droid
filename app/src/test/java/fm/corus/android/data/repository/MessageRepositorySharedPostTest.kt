@@ -6,6 +6,9 @@ import fm.corus.android.data.remote.FirebaseStorageDataSource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
+import org.junit.Assert.assertEquals
+import kotlinx.coroutines.flow.first
+import org.mockito.kotlin.whenever
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verifyBlocking
 
@@ -43,4 +46,19 @@ class MessageRepositorySharedPostTest {
             )
         }
     }
+    @Test
+    fun successfulShareReplaysInboxInvalidationToLaterSubscriber() = runTest {
+        repo.sendSharedPostMessage("thread1", "sender1", "post1")
+        assertEquals("sender1", repo.confirmedSends.first())
+    }
+
+    @Test
+    fun failedSendDoesNotPublishInboxInvalidation() = runTest {
+        whenever(cloudFunctions.sendMessage(
+            threadId = "thread1", fromUserId = "sender1", text = "oops",
+        )).thenThrow(IllegalStateException("offline"))
+        runCatching { repo.sendTextMessage("thread1", "sender1", "oops") }
+        assertEquals(emptyList<String>(), repo.confirmedSends.replayCache)
+    }
+
 }

@@ -10,6 +10,7 @@ class MergeRefreshedThreadsTest {
         id = id,
         otherUserId = "u-$id",
         lastMessageText = last,
+        lastMessageAt = java.util.Date(100),
         lastMessageFromUserId = "u-$id",
     )
 
@@ -72,4 +73,23 @@ class MergeRefreshedThreadsTest {
 
         assertEquals(listOf("a"), merged.map { it.id })
     }
+    @Test
+    fun staleRefreshCannotUndoSentPreviewOrDropNewConversation() {
+        val sent = thread("a", "new song").copy(lastMessageAt = java.util.Date(300))
+        val new = thread("new").copy(lastMessageAt = java.util.Date(400))
+        val refreshed = listOf(thread("a", "old preview"))
+        val merged = mergeRefreshedThreads(listOf(sent, new), refreshed, keepOlderTail = false)
+        assertEquals(sent, merged.first { it.id == "a" })
+        assertEquals(new, merged.first { it.id == "new" })
+    }
+
+    @Test
+    fun cachedSnapshotCannotRemoveConversationSentSinceCacheWasWritten() {
+        val sent = thread("sent").copy(lastMessageAt = java.util.Date(300))
+        val old = thread("old")
+        val cache = old.copy(isCachedSummary = true)
+        val merged = applyLiveThreadUpdates(listOf(sent, old), listOf(cache), 30)
+        assertEquals(setOf("sent", "old"), merged.merged.map { it.id }.toSet())
+    }
+
 }

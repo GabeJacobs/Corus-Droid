@@ -336,19 +336,14 @@ class RemoteConfigService @Inject constructor(
     val concertsEnabled: Boolean
         get() = feedFlag("concerts_enabled")
 
-    /** Closed Gifts pilot. This local allowlist is defense in depth: even a
-     *  mistakenly broad client Remote Config value cannot expose Gift UI to
-     *  anyone outside the four approved accounts. The callable independently
-     *  checks both sender and recipient. */
+    /** Remote Config controls the Android release audience (1.5.9+). */
     val giftsEnabledForCurrentUser: Boolean
-        get() = feedFlag("gifts_enabled") && auth.currentUser?.uid in GIFT_TESTER_UIDS
+        get() = feedFlag("gifts_enabled") && auth.currentUser != null
 
-    /** Both sides of the closed pilot must be approved. The server repeats this
-     * check before every write; keeping it here prevents an eligible tester
-     * from seeing a send action on an ordinary user's post. */
+    /** The backend accepts all accounts; clients control release visibility. */
     fun canSendGiftTo(recipientId: String): Boolean {
         val senderId = auth.currentUser?.uid ?: return false
-        return giftsEnabledForCurrentUser && senderId != recipientId && recipientId in GIFT_TESTER_UIDS
+        return giftsEnabledForCurrentUser && recipientId.isNotBlank() && senderId != recipientId
     }
 
     /** Option B gate for pre-release album destination pages. OFF = Option A only. */
@@ -795,13 +790,6 @@ class RemoteConfigService @Inject constructor(
             "u3UmswvOg5c2r9zYlOidJYFzqbp2", // @clifton
         )
         val BANDCAMP_TESTER_USERNAMES = setOf("gabe", "clifton")
-
-        val GIFT_TESTER_UIDS = setOf(
-            "FUQZIrZR08T2Ux2vYpPzWx7B1rv1", // @gabe
-            "u3UmswvOg5c2r9zYlOidJYFzqbp2", // @clifton
-            "nk8dhIwzgNT63C0NY9Qt7Dd8YlL2", // @farleythethird
-            "8tDGYLCSWiYWifLfxUv3MtBaxvf2", // @din
-        )
 
         /// In-app Remote Config defaults. Applied locally in init() (so flag-gated
         /// UI is correct before any network fetch) and re-applied in

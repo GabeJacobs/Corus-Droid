@@ -1605,4 +1605,5 @@
     <string name="gift_club_offer_cta_standard">Unlock with Corus Club</string>
     <string name="club_subtitle_gift">Unlock 3 Gifts today.</string>
     <string name="club_feature_gifts">3 Gift slots every week</string>
+    <string name="share_recipient_to">To</string>
 </resources>

@@ -1,5 +1,7 @@
 package fm.corus.android.ui.components
 
+import androidx.compose.ui.text.input.TextFieldValue
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -720,7 +722,8 @@ private fun RecipientPickerShareMediaSheet(
     val keyboardController = LocalSoftwareKeyboardController.current
     var searchQuery by remember { mutableStateOf("") }
     var selectedUser by remember { mutableStateOf<ShareRecipient?>(null) }
-    var messageText by remember { mutableStateOf("") }
+    var messageText by remember { mutableStateOf(TextFieldValue("")) }
+    var messageFocused by remember { mutableStateOf(false) }
     var showCopied by remember { mutableStateOf(false) }
     var isSearchFocused by remember { mutableStateOf(false) }
     // A recipient chosen from search results is pinned to the front of the recents
@@ -911,45 +914,47 @@ private fun RecipientPickerShareMediaSheet(
         if (!isSearchActive) {
             if (selectedUser != null) {
                 HorizontalDivider(color = CorusColors.Divider)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TextField(
-                        value = messageText,
-                        onValueChange = { messageText = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text(stringResource(R.string.share_post_message_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                        singleLine = true,
-                        textStyle = CorusFont.body,
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                        ),
-                    )
-                    Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                    Button(
-                        onClick = {
-                            selectedUser?.let { user ->
-                                logShareMethod(
-                                    method = "direct_message",
-                                    profileShareAnalytics = profileShareAnalytics,
-                                    onAnalyticsLog = onAnalyticsLog,
-                                )
-                                onSendToUser(user.id, messageText)
-                                onDismiss()
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
-                        shape = RoundedCornerShape(50),
-                        contentPadding = PaddingValues(horizontal = CorusSpacing.xl, vertical = CorusSpacing.sm),
+                ShareMessageAutocomplete(messageText, { messageText = it }, active = messageFocused) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(stringResource(R.string.share_post_send), style = CorusFont.buttonSmall, color = Color.White)
+                        TextField(
+                            value = messageText,
+                            onValueChange = { messageText = it },
+                            modifier = Modifier.weight(1f).onFocusChanged { messageFocused = it.isFocused },
+                            placeholder = { Text(stringResource(R.string.share_post_message_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
+                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                            singleLine = true,
+                            textStyle = CorusFont.body,
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                            ),
+                        )
+                        Spacer(modifier = Modifier.width(CorusSpacing.sm))
+                        Button(
+                            onClick = {
+                                selectedUser?.let { user ->
+                                    logShareMethod(
+                                        method = "direct_message",
+                                        profileShareAnalytics = profileShareAnalytics,
+                                        onAnalyticsLog = onAnalyticsLog,
+                                    )
+                                    onSendToUser(user.id, messageText.text)
+                                    onDismiss()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+                            shape = RoundedCornerShape(50),
+                            contentPadding = PaddingValues(horizontal = CorusSpacing.xl, vertical = CorusSpacing.sm),
+                        ) {
+                            Text(stringResource(R.string.share_post_send), style = CorusFont.buttonSmall, color = Color.White)
+                        }
                     }
                 }
             } else {

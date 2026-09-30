@@ -1376,4 +1376,5 @@
     <string name="gift_club_offer_cta_standard">Corus Clubで利用する</string>
     <string name="club_subtitle_gift">今日からギフトを3つ送れます。</string>
     <string name="club_feature_gifts">毎週3つのギフトを送れます</string>
+    <string name="share_recipient_to">宛先</string>
 </resources>

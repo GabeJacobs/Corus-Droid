@@ -18,6 +18,15 @@ import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
+import org.mockito.kotlin.any
+import org.mockito.kotlin.doSuspendableAnswer
+import fm.corus.android.data.remote.CloudFunctionsDataSource
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.runCurrent
+import org.junit.Assert.assertFalse
 
 /**
  * Regression tests for cross-instance inbox seeding. The Messages screen is a
@@ -44,10 +53,12 @@ class ThreadListInboxCacheTest {
         otherUser = user(id),
         otherUserId = id,
         lastMessageText = "hello",
+        lastMessageAt = java.util.Date(if (id == "t1") 200 else 100),
         lastMessageFromUserId = id,
     )
 
     private fun repoWithCache(cache: MessageRepository.CachedInbox?): MessageRepository = mock {
+        on { confirmedSends } doReturn kotlinx.coroutines.flow.MutableSharedFlow()
         on { leftThreads } doReturn kotlinx.coroutines.flow.MutableSharedFlow()
         on { cachedInbox } doReturn cache
         on { listenToThreadSummaries(org.mockito.kotlin.any(), org.mockito.kotlin.any()) } doReturn
@@ -109,4 +120,33 @@ class ThreadListInboxCacheTest {
         assertEquals(true, vm.isLoading.value)
         assertEquals(emptyList<CymbalThread>(), vm.threads.value)
     }
+    @Test
+    fun sendDuringRefreshForcesAnotherReadAndShowsNewConversation() = runTest(testDispatcher) {
+        val sends = MutableSharedFlow<String>(replay = 1)
+        val oldPage = CompletableDeferred<CloudFunctionsDataSource.ThreadListPage>()
+        val old = thread("old").copy(lastMessageAt = java.util.Date(100))
+        val shared = thread("shared").copy(lastMessageAt = java.util.Date(200))
+        val repo = repoWithCache(MessageRepository.CachedInbox("me", listOf(old), null, false))
+        whenever(repo.confirmedSends).thenReturn(sends)
+        var reads = 0
+        whenever(repo.listThreadsPage(any(), any(), org.mockito.kotlin.anyOrNull())).doSuspendableAnswer {
+            reads++
+            if (reads == 1) oldPage.await()
+            else CloudFunctionsDataSource.ThreadListPage(listOf(shared, old), null, false)
+        }
+        val vm = viewModel(repo)
+        vm.loadThreads()
+        runCurrent()
+        sends.emit("me")
+        runCurrent()
+        assertEquals(1, reads)
+        assertEquals(0L, vm.scrollToNewestRequest.value)
+        oldPage.complete(CloudFunctionsDataSource.ThreadListPage(listOf(old), null, false))
+        runCurrent()
+        assertEquals(2, reads)
+        assertEquals(1L, vm.scrollToNewestRequest.value)
+        assertEquals("shared", vm.threads.value.first().id)
+        assertFalse(vm.isLoading.value)
+    }
+
 }

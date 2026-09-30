@@ -113,6 +113,7 @@ fun ThreadListScreen(
         )
     }
     val threads by viewModel.threads.collectAsState()
+    val scrollToNewestRequest by viewModel.scrollToNewestRequest.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val hasMoreThreads by viewModel.hasMoreThreads.collectAsState()
@@ -135,6 +136,10 @@ fun ThreadListScreen(
     }
 
     val isSearching = inboxSearchText.isNotBlank()
+    KeepInboxTopVisible(listState, threads.map { it.id }, enabled = !isSearching)
+    LaunchedEffect(scrollToNewestRequest, isSearching) {
+        if (scrollToNewestRequest > 0 && !isSearching) listState.scrollToItem(0)
+    }
     val searchChats = remember(threads, inboxSearchText, inboxSearchResults) {
         when {
             inboxSearchText.isBlank() -> threads

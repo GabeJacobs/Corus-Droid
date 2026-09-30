@@ -1123,18 +1123,14 @@ class PreferencesDataStore @Inject constructor(
      */
     suspend fun loadSuggestedMatchesAsync(userId: String): Pair<List<SuggestedUserMatch>, Long>? {
         val key = stringPreferencesKey("suggestedMatches_$userId")
-        var result: Pair<List<SuggestedUserMatch>, Long>? = null
-        dataStore.data.collect { prefs ->
-            val raw = prefs[key]
-            if (!raw.isNullOrBlank()) {
-                try {
-                    val wrapper = recentJson.decodeFromString<PersistedSuggestedMatchesWrapper>(raw)
-                    result = Pair(wrapper.matches.map { it.toModel() }, wrapper.fetchedAt)
-                } catch (_: Exception) { }
-            }
-            return@collect
-        }
-        return result
+        // This is a one-shot cache read. Collecting the DataStore flow never
+        // completes, which prevents the share loader from fetching threads.
+        val raw = dataStore.data.first()[key]
+        if (raw.isNullOrBlank()) return null
+        return try {
+            val wrapper = recentJson.decodeFromString<PersistedSuggestedMatchesWrapper>(raw)
+            Pair(wrapper.matches.map { it.toModel() }, wrapper.fetchedAt)
+        } catch (_: Exception) { null }
     }
 
     suspend fun clearSuggestedMatches(userId: String) {

@@ -43,7 +43,7 @@ data class ConcertAttendance(
 )
 
 @Singleton
-class ConcertRepository @Inject constructor(private val functions: FirebaseFunctions, private val auth: FirebaseAuth, @dagger.hilt.android.qualifiers.ApplicationContext context: android.content.Context) {
+class ConcertRepository @Inject constructor(private val functions: FirebaseFunctions, private val auth: FirebaseAuth, @dagger.hilt.android.qualifiers.ApplicationContext context: android.content.Context, private val messageRepository: MessageRepository) {
     private val sendScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val prefs = context.getSharedPreferences("concert_discovery", 0)
     private var owner = auth.currentUser?.uid
@@ -231,7 +231,11 @@ class ConcertRepository @Inject constructor(private val functions: FirebaseFunct
             "concertImageURL" to (show.imageUrl ?: ""),
         )
         call("sendMessage", fields)
-        if (message.isNotBlank()) call("sendMessage", mapOf("threadId" to threadId, "fromUserId" to fromUserId, "type" to "text", "text" to message.trim()))
+        messageRepository.notifyMessageSent(fromUserId)
+        if (message.isNotBlank()) {
+            call("sendMessage", mapOf("threadId" to threadId, "fromUserId" to fromUserId, "type" to "text", "text" to message.trim()))
+            messageRepository.notifyMessageSent(fromUserId)
+        }
         return threadId
     }
 

@@ -1,13 +1,12 @@
 package fm.corus.android.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.interaction.InteractionSource
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -117,18 +116,25 @@ internal fun giftPickerIntroResource(available: Int?): Int =
 /** Hides the keyboard when the user starts scrolling and leaves the gesture
  *  untouched, so the list still scrolls and the sheet is never dismissed. */
 internal class HideKeyboardOnScrollConnection(
+    private val isDragging: () -> Boolean,
     private val hideKeyboard: () -> Unit,
 ) : NestedScrollConnection {
     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-        if (source == NestedScrollSource.UserInput && available.y != 0f) hideKeyboard()
+        if (isDragging() && source == NestedScrollSource.UserInput && available.y != 0f) hideKeyboard()
         return Offset.Zero
     }
 }
 
 @Composable
-fun Modifier.hideKeyboardOnScroll(): Modifier {
+fun Modifier.hideKeyboardOnScroll(interactionSource: InteractionSource): Modifier {
     val keyboard: SoftwareKeyboardController? = LocalSoftwareKeyboardController.current
-    val connection = remember(keyboard) { HideKeyboardOnScrollConnection { keyboard?.hide() } }
+    // Compose 1.7 also labels focus/IME bring-into-view scrolling as UserInput.
+    // Only a drag from this scroll container should dismiss the keyboard.
+    val dragging by interactionSource.collectIsDraggedAsState()
+    val isDragging = rememberUpdatedState(dragging)
+    val connection = remember(keyboard) {
+        HideKeyboardOnScrollConnection({ isDragging.value }) { keyboard?.hide() }
+    }
     return nestedScroll(connection)
 }
 
@@ -172,9 +178,11 @@ fun GiftSelectionSheet(
     val resultShown = state.sentGiftId != null || state.alreadySentGiftId != null
     val showActions = !resultShown && inventory != null
     val keyboardOnSend = LocalSoftwareKeyboardController.current
+    val scrollState = rememberScrollState()
+    // Let IME insets resize the sheet directly. Animating this height separately
+    // makes Material retarget its sheet anchors after the keyboard has moved.
     Column(
         modifier = Modifier
-            .animateContentSize(animationSpec = tween(320, easing = FastOutSlowInEasing))
             .fillMaxWidth()
             .heightIn(max = bottomSheetMaxHeight())
             .padding(horizontal = CorusSpacing.lg),
@@ -184,69 +192,79 @@ fun GiftSelectionSheet(
         modifier = Modifier
             .fillMaxWidth()
             .weight(1f, fill = false)
-            .hideKeyboardOnScroll()
-            .verticalScroll(rememberScrollState()),
+            .hideKeyboardOnScroll(scrollState.interactionSource)
+            .verticalScroll(scrollState),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(Modifier.height(4.dp))
-        if (!resultShown) Text(
-            text = stringResource(R.string.gift_send_action),
-            style = CorusFont.custom(700, 22),
-            color = CorusColors.Text,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        if (!resultShown) {
-            Spacer(Modifier.height(10.dp))
-            val introText = if (state.inventory?.isEmpty == true) {
-                stringResource(giftPickerIntroResource(state.inventory?.available))
-            } else {
-                stringResource(giftPickerIntroResource(state.inventory?.available), post.user.username)
-            }
-            // Username in bold (matches iOS) without splitting the localized string.
-            val introAnnotated = remember(introText, post.user.username) {
-                buildAnnotatedString {
-                    append(introText)
-                    val start = introText.indexOf(post.user.username)
-                    if (start >= 0 && state.inventory?.isEmpty != true) {
-                        addStyle(SpanStyle(fontWeight = FontWeight.Bold), start, start + post.user.username.length)
-                    }
-                }
-            }
-            Text(
-                text = introAnnotated,
-                style = CorusFont.bodyMedium,
+        val controlsEnabled = inventory?.let { areGiftControlsEnabled(it.available) } ?: true
+        // Reuse keyboard-first drags on the picker, keeping text selection in
+        // the editable note outside the gesture interceptor.
+        Column(
+            modifier = Modifier.fillMaxWidth().dismissKeyboardOnDownwardDrag(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Spacer(Modifier.height(4.dp))
+            if (!resultShown) Text(
+                text = stringResource(R.string.gift_send_action),
+                style = CorusFont.custom(700, 22),
                 color = CorusColors.Text,
                 textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
             )
 
-        }
-        Spacer(Modifier.height(20.dp))
-
-        when {
-            state.sentGiftId != null -> SentGiftConfirmation(state.sentGiftId!!)
-            state.alreadySentGiftId != null -> AlreadySentNotice(state.alreadySentGiftId!!)
-            state.inventory == null && !state.loading -> GiftLoadError(viewModel::refresh)
-            else -> {
-                val controlsEnabled = state.inventory?.let { areGiftControlsEnabled(it.available) } ?: true
-                val availableGifts = GiftDefinition.selectable.filter {
-                    state.catalogIds.isEmpty() || it.id in state.catalogIds
+            if (!resultShown) {
+                Spacer(Modifier.height(10.dp))
+                val introText = if (state.inventory?.isEmpty == true) {
+                    stringResource(giftPickerIntroResource(state.inventory?.available))
+                } else {
+                    stringResource(giftPickerIntroResource(state.inventory?.available), post.user.username)
                 }
-                GiftGrid(
-                    gifts = availableGifts,
-                    selectedGiftId = state.selectedGiftId,
-                    enabled = controlsEnabled,
-                    onSelect = viewModel::select,
+                // Username in bold (matches iOS) without splitting the localized string.
+                val introAnnotated = remember(introText, post.user.username) {
+                    buildAnnotatedString {
+                        append(introText)
+                        val start = introText.indexOf(post.user.username)
+                        if (start >= 0 && state.inventory?.isEmpty != true) {
+                            addStyle(SpanStyle(fontWeight = FontWeight.Bold), start, start + post.user.username.length)
+                        }
+                    }
+                }
+                Text(
+                    text = introAnnotated,
+                    style = CorusFont.bodyMedium,
+                    color = CorusColors.Text,
+                    textAlign = TextAlign.Center,
                 )
-                Spacer(Modifier.height(18.dp))
-                GiftNoteField(
-                    note = state.note,
-                    enabled = controlsEnabled,
-                    onNoteChange = viewModel::updateNote,
-                )
-                Spacer(Modifier.height(8.dp))
+
             }
+            Spacer(Modifier.height(20.dp))
+
+            when {
+                state.sentGiftId != null -> SentGiftConfirmation(state.sentGiftId!!)
+                state.alreadySentGiftId != null -> AlreadySentNotice(state.alreadySentGiftId!!)
+                state.inventory == null && !state.loading -> GiftLoadError(viewModel::refresh)
+                else -> {
+                    val availableGifts = GiftDefinition.selectable.filter {
+                        state.catalogIds.isEmpty() || it.id in state.catalogIds
+                    }
+                    GiftGrid(
+                        gifts = availableGifts,
+                        selectedGiftId = state.selectedGiftId,
+                        enabled = controlsEnabled,
+                        onSelect = viewModel::select,
+                    )
+                    Spacer(Modifier.height(18.dp))
+
+                }
+            }
+        }
+        if (!resultShown && (inventory != null || state.loading)) {
+            GiftNoteField(
+                note = state.note,
+                enabled = controlsEnabled,
+                onNoteChange = viewModel::updateNote,
+            )
+            Spacer(Modifier.height(8.dp))
         }
     }
 
@@ -263,7 +281,8 @@ fun GiftSelectionSheet(
         }
     } else if (showActions && inventory != null) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 24.dp),
+            modifier = Modifier.fillMaxWidth().dismissKeyboardOnDownwardDrag()
+                .padding(top = 12.dp, bottom = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
                 // Pinned with the button/upsell (iOS footer), so the count and
@@ -383,7 +402,7 @@ private fun GiftNoteField(
     // counter included) visible instead of clipped under the pinned footer.
     val imeVisible = WindowInsets.isImeVisible
     LaunchedEffect(focused, imeVisible, note) {
-        if (focused) {
+        if (focused && imeVisible) {
             delay(80)
             bringIntoView.bringIntoView()
         }
