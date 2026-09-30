@@ -906,7 +906,7 @@
     <string name="post_menu_clip_label_post_link">Link del post</string>
 
     <!-- Post menu sheets (dialogs / toasts) -->
-    <string name="post_menu_toast_post_sent">Post inviato!</string>
+    <string name="post_menu_toast_post_sent">Messaggio inviato</string>
     <string name="post_menu_toast_link_copied">Link copiato</string>
     <string name="post_menu_toast_caption_updated">Didascalia aggiornata</string>
     <string name="post_menu_dialog_delete_title">Elimina Corus</string>
@@ -1315,18 +1315,18 @@
     </plurals>
     <string name="feed_error_title">Qualcosa non va dalla nostra parte</string>
     <string name="feed_error_subtitle">Impossibile caricare il feed. Tocca per riprovare.</string>
-    <string name="film_detail_toast_film_sent">Film inviato!</string>
+    <string name="film_detail_toast_film_sent">Messaggio inviato</string>
     <string name="film_detail_resolving">Caricamento…</string>
     <string name="film_detail_director_not_found">Impossibile trovare il regista</string>
     <string name="song_detail_cd_share">Condividi brano</string>
-    <string name="song_detail_toast_song_sent">Brano inviato!</string>
+    <string name="song_detail_toast_song_sent">Messaggio inviato</string>
     <string name="song_detail_resolving">Caricamento…</string>
     <string name="song_detail_artist_not_found">Impossibile trovare questo artista</string>
     <string name="song_detail_album_not_found">Impossibile trovare questo album</string>
-    <string name="artist_detail_toast_artist_sent">Artista inviato!</string>
-    <string name="album_detail_toast_album_sent">Album inviato!</string>
-    <string name="director_detail_toast_director_sent">Regista inviato!</string>
-    <string name="profile_share_toast_profile_sent">Profilo inviato!</string>
+    <string name="artist_detail_toast_artist_sent">Messaggio inviato</string>
+    <string name="album_detail_toast_album_sent">Messaggio inviato</string>
+    <string name="director_detail_toast_director_sent">Messaggio inviato</string>
+    <string name="profile_share_toast_profile_sent">Messaggio inviato</string>
     <string name="song_detail_listen_audiomack">Ascolta su Audiomack</string>
     <string name="song_detail_listen_bandcamp">Ascolta su Bandcamp</string>
     <string name="other_profile_unavailable_title">Questo account non è disponibile</string>

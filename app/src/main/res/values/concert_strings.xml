@@ -23,7 +23,7 @@
     <string name="concert_im_interested">I\'m interested</string>
     <string name="concert_interested_section">Interested</string>
     <string name="concert_invite">Invite someone</string>
-    <string name="concert_sent">Sent</string>
+    <string name="concert_sent">Message sent</string>
     <string name="concert_invite_error">Couldn\'t send. Try again.</string>
     <string name="concert_label">Concert</string>
     <string name="concert_lineup">Lineup</string>

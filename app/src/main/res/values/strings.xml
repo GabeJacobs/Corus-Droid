@@ -379,21 +379,21 @@
     <string name="film_detail_try_again">Try Again</string>
     <string name="film_detail_empty">No one has posted this film yet</string>
     <string name="film_detail_be_the_first">Be the first!</string>
-    <string name="film_detail_toast_film_sent">Film sent!</string>
+    <string name="film_detail_toast_film_sent">Message sent</string>
     <string name="film_detail_resolving">Loading…</string>
     <string name="film_detail_director_not_found">Couldn\'t find the director</string>
 
     <!-- Feed: song detail -->
     <string name="song_detail_post_song">+ Post Song</string>
     <string name="song_detail_cd_share">Share song</string>
-    <string name="song_detail_toast_song_sent">Song sent!</string>
+    <string name="song_detail_toast_song_sent">Message sent</string>
     <string name="song_detail_resolving">Loading…</string>
     <string name="song_detail_artist_not_found">Couldn\'t find this artist</string>
     <string name="song_detail_album_not_found">Couldn\'t find this album</string>
-    <string name="artist_detail_toast_artist_sent">Artist sent!</string>
-    <string name="album_detail_toast_album_sent">Album sent!</string>
-    <string name="director_detail_toast_director_sent">Director sent!</string>
-    <string name="profile_share_toast_profile_sent">Profile sent!</string>
+    <string name="artist_detail_toast_artist_sent">Message sent</string>
+    <string name="album_detail_toast_album_sent">Message sent</string>
+    <string name="director_detail_toast_director_sent">Message sent</string>
+    <string name="profile_share_toast_profile_sent">Message sent</string>
     <string name="song_detail_play_spotify">Play in Spotify</string>
     <!-- Preference-aware playback CTA: %1$s is the music-service name (e.g. Spotify, Deezer) -->
     <string name="song_detail_play_in_service">Play in %1$s</string>
@@ -1072,7 +1072,7 @@
     <string name="post_menu_clip_label_post_link">Post Link</string>
 
     <!-- Post menu sheets (dialogs / toasts) -->
-    <string name="post_menu_toast_post_sent">Post sent!</string>
+    <string name="post_menu_toast_post_sent">Message sent</string>
     <string name="post_menu_toast_link_copied">Link copied</string>
     <string name="post_menu_toast_caption_updated">Caption updated</string>
     <string name="post_menu_dialog_delete_title">Delete Corus</string>

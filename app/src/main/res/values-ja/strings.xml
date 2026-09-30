@@ -813,7 +813,7 @@
     <string name="post_menu_report">報告</string>
     <string name="post_menu_block_user">ユーザーをブロック</string>
     <string name="post_menu_clip_label_post_link">投稿のリンク</string>
-    <string name="post_menu_toast_post_sent">投稿しました！</string>
+    <string name="post_menu_toast_post_sent">メッセージを送信しました</string>
     <string name="post_menu_toast_link_copied">リンクをコピーしました</string>
     <string name="post_menu_toast_caption_updated">キャプションを更新しました</string>
     <string name="post_menu_dialog_delete_title">Corusを削除</string>
@@ -1180,18 +1180,18 @@
     </plurals>
     <string name="feed_error_title">当社側で問題が発生しました</string>
     <string name="feed_error_subtitle">フィードを読み込めませんでした。タップして再試行。</string>
-    <string name="film_detail_toast_film_sent">映画を送信しました！</string>
+    <string name="film_detail_toast_film_sent">メッセージを送信しました</string>
     <string name="film_detail_resolving">読み込み中…</string>
     <string name="film_detail_director_not_found">監督が見つかりませんでした</string>
     <string name="song_detail_cd_share">曲をシェア</string>
-    <string name="song_detail_toast_song_sent">曲を送信しました！</string>
+    <string name="song_detail_toast_song_sent">メッセージを送信しました</string>
     <string name="song_detail_resolving">読み込み中…</string>
     <string name="song_detail_artist_not_found">このアーティストが見つかりませんでした</string>
     <string name="song_detail_album_not_found">このアルバムが見つかりませんでした</string>
-    <string name="artist_detail_toast_artist_sent">アーティストを送信しました！</string>
-    <string name="album_detail_toast_album_sent">アルバムを送信しました！</string>
-    <string name="director_detail_toast_director_sent">監督を送信しました！</string>
-    <string name="profile_share_toast_profile_sent">プロフィールを送信しました！</string>
+    <string name="artist_detail_toast_artist_sent">メッセージを送信しました</string>
+    <string name="album_detail_toast_album_sent">メッセージを送信しました</string>
+    <string name="director_detail_toast_director_sent">メッセージを送信しました</string>
+    <string name="profile_share_toast_profile_sent">メッセージを送信しました</string>
     <string name="song_detail_listen_audiomack">Audiomack で聴く</string>
     <string name="song_detail_listen_bandcamp">Bandcamp で聴く</string>
     <string name="other_profile_unavailable_title">このアカウントは表示できません</string>

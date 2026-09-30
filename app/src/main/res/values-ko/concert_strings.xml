@@ -23,7 +23,7 @@
     <string name="concert_im_interested">관심 있어요</string>
     <string name="concert_interested_section">관심 있음</string>
     <string name="concert_invite">친구 초대</string>
-    <string name="concert_sent">보냄</string>
+    <string name="concert_sent">메시지를 보냈어요</string>
     <string name="concert_invite_error">보내지 못했어요. 다시 시도해 주세요.</string>
     <string name="concert_label">콘서트</string>
     <string name="concert_lineup">라인업</string>

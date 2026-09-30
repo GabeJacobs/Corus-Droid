@@ -23,7 +23,7 @@
     <string name="concert_im_interested">我感兴趣</string>
     <string name="concert_interested_section">感兴趣</string>
     <string name="concert_invite">邀请朋友</string>
-    <string name="concert_sent">已发送</string>
+    <string name="concert_sent">消息已发送</string>
     <string name="concert_invite_error">发送失败。请重试。</string>
     <string name="concert_label">演出</string>
     <string name="concert_lineup">阵容</string>

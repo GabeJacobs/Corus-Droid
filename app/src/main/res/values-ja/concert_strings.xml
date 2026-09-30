@@ -23,7 +23,7 @@
     <string name="concert_im_interested">興味あり</string>
     <string name="concert_interested_section">興味あり</string>
     <string name="concert_invite">誰かを招待</string>
-    <string name="concert_sent">送信済み</string>
+    <string name="concert_sent">メッセージを送信しました</string>
     <string name="concert_invite_error">送信できませんでした。もう一度お試しください。</string>
     <string name="concert_label">コンサート</string>
     <string name="concert_lineup">出演者</string>

@@ -905,7 +905,7 @@
     <string name="post_menu_clip_label_post_link">内容链接</string>
 
     <!-- Post menu sheets (dialogs / toasts) -->
-    <string name="post_menu_toast_post_sent">内容已发送！</string>
+    <string name="post_menu_toast_post_sent">消息已发送</string>
     <string name="post_menu_toast_link_copied">链接已复制</string>
     <string name="post_menu_toast_caption_updated">文字说明已更新</string>
     <string name="post_menu_dialog_delete_title">删除 Corus</string>
@@ -1306,18 +1306,18 @@
     </plurals>
     <string name="feed_error_title">嗯，有点不对劲</string>
     <string name="feed_error_subtitle">我们无法加载你的动态。点按重试。</string>
-    <string name="film_detail_toast_film_sent">电影已发送！</string>
+    <string name="film_detail_toast_film_sent">消息已发送</string>
     <string name="film_detail_resolving">加载中…</string>
     <string name="film_detail_director_not_found">找不到这位导演</string>
     <string name="song_detail_cd_share">分享歌曲</string>
-    <string name="song_detail_toast_song_sent">歌曲已发送！</string>
+    <string name="song_detail_toast_song_sent">消息已发送</string>
     <string name="song_detail_resolving">加载中…</string>
     <string name="song_detail_artist_not_found">找不到这位艺人</string>
     <string name="song_detail_album_not_found">找不到这张专辑</string>
-    <string name="artist_detail_toast_artist_sent">艺人已发送！</string>
-    <string name="album_detail_toast_album_sent">专辑已发送！</string>
-    <string name="director_detail_toast_director_sent">导演已发送！</string>
-    <string name="profile_share_toast_profile_sent">个人资料已发送！</string>
+    <string name="artist_detail_toast_artist_sent">消息已发送</string>
+    <string name="album_detail_toast_album_sent">消息已发送</string>
+    <string name="director_detail_toast_director_sent">消息已发送</string>
+    <string name="profile_share_toast_profile_sent">消息已发送</string>
     <string name="song_detail_listen_audiomack">在 Audiomack 上收听</string>
     <string name="song_detail_listen_bandcamp">在 Bandcamp 上收听</string>
     <string name="other_profile_unavailable_title">此账户不可用</string>

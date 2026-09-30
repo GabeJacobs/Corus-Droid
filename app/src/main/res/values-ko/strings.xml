@@ -906,7 +906,7 @@
     <string name="post_menu_clip_label_post_link">게시물 링크</string>
 
     <!-- Post menu sheets (dialogs / toasts) -->
-    <string name="post_menu_toast_post_sent">게시물을 보냈어요!</string>
+    <string name="post_menu_toast_post_sent">메시지를 보냈어요</string>
     <string name="post_menu_toast_link_copied">링크를 복사했어요</string>
     <string name="post_menu_toast_caption_updated">캡션을 변경했어요</string>
     <string name="post_menu_dialog_delete_title">Corus 삭제</string>
@@ -1307,18 +1307,18 @@
     </plurals>
     <string name="feed_error_title">저희 쪽에 문제가 있어요</string>
     <string name="feed_error_subtitle">피드를 불러오지 못했어요. 탭하여 다시 시도하세요.</string>
-    <string name="film_detail_toast_film_sent">영화를 보냈어요!</string>
+    <string name="film_detail_toast_film_sent">메시지를 보냈어요</string>
     <string name="film_detail_resolving">불러오는 중…</string>
     <string name="film_detail_director_not_found">감독을 찾을 수 없어요</string>
     <string name="song_detail_cd_share">곡 공유</string>
-    <string name="song_detail_toast_song_sent">곡을 보냈어요!</string>
+    <string name="song_detail_toast_song_sent">메시지를 보냈어요</string>
     <string name="song_detail_resolving">불러오는 중…</string>
     <string name="song_detail_artist_not_found">이 아티스트를 찾을 수 없어요</string>
     <string name="song_detail_album_not_found">이 앨범을 찾을 수 없어요</string>
-    <string name="artist_detail_toast_artist_sent">아티스트를 보냈어요!</string>
-    <string name="album_detail_toast_album_sent">앨범을 보냈어요!</string>
-    <string name="director_detail_toast_director_sent">감독을 보냈어요!</string>
-    <string name="profile_share_toast_profile_sent">프로필을 보냈어요!</string>
+    <string name="artist_detail_toast_artist_sent">메시지를 보냈어요</string>
+    <string name="album_detail_toast_album_sent">메시지를 보냈어요</string>
+    <string name="director_detail_toast_director_sent">메시지를 보냈어요</string>
+    <string name="profile_share_toast_profile_sent">메시지를 보냈어요</string>
     <string name="song_detail_listen_audiomack">Audiomack에서 듣기</string>
     <string name="song_detail_listen_bandcamp">Bandcamp에서 듣기</string>
     <string name="other_profile_unavailable_title">이 계정은 사용할 수 없어요</string>
