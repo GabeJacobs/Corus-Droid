@@ -70,7 +70,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ModalBottomSheet
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.contentHazeSource
@@ -480,10 +480,9 @@ fun DirectorPageScreen(
         val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         val sentMsg = stringResource(R.string.director_detail_toast_director_sent)
         LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
-        ModalBottomSheet(
+        CorusModalBottomSheet(
             onDismissRequest = { showShareSheet = false },
             sheetState = shareSheetState,
-            containerColor = CorusColors.Background,
             dragHandle = null,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
             contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Bottom) },

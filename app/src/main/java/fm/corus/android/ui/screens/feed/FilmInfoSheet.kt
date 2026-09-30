@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.feed
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedContent
@@ -57,10 +58,9 @@ fun FilmInfoSheet(
         isLoading = false
     }
 
-    ModalBottomSheet(
+    CorusModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = CorusColors.Background,
         dragHandle = { BottomSheetDefaults.DragHandle() },
     ) {
         CorusSystemBars()

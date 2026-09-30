@@ -30,7 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -209,10 +209,9 @@ fun TasteMatchSheet(
     onDismiss: () -> Unit,
     onSelectPost: (postId: String) -> Unit,
 ) {
-    ModalBottomSheet(
+    CorusModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = CorusColors.Background,
         dragHandle = null,
         // We size the sheet ourselves (below), so opt out of the default content
         // insets — otherwise Material3 would pad the content down while the sheet

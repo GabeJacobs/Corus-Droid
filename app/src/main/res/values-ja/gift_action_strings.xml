@@ -2,5 +2,5 @@
     <string name="gift_send_action">ギフトを贈る</string>
     <string name="gift_picker_intro">特別な感謝の気持ちを込めて%1$sにギフトを贈りましょう。</string>
     <string name="gift_picker_empty_intro">現在利用できるギフトをすべて使いました。</string>
-    <string name="gift_club_slots">Corus Clubなら、ギフトを3つ送れます。</string>
+    <string name="gift_club_slots">ギフトは毎週日曜日にリセットされます。</string>
 </resources>

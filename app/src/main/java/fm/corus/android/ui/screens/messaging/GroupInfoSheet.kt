@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.messaging
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import fm.corus.android.domain.CityChatPolicy
 import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
@@ -27,6 +28,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import fm.corus.android.ui.components.rememberGuardedSheetState
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -88,7 +90,7 @@ internal fun GroupInfoSheet(
     var leaving by remember { mutableStateOf(false) }
     val uploadingPhoto by viewModel.isUploadingGroupPhoto.collectAsState()
 
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberGuardedSheetState()
 
     // Decode + EXIF rotation runs on IO; the bitmap is sent up to the crop overlay
     // (the actual upload happens once the crop is confirmed).
@@ -101,10 +103,9 @@ internal fun GroupInfoSheet(
         }
     }
 
-    ModalBottomSheet(
+    CorusModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = CorusColors.Background,
         dragHandle = null,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
     ) {

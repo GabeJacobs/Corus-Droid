@@ -15,6 +15,8 @@ import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.UserLite
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.data.repository.ConcertRepository
+import fm.corus.android.data.repository.ConcertShow
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.MusicServicePreference
@@ -47,6 +49,7 @@ class ArtistPageViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val messageRepository: MessageRepository,
+    private val concertRepository: ConcertRepository,
     private val remoteConfigService: RemoteConfigService,
     private val musicServicePreference: MusicServicePreference,
     private val preferencesDataStore: PreferencesDataStore,
@@ -64,6 +67,34 @@ class ArtistPageViewModel @Inject constructor(
 
     /** Send-side gate for the "..." Share entry on this page. */
     val entityShareEnabled: Boolean get() = remoteConfigService.entityShareEnabled
+    val concertsEnabled: Boolean get() = remoteConfigService.concertsEnabled
+
+    fun rememberConcert(show: ArtistTourDate, artistName: String) {
+        val concert = ConcertShow(
+            id = show.id, cityId = "", title = show.name, date = show.date,
+            time = show.time, venue = show.venue, city = show.city, region = show.region,
+            address = null, imageUrl = show.imageUrl, url = show.url,
+            lineup = show.lineup.ifEmpty { artistName.takeIf { it.isNotBlank() }?.let { listOf(it) } ?: emptyList() },
+            info = null, pleaseNote = null, matchedArtist = artistName,
+            suggestionSource = null, eventStatus = show.status, timezone = show.timezone,
+            supportsAttendance = false,
+        )
+        concertRepository.remember(concert)
+        concertRepository.noteDetailSource(show.id, "artist_page")
+        analyticsService.logConcertEvent("concert_selected", "artist_page", concert)
+    }
+
+    /** iOS `artist_section_impression`: once per page, when the Concerts section first shows. */
+    private var loggedConcertsImpression = false
+    fun logConcertsSectionImpression(count: Int) {
+        if (!concertsEnabled || loggedConcertsImpression) return
+        loggedConcertsImpression = true
+        analyticsService.logConcertEvent("artist_section_impression", "artist_page", count = count)
+    }
+
+    fun logConcertsSeeAll(count: Int) {
+        if (concertsEnabled) analyticsService.logConcertEvent("artist_section_see_all_tapped", "artist_page", count = count)
+    }
 
     /** Prototype gate for the immersive (full-bleed hero + frosted collapsing
      *  bar) artist-page header. Debug-on, release RC-gated. */

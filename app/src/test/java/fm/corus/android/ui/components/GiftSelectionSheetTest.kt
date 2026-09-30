@@ -4,6 +4,8 @@ import fm.corus.android.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import org.junit.Test
 
 class GiftSelectionSheetTest {
@@ -24,5 +26,23 @@ class GiftSelectionSheetTest {
     fun `club offer only appears below premium capacity`() {
         assertTrue(shouldShowGiftClubOffer(capacity = 1))
         assertFalse(shouldShowGiftClubOffer(capacity = 3))
+    }
+
+    @Test
+    fun `user scroll hides the keyboard without consuming the gesture`() {
+        var hidden = 0
+        val connection = HideKeyboardOnScrollConnection { hidden++ }
+        val consumed = connection.onPreScroll(Offset(0f, -40f), NestedScrollSource.UserInput)
+        assertEquals(1, hidden)
+        assertEquals(Offset.Zero, consumed)
+    }
+
+    @Test
+    fun `programmatic or horizontal scroll leaves the keyboard alone`() {
+        var hidden = 0
+        val connection = HideKeyboardOnScrollConnection { hidden++ }
+        connection.onPreScroll(Offset(0f, -40f), NestedScrollSource.SideEffect)
+        connection.onPreScroll(Offset(30f, 0f), NestedScrollSource.UserInput)
+        assertEquals(0, hidden)
     }
 }

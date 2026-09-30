@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.compose
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -40,6 +41,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import fm.corus.android.ui.components.rememberGuardedSheetState
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -645,14 +647,13 @@ fun ComposeScreen(
     // Post limit reached inside compose — show the Cymbal Club offer sheet.
     // Triggered when the server confirms the user has hit the rolling 24h limit at submit time.
     if (showPostLimitPaywall) {
-        val paywallSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
+        val paywallSheetState = fm.corus.android.ui.components.rememberGuardedSheetState()
+        CorusModalBottomSheet(
             onDismissRequest = {
                 viewModel.dismissPostLimitPaywall()
                 onDismiss()
             },
             sheetState = paywallSheetState,
-            containerColor = CorusColors.Background,
             dragHandle = { BottomSheetDefaults.DragHandle() },
         ) {
             CorusSystemBars()
@@ -668,11 +669,10 @@ fun ComposeScreen(
 
     // ── Drafts list sheet ──
     if (showDraftsSheet) {
-        val draftsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
+        val draftsSheetState = rememberGuardedSheetState()
+        CorusModalBottomSheet(
             onDismissRequest = { showDraftsSheet = false },
             sheetState = draftsSheetState,
-            containerColor = CorusColors.Background,
             dragHandle = { BottomSheetDefaults.DragHandle() },
         ) {
             CorusSystemBars()
@@ -701,7 +701,7 @@ fun ComposeScreen(
 
     // ── Save-on-exit action sheet — Discard / Save draft / Cancel ──
     if (showExitSheet) {
-        val exitSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val exitSheetState = rememberGuardedSheetState()
         val draftSavedMsg = stringResource(R.string.compose_draft_saved)
         // After Discard/Save the follow-up "leave" depends on which affordance
         // opened the sheet: the up/back chevron returns to the picker (composer
@@ -718,10 +718,9 @@ fun ComposeScreen(
                 onDismiss()
             }
         }
-        ModalBottomSheet(
+        CorusModalBottomSheet(
             onDismissRequest = { if (!savingDraft) showExitSheet = false },
             sheetState = exitSheetState,
-            containerColor = CorusColors.Background,
             dragHandle = { BottomSheetDefaults.DragHandle() },
         ) {
             CorusSystemBars()

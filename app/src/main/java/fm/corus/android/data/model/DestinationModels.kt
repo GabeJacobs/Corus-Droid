@@ -115,6 +115,8 @@ data class ArtistTourDate(
     val region: String = "",
     val status: String = "onsale",
     val url: String,
+    val lineup: List<String> = emptyList(),
+    val imageUrl: String? = null,
 ) {
     companion object {
         fun fromMap(data: Map<String, Any?>): ArtistTourDate? {
@@ -132,6 +134,8 @@ data class ArtistTourDate(
                 region = data["region"] as? String ?: "",
                 status = (data["status"] as? String)?.ifEmpty { null } ?: "onsale",
                 url = url,
+                lineup = (data["lineup"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
+                imageUrl = data["imageUrl"] as? String,
             )
         }
     }

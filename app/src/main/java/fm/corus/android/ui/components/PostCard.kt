@@ -38,6 +38,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ViewConfiguration
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
@@ -228,6 +231,8 @@ fun PostCard(
     val hiddenUserIds = rememberHiddenUserIds()
     val giftCountOverrides by GiftPresentationStore.giftCounts.collectAsState()
     val displayedGiftCount = maxOf(post.giftCount, giftCountOverrides[post.id] ?: 0)
+    val giftPreviewOverrides by GiftPresentationStore.recentGifts.collectAsState()
+    val displayedRecentGifts = GiftPresentationStore.previewsFor(post, giftPreviewOverrides)
     val visiblePreviewComments = remember(post.comments, hiddenUserIds) {
         post.comments.filter { it.user.id !in hiddenUserIds }
     }
@@ -1120,6 +1125,15 @@ fun PostCard(
         ) {
             // Like button
             val likeInteraction = remember { MutableInteractionSource() }
+            // A gift-capable post: parse the shared Gift animation file now (background
+            // thread) so the picker opens without building it on the main thread.
+            val giftWarmContext = androidx.compose.ui.platform.LocalContext.current
+            LaunchedEffect(onLikeLongPress != null) {
+                if (onLikeLongPress != null) fm.corus.android.ui.screens.notifications.GiftRiveFile.get(giftWarmContext)
+            }
+            // Match iOS's 0.38s hold (PostCard.swift LongPressGesture) instead of the
+            // device's touch-and-hold setting, which is 500ms+ on some phones.
+            CompositionLocalProvider(LocalViewConfiguration provides giftHoldViewConfiguration(LocalViewConfiguration.current)) {
             Row(
                 modifier = if (onLikeLongPress != null) {
                     Modifier.combinedClickable(
@@ -1152,6 +1166,7 @@ fun PostCard(
                         color = CorusColors.Text,
                     )
                 }
+            }
             }
 
             // Comment button
@@ -1290,7 +1305,7 @@ fun PostCard(
         }
 
         if (showGifts && displayedGiftCount > 0) {
-            PostGiftRow(post.id, displayedGiftCount, post.recentGifts, onSenderTap = onGiftSenderTap)
+            PostGiftRow(post.id, displayedGiftCount, displayedRecentGifts, onSenderTap = onGiftSenderTap)
         }
 
         // 5. LIKED BY
@@ -1629,3 +1644,9 @@ fun postSubtitleTap(
         onResolvingChange = onResolvingChange,
     )
 }
+
+
+internal fun giftHoldViewConfiguration(base: ViewConfiguration): ViewConfiguration =
+    object : ViewConfiguration by base {
+        override val longPressTimeoutMillis: Long get() = 380L
+    }

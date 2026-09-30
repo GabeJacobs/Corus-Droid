@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.map
 
+import fm.corus.android.ui.components.CorusSheetTheme
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.rememberSplineBasedDecay
@@ -156,37 +157,39 @@ internal fun MapCityPeopleSheet(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() },
                 ) {},
-            color = CorusColors.Background,
+            color = CorusColors.SheetBackground,
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             shadowElevation = 12.dp,
         ) {
-            Column(Modifier.fillMaxSize()) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(28.dp)
-                        .clickable {
-                            scope.launch {
-                                val target = if (state.currentValue == MapCitySheetValue.Expanded) {
-                                    MapCitySheetValue.Peek
-                                } else {
-                                    MapCitySheetValue.Expanded
-                                }
-                                if (state.anchors.hasAnchorFor(target)) {
-                                    state.animateTo(target)
-                                }
-                            }
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
+            CorusSheetTheme {
+                Column(Modifier.fillMaxSize()) {
                     Box(
                         Modifier
-                            .size(36.dp, 4.dp)
-                            .clip(CircleShape)
-                            .background(CorusColors.Secondary.copy(alpha = .4f)),
-                    )
+                            .fillMaxWidth()
+                            .height(28.dp)
+                            .clickable {
+                                scope.launch {
+                                    val target = if (state.currentValue == MapCitySheetValue.Expanded) {
+                                        MapCitySheetValue.Peek
+                                    } else {
+                                        MapCitySheetValue.Expanded
+                                    }
+                                    if (state.anchors.hasAnchorFor(target)) {
+                                        state.animateTo(target)
+                                    }
+                                }
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(
+                            Modifier
+                                .size(36.dp, 4.dp)
+                                .clip(CircleShape)
+                                .background(CorusColors.Secondary.copy(alpha = .4f)),
+                        )
+                    }
+                    content()
                 }
-                content()
             }
         }
     }

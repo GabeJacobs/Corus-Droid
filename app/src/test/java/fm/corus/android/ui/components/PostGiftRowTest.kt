@@ -29,7 +29,7 @@ class PostGiftRowTest {
         assertEquals(
             listOf("2 gifts", "farleythethird", "gabe"),
             styled.spanStyles
-                .filter { it.item.fontWeight == FontWeight.Bold }
+                .filter { it.item.fontWeight == FontWeight.ExtraBold } // CorusFont.username weight
                 .map { styled.text.substring(it.start, it.end) },
         )
     }

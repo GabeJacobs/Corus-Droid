@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.feed
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -43,10 +44,9 @@ fun LikesBottomSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
-    ModalBottomSheet(
+    CorusModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = CorusColors.Background,
         dragHandle = { BottomSheetDefaults.DragHandle() },
     ) {
         CorusSystemBars()

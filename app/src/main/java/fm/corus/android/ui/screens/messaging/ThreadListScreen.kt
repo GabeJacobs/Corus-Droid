@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.messaging
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -36,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
+import fm.corus.android.ui.components.rememberGuardedSheetState
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -358,19 +360,18 @@ fun ThreadListScreen(
 
     // New Message picker sheet
     if (showNewMessagePicker) {
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val sheetState = rememberGuardedSheetState()
         // Within the sheet, the default DM list can hand off to the group-create
         // flow (Instagram-style) without closing.
         var showGroupCreate by remember { mutableStateOf(false) }
 
-        ModalBottomSheet(
+        CorusModalBottomSheet(
             onDismissRequest = {
                 viewModel.clearSearch()
                 showGroupCreate = false
                 showNewMessagePicker = false
             },
             sheetState = sheetState,
-            containerColor = CorusColors.Background,
             dragHandle = null,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         ) {

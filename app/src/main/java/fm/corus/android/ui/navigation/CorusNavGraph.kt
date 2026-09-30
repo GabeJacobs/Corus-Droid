@@ -788,6 +788,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
             onNavigateToSong = { songRoute -> navController.navigate(songRoute) },
             onNavigateToAlbum = { albumRoute -> navController.navigate(albumRoute) },
+            onNavigateToConcert = { eventId -> navController.navigate(ConcertDetailRoute(eventId)) },
             onSeeAllPosts = {
                 navController.navigate(ArtistPostsRoute(route.artistId, route.name))
             },

@@ -1,6 +1,7 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package fm.corus.android.ui.screens.search
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import android.content.Intent
 import android.Manifest
 import android.content.Context
@@ -61,6 +62,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import java.util.Locale
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import dev.chrisbanes.haze.HazeState
@@ -69,6 +72,8 @@ import fm.corus.android.data.repository.ConcertShow
 import fm.corus.android.domain.DestinationResolvingOverlay
 import fm.corus.android.ui.navigation.ArtistPageRoute
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.hideKeyboardOnScroll
+import fm.corus.android.ui.components.rememberGuardedSheetState
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.ImmersiveBarHeight
 import fm.corus.android.ui.components.ImmersiveCollapsingBar
@@ -87,6 +92,7 @@ import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.theme.bottomSheetMaxHeight
 import dev.chrisbanes.haze.hazeSource
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -118,23 +124,25 @@ fun ConcertPreview(
     val error by vm.previewError.collectAsState()
     val scope = rememberCoroutineScope()
     LaunchedEffect(vm.enabled, cityId, discovery) { vm.preview() }
-    val browseAll = { vm.rememberDiscoveryTab("all"); onSeeAll() }
+    val browseAll = { vm.logPreviewEmptyAction("browse_all", filter = "all"); vm.rememberDiscoveryTab("all"); onSeeAll() }
     Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
         SectionHeader(
             icon = "ticket",
             title = stringResource(R.string.concerts_title).uppercase(appLocale),
             showSeeAll = true,
-            onSeeAll = { vm.log("preview_see_all_tapped", source = "search_music_preview"); onSeeAll() },
+            onSeeAll = { vm.logPreviewSeeAll(); onSeeAll() },
         )
         when {
             page == null && !error -> LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(2) { ConcertPreviewSkeleton() }
             }
             error && page == null -> ConcertPreviewMessage(Icons.Default.Refresh, R.string.concert_load_error, null, R.string.concert_retry,
-                { scope.launch { vm.preview(true) } })
-            page?.needsCity == true -> ConcertPreviewMessage(Icons.Default.LocationOn, R.string.concert_find_nearby, R.string.concert_choose_location_message, R.string.concert_choose_city, onSeeAll)
+                { vm.logPreviewEmptyAction("retry"); scope.launch { vm.preview(true) } })
+            page?.needsCity == true -> ConcertPreviewMessage(Icons.Default.LocationOn, R.string.concert_find_nearby, R.string.concert_choose_location_message, R.string.concert_choose_city,
+                { vm.logPreviewEmptyAction("needs_city"); onSeeAll() })
             discovery == "forYou" && page?.hasPostedArtists == false -> ConcertPreviewMessage(
-                Icons.Default.MusicNote, R.string.concert_make_personal, R.string.concert_personal_message, R.string.concert_post_music, onPostMusic,
+                Icons.Default.MusicNote, R.string.concert_make_personal, R.string.concert_personal_message, R.string.concert_post_music,
+                { vm.logPreviewEmptyAction("post_music"); onPostMusic() },
                 R.string.concert_view_all, browseAll)
             page?.shows.isNullOrEmpty() -> ConcertPreviewMessage(
                 if ((page?.nearbyTotal ?: 0) == 0) Icons.Default.CalendarMonth else Icons.Default.AutoAwesome,
@@ -144,7 +152,7 @@ fun ConcertPreview(
             else -> LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(page?.shows.orEmpty(), key = { it.id }) { show ->
                     val artist = show.matchedArtist ?: show.lineup.firstOrNull() ?: show.title
-                    Surface(Modifier.width(218.dp).height(170.dp).clickable { vm.select(show); onConcert(show.id) }, shape = RoundedCornerShape(18.dp)) {
+                    Surface(Modifier.width(218.dp).height(170.dp).clickable { vm.select(show, "search_music_preview"); onConcert(show.id) }, shape = RoundedCornerShape(18.dp)) {
                         Box(Modifier.fillMaxSize()) {
                             AsyncImage(show.imageUrl, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                             Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(androidx.compose.ui.graphics.Color.Black.copy(alpha = .32f), androidx.compose.ui.graphics.Color.Black.copy(alpha = .84f)))))
@@ -155,8 +163,6 @@ fun ConcertPreview(
                                         color = androidx.compose.ui.graphics.Color.White.copy(alpha = .78f),
                                         style = CorusFont.custom(700, 11),
                                     )
-                                    Spacer(Modifier.weight(1f))
-                                    Icon(Icons.Default.OpenInNew, null, Modifier.size(14.dp), tint = androidx.compose.ui.graphics.Color.White.copy(alpha = .78f))
                                 }
                                 Spacer(Modifier.weight(1f))
                                 if (show.suggestionSource == "tasteMatches") Text(stringResource(R.string.concert_you_might_like), color = androidx.compose.ui.graphics.Color.White.copy(alpha = .86f), style = CorusFont.custom(600, 11))
@@ -330,8 +336,7 @@ fun ConcertsScreen(
     vm: ConcertsViewModel = hiltViewModel(),
 ) {
     val tab by vm.tab.collectAsState(); val shows by vm.shows.collectAsState()
-    val plans by vm.plans.collectAsState(); val city by vm.cityName.collectAsState()
-    val cityId by vm.cityId.collectAsState()
+    val plans by vm.plans.collectAsState(); val plansSynced by vm.plansSynced.collectAsState(); val city by vm.cityName.collectAsState()
     val needsCity by vm.needsCity.collectAsState(); val loading by vm.loading.collectAsState()
     val error by vm.error.collectAsState(); val total by vm.total.collectAsState()
     val nearbyTotal by vm.nearbyTotal.collectAsState()
@@ -346,27 +351,31 @@ fun ConcertsScreen(
     var locating by remember { mutableStateOf(false) }
     var locationError by remember { mutableStateOf(false) }
     fun locate() {
+        vm.logLocationRequested()
         locating = true; locationError = false
         try {
             val manager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
             val provider = listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER)
                 .firstOrNull(manager::isProviderEnabled) ?: error("No location provider")
             fun accept(location: android.location.Location?) {
-                if (location == null) { locating = false; locationError = true; return }
+                if (location == null) { locating = false; locationError = true; vm.logLocationResolved("error"); return }
                 vm.selectCurrentLocation(location) { success -> locating = false; locationError = !success; if (success) citySheet = false }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) manager.getCurrentLocation(provider, null, context.mainExecutor, ::accept)
             else manager.requestSingleUpdate(provider, object : android.location.LocationListener {
                 override fun onLocationChanged(location: android.location.Location) { accept(location) }
             }, Looper.getMainLooper())
-        } catch (_: Exception) { locating = false; locationError = true }
+        } catch (_: Exception) { locating = false; locationError = true; vm.logLocationResolved("error") }
     }
     val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
-        if (grants.values.any { it }) locate() else locationError = true
+        if (grants.values.any { it }) locate() else { locationError = true; vm.logLocationRequested(); vm.logLocationResolved("error") }
     }
-    val missingCity = tab != "myConcerts" && (cityId.isNullOrBlank() || needsCity)
+    // Only the server knows whether a city is missing: with none picked it falls back to the
+    // viewer's map city. Judging by the local pick alone flashed "Choose your city" on every open.
+    val missingCity = tab != "myConcerts" && needsCity
     val filtersActive = range != "any" || genre != null || (tab == "forYou" && !suggestions)
     LaunchedEffect(vm.enabled) { if (vm.enabled) vm.refresh() }
+    LaunchedEffect(vm.enabled, tab, loading, error, needsCity, shows, plans, range, genre, suggestions) { if (vm.enabled) vm.logListImpression() }
     if (!vm.enabled) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(stringResource(R.string.concert_unavailable), style = CorusFont.body) }; return }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -375,7 +384,7 @@ fun ConcertsScreen(
                 onBack = onBack,
                 showFilters = tab != "myConcerts",
                 filtersActive = filtersActive,
-                onFilters = { filterSheet = true; vm.log("filters_opened") },
+                onFilters = { filterSheet = true; vm.logFiltersOpened() },
             )
         },
     ) { padding ->
@@ -397,13 +406,13 @@ fun ConcertsScreen(
                         Text(stringResource(R.string.concert_your_plans), style = CorusFont.bodyMedium)
                     } else {
                         Row(
-                            Modifier.clickable { citySheet = true; vm.log("city_picker_opened") },
+                            Modifier.clickable { citySheet = true; vm.logCityPickerOpened() },
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             Icon(Icons.Outlined.LocationOn, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
                             Text(
-                                if (missingCity) stringResource(R.string.concert_choose_your_city) else city,
+                                if (missingCity) stringResource(R.string.concert_choose_your_city) else city.ifBlank { "…" },
                                 style = CorusFont.bodyMedium,
                             )
                             Icon(Icons.Default.KeyboardArrowDown, null, Modifier.size(17.dp), tint = MaterialTheme.colorScheme.onSurface)
@@ -421,7 +430,7 @@ fun ConcertsScreen(
                     Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
-                        .height(44.dp)
+                        .height(36.dp)
                         .clip(CircleShape)
                         .background(if (isDark) androidx.compose.ui.graphics.Color(0xFF1C1C1F) else CorusColors.Divider),
                 ) {
@@ -457,19 +466,19 @@ fun ConcertsScreen(
                     R.string.concert_past_section to plans.filter { it.date < today }.reversed(),
                 )
                 if (error && !loading) item {
-                    ConcertListEmptyState(Icons.Default.Refresh, R.string.concert_load_error, null, R.string.concert_retry, { vm.refresh() })
+                    ConcertListEmptyState(Icons.Default.Refresh, R.string.concert_load_error, null, R.string.concert_retry, { vm.logListEmptyAction("retry"); vm.refresh() })
                 } else if (plans.isEmpty() && !loading) item {
                     ConcertListEmptyState(
                         Icons.Default.ConfirmationNumber,
                         R.string.concert_no_plans_title,
                         R.string.concert_my_empty,
                         R.string.concert_browse,
-                        { vm.selectTab("all") },
+                        { vm.logListEmptyAction("browse_all"); vm.selectTab("all") },
                     )
                 }
                 groups.forEach { (label, sectionShows) ->
                     if (sectionShows.isNotEmpty()) { item { Text(stringResource(label).uppercase(), Modifier.padding(horizontal = 20.dp, vertical = 12.dp), style = CorusFont.sectionHeader, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                        items(sectionShows, key = { it.id }) { show -> ConcertRow(show, { vm.select(show); onConcert(show.id) }, showPlanStatus = true); Spacer(Modifier.height(10.dp)) }
+                        items(sectionShows, key = { it.id }) { show -> ConcertRow(show, { vm.select(show, "my_concerts"); onConcert(show.id) }, showPlanStatus = true); Spacer(Modifier.height(10.dp)) }
                     }
                 }
             } else {
@@ -480,14 +489,14 @@ fun ConcertsScreen(
                             R.string.concert_find_nearby,
                             R.string.concert_choose_location_message,
                             R.string.concert_choose_location,
-                            { citySheet = true },
+                            { vm.logListEmptyAction("needs_city"); citySheet = true },
                         )
                     }
                     error && !loading && shows.isEmpty() -> item {
-                        ConcertListEmptyState(Icons.Default.Refresh, R.string.concert_load_error, null, R.string.concert_retry, { vm.refresh() })
+                        ConcertListEmptyState(Icons.Default.Refresh, R.string.concert_load_error, null, R.string.concert_retry, { vm.logListEmptyAction("retry"); vm.refresh() })
                     }
                     shows.isEmpty() && !loading && tab == "forYou" && !hasPostedArtists -> item {
-                        ConcertListEmptyState(Icons.Default.MusicNote, R.string.concert_post_personal_title, R.string.concert_personal_message, R.string.concert_post_music, onPostMusic)
+                        ConcertListEmptyState(Icons.Default.MusicNote, R.string.concert_post_personal_title, R.string.concert_personal_message, R.string.concert_post_music, { vm.logListEmptyAction("post_music"); onPostMusic() })
                     }
                     shows.isEmpty() && !loading && nearbyTotal == 0 -> item {
                         ConcertListEmptyState(
@@ -495,104 +504,111 @@ fun ConcertsScreen(
                             R.string.concert_no_shows,
                             null,
                             R.string.concert_choose_another_city,
-                            { citySheet = true },
+                            { vm.logListEmptyAction("change_city"); citySheet = true },
                             formattedMessage = stringResource(R.string.concert_no_shows_around, city),
                         )
                     }
                     shows.isEmpty() && !loading && tab == "forYou" -> item {
-                        ConcertListEmptyState(Icons.Default.AutoAwesome, R.string.concert_no_artist_shows, R.string.concert_keep_posting_message, R.string.concert_browse, { vm.selectTab("all") })
+                        ConcertListEmptyState(Icons.Default.AutoAwesome, R.string.concert_no_artist_shows, R.string.concert_keep_posting_message, R.string.concert_browse, { vm.logListEmptyAction("browse_all"); vm.selectTab("all") })
                     }
                 }
-                items(shows, key = { it.id }) { show -> ConcertRow(show, { vm.select(show); onConcert(show.id) }); Spacer(Modifier.height(10.dp)) }
+                items(shows, key = { it.id }) { show -> ConcertRow(show, { vm.select(show, "concerts_list"); onConcert(show.id) }); Spacer(Modifier.height(10.dp)) }
                 if (cursor != null) item {
                     LaunchedEffect(cursor) { if (!error) vm.refresh(cursor) }
                     if (loading) ConcertRowSkeleton()
                     else if (error) TextButton(onClick = { vm.refresh(cursor) }, Modifier.fillMaxWidth()) { Text(stringResource(R.string.concert_retry), style = CorusFont.button) }
                 }
             }
-            if (loading && !missingCity && (if (tab == "myConcerts") plans.isEmpty() else shows.isEmpty())) items(5) { ConcertRowSkeleton(); Spacer(Modifier.height(10.dp)) }
+            if (loading && !missingCity && (if (tab == "myConcerts") !plansSynced else shows.isEmpty())) items(if (tab == "myConcerts" && plans.isNotEmpty()) 3 else 5) { ConcertRowSkeleton(); Spacer(Modifier.height(10.dp)) }
             }
         }
     }
     if (citySheet) {
-        val citySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
+        val citySheetState = rememberGuardedSheetState()
+        CorusModalBottomSheet(
             onDismissRequest = { citySheet = false },
             sheetState = citySheetState,
-            containerColor = MaterialTheme.colorScheme.background,
+            modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
         ) {
             var cityQuery by remember { mutableStateOf("") }
             val cityResults by vm.cityResults.collectAsState()
             val citySearching by vm.citySearching.collectAsState()
+            LaunchedEffect(Unit) { vm.log("city_picker_viewed") }
             LaunchedEffect(cityQuery) { vm.searchCities(cityQuery) }
-            ConcertSheetHeader(stringResource(R.string.concert_choose_city)) { citySheet = false }
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = !locating) {
-                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-                            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) locate()
-                        else locationPermission.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
+            Column(Modifier.fillMaxWidth().heightIn(max = bottomSheetMaxHeight())) {
+                Text(
+                    stringResource(R.string.concert_choose_city),
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 10.dp),
+                    style = CorusFont.custom(700, 22),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = !locating) {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                                ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) locate()
+                            else locationPermission.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
+                        }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    if (locating) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                    else Icon(Icons.Default.Navigation, null, Modifier.size(22.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(stringResource(R.string.concert_use_location), style = CorusFont.bodyMedium)
+                        Text(stringResource(R.string.concert_find_nearby), style = CorusFont.caption, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    .padding(horizontal = 20.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                if (locating) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
-                else Icon(Icons.Default.Navigation, null, Modifier.size(22.dp))
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(stringResource(R.string.concert_use_location), style = CorusFont.bodyMedium)
-                    Text(stringResource(R.string.concert_find_nearby), style = CorusFont.caption, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-            }
-            if (locationError) Text(stringResource(R.string.concert_location_error), Modifier.padding(horizontal = 20.dp), style = CorusFont.caption, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            TextField(
-                cityQuery,
-                { cityQuery = it },
-                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
-                textStyle = CorusFont.body,
-                placeholder = { Text(stringResource(R.string.concert_city_search), style = CorusFont.body) },
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                    unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                ),
-            )
-            val popular = if (cityQuery.trim().length < 2) POPULAR_CONCERT_CITIES else POPULAR_CONCERT_CITIES.filter { it.second.contains(cityQuery.trim(), ignoreCase = true) }
-            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 500.dp)) {
-                items(popular) { (id, name) ->
-                    ListItem(
-                        headlineContent = { Text(name, style = CorusFont.bodyMedium) },
-                        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-                        modifier = Modifier.clickable { vm.selectCity(id, name); citySheet = false },
-                    )
-                }
-                if (cityQuery.trim().length >= 2) {
-                    items(cityResults.filter { result -> popular.none { it.first == result.cityId } }, key = { it.cityId }) { city ->
+                if (locationError) Text(stringResource(R.string.concert_location_error), Modifier.padding(horizontal = 20.dp), style = CorusFont.caption, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextField(
+                    cityQuery,
+                    { cityQuery = it },
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+                    textStyle = CorusFont.body,
+                    placeholder = { Text(stringResource(R.string.concert_city_search), style = CorusFont.body) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                        unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                    ),
+                )
+                val popular = if (cityQuery.trim().length < 2) POPULAR_CONCERT_CITIES else POPULAR_CONCERT_CITIES.filter { it.second.contains(cityQuery.trim(), ignoreCase = true) }
+                LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false).heightIn(max = 500.dp).hideKeyboardOnScroll()) {
+                    items(popular) { (id, name) ->
                         ListItem(
-                            headlineContent = { Text(city.cityName, style = CorusFont.bodyMedium) },
-                            supportingContent = { Text(listOf(city.regionName, city.countryCode).filter(String::isNotBlank).joinToString(", "), style = CorusFont.caption) },
+                            headlineContent = { Text(name, style = CorusFont.bodyMedium) },
                             trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                             colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-                            modifier = Modifier.clickable { vm.selectCity(city.cityId, city.cityName); citySheet = false },
+                            modifier = Modifier.clickable { vm.selectCity(id, name, "popular"); citySheet = false },
                         )
                     }
-                    if (citySearching) item { Text(stringResource(R.string.concert_city_searching), Modifier.padding(20.dp), style = CorusFont.body) }
-                    else if (popular.isEmpty() && cityResults.isEmpty()) item { Text(stringResource(R.string.concert_no_cities), Modifier.padding(20.dp), style = CorusFont.body) }
-                }
+                    if (cityQuery.trim().length >= 2) {
+                        items(cityResults.filter { result -> popular.none { it.first == result.cityId } }, key = { it.cityId }) { city ->
+                            ListItem(
+                                headlineContent = { Text(city.cityName, style = CorusFont.bodyMedium) },
+                                supportingContent = { Text(listOf(city.regionName, city.countryCode).filter(String::isNotBlank).joinToString(", "), style = CorusFont.caption) },
+                                trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+                                modifier = Modifier.clickable { vm.selectCity(city.cityId, city.cityName, "search"); citySheet = false },
+                            )
+                        }
+                        if (citySearching) item { Text(stringResource(R.string.concert_city_searching), Modifier.padding(20.dp), style = CorusFont.body) }
+                        else if (popular.isEmpty() && cityResults.isEmpty()) item { Text(stringResource(R.string.concert_no_cities), Modifier.padding(20.dp), style = CorusFont.body) }
+                    }
+            }
             }
         }
     }
     if (filterSheet) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
+        CorusModalBottomSheet(
             onDismissRequest = { filterSheet = false },
             sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.background,
             contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
         ) {
             var localRange by remember(range) { mutableStateOf(range) }
@@ -736,7 +752,7 @@ fun ConcertRow(show: ConcertShow, onClick: () -> Unit, showPlanStatus: Boolean =
                 Text(date?.dayOfMonth?.toString() ?: "", style = CorusFont.custom(700, 26))
             }
             VerticalDivider(Modifier.height(48.dp).padding(horizontal = 8.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Column(Modifier.weight(1f).padding(end = 16.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 if (show.suggestionSource == "tasteMatches") Text(stringResource(R.string.concert_you_might_like), color = MaterialTheme.colorScheme.primary, style = CorusFont.custom(600, 11))
                 Text(show.matchedArtist ?: show.lineup.firstOrNull() ?: show.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = CorusFont.custom(600, 17))
                 if (show.matchedArtist != null && show.matchedArtist != show.title) Text(show.title, maxLines = 2, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant, style = CorusFont.custom(400, 13))
@@ -793,11 +809,11 @@ fun ConcertDetailScreen(
     val past = ConcertCalendarPolicy.hasStarted(concert.date, concert.time, concert.timezone)
     val unavailable = concert.eventStatus in listOf("canceled", "postponed")
     val immersive = !concert.imageUrl.isNullOrBlank()
-    fun openArtist(name: String) {
+    fun openArtist(name: String, source: String) {
         if (resolvingArtist) return
         resolvingArtist = true
         DestinationResolvingOverlay.arm()
-        vm.resolveArtist(name) { route ->
+        vm.resolveArtist(name, source) { route ->
             resolvingArtist = false
             DestinationResolvingOverlay.setResolving(false)
             if (route != null) onArtist(route)
@@ -822,11 +838,7 @@ fun ConcertDetailScreen(
     val extendUnderStatusBar = immersive && ImmersiveExtendUnderStatusBar && statusBarTopPx > 0
     val statusBarPadding = if (extendUnderStatusBar) with(LocalDensity.current) { statusBarTopPx.toDp() } else 0.dp
     if (extendUnderStatusBar) ImmersiveStatusBarIcons(collapseProgress)
-    LaunchedEffect(concert.id) {
-        vm.share(concert) { path ->
-            if (path == null) vm.log("share_prepare_failed", concert, "concert_detail")
-        }
-    }
+    LaunchedEffect(concert.id) { vm.share(concert) { } }
 
     Scaffold(
         modifier = if (extendUnderStatusBar) Modifier.extendIntoStatusBar(statusBarTopPx) else Modifier,
@@ -843,7 +855,7 @@ fun ConcertDetailScreen(
                         ConcertDetailMenu(
                             expanded = menu,
                             onDismiss = { menu = false },
-                            onArtist = { concert.lineup.firstOrNull()?.let(::openArtist) },
+                            onArtist = { concert.lineup.firstOrNull()?.let { openArtist(it, "menu") } },
                             onShare = { showShareSheet = true; vm.log("share_opened", concert, "concert_detail_menu") },
                         )
                     }
@@ -859,7 +871,10 @@ fun ConcertDetailScreen(
                 ) { Icon(Icons.Default.Send, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.concert_invite), style = CorusFont.bodyMedium) }
                 if (concert.eventStatus != "postponed") {
                     Button(
-                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(concert.url))) },
+                        onClick = {
+                            vm.log("ticket_tapped", concert, "concert_detail", provider = fm.corus.android.service.ConcertAnalytics.ticketProvider(concert.url))
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(concert.url)))
+                        },
                         modifier = Modifier.height(48.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurface),
@@ -891,13 +906,22 @@ fun ConcertDetailScreen(
             Box(Modifier.fillMaxWidth().aspectRatio(5f / 3f).padding(horizontal = 16.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
             AsyncImage(concert.imageUrl, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(androidx.compose.ui.graphics.Color.Transparent, androidx.compose.ui.graphics.Color.Black.copy(alpha = .7f)))))
-            Row(
-                Modifier.align(Alignment.BottomStart).clickable { (concert.matchedArtist ?: concert.lineup.firstOrNull())?.let(::openArtist) }.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(concert.matchedArtist ?: concert.lineup.firstOrNull() ?: concert.title, color = androidx.compose.ui.graphics.Color.White, style = CorusFont.songTitleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.width(6.dp))
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = androidx.compose.ui.graphics.Color.White.copy(alpha = .82f))
+            Column(Modifier.align(Alignment.BottomStart).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    stringResource(R.string.concert_label).uppercase(Locale.getDefault()),
+                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = .8f),
+                    style = CorusFont.caption,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.5.sp,
+                )
+                Row(
+                    Modifier.clickable { (concert.matchedArtist ?: concert.lineup.firstOrNull())?.let { openArtist(it, "hero") } },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(concert.matchedArtist ?: concert.lineup.firstOrNull() ?: concert.title, color = androidx.compose.ui.graphics.Color.White, style = CorusFont.songTitleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.width(6.dp))
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = androidx.compose.ui.graphics.Color.White.copy(alpha = .82f))
+                }
             }
             }
         }
@@ -909,11 +933,11 @@ fun ConcertDetailScreen(
                 stringResource(R.string.concert_venue),
                 concert.venue,
                 "${concert.city}, ${concert.region}",
-                onClick = { venueSheet = true },
+                onClick = { venueSheet = true; vm.log("venue_options_opened", concert, "concert_detail") },
             )
             if (vm.calendarEnabled && ConcertCalendarPolicy.startMillis(concert.date, concert.time, concert.timezone) != null) {
                 Row(
-                    Modifier.fillMaxWidth().clickable { calendarSheet = true; vm.log("calendar_opened", concert, "concert_detail") },
+                    Modifier.fillMaxWidth().clickable { calendarSheet = true; vm.log("calendar_options_opened", concert, "concert_detail") },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -923,13 +947,13 @@ fun ConcertDetailScreen(
                 }
             }
         } }
-        item { Box(Modifier.padding(horizontal = 20.dp)) { ConcertPlansCard(attendance, past, unavailable, onChoice = vm::updatePlan, onPeople = { peopleSheet = true; vm.log("people_opened", concert, "concert_detail") }, boxed = false, loadError = attendanceError, onRetry = { vm.open(eventId) }) } }
+        if (concert.supportsAttendance) item { Box(Modifier.padding(horizontal = 20.dp)) { ConcertPlansCard(attendance, past, unavailable, onChoice = vm::updatePlan, onPeople = { peopleSheet = true; vm.log("attendees_opened", concert, "concert_detail", count = (attendance?.goingCount ?: 0) + (attendance?.interestedCount ?: 0)) }, boxed = false, loadError = attendanceError, onRetry = { vm.open(eventId) }) } }
         if (concert.lineup.isNotEmpty()) item { Column(Modifier.padding(horizontal = 20.dp)) {
             Text(stringResource(R.string.concert_lineup), style = CorusFont.songTitleLarge)
             Spacer(Modifier.height(12.dp))
             concert.lineup.forEach { artist ->
                 Row(
-                    Modifier.fillMaxWidth().clickable { openArtist(artist) }.padding(vertical = 10.dp),
+                    Modifier.fillMaxWidth().clickable { openArtist(artist, "lineup") }.padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
@@ -955,7 +979,7 @@ fun ConcertDetailScreen(
                     onTextLayout = { layout -> if (!expanded) isTruncated = layout.hasVisualOverflow },
                 )
                 if (isTruncated || expanded) {
-                    TextButton(onClick = { expanded = !expanded; vm.log("event_info_toggled", concert, "concert_detail") }, contentPadding = PaddingValues(0.dp)) {
+                    TextButton(onClick = { vm.log("event_info_toggled", concert, "concert_detail", result = if (expanded) "collapsed" else "expanded"); expanded = !expanded }, contentPadding = PaddingValues(0.dp)) {
                         Text(stringResource(if (expanded) R.string.concert_show_less else R.string.concert_read_more), style = CorusFont.buttonSmall, color = MaterialTheme.colorScheme.onSurface)
                         Spacer(Modifier.width(6.dp))
                         Icon(if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurface)
@@ -983,7 +1007,7 @@ fun ConcertDetailScreen(
                         ConcertDetailMenu(
                             expanded = menu,
                             onDismiss = { menu = false },
-                            onArtist = { concert.lineup.firstOrNull()?.let(::openArtist) },
+                            onArtist = { concert.lineup.firstOrNull()?.let { openArtist(it, "menu") } },
                             onShare = { showShareSheet = true; vm.log("share_opened", concert, "concert_detail_menu") },
                         )
                     }
@@ -999,10 +1023,9 @@ fun ConcertDetailScreen(
         val shareSearchResults by vm.shareSearchResults.collectAsState()
         val isShareSearching by vm.isShareSearching.collectAsState()
         val isLoadingShareContacts by vm.isLoadingShareContacts.collectAsState()
-        ModalBottomSheet(
+        CorusModalBottomSheet(
             onDismissRequest = { showShareSheet = false },
             sheetState = shareSheetState,
-            containerColor = CorusColors.Background,
             dragHandle = null,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
             contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Bottom) },
@@ -1039,7 +1062,7 @@ fun ConcertDetailScreen(
                 },
                 onDismiss = { showShareSheet = false },
                 onAnalyticsLog = { method ->
-                    vm.log("share_tapped", concert, "concert_detail", mapOf("method" to method))
+                    vm.log("share_attempted", concert, "share_sheet", method = method)
                 },
             )
         }
@@ -1047,10 +1070,10 @@ fun ConcertDetailScreen(
     if (peopleSheet) {
         val peopleSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         val peopleSheetHeight = LocalConfiguration.current.screenHeightDp.dp * 0.72f
-        ModalBottomSheet(
+        LaunchedEffect(Unit) { vm.log("attendees_viewed", concert, "concert_detail", count = (attendance?.goingCount ?: 0) + (attendance?.interestedCount ?: 0)) }
+        CorusModalBottomSheet(
             onDismissRequest = { peopleSheet = false },
             sheetState = peopleSheetState,
-            containerColor = MaterialTheme.colorScheme.background,
         ) {
             Column(Modifier.fillMaxWidth().height(peopleSheetHeight)) {
                 ConcertSheetHeader(stringResource(R.string.concert_plans_title), showCloseButton = false) { peopleSheet = false }
@@ -1062,7 +1085,7 @@ fun ConcertDetailScreen(
                             trailingContent = { Text(stringResource(if (person.status == "going") { if (past) R.string.concert_went else R.string.concert_going_section } else { if (past) R.string.concert_was_interested else R.string.concert_interested_section }), style = CorusFont.captionMedium) },
                             leadingContent = { AsyncImage(person.avatarUrl, null, Modifier.size(42.dp).clip(CircleShape), contentScale = ContentScale.Crop) },
                             colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-                            modifier = Modifier.clickable { peopleSheet = false; onProfile(person.id) },
+                            modifier = Modifier.clickable { vm.log("attendee_profile_tapped", concert, "concert_attendees", result = person.status); peopleSheet = false; onProfile(person.id) },
                         )
                     }
                     if (attendance?.nextCursor != null) item {
@@ -1072,17 +1095,18 @@ fun ConcertDetailScreen(
             }
         }
     }
-    if (venueSheet) ModalBottomSheet(onDismissRequest = { venueSheet = false }, containerColor = MaterialTheme.colorScheme.background) { val address = listOfNotNull(concert.address ?: concert.venue, concert.city, concert.region).joinToString(", ")
+    if (venueSheet) CorusModalBottomSheet(onDismissRequest = { venueSheet = false }) { LaunchedEffect(Unit) { vm.log("venue_sheet_viewed", concert, "concert_detail") }
+        val address = listOfNotNull(concert.address ?: concert.venue, concert.city, concert.region).joinToString(", ")
         ConcertSheetHeader(concert.venue) { venueSheet = false }
         Text(address, Modifier.padding(horizontal = 20.dp), style = CorusFont.body, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        ListItem(headlineContent = { Text(stringResource(R.string.concert_copy_address), style = CorusFont.body) }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background), modifier = Modifier.clickable { (context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("Address", address)); venueSheet = false })
-        ListItem(headlineContent = { Text(stringResource(R.string.concert_google_maps), style = CorusFont.body) }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background), modifier = Modifier.clickable { val mapIntent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=${Uri.encode(address)}")).setPackage("com.google.android.apps.maps")
+        ListItem(headlineContent = { Text(stringResource(R.string.concert_copy_address), style = CorusFont.body) }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background), modifier = Modifier.clickable { vm.log("address_copied", concert, "venue_sheet"); (context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("Address", address)); venueSheet = false })
+        ListItem(headlineContent = { Text(stringResource(R.string.concert_google_maps), style = CorusFont.body) }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background), modifier = Modifier.clickable { vm.log("maps_tapped", concert, "venue_sheet", provider = "google"); val mapIntent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=${Uri.encode(address)}")).setPackage("com.google.android.apps.maps")
             runCatching { context.startActivity(mapIntent) }.recoverCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encode(address)}"))) }
             venueSheet = false })
     }
-    if (calendarSheet && vm.calendarEnabled) ModalBottomSheet(onDismissRequest = { calendarSheet = false }, containerColor = MaterialTheme.colorScheme.background) { ConcertSheetHeader(stringResource(R.string.concert_add_calendar)) { calendarSheet = false }
-        if (runCatching { context.packageManager.getPackageInfo("com.google.android.calendar", 0) }.isSuccess) ListItem(headlineContent = { Text(stringResource(R.string.concert_google_calendar), style = CorusFont.body) }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background), modifier = Modifier.clickable { openCalendar(context, concert, "google"); calendarSheet = false })
-        ListItem(headlineContent = { Text(stringResource(R.string.concert_device_calendar), style = CorusFont.body) }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background), modifier = Modifier.clickable { openCalendar(context, concert, "device"); calendarSheet = false })
+    if (calendarSheet && vm.calendarEnabled) CorusModalBottomSheet(onDismissRequest = { calendarSheet = false }) { ConcertSheetHeader(stringResource(R.string.concert_add_calendar)) { calendarSheet = false }
+        if (runCatching { context.packageManager.getPackageInfo("com.google.android.calendar", 0) }.isSuccess) ListItem(headlineContent = { Text(stringResource(R.string.concert_google_calendar), style = CorusFont.body) }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background), modifier = Modifier.clickable { vm.log("calendar_provider_tapped", concert, "concert_detail", provider = "google"); openCalendar(context, concert, "google"); calendarSheet = false })
+        ListItem(headlineContent = { Text(stringResource(R.string.concert_device_calendar), style = CorusFont.body) }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background), modifier = Modifier.clickable { vm.log("calendar_provider_tapped", concert, "concert_detail", provider = "device"); openCalendar(context, concert, "device"); calendarSheet = false })
     }
 }
 

@@ -1,5 +1,6 @@
 package fm.corus.android.ui.components
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -191,13 +192,12 @@ fun SongFilmPickerSheet(
         }
     }
 
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberGuardedSheetState()
     val resolvedTitle = title ?: stringResource(R.string.comment_attachment_picker_title)
 
-    ModalBottomSheet(
+    CorusModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = CorusColors.Background,
         sheetMaxWidth = Int.MAX_VALUE.dp,
         dragHandle = {
             Column(modifier = Modifier.statusBarsPadding()) {
@@ -933,17 +933,16 @@ fun EntityPickerSheet(
         }
     }
 
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberGuardedSheetState()
     val placeholder = when (kind) {
         PickerMode.ARTIST -> stringResource(R.string.messaging_thread_attachment_artist)
         PickerMode.ALBUM -> stringResource(R.string.messaging_thread_attachment_album)
         else -> stringResource(R.string.messaging_thread_attachment_director)
     }
 
-    ModalBottomSheet(
+    CorusModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = CorusColors.Background,
         sheetMaxWidth = Int.MAX_VALUE.dp,
         dragHandle = {
             Column(modifier = Modifier.statusBarsPadding()) {

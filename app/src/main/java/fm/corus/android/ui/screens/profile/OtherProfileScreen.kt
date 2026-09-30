@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.profile
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.RepeatMode
@@ -1530,10 +1531,9 @@ fun OtherProfileScreen(
     if (showFollowingSheet) {
         val followingSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         val followingSheetContext = LocalContext.current
-        ModalBottomSheet(
+        CorusModalBottomSheet(
             onDismissRequest = { showFollowingSheet = false },
             sheetState = followingSheetState,
-            containerColor = CorusColors.Background,
             dragHandle = { BottomSheetDefaults.DragHandle() },
         ) {
             CorusSystemBars()
@@ -1568,7 +1568,7 @@ fun OtherProfileScreen(
     }
 
     if (showBlockedReportSheet) {
-        ModalBottomSheet(onDismissRequest = { showBlockedReportSheet = false }) {
+        CorusModalBottomSheet(onDismissRequest = { showBlockedReportSheet = false }) {
             ReportSheet(
                 contentType = ReportContentType.USER,
                 contentId = userId,
@@ -1582,11 +1582,10 @@ fun OtherProfileScreen(
 
     // Club offer sheet
     if (showClubOffer) {
-        val clubSheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        androidx.compose.material3.ModalBottomSheet(
+        val clubSheetState = fm.corus.android.ui.components.rememberGuardedSheetState()
+        fm.corus.android.ui.components.CorusModalBottomSheet(
             onDismissRequest = { showClubOffer = false },
             sheetState = clubSheetState,
-            containerColor = CorusColors.Background,
             dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() },
         ) {
             CorusSystemBars()
@@ -1608,10 +1607,9 @@ fun OtherProfileScreen(
             val shareSheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
             val sentMsg = stringResource(fm.corus.android.R.string.profile_share_toast_profile_sent)
             LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
-            androidx.compose.material3.ModalBottomSheet(
+            fm.corus.android.ui.components.CorusModalBottomSheet(
                 onDismissRequest = { showShareSheet = false },
                 sheetState = shareSheetState,
-                containerColor = CorusColors.Background,
                 dragHandle = null,
             ) {
                 CorusSystemBars()

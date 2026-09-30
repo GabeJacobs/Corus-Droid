@@ -28,7 +28,7 @@
     <string name="concert_label">Concert</string>
     <string name="concert_lineup">Programmation</string>
     <string name="concert_lineup_note">L’ordre et les horaires peuvent changer. Consulte la page de l’événement pour les mises à jour.</string>
-    <string name="concert_load_error">Impossible de charger les concerts.</string>
+    <string name="concert_load_error">Impossible de charger les concerts</string>
     <string name="concert_loading">Chargement des concerts</string>
     <string name="concert_plans_loading">Chargement de vos projets…</string>
     <string name="concert_plans_load_error">Impossible de charger vos projets.</string>
@@ -53,8 +53,8 @@
     <string name="concert_shows">concerts</string>
     <string name="concert_status_canceled">Annulé. Consultez la page de l’événement pour en savoir plus.</string>
     <string name="concert_status_postponed">Reporté. Consultez la page de l’événement pour connaître la nouvelle date.</string>
-    <string name="concert_status_rescheduled">Les détails du concert ont changé. Consultez la page de l’événement avant de faire des projets.</string>
-    <string name="concert_status_unverified">Les détails du concert n’ont pas pu être vérifiés récemment. Consultez la page de l’événement avant de faire des projets.</string>
+    <string name="concert_status_rescheduled">Les détails du concert ont changé. Consultez la page de l’événement avant de vous organiser.</string>
+    <string name="concert_status_unverified">Les détails du concert n’ont pas pu être vérifiés récemment. Consultez la page de l’événement avant de vous organiser.</string>
     <string name="concert_tab_all">Tous</string>
     <string name="concert_tab_for_you">Pour toi</string>
     <string name="concert_tab_my">Mes concerts</string>
@@ -74,7 +74,7 @@
     <string name="concert_notif_going_fallback">va aussi à ce concert.</string>
     <string name="concert_city_search">Ville</string>
     <string name="concert_city_searching">Recherche de villes…</string>
-    <string name="concert_no_cities">Aucune ville trouvée. Essayez une autre recherche.</string>
+    <string name="concert_no_cities">Aucune ville trouvée. Essaie une autre recherche.</string>
     <string name="concert_use_location">Utiliser ma position actuelle</string>
     <string name="concert_location_error">Impossible de trouver votre ville. Choisissez-en une ci-dessous.</string>
 </resources>

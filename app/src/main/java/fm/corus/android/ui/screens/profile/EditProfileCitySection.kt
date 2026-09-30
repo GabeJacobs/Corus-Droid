@@ -30,7 +30,7 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -218,10 +218,9 @@ fun EditProfileCitySection(viewModel: EditProfileViewModel) {
     }
 
     if (dialog.isNotEmpty()) {
-        ModalBottomSheet(
+        CorusModalBottomSheet(
             onDismissRequest = { if (dialog != "intro") dialog = "" },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = CorusColors.Background,
         ) {
             LazyColumn(
                 contentPadding = PaddingValues(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 24.dp),

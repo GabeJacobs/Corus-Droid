@@ -198,6 +198,9 @@ class MainActivity : ComponentActivity() {
                     destination = data["destinationType"] ?: "home",
                 )
             }
+            if (data["type"] == "concert_going" && destination is DeepLinkDestination.Concert) {
+                analyticsService.logConcertEvent("notification_opened", "push", eventId = destination.eventId, result = "concert_going")
+            }
             if (data["type"] == "taste_match") {
                 val appState = if (fromCustomNotification) "foreground" else "background_or_terminated"
                 analyticsService.logTasteMatchPushOpened(

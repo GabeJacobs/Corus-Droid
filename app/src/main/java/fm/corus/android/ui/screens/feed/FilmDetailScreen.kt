@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.feed
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -763,10 +764,9 @@ fun FilmDetailScreen(
 
         LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
 
-        ModalBottomSheet(
+        CorusModalBottomSheet(
             onDismissRequest = { showShareSheet = false },
             sheetState = shareSheetState,
-            containerColor = CorusColors.Background,
             dragHandle = null,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
             contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Bottom) },
@@ -786,6 +786,7 @@ fun FilmDetailScreen(
                     showShareSheet = false
                 },
                 onDismiss = { showShareSheet = false },
+                onAnalyticsLog = { method -> viewModel.analyticsService.logFilmShared(shareMovie.id, method) },
             )
         }
     }

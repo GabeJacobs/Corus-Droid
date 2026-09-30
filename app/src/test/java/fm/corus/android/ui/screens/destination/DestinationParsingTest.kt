@@ -37,6 +37,8 @@ class DestinationParsingTest {
                     "city" to "East Rutherford",
                     "region" to "NJ",
                     "url" to "https://ticketmaster.com/event/1",
+                    "lineup" to listOf("Lo Moon"),
+                    "imageUrl" to "https://example.com/event.jpg",
                 ),
                 mapOf("id" to "bad", "date" to "2026-09-06"),
             ))
@@ -45,6 +47,8 @@ class DestinationParsingTest {
         assertEquals(1, dates.size)
         assertEquals("MetLife Stadium", dates.first().venue)
         assertEquals("East Rutherford", dates.first().city)
+        assertEquals(listOf("Lo Moon"), dates.first().lineup)
+        assertEquals("https://example.com/event.jpg", dates.first().imageUrl)
     }
 
     // ── getArtistDetail ──

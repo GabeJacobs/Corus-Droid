@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.notifications
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import android.animation.ValueAnimator
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.BorderStroke
@@ -31,7 +32,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.rive.runtime.kotlin.RiveAnimationView
+import app.rive.runtime.kotlin.core.File as RiveFile
 import app.rive.runtime.kotlin.core.Rive
+import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import app.rive.runtime.kotlin.core.Fit
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalNotification
@@ -39,14 +46,46 @@ import fm.corus.android.data.model.GiftDefinition
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.components.LocalContainingTabSelected
 
+/**
+ * The Gift animations live in one 4 MB .riv. Handing each RiveAnimationView the raw
+ * resource made every view re-read and re-parse it on the main thread (~230 ms each),
+ * so opening the picker with four tiles froze the UI for about a second. Parse it once,
+ * off the main thread, and share the parsed file across every view.
+ */
+internal object GiftRiveFile {
+    @Volatile private var file: RiveFile? = null
+    private val lock = Mutex()
+
+    fun peek(): RiveFile? = file
+
+    suspend fun get(context: Context): RiveFile? {
+        file?.let { return it }
+        return withContext(Dispatchers.Default) {
+            lock.withLock {
+                file ?: runCatching {
+                    val app = context.applicationContext
+                    Rive.init(app)
+                    val bytes = app.resources.openRawResource(R.raw.corus_gifts).use { it.readBytes() }
+                    RiveFile(bytes)
+                }.getOrNull()?.also { file = it }
+            }
+        }
+    }
+}
+
 @Composable
 internal fun GiftNotificationArtwork(type: String?, size: Dp = 44.dp) {
     val gift = GiftDefinition.from(type)
-    val localizedName = gift.name(LocalContext.current)
+    val context = LocalContext.current
+    val localizedName = gift.name(context)
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val active = LocalContainingTabSelected.current
     var view by remember { mutableStateOf<RiveAnimationView?>(null) }
     var failed by remember(type) { mutableStateOf(false) }
+    var riveFile by remember { mutableStateOf(GiftRiveFile.peek()) }
+    LaunchedEffect(gift.artboard) {
+        if (gift.artboard != null && riveFile == null) riveFile = GiftRiveFile.get(context)
+    }
     DisposableEffect(lifecycle, view, active) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME && active && ValueAnimator.areAnimatorsEnabled()) view?.play()
@@ -55,18 +94,19 @@ internal fun GiftNotificationArtwork(type: String?, size: Dp = 44.dp) {
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer); view?.pause() }
     }
-    if (gift.artboard == null || failed) {
+    val sharedFile = riveFile
+    if (gift.artboard == null || failed || sharedFile == null) {
+        // Emoji stands in until the shared file is parsed (or if it never can be).
         Box(Modifier.size(size), contentAlignment = Alignment.Center) { Text(gift.emoji, fontSize = (size.value * .65f).sp) }
     } else key(type) {
         AndroidView(
             modifier = Modifier.size(size),
-            factory = { context ->
-                Rive.init(context)
-                RiveAnimationView(context).also { player ->
+            factory = { ctx ->
+                RiveAnimationView(ctx).also { player ->
                     view = player
                     player.contentDescription = localizedName
                     runCatching {
-                        player.setRiveResource(R.raw.corus_gifts, artboardName = gift.artboard,
+                        player.setRiveFile(sharedFile, artboardName = gift.artboard,
                             stateMachineName = "Gift loop", fit = Fit.CONTAIN,
                             autoplay = active && ValueAnimator.areAnimatorsEnabled() && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
                     }.onFailure { failed = true }
@@ -94,7 +134,10 @@ internal fun giftReceiptSenderLine(
         notification.fromUser.displayName.ifBlank { context.getString(R.string.gift_someone) }
     }
     val phrase = gift.sentPhrase(context).replace(gift.name(context), nameToken)
-    val text = emphasizedGiftAttribution(
+    val text = if (notification.type == NotificationType.GIFT_THANKS) emphasizedGiftAttribution(
+        context.getString(R.string.gift_thanks_sender, senderToken),
+        mapOf(senderToken to sender),
+    ) else emphasizedGiftAttribution(
         context.getString(if (sentToYou) R.string.gift_sender_sent_you else R.string.gift_sender_sent,
             senderToken, phrase),
         linkedMapOf(senderToken to sender, nameToken to gift.name(context)),
@@ -128,10 +171,9 @@ internal fun GiftNotificationSheet(
     val sender = notification.fromUser.username.ifBlank {
         notification.fromUser.displayName.ifBlank { stringResource(R.string.gift_someone) }
     }
-    ModalBottomSheet(
+    CorusModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = CorusColors.Background,
     ) {
         // Intrinsic content height opens fully. Oversized notes and large text can scroll;
         // ModalBottomSheet supplies the navigation-bar inset below this bottom padding.
@@ -145,9 +187,13 @@ internal fun GiftNotificationSheet(
             GiftNotificationArtwork(notification.giftType, 164.dp)
             Spacer(Modifier.height(22.dp))
             if (isThanksReceipt) {
-                Text(
-                    stringResource(R.string.gift_thanks_sender, sender),
-                    style = CorusFont.body, color = CorusColors.Text, textAlign = TextAlign.Center,
+                val senderLine = giftReceiptSenderLine(context, notification)
+                ClickableText(
+                    text = senderLine,
+                    style = CorusFont.body.copy(color = CorusColors.Text, textAlign = TextAlign.Center),
+                    onClick = { offset ->
+                        if (senderLine.getStringAnnotations("USER", offset, offset).isNotEmpty()) onSenderTap()
+                    },
                 )
             } else {
                 Text(gift.name(context), style = CorusFont.custom(800, 28), color = CorusColors.Text,

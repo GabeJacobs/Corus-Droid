@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.profile
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import fm.corus.android.ui.components.parityCopy
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -53,7 +54,7 @@ fun TrophyCase(profile: CymbalUser, onPost: (String) -> Unit, model: TrophyCaseV
     LaunchedEffect(profile.id, model.viewer, revision) { summary = runCatching { model.page(profile.id, "track") }.getOrNull() }
     val count = (summary?.get("total") as? Number)?.toInt() ?: fm.corus.android.domain.ProfileTrophySummary.count(model.viewer,profile.id) ?: return
     TextButton(onClick = { open = true }, modifier = Modifier.padding(horizontal = 16.dp)) { Text("🏆 " + androidx.compose.ui.res.pluralStringResource(fm.corus.android.R.plurals.parity_trophy_count, count, count), color = Color(0xFFB78820)) }
-    if (open) ModalBottomSheet(onDismissRequest = { open = false }) {
+    if (open) CorusModalBottomSheet(onDismissRequest = { open = false }) {
         TrophyGrid(profile.id, summary, model, onPost = { open = false; onPost(it) })
     }
 }

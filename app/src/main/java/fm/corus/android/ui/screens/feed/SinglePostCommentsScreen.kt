@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.feed
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.animateColorAsState
@@ -570,10 +571,9 @@ fun SinglePostCommentsScreen(
 
         reportingComment?.let { comment ->
             val reportSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-            ModalBottomSheet(
+            CorusModalBottomSheet(
                 onDismissRequest = { reportingComment = null },
                 sheetState = reportSheetState,
-                containerColor = CorusColors.Background,
             ) {
                 CorusSystemBars()
                 ReportSheet(

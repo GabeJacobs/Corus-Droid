@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.settings
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import fm.corus.android.ui.components.shareCorusInvite
 
 import androidx.compose.foundation.background
@@ -722,11 +723,10 @@ fun SettingsScreen(
 
     // ── Club Offer Sheet ──
     if (showClubOffer) {
-        val clubSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
+        val clubSheetState = fm.corus.android.ui.components.rememberGuardedSheetState()
+        CorusModalBottomSheet(
             onDismissRequest = { showClubOffer = false },
             sheetState = clubSheetState,
-            containerColor = CorusColors.Background,
             dragHandle = { BottomSheetDefaults.DragHandle() },
         ) {
             CorusSystemBars()

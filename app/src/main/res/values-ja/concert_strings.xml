@@ -9,7 +9,7 @@
     <string name="concert_choose_city">都市を選択</string>
     <string name="concert_copy_address">住所をコピー</string>
     <string name="concert_date_filter">日付</string>
-    <string name="concert_date_pending">日程は未定です</string>
+    <string name="concert_date_pending">日程は未定</string>
     <string name="concert_date_time">日時</string>
     <string name="concert_device_calendar">Calendar</string>
     <string name="concert_event_info">イベント情報</string>
@@ -23,12 +23,12 @@
     <string name="concert_im_interested">興味あり</string>
     <string name="concert_interested_section">興味あり</string>
     <string name="concert_invite">誰かを招待</string>
-    <string name="concert_sent">送信しました</string>
+    <string name="concert_sent">送信済み</string>
     <string name="concert_invite_error">送信できませんでした。もう一度お試しください。</string>
     <string name="concert_label">コンサート</string>
     <string name="concert_lineup">出演者</string>
     <string name="concert_lineup_note">出演順や時間は変更される場合があります。最新情報はイベントページでご確認ください。</string>
-    <string name="concert_load_error">コンサートを読み込めませんでした。</string>
+    <string name="concert_load_error">コンサートを読み込めませんでした</string>
     <string name="concert_loading">コンサートを読み込み中</string>
     <string name="concert_plans_loading">予定を読み込み中…</string>
     <string name="concert_plans_load_error">予定を読み込めませんでした。</string>
@@ -53,8 +53,8 @@
     <string name="concert_shows">件のコンサート</string>
     <string name="concert_status_canceled">中止されました。詳細はイベント情報をご確認ください。</string>
     <string name="concert_status_postponed">延期されました。新しい日程はイベント情報をご確認ください。</string>
-    <string name="concert_status_rescheduled">コンサートの詳細が変更されました。予定を立てる前にイベント情報をご確認ください。</string>
-    <string name="concert_status_unverified">コンサートの詳細を最近確認できませんでした。予定を立てる前にイベント情報をご確認ください。</string>
+    <string name="concert_status_rescheduled">コンサートの詳細が変更されました。予定を立てる前にイベントページをご確認ください。</string>
+    <string name="concert_status_unverified">コンサートの最新情報を確認できませんでした。予定を立てる前にイベントページをご確認ください。</string>
     <string name="concert_tab_all">すべて</string>
     <string name="concert_tab_for_you">For You</string>
     <string name="concert_tab_my">マイコンサート</string>
@@ -74,7 +74,7 @@
     <string name="concert_notif_going_fallback">さんもこのコンサートに行く予定です。</string>
     <string name="concert_city_search">都市</string>
     <string name="concert_city_searching">都市を検索中…</string>
-    <string name="concert_no_cities">都市が見つかりません。別の検索をお試しください。</string>
+    <string name="concert_no_cities">都市が見つかりません。別のキーワードで検索してください。</string>
     <string name="concert_use_location">現在地を使用</string>
     <string name="concert_location_error">都市が見つかりませんでした。以下から選択してください。</string>
 </resources>

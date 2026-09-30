@@ -463,6 +463,9 @@ class NotificationsViewModel @Inject constructor(
             type = n.type.value,
             filter = _selectedFilter.value.value,
         )
+        if (n.type == fm.corus.android.data.model.NotificationType.CONCERT_GOING && !n.eventId.isNullOrEmpty()) {
+            analyticsService.logConcertEvent("notification_opened", "activity", eventId = n.eventId, result = "concert_going")
+        }
         // Taste-match-specific tap analytics (mirrors iOS).
         if (n.type == fm.corus.android.data.model.NotificationType.TASTE_MATCH) {
             analyticsService.logTasteMatchFeedRowTapped(

@@ -23,6 +23,11 @@ val NunitoFamily = FontFamily(
     ),
     Font(
         R.font.nunito,
+        weight = FontWeight.SemiBold,
+        variationSettings = FontVariation.Settings(FontVariation.weight(600)),
+    ),
+    Font(
+        R.font.nunito,
         weight = FontWeight.Bold,
         variationSettings = FontVariation.Settings(FontVariation.weight(700)),
     ),
@@ -177,6 +182,7 @@ object CorusFont {
             900 -> FontWeight.Black
             800 -> FontWeight.ExtraBold
             700 -> FontWeight.Bold
+            600 -> FontWeight.SemiBold
             500 -> FontWeight.Medium
             else -> FontWeight.Normal
         },

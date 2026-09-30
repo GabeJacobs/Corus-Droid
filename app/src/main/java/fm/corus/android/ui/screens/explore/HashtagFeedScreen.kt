@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.explore
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -421,11 +422,10 @@ fun HashtagFeedScreen(
 
     // ── Club Offer Paywall ──
     if (showClubOffer) {
-        val clubSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
+        val clubSheetState = fm.corus.android.ui.components.rememberGuardedSheetState()
+        CorusModalBottomSheet(
             onDismissRequest = { showClubOffer = false },
             sheetState = clubSheetState,
-            containerColor = CorusColors.Background,
             dragHandle = { BottomSheetDefaults.DragHandle() },
         ) {
             CorusSystemBars()

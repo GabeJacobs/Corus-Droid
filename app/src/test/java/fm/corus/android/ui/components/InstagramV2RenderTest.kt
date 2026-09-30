@@ -54,6 +54,66 @@ class InstagramV2RenderTest {
         art.recycle()
     }
 
+    @Test fun `username tags and flair share the avatar center in cover and vinyl`() {
+        val context = RuntimeEnvironment.getApplication()
+        val art = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }
+        val avatar = Bitmap.createBitmap(80, 80, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.GREEN) }
+        val subject = InstagramV2Subject("Song", "Artist", null, "", "", username = "tester",
+            isVerified = true, flairStyle = FlairStyle.HEART, isFirstPoster = true, isNewRelease = true)
+        for (layout in listOf("cover", "vinyl")) {
+            val story = renderInstagramV2(context, subject, art, Color.BLACK, layout, "solid", avatar,
+                includesBackground = false)
+            val textX = if (layout == "cover") 130 else 80
+            val avatarTop = (0 until 1000).first { story.getPixel(textX + 40, it) == Color.GREEN }
+            fun center(left: Int, right: Int, matches: (Int) -> Boolean): Double {
+                val rows = (avatarTop until avatarTop + 80).filter { y ->
+                    (left until right).any { x -> matches(story.getPixel(x, y)) }
+                }
+                assertTrue("Missing author element in $layout", rows.isNotEmpty())
+                return (rows.first() + rows.last()) / 2.0
+            }
+            val usernameCenter = center(textX + 102, textX + 225) { it == Color.WHITE }
+            val tagCenter = center(textX + 260, textX + 600) {
+                Color.alpha(it) > 200 && Color.red(it) > 220 && Color.green(it) > 140 && Color.blue(it) < 40
+            }
+            assertEquals("Username must be centered with tags in $layout", tagCenter, usernameCenter, 5.0)
+            val flairCenter = center(textX + 230, textX + 290) {
+                Color.alpha(it) > 200 && Color.blue(it) > 180 && Color.red(it) < 160
+            }
+            assertEquals("Flair must be centered with tags in $layout", tagCenter + 1, flairCenter, 5.0)
+            story.recycle()
+        }
+        avatar.recycle()
+        art.recycle()
+    }
+
+    @Test fun `exported headphones use the post icon silhouette instead of a text glyph`() {
+        val bitmap = Bitmap.createBitmap(80, 80, Bitmap.Config.ARGB_8888)
+        drawInstagramV2Flair(android.graphics.Canvas(bitmap), RuntimeEnvironment.getApplication(),
+            FlairStyle.HEADPHONES, 40f, 40f)
+        // Headphones have a headband above an open center and no bar across the bottom.
+        assertTrue(Color.alpha(bitmap.getPixel(40, 28)) > 200)
+        assertEquals(0, Color.alpha(bitmap.getPixel(40, 51)))
+        assertTrue(Color.alpha(bitmap.getPixel(29, 47)) > 200)
+        assertTrue(Color.alpha(bitmap.getPixel(51, 47)) > 200)
+        bitmap.recycle()
+    }
+
+    @Test fun `Corus logo flair appears in both cover and vinyl previews`() {
+        val context = RuntimeEnvironment.getApplication()
+        val art = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }
+        val plain = InstagramV2Subject("Song", "Artist", null, "", "", username = "aiden", isClubMember = true)
+        for (layout in listOf("cover", "vinyl")) {
+            val withoutFlair = renderInstagramV2(context, plain, art, Color.BLACK, layout, "solid")
+            val withFlair = renderInstagramV2(context, plain.copy(flairStyle = FlairStyle.CORUS_LOGO),
+                art, Color.BLACK, layout, "solid")
+            assertFalse("Corus logo must be visible in $layout", withoutFlair.sameAs(withFlair))
+            withoutFlair.recycle()
+            withFlair.recycle()
+        }
+        art.recycle()
+    }
+
     @Test fun `all layouts export exact story size with chosen background`() {
         val context = RuntimeEnvironment.getApplication()
         val art = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }

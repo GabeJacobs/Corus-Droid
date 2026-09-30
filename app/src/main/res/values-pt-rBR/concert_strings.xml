@@ -28,7 +28,7 @@
     <string name="concert_label">Show</string>
     <string name="concert_lineup">Lineup</string>
     <string name="concert_lineup_note">A ordem do lineup e os horários podem mudar. Confira a página do evento para ver atualizações.</string>
-    <string name="concert_load_error">Não foi possível carregar os shows.</string>
+    <string name="concert_load_error">Não foi possível carregar os shows</string>
     <string name="concert_loading">Carregando shows</string>
     <string name="concert_plans_loading">Carregando seus planos…</string>
     <string name="concert_plans_load_error">Não foi possível carregar seus planos.</string>
@@ -53,8 +53,8 @@
     <string name="concert_shows">shows</string>
     <string name="concert_status_canceled">Cancelado. Confira os detalhes na página do evento.</string>
     <string name="concert_status_postponed">Adiado. Confira a nova data na página do evento.</string>
-    <string name="concert_status_rescheduled">Os detalhes do show mudaram. Confira a página do evento antes de fazer planos.</string>
-    <string name="concert_status_unverified">Não foi possível confirmar os detalhes do show recentemente. Confira a página do evento antes de fazer planos.</string>
+    <string name="concert_status_rescheduled">Os detalhes do show mudaram. Confira a página do evento antes de se programar.</string>
+    <string name="concert_status_unverified">Não foi possível confirmar os detalhes recentes do show. Confira a página do evento antes de se programar.</string>
     <string name="concert_tab_all">Todos</string>
     <string name="concert_tab_for_you">Para você</string>
     <string name="concert_tab_my">Meus shows</string>

@@ -58,7 +58,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalBottomSheet
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -93,6 +93,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fm.corus.android.R
+import fm.corus.android.ui.components.rememberGuardedSheetState
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.domain.HapticManager
@@ -559,20 +560,20 @@ fun FullPlayerScreen(
     }
 
     giftPost?.let { post ->
-        val giftSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
+        val giftSheetState = rememberGuardedSheetState()
+        val giftScope = androidx.compose.runtime.rememberCoroutineScope()
+        CorusModalBottomSheet(
             onDismissRequest = { giftPost = null },
             sheetState = giftSheetState,
-            containerColor = CorusColors.Background,
-            dragHandle = null,
+            dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() },
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-            contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Vertical) },
+            contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Bottom) },
         ) {
             CorusSystemBars()
             BackHandler { giftPost = null }
             GiftSelectionSheet(
                 post = post,
-                onDismiss = { giftPost = null },
+                onDismiss = { giftScope.launch { giftSheetState.hide() }.invokeOnCompletion { giftPost = null } },
                 onSent = { result -> fullPlayerViewModel.onGiftSent(post, result) },
             )
         }
@@ -588,10 +589,9 @@ fun FullPlayerScreen(
 
         LaunchedEffect(Unit) { fullPlayerViewModel.loadRecentShareContacts() }
 
-        ModalBottomSheet(
+        CorusModalBottomSheet(
             onDismissRequest = { showShareSheet = false },
             sheetState = shareSheetState,
-            containerColor = CorusColors.Background,
             dragHandle = null,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
             contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Bottom) },
@@ -600,6 +600,8 @@ fun FullPlayerScreen(
             BackHandler { showShareSheet = false }
             ShareMediaSheet(
                 subject = ShareMediaSubject.Track(shareTrack),
+                postToInstagramV2 = remoteConfig?.postToInstagramV2 == true,
+                instagramShareEnabled = remoteConfig?.instagramShareEnabled == true,
                 recentContacts = recentShareContacts,
                 searchResults = shareSearchResults,
                 isSearching = isShareSearching,

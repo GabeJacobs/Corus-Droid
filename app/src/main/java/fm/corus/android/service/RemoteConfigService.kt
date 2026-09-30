@@ -800,7 +800,7 @@ class RemoteConfigService @Inject constructor(
             "FUQZIrZR08T2Ux2vYpPzWx7B1rv1", // @gabe
             "u3UmswvOg5c2r9zYlOidJYFzqbp2", // @clifton
             "nk8dhIwzgNT63C0NY9Qt7Dd8YlL2", // @farleythethird
-            "knpW2V2LkMNK4KzyIcmMnlhgEor1", // @din (display name Orh)
+            "8tDGYLCSWiYWifLfxUv3MtBaxvf2", // @din
         )
 
         /// In-app Remote Config defaults. Applied locally in init() (so flag-gated

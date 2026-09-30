@@ -18,7 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -129,21 +129,28 @@ fun PostMenuSheets(
         }
     }
 
+    // Warm the gift status while the menu is open so the picker opens fully laid out.
+    val giftPrefetcher: GiftSelectionViewModel = androidx.hilt.navigation.compose.hiltViewModel(key = "gift-prefetch")
+    LaunchedEffect(menuPost?.id) {
+        val post = menuPost ?: return@LaunchedEffect
+        if (actions.remoteConfig.canSendGiftTo(post.user.id)) giftPrefetcher.prefetch(context)
+    }
+
     giftPost?.let { post ->
-        val giftSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
+        val giftSheetState = rememberGuardedSheetState()
+        val giftScope = androidx.compose.runtime.rememberCoroutineScope()
+        CorusModalBottomSheet(
             onDismissRequest = { onGiftPostChange(null) },
             sheetState = giftSheetState,
-            containerColor = CorusColors.Background,
-            dragHandle = null,
+            dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() },
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-            contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Vertical) },
+            contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Bottom) },
         ) {
             CorusSystemBars()
             BackHandler { onGiftPostChange(null) }
             GiftSelectionSheet(
                 post = post,
-                onDismiss = { onGiftPostChange(null) },
+                onDismiss = { giftScope.launch { giftSheetState.hide() }.invokeOnCompletion { onGiftPostChange(null) } },
                 onSent = { result ->
                     val giftName = fm.corus.android.data.model.GiftDefinition.from(result.giftType).name(context)
                     ToastManager.show(context.getString(R.string.gift_sent_named, giftName))
@@ -177,10 +184,9 @@ fun PostMenuSheets(
             )
         }
 
-        ModalBottomSheet(
+        CorusModalBottomSheet(
             onDismissRequest = { onSharePostChange(null) },
             sheetState = shareSheetState,
-            containerColor = CorusColors.Background,
             dragHandle = null,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
             // Only pad for the bottom system bar (nav bar) so the action row clears it.
@@ -228,10 +234,9 @@ fun PostMenuSheets(
         val isOwn = actions.isOwnPost(post)
         val isSaved = engagementStates[post.id]?.isSaved ?: false
 
-        ModalBottomSheet(
+        CorusModalBottomSheet(
             onDismissRequest = { onMenuPostChange(null) },
             sheetState = menuSheetState,
-            containerColor = CorusColors.Background,
             dragHandle = null,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         ) {
@@ -343,10 +348,9 @@ fun PostMenuSheets(
     editCaptionPost?.let { post ->
         val editSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-        ModalBottomSheet(
+        CorusModalBottomSheet(
             onDismissRequest = { onEditCaptionPostChange(null) },
             sheetState = editSheetState,
-            containerColor = CorusColors.Background,
             dragHandle = null,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         ) {

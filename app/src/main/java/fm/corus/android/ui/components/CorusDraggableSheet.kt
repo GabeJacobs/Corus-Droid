@@ -168,7 +168,6 @@ fun CorusDraggableSheet(
     onDismiss: () -> Unit,
     sheetState: CorusSheetState,
     modifier: Modifier = Modifier,
-    containerColor: Color = CorusColors.Background,
     content: @Composable () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -261,7 +260,7 @@ fun CorusDraggableSheet(
             }
 
             Surface(
-                color = containerColor,
+                color = CorusColors.SheetBackground,
                 shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
                 modifier = modifier
                     .align(Alignment.BottomCenter)
@@ -274,18 +273,20 @@ fun CorusDraggableSheet(
                     // dragging relayouts without recomposing the comment list each frame.
                     .sheetPanelHeight(state),
             ) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    // Compact grabber (Material3's DragHandle reserves ~44dp, too tall).
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.CenterHorizontally)
-                            .padding(top = 10.dp, bottom = 4.dp)
-                            .size(width = 36.dp, height = 4.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(CorusColors.Tertiary.copy(alpha = 0.4f)),
-                    )
-                    Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
-                        content()
+                CorusSheetTheme {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // Compact grabber (Material3's DragHandle reserves ~44dp, too tall).
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterHorizontally)
+                                .padding(top = 10.dp, bottom = 4.dp)
+                                .size(width = 36.dp, height = 4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(CorusColors.Tertiary.copy(alpha = 0.4f)),
+                        )
+                        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                            content()
+                        }
                     }
                 }
             }

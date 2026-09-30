@@ -483,7 +483,7 @@ fun TrendingListScreen(
                                 KIND_HASHTAGS -> fm.corus.android.R.string.search_trending_hashtags_title
                                 KIND_ARTISTS -> fm.corus.android.R.string.search_trending_artists_title
                                 KIND_ALBUMS -> fm.corus.android.R.string.search_trending_albums_title
-                                KIND_NEW_RELEASE_ALBUMS -> fm.corus.android.R.string.search_new_release_albums_list_title
+                                KIND_NEW_RELEASE_ALBUMS -> fm.corus.android.R.string.search_new_release_albums_title
                                 KIND_NEW_RELEASE_FILMS -> fm.corus.android.R.string.search_new_release_films_list_title
                                 KIND_DIRECTORS -> fm.corus.android.R.string.search_trending_directors_title
                                 else -> fm.corus.android.R.string.search_trending_songs_title

@@ -47,6 +47,7 @@ class ArtistPageViewModelTest {
     private lateinit var authRepository: AuthRepository
     private lateinit var userRepository: UserRepository
     private lateinit var messageRepository: MessageRepository
+    private lateinit var concertRepository: fm.corus.android.data.repository.ConcertRepository
     private lateinit var remoteConfigService: RemoteConfigService
     private lateinit var context: android.content.Context
 
@@ -59,6 +60,7 @@ class ArtistPageViewModelTest {
         authRepository = mock()
         userRepository = mock()
         messageRepository = mock()
+        concertRepository = mock()
         remoteConfigService = mock()
         context = mock()
     }
@@ -75,6 +77,7 @@ class ArtistPageViewModelTest {
         authRepository = authRepository,
         userRepository = userRepository,
         messageRepository = messageRepository,
+        concertRepository = concertRepository,
         remoteConfigService = remoteConfigService,
         musicServicePreference = mock(),
         preferencesDataStore = mock(),

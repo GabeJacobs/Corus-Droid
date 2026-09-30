@@ -1,5 +1,6 @@
 package fm.corus.android.ui.components
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -85,11 +86,10 @@ fun GifPickerSheet(
         }
     }
 
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(
+    val sheetState = rememberGuardedSheetState()
+    CorusModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = CorusColors.Background,
         sheetMaxWidth = Int.MAX_VALUE.dp,
     ) {
         CorusSystemBars()

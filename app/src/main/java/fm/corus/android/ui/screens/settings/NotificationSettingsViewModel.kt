@@ -129,7 +129,7 @@ class NotificationSettingsViewModel @Inject constructor(
     }
     fun setConcerts(enabled: Boolean) = updateNotif("concerts", enabled) {
         _settings.value = _settings.value.copy(concerts = enabled)
-        analyticsService.logEvent("concert_event", mapOf("action" to "notifications_toggled", "source" to "settings", "enabled" to enabled))
+        analyticsService.logConcertEvent("notification_setting_changed", "notification_settings", result = if (enabled) "enabled" else "disabled")
     }
     fun setUpdatesAndReminders(enabled: Boolean) = updateNotif("updatesAndReminders", enabled) {
         _settings.value = _settings.value.copy(updatesAndReminders = enabled)

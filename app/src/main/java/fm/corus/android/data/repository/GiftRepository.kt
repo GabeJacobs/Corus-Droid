@@ -1,8 +1,16 @@
 package fm.corus.android.data.repository
 
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.FirebaseFunctionsException
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -95,6 +103,7 @@ internal fun parseGiftSendResult(raw: Map<*, *>?): GiftSendResult? {
 @Singleton
 class GiftRepository @Inject constructor(
     private val functions: FirebaseFunctions,
+    private val auth: FirebaseAuth,
 ) {
     suspend fun thankGift(postId: String, giftId: String): java.util.Date {
         val raw = functions.getHttpsCallable("thankGift")
@@ -104,9 +113,50 @@ class GiftRepository @Inject constructor(
         return java.util.Date(thankedAt)
     }
 
+    private val statusScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val statusMutex = Mutex()
+    private var statusRequest: Deferred<GiftStatus>? = null
+    private var statusRequestUid: String? = null
+    private var cacheGeneration = 0L
+    private data class CachedStatus(val status: GiftStatus, val fetchedAt: Long, val uid: String?)
+
+    @Volatile private var cached: CachedStatus? = null
+
+    /** Last status fetched within [maxAgeMs], so the picker can open fully
+     *  laid out instead of showing a loading state. Callers still refresh. */
+    fun cachedStatus(maxAgeMs: Long = CACHE_MAX_AGE_MS): GiftStatus? =
+        cached?.takeIf {
+            it.uid == auth.currentUser?.uid && System.currentTimeMillis() - it.fetchedAt <= maxAgeMs
+        }?.status
+
+    /** Warm the cache ahead of the picker (post menu open). Never throws. */
+    suspend fun prefetchStatus() {
+        // Already warm: skip the call entirely so repeated menu opens cost nothing.
+        if (cachedStatus(PREFETCH_FRESH_MS) != null) return
+        try { getStatus() } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) {}
+    }
+
     suspend fun getStatus(): GiftStatus {
-        val raw = functions.getHttpsCallable("getGiftStatus").call().await().getData() as? Map<*, *>
-        return parseGiftStatus(raw) ?: throw GiftRepositoryException.InvalidResponse()
+        val uid = auth.currentUser?.uid
+        val request = statusMutex.withLock {
+            val generation = cacheGeneration
+            statusRequest?.takeIf { it.isActive && statusRequestUid == uid } ?: statusScope.async {
+                val raw = functions.getHttpsCallable("getGiftStatus").call().await().getData() as? Map<*, *>
+                val status = parseGiftStatus(raw) ?: throw GiftRepositoryException.InvalidResponse()
+                statusMutex.withLock {
+                    if (generation == cacheGeneration && auth.currentUser?.uid == uid) {
+                        cached = CachedStatus(status, System.currentTimeMillis(), uid)
+                    }
+                }
+                status
+            }.also { statusRequest = it; statusRequestUid = uid }
+        }
+        return request.await()
+    }
+
+    private companion object {
+        const val CACHE_MAX_AGE_MS = 5 * 60_000L
+        const val PREFETCH_FRESH_MS = 60_000L
     }
 
     suspend fun sendGift(
@@ -129,6 +179,11 @@ class GiftRepository @Inject constructor(
                 FirebaseFunctionsException.Code.FAILED_PRECONDITION -> throw GiftRepositoryException.Unavailable()
                 else -> throw error
             }
+        }
+        statusMutex.withLock {
+            cacheGeneration++
+            cached = null
+            statusRequest = null
         }
         return parseGiftSendResult(raw) ?: throw GiftRepositoryException.InvalidResponse()
     }

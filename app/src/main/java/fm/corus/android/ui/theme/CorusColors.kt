@@ -85,6 +85,16 @@ object CorusColors {
         @Composable @ReadOnlyComposable
         get() = LocalCorusPalette.current.background
 
+    /** Raised modal surface, distinct from the pure-black dark screen. */
+    val SheetBackground: Color
+        @Composable @ReadOnlyComposable
+        get() = if (LocalCorusDarkTheme.current) Color(0xFF1C1C1E) else Background
+
+    /** Controls on a raised sheet need another step of contrast. */
+    val SheetControlBackground: Color
+        @Composable @ReadOnlyComposable
+        get() = if (LocalCorusDarkTheme.current) Color(0xFF2C2C2E) else CardBackground
+
     val CardBackground: Color
         @Composable @ReadOnlyComposable
         get() = LocalCorusPalette.current.cardBackground

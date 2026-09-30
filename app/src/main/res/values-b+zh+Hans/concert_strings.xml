@@ -53,8 +53,8 @@
     <string name="concert_shows">场演出</string>
     <string name="concert_status_canceled">已取消。请查看活动页面了解详情。</string>
     <string name="concert_status_postponed">已延期。请查看活动页面了解新日期。</string>
-    <string name="concert_status_rescheduled">演出信息已变更。制定计划前请查看活动页面。</string>
-    <string name="concert_status_unverified">最近无法核实演出信息。制定计划前请查看活动页面。</string>
+    <string name="concert_status_rescheduled">演出详情已有变更。安排行程前请查看活动页面。</string>
+    <string name="concert_status_unverified">最近无法核实演出详情。安排行程前请查看活动页面。</string>
     <string name="concert_tab_all">全部</string>
     <string name="concert_tab_for_you">为你推荐</string>
     <string name="concert_tab_my">我的演出</string>
@@ -74,7 +74,7 @@
     <string name="concert_notif_going_fallback">也会去看这场演出。</string>
     <string name="concert_city_search">城市</string>
     <string name="concert_city_searching">正在搜索城市…</string>
-    <string name="concert_no_cities">未找到城市。请尝试其他搜索词。</string>
-    <string name="concert_use_location">使用当前位置</string>
+    <string name="concert_no_cities">未找到城市。请尝试其他搜索。</string>
+    <string name="concert_use_location">使用我的当前位置</string>
     <string name="concert_location_error">找不到你的城市。请在下方选择。</string>
 </resources>

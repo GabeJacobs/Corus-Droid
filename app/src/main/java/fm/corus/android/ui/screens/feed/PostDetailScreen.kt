@@ -210,6 +210,8 @@ fun PostDetailScreen(
                 val saveCount = engagement?.saveCount ?: currentPost.saveCount
                 val localGiftCounts by fm.corus.android.ui.components.GiftPresentationStore.giftCounts.collectAsState()
                 val displayedGiftCount = maxOf(currentPost.giftCount, localGiftCounts[currentPost.id] ?: 0)
+                val localGiftPreviews by fm.corus.android.ui.components.GiftPresentationStore.recentGifts.collectAsState()
+                val displayedRecentGifts = fm.corus.android.ui.components.GiftPresentationStore.previewsFor(currentPost, localGiftPreviews)
 
                 LazyColumn(
                     modifier = Modifier
@@ -393,7 +395,7 @@ fun PostDetailScreen(
                                 fm.corus.android.ui.components.PostGiftRow(
                                     currentPost.id,
                                     displayedGiftCount,
-                                    currentPost.recentGifts,
+                                    displayedRecentGifts,
                                     onSenderTap = onNavigateToUser,
                                 )
                             }
@@ -1031,14 +1033,22 @@ private fun PostDetailEngagementRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
     ) {
-        // Like
-        EngagementButton(
-            icon = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-            count = likeCount,
-            tint = if (isLiked) CorusColors.Like else CorusColors.Text,
-            onClick = onLikeTap,
-            onLongClick = onLikeLongPress,
-        )
+        // Like. When long-press sends a Gift, use the same 0.38s hold as iOS instead of the
+        // device's touch-and-hold setting (500ms+ on some phones).
+        androidx.compose.runtime.CompositionLocalProvider(
+            androidx.compose.ui.platform.LocalViewConfiguration provides
+                (if (onLikeLongPress != null) fm.corus.android.ui.components.giftHoldViewConfiguration(
+                    androidx.compose.ui.platform.LocalViewConfiguration.current,
+                ) else androidx.compose.ui.platform.LocalViewConfiguration.current),
+        ) {
+            EngagementButton(
+                icon = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                count = likeCount,
+                tint = if (isLiked) CorusColors.Like else CorusColors.Text,
+                onClick = onLikeTap,
+                onLongClick = onLikeLongPress,
+            )
+        }
 
         // Comment
         EngagementButton(
@@ -1173,6 +1183,24 @@ private fun EngagementButton(
 }
 
 
+internal fun buildPostDetailCaptionAnnotatedString(username: String, caption: String, textColor: Color): androidx.compose.ui.text.AnnotatedString {
+    return buildAnnotatedString {
+        withStyle(
+            SpanStyle(
+                fontFamily = NunitoFamily,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 14.sp,
+                color = textColor,
+            )
+        ) {
+            append(username)
+        }
+        append(" ")
+
+        append(buildMentionAnnotatedString(caption, SpanStyle(color = textColor)))
+    }
+}
+
 @Composable
 private fun PostDetailCaption(
     username: String,
@@ -1180,49 +1208,7 @@ private fun PostDetailCaption(
     onHashtagTap: (String) -> Unit,
     onMentionTap: (String) -> Unit,
 ) {
-    val captionText = buildAnnotatedString {
-        withStyle(
-            SpanStyle(
-                fontFamily = NunitoFamily,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 14.sp,
-                color = CorusColors.Text,
-            )
-        ) {
-            append(username)
-        }
-        append(" ")
-
-        val regex = Regex("(@\\w+)|(#\\w+)")
-        var lastIndex = 0
-        regex.findAll(caption).forEach { match ->
-            if (match.range.first > lastIndex) {
-                withStyle(SpanStyle(color = CorusColors.Text)) {
-                    append(caption.substring(lastIndex, match.range.first))
-                }
-            }
-            val token = match.value
-            val tag = if (token.startsWith("@")) "mention" else "hashtag"
-            pushStringAnnotation(tag = tag, annotation = token)
-            if (token.startsWith("@")) {
-                withStyle(SpanStyle(color = CorusColors.Accent, fontWeight = FontWeight.ExtraBold)) {
-                    append(token)
-                }
-            } else {
-                // Hashtags: accent color, regular weight.
-                withStyle(SpanStyle(color = CorusColors.Accent, fontWeight = FontWeight.Normal)) {
-                    append(token)
-                }
-            }
-            pop()
-            lastIndex = match.range.last + 1
-        }
-        if (lastIndex < caption.length) {
-            withStyle(SpanStyle(color = CorusColors.Text)) {
-                append(caption.substring(lastIndex))
-            }
-        }
-    }
+    val captionText = buildPostDetailCaptionAnnotatedString(username, caption, CorusColors.Text)
 
     @Suppress("DEPRECATION")
     ClickableText(
@@ -1237,7 +1223,7 @@ private fun PostDetailCaption(
                 onMentionTap(it.item)
             }
             captionText.getStringAnnotations("hashtag", offset, offset).firstOrNull()?.let {
-                onHashtagTap(it.item.removePrefix("#"))
+                onHashtagTap(it.item)
             }
         },
     )

@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.messaging
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.material.icons.filled.Delete
 import fm.corus.android.domain.CityChatPolicy
 import android.content.Intent
@@ -2011,7 +2012,7 @@ fun MessageThreadScreen(
     }
 
     reportTarget?.let { target ->
-        ModalBottomSheet(onDismissRequest = { reportTarget = null }) {
+        CorusModalBottomSheet(onDismissRequest = { reportTarget = null }) {
         fm.corus.android.ui.components.ReportSheet(contentType = fm.corus.android.ui.components.ReportContentType.MESSAGE,
             contentId = target.id, threadId = threadId, contentAuthorId = target.fromUserId,
             authRepository = viewModel.authRepository, userRepository = viewModel.userRepository, analyticsService = viewModel.analyticsService,

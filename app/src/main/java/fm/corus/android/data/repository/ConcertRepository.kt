@@ -22,6 +22,7 @@ data class ConcertShow(
     val matchedArtist: String?, val suggestionSource: String?,
     val eventStatus: String, val status: String? = null,
     val timezone: String? = null,
+    val supportsAttendance: Boolean = true,
 )
 
 data class ConcertPage(
@@ -48,6 +49,10 @@ class ConcertRepository @Inject constructor(private val functions: FirebaseFunct
     private var owner = auth.currentUser?.uid
     private val _discoveryFilter = MutableStateFlow(savedDiscoveryFilter())
     val discoveryFilter = _discoveryFilter.asStateFlow()
+    fun hasHadForYouResults(): Boolean = prefs.getBoolean("hasHadForYouResults.${auth.currentUser?.uid}", false)
+    fun markForYouResults() {
+        prefs.edit().putBoolean("hasHadForYouResults.${auth.currentUser?.uid}", true).apply()
+    }
     private fun savedDiscoveryFilter() = prefs.getString("filter.${auth.currentUser?.uid}", "forYou")
         ?.takeIf { it == "all" || it == "forYou" } ?: "forYou"
     fun selectDiscoveryFilter(filter: String) {
@@ -60,6 +65,10 @@ class ConcertRepository @Inject constructor(private val functions: FirebaseFunct
     fun rememberAttendance(id: String, attendance: ConcertAttendance) { attendanceCache[id] = attendance }
     private val cachedShows = java.util.concurrent.ConcurrentHashMap<String, ConcertShow>()
     private val cachedPlans = java.util.concurrent.ConcurrentHashMap<String, ConcertShow>()
+    /** False until getMyConcerts has succeeded for this account. Before that, cachedPlans holds only
+     *  optimistic RSVPs, so the list must not read as complete. */
+    private val _plansSynced = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val plansSynced = _plansSynced.asStateFlow()
     private val pendingPlans = java.util.concurrent.ConcurrentHashMap<String, String>()
     private val interestWriteMutex = Mutex()
     private val interestWriteVersions = mutableMapOf<String, Long>()
@@ -67,6 +76,10 @@ class ConcertRepository @Inject constructor(private val functions: FirebaseFunct
     private var planReadVersion = 0L
     private val _planUpdates = MutableStateFlow<List<ConcertShow>>(emptyList())
     val planUpdates = _planUpdates.asStateFlow()
+    /** City the server fell back to (the viewer's map city) when no city was picked. Lets
+     *  See All open on it instead of flashing "Choose your city" until its own load returns. */
+    @Volatile var resolvedCity: Pair<String, String>? = null
+        private set
     init {
         auth.addAuthStateListener {
             if (owner != it.currentUser?.uid) {
@@ -74,6 +87,8 @@ class ConcertRepository @Inject constructor(private val functions: FirebaseFunct
                 planMutationVersion++
                 planReadVersion++
                 cachedShows.clear(); cachedPlans.clear(); pendingPlans.clear(); attendanceCache.clear()
+                _plansSynced.value = false
+                resolvedCity = null
                 interestWriteVersions.clear()
                 _planUpdates.value = emptyList()
                 _discoveryFilter.value = savedDiscoveryFilter()
@@ -82,6 +97,10 @@ class ConcertRepository @Inject constructor(private val functions: FirebaseFunct
     }
     fun cached(eventId: String): ConcertShow? = cachedShows[eventId] ?: cachedPlans[eventId]
     fun remember(show: ConcertShow) { cachedShows[show.id] = show }
+    private val pendingDetailSource = java.util.concurrent.ConcurrentHashMap<String, String>()
+    /** Analytics source for the next detail open of [eventId]; the opener registers it, the detail consumes it. */
+    fun noteDetailSource(eventId: String, source: String) { pendingDetailSource[eventId] = source }
+    fun takeDetailSource(eventId: String): String? = pendingDetailSource.remove(eventId)
     fun rememberedPlans(): List<ConcertShow> = cachedPlans.values.sortedBy { it.date }
     fun rememberPlan(show: ConcertShow, status: String?, optimistic: Boolean = false) {
         if (optimistic) {
@@ -119,6 +138,9 @@ class ConcertRepository @Inject constructor(private val functions: FirebaseFunct
             nearbyTotal = (result["nearbyTotal"] as? Number)?.toInt() ?: 0,
         )
         page.shows.forEach(::remember)
+        if (cityId.isNullOrBlank()) {
+            resolvedCity = if (page.needsCity) null else page.cityId?.takeIf { it.isNotBlank() }?.let { it to page.cityName.orEmpty() }
+        }
         return page
     }
 
@@ -140,6 +162,7 @@ class ConcertRepository @Inject constructor(private val functions: FirebaseFunct
         retained.forEach { (id, show) -> cachedPlans[id] = show }
         pendingPlans.filterValues { it == "none" }.keys.forEach(cachedPlans::remove)
         _planUpdates.value = rememberedPlans()
+        _plansSynced.value = true
         return rememberedPlans()
     }
     fun clearPending(eventId: String) { pendingPlans.remove(eventId) }

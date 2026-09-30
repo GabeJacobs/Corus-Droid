@@ -50,6 +50,30 @@ class MentionTextTest {
         assertEquals("", mentionHandle("@!!!"))
     }
 
+    @Test
+    fun `birthday caption highlights the entire dotted mention and excludes possessive suffix`() {
+        val caption = "It’s my sister @miah.baxterr’s 17th birthday today!"
+        val result = fm.corus.android.ui.screens.feed.buildPostDetailCaptionAnnotatedString("aiden", caption, Color.White)
+        val mention = result.getStringAnnotations("mention", 0, result.length).single()
+        assertEquals("miah.baxterr", mention.item)
+        assertEquals("@miah.baxterr", result.text.substring(mention.start, mention.end))
+        assertEquals("’s 17th birthday today!", result.text.substring(mention.end))
+        val style = result.spanStyles.single { it.start == mention.start && it.end == mention.end }
+        assertEquals(fm.corus.android.ui.theme.CorusColors.Accent, style.item.color)
+        assertEquals(FontWeight.ExtraBold, style.item.fontWeight)
+        for (offset in mention.start until mention.end) {
+            assertEquals("miah.baxterr", result.getStringAnnotations("mention", offset, offset).single().item)
+        }
+    }
+
+    @Test
+    fun `birthday comment highlights the entire dotted mention before punctuation`() {
+        val result = buildMentionAnnotatedString("Happy birthday @miah.baxterr !!!!!")
+        val mention = result.getStringAnnotations("mention", 0, result.length).single()
+        assertEquals("miah.baxterr", mention.item)
+        assertEquals("@miah.baxterr", result.text.substring(mention.start, mention.end))
+    }
+
     // ── parseMentionQuery ──
 
     @Test

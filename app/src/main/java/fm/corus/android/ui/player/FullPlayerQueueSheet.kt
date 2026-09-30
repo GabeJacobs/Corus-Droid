@@ -37,7 +37,7 @@ import androidx.compose.material.icons.filled.RemoveCircle
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalBottomSheet
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -136,10 +136,9 @@ fun FullPlayerQueueSheet(
         revision++
     }
 
-    ModalBottomSheet(
+    CorusModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = CorusColors.Background,
     ) {
         QueueSheetToolbar(
             showsEdit = upNext.isNotEmpty(),

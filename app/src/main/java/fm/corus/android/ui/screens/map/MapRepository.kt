@@ -188,8 +188,35 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
         )
     }
 
+    private data class CitySearchEntry(val at: Long, val cities: List<MapCity>)
+    private var citySearchOwner: String? = null
+    private val citySearchCache = linkedMapOf<String, CitySearchEntry>()
+    private fun cityQueryKey(query: String) = java.text.Normalizer.normalize(query, java.text.Normalizer.Form.NFD)
+        .replace(Regex("\\p{M}+"), "").lowercase(java.util.Locale.ROOT).trim().replace(Regex("\\s+"), " ")
+
+    @Synchronized fun cachedCitySearch(query: String): List<MapCity>? {
+        val uid = auth.currentUser?.uid ?: return null
+        if (citySearchOwner != uid) { citySearchCache.clear(); citySearchOwner = uid }
+        val cached = citySearchCache[cityQueryKey(query)] ?: return null
+        return cached.cities.takeIf { android.os.SystemClock.elapsedRealtime() - cached.at < 60_000 }
+    }
+
     @Suppress("UNCHECKED_CAST")
-    suspend fun search(query: String) = (call("searchMapCities", mapOf("query" to query, "limit" to 30))["cities"] as? List<Map<String, Any?>>).orEmpty().map(MapCity::decode)
+    suspend fun search(query: String): List<MapCity> {
+        cachedCitySearch(query)?.let { return it }
+        val uid = auth.currentUser?.uid ?: error("Please sign in.")
+        val response = call("searchMapCities", mapOf("query" to query.trim(), "limit" to 30))
+        val cities = (response["cities"] as? List<Map<String, Any?>>).orEmpty().map(MapCity::decode)
+        synchronized(this) {
+            if (auth.currentUser?.uid == uid && response["providerUnavailable"] != true) {
+                if (citySearchOwner != uid) { citySearchCache.clear(); citySearchOwner = uid }
+                if (citySearchCache.size >= 64) citySearchCache.remove(citySearchCache.keys.first())
+                citySearchCache[cityQueryKey(query)] = CitySearchEntry(android.os.SystemClock.elapsedRealtime(), cities)
+            }
+        }
+        return cities
+    }
+
     @Suppress("UNCHECKED_CAST")
     suspend fun resolve(location: Location): MapCity {
         val result = call("resolveMapCity", mapOf("latitude" to location.latitude, "longitude" to location.longitude))

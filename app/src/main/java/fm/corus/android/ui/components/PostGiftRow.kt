@@ -1,5 +1,6 @@
 package fm.corus.android.ui.components
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -10,6 +11,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,6 +23,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -119,7 +123,7 @@ fun PostGiftRow(
     giftCount: Int,
     recentGifts: List<PostGiftPreview> = emptyList(),
     onSenderTap: (String) -> Unit = {},
-    contentPadding: PaddingValues = PaddingValues(start = 12.5.dp, end = 16.dp, top = 5.dp, bottom = 9.dp),
+    contentPadding: PaddingValues = PaddingValues(start = 12.5.dp, end = 16.dp, top = 3.dp, bottom = 9.dp),
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
@@ -179,22 +183,50 @@ fun PostGiftRow(
     val firstRowGift = rowReceipts.firstOrNull() ?: return
     val rowArtworkSize = if (currentRowSummary.total <= 2) 34.dp else 30.dp
     val rowArtworkSpacing = if (currentRowSummary.total == 2) 1.dp else 3.dp
+    // The feed preview is bounded. Only show a multiplier when it contains every gift.
+    val giftTypeCounts = if (rowReceipts.size >= currentRowSummary.total) {
+        rowReceipts.groupingBy { it.type }.eachCount()
+    } else emptyMap()
+    val openGiftSheet = {
+        index = 0
+        sheetReceipts = rowReceipts
+        sheetSummary = rowSummary
+        sheetCursor = null
+        sheetError = false
+        open = true
+    }
+    val currentOpenGiftSheet by rememberUpdatedState(openGiftSheet)
     Row(
-        Modifier.fillMaxWidth().clickable {
-            index = 0
-            sheetReceipts = rowReceipts
-            sheetSummary = rowSummary
-            sheetCursor = null
-            sheetError = false
-            open = true
-        }.padding(contentPadding),
+        Modifier.fillMaxWidth()
+            .then(if (firstRowGift.type == "corus_heart") Modifier.offset(x = (-1).dp) else Modifier)
+            .clickable(onClick = openGiftSheet).padding(contentPadding),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.5.dp),
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(rowArtworkSpacing)) {
-            rowReceipts.map { it.type }.distinct().take(3).forEach {
-                GiftNotificationArtwork(it, rowArtworkSize)
+        Box {
+            Row(horizontalArrangement = Arrangement.spacedBy(rowArtworkSpacing)) {
+                rowReceipts.map { it.type }.distinct().take(3).forEach { type ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Adjust the Boombox artwork without moving the attribution text.
+                        Box(
+                            if (type == "boombox") Modifier.offset(x = (-3).dp).scale(1.06f)
+                            else Modifier,
+                        ) {
+                            GiftNotificationArtwork(type, rowArtworkSize)
+                        }
+                        val typeCount = giftTypeCounts[type] ?: 0
+                        if (typeCount > 1) {
+                            Text("×$typeCount", style = CorusFont.captionMedium, color = CorusColors.Secondary)
+                        }
+                    }
+                }
             }
+            // Rive's AndroidView consumes taps before the parent row can see
+            // them. Keep the artwork animated and forward its touch area to
+            // the same receipt sheet action as the text.
+            Spacer(Modifier.matchParentSize().pointerInput(postId) {
+                detectTapGestures { currentOpenGiftSheet() }
+            })
         }
         Text(
             if (currentRowSummary.total == 1) localizedGiftReceiptTitle(context, firstRowGift)
@@ -210,19 +242,20 @@ fun PostGiftRow(
         val displayedTotal = sheetSummary?.total ?: giftCount
         val actionGift = sheetReceipts.getOrNull(index) ?: sheetReceipts.firstOrNull()
         val actionIsThanked = actionGift?.let { it.wasThanked || it.id in thankedIds } == true
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
+        val sheetState = rememberGuardedSheetState()
+        CorusModalBottomSheet(
             onDismissRequest = { open = false },
             sheetState = sheetState,
-            containerColor = CorusColors.Background,
         ) {
             Column(
                 Modifier.fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                    .padding(start = 24.dp, end = 24.dp, top = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(stringResource(if (displayedTotal > 1) R.string.gift_sheet_title_many else R.string.gift_sheet_title_one), style = CorusFont.screenTitle, color = CorusColors.Text)
+                // iOS: single gift gets room between title and artwork; with a pager it sits close
+                Spacer(Modifier.height(if (displayedTotal > 1) 0.dp else 14.dp))
                 AnimatedContent(
                     targetState = sheetReceipts.isNotEmpty(),
                     transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(100)) },
@@ -246,9 +279,9 @@ fun PostGiftRow(
                         } else {
                             val gift = sheetReceipts.getOrElse(index) { first }
                             Column(
-                                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
+                                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 28.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(22.dp),
                             ) {
                                 if (displayedTotal > 1) GiftPager(
                                     index, displayedTotal, index > 0,
@@ -260,6 +293,7 @@ fun PostGiftRow(
                                     },
                                 )
                                 GiftNotificationArtwork(gift.type, 164.dp)
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(7.dp)) {
                                 Text(GiftDefinition.from(gift.type).name(context), style = CorusFont.custom(800, 28), color = CorusColors.Text)
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
@@ -284,13 +318,66 @@ fun PostGiftRow(
                                         style = CorusFont.body,
                                     )
                                 }
+                                }
                                 AnimatedVisibility(
                                     visible = shouldShowGiftNote(gift.note),
                                     enter = fadeIn(tween(240)) + expandVertically(tween(240)),
                                     exit = fadeOut(tween(120)) + shrinkVertically(tween(120)),
                                 ) {
                                     gift.note?.takeIf { it.isNotBlank() }?.let { note ->
-                                        Text(note, style = CorusFont.body, color = CorusColors.Text)
+                                        Column(
+                                            Modifier.fillMaxWidth()
+                                                .background(CorusColors.CardBackground, RoundedCornerShape(16.dp))
+                                                .padding(16.dp),
+                                            verticalArrangement = Arrangement.spacedBy(9.dp),
+                                        ) {
+                                            Text(
+                                                stringResource(R.string.gift_note_from, gift.sender),
+                                                style = CorusFont.captionMedium, color = CorusColors.Secondary,
+                                            )
+                                            Text(note, style = CorusFont.body, color = CorusColors.Text)
+                                        }
+                                    }
+                                }
+                                AnimatedVisibility(
+                                    visible = actionGift != null && (actionGift.canThank || actionIsThanked),
+                                    enter = fadeIn(tween(240)) + expandVertically(tween(240)),
+                                    exit = fadeOut(tween(120)) + shrinkVertically(tween(120)),
+                                ) {
+                                    if (actionGift != null) {
+                Button(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                shape = RoundedCornerShape(50),
+                enabled = !actionIsThanked && thankingId != actionGift.id,
+                onClick = {
+                    thankErrorId = null
+                    thankedIds = thankedIds + actionGift.id
+                    thankingId = actionGift.id
+                    scope.launch {
+                        try {
+                            FirebaseFunctions.getInstance("us-central1")
+                                .getHttpsCallable("thankGift")
+                                .call(mapOf("postId" to postId, "giftId" to actionGift.id))
+                                .await()
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (_: Exception) {
+                            thankedIds = thankedIds - actionGift.id
+                            thankErrorId = actionGift.id
+                        } finally {
+                            thankingId = null
+                        }
+                    }
+                },
+            ) {
+                Text(stringResource(when {
+                    actionIsThanked -> R.string.gift_thanked
+                    thankingId == actionGift.id -> R.string.gift_thanks_sending
+                    else -> R.string.gift_say_thanks
+                }), style = CorusFont.button)
+            }
+
                                     }
                                 }
                                 if (thankErrorId == gift.id) {
@@ -302,43 +389,6 @@ fun PostGiftRow(
                                 }
                             }
                         }
-                    }
-                }
-                // Cached previews omit canThank. Keep a fixed footer from the
-                // first frame so hydration cannot resize the sheet.
-                if (actionGift != null) Box(
-                    Modifier.fillMaxWidth().height(96.dp),
-                    contentAlignment = Alignment.TopCenter,
-                ) {
-                    if (actionGift.canThank || actionIsThanked) Button(
-                        enabled = !actionIsThanked && thankingId != actionGift.id,
-                        onClick = {
-                            thankErrorId = null
-                            thankedIds = thankedIds + actionGift.id
-                            thankingId = actionGift.id
-                            scope.launch {
-                                try {
-                                    FirebaseFunctions.getInstance("us-central1")
-                                        .getHttpsCallable("thankGift")
-                                        .call(mapOf("postId" to postId, "giftId" to actionGift.id))
-                                        .await()
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                } catch (error: CancellationException) {
-                                    throw error
-                                } catch (_: Exception) {
-                                    thankedIds = thankedIds - actionGift.id
-                                    thankErrorId = actionGift.id
-                                } finally {
-                                    thankingId = null
-                                }
-                            }
-                        },
-                    ) {
-                        Text(stringResource(when {
-                            actionIsThanked -> R.string.gift_thanked
-                            thankingId == actionGift.id -> R.string.gift_thanks_sending
-                            else -> R.string.gift_say_thanks
-                        }), style = CorusFont.button)
                     }
                 }
             }

@@ -542,8 +542,11 @@ internal fun ShareUserRow(
             Icon(
                 if (showRemoveAffordance) Icons.Filled.Close else Icons.Filled.Check,
                 contentDescription = stringResource(if (showRemoveAffordance) R.string.instagram_v2_remove_recipient else R.string.share_post_cd_selected),
-                tint = CorusColors.Accent,
-                modifier = Modifier.size(22.dp),
+                tint = if (showRemoveAffordance) CorusColors.Accent else Color.White,
+                modifier = if (showRemoveAffordance) Modifier.size(22.dp) else Modifier
+                    .size(26.dp)
+                    .background(CorusColors.Accent, CircleShape)
+                    .padding(4.dp),
             )
         }
     }
@@ -699,7 +702,7 @@ internal fun isWhatsAppAvailable(context: Context): Boolean {
 }
 
 @Composable
-private fun ShareRecipientAvatar(recipient: ShareRecipient, size: Dp) {
+internal fun ShareRecipientAvatar(recipient: ShareRecipient, size: Dp) {
     val group = recipient.group
     if (group != null && group.groupPhotoURL == null) {
         fm.corus.android.ui.screens.messaging.StackedGroupAvatar(

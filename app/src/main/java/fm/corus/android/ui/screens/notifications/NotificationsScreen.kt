@@ -402,6 +402,10 @@ fun NotificationsScreen(
                                 isCommentLiked = notification.commentId != null &&
                                         likedCommentIds.contains(notification.commentId),
                                 isNew = newNotificationIds.contains(notification.id),
+                                onGiftPostTap = {
+                                    viewModel.markNotificationTapped(notification.id)
+                                    notification.postId?.let(onNavigateToPost)
+                                },
                                 onClick = {
                                     viewModel.markNotificationTapped(notification.id)
                                     if (notification.type.isGift) {
@@ -649,6 +653,7 @@ private fun NotificationRow(
     isCommentLiked: Boolean,
     isNew: Boolean,
     onClick: () -> Unit,
+    onGiftPostTap: () -> Unit,
     onUserTap: () -> Unit,
     onFollowToggle: () -> Unit,
     onCommentLike: () -> Unit,
@@ -942,7 +947,14 @@ private fun NotificationRow(
                 contentDescription = null,
                 modifier = Modifier
                     .size(44.dp)
-                    .clip(RoundedCornerShape(CorusSpacing.cornerRadius)),
+                    .clip(RoundedCornerShape(CorusSpacing.cornerRadius))
+                    .then(
+                        if (notification.type.isGift && notification.postId != null) {
+                            Modifier.clickable(onClick = onGiftPostTap)
+                        } else {
+                            Modifier
+                        },
+                    ),
                 contentScale = ContentScale.Crop,
             )
         }

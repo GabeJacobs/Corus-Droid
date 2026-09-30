@@ -27,7 +27,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -85,7 +86,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ModalBottomSheet
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.contentHazeSource
@@ -168,6 +169,7 @@ fun ArtistPageScreen(
     onNavigateToPost: (String) -> Unit = {},
     onNavigateToSong: (SongDetailRoute) -> Unit = {},
     onNavigateToAlbum: (AlbumPageRoute) -> Unit = {},
+    onNavigateToConcert: (String) -> Unit = {},
     onSeeAllPosts: () -> Unit = {},
     onSeeAllDiscography: () -> Unit = {},
     onSeeAllVideos: () -> Unit = {},
@@ -750,17 +752,23 @@ fun ArtistPageScreen(
                     DestinationSectionHeader(
                         title = stringResource(R.string.concerts_title),
                         onSeeAll = if (tourDates.size > 4 && !showAllTourDates) {
-                            { showAllTourDates = true }
+                            { viewModel.logConcertsSeeAll(tourDates.size); showAllTourDates = true }
                         } else null,
                     )
                 }
+                item { LaunchedEffect(tourDates.size) { viewModel.logConcertsSectionImpression(tourDates.size) } }
                 val visibleTourDates = if (showAllTourDates) tourDates else tourDates.take(4)
                 items(visibleTourDates.size) { index ->
                     ArtistTourDateRow(
                         show = visibleTourDates[index],
+                        opensConcertPage = viewModel.concertsEnabled,
                         onClick = {
-                            runCatching {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(visibleTourDates[index].url)))
+                            val show = visibleTourDates[index]
+                            if (viewModel.concertsEnabled) {
+                                viewModel.rememberConcert(show, artistName.orEmpty())
+                                onNavigateToConcert(show.id)
+                            } else {
+                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(show.url))) }
                             }
                         },
                     )
@@ -879,10 +887,9 @@ fun ArtistPageScreen(
         val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         val sentMsg = stringResource(R.string.artist_detail_toast_artist_sent)
         LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
-        ModalBottomSheet(
+        CorusModalBottomSheet(
             onDismissRequest = { showShareSheet = false },
             sheetState = shareSheetState,
-            containerColor = CorusColors.Background,
             dragHandle = null,
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
             contentWindowInsets = { WindowInsets.systemBars.only(WindowInsetsSides.Bottom) },
@@ -915,7 +922,7 @@ fun ArtistPageScreen(
 }
 
 @Composable
-private fun ArtistTourDateRow(show: ArtistTourDate, onClick: () -> Unit) {
+private fun ArtistTourDateRow(show: ArtistTourDate, opensConcertPage: Boolean, onClick: () -> Unit) {
     val parsed = remember(show.date) { runCatching { LocalDate.parse(show.date) }.getOrNull() }
     val month = parsed?.format(DateTimeFormatter.ofPattern("MMM", Locale.getDefault()))?.uppercase() ?: ""
     val day = parsed?.dayOfMonth?.toString() ?: ""
@@ -948,7 +955,12 @@ private fun ArtistTourDateRow(show: ArtistTourDate, onClick: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Icon(Icons.Filled.OpenInNew, contentDescription = null, tint = CorusColors.Secondary, modifier = Modifier.size(16.dp))
+        Icon(
+            if (opensConcertPage) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.AutoMirrored.Filled.OpenInNew,
+            contentDescription = null,
+            tint = CorusColors.Secondary,
+            modifier = Modifier.size(16.dp),
+        )
     }
 }
 

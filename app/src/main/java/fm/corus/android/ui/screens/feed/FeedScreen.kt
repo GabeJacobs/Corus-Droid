@@ -218,6 +218,17 @@ fun FeedScreen(
     val feedDecade: Int? = viewModel.appliedFeedDecade.collectAsState().value
     val showDecadeFilter = viewModel.isDecadeFilterVisible(feedMode)
     val energyConfigRevision by viewModel.remoteConfig.revision.collectAsState()
+    val giftQuotaPrefetcher: fm.corus.android.ui.components.GiftSelectionViewModel =
+        androidx.hilt.navigation.compose.hiltViewModel(key = "gift-feed-prefetch")
+    val giftsEnabled = viewModel.remoteConfig.giftsEnabledForCurrentUser
+    LaunchedEffect(hasLoaded, giftsEnabled, currentUserProfile?.id) {
+        val userId = currentUserProfile?.id
+        if (hasLoaded && giftsEnabled && userId != null) {
+            // Give the loaded feed a frame before starting optional network work.
+            androidx.compose.runtime.withFrameNanos { }
+            giftQuotaPrefetcher.prefetchQuota(userId)
+        }
+    }
     val feedEnergy by viewModel.feedEnergy.collectAsState()
     val showEnergyFilter = remember(energyConfigRevision) { viewModel.remoteConfig.feedEnergyFilterEnabled }
     val showEnergyIntroduction by viewModel.showEnergyIntroduction.collectAsState()
@@ -1687,11 +1698,10 @@ fun FeedScreen(
 
     // ── Club Offer Paywall ──
     if (showClubOffer) {
-        val clubSheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        androidx.compose.material3.ModalBottomSheet(
+        val clubSheetState = fm.corus.android.ui.components.rememberGuardedSheetState()
+        fm.corus.android.ui.components.CorusModalBottomSheet(
             onDismissRequest = { showClubOffer = false },
             sheetState = clubSheetState,
-            containerColor = fm.corus.android.ui.theme.CorusColors.Background,
             dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() },
         ) {
             CorusSystemBars()

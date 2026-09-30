@@ -100,6 +100,31 @@ class AnalyticsService @Inject constructor(
         analytics.logEvent(name, bundle)
     }
 
+    /** `concert_event` funnel; same names and params as iOS (see [ConcertAnalytics]). */
+    fun logConcertEvent(
+        action: String,
+        source: String,
+        show: fm.corus.android.data.repository.ConcertShow? = null,
+        cityId: String? = null,
+        filter: String? = null,
+        result: String? = null,
+        provider: String? = null,
+        method: String? = null,
+        statusFrom: String? = null,
+        statusTo: String? = null,
+        dateRange: String? = null,
+        genre: String? = null,
+        count: Int? = null,
+        durationMs: Long? = null,
+        eventId: String? = null,
+    ) = logEvent(
+        ConcertAnalytics.EVENT,
+        ConcertAnalytics.params(
+            action, source, show, cityId, filter, result, provider, method, statusFrom, statusTo,
+            dateRange, genre, count, durationMs, eventId,
+        ),
+    )
+
     // MARK: - Screen Tracking
 
     fun logScreenView(screen: String) = logEvent("screen_view", mapOf("screen_name" to screen))

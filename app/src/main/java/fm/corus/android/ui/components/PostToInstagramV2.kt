@@ -5,7 +5,6 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.LinearGradient
 import android.graphics.Paint
@@ -19,6 +18,11 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils
 import androidx.compose.foundation.Image
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,10 +43,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.asAndroidPath
+import androidx.compose.ui.graphics.vector.PathParser
+import androidx.compose.ui.graphics.vector.VectorGroup
+import androidx.compose.ui.graphics.vector.VectorPath
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
@@ -51,6 +62,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -167,7 +181,7 @@ private fun drawInstagramV2Tag(canvas: Canvas, context: Context, x: Float, cente
     return width
 }
 
-private fun drawInstagramV2Flair(
+internal fun drawInstagramV2Flair(
     canvas: Canvas,
     context: Context,
     style: FlairStyle,
@@ -177,38 +191,50 @@ private fun drawInstagramV2Flair(
     if (style == FlairStyle.NONE) return
     val accent = CorusColors.Accent.toArgb()
     if (style == FlairStyle.CORUS_LOGO) {
-        val logo = BitmapFactory.decodeResource(context.resources, R.drawable.logo_no_background) ?: return
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
-            colorFilter = android.graphics.PorterDuffColorFilter(accent, android.graphics.PorterDuff.Mode.SRC_IN)
-        }
-        canvas.drawBitmap(logo, null, RectF(centerX - 21f, centerY - 21f, centerX + 21f, centerY + 21f), paint)
-        logo.recycle()
+        // The feed asset is a vector drawable, which BitmapFactory cannot decode.
+        val logo = androidx.core.content.ContextCompat.getDrawable(context, R.drawable.logo_no_background)
+            ?.mutate() ?: return
+        androidx.core.graphics.drawable.DrawableCompat.setTint(logo, accent)
+        logo.setBounds((centerX - 20f).toInt(), (centerY - 20f).toInt(),
+            (centerX + 20f).toInt(), (centerY + 20f).toInt())
+        logo.draw(canvas)
         return
     }
-    val glyph = when (style) {
-        FlairStyle.CHECKMARK -> "✓"
-        FlairStyle.VINYL -> "◉"
-        FlairStyle.HEART -> "♥"
-        FlairStyle.SPARKLE -> "✦"
-        FlairStyle.MOON -> "◒"
-        FlairStyle.HEADPHONES -> "Ω"
-        FlairStyle.BOLT -> "ϟ"
-        FlairStyle.MUSIC_NOTE -> "♫"
-        FlairStyle.PIANO -> "▥"
-        FlairStyle.WAVEFORM -> "≋"
-        else -> ""
+    // Use the exact Material vector selected by UsernameWithFlair in the feed.
+    // Text substitutes have different silhouettes (headphones previously became Ω).
+    val icon = style.icon ?: return
+    val iconSize = 34f
+    val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accent }
+    fun drawGroup(group: VectorGroup) {
+        canvas.save()
+        canvas.translate(group.translationX + group.pivotX, group.translationY + group.pivotY)
+        canvas.rotate(group.rotation)
+        canvas.scale(group.scaleX, group.scaleY)
+        canvas.translate(-group.pivotX, -group.pivotY)
+        if (group.clipPathData.isNotEmpty()) {
+            canvas.clipPath(PathParser().addPathNodes(group.clipPathData).toPath().asAndroidPath())
+        }
+        for (node in group) {
+            when (node) {
+                is VectorGroup -> drawGroup(node)
+                is VectorPath -> {
+                    if (node.fill != null) {
+                        val path = PathParser().addPathNodes(node.pathData).toPath().apply {
+                            fillType = node.pathFillType
+                        }
+                        iconPaint.alpha = (node.fillAlpha * 255).toInt()
+                        canvas.drawPath(path.asAndroidPath(), iconPaint)
+                    }
+                }
+            }
+        }
+        canvas.restore()
     }
-    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = accent
-        textSize = 38f
-        textAlign = Paint.Align.CENTER
-        typeface = android.graphics.Typeface.DEFAULT_BOLD
-    }
-    if (style == FlairStyle.CHECKMARK) {
-        canvas.drawCircle(centerX, centerY, 18f, paint)
-        paint.color = Color.White.toArgb(); paint.textSize = 25f
-    }
-    canvas.drawText(glyph, centerX, centerY - (paint.ascent() + paint.descent()) / 2f, paint)
+    canvas.save()
+    canvas.translate(centerX - iconSize / 2, centerY - iconSize / 2)
+    canvas.scale(iconSize / icon.viewportWidth, iconSize / icon.viewportHeight)
+    drawGroup(icon.root)
+    canvas.restore()
 }
 
 internal fun renderInstagramV2(context: Context, subject: InstagramV2Subject, art: Bitmap, accent: Int,
@@ -239,10 +265,11 @@ internal fun renderInstagramV2(context: Context, subject: InstagramV2Subject, ar
     val authorAvailableWidth = textWidth - if (avatar == null) 0 else 102
     val usernameText = subject.username?.let { "@$it" }
     val usernameNaturalWidth = usernameText?.let { nunitoPaint(context, 40f, 800, ink).measureText(it) } ?: 0f
-    val flairWidth = if (showFlair) 68f else 0f
+    val flairWidth = if (showFlair) 52f else 0f
     var tagSpace = authorAvailableWidth - usernameNaturalWidth - flairWidth - 12f
-    val firstTagWidth = instagramV2TagWidth(context, "1ST") + 14f
-    val newReleaseTagWidth = instagramV2TagWidth(context, "NEW RELEASE") + 14f
+    val tagSpacing = 10f
+    val firstTagWidth = instagramV2TagWidth(context, "1ST") + tagSpacing
+    val newReleaseTagWidth = instagramV2TagWidth(context, "NEW RELEASE") + tagSpacing
     val showFirstTag = subject.isFirstPoster && tagSpace >= firstTagWidth
     if (showFirstTag) tagSpace -= firstTagWidth
     val showNewReleaseTag = subject.isNewRelease && tagSpace >= newReleaseTagWidth
@@ -291,22 +318,26 @@ internal fun renderInstagramV2(context: Context, subject: InstagramV2Subject, ar
             canvas.drawBitmap(avatar, null, RectF(textX, usernameTop, textX + 80f, usernameTop + 80f), paint)
             canvas.restore()
             usernameX = textX + 102f
+            y = usernameTop + (80f - it.height) / 2f
             drawText(it, usernameX)
         } else {
             usernameX = textX
+            y = usernameTop + (80f - it.height) / 2f
             drawText(it, usernameX)
         }
-        var accessoryX = usernameX + it.getLineWidth(0) + if (showFlair) 22f else 5f
+        var accessoryX = usernameX + it.getLineWidth(0)
         val accessoryCenterY = usernameTop + 40f
         if (showFlair) {
-            drawInstagramV2Flair(canvas, context, subject.flairStyle, accessoryX + 18f, accessoryCenterY)
-            accessoryX += 46f
+            val flairSize = if (subject.flairStyle.usesAssetImage) 40f else 34f
+            drawInstagramV2Flair(canvas, context, subject.flairStyle, accessoryX + 10f + flairSize / 2, accessoryCenterY + 1f)
+            accessoryX += 10f + flairSize
         }
         if (showFirstTag) {
-            accessoryX += drawInstagramV2Tag(canvas, context, accessoryX, accessoryCenterY, "1ST", 0xffffc207.toInt()) + 14f
+            accessoryX += tagSpacing
+            accessoryX += drawInstagramV2Tag(canvas, context, accessoryX, accessoryCenterY, "1ST", 0xffffc207.toInt())
         }
         if (showNewReleaseTag) {
-            drawInstagramV2Tag(canvas, context, accessoryX, accessoryCenterY, "NEW RELEASE", 0xff9e59f2.toInt())
+            drawInstagramV2Tag(canvas, context, accessoryX + tagSpacing, accessoryCenterY, "NEW RELEASE", 0xff9e59f2.toInt())
         }
         y = usernameTop + authorHeight
     }
@@ -543,6 +574,8 @@ internal fun PostToInstagramV2Sheet(
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<ShareRecipient?>(null) }
     var message by remember { mutableStateOf("") }
+    var messageFocused by remember { mutableStateOf(false) }
+    val composing = messageFocused && WindowInsets.ime.getBottom(LocalDensity.current) > 0 && selected != null
     var avatar by remember(subject) { mutableStateOf<Bitmap?>(null) }
     var artwork by remember(subject) { mutableStateOf<Bitmap?>(null) }
     var accent by remember(subject) { mutableIntStateOf(0xff444444.toInt()) }
@@ -695,7 +728,7 @@ internal fun PostToInstagramV2Sheet(
                         .weight(1f)
                         .height(44.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .background(CorusColors.CardBackground)
                         .focusRequester(requester),
                     singleLine = true,
                     textStyle = CorusFont.body.copy(color = CorusColors.Text),
@@ -727,7 +760,24 @@ internal fun PostToInstagramV2Sheet(
                     Text(stringResource(R.string.instagram_v2_done), style = CorusFont.bodyMedium, color = CorusColors.Accent)
                 }
             }
-            selected?.let { Text(it.username, style = CorusFont.captionMedium, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) }
+            selected?.let { recipient ->
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ShareRecipientAvatar(recipient, 28.dp)
+                    Text(recipient.username, style = CorusFont.captionMedium, color = CorusColors.Text)
+                    IconButton(onClick = { selected = null }, modifier = Modifier.size(40.dp)) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = stringResource(R.string.instagram_v2_remove_recipient),
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp).background(CorusColors.Accent, CircleShape).padding(3.dp),
+                        )
+                    }
+                }
+            }
             LazyColumn(Modifier.weight(1f)) {
                 val hasQuery = query.isNotBlank()
                 if (hasQuery && isSearching) item {
@@ -760,10 +810,39 @@ internal fun PostToInstagramV2Sheet(
                         item { Text(stringResource(R.string.share_post_no_results), style = CorusFont.body, color = CorusColors.Secondary, modifier = Modifier.fillMaxWidth().padding(top = 32.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
                     }
                     items(recipients, key = { it.id }) { recipient ->
-                        ShareUserRow(recipient, selected?.id == recipient.id, showRemoveAffordance = true) { selected = if (selected?.id == recipient.id) null else recipient }
+                        ShareUserRow(recipient, selected?.id == recipient.id) { selected = if (selected?.id == recipient.id) null else recipient }
                     }
                 }
             }
+        } else if (composing) {
+            Row(
+                Modifier.fillMaxWidth().padding(16.dp)
+                    .background(CorusColors.CardBackground, RoundedCornerShape(12.dp)).padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                artwork?.let {
+                    Image(it.asImageBitmap(), contentDescription = null,
+                        modifier = Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop)
+                } ?: Box(Modifier.size(56.dp).background(CorusColors.Skeleton, RoundedCornerShape(8.dp)))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(subject.title, style = CorusFont.bodyMedium, color = CorusColors.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(subject.artist, style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            selected?.let { recipient ->
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ShareRecipientAvatar(recipient, 28.dp)
+                    Text(recipient.username, style = CorusFont.captionMedium, color = CorusColors.Text, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    IconButton(onClick = { selected = null; focus.clearFocus() }) {
+                        Icon(Icons.Default.Cancel, stringResource(R.string.instagram_v2_remove_recipient), tint = CorusColors.Accent)
+                    }
+                }
+            }
+            Spacer(Modifier.weight(1f))
         } else {
             BoxWithConstraints(
                 modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp),
@@ -793,7 +872,7 @@ internal fun PostToInstagramV2Sheet(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Box(
-                                    modifier = Modifier.size(30.dp).background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+                                    modifier = Modifier.size(30.dp).background(CorusColors.CardBackground, CircleShape),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Icon(
@@ -868,7 +947,7 @@ internal fun PostToInstagramV2Sheet(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Box(
-                            modifier = Modifier.size(72.dp).background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+                            modifier = Modifier.size(72.dp).background(CorusColors.CardBackground, CircleShape),
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(25.dp))
@@ -878,20 +957,42 @@ internal fun PostToInstagramV2Sheet(
                     }
                 }
                 items(contacts, key = { it.id }) { recipient ->
-                    Box(Modifier.width(80.dp)) { ShareContactCell(recipient, selected?.id == recipient.id, showRemoveAffordance = true) { selected = if (selected?.id == recipient.id) null else recipient } }
+                    Box(Modifier.width(80.dp)) { ShareContactCell(recipient, selected?.id == recipient.id) { selected = if (selected?.id == recipient.id) null else recipient } }
                 }
             }
         }
-        if (copied) {
-            Column(Modifier.fillMaxWidth().background(Color(0xff202020)).padding(12.dp)) {
-                Text(stringResource(R.string.instagram_v2_copied), color = Color.White, style = CorusFont.bodyMedium)
-                if (sharing) Text(stringResource(R.string.instagram_v2_paste_hint), color = Color.White, style = CorusFont.caption)
-            }
-        }
         if (selected != null) {
-            Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                TextField(value = message, onValueChange = { message = it }, modifier = Modifier.weight(1f), placeholder = { Text(stringResource(R.string.share_post_message_placeholder)) })
-                TextButton(enabled = !sent, onClick = { selected?.let { sent = true; onAnalyticsLog?.invoke("direct_message"); onSendToUser(it.id, message); onDismiss() } }) { Text(stringResource(R.string.share_post_send)) }
+            HorizontalDivider(color = CorusColors.Divider)
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                BasicTextField(
+                    value = message,
+                    onValueChange = { message = it },
+                    modifier = Modifier.weight(1f).heightIn(min = 44.dp).onFocusChanged { messageFocused = it.isFocused },
+                    textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                    cursorBrush = SolidColor(CorusColors.Accent),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                    minLines = 1,
+                    maxLines = 4,
+                    decorationBox = { innerTextField ->
+                        Box(Modifier.fillMaxWidth().heightIn(min = 44.dp), contentAlignment = Alignment.CenterStart) {
+                            if (message.isEmpty()) Text(stringResource(R.string.share_post_message_placeholder), style = CorusFont.body, color = CorusColors.Tertiary)
+                            innerTextField()
+                        }
+                    },
+                )
+                Button(
+                    enabled = !sent,
+                    onClick = { selected?.let { sent = true; onAnalyticsLog?.invoke("direct_message"); onSendToUser(it.id, message); onDismiss() } },
+                    colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+                    shape = RoundedCornerShape(50),
+                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
+                ) {
+                    Text(stringResource(R.string.share_post_send), style = CorusFont.buttonSmall, color = Color.White)
+                }
             }
         } else if (!searching) {
             HorizontalDivider()
@@ -925,6 +1026,32 @@ internal fun PostToInstagramV2Sheet(
             }
         }
     }
+    // A sibling overlay keeps confirmation out of the sheet's measured Column.
+    AnimatedVisibility(
+        visible = copied,
+        modifier = Modifier.align(Alignment.TopCenter).padding(16.dp),
+        enter = fadeIn() + slideInVertically { -it },
+        exit = fadeOut() + slideOutVertically { -it },
+    ) {
+        Surface(
+            color = Color(0xff202020),
+            contentColor = Color.White,
+            shape = RoundedCornerShape(16.dp),
+            shadowElevation = 8.dp,
+            modifier = Modifier.semantics(mergeDescendants = true) {
+                liveRegion = LiveRegionMode.Polite
+            },
+        ) {
+            Column(
+                Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Text(stringResource(R.string.instagram_v2_copied), style = CorusFont.bodyMedium)
+                if (sharing) Text(stringResource(R.string.instagram_v2_paste_hint), style = CorusFont.caption)
+            }
+        }
+    }
     }
 }
 
@@ -939,7 +1066,7 @@ private fun InstagramV2LayoutPicker(
         modifier = modifier
             .width(260.dp)
             .height(32.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp)),
+            .background(CorusColors.CardBackground, RoundedCornerShape(16.dp)),
     ) {
         listOf(
             "cover" to stringResource(R.string.instagram_v2_cover),
@@ -956,7 +1083,7 @@ private fun InstagramV2LayoutPicker(
                         shape = RoundedCornerShape(16.dp),
                     )
                     .background(
-                        color = if (selected) MaterialTheme.colorScheme.surface else Color.Transparent,
+                        color = if (selected) CorusColors.SegmentedSelected else Color.Transparent,
                         shape = RoundedCornerShape(16.dp),
                     )
                     .clip(RoundedCornerShape(16.dp))

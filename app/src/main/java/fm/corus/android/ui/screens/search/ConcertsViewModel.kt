@@ -58,13 +58,19 @@ class ConcertsViewModel @Inject constructor(
     private var confirmedAttendance: ConcertAttendance? = null
     private var planRevision = 0
     private var detailJob: Job? = null
+    private var openedFrom: Pair<String, String>? = null
 
     private val prefs = app.getSharedPreferences("concerts", 0)
     private val uid get() = auth.currentUser?.uid.orEmpty()
     private val cityKey get() = "selectedCity.$uid"
     private val _cityId = MutableStateFlow(prefs.getString(cityKey, null))
     val cityId = _cityId.asStateFlow()
-    private val _cityName = MutableStateFlow(prefs.getString("selectedCityName.$uid", null) ?: POPULAR_CONCERT_CITIES.firstOrNull { it.first == _cityId.value }?.second.orEmpty())
+    // With no picked city, start on the city the server already resolved (the preview's map-city
+    // fallback) so See All doesn't open blank. Requests still send no city, so it tracks the map.
+    private val _cityName = MutableStateFlow(
+        if (_cityId.value == null) concerts.resolvedCity?.second.orEmpty()
+        else prefs.getString("selectedCityName.$uid", null) ?: POPULAR_CONCERT_CITIES.firstOrNull { it.first == _cityId.value }?.second.orEmpty()
+    )
     val cityName = _cityName.asStateFlow()
     private val _tab = MutableStateFlow(concerts.discoveryFilter.value)
     val tab = _tab.asStateFlow()
@@ -72,6 +78,7 @@ class ConcertsViewModel @Inject constructor(
     val shows = _shows.asStateFlow()
     private val _plans = MutableStateFlow(concerts.rememberedPlans())
     val plans = _plans.asStateFlow()
+    val plansSynced = concerts.plansSynced
     private val _cursor = MutableStateFlow<String?>(null)
     val cursor = _cursor.asStateFlow()
     private val _total = MutableStateFlow(0)
@@ -88,7 +95,8 @@ class ConcertsViewModel @Inject constructor(
     val genre = _genre.asStateFlow()
     private val _suggestions = MutableStateFlow(true)
     val suggestions = _suggestions.asStateFlow()
-    private val _loading = MutableStateFlow(false)
+    // Starts true: the list loads on open, and a false first frame renders an empty state.
+    private val _loading = MutableStateFlow(true)
     val loading = _loading.asStateFlow()
     private val _pullRefreshing = MutableStateFlow(false)
     val pullRefreshing = _pullRefreshing.asStateFlow()
@@ -114,6 +122,7 @@ class ConcertsViewModel @Inject constructor(
     val isLoadingShareContacts = _isLoadingShareContacts.asStateFlow()
     private var shareSearchJob: Job? = null
     private var loadJob: Job? = null
+    private var selectedTabExplicitly = false
     private val _cityResults = MutableStateFlow<List<MapCity>>(emptyList())
     val cityResults = _cityResults.asStateFlow()
     private val _citySearching = MutableStateFlow(false)
@@ -121,13 +130,20 @@ class ConcertsViewModel @Inject constructor(
 
     suspend fun searchCities(query: String) {
         if (query.trim().length < 2) { _cityResults.value = emptyList(); _citySearching.value = false; return }
+        mapRepository.cachedCitySearch(query)?.let { cities ->
+            _cityResults.value = cities
+            _citySearching.value = false
+            log("city_search_completed", cityId = _cityId.value, result = "cache", count = cities.size, durationMs = 0)
+            return
+        }
         _citySearching.value = true
         val started = System.currentTimeMillis()
         try {
             delay(250)
             val cities = mapRepository.search(query.trim())
             _cityResults.value = cities
-            log("city_search_completed", source = "city_picker", extra = mapOf("count" to cities.size, "duration_ms" to (System.currentTimeMillis() - started)))
+            log("city_search_completed", cityId = _cityId.value, result = if (cities.isEmpty()) "no_results" else "network",
+                count = cities.size, durationMs = System.currentTimeMillis() - started)
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { _cityResults.value = emptyList() }
         finally { _citySearching.value = false }
@@ -145,55 +161,150 @@ class ConcertsViewModel @Inject constructor(
     }
     override fun onCleared() { prefs.unregisterOnSharedPreferenceChangeListener(cityPreferenceListener); super.onCleared() }
 
-    fun log(action: String, show: ConcertShow? = null, source: String = "concerts_list", extra: Map<String, Any> = emptyMap()) {
-        analytics.logEvent("concert_event", buildMap {
-            put("action", action); put("source", source)
-            show?.let { put("event_id", it.id); put("city_id", it.cityId) }
-            putAll(extra)
-        })
+    /** Same `concert_event` schema as iOS (`ConcertAnalytics.log`); see service/ConcertAnalytics.kt. */
+    fun log(
+        action: String,
+        show: ConcertShow? = null,
+        source: String = "concerts_list",
+        cityId: String? = _cityId.value,
+        filter: String? = null,
+        result: String? = null,
+        provider: String? = null,
+        method: String? = null,
+        statusFrom: String? = null,
+        statusTo: String? = null,
+        dateRange: String? = null,
+        genre: String? = null,
+        count: Int? = null,
+        durationMs: Long? = null,
+    ) = analytics.logConcertEvent(
+        action, source, show, cityId, filter, result, provider, method, statusFrom, statusTo,
+        dateRange, genre, count, durationMs,
+    )
+
+    /** Filter/date/genre context every list-level event carries on iOS. */
+    private fun listLog(action: String, source: String = "concerts_list", filter: String? = _tab.value, result: String? = null, count: Int? = null, durationMs: Long? = null) =
+        log(action, source = source, filter = filter, result = result, dateRange = _dateRange.value, genre = _genre.value ?: "any", count = count, durationMs = durationMs)
+
+    /** Result buckets shared with iOS (`previewResult` / `listResult`). */
+    private fun previewResult(page: ConcertPage, filter: String): String = when {
+        page.needsCity -> "needs_city"
+        filter == "forYou" && !page.hasPostedArtists -> "no_posts"
+        page.nearbyTotal == 0 -> "no_nearby"
+        page.shows.isEmpty() -> "no_artist_matches"
+        else -> if (filter == "all") "nearby_results" else "personalized_results"
     }
+
+    fun logPreviewSeeAll() {
+        val page = _previewPage.value
+        log("preview_see_all_tapped", source = "search_music_preview", cityId = page?.cityId ?: _cityId.value,
+            filter = discoveryFilter.value, result = when {
+                _previewError.value && page == null -> "load_error"
+                page != null -> previewResult(page, discoveryFilter.value)
+                else -> "loading"
+            }, count = page?.shows?.size)
+    }
+
+    fun logPreviewEmptyAction(result: String, filter: String? = null) =
+        log("empty_action_tapped", source = "search_music_preview", filter = filter, result = result)
+
+    fun logListEmptyAction(result: String) =
+        log("empty_action_tapped", source = if (_tab.value == "myConcerts") "my_concerts" else "concerts_list",
+            filter = _tab.value, result = result, dateRange = null)
+
+    /** iOS `list_impression`: one event per distinct list state, not per recomposition. */
+    private var lastListImpression = ""
+    fun logListImpression() {
+        val tab = _tab.value
+        if (_loading.value && !(tab == "myConcerts" && concerts.rememberedPlans().isNotEmpty())) return
+        val result = when {
+            tab == "myConcerts" -> if (_error.value) "load_error" else if (_plans.value.isEmpty()) "empty" else "results"
+            _needsCity.value -> "needs_city"
+            _error.value -> "load_error"
+            _shows.value.isEmpty() -> "empty"
+            else -> "results"
+        }
+        val count = if (tab == "myConcerts") _plans.value.size else _shows.value.size
+        val signature = if (tab == "myConcerts") "myConcerts|$result|$count"
+        else "${_cityId.value}|$tab|${_dateRange.value}|${_genre.value}|${_suggestions.value}|$result"
+        if (signature == lastListImpression) return
+        lastListImpression = signature
+        listLog("list_impression", result = result, count = count)
+    }
+
+    fun logCityPickerOpened() = log("city_picker_opened", filter = _tab.value)
+    fun logFiltersOpened() = listLog("filters_opened")
+    fun logLocationRequested() = log("location_requested")
+    fun logLocationResolved(result: String, cityId: String? = null) = log("location_resolved", cityId = cityId, result = result)
 
     suspend fun preview(force: Boolean = false) {
         if (!enabled) return
-        val key = "$uid|${_cityId.value}|${discoveryFilter.value}"
+        val firstResultsPending = !concerts.hasHadForYouResults()
+        val filter = if (firstResultsPending) "forYou" else discoveryFilter.value
+        val key = "$uid|${_cityId.value}|$filter|$firstResultsPending"
         if (!force && key == previewKey && _previewPage.value != null && System.currentTimeMillis() - previewAt < 60_000) return
         if (key != previewKey) _previewPage.value = null
         previewKey = key
         _previewLoading.value = true; _previewError.value = false
         try {
-            val page = concerts.page(_cityId.value, discoveryFilter.value, suggestions = true, preview = true)
+            var page = concerts.page(_cityId.value, filter, suggestions = true, preview = true)
             if (key != previewKey) return
+            if (firstResultsPending && !page.needsCity) {
+                if (page.shows.isNotEmpty()) {
+                    concerts.markForYouResults()
+                    concerts.selectDiscoveryFilter("forYou")
+                } else if (page.nearbyTotal > 0) {
+                    page = concerts.page(_cityId.value, "all", suggestions = false, preview = true)
+                    if (key != previewKey) return
+                    concerts.selectDiscoveryFilter("all")
+                }
+            }
             _previewPage.value = page; previewAt = System.currentTimeMillis()
-            log("preview_impression", source = "search_music_preview", extra = mapOf("filter" to discoveryFilter.value, "count" to page.shows.size))
+            log("preview_impression", source = "search_music_preview", cityId = page.cityId ?: _cityId.value,
+                filter = discoveryFilter.value, result = previewResult(page, discoveryFilter.value), count = page.shows.size)
         } catch (cancelled: CancellationException) { throw cancelled }
-        catch (_: Exception) { if (key == previewKey) _previewError.value = true }
+        catch (_: Exception) {
+            if (key == previewKey) {
+                _previewError.value = true
+                log("preview_impression", source = "search_music_preview", filter = discoveryFilter.value, result = "load_error")
+            }
+        }
         finally { if (key == previewKey) _previewLoading.value = false }
     }
 
     fun rememberDiscoveryTab(value: String) { concerts.selectDiscoveryFilter(value) }
 
-    fun selectTab(value: String) { concerts.selectDiscoveryFilter(value); _tab.value = value; log("tab_changed", extra = mapOf("filter" to value)); refresh() }
+    fun selectTab(value: String) { selectedTabExplicitly = true; concerts.selectDiscoveryFilter(value); _tab.value = value; listLog("tab_changed", filter = value); refresh() }
     fun selectCity(id: String, name: String) {
         prefs.edit().putString(cityKey, id).putString("selectedCityName.$uid", name).apply(); _cityId.value = id; _cityName.value = name
-        _needsCity.value = false; log("city_selected", extra = mapOf("city_id" to id)); refresh()
+        _needsCity.value = false; refresh()
+    }
+    /** [result] is "search" for remote results and "popular" for the built-in list, as on iOS. */
+    fun selectCity(id: String, name: String, result: String) {
+        log("city_selected", cityId = id, result = result)
+        selectCity(id, name)
     }
     fun selectCurrentLocation(location: Location, done: (Boolean) -> Unit) {
         viewModelScope.launch {
             val city = runCatching { mapRepository.resolve(location) }.getOrNull()
-            if (city != null) selectCity(city.cityId, city.cityName)
+            if (city != null) {
+                logLocationResolved("success", city.cityId)
+                selectCity(city.cityId, city.cityName)
+            } else logLocationResolved("no_city")
             done(city != null)
         }
     }
     fun setFilters(range: String, genre: String?, suggestions: Boolean) {
         _dateRange.value = range; _genre.value = genre; _suggestions.value = suggestions
-        log("filters_applied", extra = mapOf("date_range" to range, "genre" to (genre ?: "any"), "recommendations" to suggestions))
+        log("filters_applied", filter = _tab.value, result = if (suggestions) "recommendations_shown" else "recommendations_hidden",
+            dateRange = range, genre = genre ?: "any")
         refresh()
     }
     fun pullRefresh() {
         if (!enabled || _pullRefreshing.value) return
         _pullRefreshing.value = true
-        log("pull_to_refresh", source = if (_tab.value == "myConcerts") "my_concerts" else "concerts_list",
-            extra = mapOf("filter" to _tab.value))
+        if (_tab.value == "myConcerts") log("pull_to_refresh", source = "my_concerts", filter = _tab.value)
+        else listLog("pull_to_refresh")
         refresh()
     }
     fun refresh(next: String? = null) {
@@ -211,21 +322,45 @@ class ConcertsViewModel @Inject constructor(
             try {
                 if (requestedTab == "myConcerts") {
                     _plans.value = concerts.myConcerts(); _total.value = _plans.value.size
-                    log("my_concerts_loaded", source = "my_concerts", extra = mapOf("count" to _total.value))
+                    log("my_concerts_loaded", source = "concerts_list", result = "success", count = _total.value,
+                        durationMs = System.currentTimeMillis() - started)
                 } else {
-                    val result = concerts.page(requestedCity, requestedTab, next, requestedRange, requestedGenre, requestedSuggestions)
+                    val probingFirstResults = next == null && !selectedTabExplicitly &&
+                        requestedTab != "myConcerts" && !concerts.hasHadForYouResults() &&
+                        requestedRange == "any" && requestedGenre == null && requestedSuggestions
+                    var loadedTab = if (probingFirstResults) "forYou" else requestedTab
+                    var result = concerts.page(requestedCity, loadedTab, next, requestedRange, requestedGenre, requestedSuggestions)
+                    if (probingFirstResults && !result.needsCity) {
+                        if (result.shows.isNotEmpty()) {
+                            concerts.markForYouResults()
+                            concerts.selectDiscoveryFilter("forYou")
+                            _tab.value = "forYou"
+                        } else if (result.nearbyTotal > 0) {
+                            loadedTab = "all"
+                            result = concerts.page(requestedCity, loadedTab, null, requestedRange, requestedGenre, requestedSuggestions)
+                            concerts.selectDiscoveryFilter("all")
+                            _tab.value = "all"
+                        }
+                    }
                     _shows.value = if (next == null) result.shows else (_shows.value + result.shows).distinctBy { it.id }
                     _cursor.value = result.nextCursor; _total.value = result.total
                     _nearbyTotal.value = result.nearbyTotal
                     _needsCity.value = result.needsCity; _genres.value = result.availableGenres
                     _hasPostedArtists.value = result.hasPostedArtists
                     if (!result.cityName.isNullOrEmpty()) _cityName.value = result.cityName
-                    log(if (next == null) "page_loaded" else "page_appended", extra = mapOf(
-                        "filter" to requestedTab, "count" to result.shows.size,
-                        "duration_ms" to (System.currentTimeMillis() - started)))
+                    log(if (next == null) "page_loaded" else "page_appended", cityId = result.cityId ?: requestedCity,
+                        filter = loadedTab, result = "network_fresh", dateRange = requestedRange, genre = requestedGenre ?: "any",
+                        count = result.shows.size, durationMs = System.currentTimeMillis() - started)
+                    val suggested = result.shows.count { it.suggestionSource == "tasteMatches" }
+                    if (suggested > 0) log("suggestions_shown", cityId = result.cityId ?: requestedCity, filter = loadedTab, count = suggested)
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { _error.value = true; log("page_load_failed") }
+            catch (_: Exception) {
+                _error.value = true
+                if (requestedTab == "myConcerts") log("my_concerts_loaded", source = "concerts_list", result = "error", durationMs = System.currentTimeMillis() - started)
+                else log("page_load_failed", cityId = requestedCity, filter = requestedTab, result = "error",
+                    dateRange = requestedRange, genre = requestedGenre ?: "any", durationMs = System.currentTimeMillis() - started)
+            }
             finally {
                 if (loadJob === coroutineContext[Job]) {
                     _loading.value = false
@@ -236,6 +371,11 @@ class ConcertsViewModel @Inject constructor(
     }
     fun open(eventId: String) {
         detailJob?.cancel()
+        // Retries re-open the same event; keep the source the first open was given. With none registered
+        // (push, link, activity) iOS reports "deep_link".
+        val detailSource = concerts.takeDetailSource(eventId)?.also { openedFrom = eventId to it }
+            ?: openedFrom?.takeIf { it.first == eventId }?.second ?: "deep_link"
+        val openedAt = System.currentTimeMillis()
         _show.value = concerts.cached(eventId)
         val cachedStatus = concerts.rememberedPlans().firstOrNull { it.id == eventId }?.status
             ?: _show.value?.status
@@ -263,19 +403,46 @@ class ConcertsViewModel @Inject constructor(
                 _show.value = runCatching { concerts.concert(eventId) }.getOrNull()
                     ?: runCatching { concerts.myConcerts().firstOrNull { it.id == eventId } }.getOrNull()
                 _detailError.value = _show.value == null
+                // iOS resolves deep links through a loader that reports its own success/failure and latency.
+                if (detailSource == "deep_link") {
+                    val elapsed = System.currentTimeMillis() - openedAt
+                    if (_show.value != null) log("deep_link_loaded", _show.value, "deep_link", result = "success", durationMs = elapsed)
+                    else log("deep_link_load_failed", null, "deep_link", cityId = null, result = "error", durationMs = elapsed)
+                }
             }
             _detailLoading.value = false
             _show.value?.let { show ->
-                log("detail_viewed", show, "concert_detail")
+                log("detail_viewed", show, detailSource)
+                if (!show.supportsAttendance) return@let
+                val attendanceStarted = System.currentTimeMillis()
                 try {
                     val result = concerts.attendance(show)
                     if (planRevision == revision) { confirmedAttendance = result; _attendance.value = result; concerts.rememberAttendance(eventId, result) }
+                    log("attendance_loaded", show, "concert_detail", result = "success", count = result.people.size,
+                        durationMs = System.currentTimeMillis() - attendanceStarted)
                 } catch (cancelled: CancellationException) { throw cancelled }
-                catch (_: Exception) { if (planRevision == revision) _attendanceError.value = true }
+                catch (_: Exception) {
+                    if (planRevision == revision) _attendanceError.value = true
+                    log("attendance_load_failed", show, "concert_detail", result = "error", durationMs = System.currentTimeMillis() - attendanceStarted)
+                }
             }
         }
     }
-    fun select(show: ConcertShow) { concerts.remember(show); log("concert_selected", show) }
+    /**
+     * [source] is where the row lives ("search_music_preview", "concerts_list", "my_concerts"); it is
+     * also the source the detail screen reports for its `detail_viewed`.
+     */
+    fun select(show: ConcertShow, source: String = "concerts_list") {
+        concerts.remember(show)
+        concerts.noteDetailSource(show.id, source)
+        when (source) {
+            "search_music_preview" -> log("concert_selected", show, source, result = if (show.suggestionSource == "tasteMatches") "taste_matches" else "own_artist")
+            "my_concerts" -> log("concert_selected", show, source, filter = "myConcerts", result = show.status)
+            else -> log("concert_selected", show, source, filter = _tab.value,
+                result = if (show.suggestionSource == "tasteMatches") "taste_matches" else null,
+                dateRange = _dateRange.value, genre = _genre.value ?: "any")
+        }
+    }
     fun share(show: ConcertShow, onReady: (String?) -> Unit) {
         viewModelScope.launch { onReady(runCatching { concerts.prepare(show) }.getOrNull()) }
     }
@@ -334,9 +501,12 @@ class ConcertsViewModel @Inject constructor(
         val optimisticAttendance = _attendance.value!!
         concerts.rememberAttendance(show.id, optimisticAttendance)
         concerts.rememberPlan(show, next, optimistic = true); _plans.value = concerts.rememberedPlans()
-        log("rsvp_tapped", show, "concert_detail", mapOf("status_from" to (old.status ?: "none"), "status_to" to (next ?: "none")))
+        val statusFrom = old.status ?: "none"
+        val statusTo = next ?: "none"
+        log("attendance_change_attempted", show, "concert_detail", statusFrom = statusFrom, statusTo = statusTo)
         concerts.sendInterest(show, next ?: "none") { result ->
             result.onSuccess {
+                log("attendance_changed", show, "concert_detail", result = "success", statusFrom = statusFrom, statusTo = statusTo)
                 confirmedAttendance = optimisticAttendance
                 if (revision == planRevision) {
                     // The first tap may precede the initial attendance response.
@@ -352,6 +522,7 @@ class ConcertsViewModel @Inject constructor(
                     }
                 }
             }.onFailure {
+                log("attendance_changed", show, "concert_detail", result = "error", statusFrom = statusFrom, statusTo = statusTo)
                 if (revision == planRevision) {
                     val restored = confirmedAttendance ?: old
                     _attendance.value = restored; concerts.rememberAttendance(show.id, restored)
@@ -365,19 +536,27 @@ class ConcertsViewModel @Inject constructor(
         val show = _show.value ?: return
         val old = _attendance.value ?: return
         val cursor = old.nextCursor ?: return
-        viewModelScope.launch { runCatching { concerts.attendance(show, cursor, 20) }.onSuccess { next ->
-            _attendance.value = old.copy(people = (old.people + next.people).distinctBy { it.id }, nextCursor = next.nextCursor)
-        } }
+        val started = System.currentTimeMillis()
+        viewModelScope.launch {
+            runCatching { concerts.attendance(show, cursor, 20) }.onSuccess { next ->
+                _attendance.value = old.copy(people = (old.people + next.people).distinctBy { it.id }, nextCursor = next.nextCursor)
+                log("attendees_page_loaded", show, "concert_attendees", result = "success", count = next.people.size,
+                    durationMs = System.currentTimeMillis() - started)
+            }.onFailure {
+                log("attendees_page_load_failed", show, "concert_attendees", result = "error", durationMs = System.currentTimeMillis() - started)
+            }
+        }
     }
     fun sendInvite(userId: String, note: String, onError: () -> Unit) {
         val show = _show.value ?: return
         concerts.sendInviteInBackground(show, userId, note) { result ->
             result
-                .onSuccess { log("invite_sent", show, "concert_detail") }
-                .onFailure { log("invite_failed", show, "concert_detail"); onError() }
+                .onSuccess { log("share_completed", show, "share_sheet", result = "success", method = "direct_message") }
+                .onFailure { log("share_completed", show, "share_sheet", result = "error", method = "direct_message"); onError() }
         }
     }
-    fun resolveArtist(name: String, onResolved: (ArtistPageRoute?) -> Unit) {
+    /** [tapSource] is where the artist link lives on the detail page: hero, menu, lineup or supporting_artist. */
+    fun resolveArtist(name: String, tapSource: String, onResolved: (ArtistPageRoute?) -> Unit) {
         viewModelScope.launch {
             val trimmed = name.trim()
             val artist = runCatching { cloud.resolveArtistByName(trimmed) }.getOrNull()
@@ -385,7 +564,7 @@ class ConcertsViewModel @Inject constructor(
             // nm: IDs and builds a page by name when catalog search misses.
             val route = artist?.let { ArtistPageRoute(it.id, it.name, it.imageUrl) }
                 ?: trimmed.takeIf { it.isNotEmpty() }?.let { ArtistPageRoute("nm:$it", it) }
-            if (route != null) log("artist_tapped", _show.value, "concert_detail")
+            if (route != null) log("artist_tapped", _show.value, "concert_detail_$tapSource")
             onResolved(route)
         }
     }

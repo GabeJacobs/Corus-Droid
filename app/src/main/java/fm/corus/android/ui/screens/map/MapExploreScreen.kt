@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.map
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import fm.corus.android.ui.components.parityCopy
@@ -835,11 +836,10 @@ fun MapExploreScreen(
     // the scrolling surface, and the remaining top gap protects the cutout.
     val countryPickerSheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val countryPickerMaxHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * .65f
-    val clubOfferSheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    mapPaywallSource?.let { source -> ModalBottomSheet(
+    val clubOfferSheet = fm.corus.android.ui.components.rememberGuardedSheetState()
+    mapPaywallSource?.let { source -> CorusModalBottomSheet(
         sheetState = clubOfferSheet,
         onDismissRequest = { mapPaywallSource = null },
-        containerColor = CorusColors.Background,
     ) {
         CymbalClubOfferSheet(
             source = source,
@@ -847,10 +847,9 @@ fun MapExploreScreen(
             onPurchaseSuccess = { if (source == PaywallSource.MAP) model.filter("tasteMatches") },
         )
     } }
-    if (dialog.isNotEmpty()) ModalBottomSheet(
+    if (dialog.isNotEmpty()) CorusModalBottomSheet(
         sheetState = if (dialog == "countries") countryPickerSheet else sharingSheet,
         onDismissRequest = { if (dialog != "intro" && dialog != "confirm" && !state.busy) dialog = "" },
-        containerColor = CorusColors.Background,
         contentWindowInsets = {
             if (dialog == "countries") WindowInsets.systemBars.only(WindowInsetsSides.Bottom)
             else BottomSheetDefaults.windowInsets

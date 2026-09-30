@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.feed
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -141,7 +142,6 @@ fun CommentsBottomSheet(
     CorusDraggableSheet(
         onDismiss = onDismiss,
         sheetState = sheetState,
-        containerColor = CorusColors.Background,
     ) {
         CorusSystemBars()
         CommentsSheetContent(
@@ -429,10 +429,9 @@ private fun CommentsSheetContent(
 
     reportingComment?.let { comment ->
         val reportSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
+        CorusModalBottomSheet(
             onDismissRequest = { reportingComment = null },
             sheetState = reportSheetState,
-            containerColor = CorusColors.Background,
         ) {
             CorusSystemBars()
             ReportSheet(

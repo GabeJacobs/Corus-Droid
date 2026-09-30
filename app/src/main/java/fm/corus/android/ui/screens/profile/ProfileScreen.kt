@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.profile
 
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.core.EaseInOut
@@ -262,7 +263,7 @@ fun ProfileScreen(
         }
     }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val clubSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val clubSheetState = fm.corus.android.ui.components.rememberGuardedSheetState()
 
     // Avatar context menu state
     var showAvatarMenu by remember { mutableStateOf(false) }
@@ -1275,10 +1276,9 @@ fun ProfileScreen(
         val trackPosts = posts.filter { it.mediaType == fm.corus.android.data.model.MediaType.TRACK }
         val moviePosts = posts.filter { it.mediaType == fm.corus.android.data.model.MediaType.MOVIE }
 
-        ModalBottomSheet(
+        CorusModalBottomSheet(
             onDismissRequest = { showStylePicker = false },
             sheetState = sheetState,
-            containerColor = CorusColors.Background,
             dragHandle = null,
         ) {
             CorusSystemBars()
@@ -1347,10 +1347,9 @@ fun ProfileScreen(
 
     // ── Club Offer Bottom Sheet ──
     if (showClubOffer) {
-        ModalBottomSheet(
+        CorusModalBottomSheet(
             onDismissRequest = { showClubOffer = false },
             sheetState = clubSheetState,
-            containerColor = CorusColors.Background,
             dragHandle = { BottomSheetDefaults.DragHandle() },
         ) {
             CorusSystemBars()
@@ -1393,10 +1392,9 @@ fun ProfileScreen(
             }
         }
         LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
-        ModalBottomSheet(
+        CorusModalBottomSheet(
             onDismissRequest = { showShareSheet = false },
             sheetState = shareSheetState,
-            containerColor = CorusColors.Background,
             dragHandle = null,
         ) {
             CorusSystemBars()

@@ -985,7 +985,7 @@ fun MainTabScreen(
             val othersSheetState = androidx.compose.material3.rememberModalBottomSheetState(
                 skipPartiallyExpanded = true,
             )
-            androidx.compose.material3.ModalBottomSheet(
+            fm.corus.android.ui.components.CorusModalBottomSheet(
                 onDismissRequest = {
                     viewModel.logPostSuccessOthersDismissed("swipe")
                     showPostSuccessOthers = false
@@ -993,7 +993,6 @@ fun MainTabScreen(
                     viewModel.checkPostMilestonePaywall()
                 },
                 sheetState = othersSheetState,
-                containerColor = CorusColors.Background,
                 dragHandle = null,
                 contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
             ) {
@@ -1041,11 +1040,10 @@ fun MainTabScreen(
     }
     // ── Club Offer Sheet ──
     if (showClubOffer) {
-        val clubSheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        androidx.compose.material3.ModalBottomSheet(
+        val clubSheetState = fm.corus.android.ui.components.rememberGuardedSheetState()
+        fm.corus.android.ui.components.CorusModalBottomSheet(
             onDismissRequest = { showClubOffer = false },
             sheetState = clubSheetState,
-            containerColor = CorusColors.Background,
             dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() },
         ) {
             CorusSystemBars()
