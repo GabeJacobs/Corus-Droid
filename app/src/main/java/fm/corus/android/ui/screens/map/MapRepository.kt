@@ -194,24 +194,24 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
     private fun cityQueryKey(query: String) = java.text.Normalizer.normalize(query, java.text.Normalizer.Form.NFD)
         .replace(Regex("\\p{M}+"), "").lowercase(java.util.Locale.ROOT).trim().replace(Regex("\\s+"), " ")
 
-    @Synchronized fun cachedCitySearch(query: String): List<MapCity>? {
+    @Synchronized fun cachedCitySearch(query: String, concerts: Boolean = false): List<MapCity>? {
         val uid = auth.currentUser?.uid ?: return null
         if (citySearchOwner != uid) { citySearchCache.clear(); citySearchOwner = uid }
-        val cached = citySearchCache[cityQueryKey(query)] ?: return null
+        val cached = citySearchCache["$concerts:${cityQueryKey(query)}"] ?: return null
         return cached.cities.takeIf { android.os.SystemClock.elapsedRealtime() - cached.at < 60_000 }
     }
 
     @Suppress("UNCHECKED_CAST")
-    suspend fun search(query: String): List<MapCity> {
-        cachedCitySearch(query)?.let { return it }
+    suspend fun search(query: String, concerts: Boolean = false): List<MapCity> {
+        cachedCitySearch(query, concerts)?.let { return it }
         val uid = auth.currentUser?.uid ?: error("Please sign in.")
-        val response = call("searchMapCities", mapOf("query" to query.trim(), "limit" to 30))
+        val response = call("searchMapCities", mapOf("query" to query.trim(), "limit" to 30, "purpose" to if (concerts) "concerts" else "map"))
         val cities = (response["cities"] as? List<Map<String, Any?>>).orEmpty().map(MapCity::decode)
         synchronized(this) {
-            if (auth.currentUser?.uid == uid && response["providerUnavailable"] != true) {
+            if (auth.currentUser?.uid == uid && response["providerUnavailable"] != true && response["concertRankingUnavailable"] != true) {
                 if (citySearchOwner != uid) { citySearchCache.clear(); citySearchOwner = uid }
                 if (citySearchCache.size >= 64) citySearchCache.remove(citySearchCache.keys.first())
-                citySearchCache[cityQueryKey(query)] = CitySearchEntry(android.os.SystemClock.elapsedRealtime(), cities)
+                citySearchCache["$concerts:${cityQueryKey(query)}"] = CitySearchEntry(android.os.SystemClock.elapsedRealtime(), cities)
             }
         }
         return cities

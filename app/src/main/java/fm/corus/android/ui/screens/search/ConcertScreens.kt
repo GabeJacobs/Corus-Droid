@@ -580,11 +580,12 @@ fun ConcertsScreen(
                         unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
                     ),
                 )
-                val popular = if (cityQuery.trim().length < 2) POPULAR_CONCERT_CITIES else POPULAR_CONCERT_CITIES.filter { it.second.contains(cityQuery.trim(), ignoreCase = true) }
+                val popular = if (cityQuery.trim().length < 2) POPULAR_CONCERT_CITIES else emptyList()
                 LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false).heightIn(max = 500.dp).dismissKeyboardOnDownwardDrag().hideKeyboardOnScroll()) {
                     items(popular) { (id, name) ->
                         ListItem(
                             headlineContent = { Text(name, style = CorusFont.bodyMedium) },
+                            supportingContent = { Text(popularConcertCitySubtitle(id), style = CorusFont.caption) },
                             trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                             colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
                             modifier = Modifier.clickable { vm.selectCity(id, name, "popular"); citySheet = false },

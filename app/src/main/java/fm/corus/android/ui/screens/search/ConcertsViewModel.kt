@@ -130,7 +130,7 @@ class ConcertsViewModel @Inject constructor(
 
     suspend fun searchCities(query: String) {
         if (query.trim().length < 2) { _cityResults.value = emptyList(); _citySearching.value = false; return }
-        mapRepository.cachedCitySearch(query)?.let { cities ->
+        mapRepository.cachedCitySearch(query, concerts = true)?.let { cities ->
             _cityResults.value = cities
             _citySearching.value = false
             log("city_search_completed", cityId = _cityId.value, result = "cache", count = cities.size, durationMs = 0)
@@ -140,7 +140,7 @@ class ConcertsViewModel @Inject constructor(
         val started = System.currentTimeMillis()
         try {
             delay(250)
-            val cities = mapRepository.search(query.trim())
+            val cities = mapRepository.search(query.trim(), concerts = true)
             _cityResults.value = cities
             log("city_search_completed", cityId = _cityId.value, result = if (cities.isEmpty()) "no_results" else "network",
                 count = cities.size, durationMs = System.currentTimeMillis() - started)
