@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="corus_share_soundcloud_restricted_subtitle">"SoundCloud a bloqué ou limité l’accès à ce morceau, donc Corus ne peut pas le partager directement. Essayez une autre version ou recherchez le morceau dans Corus."</string>
+    <string name="corus_share_soundcloud_restricted_title">"Ce morceau est restreint sur SoundCloud"</string>
+</resources>

@@ -608,8 +608,7 @@ private fun BlockedView(
     onRetry: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val retryable = reason == ShareComposerViewModel.BlockedReason.SONG_UNAVAILABLE ||
-        reason == ShareComposerViewModel.BlockedReason.ALBUM_UNAVAILABLE
+    val retryable = reason.canRetry
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = CorusSpacing.xxxl),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -631,6 +630,7 @@ private fun BlockedView(
                     ShareComposerViewModel.BlockedReason.NOT_SIGNED_IN -> R.string.share_blocked_signin_title
                     ShareComposerViewModel.BlockedReason.UNSUPPORTED_LINK -> R.string.share_blocked_unsupported_title
                     ShareComposerViewModel.BlockedReason.SONG_UNAVAILABLE -> R.string.share_blocked_song_title
+                    ShareComposerViewModel.BlockedReason.SOUNDCLOUD_RESTRICTED -> fm.corus.android.R.string.corus_share_soundcloud_restricted_title
                     ShareComposerViewModel.BlockedReason.ALBUM_UNAVAILABLE -> R.string.share_blocked_album_title
                     ShareComposerViewModel.BlockedReason.NOT_ON_CORUS -> R.string.share_blocked_nomatch_title
                     ShareComposerViewModel.BlockedReason.UNRELEASED -> R.string.share_blocked_unreleased_title
@@ -650,6 +650,7 @@ private fun BlockedView(
                     ShareComposerViewModel.BlockedReason.NOT_ON_CORUS -> R.string.share_blocked_nomatch_subtitle
                     ShareComposerViewModel.BlockedReason.UNRELEASED -> R.string.share_blocked_unreleased_subtitle
                     ShareComposerViewModel.BlockedReason.NO_CONFIDENT_MATCH -> R.string.share_youtube_not_found_subtitle
+                    ShareComposerViewModel.BlockedReason.SOUNDCLOUD_RESTRICTED -> fm.corus.android.R.string.corus_share_soundcloud_restricted_subtitle
                     else -> R.string.share_blocked_unavailable_subtitle
                 }
             ),

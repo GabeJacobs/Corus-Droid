@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="corus_share_soundcloud_restricted_subtitle">"SoundCloudがこの曲へのアクセスをブロックまたは制限しているため、Corusでは直接共有できません。別のバージョンを試すか、Corusで曲を検索してください。"</string>
+    <string name="corus_share_soundcloud_restricted_title">"この曲はSoundCloudで制限されています"</string>
+</resources>

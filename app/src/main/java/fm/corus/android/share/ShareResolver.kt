@@ -361,8 +361,16 @@ class ShareResolver @Inject constructor(
 
     // ── SoundCloud ─────────────────────────────────────────────────────────
 
-    private suspend fun resolveSoundCloud(url: String): CymbalTrack? =
-        resolveDirectTrack("shareResolveSoundCloudLink", "soundcloudUrl", url)
+    private suspend fun resolveSoundCloud(url: String): CymbalTrack? {
+        val envelope = runCatching {
+            @Suppress("UNCHECKED_CAST")
+            functions.getHttpsCallable("shareResolveSoundCloudLink").call(mapOf("soundcloudUrl" to url))
+                .await().getData() as? Map<String, Any?>
+        }.getOrNull() ?: return null
+        if (envelope["unavailableReason"] == "soundcloud_restricted") throw SoundCloudShareRestrictedException()
+        @Suppress("UNCHECKED_CAST")
+        return (envelope["track"] as? Map<String, Any?>)?.let(::parseUnifiedTrack)
+    }
 
     private suspend fun resolveDirectTrack(callable: String, key: String, url: String): CymbalTrack? = runCatching {
         @Suppress("UNCHECKED_CAST")

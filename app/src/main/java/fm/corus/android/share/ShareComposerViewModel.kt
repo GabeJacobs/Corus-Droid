@@ -44,7 +44,11 @@ class ShareComposerViewModel @Inject constructor(
     private val postCreationEvent: PostCreationEvent,
 ) : ViewModel() {
 
-    enum class BlockedReason { NOT_SIGNED_IN, UNSUPPORTED_LINK, SONG_UNAVAILABLE, ALBUM_UNAVAILABLE, NOT_ON_CORUS, UNRELEASED, NO_CONFIDENT_MATCH }
+    enum class BlockedReason {
+        NOT_SIGNED_IN, UNSUPPORTED_LINK, SONG_UNAVAILABLE, SOUNDCLOUD_RESTRICTED, ALBUM_UNAVAILABLE, NOT_ON_CORUS, UNRELEASED, NO_CONFIDENT_MATCH;
+
+        val canRetry: Boolean get() = this == SONG_UNAVAILABLE || this == ALBUM_UNAVAILABLE
+    }
 
     sealed interface Phase {
         data object Loading : Phase
@@ -263,7 +267,12 @@ class ShareComposerViewModel @Inject constructor(
     }
 
     private suspend fun resolveBlockingSuspend(parsed: SharedMusicLink) {
-        val resolved = resolver.resolveSong(parsed)
+        val resolved = try {
+            resolver.resolveSong(parsed)
+        } catch (_: SoundCloudShareRestrictedException) {
+            _phase.value = Phase.Blocked(BlockedReason.SOUNDCLOUD_RESTRICTED)
+            return
+        }
         if (resolved != null) {
             presentReady(resolved)
         } else {

@@ -13,6 +13,7 @@ import io.ktor.client.engine.mock.MockEngine
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
@@ -21,6 +22,27 @@ import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
 
 class DirectMusicShareResolverTest {
+    @Test
+    fun `SoundCloud restrictions remain distinct from missing tracks and transport failures`() = runTest {
+        val functions = mock<FirebaseFunctions>()
+        val callable = mock<HttpsCallableReference>()
+        val result = mock<HttpsCallableResult>()
+        whenever(functions.getHttpsCallable("shareResolveSoundCloudLink")).thenReturn(callable)
+        whenever(callable.call(any())).thenReturn(Tasks.forResult(result))
+        val client = HttpClient(MockEngine { error("Unexpected fetch") })
+        try {
+            val resolver = ShareResolver(mock(), mock(), mock(), functions, client)
+            val link = SharedMusicLink.SoundCloudTrack("https://soundcloud.com/coolthanks/nest")
+            whenever(result.getData()).thenReturn(mapOf("track" to null, "unavailableReason" to "soundcloud_restricted"))
+            val error = runCatching { resolver.resolveSong(link) }.exceptionOrNull()
+            assertEquals("SoundCloudShareRestrictedException", error?.javaClass?.simpleName)
+            whenever(result.getData()).thenReturn(mapOf("track" to null))
+            assertNull(resolver.resolveSong(link))
+            whenever(callable.call(any())).thenReturn(Tasks.forException(IllegalStateException("network")))
+            assertNull(resolver.resolveSong(link))
+        } finally { client.close() }
+    }
+
     @Test
     fun `Bandcamp album rows stay songs with their original track URLs`() = runTest {
         val functions = mock<FirebaseFunctions>()
