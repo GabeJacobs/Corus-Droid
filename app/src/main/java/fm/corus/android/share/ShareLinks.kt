@@ -20,6 +20,8 @@ sealed class SharedMusicLink {
 
     /** Normalized `https://soundcloud.com/{artist}/{slug}` track page URL. */
     data class SoundCloudTrack(val url: String) : SharedMusicLink()
+    data class BandcampTrack(val url: String) : SharedMusicLink()
+    data class BandcampAlbum(val url: String) : SharedMusicLink()
 
     /** Normalized `https://audiomack.com/{artist}/song/{slug}` page URL. */
     data class AudiomackTrack(val url: String) : SharedMusicLink()
@@ -30,22 +32,27 @@ sealed class SharedMusicLink {
     data class YouTubeMusicTrack(val videoId: String) : SharedMusicLink()
 
     val isAlbum: Boolean
-        get() = this is SpotifyAlbum || this is AppleMusicAlbum || this is DeezerAlbum || this is TidalAlbum
+        get() = this is SpotifyAlbum || this is AppleMusicAlbum || this is DeezerAlbum || this is TidalAlbum || this is BandcampAlbum
 
     companion object {
 
         /**
          * Extracts a supported link from a URL string, or null for anything
-         * else. Pure — short links (spotify.link, on.soundcloud.com,
-         * deezer.page.link) must be expanded by the caller first.
+         * else. Pure — short links (spotify.link,
+         * deezer.page.link) must be expanded by the caller first. SoundCloud
+         * short links resolve on the backend.
          */
         fun parse(raw: String): SharedMusicLink? {
             val url = UrlParts.from(raw) ?: return null
+            if (url.host == "on.soundcloud.com" && url.segments.size == 1) {
+                return SoundCloudTrack(raw)
+            }
             spotifyId(url, "track")?.let { return SpotifyTrack(it) }
             spotifyId(url, "album")?.let { return SpotifyAlbum(it) }
             appleMusicSong(url)?.let { return it }
             appleMusicAlbum(url)?.let { return it }
             soundcloudTrack(url)?.let { return it }
+            bandcampMusic(raw, url)?.let { return it }
             audiomackTrack(url)?.let { return it }
             deezerId(url, "track")?.let { return DeezerTrack(it) }
             deezerId(url, "album")?.let { return DeezerAlbum(it) }
@@ -137,6 +144,20 @@ sealed class SharedMusicLink {
             val (artist, slug) = url.segments
             if (artist.isEmpty() || slug.isEmpty() || slug.equals("sets", ignoreCase = true)) return null
             return SoundCloudTrack("https://soundcloud.com/$artist/$slug")
+        }
+
+        private fun bandcampMusic(raw: String, url: UrlParts): SharedMusicLink? {
+            val uri = runCatching { URI(raw.trim()) }.getOrNull() ?: return null
+            if (uri.scheme?.lowercase() !in listOf("https", "http") || uri.userInfo != null || uri.port != -1) return null
+            if (!url.host.matches(Regex("[a-z0-9-]+\\.bandcamp\\.com")) || url.host == "www.bandcamp.com") return null
+            if (url.segments.size != 2 || !url.segments[1].matches(Regex("[a-z0-9_-]+"))) return null
+            val kind = url.segments[0].lowercase()
+            val canonical = "https://${url.host}/$kind/${url.segments[1]}"
+            return when (kind) {
+                "track" -> BandcampTrack(canonical)
+                "album" -> BandcampAlbum(canonical)
+                else -> null
+            }
         }
 
         /**

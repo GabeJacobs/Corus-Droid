@@ -15,6 +15,20 @@ import org.junit.Test
 class ShareLinksTest {
 
     @Test
+    fun `soundcloud short song links route directly without client expansion`() {
+        val raw = "https://on.soundcloud.com/xuu6Uvu4rxPU1zXb0D"
+        assertTrue(SharedMusicLink.parse(raw) != null)
+    }
+
+    @Test
+    fun `bandcamp songs parse and albums open the existing song picker`() {
+        assertTrue(SharedMusicLink.parse("https://gregfreeman.bandcamp.com/track/cahokia?from=share") != null)
+        assertTrue(SharedMusicLink.parse("https://gregfreeman.bandcamp.com/album/all-set-the-bone")?.isAlbum == true)
+        assertNull(SharedMusicLink.parse("https://gregfreeman.bandcamp.com"))
+        assertNull(SharedMusicLink.parse("https://gregfreeman.bandcamp.com.evil.test/track/cahokia"))
+    }
+
+    @Test
     fun `spotify track with share-menu query params parses`() {
         val link = SharedMusicLink.parse(
             "https://open.spotify.com/track/2bQorkqtGzEJatTcD8I1F0?si=nOcHauxWQZyLa8oRRJ4XXw&utm_source=native-share-menu"

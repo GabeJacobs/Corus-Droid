@@ -162,6 +162,7 @@ class ShareComposerViewModel @Inject constructor(
             is SharedMusicLink.SpotifyAlbum -> loadCatalogAlbum(parsed.albumId)
             is SharedMusicLink.DeezerAlbum -> loadDeezerAlbum(parsed.id)
             is SharedMusicLink.TidalAlbum -> loadTidalAlbum(parsed.id)
+            is SharedMusicLink.BandcampAlbum -> loadBandcampAlbum(parsed.url)
             is SharedMusicLink.AppleMusicSong -> resolveAppleInstant(parsed)
             is SharedMusicLink.DeezerTrack ->
                 startProvisional(source = "deezer", externalId = parsed.id) { resolver.deezerTrackMetadata(parsed.id) }
@@ -276,6 +277,19 @@ class ShareComposerViewModel @Inject constructor(
         _phase.value = Phase.LoadingAlbum
         viewModelScope.launch {
             val loaded = resolver.fetchCatalogAlbum(albumId)
+            if (loaded != null) {
+                _album.value = loaded
+                _phase.value = Phase.AlbumPicker
+            } else {
+                _phase.value = Phase.Blocked(BlockedReason.ALBUM_UNAVAILABLE)
+            }
+        }
+    }
+
+    private fun loadBandcampAlbum(url: String) {
+        _phase.value = Phase.LoadingAlbum
+        viewModelScope.launch {
+            val loaded = resolver.fetchBandcampAlbum(url)
             if (loaded != null) {
                 _album.value = loaded
                 _phase.value = Phase.AlbumPicker

@@ -61,9 +61,8 @@ data class ShareAlbum(
  *  - Apple song → instant provisional card from ONE public iTunes lookup,
  *    then the full canonical resolution (dev token → catalog ISRC → Spotify
  *    cross-ref, apple-only degrade) in the background.
- *  - SoundCloud → slug → the same `searchSongs` callable as in-app search
- *    (inheriting its content filtering), accepting ONLY an exact
- *    normalized-permalink match.
+ *  - SoundCloud → exact URL resolution through SoundCloud's official API.
+ *  - Bandcamp → exact public page, with albums opening the song picker.
  *  - Deezer → public API → ISRC cross-ref (no match = unavailable; Deezer
  *    isn't a Corus post source).
  *  - Apple/Spotify albums → `getAlbumCatalog` (rows directly postable);
@@ -107,6 +106,7 @@ class ShareResolver @Inject constructor(
         is SharedMusicLink.AppleMusicSong -> resolveAppleSong(link.id, link.storefront)
 
         is SharedMusicLink.SoundCloudTrack -> resolveSoundCloud(link.url)
+        is SharedMusicLink.BandcampTrack -> resolveDirectTrack("shareResolveBandcampLink", "bandcampUrl", link.url)
 
         is SharedMusicLink.AudiomackTrack -> resolveAudiomack(link.url)
 
@@ -361,34 +361,34 @@ class ShareResolver @Inject constructor(
 
     // ── SoundCloud ─────────────────────────────────────────────────────────
 
-    /**
-     * SoundCloud share URLs are slugs, not ids, and resolving them needs
-     * credentials only the backend holds. Instead: slug → search query →
-     * the same `searchSongs` callable in-app search uses (inheriting all of
-     * its content filtering) → accept ONLY the result whose permalink
-     * matches the shared URL exactly.
-     */
-    private suspend fun resolveSoundCloud(url: String): CymbalTrack? {
-        val segments = url.substringAfter("soundcloud.com/").split('/')
-        if (segments.size != 2) return null
-        val query = segments.joinToString(" ")
-            .replace('-', ' ')
-            .replace('_', ' ')
-        val page = runCatching {
-            musicSearchRepository.search(
-                query = query,
-                limit = 20,
-                includeSoundCloud = true,
-                // Compose-picker mode: keeps distinct rows pickable, matching
-                // the in-app compose search behavior.
-                collapse = "cover",
-            )
-        }.getOrNull() ?: return null
-        val target = normalizedPermalink(url)
-        return page.tracks.firstOrNull { track ->
-            track.soundcloudPermalinkUrl?.let { normalizedPermalink(it) == target } == true
-        }
-    }
+    private suspend fun resolveSoundCloud(url: String): CymbalTrack? =
+        resolveDirectTrack("shareResolveSoundCloudLink", "soundcloudUrl", url)
+
+    private suspend fun resolveDirectTrack(callable: String, key: String, url: String): CymbalTrack? = runCatching {
+        @Suppress("UNCHECKED_CAST")
+        val envelope = functions.getHttpsCallable(callable).call(mapOf(key to url)).await().getData() as? Map<String, Any?>
+        @Suppress("UNCHECKED_CAST")
+        (envelope?.get("track") as? Map<String, Any?>)?.let(::parseUnifiedTrack)
+    }.getOrNull()
+
+    suspend fun fetchBandcampAlbum(url: String): ShareAlbum? = runCatching {
+        @Suppress("UNCHECKED_CAST")
+        val envelope = functions.getHttpsCallable("shareResolveBandcampLink")
+            .call(mapOf("bandcampUrl" to url)).await().getData() as? Map<String, Any?> ?: return@runCatching null
+        @Suppress("UNCHECKED_CAST")
+        val album = envelope["album"] as? Map<String, Any?> ?: return@runCatching null
+        @Suppress("UNCHECKED_CAST")
+        val tracks = (envelope["tracks"] as? List<Map<String, Any?>>).orEmpty().mapNotNull(::parseUnifiedTrack)
+        if (tracks.isEmpty()) return@runCatching null
+        ShareAlbum(
+            id = album["id"] as? String ?: return@runCatching null,
+            title = album["title"] as? String ?: return@runCatching null,
+            artistName = album["artistName"] as? String ?: "",
+            year = album["year"] as? String,
+            coverUrl = album["artworkURL"] as? String,
+            tracks = tracks.map { ShareAlbumTrack(it.id, it.name, it.artistName, it.durationMs, preResolved = it) },
+        )
+    }.getOrNull()
 
     /** Audiomack share links resolve through a dedicated callable that hits
      * Audiomack search directly and matches the shared page URL exactly.
@@ -403,17 +403,6 @@ class ShareResolver @Inject constructor(
             (result.getData() as? Map<String, Any?>)?.get("track") as? Map<String, Any?>
         }.getOrNull() ?: return null
         return parseUnifiedTrack(track)
-    }
-
-    private fun normalizedPermalink(raw: String): String {
-        var out = raw.lowercase().substringBefore('?')
-        for (prefix in listOf("https://", "http://")) {
-            if (out.startsWith(prefix)) out = out.removePrefix(prefix)
-        }
-        for (prefix in listOf("www.", "m.")) {
-            if (out.startsWith(prefix)) out = out.removePrefix(prefix)
-        }
-        return out.trimEnd('/')
     }
 
     // ── Deezer ─────────────────────────────────────────────────────────────
