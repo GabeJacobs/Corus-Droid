@@ -173,6 +173,7 @@ class FirestoreDataSource @Inject constructor(
             ),
             "vinylColor" to "black",
             "frameColor" to "black",
+            "timeZone" to java.util.TimeZone.getDefault().id,
             "createdAt" to FieldValue.serverTimestamp(),
         )
         // merge so that if a pre-onboarding stub doc already exists for this uid
