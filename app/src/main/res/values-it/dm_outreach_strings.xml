@@ -3,4 +3,5 @@
 <resources>
     <string name="dm_new_recipient_limit">"Hai raggiunto il limite di oggi per scrivere a nuove persone. Riprova dopo %1$s. Puoi continuare a usare le chat esistenti e rispondere ai messaggi."</string>
     <string name="dm_outreach_restricted">"L’invio di messaggi non richiesti è temporaneamente limitato fino a %1$s. Puoi continuare a rispondere ai messaggi. Se pensi che sia un errore, contatta help@corus.fm."</string>
+    <string name="dm_request_pending">"Attendi che questa persona accetti o risponda prima di inviare un altro messaggio."</string>
 </resources>

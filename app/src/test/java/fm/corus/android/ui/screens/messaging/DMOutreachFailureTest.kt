@@ -4,6 +4,11 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class DMOutreachFailureTest {
+    @Test fun pendingRequestHasNoTimedRetry() {
+        val failure = DMOutreachFailure.fromDetails(mapOf("reason" to "messageRequestPending", "retryAtMs" to 0))!!
+        assertEquals("messageRequestPending", failure.reason)
+        assertFalse(failure.canRetry)
+    }
     @Test fun parsesQuotaAndRestrictionDetails() {
         val retry = System.currentTimeMillis() + 3600000
         for (reason in listOf("newRecipientLimit", "dmOutreachRestricted")) {

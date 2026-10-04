@@ -3,4 +3,5 @@
 <resources>
     <string name="dm_new_recipient_limit">"새로운 사람에게 메시지를 보내는 오늘의 한도에 도달했습니다. %1$s 이후에 다시 시도하세요. 기존 채팅과 메시지 답장은 계속 이용할 수 있습니다."</string>
     <string name="dm_outreach_restricted">"요청하지 않은 메시지 전송이 %1$s까지 일시적으로 제한됩니다. 메시지 답장은 계속 보낼 수 있습니다. 오류라고 생각되면 help@corus.fm으로 문의해 주세요."</string>
+    <string name="dm_request_pending">"상대방이 수락하거나 답장할 때까지 추가 메시지를 보내지 마세요."</string>
 </resources>

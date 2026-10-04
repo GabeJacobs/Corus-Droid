@@ -3,4 +3,5 @@
 <resources>
     <string name="dm_new_recipient_limit">"You’ve reached today’s limit for messaging new people. Try again after %1$s. You can still use existing chats and reply to messages."</string>
     <string name="dm_outreach_restricted">"Sending unsolicited messages is temporarily restricted until %1$s. You can still reply to messages. If this seems wrong, contact help@corus.fm."</string>
+    <string name="dm_request_pending">"Wait until this person accepts or replies before sending another message."</string>
 </resources>

@@ -3,4 +3,5 @@
 <resources>
     <string name="dm_new_recipient_limit">"你已达到今天向新用户发送消息的上限。请在%1$s之后重试。你仍然可以使用现有聊天并回复消息。"</string>
     <string name="dm_outreach_restricted">"发送未经请求的消息暂时受限，直到%1$s。你仍然可以回复消息。如果你认为这是误判，请联系help@corus.fm。"</string>
+    <string name="dm_request_pending">"请等待对方接受或回复后再发送另一条消息。"</string>
 </resources>
