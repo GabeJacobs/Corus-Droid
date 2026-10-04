@@ -460,7 +460,7 @@ class MessageThreadViewModel @Inject constructor(
                         MessageVideoException(MessageVideoException.DAILY_LIMIT)
                     )
                 } else {
-                    updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
+                    updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e, clientId))
                 }
             }
         }
@@ -836,6 +836,8 @@ class MessageThreadViewModel @Inject constructor(
         if (users.isEmpty()) return
         val userIds = users.map { it.id }
 
+        val previousMembers = _membersById.value
+        val previousGroup = _groupInfo.value
         // Optimistically reflect the new members so the group-info list updates
         // immediately; the live group-info listener reconciles with the server.
         _membersById.value = _membersById.value.toMutableMap().apply {
@@ -852,7 +854,14 @@ class MessageThreadViewModel @Inject constructor(
             try {
                 val result = messageRepository.addGroupMembers(id, userIds)
                 if (result.added.isNotEmpty()) analyticsService.logGroupMembersAdded(id, result.added.size)
-            } catch (_: Exception) {}
+            } catch (error: Exception) {
+                _membersById.value = previousMembers
+                _groupInfo.value = previousGroup
+                fm.corus.android.ui.components.ToastManager.show(
+                    DMOutreachFailure.from(error)?.message(context) ?: error.message.orEmpty(),
+                    durationMs = 8000
+                )
+            }
         }
     }
 
@@ -1202,7 +1211,7 @@ class MessageThreadViewModel @Inject constructor(
                         MessageVideoException(MessageVideoException.DAILY_LIMIT)
                     )
                 } else {
-                    updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e))
+                    updatePendingStatus(clientId, MessageSendStatus.FAILED, failureReasonFrom(e, clientId))
                 }
             }
         }
@@ -1440,7 +1449,7 @@ class MessageThreadViewModel @Inject constructor(
                 // itself is held until the listener has the canonical doc.
                 updatePendingStatus(messageId, MessageSendStatus.SENT)
             } catch (e: Exception) {
-                updatePendingStatus(messageId, MessageSendStatus.FAILED, failureReasonFrom(e))
+                updatePendingStatus(messageId, MessageSendStatus.FAILED, failureReasonFrom(e, messageId))
             }
         }
     }
@@ -1592,7 +1601,24 @@ class MessageThreadViewModel @Inject constructor(
         return false
     }
 
-    private fun failureReasonFrom(error: Exception): MessageFailureReason {
+    private fun failureReasonFrom(error: Exception, failedOutgoingId: String): MessageFailureReason {
+        val outreach = DMOutreachFailure.from(error)
+        if (outreach != null) {
+            _pendingMessages.value[failedOutgoingId]?.let { failed ->
+                if (failed.type == MessageType.TEXT && !failed.text.isNullOrBlank()) {
+                    fm.corus.android.data.local.DMDraftStore(context).save(
+                        authRepository.currentUserId, failed.threadId, failed.text.orEmpty(),
+                        peerUserId = _composePeerUserId.value
+                    )
+                }
+            }
+            _pendingMessages.value = _pendingMessages.value.mapValues { (_, message) ->
+                if (message.id == failedOutgoingId) message.copy(
+                    outreachReason = outreach.reason, outreachRetryAtMs = outreach.retryAtMs
+                ) else message
+            }
+            return MessageFailureReason.OUTREACH_LIMIT
+        }
         messagingRestrictionFrom(error)?.let { _messagingRestriction.value = it }
         return if (messagingRestrictionFrom(error) != null) {
             MessageFailureReason.MESSAGING_DISABLED

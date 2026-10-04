@@ -1064,8 +1064,8 @@ fun ConcertDetailScreen(
                     vm.sendInvite(
                         userId = userId,
                         note = message,
-                        onError = {
-                            ToastManager.show(context.getString(R.string.concert_invite_error))
+                        onError = { error ->
+                            fm.corus.android.ui.screens.messaging.showDmSendError(context, error, fm.corus.android.R.string.concert_invite_error)
                         },
                     )
                     showShareSheet = false

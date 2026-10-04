@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="dm_new_recipient_limit">"新しい相手へのメッセージは本日の上限に達しました。%1$s以降にもう一度お試しください。既存のチャットやメッセージへの返信は引き続き利用できます。"</string>
+    <string name="dm_outreach_restricted">"未承諾のメッセージの送信は%1$sまで一時的に制限されています。メッセージへの返信は引き続き可能です。誤りと思われる場合はhelp@corus.fmまでご連絡ください。"</string>
+</resources>

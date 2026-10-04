@@ -36,7 +36,7 @@ enum class MessageDeliveryStatus {
 }
 
 enum class MessageFailureReason {
-    GENERIC, MESSAGING_DISABLED
+    GENERIC, MESSAGING_DISABLED, OUTREACH_LIMIT
 }
 
 /** Why a 1:1 open/send was refused — the other person's Who Can Message Me setting. */

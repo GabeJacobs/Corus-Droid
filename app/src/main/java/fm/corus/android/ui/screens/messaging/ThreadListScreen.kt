@@ -126,6 +126,7 @@ fun ThreadListScreen(
     var isCreatingThread by remember { mutableStateOf(false) }
     var inboxSearchText by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val listState = rememberLazyListState()
     var lastScrollTrigger by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(scrollToTopTrigger) {
@@ -463,8 +464,12 @@ fun ThreadListScreen(
                                             isCreatingThread = false
                                         }
                                     }
-                                } catch (_: Exception) {
+                                } catch (error: Exception) {
                                     isCreatingThread = false
+                                    fm.corus.android.ui.components.ToastManager.show(
+                                        DMOutreachFailure.from(error)?.message(context) ?: error.message.orEmpty(),
+                                        durationMs = 8000
+                                    )
                                 }
                             }
                         },

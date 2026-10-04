@@ -894,6 +894,16 @@ fun MessageThreadScreen(
     // After Send, ignore IME echoes of the outgoing string so they can't refill
     // the box or re-persist the draft (iOS `takeText()` / `isSendingComposerText`).
     var sentComposerText by remember(threadId) { mutableStateOf<String?>(null) }
+    val rejectedOutreachText = messages.lastOrNull {
+        it.failureReason == MessageFailureReason.OUTREACH_LIMIT && it.type == MessageType.TEXT
+    }
+    LaunchedEffect(rejectedOutreachText?.id) {
+        if (rejectedOutreachText != null && messageText.text.isBlank()) {
+            val restored = rejectedOutreachText.text.orEmpty()
+            sentComposerText = null
+            messageText = TextFieldValue(restored, TextRange(restored.length))
+        }
+    }
     val listState = rememberLazyListState()
     var unseenIncomingMessageCount by remember(threadId) { mutableIntStateOf(0) }
     var lastObservedNewestId by remember(threadId) { mutableStateOf<String?>(null) }
@@ -2775,7 +2785,10 @@ private fun MessageBubble(
                     .padding(top = 2.dp)
                     .then(
                         if (message.failureReason != MessageFailureReason.MESSAGING_DISABLED)
-                            Modifier.clickable(onClick = onRetry)
+                            Modifier.clickable {
+                                if (message.failureReason != MessageFailureReason.OUTREACH_LIMIT ||
+                                    (message.outreachRetryAtMs ?: Long.MAX_VALUE) <= System.currentTimeMillis()) onRetry()
+                            }
                         else Modifier
                     ),
                 verticalAlignment = Alignment.CenterVertically,
@@ -2787,7 +2800,10 @@ private fun MessageBubble(
                     modifier = Modifier.size(12.dp),
                     tint = Color.Red,
                 )
-                if (message.failureReason == MessageFailureReason.MESSAGING_DISABLED) {
+                if (message.failureReason == MessageFailureReason.OUTREACH_LIMIT) {
+                    val failure = DMOutreachFailure(message.outreachReason ?: "newRecipientLimit", message.outreachRetryAtMs ?: 0)
+                    Text(text = failure.message(LocalContext.current), style = CorusFont.caption, color = Color.Red)
+                } else if (message.failureReason == MessageFailureReason.MESSAGING_DISABLED) {
                     val displayName = otherUsername.takeIf { it.isNotBlank() }
                         ?: stringResource(id = R.string.messaging_restriction_name_fallback)
                     val disabledText = when (messagingRestriction) {

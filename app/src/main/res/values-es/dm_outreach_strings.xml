@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="dm_new_recipient_limit">"Has alcanzado el límite de hoy para enviar mensajes a personas nuevas. Inténtalo después de %1$s. Puedes seguir usando los chats existentes y responder mensajes."</string>
+    <string name="dm_outreach_restricted">"El envío de mensajes no solicitados está restringido temporalmente hasta %1$s. Puedes seguir respondiendo mensajes. Si crees que es un error, contacta con help@corus.fm."</string>
+</resources>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="dm_new_recipient_limit">"Vous avez atteint la limite du jour pour contacter de nouvelles personnes. Réessayez après %1$s. Vous pouvez toujours utiliser vos conversations existantes et répondre aux messages."</string>
+    <string name="dm_outreach_restricted">"L’envoi de messages non sollicités est temporairement restreint jusqu’au %1$s. Vous pouvez toujours répondre aux messages. Si vous pensez qu’il s’agit d’une erreur, contactez help@corus.fm."</string>
+</resources>

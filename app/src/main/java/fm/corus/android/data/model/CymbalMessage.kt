@@ -74,6 +74,8 @@ data class CymbalMessage(
     /** Set when the author edited the message; drives the "edited" indicator. */
     val editedAt: Date? = null,
     val failureReason: MessageFailureReason = MessageFailureReason.GENERIC,
+    val outreachReason: String? = null,
+    val outreachRetryAtMs: Long? = null,
     // Group lifecycle events ("X added Y"): `systemEvent` keys the event, `text`
     // holds the canonical fallback string. Null/empty for normal messages.
     val systemEvent: String? = null,

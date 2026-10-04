@@ -547,12 +547,12 @@ class ConcertsViewModel @Inject constructor(
             }
         }
     }
-    fun sendInvite(userId: String, note: String, onError: () -> Unit) {
+    fun sendInvite(userId: String, note: String, onError: (Throwable) -> Unit) {
         val show = _show.value ?: return
         concerts.sendInviteInBackground(show, userId, note) { result ->
             result
                 .onSuccess { log("share_completed", show, "share_sheet", result = "success", method = "direct_message") }
-                .onFailure { log("share_completed", show, "share_sheet", result = "error", method = "direct_message"); onError() }
+                .onFailure { log("share_completed", show, "share_sheet", result = "error", method = "direct_message"); onError(it) }
         }
     }
     /** [tapSource] is where the artist link lives on the detail page: hero, menu, lineup or supporting_artist. */

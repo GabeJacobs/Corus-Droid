@@ -623,8 +623,8 @@ class ProfileFeedViewModel @Inject constructor(
                     postId = post.id,
                     text = message.trim(),
                 )
-            } catch (_: Exception) {
-                ToastManager.show(context.getString(R.string.feed_toast_failed_send_post))
+            } catch (error: Exception) {
+                fm.corus.android.ui.screens.messaging.showDmSendError(context, error, fm.corus.android.R.string.feed_toast_failed_send_post)
             }
         }
     }

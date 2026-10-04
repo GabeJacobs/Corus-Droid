@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="dm_new_recipient_limit">"你已达到今天向新用户发送消息的上限。请在%1$s之后重试。你仍然可以使用现有聊天并回复消息。"</string>
+    <string name="dm_outreach_restricted">"发送未经请求的消息暂时受限，直到%1$s。你仍然可以回复消息。如果你认为这是误判，请联系help@corus.fm。"</string>
+</resources>

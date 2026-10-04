@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicLong
 object ToastManager {
     sealed class Event {
         abstract val id: Long
-        data class Show(override val id: Long, val text: String, val isLoading: Boolean) : Event()
+        data class Show(override val id: Long, val text: String, val isLoading: Boolean, val durationMs: Long = 2000) : Event()
         data class Update(override val id: Long, val text: String) : Event()
         data class Dismiss(override val id: Long) : Event()
     }
@@ -43,9 +43,9 @@ object ToastManager {
 
     private val nextId = AtomicLong(0)
 
-    fun show(message: String): Long {
+    fun show(message: String, durationMs: Long = 2000): Long {
         val id = nextId.incrementAndGet()
-        _events.tryEmit(Event.Show(id, message, isLoading = false))
+        _events.tryEmit(Event.Show(id, message, isLoading = false, durationMs = durationMs))
         return id
     }
 
@@ -64,7 +64,7 @@ object ToastManager {
     }
 }
 
-private data class DisplayedToast(val id: Long, val text: String, val isLoading: Boolean)
+private data class DisplayedToast(val id: Long, val text: String, val isLoading: Boolean, val durationMs: Long = 2000)
 
 /**
  * Host for [ToastManager] messages. Uses a [Popup] so the capsule renders above
@@ -82,7 +82,7 @@ fun ToastHost(
         ToastManager.events.collect { event ->
             when (event) {
                 is ToastManager.Event.Show -> {
-                    current = DisplayedToast(event.id, event.text, event.isLoading)
+                    current = DisplayedToast(event.id, event.text, event.isLoading, event.durationMs)
                     visible = true
                 }
                 is ToastManager.Event.Update -> {
@@ -102,7 +102,7 @@ fun ToastHost(
     LaunchedEffect(toast?.id, toast?.isLoading, toast?.text) {
         if (toast != null && !toast.isLoading && visible) {
             // Match the app's top confirmation toasts: enough time to read a short message.
-            delay(2000)
+            delay(toast.durationMs)
             visible = false
             delay(300) // wait for exit animation
             if (current?.id == toast.id) current = null
