@@ -107,6 +107,9 @@ class RemoteConfigService @Inject constructor(
             flagCache.getString(key, value.asString()) ?: value.asString()
         }
     }
+    val forYouDefaultMode: fm.corus.android.domain.ForYouTuningMode
+        get() = fm.corus.android.domain.ForYouTuningMode.configured(feedString("for_you_default_mode"))
+
     // Existing flags
     val movieModeEnabled: Boolean
         get() = remoteConfig.getBoolean("movie_mode")
@@ -742,6 +745,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("feed_decade_filter_enabled", remoteConfig.getBoolean("feed_decade_filter_enabled"))
             .putBoolean("email_otp_auth_enabled", remoteConfig.getBoolean("email_otp_auth_enabled"))
             .putString("feed_mode_order", remoteConfig.getString("feed_mode_order"))
+            .putString("for_you_default_mode", remoteConfig.getString("for_you_default_mode"))
             .putBoolean("feed_mode_tabs_enabled", remoteConfig.getBoolean("feed_mode_tabs_enabled"))
             .apply()
     }
@@ -841,6 +845,7 @@ class RemoteConfigService @Inject constructor(
             "favorites_push_enabled" to true,
             "play_milestone_enabled" to false,
             "taste_matches_enabled" to false,
+            "for_you_default_mode" to "balanced",
             "taste_matches_tester" to false,
             "taste_matches_free_trial" to false,
             // Default FALSE in code — the server template currently sends true;

@@ -217,6 +217,10 @@ fun FeedScreen(
     val isResolvingSpotify by viewModel.nowPlayingManager.isResolvingSpotifyFlow.collectAsState()
     val feedFollowsNowPlaying by viewModel.feedFollowsNowPlaying.collectAsState()
     val feedMode by viewModel.feedMode.collectAsState()
+    val prototypeState by viewModel.forYouPrototype.state.collectAsState()
+    val prototypeEnabled = viewModel.forYouPrototype.isAvailable
+    val usesForYouPrototype = prototypeEnabled && feedMode == "tasteMatches"
+    var showForYouTuning by remember(prototypeState.uid) { mutableStateOf(false) }
     val feedDecade: Int? = viewModel.appliedFeedDecade.collectAsState().value
     val showDecadeFilter = viewModel.isDecadeFilterVisible(feedMode)
     val energyConfigRevision by viewModel.remoteConfig.revision.collectAsState()
@@ -240,7 +244,7 @@ fun FeedScreen(
     val trendingFeedEnabled = viewModel.remoteConfig.trendingFeedEnabled
     val favoritesEnabled = viewModel.remoteConfig.favoritesEnabled
     val tasteMatchesAvailable =
-        viewModel.remoteConfig.tasteMatchesEnabled || viewModel.remoteConfig.tasteMatchesTester
+        viewModel.remoteConfig.tasteMatchesEnabled || viewModel.remoteConfig.tasteMatchesTester || prototypeEnabled
     val feedModeOrder = viewModel.remoteConfig.feedModeOrder
     val feedSwitchHintVisible by viewModel.feedSwitchHintVisible.collectAsState()
     // Evaluate the one-time feed-switch hint once the feed has loaded and the
@@ -255,8 +259,9 @@ fun FeedScreen(
         favoritesEnabled = favoritesEnabled,
         favoritesCount = favoritesCount,
         favoritesUnlocked = favoritesTabUnlocked,
+        prototypeEnabled = prototypeEnabled,
     )
-    val feedModeTabsVisible = viewModel.remoteConfig.feedModeTabsEnabled &&
+    val feedModeTabsVisible = (viewModel.remoteConfig.feedModeTabsEnabled || prototypeEnabled) &&
         modeSwitcherEnabled &&
         tabBarModes.size > 1
     LaunchedEffect(hasLoaded, modeSwitcherEnabled, feedModeTabsVisible) {
@@ -332,13 +337,15 @@ fun FeedScreen(
     // trial (or preview) ends. Only on the served (un-gated) feed, never for
     // a full-access viewer — expiry itself falls back to the existing
     // gated:"paywall" empty state above. Mirrors iOS/web.
+    val isStayCloseTrial = viewModel.forYouPrototype.isAvailable && prototypeState.mode == fm.corus.android.domain.ForYouTuningMode.STAY_CLOSE
     val showTasteMatchesTrialBanner = feedMode == "tasteMatches" &&
+        (!viewModel.forYouPrototype.isAvailable || isStayCloseTrial) &&
         tasteMatchesGate == null &&
         posts.isNotEmpty() &&
         tasteMatchesTrial != null &&
         !hasFullAccess
     LaunchedEffect(showTasteMatchesTrialBanner, tasteMatchesTrial?.phase) {
-        if (showTasteMatchesTrialBanner) {
+        if (showTasteMatchesTrialBanner && !isStayCloseTrial) {
             val t = tasteMatchesTrial!!
             viewModel.analyticsService.logTasteMatchesBannerShown(
                 t.phase, t.daysRemaining, t.postCount,
@@ -486,7 +493,7 @@ fun FeedScreen(
         // so this spacer is only for the in-list header.
         if (immersive && !feedModeTabsVisible) Spacer(Modifier.height(frost.statusBarPadding))
         FeedHeader(
-            showPlaylistButton = feedMediaFilter != MediaType.MOVIE,
+            showPlaylistButton = feedMediaFilter != MediaType.MOVIE && !usesForYouPrototype,
             playlistReady = posts.isNotEmpty() &&
                 tasteMatchesGate !is FeedViewModel.TasteMatchesGate.Paywall,
             isGeneratingPlaylist = isGeneratingPlaylist,
@@ -554,6 +561,20 @@ fun FeedScreen(
     // then animates the pager home — a Following ↔ Matches loop.
     val pagerFeedMode = rememberUpdatedState(feedMode)
     val pagerTabModes = rememberUpdatedState(tabBarModes)
+    // Only the settled, visible page records impressions. Prefetched/offscreen
+    // rows never enter local history; all modes share the same account key.
+    LaunchedEffect(listState, feedMode, pagerState.settledPage) {
+        if (feedMode != "tasteMatches" || (feedModeTabsVisible && tabBarModes.getOrNull(pagerState.settledPage) != feedMode)) return@LaunchedEffect
+        snapshotFlow {
+            val layout = listState.layoutInfo
+            layout.visibleItemsInfo.filter { item ->
+                val visible = (minOf(item.offset + item.size, layout.viewportEndOffset) -
+                    maxOf(item.offset, layout.viewportStartOffset)).coerceAtLeast(0)
+                item.contentType == "post_card" && item.size > 0 && visible.toFloat() / item.size >= .5f
+            }.mapNotNull { it.key as? String }
+        }.collect { viewModel.recordVisibleForYouPosts(it) }
+    }
+
     LaunchedEffect(feedMode, tabBarModes, feedModeTabsVisible) {
         if (!feedModeTabsVisible) return@LaunchedEffect
         val index = tabBarModes.indexOf(feedMode)
@@ -1235,6 +1256,7 @@ fun FeedScreen(
                         item(key = "taste_matches_trial_banner", contentType = "taste_matches_trial_banner") {
                             TasteMatchesTrialBanner(
                                 onClick = { viewModel.onTasteMatchesBannerTapped() },
+                                stayCloseDays = if (isStayCloseTrial) tasteMatchesTrial?.daysRemaining else null,
                             )
                         }
                     }
@@ -1473,7 +1495,7 @@ fun FeedScreen(
 
     fun refreshFeed() {
         haptics.impact(HapticManager.ImpactStyle.LIGHT)
-        viewModel.loadFeed(refresh = true)
+        viewModel.loadFeed(refresh = true, explicitRefresh = true)
     }
 
     @Composable
@@ -1560,6 +1582,14 @@ fun FeedScreen(
                     modes = tabBarModes,
                     selected = feedMode,
                     pagerOffset = pagerOffset,
+                    prototypeEnabled = prototypeEnabled,
+                    tuningMode = prototypeState.mode,
+                    onTune = {
+                        haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                        chromeCollapse.reveal()
+                        viewModel.setFeedMode("tasteMatches")
+                        showForYouTuning = true
+                    },
                     onSelect = { mode ->
                         haptics.impact(HapticManager.ImpactStyle.LIGHT)
                         chromeCollapse.reveal()
@@ -1579,6 +1609,7 @@ fun FeedScreen(
                         }
                     },
                 )
+
             }
         }
     } else {
@@ -1639,6 +1670,30 @@ fun FeedScreen(
                 label = stringResource(R.string.feed_energy_got_it),
                 onClick = { viewModel.dismissEnergyIntroduction() },
             )),
+        )
+    }
+
+    LaunchedEffect(prototypeState.uid, usesForYouPrototype, isAtRoot, showClubOffer, showEnergyIntroduction, sharePost, giftPost, menuPost) {
+        if (usesForYouPrototype && isAtRoot && !showClubOffer && !showEnergyIntroduction &&
+            sharePost == null && giftPost == null && menuPost == null &&
+            viewModel.forYouPrototype.needsIntroduction) {
+            showForYouTuning = true
+        }
+    }
+    if (showForYouTuning && prototypeEnabled) {
+        LaunchedEffect(prototypeState.uid) {
+            viewModel.forYouPrototype.markIntroductionShown()
+            viewModel.forYouPrototype.refreshStayCloseProgress()
+        }
+        ForYouTuningSheet(
+            current = prototypeState.mode, defaultMode = prototypeState.defaultMode,
+            onApply = { viewModel.applyForYouTuning(it); chromeCollapse.reveal() },
+            onDismiss = { showForYouTuning = false },
+            progress = prototypeState.stayCloseProgress,
+            onClub = {
+                clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.STAY_CLOSE
+                showClubOffer = true
+            },
         )
     }
 
@@ -1717,6 +1772,10 @@ fun FeedScreen(
                     // then paid expects to land in that feed with the banner
                     // gone, not back where they were. Other sources keep the
                     // default behavior (stay put).
+                    if (clubOfferSource == fm.corus.android.ui.screens.subscription.PaywallSource.STAY_CLOSE ||
+                        clubOfferSource == fm.corus.android.ui.screens.subscription.PaywallSource.STAY_CLOSE_BANNER) {
+                        viewModel.onStayClosePurchased()
+                    }
                     if (clubOfferSource == fm.corus.android.ui.screens.subscription.PaywallSource.TASTE_MATCHES ||
                         clubOfferSource == fm.corus.android.ui.screens.subscription.PaywallSource.TASTE_MATCHES_BANNER
                     ) {
@@ -2336,8 +2395,8 @@ private fun TasteMatchesNoMatchesYet(onPost: () -> Unit) {
  * Tapping opens the Club paywall; the server handles trial expiry.
  */
 @Composable
-private fun TasteMatchesTrialBanner(onClick: () -> Unit) {
-    val text = stringResource(R.string.feed_taste_matches_trial_banner_preview)
+private fun TasteMatchesTrialBanner(onClick: () -> Unit, stayCloseDays: Int? = null) {
+    val text = if (stayCloseDays != null) "Corus Club" else stringResource(R.string.feed_taste_matches_trial_banner_preview)
     // Full-bleed square strip (no rounded corners) — matches iOS/web.
     Column(
         modifier = Modifier
@@ -2359,7 +2418,8 @@ private fun TasteMatchesTrialBanner(onClick: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
         ) {
             Text(
-                text = stringResource(R.string.settings_row_join_club),
+                text = if (stayCloseDays != null) stringResource(R.string.for_you_stay_close_trial_remaining, stayCloseDays)
+                    else stringResource(R.string.settings_row_join_club),
                 style = CorusFont.captionMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = Color.White,
             )

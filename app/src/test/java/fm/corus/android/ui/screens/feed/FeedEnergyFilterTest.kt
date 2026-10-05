@@ -111,7 +111,7 @@ class FeedEnergyFilterTest {
         wheneverBlocking {
             postRepository.getForYouFeed(
                 any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
-                energyLevel = anyOrNull(),
+                energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any(),
             )
         }.doReturn(CloudFunctionsDataSource.ForYouFeedPage(emptyList(), false, "tok", false))
     }
@@ -136,6 +136,9 @@ class FeedEnergyFilterTest {
         tmdbApiService = tmdbApiService,
         nowPlayingManager = nowPlayingManager,
         remoteConfig = remoteConfig,
+            forYouPrototype = org.mockito.kotlin.mock {
+                on { state } doReturn MutableStateFlow(fm.corus.android.domain.ForYouPrototypeState())
+            },
         analyticsService = analyticsService,
         postCreationEvent = postCreationEvent,
         postDeletionEvent = postDeletionEvent,
@@ -162,7 +165,7 @@ class FeedEnergyFilterTest {
         assertEquals(FeedFilter.MUSIC, viewModel.feedFilter.value)
         assertEquals(FeedEnergy.LOW, viewModel.feedEnergy.value)
         verifyBlocking(postRepository) {
-            getForYouFeed(any(), any(), anyOrNull(), any(), any(), eq(MediaType.TRACK), eq(false), eq("trending"), any(), eq(1990), eq("low"))
+            getForYouFeed(any(), any(), anyOrNull(), any(), any(), eq(MediaType.TRACK), eq(false), eq("trending"), any(), eq(1990), eq("low"), prototypeMode = anyOrNull(), viewedPostIds = any())
         }
         verify(analyticsService).logFeedEnergyFilterTapped("low", "trending")
         assertTrue(viewModel.showEnergyIntroduction.value)
@@ -198,7 +201,7 @@ class FeedEnergyFilterTest {
         assertNull(viewModel.feedEnergy.value)
         assertFalse(viewModel.showEnergyIntroduction.value)
         verifyBlocking(postRepository) {
-            getForYouFeed(any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(), isNull())
+            getForYouFeed(any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(), isNull(), prototypeMode = anyOrNull(), viewedPostIds = any())
         }
     }
 
@@ -216,7 +219,7 @@ class FeedEnergyFilterTest {
         assertNull(viewModel.feedEnergy.value)
         assertFalse(viewModel.showEnergyIntroduction.value)
         verifyBlocking(postRepository) {
-            getForYouFeed(any(), any(), anyOrNull(), any(), any(), eq(MediaType.TRACK), any(), any(), any(), anyOrNull(), isNull())
+            getForYouFeed(any(), any(), anyOrNull(), any(), any(), eq(MediaType.TRACK), any(), any(), any(), anyOrNull(), isNull(), prototypeMode = anyOrNull(), viewedPostIds = any())
         }
     }
 }

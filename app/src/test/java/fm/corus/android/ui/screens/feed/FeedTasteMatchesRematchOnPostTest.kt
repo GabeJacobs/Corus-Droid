@@ -127,7 +127,7 @@ class FeedTasteMatchesRematchOnPostTest {
         wheneverBlocking {
             postRepository.getForYouFeed(
                 any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
-                energyLevel = anyOrNull(),
+                energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any(),
             )
         }.doSuspendableAnswer {
             if (serving) {
@@ -160,6 +160,9 @@ class FeedTasteMatchesRematchOnPostTest {
         tmdbApiService = tmdbApiService,
         nowPlayingManager = nowPlayingManager,
         remoteConfig = remoteConfig,
+            forYouPrototype = org.mockito.kotlin.mock {
+                on { state } doReturn MutableStateFlow(fm.corus.android.domain.ForYouPrototypeState())
+            },
         analyticsService = analyticsService,
         postCreationEvent = postCreationEvent,
         postDeletionEvent = postDeletionEvent,

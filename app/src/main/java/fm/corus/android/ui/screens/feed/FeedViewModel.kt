@@ -193,6 +193,7 @@ class FeedViewModel @Inject constructor(
     val feedScrollRouter: fm.corus.android.domain.FeedScrollRouter,
     val musicServicePreference: fm.corus.android.domain.MusicServicePreference,
     override val remoteConfig: RemoteConfigService,
+    val forYouPrototype: fm.corus.android.service.ForYouPrototypeStore,
     override val analyticsService: AnalyticsService,
     private val feedSwitchHintManager: FeedSwitchHintManager,
     private val postCreationEvent: PostCreationEvent,
@@ -362,8 +363,12 @@ class FeedViewModel @Inject constructor(
      *  paywall so the funnels stay separable. */
     fun onTasteMatchesBannerTapped() {
         val trial = _tasteMatchesTrial.value ?: return
-        analyticsService.logTasteMatchesBannerTapped(trial.phase, trial.daysRemaining)
-        _tasteMatchesPaywall.value = PaywallSource.TASTE_MATCHES_BANNER
+        if (forYouPrototype.isAvailable && forYouPrototype.state.value.mode == fm.corus.android.domain.ForYouTuningMode.STAY_CLOSE) {
+            _tasteMatchesPaywall.value = PaywallSource.STAY_CLOSE_BANNER
+        } else {
+            analyticsService.logTasteMatchesBannerTapped(trial.phase, trial.daysRemaining)
+            _tasteMatchesPaywall.value = PaywallSource.TASTE_MATCHES_BANNER
+        }
     }
 
     /** Cover art for the cold-start seed slots: already-counted posts (fetched)
@@ -407,7 +412,7 @@ class FeedViewModel @Inject constructor(
     /** Taste Matches is available when the RC master switch is on OR the viewer
      *  is a comped internal tester. Mirrors iOS `tasteMatchesAvailable`. */
     private val tasteMatchesAvailable: Boolean
-        get() = remoteConfig.tasteMatchesEnabled || remoteConfig.tasteMatchesTester
+        get() = remoteConfig.tasteMatchesEnabled || remoteConfig.tasteMatchesTester || forYouPrototype.isAvailable
 
     private fun resolveFeedMode(
         stored: String,
@@ -433,7 +438,7 @@ class FeedViewModel @Inject constructor(
             "trending" -> if (remoteConfig.trendingFeedEnabled) "trending" else "following"
             "favorites" -> {
                 if (!remoteConfig.favoritesEnabled) "following"
-                else if (remoteConfig.feedModeTabsEnabled &&
+                else if ((remoteConfig.feedModeTabsEnabled || forYouPrototype.isAvailable) &&
                     !fm.corus.android.domain.FavoritesTabGate.showsTab(
                         featureEnabled = true,
                         count = favoritesCount,
@@ -450,7 +455,9 @@ class FeedViewModel @Inject constructor(
         preferencesDataStore.feedMode,
         favoritesCount,
         favoritesTabUnlocked,
-    ) { stored, count, unlocked -> resolveFeedMode(stored, count, unlocked) }
+        forYouPrototype.state,
+        remoteConfig.revision,
+    ) { stored, count, unlocked, _, _ -> resolveFeedMode(stored, count, unlocked) }
         // Seed from the synchronous mirror so the header icon is correct on the
         // first frame instead of flashing Following before DataStore resolves.
         // For an existing install that hasn't mirrored yet the seed reads ""
@@ -493,7 +500,10 @@ class FeedViewModel @Inject constructor(
 
     private fun feedRequestSignature(mode: String = feedMode.value): String {
         val decade = decadeApplicableTo(mode, _feedDecade.value) ?: 0
-        return "$mode|${_feedFilter.value.name}|$decade|${effectiveFeedEnergy()?.value.orEmpty()}"
+        val base = "$mode|${_feedFilter.value.name}|$decade|${effectiveFeedEnergy()?.value.orEmpty()}"
+        return if (mode == "tasteMatches" && forYouPrototype.isAvailable) {
+            "$base|prototype.${forYouPrototype.state.value.uid}.${forYouPrototype.state.value.mode.value}"
+        } else base
     }
 
     private fun applyFeedSignatureChange(from: String, to: String) {
@@ -733,6 +743,14 @@ class FeedViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            forYouPrototype.state.collect {
+                val next = feedRequestSignature()
+                if (appliedFeedSignature.isNotEmpty() && appliedFeedSignature != next) {
+                    applyFeedSignatureChange(appliedFeedSignature, next)
+                }
+            }
+        }
+        viewModelScope.launch {
             remoteConfig.revision.collect {
                 val next = feedRequestSignature()
                 if (appliedFeedSignature.isNotEmpty() && appliedFeedSignature != next) {
@@ -832,6 +850,7 @@ class FeedViewModel @Inject constructor(
         // wasted work and would misleadingly jump the post to the top.
         viewModelScope.launch {
             postCreationEvent.events.collect {
+                launch { forYouPrototype.refreshStayCloseProgress() }
                 if (feedMode.value == "following") {
                     delay(500) // brief delay for Firestore propagation
                     loadFeed(refresh = true)
@@ -853,6 +872,7 @@ class FeedViewModel @Inject constructor(
         }
         viewModelScope.launch {
             postDeletionEvent.events.collect { deletedId ->
+                launch { forYouPrototype.refreshStayCloseProgress() }
                 _posts.value = _posts.value.filter { it.id != deletedId }
                 // On the Taste Matches cold-start a delete changes your post count
                 // — reconcile with the server so the meter and slot art drop the
@@ -908,8 +928,8 @@ class FeedViewModel @Inject constructor(
         }
     }
 
-    fun loadFeed(refresh: Boolean = false) {
-        viewModelScope.launch { loadFeedSuspending(refresh) }
+    fun loadFeed(refresh: Boolean = false, explicitRefresh: Boolean = false) {
+        viewModelScope.launch { loadFeedSuspending(refresh, explicitRefresh = explicitRefresh) }
     }
 
     /**
@@ -918,6 +938,13 @@ class FeedViewModel @Inject constructor(
      * painting the error panel the user then has to Retry.
      */
     private var feedVisible = false
+
+    fun recordVisibleForYouPosts(ids: List<String>) {
+        val uid = authRepository.currentUserId ?: return
+        if (feedVisible && feedMode.value == "tasteMatches" && forYouPrototype.isAvailable) {
+            forYouPrototype.recordViewedPostIds(ids, uid)
+        }
+    }
 
     fun onFeedStarted() {
         feedVisible = true
@@ -946,6 +973,7 @@ class FeedViewModel @Inject constructor(
         refresh: Boolean,
         attempt: Int = 0,
         retryWave: Int = 0,
+        explicitRefresh: Boolean = false,
     ) {
         val userId = authRepository.currentUserId ?: return
 
@@ -969,6 +997,7 @@ class FeedViewModel @Inject constructor(
         val requestedEnergy = effectiveFeedEnergy()
         val mode = feedMode.value
         lastLoadedMode = mode
+        val prototypeMode = if (mode == "tasteMatches" && forYouPrototype.isAvailable) forYouPrototype.state.value.mode else null
         val useRanked = mode == "trending" || mode == "tasteMatches"
         val useFavorites = mode == "favorites"
         val rankedScope = when (mode) {
@@ -1004,16 +1033,22 @@ class FeedViewModel @Inject constructor(
                     pageSize = 7,
                     sessionToken = forYouSessionToken,
                     pageIndex = nextIndex,
-                    seenPostIds = forYouSeenIds.toList(),
+                    seenPostIds = if (prototypeMode != null) emptyList() else forYouSeenIds.toList(),
                     mediaType = _feedFilter.value.mediaType,
                     newReleasesOnly = _feedFilter.value.newReleasesOnly,
                     energyLevel = requestedEnergy?.value,
                     scope = rankedScope,
                     // Pull-to-refresh (refresh=true) → boost recency so the
                     // newest posts lead. First load / pagination doesn't.
-                    isRefresh = refresh,
+                    isRefresh = if (prototypeMode != null) explicitRefresh else refresh,
                     releaseDecade = decadeApplicableTo(mode, _feedDecade.value),
+                    prototypeMode = prototypeMode,
+                    viewedPostIds = if (prototypeMode != null) forYouPrototype.viewedPostIds(userId) else emptyList(),
                 )
+                if (prototypeMode != null && feedRequestSignature() == requestSignature) {
+                    forYouPrototype.updateStayCloseProgress(forYouPage.stayCloseProgress, userId)
+                    if (forYouPage.gated == "stayCloseLocked" || forYouPage.gated == "stayClosePaywall") return
+                }
                 // Superseded-mode guard for the RANKED branch. Every write below
                 // (gate, session token, page index, seen-IDs) mutates state that
                 // is SHARED across the ranked modes. If the user switched away
@@ -1073,21 +1108,23 @@ class FeedViewModel @Inject constructor(
                 pageHasMore = forYouPage.hasMore
                 // The served Taste Matches feed loaded (gated == null guaranteed —
                 // the gated branch returned above) with posts. Log once per session.
-                if (mode == "tasteMatches" && !loggedTasteMatchesFeedViewed && newPosts.isNotEmpty()) {
+                if (prototypeMode == null && mode == "tasteMatches" && !loggedTasteMatchesFeedViewed && newPosts.isNotEmpty()) {
                     loggedTasteMatchesFeedViewed = true
                     analyticsService.logTasteMatchesFeedViewed(newPosts.size)
                 }
-                // Update seen-IDs ring buffer (cap 500).
-                for (p in newPosts) {
-                    if (!forYouSeenIds.contains(p.id)) forYouSeenIds.add(p.id)
-                }
-                if (forYouSeenIds.size > 500) {
-                    forYouSeenIds = forYouSeenIds.takeLast(500).toMutableList()
-                }
-                viewModelScope.launch {
-                    runCatching {
-                        val json = org.json.JSONArray(forYouSeenIds).toString()
-                        preferencesDataStore.setForYouSeenIdsJson(json)
+                if (prototypeMode == null) {
+                    // Update seen-IDs ring buffer (cap 500).
+                    for (p in newPosts) {
+                        if (!forYouSeenIds.contains(p.id)) forYouSeenIds.add(p.id)
+                    }
+                    if (forYouSeenIds.size > 500) {
+                        forYouSeenIds = forYouSeenIds.takeLast(500).toMutableList()
+                    }
+                    viewModelScope.launch {
+                        runCatching {
+                            val json = org.json.JSONArray(forYouSeenIds).toString()
+                            preferencesDataStore.setForYouSeenIdsJson(json)
+                        }
                     }
                 }
                 _forYouLoadFailed.value = false
@@ -1332,7 +1369,7 @@ class FeedViewModel @Inject constructor(
         // the paywall, not the feed — UNLESS the free-trial RC is on, in which
         // case they enter the mode (server enforces the trial-expiry backstop
         // via the gated:"paywall" response). Mirrors iOS.
-        if (mode == "tasteMatches") {
+        if (mode == "tasteMatches" && !forYouPrototype.isAvailable) {
             val hasAccess = subscriptionRepository.hasFullAccess || remoteConfig.tasteMatchesTester
             val freeTrial = remoteConfig.tasteMatchesFreeTrial
             // Log the tap before the gate so the funnel captures every access tier.
@@ -1362,6 +1399,34 @@ class FeedViewModel @Inject constructor(
      * [setFeedMode]'s premium gate passes because the repository flips
      * hasFullAccess before reporting purchase success.
      */
+    fun applyForYouTuning(mode: fm.corus.android.domain.ForYouTuningMode) {
+        if (!forYouPrototype.isAvailable) return
+        if (mode == fm.corus.android.domain.ForYouTuningMode.STAY_CLOSE &&
+            forYouPrototype.state.value.stayCloseProgress?.canAccess != true) return
+        forYouPrototype.select(mode)
+        val signature = feedRequestSignature("tasteMatches")
+        feedPageCache.remove(signature)
+        feedPageExpiryJobs.remove(signature)?.cancel()
+        _pageCacheRevision.value += 1
+        if (feedMode.value == "tasteMatches") {
+            // Applying even the same choice starts a fresh experimental session.
+            appliedFeedSignature = signature
+            forYouSessionToken = null
+            forYouPageIndex = 0
+            _posts.value = emptyList()
+            loadFeed(refresh = true)
+        } else setFeedMode("tasteMatches")
+    }
+
+    fun onStayClosePaywallRequested() { _tasteMatchesPaywall.value = PaywallSource.STAY_CLOSE }
+
+    fun onStayClosePurchased() {
+        viewModelScope.launch {
+            forYouPrototype.refreshStayCloseProgress()
+            applyForYouTuning(fm.corus.android.domain.ForYouTuningMode.STAY_CLOSE)
+        }
+    }
+
     fun onTasteMatchesUnlocked() {
         if (feedMode.value == "tasteMatches") {
             loadFeed(refresh = true)
@@ -1534,6 +1599,7 @@ class FeedViewModel @Inject constructor(
     }
 
     fun generateFeedPlaylist() {
+        if (feedMode.value == "tasteMatches" && forYouPrototype.isAvailable) return
         analyticsService.logFeedPlaylistTapped()
         // Build the playlist from whichever feed is on screen, and (for the
         // ranked modes — Trending AND Taste Matches) from the exact ranked

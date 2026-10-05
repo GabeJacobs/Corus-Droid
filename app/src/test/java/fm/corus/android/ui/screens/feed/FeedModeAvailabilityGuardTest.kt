@@ -123,6 +123,9 @@ class FeedModeAvailabilityGuardTest {
             tmdbApiService = tmdbApiService,
             nowPlayingManager = nowPlayingManager,
             remoteConfig = remoteConfig,
+            forYouPrototype = org.mockito.kotlin.mock {
+                on { state } doReturn MutableStateFlow(fm.corus.android.domain.ForYouPrototypeState())
+            },
             analyticsService = analyticsService,
             postCreationEvent = postCreationEvent,
             postDeletionEvent = postDeletionEvent,

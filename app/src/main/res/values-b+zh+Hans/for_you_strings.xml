@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="for_you_title">你的专属混合</string>
+    <string name="for_you_tune">调整你的动态</string>
+    <string name="for_you_choose">选择如何调整你的为你推荐动态：</string>
+    <string name="for_you_eclectic">多元</string>
+    <string name="for_you_balanced">均衡</string>
+    <string name="for_you_stay_close">贴近喜好</string>
+    <string name="for_you_eclectic_description">来自与你品味相近的用户，涵盖丰富的风格和类型</string>
+    <string name="for_you_balanced_description">为你的品味量身推荐，同时保持多元。</string>
+    <string name="for_you_stay_close_description">更多你喜欢的内容，更少意外。</string>
+    <string name="for_you_posting_hint">你发布得越多，为你推荐就越了解你的品味。</string>
+    <string name="for_you_default">默认</string>
+    <string name="for_you_apply">应用</string>
+    <string name="for_you_close">关闭</string>
+    <string name="for_you_stay_close_locked">分享5首歌曲或部电影，即可解锁贴近喜好。</string>
+    <string name="for_you_post_progress">已分享%1$d/%2$d条帖子</string>
+    <string name="for_you_unlock_title">解锁贴近喜好</string>
+    <string name="for_you_locked">未解锁</string>
+    <string name="for_you_stay_close_club_locked">"加入Corus Club，解锁贴近喜好。"</string>
+    <string name="for_you_stay_close_club_subtitle">"加入Corus Club，继续使用贴近喜好动态。"</string>
+    <string name="for_you_stay_close_trial_offer">"免费体验7天，之后需加入Corus Club。"</string>
+    <string name="for_you_stay_close_trial_remaining">"贴近喜好免费体验剩余天数：%1$d"</string>
+</resources>

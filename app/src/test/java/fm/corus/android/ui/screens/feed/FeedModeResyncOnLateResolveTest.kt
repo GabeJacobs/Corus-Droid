@@ -130,6 +130,9 @@ class FeedModeResyncOnLateResolveTest {
         tmdbApiService = tmdbApiService,
         nowPlayingManager = nowPlayingManager,
         remoteConfig = remoteConfig,
+            forYouPrototype = org.mockito.kotlin.mock {
+                on { state } doReturn MutableStateFlow(fm.corus.android.domain.ForYouPrototypeState())
+            },
         analyticsService = analyticsService,
         postCreationEvent = postCreationEvent,
         postDeletionEvent = postDeletionEvent,
@@ -155,8 +158,8 @@ class FeedModeResyncOnLateResolveTest {
             wheneverBlocking {
                 postRepository.getForYouFeed(
                     any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
-                    energyLevel = anyOrNull(),
-                )
+                    energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any(),
+            )
             }.doReturn(CloudFunctionsDataSource.ForYouFeedPage(emptyList(), false, "tok", false))
 
             val viewModel = vm()
@@ -178,8 +181,7 @@ class FeedModeResyncOnLateResolveTest {
                 getForYouFeed(
                     any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(),
                     eq("trending"), any(), anyOrNull(),
-                    energyLevel = anyOrNull(),
-                )
+                    energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any())
             }
         }
 
@@ -190,8 +192,8 @@ class FeedModeResyncOnLateResolveTest {
             wheneverBlocking {
                 postRepository.getForYouFeed(
                     any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
-                    energyLevel = anyOrNull(),
-                )
+                    energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any(),
+            )
             }.doReturn(CloudFunctionsDataSource.ForYouFeedPage(emptyList(), false, "tok", false))
 
             // Persisted mode is already present before the screen loads.

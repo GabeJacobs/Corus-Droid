@@ -11,6 +11,18 @@ import org.junit.Test
  * Mirrors iOS `tabBarModes`.
  */
 class FeedModeTabsTest {
+    @Test
+    fun `prototype replaces Matches with For You second even when Matches flag is off`() {
+        assertEquals(listOf("following", "tasteMatches", "trending"), visibleFeedModeTabs(
+            trendingEnabled = true, tasteMatchesAvailable = false,
+            favoritesEnabled = false, favoritesCount = 0, prototypeEnabled = true,
+        ))
+        assertEquals(listOf("following", "trending"), visibleFeedModeTabs(
+            trendingEnabled = true, tasteMatchesAvailable = false,
+            favoritesEnabled = false, favoritesCount = 0, prototypeEnabled = false,
+        ))
+    }
+
 
     @Test
     fun `following always appears`() {

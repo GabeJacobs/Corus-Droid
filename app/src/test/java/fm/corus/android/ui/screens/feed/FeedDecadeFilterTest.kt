@@ -109,7 +109,7 @@ class FeedDecadeFilterTest {
         wheneverBlocking {
             postRepository.getForYouFeed(
                 any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
-                energyLevel = anyOrNull(),
+                energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any(),
             )
         }.doReturn(CloudFunctionsDataSource.ForYouFeedPage(emptyList(), false, "tok", false))
     }
@@ -134,6 +134,9 @@ class FeedDecadeFilterTest {
         tmdbApiService = tmdbApiService,
         nowPlayingManager = nowPlayingManager,
         remoteConfig = remoteConfig,
+            forYouPrototype = org.mockito.kotlin.mock {
+                on { state } doReturn MutableStateFlow(fm.corus.android.domain.ForYouPrototypeState())
+            },
         analyticsService = analyticsService,
         postCreationEvent = postCreationEvent,
         postDeletionEvent = postDeletionEvent,
@@ -171,8 +174,7 @@ class FeedDecadeFilterTest {
                     scope = eq("trending"),
                     isRefresh = any(),
                     releaseDecade = eq(1990),
-                    energyLevel = anyOrNull(),
-                )
+                    energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any())
             }
         }
 
@@ -194,8 +196,7 @@ class FeedDecadeFilterTest {
                 scope = eq("trending"),
                 isRefresh = any(),
                 releaseDecade = isNull(),
-                energyLevel = anyOrNull(),
-            )
+                energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any())
         }
     }
 
@@ -226,8 +227,7 @@ class FeedDecadeFilterTest {
                     scope = any(),
                     isRefresh = any(),
                     releaseDecade = eq(1990),
-                    energyLevel = anyOrNull(),
-                )
+                    energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any())
             }
         }
 
@@ -256,8 +256,7 @@ class FeedDecadeFilterTest {
                     scope = any(),
                     isRefresh = any(),
                     releaseDecade = eq(1990),
-                    energyLevel = anyOrNull(),
-                )
+                    energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any())
             }
         }
 
@@ -298,8 +297,7 @@ class FeedDecadeFilterTest {
                     scope = eq("trending"),
                     isRefresh = any(),
                     releaseDecade = eq(1990),
-                    energyLevel = anyOrNull(),
-                )
+                    energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any())
             }
             verifyBlocking(preferencesDataStore) { setFeedFilter(eq("MUSIC")) }
             verify(analyticsService, never()).logFeedFilterChanged(eq("music"))
@@ -329,8 +327,7 @@ class FeedDecadeFilterTest {
                 scope = eq("trending"),
                 isRefresh = any(),
                 releaseDecade = isNull(),
-                energyLevel = anyOrNull(),
-            )
+                energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any())
         }
     }
 
@@ -419,8 +416,7 @@ class FeedDecadeFilterTest {
                     scope = eq("trending"),
                     isRefresh = any(),
                     releaseDecade = isNull(),
-                    energyLevel = anyOrNull(),
-                )
+                    energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any())
             }
         }
 
@@ -447,8 +443,7 @@ class FeedDecadeFilterTest {
                     scope = eq("trending"),
                     isRefresh = any(),
                     releaseDecade = eq(1970),
-                    energyLevel = anyOrNull(),
-                )
+                    energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any())
             }
         }
 

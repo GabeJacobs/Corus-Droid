@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="for_you_title">Tu Mix</string>
+    <string name="for_you_tune">Ajusta tu feed</string>
+    <string name="for_you_choose">Elige cómo se ajusta tu feed Para ti:</string>
+    <string name="for_you_eclectic">Ecléctico</string>
+    <string name="for_you_balanced">Equilibrado</string>
+    <string name="for_you_stay_close">Más cercano</string>
+    <string name="for_you_eclectic_description">Una amplia variedad de estilos y géneros de personas con gustos similares</string>
+    <string name="for_you_balanced_description">Recomendaciones adaptadas a tus gustos, pero aún eclécticas.</string>
+    <string name="for_you_stay_close_description">Más de lo que te gusta, con menos sorpresas.</string>
+    <string name="for_you_posting_hint">Cuanto más publicas, mejor entiende Para ti tus gustos.</string>
+    <string name="for_you_default">Predeterminado</string>
+    <string name="for_you_apply">Aplicar</string>
+    <string name="for_you_close">Cerrar</string>
+    <string name="for_you_stay_close_locked">Comparte 5 canciones o películas para desbloquear Más cercano.</string>
+    <string name="for_you_post_progress">%1$d/%2$d publicaciones compartidas</string>
+    <string name="for_you_unlock_title">Desbloquea Más cercano</string>
+    <string name="for_you_locked">Bloqueado</string>
+    <string name="for_you_stay_close_club_locked">"Desbloquea Más cercano con Corus Club."</string>
+    <string name="for_you_stay_close_club_subtitle">"Sigue disfrutando de tu feed Más cercano con Corus Club."</string>
+    <string name="for_you_stay_close_trial_offer">"Prueba gratis durante 7 días; después, con Corus Club."</string>
+    <string name="for_you_stay_close_trial_remaining">"Días restantes para probar Más cercano: %1$d"</string>
+</resources>

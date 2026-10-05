@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="for_you_title">Ton Mix</string>
+    <string name="for_you_tune">Ajuster ton fil</string>
+    <string name="for_you_choose">Choisis comment ton fil Pour toi est personnalisé :</string>
+    <string name="for_you_eclectic">Éclectique</string>
+    <string name="for_you_balanced">Équilibré</string>
+    <string name="for_you_stay_close">Familier</string>
+    <string name="for_you_eclectic_description">Une grande variété de styles et de genres de personnes aux goûts similaires</string>
+    <string name="for_you_balanced_description">Des recommandations adaptées à tes goûts, tout en restant éclectiques.</string>
+    <string name="for_you_stay_close_description">Plus de ce que tu aimes, avec moins de surprises.</string>
+    <string name="for_you_posting_hint">Plus tu publies, mieux Pour toi comprend tes goûts.</string>
+    <string name="for_you_default">Par défaut</string>
+    <string name="for_you_apply">Appliquer</string>
+    <string name="for_you_close">Fermer</string>
+    <string name="for_you_stay_close_locked">Partage 5 chansons ou films pour débloquer Familier.</string>
+    <string name="for_you_post_progress">%1$d/%2$d publications partagées</string>
+    <string name="for_you_unlock_title">Débloque Familier</string>
+    <string name="for_you_locked">Verrouillé</string>
+    <string name="for_you_stay_close_club_locked">"Débloque Familier avec Corus Club."</string>
+    <string name="for_you_stay_close_club_subtitle">"Garde ton fil Familier avec Corus Club."</string>
+    <string name="for_you_stay_close_trial_offer">"Essai gratuit de 7 jours, puis avec Corus Club."</string>
+    <string name="for_you_stay_close_trial_remaining">"Jours restants pour essayer Familier : %1$d"</string>
+</resources>

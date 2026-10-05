@@ -1,5 +1,9 @@
 package fm.corus.android.ui.screens.feed
 
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -13,11 +17,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.ui.draw.alpha
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -26,12 +37,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,11 +77,14 @@ fun visibleFeedModeTabs(
     favoritesEnabled: Boolean,
     favoritesCount: Int,
     favoritesUnlocked: Boolean = false,
-): List<String> = FEED_MODE_TAB_ORDER.filter { mode ->
+    prototypeEnabled: Boolean = false,
+): List<String> = (if (prototypeEnabled) listOf(
+    FeedModeOrder.FOLLOWING, FeedModeOrder.TASTE_MATCHES, FeedModeOrder.TRENDING, FeedModeOrder.FAVORITES,
+) else FEED_MODE_TAB_ORDER).filter { mode ->
     when (mode) {
         FeedModeOrder.FOLLOWING -> true
         FeedModeOrder.TRENDING -> trendingEnabled
-        FeedModeOrder.TASTE_MATCHES -> tasteMatchesAvailable
+        FeedModeOrder.TASTE_MATCHES -> tasteMatchesAvailable || prototypeEnabled
         FeedModeOrder.FAVORITES ->
             fm.corus.android.domain.FavoritesTabGate.showsTab(
                 featureEnabled = favoritesEnabled,
@@ -132,19 +150,74 @@ fun FeedModeTabBar(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
     showDivider: Boolean = true,
+    prototypeEnabled: Boolean = false,
+    tuningMode: fm.corus.android.domain.ForYouTuningMode = fm.corus.android.domain.ForYouTuningMode.BALANCED,
+    onTune: (() -> Unit)? = null,
 ) {
+    val reduceMotion = if (prototypeEnabled) rememberControlsReduceMotion() else false
     val labels = ArrayList<String>(modes.size)
     for (mode in modes) {
-        labels.add(feedModeTabLabel(mode))
+        labels.add(if (prototypeEnabled && mode == FeedModeOrder.TASTE_MATCHES) stringResource(R.string.for_you_title) else feedModeTabLabel(mode))
     }
     ModeTabBar(
         labels = labels,
         selectedIndex = modes.indexOf(selected).coerceAtLeast(0),
         pagerOffset = pagerOffset,
-        onSelect = { index -> modes.getOrNull(index)?.let(onSelect) },
+        onSelect = { index ->
+            modes.getOrNull(index)?.let { mode ->
+                if (prototypeEnabled && mode == FeedModeOrder.TASTE_MATCHES && selected == mode && onTune != null) {
+                    onTune()
+                } else {
+                    onSelect(mode)
+                }
+            }
+        },
         modifier = modifier,
         showDivider = showDivider,
+        tabAccessory = { index, activation, isSelected ->
+            if (prototypeEnabled && modes[index] == FeedModeOrder.TASTE_MATCHES && onTune != null) {
+                val controlsActivation = if (reduceMotion) { if (isSelected) 1f else 0f } else activation
+                val description = stringResource(R.string.for_you_tune) + ": " + stringResource(tuningMode.titleResource)
+                Box(
+                    Modifier.width(28.dp * controlsActivation).height(22.dp)
+                        .clipToBounds().alpha(controlsActivation)
+                        .then(if (isSelected) Modifier
+                            .clickable(role = Role.Button, onClick = onTune)
+                            .semantics { contentDescription = description }
+                        else Modifier.clearAndSetSemantics {}),
+                ) {
+                    // Keep the artwork fixed; release its slot with the pager,
+                    // clipping from the trailing edge like iOS's nested frames.
+                    Box(Modifier.wrapContentWidth(Alignment.Start, unbounded = true)
+                        .width(28.dp).height(22.dp), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.Tune, contentDescription = null,
+                            tint = CorusColors.Accent, modifier = Modifier.size(14.dp))
+                    }
+                }
+            }
+        },
+        horizontalPadding = if (prototypeEnabled) 14.dp else null,
     )
+}
+
+/** Android's Remove animations setting is the counterpart of iOS Reduce Motion. */
+@Composable
+private fun rememberControlsReduceMotion(): Boolean {
+    val resolver = LocalContext.current.contentResolver
+    fun read() = runCatching {
+        Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    }.getOrDefault(false)
+    var reduceMotion by remember(resolver) { mutableStateOf(read()) }
+    DisposableEffect(resolver) {
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) { reduceMotion = read() }
+        }
+        resolver.registerContentObserver(
+            Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE), false, observer,
+        )
+        onDispose { resolver.unregisterContentObserver(observer) }
+    }
+    return reduceMotion
 }
 
 /**
@@ -160,6 +233,8 @@ fun ModeTabBar(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
     showDivider: Boolean = true,
+    tabAccessory: (@Composable (Int, Float, Boolean) -> Unit)? = null,
+    horizontalPadding: androidx.compose.ui.unit.Dp? = null,
 ) {
     val frames = remember(labels) { mutableStateMapOf<Int, Rect>() }
     var barBounds by remember { mutableStateOf(Rect.Zero) }
@@ -183,7 +258,7 @@ fun ModeTabBar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = tabRowHorizontalPadding(labels.size))
+                .padding(horizontal = horizontalPadding ?: tabRowHorizontalPadding(labels.size))
                 .onGloballyPositioned { barBounds = it.boundsInWindow() },
         ) {
             Row(
@@ -210,21 +285,24 @@ fun ModeTabBar(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(TabLabelToUnderline),
                     ) {
-                        Text(
-                            text = label,
-                            style = CorusFont.custom(
-                                if (activation >= 0.5f) 800 else 500,
-                                TabLabelSizeSp,
-                            ),
-                            color = androidx.compose.ui.graphics.lerp(
-                                CorusColors.Secondary,
-                                CorusColors.Text,
-                                activation,
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Clip,
-                            softWrap = false,
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = label,
+                                style = CorusFont.custom(
+                                    if (activation >= 0.5f) 800 else 500,
+                                    TabLabelSizeSp,
+                                ),
+                                color = androidx.compose.ui.graphics.lerp(
+                                    CorusColors.Secondary,
+                                    CorusColors.Text,
+                                    activation,
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Clip,
+                                softWrap = false,
+                            )
+                            tabAccessory?.invoke(index, activation, isSelected)
+                        }
                         Box(
                             modifier = Modifier
                                 .height(TabUnderlineHeight)

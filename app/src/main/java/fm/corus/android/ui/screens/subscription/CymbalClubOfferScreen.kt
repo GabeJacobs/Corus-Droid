@@ -436,7 +436,7 @@ fun CymbalClubOfferScreen(
                 val subtitleText = if (source == PaywallSource.POST_LIMIT && trial != null)
                     context.getString(R.string.club_subtitle_post_limit_trial_format, trial)
                 else
-                    if (isOnboarding) stringResource(R.string.club_onboarding_subtitle) else source.subtitle
+                    if (isOnboarding) stringResource(R.string.club_onboarding_subtitle) else if (source == PaywallSource.STAY_CLOSE || source == PaywallSource.STAY_CLOSE_BANNER) stringResource(R.string.for_you_stay_close_club_subtitle) else source.subtitle
 
                 Text(
                     text = subtitleText,
@@ -902,6 +902,7 @@ fun CymbalClubOfferSheet(
                     context.getString(R.string.club_subtitle_post_limit_trial_format, trial)
                 source == PaywallSource.PLAYLIST_LIMIT && playlistTrialContext != null ->
                     playlistLimitSubtitle(playlistTrialContext)
+                source == PaywallSource.STAY_CLOSE || source == PaywallSource.STAY_CLOSE_BANNER -> stringResource(R.string.for_you_stay_close_club_subtitle)
                 else -> source.subtitle
             }
 

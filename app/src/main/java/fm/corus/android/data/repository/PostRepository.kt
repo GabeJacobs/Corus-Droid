@@ -66,10 +66,12 @@ class PostRepository @Inject constructor(
         isRefresh: Boolean = false,
         releaseDecade: Int? = null,
         energyLevel: String? = null,
+        prototypeMode: fm.corus.android.domain.ForYouTuningMode? = null,
+        viewedPostIds: List<String> = emptyList(),
     ): CloudFunctionsDataSource.ForYouFeedPage {
         return cloudFunctions.getForYouFeed(
             userId, pageSize, sessionToken, pageIndex, seenPostIds, mediaType, newReleasesOnly, scope, isRefresh,
-            releaseDecade, energyLevel,
+            releaseDecade, energyLevel, prototypeMode, viewedPostIds,
         ).also { cachePosts(it.posts) }
     }
 

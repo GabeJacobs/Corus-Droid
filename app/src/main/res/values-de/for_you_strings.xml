@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="for_you_title">Dein Mix</string>
+    <string name="for_you_tune">Feed anpassen</string>
+    <string name="for_you_choose">Wähle, wie dein Für-dich-Feed zusammengestellt wird:</string>
+    <string name="for_you_eclectic">Eklektisch</string>
+    <string name="for_you_balanced">Ausgewogen</string>
+    <string name="for_you_stay_close">Vertraut</string>
+    <string name="for_you_eclectic_description">Viele Stile und Genres von Menschen mit ähnlichem Geschmack</string>
+    <string name="for_you_balanced_description">Empfehlungen passend zu deinem Geschmack, aber weiterhin vielfältig.</string>
+    <string name="for_you_stay_close_description">Mehr von dem, was du magst, mit weniger Überraschungen.</string>
+    <string name="for_you_posting_hint">Je mehr du postest, desto besser versteht Für dich deinen Geschmack.</string>
+    <string name="for_you_default">Standard</string>
+    <string name="for_you_apply">Anwenden</string>
+    <string name="for_you_close">Schließen</string>
+    <string name="for_you_stay_close_locked">Teile 5 Songs oder Filme, um Vertraut freizuschalten.</string>
+    <string name="for_you_post_progress">%1$d/%2$d Beiträge geteilt</string>
+    <string name="for_you_unlock_title">Vertraut freischalten</string>
+    <string name="for_you_locked">Gesperrt</string>
+    <string name="for_you_stay_close_club_locked">"Schalte Vertraut mit Corus Club frei."</string>
+    <string name="for_you_stay_close_club_subtitle">"Behalte deinen Vertraut-Feed mit Corus Club."</string>
+    <string name="for_you_stay_close_trial_offer">"7 Tage kostenlos ausprobieren, danach mit Corus Club."</string>
+    <string name="for_you_stay_close_trial_remaining">"Verbleibende Tage zum Ausprobieren von Vertraut: %1$d"</string>
+</resources>

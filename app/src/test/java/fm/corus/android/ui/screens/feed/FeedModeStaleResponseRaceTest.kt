@@ -134,6 +134,9 @@ class FeedModeStaleResponseRaceTest {
         tmdbApiService = tmdbApiService,
         nowPlayingManager = nowPlayingManager,
         remoteConfig = remoteConfig,
+            forYouPrototype = org.mockito.kotlin.mock {
+                on { state } doReturn MutableStateFlow(fm.corus.android.domain.ForYouPrototypeState())
+            },
         analyticsService = analyticsService,
         postCreationEvent = postCreationEvent,
         postDeletionEvent = postDeletionEvent,
@@ -169,8 +172,8 @@ class FeedModeStaleResponseRaceTest {
             wheneverBlocking {
                 postRepository.getForYouFeed(
                     any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
-                    energyLevel = anyOrNull(),
-                )
+                    energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any(),
+            )
             }.doReturn(CloudFunctionsDataSource.ForYouFeedPage(trendingPosts, false, "tok", false))
 
             val viewModel = vm()
@@ -231,8 +234,8 @@ class FeedModeStaleResponseRaceTest {
             wheneverBlocking {
                 postRepository.getForYouFeed(
                     any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
-                    energyLevel = anyOrNull(),
-                )
+                    energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any(),
+            )
             }.doSuspendableAnswer {
                 val sessionToken = it.getArgument<String?>(2)
                 val scope = it.getArgument<String>(7)
@@ -294,7 +297,8 @@ class FeedModeStaleResponseRaceTest {
         val low = post("low").copy(energyLevel = "low")
         val low2 = post("low2").copy(energyLevel = "low")
         wheneverBlocking {
-            postRepository.getForYouFeed(any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(), anyOrNull())
+            postRepository.getForYouFeed(any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(), anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any(),
+            )
         }.doSuspendableAnswer {
             val energy = it.getArgument<String?>(10)
             val token = it.getArgument<String?>(2)

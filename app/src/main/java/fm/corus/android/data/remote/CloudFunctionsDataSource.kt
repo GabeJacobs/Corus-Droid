@@ -498,6 +498,7 @@ class CloudFunctionsDataSource @Inject constructor(
          *  viewer isn't on the free-trial path (Club/verified, RC off, or
          *  gated) or the scope isn't "tasteMatches". */
         val trial: TasteMatchesTrial? = null,
+        val stayCloseProgress: fm.corus.android.domain.ForYouStayCloseProgress? = null,
     )
 
     /**
@@ -526,6 +527,8 @@ class CloudFunctionsDataSource @Inject constructor(
         isRefresh: Boolean = false,
         releaseDecade: Int? = null,
         energyLevel: String? = null,
+        prototypeMode: fm.corus.android.domain.ForYouTuningMode? = null,
+        viewedPostIds: List<String> = emptyList(),
     ): ForYouFeedPage {
         val params = mutableMapOf<String, Any>(
             "userId" to userId,
@@ -543,7 +546,13 @@ class CloudFunctionsDataSource @Inject constructor(
         energyLevel?.let { params["energyLevel"] = it }
         releaseDecade?.let { params["releaseDecade"] = it }
 
-        val result = functions.getHttpsCallable("getForYouFeed").call(params).await()
+        if (prototypeMode != null) {
+            params["tuningMode"] = prototypeMode.value
+            params["scope"] = "tasteMatches"
+            params.remove("seenPostIds")
+            if (viewedPostIds.isNotEmpty()) params["viewedPostIds"] = viewedPostIds.takeLast(500)
+        }
+        val result = functions.getHttpsCallable(prototypeMode?.callableName ?: "getForYouFeed").call(params).await()
         val data = result.getData() as? Map<String, Any?>
         // Premium Taste Matches gate. Paywall may include teaser `posts` for
         // the frosted lock overlay; other gates still return no posts.
@@ -555,11 +564,13 @@ class CloudFunctionsDataSource @Inject constructor(
             }
             return ForYouFeedPage(
                 preview, false, "", false, gate.gated, gate.postCount, gate.threshold,
+                stayCloseProgress = fm.corus.android.domain.ForYouStayCloseProgress.parse(data?.get("stayClose") as? Map<*, *>),
             )
         }
         val parsed = parseForYouFeedResponse(data)
         val posts = parsed.a.map { CymbalPost.fromCloudData(it) }
-        return ForYouFeedPage(posts, parsed.b, parsed.c, parsed.d, trial = parseTasteMatchesTrial(data))
+        return ForYouFeedPage(posts, parsed.b, parsed.c, parsed.d, trial = parseTasteMatchesTrial(data),
+            stayCloseProgress = fm.corus.android.domain.ForYouStayCloseProgress.parse(data?.get("stayClose") as? Map<*, *>))
     }
 
     // ── Post Detail ──

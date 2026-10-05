@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="for_you_title">Your Mix</string>
+    <string name="for_you_tune">Tune Your Feed</string>
+    <string name="for_you_choose">Choose how your For You feed is tuned:</string>
+    <string name="for_you_eclectic">Eclectic</string>
+    <string name="for_you_balanced">Balanced</string>
+    <string name="for_you_stay_close">Stay Close</string>
+    <string name="for_you_eclectic_description">A wide range of styles and genres from your taste matches</string>
+    <string name="for_you_balanced_description">Recommendations tailored to your taste, but still eclectic.</string>
+    <string name="for_you_stay_close_description">More of what you like with fewer surprises.</string>
+    <string name="for_you_posting_hint">The more you post, the better For You understands your taste.</string>
+    <string name="for_you_default">Default</string>
+    <string name="for_you_apply">Apply</string>
+    <string name="for_you_close">Close</string>
+    <string name="for_you_stay_close_locked">Share 5 songs or films to unlock Stay Close.</string>
+    <string name="for_you_post_progress">%1$d/%2$d posts shared</string>
+    <string name="for_you_unlock_title">Unlock Stay Close</string>
+    <string name="for_you_locked">Locked</string>
+    <string name="for_you_stay_close_club_locked">"Unlock Stay Close with Corus Club."</string>
+    <string name="for_you_stay_close_club_subtitle">"Keep your Stay Close feed with Corus Club."</string>
+    <string name="for_you_stay_close_trial_offer">"7-day free preview, then Corus Club."</string>
+    <string name="for_you_stay_close_trial_remaining">"Days left to try Stay Close: %1$d"</string>
+</resources>

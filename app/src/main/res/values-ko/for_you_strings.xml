@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="for_you_title">나만의 믹스</string>
+    <string name="for_you_tune">피드 조정</string>
+    <string name="for_you_choose">맞춤 추천 피드를 어떻게 조정할지 선택하세요:</string>
+    <string name="for_you_eclectic">다채롭게</string>
+    <string name="for_you_balanced">균형 있게</string>
+    <string name="for_you_stay_close">취향에 가깝게</string>
+    <string name="for_you_eclectic_description">취향이 비슷한 사람들의 다양한 스타일과 장르</string>
+    <string name="for_you_balanced_description">취향에 맞으면서도 다채로운 추천.</string>
+    <string name="for_you_stay_close_description">좋아하는 것을 더 많이, 뜻밖의 추천은 적게.</string>
+    <string name="for_you_posting_hint">게시물을 올릴수록 맞춤 추천이 취향을 더 잘 이해해요.</string>
+    <string name="for_you_default">기본</string>
+    <string name="for_you_apply">적용</string>
+    <string name="for_you_close">닫기</string>
+    <string name="for_you_stay_close_locked">노래나 영화 5개를 게시하면 취향에 가깝게가 열려요.</string>
+    <string name="for_you_post_progress">%1$d/%2$d개 게시 완료</string>
+    <string name="for_you_unlock_title">취향에 가깝게 열기</string>
+    <string name="for_you_locked">잠김</string>
+    <string name="for_you_stay_close_club_locked">"Corus Club으로 취향에 가깝게를 열어보세요."</string>
+    <string name="for_you_stay_close_club_subtitle">"Corus Club으로 취향에 가깝게 피드를 계속 이용하세요."</string>
+    <string name="for_you_stay_close_trial_offer">"7일 무료 체험 후 Corus Club으로 이용할 수 있어요."</string>
+    <string name="for_you_stay_close_trial_remaining">"취향에 가깝게 무료 체험 남은 일수: %1$d"</string>
+</resources>
