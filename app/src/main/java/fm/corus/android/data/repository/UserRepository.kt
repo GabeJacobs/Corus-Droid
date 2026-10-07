@@ -823,6 +823,9 @@ class UserRepository @Inject constructor(
         return result.favoritesCount
     }
 
+    suspend fun claimFavoritesFeedGuide(userId: String, newTabEnabled: Boolean, favoritesEnabled: Boolean): Boolean =
+        preferencesDataStore.claimFavoritesFeedGuide(userId, newTabEnabled, favoritesEnabled)
+
     suspend fun removeFavorite(userId: String, targetId: String): Int {
         val count = cloudFunctions.unfavoritePerson(targetId)
         subscriptionRepository.setFavoritesCount(count)

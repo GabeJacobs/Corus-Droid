@@ -35,6 +35,7 @@ import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.SkeletonTasteMatchCard
 import fm.corus.android.ui.components.SkeletonUserRow
 import fm.corus.android.ui.components.TasteMatchCard
+import fm.corus.android.ui.screens.auth.RevisedFeaturedTasteMatchCard
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -82,6 +83,7 @@ fun SuggestedUsersListScreen(
     discoveryAccess: fm.corus.android.data.model.TasteDiscoveryAccess = fm.corus.android.data.model.TasteDiscoveryAccess(),
     showTasteMatchesFeedCta: Boolean = false,
     onTasteMatchesFeedCta: () -> Unit = {},
+    featuredMatch: SuggestedUserMatch? = null,
 ) {
     var showDiscoveryPaywall by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     if (showDiscoveryPaywall) {
@@ -91,6 +93,10 @@ fun SuggestedUsersListScreen(
     }
     val resolvedTitle = title ?: stringResource(fm.corus.android.localization.CorusStrings.feed_mode_taste_matches)
     val context = LocalContext.current
+    val featured = featuredMatch?.takeIf { candidate ->
+        source == "tasteMatches" && !discoveryLocked && !useRowLayout && matches.any { it.id == candidate.id }
+    }
+    val gridMatches = if (featured == null) matches else matches.filter { it.id != featured.id }
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
@@ -265,7 +271,23 @@ fun SuggestedUsersListScreen(
                         TasteMatchesFeedCta(onClick = onTasteMatchesFeedCta)
                     }
                 }
-                gridItemsIndexed(matches, key = { _, m -> m.id }) { index, match ->
+                featured?.let { match ->
+                    item(span = { GridItemSpan(maxLineSpan) }, key = "closest-${match.id}") {
+                        RevisedFeaturedTasteMatchCard(
+                            match = match,
+                            isFollowed = match.user.id in followedIds,
+                            onPreview = {
+                                onUserTapped(match.user.id)
+                                onNavigateToUser(match.user)
+                            },
+                            onFollow = { onFollow(match.user) },
+                        )
+                        if (gridMatches.isEmpty() && hasMore && !isLoadingMore) {
+                            LaunchedEffect(match.id) { onLoadMore() }
+                        }
+                    }
+                }
+                gridItemsIndexed(gridMatches, key = { _, m -> m.id }) { index, match ->
                     // For clubMembers, matches arrive without album-art previews
                     // and get enriched as they scroll into view; show a skeleton
                     // tile until then so card heights stay stable.
@@ -292,7 +314,7 @@ fun SuggestedUsersListScreen(
                             )
                         }
                     }
-                    if (index == matches.lastIndex && hasMore && !isLoadingMore) {
+                    if (index == gridMatches.lastIndex && hasMore && !isLoadingMore) {
                         LaunchedEffect(index) { onLoadMore() }
                     }
                 }

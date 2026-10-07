@@ -398,6 +398,9 @@ object CorusStrings {
     @StringRes val entity_link_not_found: Int = R.string.entity_link_not_found
     @StringRes val entity_link_unreachable_subtitle: Int = R.string.entity_link_unreachable_subtitle
     @StringRes val entity_link_unreachable_title: Int = R.string.entity_link_unreachable_title
+    @StringRes val favorites_feed_guide_body: Int = R.string.corus_favorites_feed_guide_body
+    @StringRes val favorites_feed_guide_done: Int = R.string.corus_favorites_feed_guide_done
+    @StringRes val favorites_feed_guide_title: Int = R.string.corus_favorites_feed_guide_title
     @StringRes val featured_cd_play_spotify: Int = R.string.post_detail_cd_play_spotify
     @StringRes val feed_app_title: Int = R.string.feed_app_title
     @StringRes val feed_cd_filter: Int = R.string.feed_cd_filter
@@ -467,6 +470,7 @@ object CorusStrings {
     @StringRes val feed_offline_title: Int = R.string.feed_offline_title
     @StringRes val feed_switch_hint_body: Int = R.string.feed_switch_hint_subtitle
     @StringRes val feed_switch_hint_title: Int = R.string.feed_switch_hint_title
+    @StringRes val feed_tab_new: Int = R.string.corus_feed_tab_new
     @StringRes val feed_taste_matches_coldstart_body: Int = R.string.feed_taste_matches_coldstart_body
     @StringRes val feed_taste_matches_coldstart_cta: Int = R.string.feed_taste_matches_coldstart_cta
     @StringRes val feed_taste_matches_coldstart_progress: Int = R.string.feed_taste_matches_coldstart_progress
@@ -514,6 +518,8 @@ object CorusStrings {
     @StringRes val follow_list_tab_following: Int = R.string.follow_list_tab_following
     @StringRes val follow_list_tab_mutual: Int = R.string.follow_list_tab_mutual
     @StringRes val following_status: Int = R.string.parity_90eeb1008380
+    @StringRes val for_you_choose: Int = R.string.for_you_choose
+    @StringRes val for_you_posting_hint: Int = R.string.for_you_posting_hint
     @StringRes val for_you_stay_close_club_locked: Int = R.string.for_you_stay_close_club_locked
     @StringRes val for_you_stay_close_club_subtitle: Int = R.string.for_you_stay_close_club_subtitle
     @StringRes val for_you_stay_close_trial_offer: Int = R.string.for_you_stay_close_trial_offer
@@ -1159,8 +1165,11 @@ object CorusStrings {
     @StringRes val profile_share_effect_on: Int = R.string.corus_profile_share_effect_on
     @StringRes val profile_share_effect_rain: Int = R.string.corus_profile_share_effect_rain
     @StringRes val profile_share_effect_snow: Int = R.string.corus_profile_share_effect_snow
+    @StringRes val profile_share_grid_extra_large: Int = R.string.corus_profile_share_grid_extra_large
     @StringRes val profile_share_grid_full: Int = R.string.corus_profile_share_grid_full
+    @StringRes val profile_share_grid_large: Int = R.string.corus_profile_share_grid_large
     @StringRes val profile_share_grid_latest: Int = R.string.corus_profile_share_grid_latest
+    @StringRes val profile_share_grid_standard: Int = R.string.corus_profile_share_grid_standard
     @StringRes val profile_share_image_error_body: Int = R.string.corus_profile_share_image_error_body
     @StringRes val profile_share_image_error_title: Int = R.string.corus_profile_share_image_error_title
     @StringRes val profile_share_loading_full: Int = R.string.corus_profile_share_loading_full
@@ -1170,6 +1179,8 @@ object CorusStrings {
     @StringRes val profile_share_profile_link: Int = R.string.profile_avatar_share_link
     @StringRes val profile_share_unlock_collage_many: Int = R.string.corus_profile_share_unlock_collage_many
     @StringRes val profile_share_unlock_collage_one: Int = R.string.corus_profile_share_unlock_collage_one
+    @StringRes val profile_share_unlock_extra_large_many: Int = R.string.corus_profile_share_unlock_extra_large_many
+    @StringRes val profile_share_unlock_extra_large_one: Int = R.string.corus_profile_share_unlock_extra_large_one
     @StringRes val profile_share_unlock_full_many: Int = R.string.corus_profile_share_unlock_full_many
     @StringRes val profile_share_unlock_full_one: Int = R.string.corus_profile_share_unlock_full_one
     @StringRes val profile_share_unlock_large_many: Int = R.string.corus_profile_share_unlock_large_many

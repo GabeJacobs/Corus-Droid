@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Column
@@ -24,7 +23,6 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -131,16 +129,6 @@ fun UserPreviewSheet(
             if (shouldLoadMore) onLoadMore()
         }
 
-        if (usesRevisedDesign) {
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = CorusSpacing.lg)) {
-                Spacer(Modifier.weight(1f))
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Filled.Close,
-                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.full_player_cd_close),
-                        tint = CorusColors.Secondary)
-                }
-            }
-        }
         Box(modifier = Modifier.fillMaxWidth()) {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
@@ -423,7 +411,7 @@ private fun RevisedPreviewHeader(
     val follow: @Composable () -> Unit = {
         TextButton(
             onClick = onFollow,
-            shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+            shape = RoundedCornerShape(50),
             colors = ButtonDefaults.textButtonColors(
                 containerColor = if (isFollowed) CorusColors.CardBackground else CorusColors.Accent,
                 contentColor = if (isFollowed) CorusColors.Secondary else Color.White,

@@ -584,7 +584,7 @@ class SocialSetupViewModel @Inject constructor(
         _tasteMatches.value = null
         viewModelScope.launch {
             val result = runCatching {
-                cloudFunctions.getOnboardingTasteMatches(quizPicksToTastePicks(picks))
+                cloudFunctions.getOnboardingTasteMatches(quizPicksToTastePicks(picks), requireRecentPost = true)
             }.getOrDefault(OnboardingTasteMatchesResult())
             _tasteMatches.value = result
             _isLoadingTasteMatches.value = false

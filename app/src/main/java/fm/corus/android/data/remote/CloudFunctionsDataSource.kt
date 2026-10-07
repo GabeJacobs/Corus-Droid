@@ -220,7 +220,8 @@ internal fun parseOnboardingTasteMatchesResponse(
  * Taste Matches playlist exports.
  */
 internal fun feedModeUsesRankedSession(feedMode: String): Boolean =
-    feedMode == "trending" || feedMode == "tasteMatches"
+    feedMode == "trending" || feedMode == "tasteMatches" ||
+        fm.corus.android.domain.ForYouTuningMode.entries.any { it.playlistFeedMode == feedMode }
 
 /**
  * Extracts the artist id whose name *exactly* matches [name] (trimmed,
@@ -529,6 +530,7 @@ class CloudFunctionsDataSource @Inject constructor(
         energyLevel: String? = null,
         prototypeMode: fm.corus.android.domain.ForYouTuningMode? = null,
         viewedPostIds: List<String> = emptyList(),
+        spaceRepeatedSongs: Boolean = false,
     ): ForYouFeedPage {
         val params = mutableMapOf<String, Any>(
             "userId" to userId,
@@ -542,6 +544,7 @@ class CloudFunctionsDataSource @Inject constructor(
             params["seenPostIds"] = seenPostIds.take(500)
         }
         mediaType?.let { params["mediaType"] = it.value }
+        if (spaceRepeatedSongs) params["spaceRepeatedSongs"] = true
         if (newReleasesOnly) params["newReleasesOnly"] = true
         energyLevel?.let { params["energyLevel"] = it }
         releaseDecade?.let { params["releaseDecade"] = it }
@@ -2018,6 +2021,7 @@ class CloudFunctionsDataSource @Inject constructor(
         picks: List<Map<String, Any?>>,
         limit: Int = 20,
         minSharedArtists: Int = 1,
+        requireRecentPost: Boolean = false,
     ): OnboardingTasteMatchesResult {
         if (picks.isEmpty()) return OnboardingTasteMatchesResult()
         val viewerId = auth.currentUser?.uid
@@ -2027,6 +2031,7 @@ class CloudFunctionsDataSource @Inject constructor(
                     "picks" to picks,
                     "limit" to limit,
                     "minSharedArtists" to minSharedArtists,
+                    "requireRecentPost" to requireRecentPost,
                 )
             ).await()
         }
@@ -2543,8 +2548,10 @@ class CloudFunctionsDataSource @Inject constructor(
         newReleasesOnly: Boolean = false,
         feedMode: String = "following",
         sessionToken: String? = null,
+        deduplicateSongs: Boolean = false,
     ): PlaylistResult {
         val params = mutableMapOf<String, Any>("supportsPlaylistGating" to true, "feedMode" to feedMode)
+        if (deduplicateSongs) params["deduplicateSongs"] = true
         if (newReleasesOnly) params["newReleasesOnly"] = true
         if (feedModeUsesRankedSession(feedMode) && !sessionToken.isNullOrEmpty())
             params["sessionToken"] = sessionToken
@@ -2560,12 +2567,14 @@ class CloudFunctionsDataSource @Inject constructor(
         newReleasesOnly: Boolean = false,
         feedMode: String = "following",
         sessionToken: String? = null,
+        deduplicateSongs: Boolean = false,
     ): PlaylistTracksOutcome {
         val params = mutableMapOf<String, Any>(
             "supportsPlaylistGating" to true,
             "feedMode" to feedMode,
             "appleMusicTracks" to true,
         )
+        if (deduplicateSongs) params["deduplicateSongs"] = true
         if (newReleasesOnly) params["newReleasesOnly"] = true
         if (feedModeUsesRankedSession(feedMode) && !sessionToken.isNullOrEmpty())
             params["sessionToken"] = sessionToken

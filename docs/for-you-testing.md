@@ -37,9 +37,14 @@ their scroll-to-top behavior. With Android's Remove animations enabled,
 controls use selected-tab visibility. A locked Stay Close option shows Locked
 without a Default badge.
 
-Startup waits up to one second behind the existing loading screen for a fresh
-access decision. Slow requests use that account's prior decision, or OFF if
-uncached. A late reply warms the next launch rather than moving visible tabs.
+Startup settles both Your Mix access and the account's Remote Config feed-tab
+layout behind the Corus launch logo, then fades the cover over the feed in 320ms.
+Each check has a one-second presentation deadline. Slow or failed requests use
+that account's prior confirmed layout. On upgrade, ordinary feed tabs also retain
+the legacy cache, so Matches remains visible when enabled; pilot and tester
+access require an account-scoped cache. Otherwise the in-app defaults apply. Late
+replies and subsequent config refreshes warm the next launch rather than moving
+visible tabs.
 If the first fresh local launch does not show Your Mix, fully close and relaunch
 after the background access request finishes (up to ten seconds). Repeated
 same-account auth callbacks do not reconsider the visible layout.

@@ -2,14 +2,14 @@
 <resources>
     <string name="for_you_title">Seu Mix</string>
     <string name="for_you_tune">Ajuste seu feed</string>
-    <string name="for_you_choose">Escolha como ajustar seu feed Para você:</string>
+    <string name="for_you_choose">"Escolha como ajustar o Seu Mix:"</string>
     <string name="for_you_eclectic">Eclético</string>
     <string name="for_you_balanced">Equilibrado</string>
     <string name="for_you_stay_close">Mais próximo</string>
     <string name="for_you_eclectic_description">Uma variedade de estilos e gêneros de pessoas com gostos parecidos com os seus</string>
     <string name="for_you_balanced_description">Recomendações para o seu gosto, mas ainda ecléticas.</string>
     <string name="for_you_stay_close_description">Mais do que você gosta, com menos surpresas.</string>
-    <string name="for_you_posting_hint">Quanto mais você posta, melhor o Para você entende seu gosto.</string>
+    <string name="for_you_posting_hint">"Quanto mais você posta, melhor o Seu Mix entende seu gosto."</string>
     <string name="for_you_default">Padrão</string>
     <string name="for_you_apply">Aplicar</string>
     <string name="for_you_close">Fechar</string>

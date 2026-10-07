@@ -54,7 +54,12 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 
 @Composable
-internal fun ProfileSharingV2Sheet(profile: ShareProfileSubject, instagramEnabled: Boolean, analytics: ProfileShareAnalytics?) {
+internal fun ProfileSharingV2Sheet(
+    profile: ShareProfileSubject,
+    instagramEnabled: Boolean,
+    analytics: ProfileShareAnalytics?,
+    renderPreview: suspend (Context, ShareProfileSubject, PreparedProfileShareArt, ProfileStoryGridSize, ProfileStoryBackground) -> Bitmap = ::renderProfileSharePreview,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val session = remember { UUID.randomUUID().toString() }
@@ -102,9 +107,7 @@ internal fun ProfileSharingV2Sheet(profile: ShareProfileSubject, instagramEnable
         if (assets.slots.size < if (film) 1 else layout.artworkLimit) return@LaunchedEffect
         if (preview != null || retry > 0) log("preview_started", snapshot)
         try {
-            val bitmap = withContext(Dispatchers.Default) {
-                renderProfileShareStory(context, profile, assets, layout, background, transparent = layout.artworkLimit != 28 || film)
-            }
+            val bitmap = renderPreview(context, profile, assets, layout, background)
             preview = bitmap; renderedLayout = layout; loadFailed = false
             log("preview_ready", snapshot, mapOf("duration_ms" to SystemClock.elapsedRealtime() - start))
         } catch (cancelled: CancellationException) { throw cancelled }
@@ -176,10 +179,15 @@ internal fun ProfileSharingV2Sheet(profile: ShareProfileSubject, instagramEnable
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
         ShareSheetDragIndicator()
         Box(Modifier.align(Alignment.CenterHorizontally).width(previewWidth).aspectRatio(9f / 16)
-            .clip(RoundedCornerShape(14.dp)).background(if (ready) Color(background.color) else CorusColors.CardBackground)) {
-            if (ready) {
+            .clip(RoundedCornerShape(14.dp)).background(if (preview != null) Color(background.color) else CorusColors.CardBackground)) {
+            // Keep the existing composition mounted while the next layout renders.
+            // `ready` only gates exports; it must not hide the last visible preview.
+            if (preview != null) {
                 Image(preview!!.asImageBitmap(), stringResource(CorusStrings.instagram_v2_preview), Modifier.fillMaxSize())
                 ProfileStoryWeatherOverlay(weather)
+                if (loadFailed) TextButton(onClick = { retry++ }, modifier = Modifier.align(Alignment.BottomCenter)) {
+                    Text(stringResource(CorusStrings.common_retry))
+                }
             } else Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (!loadFailed) CircularProgressIndicator(Modifier.size(24.dp), color = CorusColors.Accent, strokeWidth = 2.dp)
                 else TextButton(onClick = { retry++ }) { Text(stringResource(CorusStrings.common_retry)) }
@@ -208,7 +216,12 @@ internal fun ProfileSharingV2Sheet(profile: ShareProfileSubject, instagramEnable
                             }
                         }, horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                         if (!available) Icon(Icons.Default.Lock, null, Modifier.size(12.dp).padding(end = 2.dp), tint = CorusColors.Secondary)
-                        Text(when (option.artworkLimit) { 28 -> stringResource(CorusStrings.profile_share_grid_full); 16 -> "4 × 4"; else -> "3 × 3" },
+                        Text(when (option) {
+                            ProfileStoryGridSize.FULL -> stringResource(CorusStrings.profile_share_grid_full)
+                            ProfileStoryGridSize.EXTRA_LARGE -> stringResource(CorusStrings.profile_share_grid_extra_large)
+                            ProfileStoryGridSize.LARGE -> stringResource(CorusStrings.profile_share_grid_large)
+                            ProfileStoryGridSize.STANDARD -> stringResource(CorusStrings.profile_share_grid_standard)
+                        },
                             style = CorusFont.bodyMedium, color = if (available) CorusColors.Text else CorusColors.Secondary)
                     }
                 }
@@ -278,6 +291,12 @@ internal fun ProfileSharingV2Sheet(profile: ShareProfileSubject, instagramEnable
         confirmButton = { TextButton(onClick = { errorVideo = null }) { Text(stringResource(CorusStrings.common_ok)) } }) }
 }
 
+private suspend fun renderProfileSharePreview(context: Context, profile: ShareProfileSubject, assets: PreparedProfileShareArt,
+    layout: ProfileStoryGridSize, background: ProfileStoryBackground): Bitmap = withContext(Dispatchers.Default) {
+    renderProfileShareStory(context, profile, assets, layout, background,
+        transparent = layout != ProfileStoryGridSize.FULL || profile.featuredMoviePosterUrl != null)
+}
+
 @Composable private fun ProfileStoryWeatherOverlay(weather: ProfileStoryWeather) {
     if (weather == ProfileStoryWeather.NONE) return
     val scene = remember(weather) { ProfileStoryWeatherScene(weather) }
@@ -308,6 +327,7 @@ internal fun profileBackgroundLabel(option: ProfileStoryBackground) = when (opti
 internal fun profileUnlockText(context: Context, layout: ProfileStoryGridSize?, needed: Int): String {
     val key = when (layout?.artworkLimit) {
         28 -> if (needed == 1) CorusStrings.profile_share_unlock_full_one else CorusStrings.profile_share_unlock_full_many
+        25 -> if (needed == 1) CorusStrings.profile_share_unlock_extra_large_one else CorusStrings.profile_share_unlock_extra_large_many
         16 -> if (needed == 1) CorusStrings.profile_share_unlock_large_one else CorusStrings.profile_share_unlock_large_many
         else -> if (needed == 1) CorusStrings.profile_share_unlock_collage_one else CorusStrings.profile_share_unlock_collage_many
     }
@@ -327,7 +347,8 @@ internal fun profileUnlockText(context: Context, layout: ProfileStoryGridSize?, 
                 Text(stringResource(CorusStrings.profile_share_collage_teaser_title), style = CorusFont.bodyMedium, color = CorusColors.Text)
                 val progress = stringResource(CorusStrings.profile_share_collage_progress, count, 9)
                 LinearProgressIndicator(progress = { count / 9f }, modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape)
-                    .semantics { contentDescription = progress }, color = CorusColors.Accent, trackColor = CorusColors.Accent.copy(alpha = .2f))
+                    .semantics { contentDescription = progress }, color = CorusColors.Accent,
+                    trackColor = CorusColors.Accent.copy(alpha = .2f), drawStopIndicator = {})
                 Text(profileUnlockText(context, null, 9 - count), style = CorusFont.caption, color = CorusColors.Secondary)
             }
         }

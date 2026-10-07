@@ -195,4 +195,12 @@
     <string name="corus_profile_share_unlock_collage_one">"あと1件のcorusで使えます。"</string>
     <string name="corus_profile_share_unlock_large_many">"あと%1$d件のcorusを投稿すると4 × 4が使えます"</string>
     <string name="corus_profile_share_unlock_large_one">"あと1件のcorusを投稿すると4 × 4が使えます"</string>
+    <string name="corus_profile_share_grid_extra_large">"5 × 5"</string>
+    <string name="corus_profile_share_grid_large">"4 × 4"</string>
+    <string name="corus_profile_share_grid_standard">"3 × 3"</string>
+    <string name="corus_profile_share_unlock_extra_large_many">"あと%1$d件のcorusを投稿すると5 × 5が使えます"</string>
+    <string name="corus_profile_share_unlock_extra_large_one">"あと1件のcorusを投稿すると5 × 5が使えます"</string>
+    <string name="corus_favorites_feed_guide_body">"フィードで「フォロー中」をタップし、「お気に入り」を選びます。"</string>
+    <string name="corus_favorites_feed_guide_done">"わかりました"</string>
+    <string name="corus_favorites_feed_guide_title">"あなたのお気に入りフィード"</string>
 </resources>

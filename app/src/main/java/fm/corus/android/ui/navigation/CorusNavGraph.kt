@@ -1231,6 +1231,9 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
 
         SuggestedUsersListScreen(
             matches = if (discovery.locked) allSuggestions else suggestions,
+            featuredMatch = allSuggestions.firstOrNull().takeIf {
+                remoteConfig.revisedOnboardingTasteMatches && route.source == "tasteMatches" && !discovery.locked
+            },
             discoveryLocked = discovery.locked,
             discoveryAccess = discovery,
             title = route.title,

@@ -488,8 +488,8 @@ private fun OwnProfileShareSheet(
 
         HorizontalDivider(color = CorusColors.Divider)
 
-        val showInstagram = remember(instagramShareEnabled) {
-            instagramShareEnabled && isInstagramAvailable(context)
+        val showInstagram = remember(instagramShareEnabled, profile.postCount, profile.artworkUrls.size) {
+            ProfileShareEligibility.count(profile) > 0 && instagramShareEnabled && isInstagramAvailable(context)
         }
         val showWhatsApp = remember { isWhatsAppAvailable(context) }
 

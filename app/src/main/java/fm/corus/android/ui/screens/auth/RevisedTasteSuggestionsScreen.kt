@@ -106,7 +106,7 @@ internal fun RevisedTasteSuggestionsScreen(viewModel: SocialSetupViewModel, onBa
                 followedIds = followed, onUserTap = viewModel::openUserPreview, onFollowTap = follow,
                 modifier = Modifier.fillMaxSize(), topContent = topContent,
                 headerVerticalPadding = 0.dp, bottomContentPadding = 108.dp,
-                headerTitle = starsTitle, headerIcon = Icons.Filled.Star,
+                headerTitle = starsTitle, headerIcon = Icons.Filled.Star, usesCompactHeader = true,
             )
         },
     )

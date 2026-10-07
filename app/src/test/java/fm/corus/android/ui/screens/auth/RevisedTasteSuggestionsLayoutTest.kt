@@ -15,6 +15,15 @@ import androidx.test.runner.lifecycle.Stage
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import android.graphics.Rect
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.Text
+import fm.corus.android.ui.components.VennDiagramIcon
+import fm.corus.android.ui.theme.CorusFont
+import fm.corus.android.ui.theme.CorusColors
+import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.data.model.*
 import fm.corus.android.ui.components.PopularUsersInfiniteGrid
 import fm.corus.android.ui.components.PopularUsersInfiniteGridViewModel
@@ -64,7 +73,7 @@ class RevisedTasteSuggestionsLayoutTest {
                             PopularUsersInfiniteGrid(emptySet(), followed.value, { previews++ }, { toggle(it) },
                                 modifier = Modifier.testTag("discovery"), bottomContentPadding = 108.dp,
                                 headerVerticalPadding = 0.dp, topContent = top, viewModel = popular,
-                                headerTitle = "CORUS STARS", headerIcon = Icons.Filled.Star)
+                                headerTitle = "CORUS STARS", headerIcon = Icons.Filled.Star, usesCompactHeader = true)
                         },
                     )
                 }
@@ -144,6 +153,74 @@ class RevisedTasteSuggestionsLayoutTest {
         compose.onNodeWithText("CORUS STARS").assertIsDisplayed()
         compose.onNodeWithText("listener8").assertIsDisplayed()
         save("dark-stars-initial.png")
+    }
+    @Test fun `stars icon has venn scale and aligns with its heading`() {
+        val popular = mock<PopularUsersInfiniteGridViewModel>()
+        whenever(popular.matches).thenReturn(MutableStateFlow(emptyList()))
+        whenever(popular.isLoading).thenReturn(MutableStateFlow(false))
+        whenever(popular.endReached).thenReturn(MutableStateFlow(true))
+        compose.setContent {
+            CorusTheme(darkTheme = false) {
+                PopularUsersInfiniteGrid(emptySet(), emptySet(), {}, {},
+                    viewModel = popular, headerTitle = "CORUS STARS", headerIcon = Icons.Filled.Star, usesCompactHeader = true,
+                    headerVerticalPadding = 0.dp,
+                    topContent = {
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm)) {
+                            VennDiagramIcon(size = 18.dp, color = CorusColors.Accent, shadedIntersection = true)
+                            Text("MORE PEOPLE WITH YOUR TASTE", style = CorusFont.sectionHeader, color = CorusColors.Secondary)
+                        }
+                    })
+            }
+        }
+        val starTitle = compose.onNodeWithText("CORUS STARS").fetchSemanticsNode().boundsInRoot
+        val vennTitle = compose.onNodeWithText("MORE PEOPLE WITH YOUR TASTE").fetchSemanticsNode().boundsInRoot
+        compose.runOnIdle {
+            val activity = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED).single()
+            val view = activity.window.decorView
+            val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+            view.draw(Canvas(bitmap))
+            fun iconBounds(title: androidx.compose.ui.geometry.Rect): Rect {
+                val pixels = Rect()
+                for (y in (title.top.toInt() - 8).coerceAtLeast(0)..(title.bottom.toInt() + 8).coerceAtMost(bitmap.height - 1)) {
+                    for (x in 0 until title.left.toInt()) {
+                        val c = bitmap.getPixel(x, y)
+                        if (Color.blue(c) > Color.red(c) + 35 && Color.blue(c) > Color.green(c) + 20 && Color.green(c) > 70) {
+                            if (pixels.isEmpty) pixels.set(x, y, x + 1, y + 1) else pixels.union(x, y, x + 1, y + 1)
+                        }
+                    }
+                }
+                return pixels
+            }
+            fun inkAlignment(title: androidx.compose.ui.geometry.Rect): Double {
+                var iconY = 0.0; var titleY = 0.0
+                var iconCount = 0; var titleCount = 0
+                for (y in (title.top.toInt() - 8).coerceAtLeast(0)..(title.bottom.toInt() + 8).coerceAtMost(bitmap.height - 1)) {
+                    for (x in 0 until title.right.toInt().coerceAtMost(bitmap.width)) {
+                        val c = bitmap.getPixel(x, y)
+                        val r = Color.red(c); val g = Color.green(c); val b = Color.blue(c)
+                        if (x < title.left && b > r + 35 && b > g + 20 && g > 70) { iconY += y; iconCount++ }
+                        else if (x >= title.left && abs(r-g) < 8 && abs(g-b) < 8 && r in 61..209) { titleY += y; titleCount++ }
+                    }
+                }
+                assertTrue(iconCount > 0 && titleCount > 0)
+                return iconY / iconCount - titleY / titleCount
+            }
+            val inkOffset = inkAlignment(starTitle) - inkAlignment(vennTitle)
+            File(output, "stars-optical-alignment.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            assertTrue("Star and Venn must have the same optical alignment: $inkOffset pixels",
+                abs(inkOffset) <= 0.5)
+            val star = iconBounds(starTitle)
+            val venn = iconBounds(vennTitle)
+            assertFalse(star.isEmpty)
+            assertFalse(venn.isEmpty)
+            assertTrue("Star and Venn must have the same visual width: ${star.width()} vs ${venn.width()}",
+                star.width().toFloat() / venn.width() in 0.85f..1.1f)
+            assertTrue("Star must be centered with the heading", abs(star.exactCenterY() - starTitle.center.y) <= 3f)
+            assertTrue("Section text must start at the same position", abs(starTitle.left - vennTitle.left) <= 1f)
+            File(output, "stars-heading-scale.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            bitmap.recycle()
+        }
     }
     private fun save(name: String) {
         // Robolectric has no PixelCopy window callback; draw the actual laid-out Android view.

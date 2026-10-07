@@ -167,6 +167,7 @@ fun OtherProfileScreen(
     val isMuted by viewModel.isMuted.collectAsState()
     val isSubscribedToNotifications by viewModel.isSubscribedToNotifications.collectAsState()
     val isFavorite by viewModel.isFavorite.collectAsState()
+    val showFavoritesFeedGuide by viewModel.showFavoritesFeedGuide.collectAsState()
     val matchData by viewModel.matchData.collectAsState()
     val linkedArtist by viewModel.linkedArtist.collectAsState()
     var showMatchSheet by remember { mutableStateOf(false) }
@@ -1529,6 +1530,10 @@ fun OtherProfileScreen(
         visible = showAvatarFullScreen,
         onDismiss = { showAvatarFullScreen = false },
     )
+
+    if (showFavoritesFeedGuide && viewModel.newFeedTabEnabled && viewModel.favoritesEnabled) {
+        fm.corus.android.ui.screens.feed.FavoritesFeedGuideSheet(onDismiss = viewModel::dismissFavoritesFeedGuide)
+    }
 
     if (showFollowingSheet) {
         val followingSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)

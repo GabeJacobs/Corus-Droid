@@ -64,6 +64,11 @@ class OtherProfileViewModel @Inject constructor(
 
     /** Whether the Favorites feature (star button) is enabled in Remote Config. */
     val favoritesEnabled: Boolean get() = remoteConfig.favoritesEnabled
+    private val _showFavoritesFeedGuide = MutableStateFlow(false)
+    val showFavoritesFeedGuide = _showFavoritesFeedGuide.asStateFlow()
+    val newFeedTabEnabled: Boolean get() = remoteConfig.feedNewTabEnabled
+    fun dismissFavoritesFeedGuide() { _showFavoritesFeedGuide.value = false }
+
 
     /** Immersive frosted header/status-bar gate (shared with the hero + feed pages). */
     val immersiveArtistHeaderEnabled: Boolean get() = remoteConfig.immersiveArtistHeaderEnabled
@@ -1050,7 +1055,13 @@ class OtherProfileViewModel @Inject constructor(
                 if (wasFavorite) {
                     userRepository.removeFavorite(currentUserId, userId)
                 } else {
-                    userRepository.addFavorite(currentUserId, userId)
+                    val count = userRepository.addFavorite(currentUserId, userId)
+                    if (count > 0 && authRepository.currentUserId == currentUserId &&
+                        runCatching { userRepository.claimFavoritesFeedGuide(currentUserId,
+                            remoteConfig.feedNewTabEnabled, remoteConfig.favoritesEnabled) }.getOrDefault(false) &&
+                        authRepository.currentUserId == currentUserId) {
+                        _showFavoritesFeedGuide.value = true
+                    }
                 }
             } catch (e: CloudFunctionsDataSource.FavoriteCapReachedException) {
                 // Server backstop — roll back and open the paywall.

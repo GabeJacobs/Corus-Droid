@@ -195,4 +195,12 @@
     <string name="corus_profile_share_unlock_collage_one">"Poste noch 1 corus zum Freischalten."</string>
     <string name="corus_profile_share_unlock_large_many">"Poste noch %1$d coruses, um 4 × 4 freizuschalten"</string>
     <string name="corus_profile_share_unlock_large_one">"Poste noch 1 corus, um 4 × 4 freizuschalten"</string>
+    <string name="corus_profile_share_grid_extra_large">"5 × 5"</string>
+    <string name="corus_profile_share_grid_large">"4 × 4"</string>
+    <string name="corus_profile_share_grid_standard">"3 × 3"</string>
+    <string name="corus_profile_share_unlock_extra_large_many">"Poste noch %1$d coruses, um 5 × 5 freizuschalten"</string>
+    <string name="corus_profile_share_unlock_extra_large_one">"Poste noch 1 corus, um 5 × 5 freizuschalten"</string>
+    <string name="corus_favorites_feed_guide_body">"Tippe im Feed auf „Folge ich“ und wähle dann „Favoriten“."</string>
+    <string name="corus_favorites_feed_guide_done">"Verstanden"</string>
+    <string name="corus_favorites_feed_guide_title">"Dein Favoriten-Feed"</string>
 </resources>

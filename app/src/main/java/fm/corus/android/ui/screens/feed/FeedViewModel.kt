@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import android.util.Log
+import fm.corus.android.domain.FeedNewTabPolicy
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalThread
@@ -277,10 +278,6 @@ class FeedViewModel @Inject constructor(
     val feedFilter: StateFlow<FeedFilter> = _feedFilter.asStateFlow()
 
     private val _feedEnergy = MutableStateFlow(FeedEnergy.fromStored(preferencesDataStore.feedEnergySeed(authRepository.currentUserId)))
-    private fun effectiveFeedEnergy(): FeedEnergy? = if (remoteConfig.feedEnergyFilterEnabled) _feedEnergy.value else null
-    val feedEnergy = combine(_feedEnergy, remoteConfig.revision) { energy, _ ->
-        if (remoteConfig.feedEnergyFilterEnabled) energy else null
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, effectiveFeedEnergy())
     private val _showEnergyIntroduction = MutableStateFlow(false)
     val showEnergyIntroduction = _showEnergyIntroduction.asStateFlow()
     fun dismissEnergyIntroduction() {
@@ -304,10 +301,10 @@ class FeedViewModel @Inject constructor(
     // For the new-releases filter we additionally apply a client-side
     // defense-in-depth check using `isNewRelease()` so the user never sees a
     // post that crossed the threshold mid-flight.
-    val filteredPosts: StateFlow<List<CymbalPost>> = combine(_posts, _feedFilter, userRepository.hiddenUserIds, feedEnergy) { posts, filter, hidden, energy ->
+    val filteredPosts: StateFlow<List<CymbalPost>> by lazy { combine(_posts, _feedFilter, userRepository.hiddenUserIds, feedEnergy, feedMode) { posts, filter, hidden, energy, mode ->
         val visible = posts
             .filter { post ->
-                (energy == null || energy.matches(post)) && post.user.id !in hidden &&
+                (FeedEnergy.effective(energy, mode, remoteConfig.feedEnergyFilterEnabled)?.matches(post) != false) && post.user.id !in hidden &&
                     (post.repostedFromUserId.isNullOrEmpty() || post.repostedFromUserId !in hidden)
             }
             .map { post ->
@@ -316,8 +313,8 @@ class FeedViewModel @Inject constructor(
                     likers = post.likers.filter { it.id !in hidden },
                 )
             }
-        if (filter.newReleasesOnly) visible.filter { it.isNewRelease() } else visible
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        if (FeedNewTabPolicy.newReleasesOnly(mode, remoteConfig.feedNewTabEnabled, filter)) visible.filter { it.isNewRelease() } else visible
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList()) }
 
     private val _newReleaseFilterPaywall = MutableStateFlow<PaywallSource?>(null)
     val newReleaseFilterPaywall: StateFlow<PaywallSource?> = _newReleaseFilterPaywall.asStateFlow()
@@ -401,6 +398,12 @@ class FeedViewModel @Inject constructor(
      *  removed. Declared before [feedMode] so resolve can read it on seed. */
     val favoritesCount: StateFlow<Int> = subscriptionRepository.favoritesCount
     val favoritesTabUnlocked: StateFlow<Boolean> = subscriptionRepository.favoritesTabUnlocked
+    private val followingChoicePrefs by lazy { context.getSharedPreferences("corus_new_tab_choices", Context.MODE_PRIVATE) }
+    private val followingChoiceKey: String get() = authRepository.currentUserId ?: "signed-out"
+    private val _followingMode = MutableStateFlow(
+        runCatching { followingChoicePrefs.getString(followingChoiceKey, null) }.getOrNull()
+            ?: if (preferencesDataStore.feedModeSyncSeed() == "favorites") "favorites" else "following")
+    val followingMode = _followingMode.asStateFlow()
 
     // ── Ranked feed state ──
     // Shared by the ranked modes (Trending + Taste Matches) that call
@@ -412,7 +415,7 @@ class FeedViewModel @Inject constructor(
     /** Taste Matches is available when the RC master switch is on OR the viewer
      *  is a comped internal tester. Mirrors iOS `tasteMatchesAvailable`. */
     private val tasteMatchesAvailable: Boolean
-        get() = remoteConfig.tasteMatchesEnabled || remoteConfig.tasteMatchesTester || forYouPrototype.isAvailable
+        get() = remoteConfig.feedNewTabEnabled || remoteConfig.tasteMatchesEnabled || remoteConfig.tasteMatchesTester || forYouPrototype.isAvailable
 
     private fun resolveFeedMode(
         stored: String,
@@ -423,7 +426,7 @@ class FeedViewModel @Inject constructor(
         // ("never picked"), the retired "forYou" mode, or the never-shipped
         // "discovery" — opens on Following.
         val resolved = when (stored) {
-            "following", "trending", "favorites", "tasteMatches" -> stored
+            "following", "trending", "favorites", "tasteMatches", "newReleases" -> stored
             else -> "following"
         }
         // …then guarantee it's a mode that's actually AVAILABLE. A ranked/gated
@@ -435,9 +438,11 @@ class FeedViewModel @Inject constructor(
         // When the tab switcher is on, Favorites is also withheld until the
         // viewer has favorited someone (the tab itself is hidden) — same as iOS.
         return when (resolved) {
-            "trending" -> if (remoteConfig.trendingFeedEnabled) "trending" else "following"
+            "newReleases" -> FeedNewTabPolicy.resolveMode(resolved, remoteConfig.feedNewTabEnabled)
+            "trending" -> if (remoteConfig.feedNewTabEnabled || remoteConfig.trendingFeedEnabled) "trending" else "following"
             "favorites" -> {
                 if (!remoteConfig.favoritesEnabled) "following"
+                else if (remoteConfig.feedNewTabEnabled && favoritesCount == 0) "following"
                 else if ((remoteConfig.feedModeTabsEnabled || forYouPrototype.isAvailable) &&
                     !fm.corus.android.domain.FavoritesTabGate.showsTab(
                         featureEnabled = true,
@@ -473,6 +478,13 @@ class FeedViewModel @Inject constructor(
     fun isDecadeFilterVisible(mode: String): Boolean =
         remoteConfig.feedDecadeFilterEnabled && mode == "trending"
 
+    private fun effectiveFeedEnergy(mode: String = feedMode.value): FeedEnergy? =
+        FeedEnergy.effective(_feedEnergy.value, mode, remoteConfig.feedEnergyFilterEnabled)
+
+    val feedEnergy = combine(_feedEnergy, feedMode, remoteConfig.revision) { energy, mode, _ ->
+        FeedEnergy.effective(energy, mode, remoteConfig.feedEnergyFilterEnabled)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, effectiveFeedEnergy())
+
     private fun decadeApplicableTo(mode: String, decade: Int?): Int? =
         if (isDecadeFilterVisible(mode)) decade else null
 
@@ -500,7 +512,7 @@ class FeedViewModel @Inject constructor(
 
     private fun feedRequestSignature(mode: String = feedMode.value): String {
         val decade = decadeApplicableTo(mode, _feedDecade.value) ?: 0
-        val base = "$mode|${_feedFilter.value.name}|$decade|${effectiveFeedEnergy()?.value.orEmpty()}"
+        val base = "$mode|${_feedFilter.value.name}|$decade|${effectiveFeedEnergy(mode)?.value.orEmpty()}"
         return if (mode == "tasteMatches" && forYouPrototype.isAvailable) {
             "$base|prototype.${forYouPrototype.state.value.uid}.${forYouPrototype.state.value.mode.value}"
         } else base
@@ -535,7 +547,7 @@ class FeedViewModel @Inject constructor(
 
     private fun freshCachedPosts(mode: String): List<CymbalPost> {
         val snap = feedPageCache[feedRequestSignature(mode)] ?: return emptyList()
-        return if (snap.isFresh()) snap.posts.filter { effectiveFeedEnergy()?.matches(it) != false } else emptyList()
+        return if (snap.isFresh()) snap.posts.filter { effectiveFeedEnergy(mode)?.matches(it) != false } else emptyList()
     }
 
     private fun evictExpiredFeedPages() {
@@ -998,7 +1010,8 @@ class FeedViewModel @Inject constructor(
         val mode = feedMode.value
         lastLoadedMode = mode
         val prototypeMode = if (mode == "tasteMatches" && forYouPrototype.isAvailable) forYouPrototype.state.value.mode else null
-        val useRanked = mode == "trending" || mode == "tasteMatches"
+        val isNew = FeedNewTabPolicy.isNew(mode, remoteConfig.feedNewTabEnabled)
+        val useRanked = mode == "trending" || mode == "tasteMatches" || isNew
         val useFavorites = mode == "favorites"
         val rankedScope = when (mode) {
             "trending" -> "trending"
@@ -1035,7 +1048,8 @@ class FeedViewModel @Inject constructor(
                     pageIndex = nextIndex,
                     seenPostIds = if (prototypeMode != null) emptyList() else forYouSeenIds.toList(),
                     mediaType = _feedFilter.value.mediaType,
-                    newReleasesOnly = _feedFilter.value.newReleasesOnly,
+                    newReleasesOnly = FeedNewTabPolicy.newReleasesOnly(mode, remoteConfig.feedNewTabEnabled, _feedFilter.value),
+                    spaceRepeatedSongs = isNew,
                     energyLevel = requestedEnergy?.value,
                     scope = rankedScope,
                     // Pull-to-refresh (refresh=true) → boost recency so the
@@ -1278,7 +1292,7 @@ class FeedViewModel @Inject constructor(
     }
 
     fun setFeedEnergy(energy: FeedEnergy?, trackTap: Boolean = true) {
-        if (!remoteConfig.feedEnergyFilterEnabled) return
+        if (!FeedEnergy.isOffered(feedMode.value, remoteConfig.feedEnergyFilterEnabled)) return
         if (trackTap) analyticsService.logFeedEnergyFilterTapped(energy?.value ?: "any", feedMode.value)
         if (energy == effectiveFeedEnergy()) return
         val oldSig = feedRequestSignature()
@@ -1292,7 +1306,8 @@ class FeedViewModel @Inject constructor(
         applyFeedSignatureChange(oldSig, feedRequestSignature())
     }
 
-    fun setFeedFilter(filter: FeedFilter) {
+    fun setFeedFilter(requested: FeedFilter) {
+        val filter = FeedNewTabPolicy.mediaFilter(requested, FeedNewTabPolicy.isNew(feedMode.value, remoteConfig.feedNewTabEnabled))
         if (_feedFilter.value == filter && !(filter == FeedFilter.ALL && effectiveFeedEnergy() != null)) return
         if (filter.newReleasesOnly && remoteConfig.newReleaseFilterClubOnly && !subscriptionRepository.hasFullAccess) {
             _newReleaseFilterPaywall.value = PaywallSource.NEW_RELEASE_FILTER
@@ -1359,7 +1374,12 @@ class FeedViewModel @Inject constructor(
      * state, then refetches. No-op when the requested mode matches the current
      * value.
      */
-    fun setFeedMode(mode: String) {
+    fun setFeedMode(requested: String) {
+        val mode = FeedNewTabPolicy.resolveMode(requested, remoteConfig.feedNewTabEnabled)
+        if (mode == "following" || mode == "favorites") {
+            _followingMode.value = mode
+            if (remoteConfig.feedNewTabEnabled) followingChoicePrefs.edit().putString(followingChoiceKey, mode).apply()
+        }
         // Selecting a mode means the user found the switcher — retire the hint
         // (silently; the open already logged feed_switcher_opened). Before the
         // no-op guard so re-selecting the current mode still retires it.
@@ -1599,18 +1619,24 @@ class FeedViewModel @Inject constructor(
     }
 
     fun generateFeedPlaylist() {
-        if (feedMode.value == "tasteMatches" && forYouPrototype.isAvailable) return
         analyticsService.logFeedPlaylistTapped()
         // Build the playlist from whichever feed is on screen, and (for the
         // ranked modes — Trending AND Taste Matches) from the exact ranked
         // session the user is scrolling. The server names it per mode
         // ("Corus Trending" / "Corus Taste Matches" / "Corus Favorites" / "Corus Feed").
-        val mode = feedMode.value
+        val visibleMode = feedMode.value
+        val prototypeMode = if (visibleMode == "tasteMatches" && forYouPrototype.isAvailable)
+            forYouPrototype.state.value.mode else null
+        val isNew = FeedNewTabPolicy.isNew(visibleMode, remoteConfig.feedNewTabEnabled)
+        val mode = prototypeMode?.playlistFeedMode ?: FeedNewTabPolicy.wireMode(visibleMode, remoteConfig.feedNewTabEnabled)
+        val token = if (visibleMode == "trending" || visibleMode == "tasteMatches" || isNew) forYouSessionToken else null
+        val newReleasesOnly = FeedNewTabPolicy.newReleasesOnly(visibleMode, remoteConfig.feedNewTabEnabled, _feedFilter.value)
         viewModelScope.launch {
             nowPlayingManager.generateFeedPlaylist(
-                newReleasesOnly = _feedFilter.value.newReleasesOnly,
+                newReleasesOnly = newReleasesOnly,
                 feedMode = mode,
-                sessionToken = if (mode == "trending" || mode == "tasteMatches") forYouSessionToken else null,
+                sessionToken = token,
+                deduplicateSongs = isNew,
             )
         }
     }

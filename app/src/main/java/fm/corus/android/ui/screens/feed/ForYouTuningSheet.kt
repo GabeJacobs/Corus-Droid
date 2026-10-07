@@ -71,7 +71,7 @@ internal fun ForYouTuningSheet(
     ) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
             Box(Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.for_you_tune), style = CorusFont.bodyMedium,
+                Text(stringResource(R.string.for_you_tune), style = CorusFont.screenTitle,
                     color = CorusColors.Text, modifier = Modifier.align(Alignment.Center))
                 CorusSheetCloseButton(onDismiss, stringResource(R.string.for_you_close), Modifier.align(Alignment.CenterEnd))
             }

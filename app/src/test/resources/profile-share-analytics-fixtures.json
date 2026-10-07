@@ -1,5 +1,42 @@
 [
   {
+    "title": "Five by five layered Story prepared",
+    "action": "export_ready",
+    "context": {
+      "share_session_id": "00000000-0000-0000-0000-000000000001",
+      "source": "action_row",
+      "layout": "5x5",
+      "background": "blue",
+      "effect": "snow",
+      "post_count": 25,
+      "artwork_count": 25,
+      "full_available": false,
+      "large_available": true
+    },
+    "extra": {
+      "destination": "instagram",
+      "format": "story_layers",
+      "duration_ms": 25.4
+    },
+    "expected": {
+      "action": "export_ready",
+      "source": "action_row",
+      "share_version": 2,
+      "share_session_id": "00000000-0000-0000-0000-000000000001",
+      "layout": "5x5",
+      "background": "blue",
+      "effect": "snow",
+      "post_count": 25,
+      "artwork_count": 25,
+      "full_available": "false",
+      "large_available": "true",
+      "destination": "instagram",
+      "format": "story_layers",
+      "duration_ms": 25,
+      "preview_kind": "story"
+    }
+  },
+  {
     "title": "Full video prepared",
     "action": "export_ready",
     "context": {

@@ -9,7 +9,7 @@ object ProfileShareAnalytics {
     private val allowed = mapOf(
         "action" to setOf("opened", "dismissed", "preview_started", "preview_ready", "preview_failed", "preview_changed", "grid_changed", "background_changed", "effect_changed", "share_tapped", "export_started", "export_ready", "export_failed", "export_cancelled", "handoff_result"),
         "source" to setOf("action_row", "avatar_menu", "edit_profile", "overflow_menu", "unknown"),
-        "layout" to setOf("full", "4x4", "3x3", "latest", "film", "book", "invitation"),
+        "layout" to setOf("full", "5x5", "4x4", "3x3", "latest", "film", "book", "invitation"),
         "background" to setOf("blue", "invitation_blue", "purple", "rose", "orange", "green", "black", "white"),
         "effect" to setOf("none", "rain", "snow"),
         "destination" to setOf("instagram", "whatsapp", "x", "share_link", "copy_link"),
@@ -58,7 +58,7 @@ object ProfileShareAnalytics {
         put("action", action); put("share_version", 2)
         if (uuid.matches(sessionId)) put("share_session_id", sessionId.lowercase())
         put("source", safe("source", source))
-        put("layout", if (layout in setOf("3x3", "4x4", "full")) layout else "3x3")
+        put("layout", if (layout in setOf("3x3", "4x4", "5x5", "full")) layout else "3x3")
         put("post_count", maxOf(0, postCount)); put("posts_needed", maxOf(0, postsNeeded))
     }
 }

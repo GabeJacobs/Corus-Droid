@@ -48,4 +48,15 @@ class ProfileShareAnalyticsTest {
         assertFalse(p.containsKey("username"))
         assertEquals(emptyMap<String, Any>(), ProfileShareAnalytics.discoveryParams("posted", id, "action_row", "full", 9, 19))
     }
+
+    @Test fun `five by five is tracked distinctly for media and locked discovery`() {
+        val id = "00000000-0000-4000-8000-000000000001"
+        val context = ProfileShareAnalytics.Context(id, "action_row", "5x5", "blue", "none", 25, 28, false, true)
+        for (action in listOf("grid_changed", "preview_ready", "export_ready")) {
+            assertEquals("5x5", ProfileShareAnalytics.params(action, context)["layout"])
+        }
+        val locked = ProfileShareAnalytics.discoveryParams("locked_layout_tapped", id, "action_row", "5x5", 24, 1)
+        assertEquals("5x5", locked["layout"])
+        assertEquals(1, locked["posts_needed"])
+    }
 }

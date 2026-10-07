@@ -42,4 +42,12 @@
     <string name="corus_profile_share_unlock_collage_one">"Post 1 more corus to unlock."</string>
     <string name="corus_profile_share_unlock_large_many">"Post %1$d more coruses to unlock 4 × 4"</string>
     <string name="corus_profile_share_unlock_large_one">"Post 1 more corus to unlock 4 × 4"</string>
+    <string name="corus_profile_share_grid_extra_large">"5 × 5"</string>
+    <string name="corus_profile_share_grid_large">"4 × 4"</string>
+    <string name="corus_profile_share_grid_standard">"3 × 3"</string>
+    <string name="corus_profile_share_unlock_extra_large_many">"Post %1$d more coruses to unlock 5 × 5"</string>
+    <string name="corus_profile_share_unlock_extra_large_one">"Post 1 more corus to unlock 5 × 5"</string>
+    <string name="corus_favorites_feed_guide_body">"On the Feed, tap Following, then choose Favorites."</string>
+    <string name="corus_favorites_feed_guide_done">"Got it"</string>
+    <string name="corus_favorites_feed_guide_title">"Your Favorited Feed"</string>
 </resources>

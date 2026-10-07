@@ -46,8 +46,17 @@ internal val ProfileStoryBackground.analyticsValue: String get() = when (this) {
     ProfileStoryBackground.DARK -> "black"
     else -> name.lowercase(java.util.Locale.ROOT)
 }
-internal val ProfileStoryGridSize.analyticsValue: String get() = when (artworkLimit) {
-    28 -> "full"; 16 -> "4x4"; else -> "3x3"
+internal val ProfileStoryGridSize.analyticsValue: String get() = when (this) {
+    ProfileStoryGridSize.FULL -> "full"
+    ProfileStoryGridSize.EXTRA_LARGE -> "5x5"
+    ProfileStoryGridSize.LARGE -> "4x4"
+    ProfileStoryGridSize.STANDARD -> "3x3"
+}
+
+private val ProfileStoryGridSize.squareColumns: Int get() = when (this) {
+    ProfileStoryGridSize.EXTRA_LARGE -> 5
+    ProfileStoryGridSize.LARGE -> 4
+    else -> 3 // Full has separate rectangular Story/X geometry.
 }
 
 /** Slots are never removed after a failed decode: one missing image must not shift the grid. */
@@ -91,7 +100,7 @@ internal fun profileStoryGeometry(layout: ProfileStoryGridSize, film: Boolean = 
         val side = 1920f / 7f
         return ProfileStoryGeometry(RectF((1080 - side * 4) / 2, 0f, (1080 + side * 4) / 2, 1920f), 4, 7, 1920f)
     }
-    val columns = if (layout == ProfileStoryGridSize.LARGE) 4 else 3
+    val columns = layout.squareColumns
     val gridHeight = if (film) 980f else 936f
     // Same VStack spacing and font line heights as the native iOS composition.
     val contentHeight = gridHeight + 64 + 49 + 20 + 87
@@ -135,7 +144,7 @@ internal fun renderProfileShareStory(
     if (full) drawProfileSharePill(context, canvas, profile.username, background, 1080f, 1760f, xExport = false)
     else {
         val handle = shareNunitoPaint(context, 36f, 600,
-            if (background == ProfileStoryBackground.CORUS_BLUE) ink else (0x8c shl 24) or (ink and 0xffffff), Paint.Align.CENTER)
+            profileShareUsernameInk(background, subtle = true), Paint.Align.CENTER)
         val handleTop = geometry.grid.bottom + 64
         canvas.drawText(profile.username.let { "@$it" }, 540f, handleTop + (49 - handle.fontMetrics.ascent - handle.fontMetrics.descent) / 2, handle)
         val word = shareNunitoPaint(context, 64f, 900, ink)
@@ -162,7 +171,7 @@ internal fun renderProfileShareX(context: Context, profile: ShareProfileSubject,
         val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
         if (film) drawProfileArtwork(canvas, art.slots[0], RectF(60f, 90f, 1020f, 990f), paint, fit = true)
         else {
-            val columns = if (full) 7 else if (layout == ProfileStoryGridSize.LARGE) 4 else 3
+            val columns = if (full) 7 else layout.squareColumns
             drawProfileGrid(canvas, art, RectF(0f, 0f, width.toFloat(), height.toFloat()), columns, if (full) 4 else columns, paint)
         }
         drawProfileSharePill(context, canvas, profile.username, background, width.toFloat(), height - if (film) 16f else 28f, xExport = true)
@@ -197,10 +206,21 @@ internal fun drawProfileArtwork(canvas: Canvas, bitmap: Bitmap?, bounds: RectF, 
 }
 
 internal fun profileShareInk(background: ProfileStoryBackground): Int = when (background) {
-    ProfileStoryBackground.CORUS_BLUE -> Color.WHITE
+    ProfileStoryBackground.CORUS_BLUE, ProfileStoryBackground.ORANGE,
+    ProfileStoryBackground.GREEN, ProfileStoryBackground.DARK -> Color.WHITE
     ProfileStoryBackground.LIGHT -> 0xff1a1a2e.toInt()
-    ProfileStoryBackground.DARK -> 0xfff5f5f7.toInt()
     else -> if (background.usesDarkInk) 0xff15151a.toInt() else Color.WHITE
+}
+
+/** Keep handles and branding consistent on all selectable backgrounds. */
+private fun profileShareUsernameInk(background: ProfileStoryBackground, subtle: Boolean = false): Int = when (background) {
+    ProfileStoryBackground.CORUS_BLUE, ProfileStoryBackground.ROSE,
+    ProfileStoryBackground.PURPLE, ProfileStoryBackground.ORANGE,
+    ProfileStoryBackground.GREEN, ProfileStoryBackground.DARK -> Color.WHITE
+    ProfileStoryBackground.LIGHT -> profileShareInk(background)
+    else -> profileShareInk(background).let { ink ->
+        if (subtle) (0x8c shl 24) or (ink and 0xffffff) else ink
+    }
 }
 
 private fun drawProfileSharePill(context: Context, canvas: Canvas, username: String, background: ProfileStoryBackground,
@@ -212,7 +232,7 @@ private fun drawProfileSharePill(context: Context, canvas: Canvas, username: Str
     val hPad = if (xExport) 22f else 40f
     val vPad = if (xExport) 12f else 28f
     val word = shareNunitoPaint(context, if (xExport) 32f else 52f, 900, ink)
-    val handle = shareNunitoPaint(context, if (xExport) 30f else 48f, 600, ink)
+    val handle = shareNunitoPaint(context, if (xExport) 30f else 48f, 600, profileShareUsernameInk(background))
     val brandWidth = mark + markGap + word.measureText("corus")
     val label = "@$username"
     val maxHandle = width - 144 - 2 * hPad - brandWidth - gap

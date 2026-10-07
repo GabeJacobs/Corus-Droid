@@ -6,8 +6,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ProfileShareV2PolicyTest {
-    @Test fun `Android offers the same three collage layouts as iOS`() {
-        assertEquals(listOf(9, 16, 28), ProfileStoryGridSize.entries.map { it.artworkLimit })
+    @Test fun `Android offers the five by five experiment between large and full`() {
+        assertEquals(listOf(9, 16, 25, 28), ProfileStoryGridSize.entries.map { it.artworkLimit })
     }
 
     private fun profile(count: Int?, artworks: Int = 0) = ShareProfileSubject("fixture", "fixture", null, null,
@@ -21,10 +21,12 @@ class ProfileShareV2PolicyTest {
     }
 
     @Test fun `full defaults synchronously only at 28 and locked layouts stay unavailable`() {
-        for (count in listOf(9, 15, 16, 27)) assertEquals(ProfileStoryGridSize.STANDARD, ProfileShareEligibility.defaultLayout(profile(count)))
+        for (count in listOf(9, 15, 16, 24, 25, 27)) assertEquals(ProfileStoryGridSize.STANDARD, ProfileShareEligibility.defaultLayout(profile(count)))
         assertEquals(ProfileStoryGridSize.FULL, ProfileShareEligibility.defaultLayout(profile(28)))
         assertFalse(ProfileShareEligibility.available(profile(15), ProfileStoryGridSize.LARGE))
         assertTrue(ProfileShareEligibility.available(profile(16), ProfileStoryGridSize.LARGE))
+        assertFalse(ProfileShareEligibility.available(profile(24), ProfileStoryGridSize.EXTRA_LARGE))
+        assertTrue(ProfileShareEligibility.available(profile(25), ProfileStoryGridSize.EXTRA_LARGE))
         assertFalse(ProfileShareEligibility.available(profile(27), ProfileStoryGridSize.FULL))
         assertTrue(ProfileShareEligibility.available(profile(28), ProfileStoryGridSize.FULL))
         val movie = profile(28).copy(featuredMoviePosterUrl = "poster")

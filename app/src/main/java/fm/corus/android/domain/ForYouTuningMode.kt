@@ -3,6 +3,20 @@ package fm.corus.android.domain
 enum class ForYouTuningMode(val value: String) {
     ECLECTIC("tasteMatches"), BALANCED("balanced"), STAY_CLOSE("close");
 
+    val playlistFeedMode: String
+        get() = when (this) {
+            ECLECTIC -> "forYouEclectic"
+            BALANCED -> "forYouBalanced"
+            STAY_CLOSE -> "forYouClose"
+        }
+
+    val playlistName: String
+        get() = when (this) {
+            ECLECTIC -> "Corus For You · Eclectic"
+            BALANCED -> "Corus For You · Balanced"
+            STAY_CLOSE -> "Corus For You · Stay Close"
+        }
+
     val callableName: String
         get() = if (this == ECLECTIC) "getForYouEclecticFeed" else "getForYouPrototypeFeed"
 

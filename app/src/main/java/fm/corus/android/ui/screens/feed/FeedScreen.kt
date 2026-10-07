@@ -107,6 +107,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.hilt.navigation.compose.hiltViewModel
+import fm.corus.android.domain.FeedNewTabPolicy
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalTrack
@@ -207,7 +208,7 @@ fun FeedScreen(
     val engagementStates by viewModel.engagementStates.collectAsState()
     val currentUserProfile by viewModel.currentUserProfile.collectAsState()
     val feedMediaFilter by viewModel.feedMediaFilter.collectAsState()
-    val feedFilter by viewModel.feedFilter.collectAsState()
+    val storedFeedFilter by viewModel.feedFilter.collectAsState()
     val followedBotIds by viewModel.followedBotIds.collectAsState()
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
     val hasTappedAlbumArt by viewModel.hasTappedAlbumArt.collectAsState()
@@ -226,6 +227,10 @@ fun FeedScreen(
     val feedDecade: Int? = viewModel.appliedFeedDecade.collectAsState().value
     val showDecadeFilter = viewModel.isDecadeFilterVisible(feedMode)
     val energyConfigRevision by viewModel.remoteConfig.revision.collectAsState()
+    val newTabEnabled = viewModel.remoteConfig.feedNewTabEnabled
+    val isNewFeed = FeedNewTabPolicy.isNew(feedMode, newTabEnabled)
+    val feedFilter = FeedNewTabPolicy.mediaFilter(storedFeedFilter, isNewFeed)
+    val selectedTabMode = FeedNewTabPolicy.pageMode(feedMode, newTabEnabled)
     val giftQuotaPrefetcher: fm.corus.android.ui.components.GiftSelectionViewModel =
         androidx.hilt.navigation.compose.hiltViewModel(key = "gift-feed-prefetch")
     val giftsEnabled = viewModel.remoteConfig.giftsEnabledForCurrentUser
@@ -238,22 +243,29 @@ fun FeedScreen(
         }
     }
     val feedEnergy by viewModel.feedEnergy.collectAsState()
-    val showEnergyFilter = remember(energyConfigRevision) { viewModel.remoteConfig.feedEnergyFilterEnabled }
+    val showEnergyFilter = remember(energyConfigRevision, feedMode) {
+        FeedEnergy.isOffered(feedMode, viewModel.remoteConfig.feedEnergyFilterEnabled)
+    }
     val showEnergyIntroduction by viewModel.showEnergyIntroduction.collectAsState()
     val followingUserIds by viewModel.followingUserIds.collectAsState()
     val followingLoaded by viewModel.followingLoaded.collectAsState()
     val forYouLoadFailed by viewModel.forYouLoadFailed.collectAsState()
-    val trendingFeedEnabled = viewModel.remoteConfig.trendingFeedEnabled
+    val trendingFeedEnabled = newTabEnabled || viewModel.remoteConfig.trendingFeedEnabled
     val favoritesEnabled = viewModel.remoteConfig.favoritesEnabled
     val tasteMatchesAvailable =
-        viewModel.remoteConfig.tasteMatchesEnabled || viewModel.remoteConfig.tasteMatchesTester || prototypeEnabled
+        newTabEnabled || viewModel.remoteConfig.tasteMatchesEnabled || viewModel.remoteConfig.tasteMatchesTester || prototypeEnabled
     val feedModeOrder = viewModel.remoteConfig.feedModeOrder
     val feedSwitchHintVisible by viewModel.feedSwitchHintVisible.collectAsState()
     // Evaluate the one-time feed-switch hint once the feed has loaded and the
     // switcher is actually shown (nothing to discover otherwise).
-    val modeSwitcherEnabled = trendingFeedEnabled || favoritesEnabled || tasteMatchesAvailable
+    val modeSwitcherEnabled = trendingFeedEnabled || favoritesEnabled || tasteMatchesAvailable || newTabEnabled
     val favoritesCount by viewModel.favoritesCount.collectAsState()
     val favoritesTabUnlocked by viewModel.favoritesTabUnlocked.collectAsState()
+    val savedFollowingMode by viewModel.followingMode.collectAsState()
+    val followingChoicesAvailable = newTabEnabled && favoritesEnabled && favoritesCount > 0
+    val firstTabMode = FeedNewTabPolicy.followingMode(
+        if (feedMode == "following" || feedMode == "favorites") feedMode else savedFollowingMode,
+        favoritesAvailable = followingChoicesAvailable)
     val pageCacheRevision by viewModel.pageCacheRevision.collectAsState()
     val tabBarModes = visibleFeedModeTabs(
         trendingEnabled = trendingFeedEnabled,
@@ -262,8 +274,9 @@ fun FeedScreen(
         favoritesCount = favoritesCount,
         favoritesUnlocked = favoritesTabUnlocked,
         prototypeEnabled = prototypeEnabled,
+        newTabEnabled = newTabEnabled,
     )
-    val feedModeTabsVisible = (viewModel.remoteConfig.feedModeTabsEnabled || prototypeEnabled) &&
+    val feedModeTabsVisible = (viewModel.remoteConfig.feedModeTabsEnabled || prototypeEnabled || newTabEnabled) &&
         modeSwitcherEnabled &&
         tabBarModes.size > 1
     LaunchedEffect(hasLoaded, modeSwitcherEnabled, feedModeTabsVisible) {
@@ -495,11 +508,12 @@ fun FeedScreen(
         // so this spacer is only for the in-list header.
         if (immersive && !feedModeTabsVisible) Spacer(Modifier.height(frost.statusBarPadding))
         FeedHeader(
-            showPlaylistButton = feedMediaFilter != MediaType.MOVIE && !usesForYouPrototype,
+            showPlaylistButton = feedMediaFilter != MediaType.MOVIE,
             playlistReady = posts.isNotEmpty() &&
                 tasteMatchesGate !is FeedViewModel.TasteMatchesGate.Paywall,
             isGeneratingPlaylist = isGeneratingPlaylist,
             feedFilter = feedFilter,
+            showNewReleaseFilters = !isNewFeed,
             filterMenuExpanded = filterMenuExpanded,
             onFilterMenuExpandedChange = { filterMenuExpanded = it },
             onSetFilter = { viewModel.setFeedFilter(it) },
@@ -554,7 +568,7 @@ fun FeedScreen(
     }
 
     val haptics = LocalHapticManager.current
-    val initialTabPage = tabBarModes.indexOf(feedMode).coerceAtLeast(0)
+    val initialTabPage = tabBarModes.indexOf(selectedTabMode).coerceAtLeast(0)
     val pagerState = rememberPagerState(initialPage = initialTabPage) {
         tabBarModes.size.coerceAtLeast(1)
     }
@@ -563,6 +577,8 @@ fun FeedScreen(
     // then animates the pager home — a Following ↔ Matches loop.
     val pagerFeedMode = rememberUpdatedState(feedMode)
     val pagerTabModes = rememberUpdatedState(tabBarModes)
+    val pagerFirstTabMode = rememberUpdatedState(firstTabMode)
+    val pagerNewTabEnabled = rememberUpdatedState(newTabEnabled)
     // Only the settled, visible page records impressions. Prefetched/offscreen
     // rows never enter local history; all modes share the same account key.
     LaunchedEffect(listState, feedMode, pagerState.settledPage) {
@@ -577,9 +593,9 @@ fun FeedScreen(
         }.collect { viewModel.recordVisibleForYouPosts(it) }
     }
 
-    LaunchedEffect(feedMode, tabBarModes, feedModeTabsVisible) {
+    LaunchedEffect(selectedTabMode, tabBarModes, feedModeTabsVisible) {
         if (!feedModeTabsVisible) return@LaunchedEffect
-        val index = tabBarModes.indexOf(feedMode)
+        val index = tabBarModes.indexOf(selectedTabMode)
         if (index >= 0 && pagerState.settledPage != index && !pagerState.isScrollInProgress) {
             pagerState.animateScrollToPage(index, animationSpec = tween(durationMillis = 180))
         }
@@ -587,11 +603,12 @@ fun FeedScreen(
     LaunchedEffect(pagerState, feedModeTabsVisible) {
         if (!feedModeTabsVisible) return@LaunchedEffect
         snapshotFlow { pagerState.settledPage }.collect { page ->
-            val mode = pagerTabModes.value.getOrNull(page) ?: return@collect
+            val tab = pagerTabModes.value.getOrNull(page) ?: return@collect
+            val mode = if (pagerNewTabEnabled.value && tab == "following") pagerFirstTabMode.value else tab
             if (mode != pagerFeedMode.value) viewModel.setFeedMode(mode)
         }
     }
-    val pagerOffset = pagerState.currentPage + pagerState.currentPageOffsetFraction
+    val pagerOffset = feedTabBarPagerOffset(pagerState)
     LaunchedEffect(scrollToTopTrigger) {
         if (scrollToTopTrigger > lastScrollTrigger) {
             chromeCollapse.reveal()
@@ -1034,7 +1051,7 @@ fun FeedScreen(
             // Favorites mode is handled by its own branch below (which is
             // filter-aware), so exclude it here to avoid the generic
             // "from people you follow" copy leaking into a favorites view.
-            isSelected && posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && feedFilter.newReleasesOnly && feedMode != "favorites" -> {
+            isSelected && posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && (feedFilter.newReleasesOnly || isNewFeed) && feedMode != "favorites" -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -1067,7 +1084,7 @@ fun FeedScreen(
                     )
                     Spacer(modifier = Modifier.height(CorusSpacing.lg))
                     Button(
-                        onClick = { viewModel.setFeedFilter(FeedFilter.ALL) },
+                        onClick = { if (isNewFeed) viewModel.setFeedMode("trending") else viewModel.setFeedFilter(FeedFilter.ALL) },
                         colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
                         shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
                     ) {
@@ -1446,7 +1463,7 @@ fun FeedScreen(
                                 post.id == albumArtHintTargetPostId(pagePosts) &&
                                 isNewAccount && !hasTappedAlbumArt,
                             onAlbumArtTap = { viewModel.markAlbumArtTapped() },
-                            isTrendingFeed = pageMode == "trending",
+                            isTrendingFeed = pageMode == "trending" || pageMode == "newReleases",
                             isFollowingAuthor = followingUserIds.contains(post.user.id),
                             isFollowingKnown = followingLoaded,
                             onFollowAuthor = { viewModel.followAuthor(post.user.id) },
@@ -1563,7 +1580,8 @@ fun FeedScreen(
                 modifier = Modifier.fillMaxSize(),
                 beyondViewportPageCount = 1,
             ) { page ->
-                val pageMode = tabBarModes.getOrNull(page) ?: return@HorizontalPager
+                val tab = tabBarModes.getOrNull(page) ?: return@HorizontalPager
+                val pageMode = if (newTabEnabled && tab == "following") firstTabMode else tab
                 // Same composition for peek and settle. Swapping a neighbor
                 // preview for the live feed remounted PostCards and faded
                 // album art in again after a swipe that already looked right.
@@ -1582,7 +1600,7 @@ fun FeedScreen(
                 Spacer(Modifier.height(CorusSpacing.xxs))
                 FeedModeTabBar(
                     modes = tabBarModes,
-                    selected = feedMode,
+                    selected = selectedTabMode,
                     pagerOffset = pagerOffset,
                     prototypeEnabled = prototypeEnabled,
                     tuningMode = prototypeState.mode,
@@ -1592,13 +1610,21 @@ fun FeedScreen(
                         viewModel.setFeedMode("tasteMatches")
                         showForYouTuning = true
                     },
-                    onSelect = { mode ->
+                    followingMode = if (newTabEnabled) firstTabMode else "following",
+                    showsFollowingChoices = followingChoicesAvailable,
+                    onPickFollowingMode = { mode ->
+                        haptics.impact(HapticManager.ImpactStyle.LIGHT)
+                        chromeCollapse.reveal()
+                        viewModel.setFeedMode(mode)
+                    },
+                    onSelect = { tab ->
+                        val mode = if (newTabEnabled && tab == "following") firstTabMode else tab
                         haptics.impact(HapticManager.ImpactStyle.LIGHT)
                         chromeCollapse.reveal()
                         if (mode == feedMode) {
                             scope.launch { listState.animateScrollToItem(0) }
                         } else {
-                            val index = tabBarModes.indexOf(mode)
+                            val index = tabBarModes.indexOf(FeedNewTabPolicy.pageMode(mode, newTabEnabled))
                             if (index >= 0) {
                                 scope.launch {
                                     pagerState.animateScrollToPage(
@@ -2696,6 +2722,7 @@ internal fun FeedHeader(
     playlistReady: Boolean = true,
     isGeneratingPlaylist: Boolean,
     feedFilter: FeedFilter,
+    showNewReleaseFilters: Boolean = true,
     filterMenuExpanded: Boolean,
     onFilterMenuExpandedChange: (Boolean) -> Unit,
     onSetFilter: (FeedFilter) -> Unit,
@@ -2933,6 +2960,7 @@ internal fun FeedHeader(
                                 onFilterMenuExpandedChange(false)
                             },
                         )
+                        if (showNewReleaseFilters) {
                         HorizontalDivider()
                         DropdownMenuItem(
                             text = { Text(stringResource(fm.corus.android.localization.CorusStrings.feed_filter_music_new_releases)) },
@@ -2950,6 +2978,7 @@ internal fun FeedHeader(
                                 onFilterMenuExpandedChange(false)
                             },
                         )
+                        }
                         if (showDecadeFilter) {
                             HorizontalDivider()
                             DropdownMenuItem(

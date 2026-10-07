@@ -36,6 +36,7 @@ internal data class ProfileStoriesGridLayout(
 enum class ProfileStoryGridSize(val artworkLimit: Int) {
     STANDARD(9),
     LARGE(16),
+    EXTRA_LARGE(25),
     FULL(28),
 }
 

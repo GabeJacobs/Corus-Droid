@@ -143,6 +143,22 @@ class FeedModeAvailabilityGuardTest {
     }
 
     @Test
+    fun `persisted New only resolves while the shared pilot flag is on`() = runTest(testDispatcher) {
+        whenever(remoteConfig.feedNewTabEnabled).doReturn(false)
+        val viewModel = vm("newReleases")
+        advanceUntilIdle()
+        assertEquals("following", viewModel.feedMode.value)
+        whenever(remoteConfig.feedNewTabEnabled).doReturn(true)
+        (remoteConfig.revision as MutableStateFlow<Int>).value += 1
+        advanceUntilIdle()
+        assertEquals("newReleases", viewModel.feedMode.value)
+        whenever(remoteConfig.feedNewTabEnabled).doReturn(false)
+        (remoteConfig.revision as MutableStateFlow<Int>).value += 1
+        advanceUntilIdle()
+        assertEquals("following", viewModel.feedMode.value)
+    }
+
+    @Test
     fun `persisted forYou migrates to following (mode retired)`() = runTest(testDispatcher) {
         // "forYou" is no longer a selectable mode; any device that still has it
         // persisted must resolve to Following, regardless of other flags.
@@ -150,6 +166,24 @@ class FeedModeAvailabilityGuardTest {
         val viewModel = vm("forYou")
         advanceUntilIdle()
         assertEquals("following", viewModel.feedMode.value)
+    }
+
+    @Test
+    fun `New makes Matches and Trending selectable without For You and disabling New restores old gates`() = runTest(testDispatcher) {
+        whenever(remoteConfig.tasteMatchesEnabled).doReturn(false)
+        whenever(remoteConfig.tasteMatchesTester).doReturn(false)
+        whenever(remoteConfig.trendingFeedEnabled).doReturn(false)
+        val revision = remoteConfig.revision as MutableStateFlow<Int>
+        for (mode in listOf("tasteMatches", "trending")) {
+            whenever(remoteConfig.feedNewTabEnabled).doReturn(true)
+            val viewModel = vm(mode)
+            advanceUntilIdle()
+            assertEquals(mode, viewModel.feedMode.value)
+            whenever(remoteConfig.feedNewTabEnabled).doReturn(false)
+            revision.value += 1
+            advanceUntilIdle()
+            assertEquals("following", viewModel.feedMode.value)
+        }
     }
 
     @Test

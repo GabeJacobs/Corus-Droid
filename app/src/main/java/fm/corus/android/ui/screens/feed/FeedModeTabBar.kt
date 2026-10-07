@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -22,6 +23,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
@@ -50,6 +55,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import fm.corus.android.R
@@ -78,14 +85,16 @@ fun visibleFeedModeTabs(
     favoritesCount: Int,
     favoritesUnlocked: Boolean = false,
     prototypeEnabled: Boolean = false,
+    newTabEnabled: Boolean = false,
 ): List<String> = (if (prototypeEnabled) listOf(
     FeedModeOrder.FOLLOWING, FeedModeOrder.TASTE_MATCHES, FeedModeOrder.TRENDING, FeedModeOrder.FAVORITES,
-) else FEED_MODE_TAB_ORDER).filter { mode ->
+) else FEED_MODE_TAB_ORDER).let { if (newTabEnabled) it.filterNot { mode -> mode == FeedModeOrder.FAVORITES } + FeedModeOrder.NEW_RELEASES else it }.filter { mode ->
     when (mode) {
         FeedModeOrder.FOLLOWING -> true
-        FeedModeOrder.TRENDING -> trendingEnabled
-        FeedModeOrder.TASTE_MATCHES -> tasteMatchesAvailable || prototypeEnabled
-        FeedModeOrder.FAVORITES ->
+        FeedModeOrder.TRENDING -> newTabEnabled || trendingEnabled
+        FeedModeOrder.TASTE_MATCHES -> newTabEnabled || tasteMatchesAvailable || prototypeEnabled
+        FeedModeOrder.NEW_RELEASES -> newTabEnabled
+        FeedModeOrder.FAVORITES -> !newTabEnabled &&
             fm.corus.android.domain.FavoritesTabGate.showsTab(
                 featureEnabled = favoritesEnabled,
                 count = favoritesCount,
@@ -100,6 +109,7 @@ fun feedModeLabel(mode: String): String = when (mode) {
     FeedModeOrder.FOLLOWING -> stringResource(fm.corus.android.localization.CorusStrings.rail_following)
     FeedModeOrder.TRENDING -> stringResource(fm.corus.android.localization.CorusStrings.feed_mode_trending)
     FeedModeOrder.TASTE_MATCHES -> stringResource(fm.corus.android.localization.CorusStrings.feed_mode_taste_matches)
+    FeedModeOrder.NEW_RELEASES -> stringResource(fm.corus.android.localization.CorusStrings.feed_tab_new)
     FeedModeOrder.FAVORITES -> stringResource(fm.corus.android.localization.CorusStrings.feed_mode_favorites)
     else -> mode
 }
@@ -137,10 +147,8 @@ internal fun tabRowHorizontalPadding(tabCount: Int) =
     if (tabCount >= 4) TabRowHorizontalPadding else TabRowThreeTabHorizontalPadding
 
 /**
- * Compact feed-mode tab row under the Corus wordmark. Labels stay full size
- * (no scaling). Taste Matches shortens to "Matches". Leftover width is
- * split between the tabs (iOS `Spacer`). The accent underline is the
- * label width plus a short overshoot, and tracks [pagerOffset].
+ * Match iOS's flexible, centered feed columns. Controls release
+ * space inside their column, leaving the other tabs and underline widths stable.
  */
 @Composable
 fun FeedModeTabBar(
@@ -153,51 +161,91 @@ fun FeedModeTabBar(
     prototypeEnabled: Boolean = false,
     tuningMode: fm.corus.android.domain.ForYouTuningMode = fm.corus.android.domain.ForYouTuningMode.BALANCED,
     onTune: (() -> Unit)? = null,
+    followingMode: String = FeedModeOrder.FOLLOWING,
+    showsFollowingChoices: Boolean = false,
+    onPickFollowingMode: ((String) -> Unit)? = null,
 ) {
-    val reduceMotion = if (prototypeEnabled) rememberControlsReduceMotion() else false
-    val labels = ArrayList<String>(modes.size)
-    for (mode in modes) {
-        labels.add(if (prototypeEnabled && mode == FeedModeOrder.TASTE_MATCHES) stringResource(R.string.for_you_title) else feedModeTabLabel(mode))
-    }
-    ModeTabBar(
-        labels = labels,
-        selectedIndex = modes.indexOf(selected).coerceAtLeast(0),
-        pagerOffset = pagerOffset,
-        onSelect = { index ->
-            modes.getOrNull(index)?.let { mode ->
-                if (prototypeEnabled && mode == FeedModeOrder.TASTE_MATCHES && selected == mode && onTune != null) {
-                    onTune()
-                } else {
-                    onSelect(mode)
-                }
-            }
-        },
-        modifier = modifier,
-        showDivider = showDivider,
-        tabAccessory = { index, activation, isSelected ->
-            if (prototypeEnabled && modes[index] == FeedModeOrder.TASTE_MATCHES && onTune != null) {
-                val controlsActivation = if (reduceMotion) { if (isSelected) 1f else 0f } else activation
-                val description = stringResource(R.string.for_you_tune) + ": " + stringResource(tuningMode.titleResource)
-                Box(
-                    Modifier.width(28.dp * controlsActivation).height(22.dp)
-                        .clipToBounds().alpha(controlsActivation)
-                        .then(if (isSelected) Modifier
-                            .clickable(role = Role.Button, onClick = onTune)
-                            .semantics { contentDescription = description }
-                        else Modifier.clearAndSetSemantics {}),
-                ) {
-                    // Keep the artwork fixed; release its slot with the pager,
-                    // clipping from the trailing edge like iOS's nested frames.
-                    Box(Modifier.wrapContentWidth(Alignment.Start, unbounded = true)
-                        .width(28.dp).height(22.dp), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Outlined.Tune, contentDescription = null,
-                            tint = CorusColors.Accent, modifier = Modifier.size(14.dp))
+    var followingMenuExpanded by remember(selected, showsFollowingChoices) { mutableStateOf(false) }
+    val reduceMotion = if (prototypeEnabled || showsFollowingChoices) rememberControlsReduceMotion() else false
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val textMeasurer = rememberTextMeasurer()
+        val yourMixTitle = stringResource(R.string.for_you_title)
+        val compactTitle = stringResource(R.string.for_you_title_compact)
+        val titleStyle = CorusFont.custom(800, TabLabelSizeSp)
+        // Reserve the full controls slot so a swipe never changes the chosen title.
+        val titleWidth = with(LocalDensity.current) {
+            ((maxWidth - 28.dp) /
+                modes.size.coerceAtLeast(1) - if (onTune != null) 28.dp else 0.dp).coerceAtLeast(0.dp).toPx()
+        }
+        val fullWidth = textMeasurer.measure(AnnotatedString(yourMixTitle), style = titleStyle,
+            softWrap = false).size.width
+        val compactWidth = textMeasurer.measure(AnnotatedString(compactTitle), style = titleStyle,
+            softWrap = false).size.width
+        val prototypeTitle = if (fullWidth > titleWidth && compactWidth < fullWidth) compactTitle else yourMixTitle
+        val labels = ArrayList<String>(modes.size)
+        for (mode in modes) {
+            labels.add(if (prototypeEnabled && mode == FeedModeOrder.TASTE_MATCHES) prototypeTitle else feedModeTabLabel(if (mode == FeedModeOrder.FOLLOWING) followingMode else mode))
+        }
+        ModeTabBar(
+            labels = labels,
+            selectedIndex = modes.indexOf(selected).coerceAtLeast(0),
+            pagerOffset = pagerOffset,
+            onSelect = { index ->
+                modes.getOrNull(index)?.let { mode ->
+                    if (mode == FeedModeOrder.FOLLOWING && selected == mode && showsFollowingChoices && onPickFollowingMode != null) {
+                        followingMenuExpanded = true
+                    } else if (prototypeEnabled && mode == FeedModeOrder.TASTE_MATCHES && selected == mode && onTune != null) {
+                        onTune()
+                    } else {
+                        onSelect(mode)
                     }
                 }
-            }
-        },
-        horizontalPadding = if (prototypeEnabled) 14.dp else null,
-    )
+            },
+            modifier = Modifier,
+            showDivider = showDivider,
+            tabAccessory = { index, activation, isSelected ->
+                if (modes[index] == FeedModeOrder.FOLLOWING && showsFollowingChoices && onPickFollowingMode != null) {
+                    val controlsActivation = if (reduceMotion) { if (isSelected) 1f else 0f } else activation
+                    Box(Modifier.width(22.dp * controlsActivation).height(22.dp)) {
+                        Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null,
+                            tint = CorusColors.Accent,
+                            modifier = Modifier.size(22.dp).alpha(controlsActivation))
+                        DropdownMenu(expanded = isSelected && followingMenuExpanded,
+                            onDismissRequest = { followingMenuExpanded = false }) {
+                            listOf(FeedModeOrder.FOLLOWING, FeedModeOrder.FAVORITES).forEach { choice ->
+                                DropdownMenuItem(text = { Text(feedModeLabel(choice)) },
+                                    trailingIcon = { if (followingMode == choice) Icon(Icons.Filled.Check,
+                                        contentDescription = null, tint = CorusColors.Accent) },
+                                    onClick = { followingMenuExpanded = false; onPickFollowingMode(choice) })
+                            }
+                        }
+                    }
+                }
+                if (prototypeEnabled && modes[index] == FeedModeOrder.TASTE_MATCHES && onTune != null) {
+                    val controlsActivation = if (reduceMotion) { if (isSelected) 1f else 0f } else activation
+                    val description = stringResource(R.string.for_you_tune) + ": " + stringResource(tuningMode.titleResource)
+                    Box(
+                        Modifier.width(28.dp * controlsActivation).height(22.dp)
+                            .clipToBounds().alpha(controlsActivation)
+                            .then(if (isSelected) Modifier
+                                .clickable(role = Role.Button, onClick = onTune)
+                                .semantics { contentDescription = description }
+                            else Modifier.clearAndSetSemantics {}),
+                    ) {
+                        // Keep the artwork fixed; release its slot with the pager,
+                        // clipping from the trailing edge like iOS's nested frames.
+                        Box(Modifier.wrapContentWidth(Alignment.Start, unbounded = true)
+                            .width(28.dp).height(22.dp), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Outlined.Tune, contentDescription = null,
+                                tint = CorusColors.Accent, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                }
+            },
+            horizontalPadding = 14.dp,
+            equalWidthTabs = true,
+        )
+    }
 }
 
 /** Android's Remove animations setting is the counterpart of iOS Reduce Motion. */
@@ -221,9 +269,8 @@ private fun rememberControlsReduceMotion(): Boolean {
 }
 
 /**
- * Shared feed / search tab row: wrap-width labels, leftover space split
- * between tabs. The accent pill matches the current label and interpolates
- * with the pager; overshoot shrinks when tabs sit closer (4-tab search / feed).
+ * Feed uses equal-width columns; search keeps content-sized tabs and flexible
+ * gaps. The accent pill tracks the tab frames while the pager moves.
  */
 @Composable
 fun ModeTabBar(
@@ -235,6 +282,7 @@ fun ModeTabBar(
     showDivider: Boolean = true,
     tabAccessory: (@Composable (Int, Float, Boolean) -> Unit)? = null,
     horizontalPadding: androidx.compose.ui.unit.Dp? = null,
+    equalWidthTabs: Boolean = false,
 ) {
     val frames = remember(labels) { mutableStateMapOf<Int, Rect>() }
     var barBounds by remember { mutableStateOf(Rect.Zero) }
@@ -266,14 +314,14 @@ fun ModeTabBar(
                 verticalAlignment = Alignment.Bottom,
             ) {
                 labels.forEachIndexed { index, label ->
-                    if (index > 0) {
+                    if (index > 0 && !equalWidthTabs) {
                         Spacer(Modifier.widthIn(min = 8.dp).weight(1f))
                     }
                     val activation = FeedChromeCollapseMath.tabActivation(pagerOffset, index)
                     val isSelected = selectedIndex == index
                     Column(
                         modifier = Modifier
-                            .width(IntrinsicSize.Max)
+                            .then(if (equalWidthTabs) Modifier.weight(1f) else Modifier.width(IntrinsicSize.Max))
                             .clickable(
                                 interactionSource = remember(label) { MutableInteractionSource() },
                                 indication = null,
@@ -288,6 +336,7 @@ fun ModeTabBar(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = label,
+                                modifier = if (equalWidthTabs) Modifier.weight(1f, fill = false) else Modifier,
                                 style = CorusFont.custom(
                                     if (activation >= 0.5f) 800 else 500,
                                     TabLabelSizeSp,

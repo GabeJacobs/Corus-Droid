@@ -26,6 +26,35 @@ class ProfileShareV2RenderTest {
         Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.rgb(30 + index * 7, 40, 100)) }
     })
 
+    @Test fun `username and branding are white on colored and black backgrounds across story and X`() {
+        val art = fixtureArt()
+        try {
+            for (background in listOf(ProfileStoryBackground.CORUS_BLUE, ProfileStoryBackground.ROSE,
+                ProfileStoryBackground.PURPLE, ProfileStoryBackground.ORANGE,
+                ProfileStoryBackground.GREEN, ProfileStoryBackground.DARK)) {
+                val story = renderProfileShareStory(context, profile, art, ProfileStoryGridSize.STANDARD, background, transparent = true)
+                val full = renderProfileShareStory(context, profile, art, ProfileStoryGridSize.FULL, background)
+                val x = renderProfileShareX(context, profile, art, ProfileStoryGridSize.STANDARD, background)
+                try {
+                    val handleTop = profileStoryGeometry(ProfileStoryGridSize.STANDARD).grid.bottom.toInt() + 64
+                    assertTrue("$background Story username must be opaque white", whitePixels(story, 350, handleTop, 730, handleTop + 49) > 100)
+                    assertTrue("$background Story branding must be white", whitePixels(story, 300, handleTop + 70, 780, handleTop + 180) > 100)
+                    assertTrue("$background Full pill username must be white", whitePixels(full, 550, 1660, 800, 1760) > 100)
+                    assertTrue("$background X pill username must be white", whitePixels(x, 550, 995, 800, 1052) > 50)
+                } finally { story.recycle(); full.recycle(); x.recycle() }
+            }
+        } finally { art.slots.forEach { it?.recycle() } }
+    }
+
+    private fun whitePixels(image: Bitmap, left: Int, top: Int, right: Int, bottom: Int): Int {
+        var count = 0
+        for (y in top until bottom) for (x in left until right) {
+            val pixel = image.getPixel(x, y)
+            if (Color.alpha(pixel) > 240 && Color.red(pixel) > 240 && Color.green(pixel) > 240 && Color.blue(pixel) > 240) count++
+        }
+        return count
+    }
+
     @Test fun `Full eagerly draws all 28 squares including the last one and reflows X`() {
         val art = fixtureArt()
         val story = renderProfileShareStory(context, profile, art, ProfileStoryGridSize.FULL, ProfileStoryBackground.CORUS_BLUE)
@@ -67,6 +96,41 @@ class ProfileShareV2RenderTest {
             assertEquals(0xffdedee3.toInt(), image.getPixel(72 + 2 * 234 + 100, g.grid.top.toInt() + 234 + 100))
             assertEquals(art.slots[15]!!.getPixel(0, 0), image.getPixel(900, g.grid.top.toInt() + 800))
         } finally { image.recycle(); art.slots.forEach { it?.recycle() } }
+    }
+
+    @Test fun `five by five uses exactly 25 squares with matching preview layers video base and X`() {
+        val art = fixtureArt()
+        val layout = ProfileStoryGridSize.EXTRA_LARGE
+        val background = ProfileStoryBackground.CORUS_BLUE
+        val geometry = profileStoryGeometry(layout)
+        assertEquals(5, geometry.columns); assertEquals(5, geometry.rows)
+        assertEquals(936f, geometry.grid.width())
+        assertEquals(profileStoryGeometry(ProfileStoryGridSize.STANDARD).grid, geometry.grid)
+        val flat = renderProfileShareStory(context, profile, art, layout, background)
+        val foreground = renderProfileShareStory(context, profile, art, layout, background, transparent = true)
+        val sticker = renderProfileShareStory(context, profile, art, layout, background, transparent = true, compactForeground = true)
+        val x = renderProfileShareX(context, profile, art, layout, background)
+        val composed = Bitmap.createBitmap(1080, 1920, Bitmap.Config.ARGB_8888).apply { eraseColor(background.color) }
+        Canvas(composed).drawBitmap(foreground, 0f, 0f, null)
+        try {
+            assertTrue("Flattened video base is exactly the preview over its background", flat.sameAs(composed))
+            val side = geometry.grid.width() / 5
+            for (index in 0 until 25) {
+                val column = index % 5; val row = index / 5
+                val px = (geometry.grid.left + (column + .5f) * side).toInt()
+                val py = (geometry.grid.top + (row + .5f) * side).toInt()
+                val expected = art.slots[index]!!.getPixel(0, 0)
+                assertEquals("Story square $index", expected, flat.getPixel(px, py))
+                assertEquals("Sticker square $index", expected, sticker.getPixel(px, (72 + (row + .5f) * side).toInt()))
+                assertEquals("X square $index", expected, x.getPixel(column * 216 + 108, row * 216 + 60))
+            }
+            assertEquals(1080, x.width); assertEquals(1080, x.height)
+            assertEquals(0, Color.alpha(sticker.getPixel(0, 0)))
+            save("5x5-story", flat); save("5x5-sticker", sticker); save("5x5-x", x)
+        } finally {
+            listOf(flat, foreground, sticker, x, composed).forEach { it.recycle() }
+            art.slots.forEach { it?.recycle() }
+        }
     }
 
     @Test fun `film poster is centered without cropping to a square`() {

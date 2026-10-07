@@ -9,6 +9,10 @@ enum class FeedEnergy(val value: String, val labelRes: Int, val emptyTitleRes: I
 
     fun matches(post: CymbalPost): Boolean = post.isTrack && post.energyLevel == value
     companion object {
+        // New releases have no reliable energy coverage yet.
+        fun isOffered(mode: String, enabled: Boolean): Boolean = enabled && mode != "newReleases"
+        fun effective(energy: FeedEnergy?, mode: String, enabled: Boolean): FeedEnergy? =
+            if (isOffered(mode, enabled)) energy else null
         fun fromStored(value: String?): FeedEnergy? = entries.firstOrNull { it.value == value }
     }
 }

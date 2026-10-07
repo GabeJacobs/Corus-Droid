@@ -16,6 +16,7 @@ object FeedModeOrder {
     const val TRENDING = "trending"
     const val FOLLOWING = "following"
     const val FAVORITES = "favorites"
+    const val NEW_RELEASES = "newReleases"
 
     /** Default order — matches the historical hardcoded menu. */
     val DEFAULT: List<String> = listOf(TASTE_MATCHES, TRENDING, FOLLOWING, FAVORITES)

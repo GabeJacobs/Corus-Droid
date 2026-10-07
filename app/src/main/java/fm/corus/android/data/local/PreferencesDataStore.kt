@@ -477,6 +477,20 @@ class PreferencesDataStore @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     @ApplicationContext private val context: Context,
 ) {
+    /** Atomic, account-scoped claim; called only after a successful favorite. */
+    suspend fun claimFavoritesFeedGuide(userId: String, newTabEnabled: Boolean, favoritesEnabled: Boolean): Boolean {
+        if (userId.isBlank() || !newTabEnabled || !favoritesEnabled) return false
+        val key = booleanPreferencesKey("favoritesFeedGuide.v1.$userId")
+        var claimed = false
+        dataStore.edit { prefs ->
+            if (prefs[key] != true) {
+                prefs[key] = true
+                claimed = true
+            }
+        }
+        return claimed
+    }
+
     suspend fun loadOnboardingFollowSession(userId: String, debugBuild: Boolean): fm.corus.android.data.model.OnboardingFollowSession? {
         val key = stringPreferencesKey("onboarding_follow_v1_${if (debugBuild) "debug" else "release"}_$userId")
         return dataStore.data.first()[key]?.let { encoded ->

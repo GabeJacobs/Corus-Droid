@@ -195,4 +195,12 @@
     <string name="corus_profile_share_unlock_collage_one">"corus를 1개 더 게시하면 사용할 수 있어요."</string>
     <string name="corus_profile_share_unlock_large_many">"corus를 %1$d개 더 게시하면 4 × 4를 사용할 수 있어요"</string>
     <string name="corus_profile_share_unlock_large_one">"corus를 1개 더 게시하면 4 × 4를 사용할 수 있어요"</string>
+    <string name="corus_profile_share_grid_extra_large">"5 × 5"</string>
+    <string name="corus_profile_share_grid_large">"4 × 4"</string>
+    <string name="corus_profile_share_grid_standard">"3 × 3"</string>
+    <string name="corus_profile_share_unlock_extra_large_many">"corus를 %1$d개 더 게시하면 5 × 5를 사용할 수 있어요"</string>
+    <string name="corus_profile_share_unlock_extra_large_one">"corus를 1개 더 게시하면 5 × 5를 사용할 수 있어요"</string>
+    <string name="corus_favorites_feed_guide_body">"피드에서 팔로잉을 누른 다음 즐겨찾기를 선택하세요."</string>
+    <string name="corus_favorites_feed_guide_done">"알겠어요"</string>
+    <string name="corus_favorites_feed_guide_title">"내 즐겨찾기 피드"</string>
 </resources>

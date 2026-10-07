@@ -1352,16 +1352,17 @@ class NowPlayingManager @Inject constructor(
         newReleasesOnly: Boolean = false,
         feedMode: String = "following",
         sessionToken: String? = null,
+        deduplicateSongs: Boolean = false,
     ) {
         // TIDAL users get the playlist on their own account, built client-side
         // from the backend's resolved track list (mirrors iOS). Apple Music /
         // Deezer have no client-side path on Android and are blocked at the UI.
         if (musicServicePreference.current.value == MusicService.YOUTUBE_MUSIC && youtubeMusicService.enabled) {
-            generateYouTubePlaylist("generateFeedPlaylist", mapOf("newReleasesOnly" to newReleasesOnly, "feedMode" to feedMode, "sessionToken" to (sessionToken ?: "")), PlaylistTrialField.Feed)
+            generateYouTubePlaylist("generateFeedPlaylist", mapOf("newReleasesOnly" to newReleasesOnly, "feedMode" to feedMode, "sessionToken" to (sessionToken ?: "")) + if (deduplicateSongs) mapOf("deduplicateSongs" to true) else emptyMap(), PlaylistTrialField.Feed)
             return
         }
         if (musicServicePreference.current.value == MusicService.TIDAL) {
-            generateFeedPlaylistTidal(newReleasesOnly, feedMode, sessionToken)
+            generateFeedPlaylistTidal(newReleasesOnly, feedMode, sessionToken, deduplicateSongs)
             return
         }
         _isGeneratingPlaylist.value = true
@@ -1374,7 +1375,7 @@ class NowPlayingManager @Inject constructor(
         }
 
         try {
-            val result = cloudFunctions.generateFeedPlaylist(newReleasesOnly, feedMode, sessionToken)
+            val result = cloudFunctions.generateFeedPlaylist(newReleasesOnly, feedMode, sessionToken, deduplicateSongs)
             if (result.soundcloudSkipped > 0) {
                 android.util.Log.i("NowPlaying", "Feed playlist skipped ${result.soundcloudSkipped} SoundCloud track(s)")
             }
@@ -1539,6 +1540,7 @@ class NowPlayingManager @Inject constructor(
         newReleasesOnly: Boolean,
         feedMode: String,
         sessionToken: String?,
+        deduplicateSongs: Boolean,
     ) {
         if (!isNetworkAvailable()) {
             _playlistError.value = "Couldn't connect. Check your connection."
@@ -1553,7 +1555,7 @@ class NowPlayingManager @Inject constructor(
         // the playlist opens or an error replaces it.
         val toastId = ToastManager.showLoading("Generating playlist…")
         try {
-            when (val outcome = cloudFunctions.generateFeedPlaylistTracks(newReleasesOnly, feedMode, sessionToken)) {
+            when (val outcome = cloudFunctions.generateFeedPlaylistTracks(newReleasesOnly, feedMode, sessionToken, deduplicateSongs)) {
                 is CloudFunctionsDataSource.PlaylistTracksOutcome.Paywall ->
                     requestPlaylistPaywall(PlaylistTrialField.Feed)
                 is CloudFunctionsDataSource.PlaylistTracksOutcome.Failure ->
@@ -1771,7 +1773,8 @@ class NowPlayingManager @Inject constructor(
         return id
     }
 
-    private fun feedPlaylistName(feedMode: String): String = when (feedMode) {
+    private fun feedPlaylistName(feedMode: String): String =
+        ForYouTuningMode.entries.firstOrNull { it.playlistFeedMode == feedMode }?.playlistName ?: when (feedMode) {
         "trending" -> "Corus Trending"
         "tasteMatches" -> "Corus Taste Matches"
         "favorites" -> "Corus Favorites"

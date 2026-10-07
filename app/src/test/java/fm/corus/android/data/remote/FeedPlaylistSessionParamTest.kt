@@ -15,9 +15,19 @@ import org.junit.Test
 class FeedPlaylistSessionParamTest {
 
     @Test
+    fun `each For You tuning has a separate playlist identity`() {
+        val modes = fm.corus.android.domain.ForYouTuningMode.entries
+        org.junit.Assert.assertEquals(3, modes.map { it.playlistFeedMode }.toSet().size)
+        org.junit.Assert.assertEquals(listOf("Corus For You · Eclectic", "Corus For You · Balanced", "Corus For You · Stay Close"), modes.map { it.playlistName })
+    }
+
+    @Test
     fun `ranked modes carry the session token`() {
         assertTrue(feedModeUsesRankedSession("trending"))
         assertTrue(feedModeUsesRankedSession("tasteMatches"))
+        assertTrue(feedModeUsesRankedSession("forYouEclectic"))
+        assertTrue(feedModeUsesRankedSession("forYouBalanced"))
+        assertTrue(feedModeUsesRankedSession("forYouClose"))
     }
 
     @Test

@@ -3,6 +3,14 @@ package fm.corus.android.ui.screens.feed
 import android.app.Application
 import android.provider.Settings
 import androidx.compose.foundation.background
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.getValue
@@ -10,6 +18,8 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -33,11 +43,12 @@ class ForYouControlsTransitionTest {
     private val description = "Tune Your Feed: Balanced"
     private fun tab() = compose.onNode(hasText("Your Mix") and
         SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab))
-    private fun SemanticsNodeInteraction.widthDp(): Float = getUnclippedBoundsInRoot().let {
-        it.right.value - it.left.value
+    private fun controlsWidth(): Float {
+        val column = tab().getUnclippedBoundsInRoot()
+        val label = compose.onNodeWithText("Your Mix", useUnmergedTree = true).getUnclippedBoundsInRoot()
+        // The combined label and controls stay centered within a fixed column.
+        return column.left.value + column.right.value - label.left.value - label.right.value
     }
-    private fun controlsWidth(): Float = tab().widthDp() -
-        compose.onNodeWithText("Your Mix", useUnmergedTree = true).widthDp()
 
     @Test fun `retapping selected For You opens controls without selecting or scrolling the feed`() {
         var tunes = 0
@@ -117,6 +128,95 @@ class ForYouControlsTransitionTest {
         assertEquals(collapsed + 14f, controlsWidth(), 1f)
         compose.runOnIdle { offset = 2f }
         assertEquals(collapsed, controlsWidth(), 1f)
+    }
+
+    @Test fun `tapped destinations never reveal controls on an intermediate Your Mix page`() {
+        var selected by mutableStateOf("following")
+        lateinit var pager: PagerState
+        var chromeOffset = 0f
+        compose.setContent {
+            CorusTheme {
+                pager = rememberPagerState { modes.size }
+                val scope = rememberCoroutineScope()
+                chromeOffset = feedTabBarPagerOffset(pager)
+                Column(Modifier.width(393.dp)) {
+                    FeedModeTabBar(modes, selected, chromeOffset, { mode ->
+                        selected = mode
+                        scope.launch { pager.animateScrollToPage(modes.indexOf(mode), animationSpec = tween(1000)) }
+                    }, prototypeEnabled = true, onTune = {})
+                    HorizontalPager(pager, Modifier.height(100.dp)) { Box(Modifier.height(100.dp)) }
+                }
+            }
+        }
+        val collapsed = controlsWidth()
+        compose.mainClock.autoAdvance = false
+        // Both directions cross Your Mix, and a longer jump crosses two tabs.
+        listOf("trending", "following", "favorites", "following").forEach { destination ->
+            compose.onNodeWithText(when (destination) {
+                "trending" -> "Trending"
+                "favorites" -> "Favorites"
+                else -> "Following"
+            }, useUnmergedTree = true).performClick()
+            compose.mainClock.advanceTimeBy(32)
+            repeat(9) { sample ->
+                compose.mainClock.advanceTimeBy(100)
+                compose.runOnIdle {
+                    if (sample == 0) assertTrue("The feed must still slide", pager.isScrollInProgress)
+                    assertEquals(modes.indexOf(destination).toFloat(), chromeOffset, 0.01f)
+                }
+                assertEquals("No controls flash while crossing Your Mix", collapsed, controlsWidth(), 1f)
+            }
+            compose.mainClock.advanceTimeBy(200)
+            compose.runOnIdle { assertEquals(modes.indexOf(destination), pager.settledPage) }
+        }
+        // Entering Your Mix shows its full controls while the feed is still moving.
+        compose.onNodeWithText("Your Mix", useUnmergedTree = true).performClick()
+        compose.mainClock.advanceTimeBy(32)
+        compose.runOnIdle {
+            assertTrue(pager.isScrollInProgress)
+            assertTrue(pager.currentPage + pager.currentPageOffsetFraction < 0.5f)
+            assertEquals(1f, chromeOffset, 0.01f)
+        }
+        assertEquals(collapsed + 28f, controlsWidth(), 1f)
+        compose.mainClock.advanceTimeBy(1200)
+    }
+
+    @Test fun `finger swipe and its settling motion keep controls tied to feed position`() {
+        lateinit var pager: PagerState
+        var chromeOffset = 0f
+        compose.setContent {
+            CorusTheme {
+                pager = rememberPagerState { modes.size }
+                chromeOffset = feedTabBarPagerOffset(pager)
+                Column(Modifier.width(393.dp)) {
+                    FeedModeTabBar(modes, modes[pager.settledPage], chromeOffset, {},
+                        prototypeEnabled = true, onTune = {})
+                    HorizontalPager(pager, Modifier.height(100.dp).testTag("pager")) {
+                        Box(Modifier.height(100.dp))
+                    }
+                }
+            }
+        }
+        val collapsed = controlsWidth()
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithTag("pager").performTouchInput {
+            down(center)
+            moveBy(Offset(-width * 0.4f, 0f), delayMillis = 200)
+        }
+        compose.mainClock.advanceTimeBy(32)
+        compose.runOnIdle {
+            val feedOffset = pager.currentPage + pager.currentPageOffsetFraction
+            assertTrue(feedOffset > 0.1f && feedOffset < 0.5f)
+            assertEquals(feedOffset, chromeOffset, 0.01f)
+        }
+        assertEquals(collapsed + 28f * chromeOffset, controlsWidth(), 1f)
+        compose.onNodeWithTag("pager").performTouchInput { up() }
+        compose.mainClock.advanceTimeBy(32)
+        compose.runOnIdle {
+            assertTrue(pager.isScrollInProgress)
+            assertEquals(pager.currentPage + pager.currentPageOffsetFraction, chromeOffset, 0.01f)
+        }
+        compose.mainClock.advanceTimeBy(2000)
     }
 
     @Test fun `disabled system animations use selected tab instead of fractional fade`() {

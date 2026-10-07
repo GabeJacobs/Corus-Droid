@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.WifiOff
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -73,6 +72,13 @@ fun CorusApp(
         val viewModel: AuthViewModel = hiltViewModel()
         val authState by viewModel.authState.collectAsState()
         val prototypeState by viewModel.forYouPrototype.state.collectAsState()
+        val tabPresentation by viewModel.feedTabPresentation.collectAsState()
+        val waitingForFeedTabs = authState == AuthViewModel.AuthState.SignedIn &&
+            (!tabPresentation.hasPresentation || viewModel.isResolvingFeedTabs ||
+                !prototypeState.hasPresentation || viewModel.forYouPrototype.isResolvingAccess)
+        LaunchedEffect(authState, tabPresentation.uid, tabPresentation.generation) {
+            if (authState == AuthViewModel.AuthState.SignedIn) viewModel.awaitFeedTabPresentation()
+        }
         val isConnected by viewModel.networkConnected.collectAsState()
 
         LaunchedEffect(Unit) {
@@ -91,12 +97,7 @@ fun CorusApp(
             CompactWidthContainer(modifier = Modifier.fillMaxSize()) {
                 when (authState) {
                     AuthViewModel.AuthState.Loading -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            CircularProgressIndicator(color = CorusColors.Accent)
-                        }
+                        Box(Modifier.fillMaxSize().background(CorusColors.Background))
                     }
                     AuthViewModel.AuthState.SignedOut -> {
                         AuthScreen()
@@ -114,16 +115,16 @@ fun CorusApp(
                         SocialSetupFlow(onFinished = { viewModel.finishSocialSetup() })
                     }
                     AuthViewModel.AuthState.SignedIn -> {
-                        if (!prototypeState.hasPresentation || viewModel.forYouPrototype.isResolvingAccess) {
-                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(color = CorusColors.Accent)
-                            }
+                        if (waitingForFeedTabs) {
+                            Box(Modifier.fillMaxSize().background(CorusColors.Background))
                         } else MainTabScreen(
                             pendingNotificationDestination = pendingNotificationDestination,
                             onNotificationDestinationConsumed = onNotificationDestinationConsumed,
                         )
                     }
                 }
+
+                FeedLaunchCover(visible = authState == AuthViewModel.AuthState.Loading || waitingForFeedTabs)
 
                 AnimatedVisibility(
                     visible = !isConnected,

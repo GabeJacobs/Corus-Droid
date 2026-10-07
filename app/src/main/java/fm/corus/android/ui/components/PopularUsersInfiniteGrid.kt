@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -86,6 +89,7 @@ fun PopularUsersInfiniteGrid(
     viewModel: PopularUsersInfiniteGridViewModel = hiltViewModel(),
     headerTitle: String = "POPULAR ON CORUS",
     headerIcon: ImageVector = Icons.Filled.LocalFireDepartment,
+    usesCompactHeader: Boolean = false,
 ) {
     val matches by viewModel.matches.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -128,7 +132,7 @@ fun PopularUsersInfiniteGrid(
         }
 
         item(span = { GridItemSpan(maxLineSpan) }, key = "header") {
-            SectionHeader(headerTitle, headerIcon, verticalPadding = headerVerticalPadding)
+            SectionHeader(headerTitle, headerIcon, verticalPadding = headerVerticalPadding, usesCompactHeader = usesCompactHeader)
         }
 
         if (matches.isEmpty() && isLoading) {
@@ -159,19 +163,27 @@ fun PopularUsersInfiniteGrid(
 }
 
 @Composable
-private fun SectionHeader(title: String, icon: ImageVector, verticalPadding: Dp = CorusSpacing.sm) {
+private fun SectionHeader(title: String, icon: ImageVector, verticalPadding: Dp = CorusSpacing.sm, usesCompactHeader: Boolean = false) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = verticalPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = CorusColors.Accent,
-            modifier = Modifier.size(16.dp),
-        )
+        Box(
+            modifier = Modifier.size(if (usesCompactHeader) 18.dp else 16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = CorusColors.Accent,
+                // Material symbols include viewport padding; 22dp gives the
+                // star the same painted width as the 18dp Venn icon.
+                modifier = Modifier.requiredSize(if (usesCompactHeader) 22.dp else 16.dp)
+                    .offset(y = if (usesCompactHeader) (-0.5).dp else 0.dp),
+            )
+        }
         Spacer(modifier = Modifier.width(CorusSpacing.sm))
         Text(
             text = title,

@@ -2,12 +2,15 @@ package fm.corus.android.ui.screens.feed
 
 import android.app.Application
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import fm.corus.android.domain.ForYouStayCloseProgress
 import fm.corus.android.domain.ForYouTuningMode
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.theme.CorusTheme
+import fm.corus.android.ui.theme.CorusFont
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -20,6 +23,34 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34], application = Application::class, qualifiers = "w393dp-h852dp")
 class ForYouTuningSheetTest {
     @get:Rule val compose = createComposeRule()
+
+    private fun showTuningSheet() {
+        compose.setContent {
+            CorusTheme(darkTheme = false) {
+                CompositionLocalProvider(LocalHapticManager provides mock()) {
+                    ForYouTuningSheet(ForYouTuningMode.BALANCED, ForYouTuningMode.BALANCED,
+                        onApply = {}, onDismiss = {}, progress = ForYouStayCloseProgress(5))
+                }
+            }
+        }
+    }
+
+    @Test fun `tuning sheet explains Your Mix using its current name`() {
+        showTuningSheet()
+        compose.onNodeWithText("Choose how Your Mix is tuned:").assertIsDisplayed()
+        compose.onNodeWithText("The more you post, the better Your Mix understands your taste.").assertIsDisplayed()
+    }
+
+    @Test fun `tuning title renders with the standard screen title typography`() {
+        showTuningSheet()
+        val layouts = mutableListOf<TextLayoutResult>()
+        compose.onNodeWithText("Tune Your Feed").performSemanticsAction(SemanticsActions.GetTextLayoutResult) {
+            it(layouts)
+        }
+        val renderedStyle = layouts.single().layoutInput.style
+        assertEquals(CorusFont.screenTitle.fontSize, renderedStyle.fontSize)
+        assertEquals(CorusFont.screenTitle.fontWeight, renderedStyle.fontWeight)
+    }
 
     @Test fun `locked remote default has no Default badge matching iOS`() {
         compose.setContent {

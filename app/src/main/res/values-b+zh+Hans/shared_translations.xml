@@ -195,4 +195,12 @@
     <string name="corus_profile_share_unlock_collage_one">"再发布 1 条 corus 即可解锁。"</string>
     <string name="corus_profile_share_unlock_large_many">"再发布 %1$d 条 corus 即可解锁 4 × 4"</string>
     <string name="corus_profile_share_unlock_large_one">"再发布 1 条 corus 即可解锁 4 × 4"</string>
+    <string name="corus_profile_share_grid_extra_large">"5 × 5"</string>
+    <string name="corus_profile_share_grid_large">"4 × 4"</string>
+    <string name="corus_profile_share_grid_standard">"3 × 3"</string>
+    <string name="corus_profile_share_unlock_extra_large_many">"再发布 %1$d 条 corus 即可解锁 5 × 5"</string>
+    <string name="corus_profile_share_unlock_extra_large_one">"再发布 1 条 corus 即可解锁 5 × 5"</string>
+    <string name="corus_favorites_feed_guide_body">"在动态中，点击「关注」，然后选择「收藏」。"</string>
+    <string name="corus_favorites_feed_guide_done">"知道了"</string>
+    <string name="corus_favorites_feed_guide_title">"你的收藏动态"</string>
 </resources>

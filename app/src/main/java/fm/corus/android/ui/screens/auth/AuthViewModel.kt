@@ -94,6 +94,9 @@ class AuthViewModel @Inject constructor(
         }
     )
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
+    val feedTabPresentation = remoteConfigService.feedTabPresentation
+    val isResolvingFeedTabs: Boolean get() = remoteConfigService.isResolvingFeedTabs
+    suspend fun awaitFeedTabPresentation() = remoteConfigService.awaitFeedTabPresentation()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()

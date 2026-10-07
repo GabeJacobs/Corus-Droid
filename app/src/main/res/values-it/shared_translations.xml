@@ -195,4 +195,12 @@
     <string name="corus_profile_share_unlock_collage_one">"Pubblica ancora 1 corus per sbloccarlo."</string>
     <string name="corus_profile_share_unlock_large_many">"Pubblica ancora %1$d coruses per sbloccare 4 × 4"</string>
     <string name="corus_profile_share_unlock_large_one">"Pubblica ancora 1 corus per sbloccare 4 × 4"</string>
+    <string name="corus_profile_share_grid_extra_large">"5 × 5"</string>
+    <string name="corus_profile_share_grid_large">"4 × 4"</string>
+    <string name="corus_profile_share_grid_standard">"3 × 3"</string>
+    <string name="corus_profile_share_unlock_extra_large_many">"Pubblica ancora %1$d coruses per sbloccare 5 × 5"</string>
+    <string name="corus_profile_share_unlock_extra_large_one">"Pubblica ancora 1 corus per sbloccare 5 × 5"</string>
+    <string name="corus_favorites_feed_guide_body">"Nel Feed, tocca Seguiti, poi scegli Preferiti."</string>
+    <string name="corus_favorites_feed_guide_done">"Ho capito"</string>
+    <string name="corus_favorites_feed_guide_title">"Il tuo Feed dei Preferiti"</string>
 </resources>
