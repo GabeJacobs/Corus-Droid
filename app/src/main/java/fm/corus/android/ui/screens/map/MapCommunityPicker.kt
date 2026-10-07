@@ -12,9 +12,9 @@ fun MapCommunityPicker(cities: List<MapCitySummary>, selected: String?, onSelect
     var expanded by remember { mutableStateOf(false) }
     val options = cities.flatMap { listOf(it.city) + listOfNotNull(it.parentCommunity) + it.subdivisions }.distinctBy { it.cityId }
     Box {
-        TextButton(onClick = { expanded = true }) { Text(options.firstOrNull { it.cityId == selected }?.cityName ?: stringResource(R.string.map_all_communities)) }
+        TextButton(onClick = { expanded = true }) { Text(options.firstOrNull { it.cityId == selected }?.cityName ?: stringResource(fm.corus.android.localization.CorusStrings.map_all_communities)) }
         DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(text = { Text(stringResource(R.string.map_all_communities)) }, onClick = { expanded = false; onSelect(null) })
+            DropdownMenuItem(text = { Text(stringResource(fm.corus.android.localization.CorusStrings.map_all_communities)) }, onClick = { expanded = false; onSelect(null) })
             options.forEach { city -> DropdownMenuItem(text = { Text(city.cityName) }, onClick = { expanded = false; onSelect(city.cityId) }) }
         }
     }

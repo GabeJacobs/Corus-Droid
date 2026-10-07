@@ -139,7 +139,7 @@ fun PostDetailScreen(
     // Resolve-on-tap state for the tappable artist name (subtitle) — shared HUD +
     // miss toast, matching the "…" menu's Go to Artist row.
     var isResolvingSubtitle by remember { mutableStateOf(false) }
-    val subtitleArtistNotFound = stringResource(R.string.song_detail_artist_not_found)
+    val subtitleArtistNotFound = stringResource(fm.corus.android.localization.CorusStrings.post_toast_artist_not_found)
     var menuPost by remember { mutableStateOf<CymbalPost?>(null) }
     var sharePost by remember { mutableStateOf<CymbalPost?>(null) }
     var giftPost by remember { mutableStateOf<CymbalPost?>(null) }
@@ -162,13 +162,13 @@ fun PostDetailScreen(
             if (!immersive) {
                 TopAppBar(
                     title = {
-                        Text(stringResource(R.string.feed_screen_title_Corus), style = CorusFont.screenTitle, color = CorusColors.Text)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.app_name), style = CorusFont.screenTitle, color = CorusColors.Text)
                     },
                     navigationIcon = {
                         CorusHeaderIconButton(
                             onClick = onBack,
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.feed_cd_back),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                         )
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
@@ -197,7 +197,7 @@ fun PostDetailScreen(
                         .padding(padding),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(stringResource(R.string.post_detail_not_found), style = CorusFont.body, color = CorusColors.Secondary)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.post_detail_not_found), style = CorusFont.body, color = CorusColors.Secondary)
                 }
             }
             else -> {
@@ -396,6 +396,7 @@ fun PostDetailScreen(
                                     currentPost.id,
                                     displayedGiftCount,
                                     displayedRecentGifts,
+                                    recipientId = currentPost.user.id,
                                     onSenderTap = onNavigateToUser,
                                 )
                             }
@@ -514,7 +515,7 @@ fun PostDetailScreen(
         if (immersive) {
             ImmersiveFrostedBar(
                 hazeState = frost.hazeState,
-                title = stringResource(R.string.feed_screen_title_Corus),
+                title = stringResource(fm.corus.android.localization.CorusStrings.app_name),
                 onBack = onBack,
                 topInset = frost.statusBarPadding,
             )
@@ -604,7 +605,7 @@ private fun PostDetailHeader(
                         tint = CorusColors.Secondary,
                     )
                     Text(
-                        text = stringResource(R.string.post_detail_reposted_from),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.post_card_reposted_from),
                         style = CorusFont.caption,
                         color = CorusColors.Secondary,
                     )
@@ -639,7 +640,7 @@ private fun PostDetailHeader(
         ) {
             Icon(
                 Icons.Filled.MoreHoriz,
-                contentDescription = stringResource(R.string.feed_cd_more_options),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.feed_cd_more_options),
                 modifier = Modifier.size(14.dp),
                 tint = CorusColors.Secondary,
             )
@@ -761,7 +762,7 @@ private fun PostDetailAlbumArt(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
-                            text = stringResource(R.string.post_detail_finding_back_cover),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.post_back_cover_loading),
                             color = Color.White,
                             style = CorusFont.caption.copy(fontWeight = FontWeight.Medium),
                             modifier = Modifier.padding(bottom = CorusSpacing.xs),
@@ -784,7 +785,7 @@ private fun PostDetailAlbumArt(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = stringResource(R.string.post_detail_no_back_cover),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.post_toast_no_back_cover),
                             color = Color.White,
                             style = CorusFont.body.copy(fontWeight = FontWeight.Medium),
                         )
@@ -856,7 +857,7 @@ private fun PostDetailAlbumArt(
             ) {
                 AsyncImage(
                     model = flipState.backCoverURL,
-                    contentDescription = stringResource(R.string.post_detail_cd_album_back_cover),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.post_card_cd_album_back_cover),
                     modifier = Modifier
                         .fillMaxSize()
                         .albumArtPinchZoom(),
@@ -920,7 +921,7 @@ private fun PostDetailSongInfo(
             if (!post.trailerURL.isNullOrBlank()) {
                 YouTubeIcon(
                     height = 22.dp,
-                    contentDescription = stringResource(R.string.post_detail_cd_watch_trailer),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.post_kebab_watch_trailer),
                     modifier = Modifier.clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -989,7 +990,7 @@ private fun PostDetailSongInfo(
                 }
                 Image(
                     painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(displayedService)),
-                    contentDescription = stringResource(R.string.post_detail_cd_play_spotify),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.featured_cd_play_spotify),
                     modifier = Modifier
                         .offset(y = PostRowServiceControlYOffset)
                         .size(28.dp)
@@ -1129,7 +1130,7 @@ private fun PostDetailEngagementRow(
             }
             Icon(
                 imageVector = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                contentDescription = stringResource(R.string.post_detail_cd_save),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.save_post),
                 modifier = Modifier.size(20.dp),
                 tint = CorusColors.Text,
             )

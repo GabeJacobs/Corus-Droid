@@ -71,7 +71,7 @@ fun DirectorTrailersScreen(
                     CorusHeaderIconButton(
                         onClick = onBack,
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.feed_cd_back),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
@@ -95,7 +95,7 @@ fun DirectorTrailersScreen(
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column {
                     Text(
-                        text = stringResource(R.string.destination_trailers),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.destination_trailers),
                         style = CorusFont.songTitleLarge,
                         color = CorusColors.Text,
                     )

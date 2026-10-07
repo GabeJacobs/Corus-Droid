@@ -35,6 +35,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Policy
 import androidx.compose.material.icons.outlined.Vibration
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -93,11 +94,13 @@ fun SettingsScreen(
     onSendFeedback: () -> Unit = {},
     onNotificationSettings: () -> Unit = {},
     onSyncContacts: () -> Unit = {},
+    onAppIcon: () -> Unit = {},
     authViewModel: AuthViewModel = hiltViewModel(),
     appearanceViewModel: AppearanceSettingsViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel = hiltViewModel(),
     notificationSettingsViewModel: NotificationSettingsViewModel = hiltViewModel(),
 ) {
+    settingsViewModel.remoteConfigService.revision.collectAsState().value
     val context = LocalContext.current
     val activity = context as? Activity
     var showClubOffer by remember { mutableStateOf(false) }
@@ -120,10 +123,10 @@ fun SettingsScreen(
             if (idToken != null) {
                 authViewModel.reauthenticateAndDelete(idToken)
             } else {
-                ToastManager.show(context.getString(R.string.settings_reauth_failed))
+                ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.settings_reauth_failed))
             }
         } catch (e: ApiException) {
-            ToastManager.show(context.getString(R.string.settings_reauth_failed))
+            ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.settings_reauth_failed))
         }
     }
 
@@ -143,13 +146,13 @@ fun SettingsScreen(
                     activity?.let {
                         phoneReauthCode = ""
                         authViewModel.startPhoneReauth(it)
-                    } ?: ToastManager.show(context.getString(R.string.settings_reauth_could_not_start))
+                    } ?: ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.settings_reauth_could_not_start))
                 }
                 "email" -> {
                     emailReauthCode = ""
                     authViewModel.startEmailReauth()
                 }
-                else -> ToastManager.show(context.getString(R.string.settings_reauth_signout_prompt))
+                else -> ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.settings_reauth_signout_prompt))
             }
         }
     }
@@ -157,7 +160,7 @@ fun SettingsScreen(
     // Show toast on successful deletion
     LaunchedEffect(Unit) {
         authViewModel.accountDeleted.collect {
-            ToastManager.show(context.getString(R.string.settings_account_deleted_toast))
+            ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.settings_account_deleted_toast))
         }
     }
 
@@ -175,10 +178,10 @@ fun SettingsScreen(
     val showJoinClub = !isClubMember && !isVerified
     val restoreInProgress by settingsViewModel.restoreInProgress.collectAsState()
     val restoreResult by settingsViewModel.restoreResult.collectAsState()
-    val restoreLoadingMessage = stringResource(R.string.club_restore_purchases)
-    val restoreSuccessMessage = stringResource(R.string.settings_restore_toast_success)
-    val restoreNoneMessage = stringResource(R.string.settings_restore_toast_none)
-    val restoreFailedMessage = stringResource(R.string.settings_restore_toast_failed)
+    val restoreLoadingMessage = stringResource(fm.corus.android.localization.CorusStrings.club_restore_purchases)
+    val restoreSuccessMessage = stringResource(fm.corus.android.localization.CorusStrings.settings_restore_toast_success)
+    val restoreNoneMessage = stringResource(fm.corus.android.localization.CorusStrings.settings_restore_toast_none)
+    val restoreFailedMessage = stringResource(fm.corus.android.localization.CorusStrings.settings_restore_toast_failed)
     var restoreLoadingToastId by remember { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(restoreInProgress) {
@@ -231,10 +234,10 @@ fun SettingsScreen(
     // Messaging
     var whoCanMessageMe by remember { mutableStateOf("Everyone") }
     val messageOptionLabels: Map<String, String> = mapOf(
-        "Everyone" to stringResource(R.string.settings_message_everyone),
-        "My Followers" to stringResource(R.string.settings_message_my_followers),
-        "People I Follow" to stringResource(R.string.settings_message_people_i_follow),
-        "Nobody" to stringResource(R.string.settings_message_nobody),
+        "Everyone" to stringResource(fm.corus.android.localization.CorusStrings.parity_c756f6af1f03),
+        "My Followers" to stringResource(fm.corus.android.localization.CorusStrings.settings_message_my_followers),
+        "People I Follow" to stringResource(fm.corus.android.localization.CorusStrings.settings_message_people_i_follow),
+        "Nobody" to stringResource(fm.corus.android.localization.CorusStrings.settings_message_nobody),
     )
 
     Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
@@ -248,9 +251,9 @@ fun SettingsScreen(
             CorusHeaderIconButton(
                 onClick = onBack,
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.common_back),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
             )
-            Text(stringResource(R.string.settings_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
+            Text(stringResource(fm.corus.android.localization.CorusStrings.nav_settings), style = CorusFont.screenTitle, color = CorusColors.Text)
         }
 
         HorizontalDivider(color = CorusColors.Divider)
@@ -262,7 +265,7 @@ fun SettingsScreen(
         ) {
             // ── Section: Corus Club ──
             if (showJoinClub) {
-                SectionHeader(stringResource(R.string.settings_section_corus_club))
+                SectionHeader(stringResource(fm.corus.android.localization.CorusStrings.settings_section_corus_club))
 
                 Row(
                     modifier = Modifier
@@ -277,12 +280,12 @@ fun SettingsScreen(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = stringResource(R.string.settings_row_join_club),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.settings_row_join_club),
                             style = CorusFont.body,
                             color = CorusColors.Text,
                         )
                         Text(
-                            text = stringResource(R.string.settings_row_join_club_subtitle),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.settings_row_join_club_desc),
                             style = CorusFont.caption,
                             color = CorusColors.Secondary,
                         )
@@ -302,8 +305,8 @@ fun SettingsScreen(
 
                 SettingsNavRow(
                     icon = Icons.Filled.Refresh,
-                    title = stringResource(R.string.club_restore_purchases),
-                    subtitle = stringResource(R.string.settings_row_restore_purchases_subtitle),
+                    title = stringResource(fm.corus.android.localization.CorusStrings.club_restore_purchases),
+                    subtitle = stringResource(fm.corus.android.localization.CorusStrings.settings_row_restore_purchases_subtitle),
                     onClick = {
                         if (!restoreInProgress) {
                             settingsViewModel.restorePurchases()
@@ -313,43 +316,49 @@ fun SettingsScreen(
             }
 
             // ── Section: Invite ──
-            SectionHeader(stringResource(R.string.settings_section_invite))
+            SectionHeader(stringResource(fm.corus.android.localization.CorusStrings.settings_section_invite))
 
             SettingsNavRow(
                 icon = Icons.Filled.PersonAdd,
-                title = stringResource(R.string.settings_row_invite_friends),
-                subtitle = stringResource(R.string.settings_row_invite_friends_subtitle),
+                title = stringResource(fm.corus.android.localization.CorusStrings.settings_row_invite_friends),
+                subtitle = stringResource(fm.corus.android.localization.CorusStrings.settings_row_invite_friends_desc),
                 onClick = { context.shareCorusInvite() },
             )
 
             SettingsNavRow(
                 icon = Icons.Filled.Contacts,
-                title = stringResource(R.string.settings_row_sync_contacts),
-                subtitle = stringResource(R.string.settings_row_sync_contacts_subtitle),
+                title = stringResource(fm.corus.android.localization.CorusStrings.search_contacts_card_sync),
+                subtitle = stringResource(fm.corus.android.localization.CorusStrings.settings_row_sync_contacts_subtitle),
                 onClick = onSyncContacts,
             )
 
             // ── Section: Appearance ──
-            SectionHeader(stringResource(R.string.settings_section_appearance))
+            SectionHeader(stringResource(fm.corus.android.localization.CorusStrings.settings_section_appearance))
 
             val appearanceMode by appearanceViewModel.appearanceMode.collectAsState()
             val appearanceOptionLabels: Map<AppearanceMode, String> = mapOf(
-                AppearanceMode.LIGHT to stringResource(R.string.appearance_option_light),
-                AppearanceMode.DARK to stringResource(R.string.appearance_option_dark),
-                AppearanceMode.SYSTEM to stringResource(R.string.appearance_option_system),
+                AppearanceMode.LIGHT to stringResource(fm.corus.android.localization.CorusStrings.settings_appearance_theme_light),
+                AppearanceMode.DARK to stringResource(fm.corus.android.localization.CorusStrings.settings_appearance_theme_dark),
+                AppearanceMode.SYSTEM to stringResource(fm.corus.android.localization.CorusStrings.settings_appearance_theme_system),
             )
             DropdownSettingsRow(
                 icon = Icons.Filled.DarkMode,
-                title = stringResource(R.string.appearance_row_theme),
-                subtitle = stringResource(R.string.appearance_row_theme_subtitle),
+                title = stringResource(fm.corus.android.localization.CorusStrings.settings_appearance_section_theme),
+                subtitle = stringResource(fm.corus.android.localization.CorusStrings.appearance_row_theme_subtitle),
                 selected = appearanceMode,
                 options = AppearanceMode.values().toList(),
                 labelFor = { appearanceOptionLabels[it] ?: it.displayLabel },
                 onSelect = { appearanceViewModel.setAppearanceMode(it) },
             )
 
+            SettingsNavRow(
+                icon = Icons.Outlined.Apps,
+                title = stringResource(fm.corus.android.localization.CorusStrings.app_icon_title),
+                onClick = onAppIcon,
+            )
+
             // ── Section: General ──
-            SectionHeader(stringResource(R.string.settings_section_general))
+            SectionHeader(stringResource(fm.corus.android.localization.CorusStrings.settings_section_general_32f461a3))
 
             val musicService by settingsViewModel.musicServicePreference.current.collectAsState()
             val musicServiceOptions = remember(
@@ -378,7 +387,7 @@ fun SettingsScreen(
             androidx.compose.runtime.LaunchedEffect(musicService) { if(musicService == MusicService.AUDIOMACK && settingsViewModel.audiomackStreamingEnabled) settingsViewModel.audiomackAuthService.refresh() }
             DropdownSettingsRow(
                 icon = Icons.Filled.MusicNote,
-                title = stringResource(R.string.settings_row_music_service),
+                title = stringResource(fm.corus.android.localization.CorusStrings.settings_row_music_service),
                 selected = musicService,
                 options = musicServiceOptions,
                 labelFor = { it.displayLabel },
@@ -403,11 +412,11 @@ fun SettingsScreen(
                             finally { busy = false; connected = youtube.isConnected }
                         }
                     }
-                }) { Text(stringResource(if (connected) R.string.youtube_disconnect else R.string.youtube_connect)) }
+                }) { Text(stringResource(if (connected) fm.corus.android.localization.CorusStrings.youtube_disconnect else fm.corus.android.localization.CorusStrings.youtube_connect)) }
                 SettingsToggleRow(
                     icon = Icons.Filled.LibraryAdd,
-                    title = stringResource(R.string.youtube_sync_title),
-                    subtitle = stringResource(R.string.youtube_sync_description),
+                    title = stringResource(fm.corus.android.localization.CorusStrings.youtube_sync_title),
+                    subtitle = stringResource(fm.corus.android.localization.CorusStrings.youtube_sync_description),
                     checked = sync,
                     onCheckedChange = { value ->
                         if (!busy) {
@@ -429,8 +438,8 @@ fun SettingsScreen(
             ) {
                 SettingsToggleRow(
                     icon = Icons.Filled.QueueMusic,
-                    title = stringResource(R.string.settings_row_always_play_full_songs_title),
-                    subtitle = stringResource(R.string.settings_row_always_play_full_songs_spotify_subtitle),
+                    title = stringResource(fm.corus.android.localization.CorusStrings.settings_row_play_full_songs_title),
+                    subtitle = stringResource(fm.corus.android.localization.CorusStrings.settings_row_play_full_songs_spotify_subtitle),
                     checked = alwaysPlayFullSongs,
                     onCheckedChange = { settingsViewModel.setAlwaysPlayFullSongs(it) },
                 )
@@ -440,8 +449,8 @@ fun SettingsScreen(
                 val autoAddSavedToSpotify by settingsViewModel.autoAddSavedToSpotify.collectAsState()
                 SettingsToggleRow(
                     icon = Icons.Filled.LibraryAdd,
-                    title = stringResource(R.string.settings_row_spotify_library_save_title),
-                    subtitle = stringResource(R.string.settings_row_spotify_library_save_subtitle),
+                    title = stringResource(fm.corus.android.localization.CorusStrings.settings_row_spotify_library_save_title),
+                    subtitle = stringResource(fm.corus.android.localization.CorusStrings.settings_row_spotify_library_save_subtitle),
                     checked = autoAddSavedToSpotify,
                     onCheckedChange = { settingsViewModel.onSpotifyLibrarySaveToggled(it) },
                 )
@@ -450,8 +459,8 @@ fun SettingsScreen(
 
             SettingsToggleRow(
                 icon = Icons.Filled.GpsFixed,
-                title = stringResource(R.string.settings_row_feed_follows_now_playing_title),
-                subtitle = stringResource(R.string.settings_row_feed_follows_now_playing_subtitle),
+                title = stringResource(fm.corus.android.localization.CorusStrings.settings_row_feed_follows_now_playing_title),
+                subtitle = stringResource(fm.corus.android.localization.CorusStrings.settings_row_feed_follows_now_playing_subtitle),
                 checked = feedFollowsNowPlaying,
                 onCheckedChange = { settingsViewModel.setFeedFollowsNowPlaying(it) },
             )
@@ -461,8 +470,8 @@ fun SettingsScreen(
             if (hapticManager.hasVibrator()) {
                 SettingsToggleRow(
                     icon = Icons.Outlined.Vibration,
-                    title = stringResource(R.string.settings_row_haptics),
-                    subtitle = stringResource(R.string.settings_row_haptics_subtitle),
+                    title = stringResource(fm.corus.android.localization.CorusStrings.settings_row_haptics),
+                    subtitle = stringResource(fm.corus.android.localization.CorusStrings.settings_row_haptics_subtitle),
                     checked = hapticsEnabled,
                     onCheckedChange = { enabled ->
                         settingsScope.launch { hapticManager.setHapticsEnabled(enabled) }
@@ -472,20 +481,20 @@ fun SettingsScreen(
 
             var currentLanguage by remember { mutableStateOf(fm.corus.android.i18n.LanguageManager.current(context)) }
             val languageOptionLabels: Map<fm.corus.android.i18n.AppLanguage, String> = mapOf(
-                fm.corus.android.i18n.AppLanguage.SYSTEM to stringResource(R.string.language_option_system),
-                fm.corus.android.i18n.AppLanguage.ENGLISH to stringResource(R.string.language_option_english),
-                fm.corus.android.i18n.AppLanguage.PORTUGUESE_BR to stringResource(R.string.language_option_portuguese_br),
-                fm.corus.android.i18n.AppLanguage.SPANISH to stringResource(R.string.language_option_spanish),
-                fm.corus.android.i18n.AppLanguage.JAPANESE to stringResource(R.string.language_option_japanese),
-                fm.corus.android.i18n.AppLanguage.CHINESE_SIMPLIFIED to stringResource(R.string.language_option_chinese_simplified),
-                fm.corus.android.i18n.AppLanguage.GERMAN to stringResource(R.string.language_option_german),
-                fm.corus.android.i18n.AppLanguage.FRENCH to stringResource(R.string.language_option_french),
-                fm.corus.android.i18n.AppLanguage.KOREAN to stringResource(R.string.language_option_korean),
-                fm.corus.android.i18n.AppLanguage.ITALIAN to stringResource(R.string.language_option_italian),
+                fm.corus.android.i18n.AppLanguage.SYSTEM to stringResource(fm.corus.android.localization.CorusStrings.language_option_system),
+                fm.corus.android.i18n.AppLanguage.ENGLISH to stringResource(fm.corus.android.localization.CorusStrings.language_option_english),
+                fm.corus.android.i18n.AppLanguage.PORTUGUESE_BR to stringResource(fm.corus.android.localization.CorusStrings.language_option_portuguese_br),
+                fm.corus.android.i18n.AppLanguage.SPANISH to stringResource(fm.corus.android.localization.CorusStrings.language_option_spanish),
+                fm.corus.android.i18n.AppLanguage.JAPANESE to stringResource(fm.corus.android.localization.CorusStrings.language_option_japanese),
+                fm.corus.android.i18n.AppLanguage.CHINESE_SIMPLIFIED to stringResource(fm.corus.android.localization.CorusStrings.language_option_chinese_simplified),
+                fm.corus.android.i18n.AppLanguage.GERMAN to stringResource(fm.corus.android.localization.CorusStrings.language_option_german),
+                fm.corus.android.i18n.AppLanguage.FRENCH to stringResource(fm.corus.android.localization.CorusStrings.language_option_french),
+                fm.corus.android.i18n.AppLanguage.KOREAN to stringResource(fm.corus.android.localization.CorusStrings.language_option_korean),
+                fm.corus.android.i18n.AppLanguage.ITALIAN to stringResource(fm.corus.android.localization.CorusStrings.language_option_italian),
             )
             DropdownSettingsRow(
                 icon = Icons.Filled.Language,
-                title = stringResource(R.string.settings_row_language),
+                title = stringResource(fm.corus.android.localization.CorusStrings.settings_row_language),
                 selected = currentLanguage,
                 options = fm.corus.android.i18n.AppLanguage.values().toList(),
                 labelFor = { languageOptionLabels[it] ?: it.name },
@@ -497,7 +506,7 @@ fun SettingsScreen(
             )
 
             // ── Section: Notifications & Messaging ──
-            SectionHeader(stringResource(R.string.settings_section_notifications_messaging))
+            SectionHeader(stringResource(fm.corus.android.localization.CorusStrings.settings_section_notifications_messaging))
 
             if (!pushOn) {
                 val openSystemSettings = PushNotificationPermission.shouldOpenSystemSettings(
@@ -506,10 +515,10 @@ fun SettingsScreen(
                 )
                 SettingsNavRow(
                     icon = Icons.Filled.NotificationsOff,
-                    title = stringResource(R.string.settings_push_notifications),
+                    title = stringResource(fm.corus.android.localization.CorusStrings.settings_push_notifications),
                     subtitle = stringResource(
-                        if (openSystemSettings) R.string.settings_push_open_settings
-                        else R.string.settings_push_off,
+                        if (openSystemSettings) fm.corus.android.localization.CorusStrings.settings_push_open_settings
+                        else fm.corus.android.localization.CorusStrings.settings_push_off,
                     ),
                     onClick = {
                         if (openSystemSettings) {
@@ -526,15 +535,15 @@ fun SettingsScreen(
 
             SettingsNavRow(
                 icon = Icons.Filled.Notifications,
-                title = stringResource(R.string.settings_row_notifications),
-                subtitle = stringResource(R.string.settings_row_notifications_subtitle),
+                title = stringResource(fm.corus.android.localization.CorusStrings.settings_row_notifications),
+                subtitle = stringResource(fm.corus.android.localization.CorusStrings.settings_row_notifications_desc),
                 onClick = onNotificationSettings,
             )
 
             // "Who Can Message Me" menu row
             DropdownSettingsRow(
                 icon = Icons.Outlined.Group,
-                title = stringResource(R.string.settings_row_who_can_message),
+                title = stringResource(fm.corus.android.localization.CorusStrings.settings_row_who_can_message),
                 selected = whoCanMessageMe,
                 options = listOf("Everyone", "My Followers", "People I Follow", "Nobody"),
                 labelFor = { messageOptionLabels[it] ?: it },
@@ -543,51 +552,51 @@ fun SettingsScreen(
 
             SettingsToggleRow(
                 icon = Icons.Filled.DoneAll,
-                title = stringResource(R.string.notifications_row_read_receipts),
+                title = stringResource(fm.corus.android.localization.CorusStrings.notifications_row_read_receipts),
                 checked = notificationSettings.readReceipts,
                 onCheckedChange = notificationSettingsViewModel::setReadReceipts,
             )
 
             // ── Section: Account ──
-            SectionHeader(stringResource(R.string.settings_section_account))
+            SectionHeader(stringResource(fm.corus.android.localization.CorusStrings.settings_section_account))
 
             SettingsNavRow(
                 icon = Icons.Filled.Block,
-                title = stringResource(R.string.settings_row_blocked_users),
+                title = stringResource(fm.corus.android.localization.CorusStrings.blocked_users_screen_title),
                 onClick = onBlockedUsers,
             )
 
             SettingsNavRow(
                 icon = Icons.Filled.VolumeOff,
-                title = stringResource(R.string.settings_row_muted_users),
+                title = stringResource(fm.corus.android.localization.CorusStrings.muted_users_screen_title),
                 onClick = onMutedUsers,
             )
 
             SettingsNavRow(
                 icon = Icons.Filled.Person,
-                title = stringResource(R.string.settings_row_username),
+                title = stringResource(fm.corus.android.localization.CorusStrings.onboarding_field_username),
                 onClick = onChangeUsername,
             )
 
             SettingsNavRow(
                 icon = Icons.Filled.Phone,
-                title = stringResource(R.string.settings_row_phone_number),
+                title = stringResource(fm.corus.android.localization.CorusStrings.change_phone_screen_title),
                 onClick = onChangePhoneNumber,
             )
 
             // Sign Out
             SettingsActionRow(
                 icon = Icons.AutoMirrored.Filled.ExitToApp,
-                title = stringResource(R.string.settings_row_sign_out),
+                title = stringResource(fm.corus.android.localization.CorusStrings.settings_row_sign_out),
                 onClick = { authViewModel.signOut() },
             )
 
             // ── Section: Support ──
-            SectionHeader(stringResource(R.string.settings_section_support))
+            SectionHeader(stringResource(fm.corus.android.localization.CorusStrings.settings_section_support))
 
             SettingsNavRow(
                 icon = Icons.Outlined.Feedback,
-                title = stringResource(R.string.settings_row_send_feedback),
+                title = stringResource(fm.corus.android.localization.CorusStrings.feedback_screen_title),
                 onClick = {
                     val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
                         data = android.net.Uri.parse("mailto:help@corus.fm?subject=Feedback")
@@ -598,7 +607,7 @@ fun SettingsScreen(
 
             SettingsNavRow(
                 icon = Icons.AutoMirrored.Outlined.HelpOutline,
-                title = stringResource(R.string.settings_row_contact_us),
+                title = stringResource(fm.corus.android.localization.CorusStrings.settings_row_contact_us),
                 onClick = {
                     val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
                         data = android.net.Uri.parse("mailto:help@corus.fm?subject=Support%20Request")
@@ -609,7 +618,7 @@ fun SettingsScreen(
 
             SettingsNavRow(
                 icon = Icons.Filled.Star,
-                title = stringResource(R.string.settings_row_rate_app),
+                title = stringResource(fm.corus.android.localization.CorusStrings.settings_row_rate_app),
                 onClick = {
                     try {
                         val intent = android.content.Intent(
@@ -629,7 +638,7 @@ fun SettingsScreen(
 
             SettingsNavRow(
                 icon = Icons.Outlined.Policy,
-                title = stringResource(R.string.settings_row_privacy_policy),
+                title = stringResource(fm.corus.android.localization.CorusStrings.auth_privacy_link),
                 onClick = {
                     val intent = android.content.Intent(
                         android.content.Intent.ACTION_VIEW,
@@ -641,7 +650,7 @@ fun SettingsScreen(
 
             SettingsNavRow(
                 icon = Icons.Outlined.Info,
-                title = stringResource(R.string.settings_row_terms_of_service),
+                title = stringResource(fm.corus.android.localization.CorusStrings.settings_row_terms_of_service),
                 onClick = {
                     val intent = android.content.Intent(
                         android.content.Intent.ACTION_VIEW,
@@ -654,18 +663,18 @@ fun SettingsScreen(
             // ── Section: Danger Zone ──
             // Kept separate from Sign Out (and pushed below Support) so it can't
             // be tapped by mistake while reaching for log out.
-            SectionHeader(stringResource(R.string.settings_section_danger_zone))
+            SectionHeader(stringResource(fm.corus.android.localization.CorusStrings.settings_section_danger_zone))
 
             SettingsActionRow(
                 icon = Icons.Filled.Delete,
-                title = stringResource(R.string.settings_row_delete_account),
+                title = stringResource(fm.corus.android.localization.CorusStrings.settings_row_delete_account),
                 color = CorusColors.Error,
                 iconTint = CorusColors.Error,
                 onClick = { showDeleteConfirm = true },
             )
 
             Text(
-                text = stringResource(R.string.settings_dialog_delete_message),
+                text = stringResource(fm.corus.android.localization.CorusStrings.settings_dialog_delete_message),
                 style = CorusFont.caption,
                 color = CorusColors.Tertiary,
                 modifier = Modifier.padding(
@@ -674,6 +683,8 @@ fun SettingsScreen(
                     top = CorusSpacing.sm,
                 ),
             )
+
+            DebugFeatureFlagsSettingsEntry(settingsViewModel.remoteConfigService)
 
             // ── Social links ──
             Spacer(modifier = Modifier.height(CorusSpacing.lg))
@@ -684,25 +695,25 @@ fun SettingsScreen(
             ) {
                 SocialLinkButton(
                     icon = Icons.Filled.Language,
-                    label = stringResource(R.string.settings_social_website),
+                    label = stringResource(fm.corus.android.localization.CorusStrings.settings_social_website),
                     url = "https://corus.fm",
                     context = context,
                 )
                 SocialLinkButton(
                     drawableRes = R.drawable.instagram_logo,
-                    label = stringResource(R.string.settings_social_instagram),
+                    label = stringResource(fm.corus.android.localization.CorusStrings.share_post_instagram),
                     url = "https://www.instagram.com/corusapp/",
                     context = context,
                 )
                 SocialLinkButton(
                     drawableRes = R.drawable.x_logo,
-                    label = stringResource(R.string.settings_social_x),
+                    label = stringResource(fm.corus.android.localization.CorusStrings.share_post_x),
                     url = "https://x.com/corusfm",
                     context = context,
                 )
                 SocialLinkButton(
                     drawableRes = R.drawable.discord_logo,
-                    label = stringResource(R.string.settings_social_discord),
+                    label = stringResource(fm.corus.android.localization.CorusStrings.settings_social_discord),
                     url = "https://discord.gg/mXzt8NDCWD",
                     context = context,
                 )
@@ -742,10 +753,10 @@ fun SettingsScreen(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text(stringResource(R.string.settings_dialog_delete_title), style = CorusFont.songTitleLarge) },
+            title = { Text(stringResource(fm.corus.android.localization.CorusStrings.settings_dialog_delete_title), style = CorusFont.songTitleLarge) },
             text = {
                 Text(
-                    stringResource(R.string.settings_dialog_delete_message),
+                    stringResource(fm.corus.android.localization.CorusStrings.settings_dialog_delete_message),
                     style = CorusFont.body,
                 )
             },
@@ -756,12 +767,12 @@ fun SettingsScreen(
                         authViewModel.deleteAccount()
                     },
                 ) {
-                    Text(stringResource(R.string.common_delete), color = CorusColors.Error)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_delete), color = CorusColors.Error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text(stringResource(R.string.common_cancel))
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_cancel))
                 }
             },
         )
@@ -773,7 +784,7 @@ fun SettingsScreen(
     if (isDeletingAccount && !phoneReauthCodeSent && !emailReauthCodeSent) {
         AlertDialog(
             onDismissRequest = { /* non-dismissable */ },
-            title = { Text(stringResource(R.string.settings_dialog_deleting_title), style = CorusFont.songTitleLarge) },
+            title = { Text(stringResource(fm.corus.android.localization.CorusStrings.settings_dialog_deleting_title), style = CorusFont.songTitleLarge) },
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(
@@ -781,7 +792,7 @@ fun SettingsScreen(
                         color = CorusColors.Error,
                     )
                     Spacer(modifier = Modifier.width(CorusSpacing.md))
-                    Text(stringResource(R.string.settings_dialog_deleting_message), style = CorusFont.body)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.settings_dialog_deleting_message), style = CorusFont.body)
                 }
             },
             confirmButton = {},
@@ -795,11 +806,11 @@ fun SettingsScreen(
                 authViewModel.cancelEmailReauth()
                 emailReauthCode = ""
             },
-            title = { Text(stringResource(R.string.settings_dialog_verify_email_title), style = CorusFont.songTitleLarge) },
+            title = { Text(stringResource(fm.corus.android.localization.CorusStrings.settings_dialog_verify_email_title), style = CorusFont.songTitleLarge) },
             text = {
                 Column {
                     Text(
-                        stringResource(R.string.settings_dialog_verify_email_message),
+                        stringResource(fm.corus.android.localization.CorusStrings.settings_dialog_verify_email_message),
                         style = CorusFont.body,
                     )
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
@@ -810,7 +821,7 @@ fun SettingsScreen(
                         },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        label = { Text(stringResource(R.string.settings_dialog_verify_code_label)) },
+                        label = { Text(stringResource(fm.corus.android.localization.CorusStrings.settings_dialog_verify_code_label)) },
                     )
                 }
             },
@@ -827,7 +838,7 @@ fun SettingsScreen(
                             color = CorusColors.Error,
                         )
                     } else {
-                        Text(stringResource(R.string.common_confirm), color = CorusColors.Error)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.common_confirm), color = CorusColors.Error)
                     }
                 }
             },
@@ -839,7 +850,7 @@ fun SettingsScreen(
                         emailReauthCode = ""
                     },
                 ) {
-                    Text(stringResource(R.string.common_cancel))
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_cancel))
                 }
             },
         )
@@ -852,11 +863,11 @@ fun SettingsScreen(
                 authViewModel.cancelPhoneReauth()
                 phoneReauthCode = ""
             },
-            title = { Text(stringResource(R.string.settings_dialog_verify_title), style = CorusFont.songTitleLarge) },
+            title = { Text(stringResource(fm.corus.android.localization.CorusStrings.settings_dialog_verify_title), style = CorusFont.songTitleLarge) },
             text = {
                 Column {
                     Text(
-                        stringResource(R.string.settings_dialog_verify_message),
+                        stringResource(fm.corus.android.localization.CorusStrings.settings_dialog_verify_message),
                         style = CorusFont.body,
                     )
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
@@ -867,7 +878,7 @@ fun SettingsScreen(
                         },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        label = { Text(stringResource(R.string.settings_dialog_verify_code_label)) },
+                        label = { Text(stringResource(fm.corus.android.localization.CorusStrings.settings_dialog_verify_code_label)) },
                     )
                 }
             },
@@ -884,7 +895,7 @@ fun SettingsScreen(
                             color = CorusColors.Error,
                         )
                     } else {
-                        Text(stringResource(R.string.common_confirm), color = CorusColors.Error)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.common_confirm), color = CorusColors.Error)
                     }
                 }
             },
@@ -896,7 +907,7 @@ fun SettingsScreen(
                         phoneReauthCode = ""
                     },
                 ) {
-                    Text(stringResource(R.string.common_cancel))
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_cancel))
                 }
             },
         )

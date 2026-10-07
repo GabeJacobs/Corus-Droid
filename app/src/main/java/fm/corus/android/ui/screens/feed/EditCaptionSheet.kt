@@ -51,10 +51,10 @@ fun EditCaptionSheet(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.edit_caption_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text) },
+                title = { Text(stringResource(fm.corus.android.localization.CorusStrings.post_kebab_edit_caption), style = CorusFont.screenTitle, color = CorusColors.Text) },
                 navigationIcon = {
                     TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.common_cancel), style = CorusFont.body, color = CorusColors.Secondary)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.common_cancel), style = CorusFont.body, color = CorusColors.Secondary)
                     }
                 },
                 actions = {
@@ -79,7 +79,7 @@ fun EditCaptionSheet(
                                 color = CorusColors.Accent,
                             )
                         } else {
-                            Text(stringResource(R.string.common_save), style = CorusFont.button, color = CorusColors.Accent)
+                            Text(stringResource(fm.corus.android.localization.CorusStrings.common_save), style = CorusFont.button, color = CorusColors.Accent)
                         }
                     }
                 },
@@ -109,7 +109,7 @@ fun EditCaptionSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester),
-                placeholder = { Text(stringResource(R.string.edit_caption_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
+                placeholder = { Text(stringResource(fm.corus.android.localization.CorusStrings.compose_repost_quote_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 textStyle = CorusFont.body.copy(color = CorusColors.Text),
                 colors = TextFieldDefaults.colors(

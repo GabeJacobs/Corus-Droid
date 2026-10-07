@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="for_you_title">あなたのミックス</string>
+    <string name="for_you_title">For You</string>
     <string name="for_you_tune">フィードを調整</string>
     <string name="for_you_choose">For Youフィードのおすすめを選びましょう：</string>
     <string name="for_you_eclectic">多彩</string>

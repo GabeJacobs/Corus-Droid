@@ -1,6 +1,3 @@
 <resources>
-    <plurals name="parity_trophy_count">
-        <item quantity="one">트로피 %d개</item>
-        <item quantity="other">트로피 %d개</item>
-    </plurals>
+    <plurals name="parity_trophy_count"><item quantity="one">"트로피 %1$d개"</item><item quantity="other">"트로피 %1$d개"</item></plurals>
 </resources>

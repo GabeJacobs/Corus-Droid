@@ -192,7 +192,19 @@ class UsernameValidatorTest {
         assertFalse(UsernameValidator.isReserved("coruscant"))
     }
 
-    @Test fun `there are exactly 50 reserved handles`() {
-        assertEquals(50, UsernameValidator.RESERVED.size)
+    @Test fun `artist identities and separator variants are reserved`() {
+        for (handle in listOf("billieeilish", "billie.eilish", "billie_eilish", "TaylorSwift", "bad_bunny", "daftpunk")) {
+            assertTrue(handle, UsernameValidator.isReserved(handle))
+        }
+    }
+
+    @Test fun `fan handles and ordinary names are not reserved`() {
+        for (handle in listOf("billieeilishfan", "billieeilish_fan", "billie", "drake", "madonna", "jane.doe")) {
+            assertFalse(handle, UsernameValidator.isReserved(handle))
+        }
+    }
+
+    @Test fun `system and artist handles total 612`() {
+        assertEquals(612, UsernameValidator.RESERVED.size)
     }
 }

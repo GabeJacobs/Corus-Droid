@@ -458,7 +458,7 @@ internal fun ImmersiveCollapsingBar(
             CorusHeaderIconButton(
                 onClick = onBack,
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.feed_cd_back),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                 tint = iconTint,
             )
             // Title fades in as the bar collapses (invisible over the hero at rest).
@@ -526,7 +526,7 @@ internal fun ImmersiveFrostedBar(
             CorusHeaderIconButton(
                 onClick = onBack,
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.feed_cd_back),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                 tint = CorusColors.Text,
             )
             Box(

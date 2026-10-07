@@ -20,10 +20,10 @@ enum class CorusTab(
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector,
 ) {
-    FEED(R.string.tab_feed, Icons.Filled.Headphones, Icons.Outlined.Headphones),
-    EXPLORE(R.string.tab_search, Icons.Filled.Search, Icons.Outlined.Search),
-    COMPOSE(R.string.tab_post, Icons.Filled.Search, Icons.Outlined.Search), // icons unused, compose is a custom button
-    MESSAGES(R.string.messaging_list_title, Icons.AutoMirrored.Filled.Send, Icons.AutoMirrored.Outlined.Send),
-    NOTIFICATIONS(R.string.tab_activity, Icons.Filled.Notifications, Icons.Outlined.Notifications),
-    PROFILE(R.string.tab_profile, Icons.Filled.Person, Icons.Outlined.Person),
+    FEED(fm.corus.android.localization.CorusStrings.nav_home, Icons.Filled.Headphones, Icons.Outlined.Headphones),
+    EXPLORE(fm.corus.android.localization.CorusStrings.nav_search, Icons.Filled.Search, Icons.Outlined.Search),
+    COMPOSE(fm.corus.android.localization.CorusStrings.nav_post, Icons.Filled.Search, Icons.Outlined.Search), // icons unused, compose is a custom button
+    MESSAGES(fm.corus.android.localization.CorusStrings.nav_messages, Icons.AutoMirrored.Filled.Send, Icons.AutoMirrored.Outlined.Send),
+    NOTIFICATIONS(fm.corus.android.localization.CorusStrings.nav_activity, Icons.Filled.Notifications, Icons.Outlined.Notifications),
+    PROFILE(fm.corus.android.localization.CorusStrings.own_profile_tab, Icons.Filled.Person, Icons.Outlined.Person),
 }

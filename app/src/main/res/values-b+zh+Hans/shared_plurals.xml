@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <plurals name="parity_trophy_count"><item quantity="one">"%1$d个奖杯"</item><item quantity="other">"%1$d个奖杯"</item></plurals>
+    <plurals name="song_detail_like_all_title"><item quantity="one">"为%1$d条帖子点赞？"</item><item quantity="other">"为%1$d条帖子点赞？"</item></plurals>
+    <plurals name="taste_discovery_remaining"><item quantity="one">"你还有%1$d位品味相投的人"</item><item quantity="other">"你还有%1$d位品味相投的人"</item></plurals>
+</resources>

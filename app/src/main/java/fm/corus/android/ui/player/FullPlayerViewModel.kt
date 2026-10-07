@@ -562,7 +562,9 @@ class FullPlayerViewModel @Inject constructor(
             _isShareSearching.value = true
             delay(250)
             try {
-                _shareSearchResults.value = messageRepository.searchShareRecipients(authRepository.currentUserId ?: return@launch, trimmed, userRepository)
+                _shareSearchResults.value = messageRepository.searchShareRecipients(authRepository.currentUserId ?: return@launch, trimmed, userRepository) { partial ->
+                    _shareSearchResults.value = partial
+                }
             } catch (error: kotlinx.coroutines.CancellationException) {
                 throw error
             } catch (_: Exception) {

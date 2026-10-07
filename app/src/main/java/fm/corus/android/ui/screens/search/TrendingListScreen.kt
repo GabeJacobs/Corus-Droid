@@ -479,14 +479,14 @@ fun TrendingListScreen(
                     Text(
                         stringResource(
                             when (kind) {
-                                KIND_FILMS -> fm.corus.android.R.string.search_trending_films_title
-                                KIND_HASHTAGS -> fm.corus.android.R.string.search_trending_hashtags_title
-                                KIND_ARTISTS -> fm.corus.android.R.string.search_trending_artists_title
-                                KIND_ALBUMS -> fm.corus.android.R.string.search_trending_albums_title
-                                KIND_NEW_RELEASE_ALBUMS -> fm.corus.android.R.string.search_new_release_albums_title
-                                KIND_NEW_RELEASE_FILMS -> fm.corus.android.R.string.search_new_release_films_list_title
-                                KIND_DIRECTORS -> fm.corus.android.R.string.search_trending_directors_title
-                                else -> fm.corus.android.R.string.search_trending_songs_title
+                                KIND_FILMS -> fm.corus.android.localization.CorusStrings.search_section_trending_films
+                                KIND_HASHTAGS -> fm.corus.android.localization.CorusStrings.search_section_trending_hashtags
+                                KIND_ARTISTS -> fm.corus.android.localization.CorusStrings.search_section_trending_artists
+                                KIND_ALBUMS -> fm.corus.android.localization.CorusStrings.search_section_trending_albums
+                                KIND_NEW_RELEASE_ALBUMS -> fm.corus.android.localization.CorusStrings.new_release_music
+                                KIND_NEW_RELEASE_FILMS -> fm.corus.android.localization.CorusStrings.new_release_films
+                                KIND_DIRECTORS -> fm.corus.android.localization.CorusStrings.search_section_trending_directors
+                                else -> fm.corus.android.localization.CorusStrings.search_section_trending_songs
                             },
                         ),
                         style = CorusFont.screenTitle,
@@ -497,7 +497,7 @@ fun TrendingListScreen(
                     CorusHeaderIconButton(
                         onClick = onBack,
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(fm.corus.android.R.string.common_back),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
@@ -537,7 +537,7 @@ fun TrendingListScreen(
                             if (route != null) onNavigateToArtist(route)
                             else android.widget.Toast.makeText(
                                 context,
-                                context.getString(fm.corus.android.R.string.song_detail_artist_not_found),
+                                context.getString(fm.corus.android.localization.CorusStrings.post_toast_artist_not_found),
                                 android.widget.Toast.LENGTH_SHORT,
                             ).show()
                         }
@@ -565,8 +565,8 @@ fun TrendingListScreen(
                     isLoading = isNewReleaseAlbumsLoading,
                     showRank = false,
                     staticHeaderIcon = "sparkle",
-                    staticHeaderTitle = stringResource(fm.corus.android.R.string.search_new_release_albums_title),
-                    emptyMessage = stringResource(fm.corus.android.R.string.search_nothing_new_releases),
+                    staticHeaderTitle = stringResource(fm.corus.android.localization.CorusStrings.new_release_music),
+                    emptyMessage = stringResource(fm.corus.android.localization.CorusStrings.search_nothing_new_releases_2a72d806),
                     onAlbumTap = { album ->
                         album.asSongTrack()?.let { onNavigateToSong(it) }
                     },
@@ -576,8 +576,8 @@ fun TrendingListScreen(
                     movies = newReleaseMovies,
                     isLoading = isNewReleaseMoviesLoading,
                     staticHeaderIcon = "sparkle",
-                    staticHeaderTitle = stringResource(fm.corus.android.R.string.search_new_release_films_title),
-                    emptyMessage = stringResource(fm.corus.android.R.string.search_nothing_new_release_films),
+                    staticHeaderTitle = stringResource(fm.corus.android.localization.CorusStrings.new_release_films),
+                    emptyMessage = stringResource(fm.corus.android.localization.CorusStrings.search_nothing_new_releases),
                     onFilmTap = onNavigateToFilm,
                 )
                 KIND_DIRECTORS -> TrendingDirectorsContent(
@@ -593,7 +593,7 @@ fun TrendingListScreen(
                             if (route != null) onNavigateToDirector(route)
                             else android.widget.Toast.makeText(
                                 context,
-                                context.getString(fm.corus.android.R.string.film_detail_director_not_found),
+                                context.getString(fm.corus.android.localization.CorusStrings.film_detail_director_not_found),
                                 android.widget.Toast.LENGTH_SHORT,
                             ).show()
                         }
@@ -659,7 +659,7 @@ private suspend fun openResolvedAlbum(
         is TrendingAlbumOpen.Song -> onNavigateToSong(dest.track)
         null -> android.widget.Toast.makeText(
             context,
-            context.getString(fm.corus.android.R.string.search_no_matches),
+            context.getString(fm.corus.android.localization.CorusStrings.search_no_matches),
             android.widget.Toast.LENGTH_SHORT,
         ).show()
     }

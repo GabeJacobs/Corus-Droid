@@ -193,7 +193,7 @@ fun SongFilmPickerSheet(
     }
 
     val sheetState = rememberGuardedSheetState()
-    val resolvedTitle = title ?: stringResource(R.string.comment_attachment_picker_title)
+    val resolvedTitle = title ?: stringResource(fm.corus.android.localization.CorusStrings.comment_attachment_picker_title)
 
     CorusModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -278,13 +278,13 @@ fun SongFilmPickerSheet(
                             if (searchQuery.isEmpty()) {
                                 Text(
                                     text = when (mode) {
-                                        PickerMode.SONG -> stringResource(R.string.song_film_picker_search_song)
-                                        PickerMode.FILM -> stringResource(R.string.song_film_picker_search_film)
-                                        PickerMode.MUSIC_ALL -> stringResource(R.string.search_placeholder_music)
-                                        PickerMode.FILM_ALL -> stringResource(R.string.search_placeholder_film)
-                                        PickerMode.ARTIST -> stringResource(R.string.messaging_thread_attachment_artist)
-                                        PickerMode.ALBUM -> stringResource(R.string.messaging_thread_attachment_album)
-                                        PickerMode.DIRECTOR -> stringResource(R.string.messaging_thread_attachment_director)
+                                        PickerMode.SONG -> stringResource(fm.corus.android.localization.CorusStrings.compose_search_song)
+                                        PickerMode.FILM -> stringResource(fm.corus.android.localization.CorusStrings.compose_search_film)
+                                        PickerMode.MUSIC_ALL -> stringResource(fm.corus.android.localization.CorusStrings.search_placeholder_music_3ae80b08)
+                                        PickerMode.FILM_ALL -> stringResource(fm.corus.android.localization.CorusStrings.search_placeholder_film_952681e3)
+                                        PickerMode.ARTIST -> stringResource(fm.corus.android.localization.CorusStrings.profile_artist_fallback)
+                                        PickerMode.ALBUM -> stringResource(fm.corus.android.localization.CorusStrings.share_album_word)
+                                        PickerMode.DIRECTOR -> stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_row_director)
                                     },
                                     style = CorusFont.body,
                                     color = CorusColors.Secondary,
@@ -296,7 +296,7 @@ fun SongFilmPickerSheet(
                     if (searchQuery.isNotEmpty()) {
                         Icon(
                             imageVector = Icons.Filled.Close,
-                            contentDescription = stringResource(R.string.song_film_picker_cd_clear),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.search_clear_aria),
                             tint = CorusColors.Secondary,
                             modifier = Modifier
                                 .size(18.dp)
@@ -315,10 +315,10 @@ fun SongFilmPickerSheet(
                 if (searchQuery.isNotBlank() && mode == PickerMode.MUSIC_ALL) {
                     AttachFilterChipRow(
                         labels = listOf(
-                            stringResource(R.string.search_filter_all_chip),
-                            stringResource(R.string.song_film_picker_songs),
-                            stringResource(R.string.song_film_picker_artists),
-                            stringResource(R.string.song_film_picker_albums),
+                            stringResource(fm.corus.android.localization.CorusStrings.concert_tab_all),
+                            stringResource(fm.corus.android.localization.CorusStrings.search_tab_songs),
+                            stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_section_artists),
+                            stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_section_albums),
                         ),
                         selectedIndex = musicAttachFilter.ordinal,
                         onSelected = { musicAttachFilter = MusicAttachFilter.entries[it] },
@@ -328,9 +328,9 @@ fun SongFilmPickerSheet(
                 if (searchQuery.isNotBlank() && mode == PickerMode.FILM_ALL) {
                     AttachFilterChipRow(
                         labels = listOf(
-                            stringResource(R.string.search_filter_all_chip),
-                            stringResource(R.string.song_film_picker_films),
-                            stringResource(R.string.song_film_picker_directors),
+                            stringResource(fm.corus.android.localization.CorusStrings.concert_tab_all),
+                            stringResource(fm.corus.android.localization.CorusStrings.search_tab_films),
+                            stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_section_directors),
                         ),
                         selectedIndex = filmAttachFilter.ordinal,
                         onSelected = { filmAttachFilter = FilmAttachFilter.entries[it] },
@@ -392,11 +392,11 @@ fun SongFilmPickerSheet(
                                 val cappedArtists = if (showArtists) artistRows.take(artistCap) else emptyList()
                                 val cappedAlbums = if (showAlbums) albumRows.take(albumCap) else emptyList()
                                 if (cappedArtists.isNotEmpty()) {
-                                    item(key = "header-artists") { PickerSectionHeader(stringResource(R.string.song_film_picker_artists)) }
+                                    item(key = "header-artists") { PickerSectionHeader(stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_section_artists)) }
                                     itemsIndexed(cappedArtists, key = { _, a -> "artist-${a.id}" }) { index, a ->
                                         EntityPickerRow(
                                             imageUrl = a.imageUrl, circle = true, title = a.name,
-                                            subtitle = stringResource(R.string.messaging_thread_attachment_artist),
+                                            subtitle = stringResource(fm.corus.android.localization.CorusStrings.profile_artist_fallback),
                                         ) { onArtistSelected?.invoke(a.id, a.name, a.imageUrl) }
                                         if (index < cappedArtists.lastIndex) {
                                             HorizontalDivider(color = CorusColors.Divider, modifier = Modifier.padding(start = 72.dp))
@@ -404,11 +404,11 @@ fun SongFilmPickerSheet(
                                     }
                                 }
                                 if (cappedAlbums.isNotEmpty()) {
-                                    item(key = "header-albums") { PickerSectionHeader(stringResource(R.string.song_film_picker_albums)) }
+                                    item(key = "header-albums") { PickerSectionHeader(stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_section_albums)) }
                                     itemsIndexed(cappedAlbums, key = { _, a -> "album-${a.id}" }) { index, a ->
                                         EntityPickerRow(
                                             imageUrl = a.coverUrl, circle = false, title = a.title,
-                                            subtitle = a.artistName.ifBlank { stringResource(R.string.messaging_thread_attachment_album) },
+                                            subtitle = a.artistName.ifBlank { stringResource(fm.corus.android.localization.CorusStrings.share_album_word) },
                                         ) { onAlbumSelected?.invoke(a.id, a.title, a.artistName, a.coverUrl, a.year) }
                                         if (index < cappedAlbums.lastIndex) {
                                             HorizontalDivider(color = CorusColors.Divider, modifier = Modifier.padding(start = 72.dp))
@@ -418,7 +418,7 @@ fun SongFilmPickerSheet(
                                 if (tracks.isNotEmpty() && showSongs
                                     && musicAttachFilter == MusicAttachFilter.ALL
                                     && (cappedArtists.isNotEmpty() || cappedAlbums.isNotEmpty())) {
-                                    item(key = "header-songs") { PickerSectionHeader(stringResource(R.string.song_film_picker_songs)) }
+                                    item(key = "header-songs") { PickerSectionHeader(stringResource(fm.corus.android.localization.CorusStrings.search_tab_songs)) }
                                 }
                                 if (showSongs) {
                                     itemsIndexed(tracks, key = { _, t -> "song-${t.id}" }) { index, track ->
@@ -450,18 +450,18 @@ fun SongFilmPickerSheet(
                                 val directorCap = if (filmAttachFilter == FilmAttachFilter.ALL) 3 else directorRows.size
                                 val cappedDirectors = if (showDirectors) directorRows.take(directorCap) else emptyList()
                                 if (cappedDirectors.isNotEmpty()) {
-                                    item(key = "header-directors") { PickerSectionHeader(stringResource(R.string.song_film_picker_directors)) }
+                                    item(key = "header-directors") { PickerSectionHeader(stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_section_directors)) }
                                     itemsIndexed(cappedDirectors, key = { _, d -> "director-${d.id}" }) { index, d ->
                                         EntityPickerRow(
                                             imageUrl = d.imageUrl, circle = true, title = d.name,
-                                            subtitle = stringResource(R.string.messaging_thread_attachment_director),
+                                            subtitle = stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_row_director),
                                         ) { onDirectorSelected?.invoke(d.id, d.name, d.imageUrl) }
                                         if (index < cappedDirectors.lastIndex) {
                                             HorizontalDivider(color = CorusColors.Divider, modifier = Modifier.padding(start = 72.dp))
                                         }
                                     }
                                     if (showFilms && movies.isNotEmpty() && filmAttachFilter == FilmAttachFilter.ALL) {
-                                        item(key = "header-films") { PickerSectionHeader(stringResource(R.string.song_film_picker_films)) }
+                                        item(key = "header-films") { PickerSectionHeader(stringResource(fm.corus.android.localization.CorusStrings.search_tab_films)) }
                                     }
                                 }
                                 if (showFilms) {
@@ -479,7 +479,7 @@ fun SongFilmPickerSheet(
                             PickerMode.ARTIST -> itemsIndexed(artistRows, key = { _, a -> a.id }) { index, a ->
                                 EntityPickerRow(
                                     imageUrl = a.imageUrl, circle = true, title = a.name,
-                                    subtitle = stringResource(R.string.messaging_thread_attachment_artist),
+                                    subtitle = stringResource(fm.corus.android.localization.CorusStrings.profile_artist_fallback),
                                 ) { onArtistSelected?.invoke(a.id, a.name, a.imageUrl) }
                                 if (index < artistRows.lastIndex) {
                                     HorizontalDivider(
@@ -491,7 +491,7 @@ fun SongFilmPickerSheet(
                             PickerMode.ALBUM -> itemsIndexed(albumRows, key = { _, a -> a.id }) { index, a ->
                                 EntityPickerRow(
                                     imageUrl = a.coverUrl, circle = false, title = a.title,
-                                    subtitle = a.artistName.ifBlank { stringResource(R.string.messaging_thread_attachment_album) },
+                                    subtitle = a.artistName.ifBlank { stringResource(fm.corus.android.localization.CorusStrings.share_album_word) },
                                 ) { onAlbumSelected?.invoke(a.id, a.title, a.artistName, a.coverUrl, a.year) }
                                 if (index < albumRows.lastIndex) {
                                     HorizontalDivider(
@@ -503,7 +503,7 @@ fun SongFilmPickerSheet(
                             PickerMode.DIRECTOR -> itemsIndexed(directorRows, key = { _, d -> d.id }) { index, d ->
                                 EntityPickerRow(
                                     imageUrl = d.imageUrl, circle = true, title = d.name,
-                                    subtitle = stringResource(R.string.messaging_thread_attachment_director),
+                                    subtitle = stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_row_director),
                                 ) { onDirectorSelected?.invoke(d.id, d.name, d.imageUrl) }
                                 if (index < directorRows.lastIndex) {
                                     HorizontalDivider(
@@ -572,13 +572,13 @@ private fun AttachFilterChipRow(
 /** Segment label for a picker tab. */
 @Composable
 private fun pickerModeLabel(mode: PickerMode): String = when (mode) {
-    PickerMode.SONG -> stringResource(R.string.song_film_picker_songs)
-    PickerMode.FILM -> stringResource(R.string.song_film_picker_films)
-    PickerMode.MUSIC_ALL -> stringResource(R.string.comment_attachment_music)
-    PickerMode.FILM_ALL -> stringResource(R.string.comment_attachment_film)
-    PickerMode.ARTIST -> stringResource(R.string.song_film_picker_artists)
-    PickerMode.ALBUM -> stringResource(R.string.song_film_picker_albums)
-    PickerMode.DIRECTOR -> stringResource(R.string.song_film_picker_directors)
+    PickerMode.SONG -> stringResource(fm.corus.android.localization.CorusStrings.search_tab_songs)
+    PickerMode.FILM -> stringResource(fm.corus.android.localization.CorusStrings.search_tab_films)
+    PickerMode.MUSIC_ALL -> stringResource(fm.corus.android.localization.CorusStrings.search_tab_music)
+    PickerMode.FILM_ALL -> stringResource(fm.corus.android.localization.CorusStrings.search_tab_film)
+    PickerMode.ARTIST -> stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_section_artists)
+    PickerMode.ALBUM -> stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_section_albums)
+    PickerMode.DIRECTOR -> stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_section_directors)
 }
 
 @Composable
@@ -707,7 +707,7 @@ private fun TrendingSongsSection(
     nowPlaying: NowPlayingManager,
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        item { TrendingHeader(stringResource(R.string.compose_trending_songs)) }
+        item { TrendingHeader(stringResource(fm.corus.android.localization.CorusStrings.compose_trending_songs)) }
         itemsIndexed(songs, key = { _, s -> s.track.id }) { index, song ->
             TrendingSongRow(song = song, nowPlaying = nowPlaying, onClick = { onClick(song) })
             if (index < songs.lastIndex) {
@@ -726,7 +726,7 @@ private fun TrendingFilmsSection(
     onClick: (TrendingMovie) -> Unit,
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        item { TrendingHeader(stringResource(R.string.compose_trending_films)) }
+        item { TrendingHeader(stringResource(fm.corus.android.localization.CorusStrings.compose_trending_films)) }
         itemsIndexed(movies, key = { _, m -> m.id }) { index, movie ->
             TrendingMovieRow(movie = movie, onClick = { onClick(movie) })
             if (index < movies.lastIndex) {
@@ -935,9 +935,9 @@ fun EntityPickerSheet(
 
     val sheetState = rememberGuardedSheetState()
     val placeholder = when (kind) {
-        PickerMode.ARTIST -> stringResource(R.string.messaging_thread_attachment_artist)
-        PickerMode.ALBUM -> stringResource(R.string.messaging_thread_attachment_album)
-        else -> stringResource(R.string.messaging_thread_attachment_director)
+        PickerMode.ARTIST -> stringResource(fm.corus.android.localization.CorusStrings.profile_artist_fallback)
+        PickerMode.ALBUM -> stringResource(fm.corus.android.localization.CorusStrings.share_album_word)
+        else -> stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_row_director)
     }
 
     CorusModalBottomSheet(
@@ -991,7 +991,7 @@ fun EntityPickerSheet(
                     if (searchQuery.isNotEmpty()) {
                         Icon(
                             Icons.Filled.Close,
-                            contentDescription = stringResource(R.string.song_film_picker_cd_clear),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.search_clear_aria),
                             tint = CorusColors.Secondary,
                             modifier = Modifier.size(18.dp).clickable { searchQuery = ""; runSearch("") },
                         )

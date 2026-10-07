@@ -1,5 +1,8 @@
 package fm.corus.android.data.repository
 
+import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.GiftAnalytics
+import kotlinx.coroutines.CancellationException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.FirebaseFunctionsException
@@ -104,13 +107,22 @@ internal fun parseGiftSendResult(raw: Map<*, *>?): GiftSendResult? {
 class GiftRepository @Inject constructor(
     private val functions: FirebaseFunctions,
     private val auth: FirebaseAuth,
+    private val analytics: AnalyticsService,
 ) {
-    suspend fun thankGift(postId: String, giftId: String): java.util.Date {
-        val raw = functions.getHttpsCallable("thankGift")
-            .call(mapOf("postId" to postId, "giftId" to giftId)).await().getData() as? Map<*, *>
-        val thankedAt = (raw?.get("thankedAt") as? Number)?.toLong()
-            ?: throw GiftRepositoryException.InvalidResponse()
-        return java.util.Date(thankedAt)
+    suspend fun thankGift(postId: String, giftId: String, source: String = "post_receipt"): java.util.Date {
+        analytics.logGiftEvent("thanks_started", source)
+        try {
+            val raw = functions.getHttpsCallable("thankGift")
+                .call(mapOf("postId" to postId, "giftId" to giftId)).await().getData() as? Map<*, *>
+            val thankedAt = (raw?.get("thankedAt") as? Number)?.toLong()
+                ?: throw GiftRepositoryException.InvalidResponse()
+            analytics.logGiftEvent("thanks_completed", source, result = if (raw["alreadyThanked"] == true) "already_thanked" else "thanked")
+            return java.util.Date(thankedAt)
+        } catch (error: CancellationException) { throw error }
+        catch (error: Exception) {
+            analytics.logGiftEvent("thanks_failed", source, errorCode = GiftAnalytics.errorCode(error))
+            throw error
+        }
     }
 
     private val statusScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

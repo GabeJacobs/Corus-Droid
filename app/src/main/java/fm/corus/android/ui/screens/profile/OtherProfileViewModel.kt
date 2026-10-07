@@ -133,7 +133,9 @@ class OtherProfileViewModel @Inject constructor(
             _isShareSearching.value = true
             delay(250)
             try {
-                _shareSearchResults.value = messageRepository.searchShareRecipients(authRepository.currentUserId ?: return@launch, trimmed, userRepository)
+                _shareSearchResults.value = messageRepository.searchShareRecipients(authRepository.currentUserId ?: return@launch, trimmed, userRepository) { partial ->
+                    _shareSearchResults.value = partial
+                }
             } catch (error: kotlinx.coroutines.CancellationException) {
                 throw error
             } catch (_: Exception) {
@@ -1071,9 +1073,9 @@ class OtherProfileViewModel @Inject constructor(
         _isMuted.value = !wasMuted
         val username = _profile.value?.username
         val loadingMessage = if (!wasMuted) {
-            if (username != null) context.getString(R.string.other_profile_muting_format, username) else context.getString(R.string.other_profile_muting)
+            if (username != null) context.getString(R.string.other_profile_muting_format, username) else context.getString(fm.corus.android.localization.CorusStrings.other_profile_muting)
         } else {
-            if (username != null) context.getString(R.string.other_profile_unmuting_format, username) else context.getString(R.string.other_profile_unmuting)
+            if (username != null) context.getString(R.string.other_profile_unmuting_format, username) else context.getString(fm.corus.android.localization.CorusStrings.other_profile_unmuting)
         }
         val toastId = ToastManager.showLoading(loadingMessage)
         viewModelScope.launch {
@@ -1081,12 +1083,12 @@ class OtherProfileViewModel @Inject constructor(
                 if (!wasMuted) {
                     userRepository.muteUser(currentUserId, userId)
                     analyticsService.logMuteUser(userId)
-                    val message = if (username != null) context.getString(R.string.other_profile_muted_format, username) else context.getString(R.string.other_profile_muted)
+                    val message = if (username != null) context.getString(R.string.other_profile_muted_format, username) else context.getString(fm.corus.android.localization.CorusStrings.profile_muted)
                     ToastManager.update(toastId, message)
                 } else {
                     userRepository.unmuteUser(currentUserId, userId)
                     analyticsService.logUnmuteUser(userId)
-                    val message = if (username != null) context.getString(R.string.other_profile_unmuted_format, username) else context.getString(R.string.other_profile_unmuted)
+                    val message = if (username != null) context.getString(R.string.other_profile_unmuted_format, username) else context.getString(fm.corus.android.localization.CorusStrings.other_profile_unmuted)
                     ToastManager.update(toastId, message)
                 }
             } catch (_: Exception) {

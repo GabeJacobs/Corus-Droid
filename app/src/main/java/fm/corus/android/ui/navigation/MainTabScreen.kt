@@ -223,7 +223,7 @@ fun MainTabScreen(
     LaunchedEffect(Unit) {
         viewModel.nowPlayingManager.previewUnavailable.collect {
             fm.corus.android.ui.components.ToastManager.show(
-                context.getString(R.string.now_playing_no_preview)
+                context.getString(fm.corus.android.localization.CorusStrings.now_playing_no_preview)
             )
         }
     }
@@ -274,7 +274,7 @@ fun MainTabScreen(
             showPostSuccessOthers = true
             postSuccessOthers?.let { viewModel.logPostSuccessOthersShown(it) }
             fm.corus.android.ui.components.ToastManager.show(
-                context.getString(R.string.post_success_others_kicker)
+                context.getString(fm.corus.android.localization.CorusStrings.post_success_others_kicker)
             )
         }
     }

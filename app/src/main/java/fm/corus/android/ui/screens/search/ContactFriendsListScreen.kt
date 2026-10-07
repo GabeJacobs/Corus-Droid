@@ -38,12 +38,12 @@ fun ContactFriendsListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(fm.corus.android.R.string.contacts_list_title), style = CorusFont.screenTitle, color = CorusColors.Text) },
+                title = { Text(stringResource(fm.corus.android.localization.CorusStrings.contacts_list_title), style = CorusFont.screenTitle, color = CorusColors.Text) },
                 navigationIcon = {
                     CorusHeaderIconButton(
                         onClick = onBack,
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(fm.corus.android.R.string.common_back),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
@@ -60,8 +60,8 @@ fun ContactFriendsListScreen(
             }
         } else if (users.isEmpty()) {
             val context = LocalContext.current
-            val shareText = stringResource(fm.corus.android.R.string.settings_share_app_text)
-            val shareChooser = stringResource(fm.corus.android.R.string.settings_share_app_chooser)
+            val shareText = stringResource(fm.corus.android.localization.CorusStrings.settings_share_app_text)
+            val shareChooser = stringResource(fm.corus.android.localization.CorusStrings.settings_share_app_chooser)
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -71,14 +71,14 @@ fun ContactFriendsListScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    stringResource(fm.corus.android.R.string.search_no_contact_matches_title),
+                    stringResource(fm.corus.android.localization.CorusStrings.search_no_contact_matches_title),
                     style = CorusFont.bodyMedium,
                     color = CorusColors.Text,
                     textAlign = TextAlign.Center,
                 )
                 Spacer(modifier = Modifier.height(CorusSpacing.xs))
                 Text(
-                    stringResource(fm.corus.android.R.string.search_no_contact_matches_subtitle),
+                    stringResource(fm.corus.android.localization.CorusStrings.search_no_contact_matches_subtitle),
                     style = CorusFont.caption,
                     color = CorusColors.Secondary,
                     textAlign = TextAlign.Center,
@@ -103,7 +103,7 @@ fun ContactFriendsListScreen(
                         vertical = CorusSpacing.sm,
                     ),
                 ) {
-                    Text(stringResource(fm.corus.android.R.string.settings_row_invite_friends), style = CorusFont.buttonSmall)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.settings_row_invite_friends), style = CorusFont.buttonSmall)
                 }
             }
         } else {
@@ -114,7 +114,7 @@ fun ContactFriendsListScreen(
                 items(users, key = { it.id }) { user ->
                     SuggestedUserRow(
                         user = user,
-                        subtitle = stringResource(fm.corus.android.R.string.search_subtitle_from_contacts),
+                        subtitle = stringResource(fm.corus.android.localization.CorusStrings.search_subtitle_from_contacts),
                         isFollowed = isFollowed(user.id),
                         onTap = {
                             onUserTapped(user.id)

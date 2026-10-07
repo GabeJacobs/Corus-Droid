@@ -1,5 +1,7 @@
 package fm.corus.android.ui.components
 
+import fm.corus.android.service.GiftAnalytics
+
 import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -122,6 +124,7 @@ fun PostGiftRow(
     postId: String,
     giftCount: Int,
     recentGifts: List<PostGiftPreview> = emptyList(),
+    recipientId: String,
     onSenderTap: (String) -> Unit = {},
     contentPadding: PaddingValues = PaddingValues(start = 12.5.dp, end = 16.dp, top = 3.dp, bottom = 9.dp),
 ) {
@@ -181,7 +184,9 @@ fun PostGiftRow(
 
     val currentRowSummary = rowSummary ?: return
     val firstRowGift = rowReceipts.firstOrNull() ?: return
-    val rowArtworkSize = if (currentRowSummary.total <= 2) 34.dp else 30.dp
+    val rowGiftTypes = rowReceipts.map { it.type }.distinct().take(3)
+    // Match iOS: repeated gifts do not shrink a row displaying only two types.
+    val rowArtworkSize = if (rowGiftTypes.size <= 2) 34.dp else 30.dp
     val rowArtworkSpacing = if (currentRowSummary.total == 2) 1.dp else 3.dp
     // The feed preview is bounded. Only show a multiplier when it contains every gift.
     val giftTypeCounts = if (rowReceipts.size >= currentRowSummary.total) {
@@ -205,7 +210,7 @@ fun PostGiftRow(
     ) {
         Box {
             Row(horizontalArrangement = Arrangement.spacedBy(rowArtworkSpacing)) {
-                rowReceipts.map { it.type }.distinct().take(3).forEach { type ->
+                rowGiftTypes.forEach { type ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         // Adjust the Boombox artwork without moving the attribution text.
                         Box(
@@ -237,6 +242,10 @@ fun PostGiftRow(
         )
     }
 
+    val viewedReceipt = sheetReceipts.getOrNull(index)
+    LaunchedEffect(open, viewedReceipt?.id) {
+        if (open && viewedReceipt != null) GiftAnalytics.log(context, "receipt_viewed", "post_receipt", viewedReceipt.type, !viewedReceipt.note.isNullOrBlank())
+    }
     if (open) {
         LaunchedEffect(Unit) { loadSheet(reset = true) }
         val displayedTotal = sheetSummary?.total ?: giftCount
@@ -253,7 +262,7 @@ fun PostGiftRow(
                     .padding(start = 24.dp, end = 24.dp, top = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(stringResource(if (displayedTotal > 1) R.string.gift_sheet_title_many else R.string.gift_sheet_title_one), style = CorusFont.screenTitle, color = CorusColors.Text)
+                Text(stringResource(if (displayedTotal > 1) fm.corus.android.localization.CorusStrings.activity_filter_gifts else fm.corus.android.localization.CorusStrings.gift_name_generic), style = CorusFont.screenTitle, color = CorusColors.Text)
                 // iOS: single gift gets room between title and artwork; with a pager it sits close
                 Spacer(Modifier.height(if (displayedTotal > 1) 0.dp else 14.dp))
                 AnimatedContent(
@@ -268,14 +277,14 @@ fun PostGiftRow(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
-                                Text(stringResource(R.string.gift_load_details_error), style = CorusFont.body, color = CorusColors.Secondary)
-                                TextButton(onClick = { scope.launch { loadSheet(reset = true) } }) { Text(stringResource(R.string.gift_try_again), style = CorusFont.button) }
+                                Text(stringResource(fm.corus.android.localization.CorusStrings.gift_load_details_error), style = CorusFont.body, color = CorusColors.Secondary)
+                                TextButton(onClick = { scope.launch { loadSheet(reset = true) } }) { Text(stringResource(fm.corus.android.localization.CorusStrings.gift_try_again), style = CorusFont.button) }
                             }
                         } else GiftReceiptSkeleton(displayedTotal)
                     } else {
                         val first = sheetReceipts.firstOrNull()
                         if (first == null) {
-                            Text(stringResource(R.string.gift_no_gifts), color = CorusColors.Secondary, style = CorusFont.body, modifier = Modifier.padding(48.dp))
+                            Text(stringResource(fm.corus.android.localization.CorusStrings.gift_no_gifts), color = CorusColors.Secondary, style = CorusFont.body, modifier = Modifier.padding(48.dp))
                         } else {
                             val gift = sheetReceipts.getOrElse(index) { first }
                             Column(
@@ -340,7 +349,7 @@ fun PostGiftRow(
                                     }
                                 }
                                 AnimatedVisibility(
-                                    visible = actionGift != null && (actionGift.canThank || actionIsThanked),
+                                    visible = uid != null && uid == recipientId && actionGift != null && (actionGift.canThank || actionIsThanked),
                                     enter = fadeIn(tween(240)) + expandVertically(tween(240)),
                                     exit = fadeOut(tween(120)) + shrinkVertically(tween(120)),
                                 ) {
@@ -354,15 +363,19 @@ fun PostGiftRow(
                     thankedIds = thankedIds + actionGift.id
                     thankingId = actionGift.id
                     scope.launch {
+                        GiftAnalytics.log(context, "thanks_started", "post_receipt")
                         try {
-                            FirebaseFunctions.getInstance("us-central1")
+                            val response = FirebaseFunctions.getInstance("us-central1")
                                 .getHttpsCallable("thankGift")
                                 .call(mapOf("postId" to postId, "giftId" to actionGift.id))
                                 .await()
+                            val alreadyThanked = (response.getData() as? Map<*, *>)?.get("alreadyThanked") == true
+                            GiftAnalytics.log(context, "thanks_completed", "post_receipt", result = if (alreadyThanked) "already_thanked" else "thanked")
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                         } catch (error: CancellationException) {
                             throw error
-                        } catch (_: Exception) {
+                        } catch (error: Exception) {
+                            GiftAnalytics.log(context, "thanks_failed", "post_receipt", errorCode = GiftAnalytics.errorCode(error))
                             thankedIds = thankedIds - actionGift.id
                             thankErrorId = actionGift.id
                         } finally {
@@ -372,20 +385,20 @@ fun PostGiftRow(
                 },
             ) {
                 Text(stringResource(when {
-                    actionIsThanked -> R.string.gift_thanked
-                    thankingId == actionGift.id -> R.string.gift_thanks_sending
-                    else -> R.string.gift_say_thanks
+                    actionIsThanked -> fm.corus.android.localization.CorusStrings.gift_thanked
+                    thankingId == actionGift.id -> fm.corus.android.localization.CorusStrings.auth_button_sending
+                    else -> fm.corus.android.localization.CorusStrings.gift_say_thanks
                 }), style = CorusFont.button)
             }
 
                                     }
                                 }
                                 if (thankErrorId == gift.id) {
-                                    Text(stringResource(R.string.gift_thanks_error), style = CorusFont.caption, color = CorusColors.Secondary)
+                                    Text(stringResource(fm.corus.android.localization.CorusStrings.gift_thanks_failed), style = CorusFont.caption, color = CorusColors.Secondary)
                                 }
                                 if (sheetError) {
-                                    Text(stringResource(R.string.gift_refresh_details_error), style = CorusFont.caption, color = CorusColors.Secondary)
-                                    TextButton(onClick = { scope.launch { loadSheet(reset = true) } }) { Text(stringResource(R.string.gift_try_again), style = CorusFont.button) }
+                                    Text(stringResource(fm.corus.android.localization.CorusStrings.gift_refresh_details_error), style = CorusFont.caption, color = CorusColors.Secondary)
+                                    TextButton(onClick = { scope.launch { loadSheet(reset = true) } }) { Text(stringResource(fm.corus.android.localization.CorusStrings.gift_try_again), style = CorusFont.button) }
                                 }
                             }
                         }
@@ -410,7 +423,7 @@ private fun GiftPager(
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                contentDescription = stringResource(R.string.full_player_cd_previous),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.player_previous_track),
                 modifier = Modifier.size(32.dp),
             )
         }
@@ -423,7 +436,7 @@ private fun GiftPager(
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = stringResource(R.string.full_player_cd_next),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.player_next_track),
                 modifier = Modifier.size(32.dp),
             )
         }
@@ -470,7 +483,7 @@ private fun localizedGiftReceiptTitle(
     context: android.content.Context,
     receipt: GiftReceipt,
 ): AnnotatedString {
-    val sender = receipt.sender.ifBlank { context.getString(R.string.gift_someone) }
+    val sender = receipt.sender.ifBlank { context.getString(fm.corus.android.localization.CorusStrings.activity_someone) }
     val gift = GiftDefinition.from(receipt.type).sentPhrase(context)
     return emphasizedGiftAttribution(
         context.getString(R.string.gift_sender_sent, GIFT_SENDER_ONE_TOKEN, GIFT_TYPE_TOKEN),

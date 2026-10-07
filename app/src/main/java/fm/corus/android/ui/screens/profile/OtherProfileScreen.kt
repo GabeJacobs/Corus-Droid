@@ -345,7 +345,7 @@ fun OtherProfileScreen(
                                 Icons.Filled.Notifications
                             else
                                 Icons.Outlined.NotificationsNone,
-                            contentDescription = if (isSubscribedToNotifications) stringResource(fm.corus.android.R.string.other_profile_cd_stop_notifying) else stringResource(fm.corus.android.R.string.other_profile_cd_post_notifications),
+                            contentDescription = if (isSubscribedToNotifications) stringResource(fm.corus.android.localization.CorusStrings.other_profile_cd_stop_notifying) else stringResource(fm.corus.android.localization.CorusStrings.other_profile_cd_post_notifications),
                             tint = if (isSubscribedToNotifications) CorusColors.Accent else CorusColors.Text,
                             modifier = Modifier.size(22.dp),
                         )
@@ -367,8 +367,8 @@ fun OtherProfileScreen(
                             Icon(
                                 imageVector = if (isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
                                 contentDescription = stringResource(
-                                    if (isFavorite) fm.corus.android.R.string.other_profile_cd_remove_favorite
-                                    else fm.corus.android.R.string.other_profile_cd_add_favorite
+                                    if (isFavorite) fm.corus.android.localization.CorusStrings.profile_remove_from_favorites
+                                    else fm.corus.android.localization.CorusStrings.profile_add_to_favorites
                                 ),
                                 tint = if (isFavorite) CorusColors.Accent else CorusColors.Text,
                                 modifier = Modifier.size(22.dp),
@@ -382,7 +382,7 @@ fun OtherProfileScreen(
                         val isGeneratingPlaylist by viewModel.nowPlayingManager.isGeneratingPlaylist.collectAsState()
 
                         IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(fm.corus.android.R.string.other_profile_cd_menu), tint = CorusColors.Text)
+                            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.other_profile_cd_menu), tint = CorusColors.Text)
                         }
                         DropdownMenu(
                             expanded = showMenu,
@@ -391,7 +391,7 @@ fun OtherProfileScreen(
                             // View Spotify Playlist (only for non-film-bot profiles)
                             if (profile?.isFilmBot != true) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(fm.corus.android.R.string.other_profile_menu_view_playlist), style = CorusFont.body) },
+                                    text = { Text(stringResource(fm.corus.android.localization.CorusStrings.other_profile_menu_view_playlist), style = CorusFont.body) },
                                     leadingIcon = {
                                         Icon(
                                             painter = painterResource(fm.corus.android.R.drawable.ic_music_note_list),
@@ -431,7 +431,7 @@ fun OtherProfileScreen(
                             }
                             // Share Profile
                             DropdownMenuItem(
-                                text = { Text(stringResource(fm.corus.android.R.string.other_profile_menu_share_profile), style = CorusFont.body) },
+                                text = { Text(stringResource(fm.corus.android.localization.CorusStrings.edit_profile_share_chooser), style = CorusFont.body) },
                                 leadingIcon = {
                                     Icon(
                                         Icons.Filled.Share,
@@ -461,7 +461,7 @@ fun OtherProfileScreen(
                                 DropdownMenuItem(
                                     text = {
                                         Text(
-                                            if (isMuted) stringResource(fm.corus.android.R.string.other_profile_menu_unmute) else stringResource(fm.corus.android.R.string.other_profile_menu_mute),
+                                            if (isMuted) stringResource(fm.corus.android.localization.CorusStrings.common_unmute) else stringResource(fm.corus.android.localization.CorusStrings.other_profile_menu_mute),
                                             style = CorusFont.body,
                                         )
                                     },
@@ -483,7 +483,7 @@ fun OtherProfileScreen(
                                 DropdownMenuItem(
                                     text = {
                                         Text(
-                                            stringResource(fm.corus.android.R.string.other_profile_menu_report),
+                                            stringResource(fm.corus.android.localization.CorusStrings.profile_report),
                                             style = CorusFont.body,
                                             color = CorusColors.Error,
                                         )
@@ -496,7 +496,7 @@ fun OtherProfileScreen(
                                     DropdownMenuItem(
                                         text = {
                                             Text(
-                                                if (isBlocked) stringResource(fm.corus.android.R.string.other_profile_menu_unblock) else stringResource(fm.corus.android.R.string.other_profile_menu_block),
+                                                if (isBlocked) stringResource(fm.corus.android.localization.CorusStrings.profile_unblock) else stringResource(fm.corus.android.localization.CorusStrings.comments_menu_block),
                                                 style = CorusFont.body,
                                                 color = CorusColors.Error,
                                             )
@@ -523,7 +523,7 @@ fun OtherProfileScreen(
                     title = { otherProfileTitle() },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(fm.corus.android.R.string.common_back), tint = CorusColors.Text)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back), tint = CorusColors.Text)
                         }
                     },
                     actions = { if (!isBlocked && !profileUnavailable) profileActions() },
@@ -554,14 +554,14 @@ fun OtherProfileScreen(
                     modifier = Modifier.padding(horizontal = CorusSpacing.md),
                 ) {
                     Text(
-                        stringResource(fm.corus.android.R.string.other_profile_unavailable_title),
+                        stringResource(fm.corus.android.localization.CorusStrings.other_profile_unavailable_title),
                         style = CorusFont.bodyMedium,
                         color = CorusColors.Text,
                         textAlign = TextAlign.Center,
                     )
                     Spacer(modifier = Modifier.height(CorusSpacing.sm))
                     Text(
-                        stringResource(fm.corus.android.R.string.other_profile_unavailable_subtitle),
+                        stringResource(fm.corus.android.localization.CorusStrings.other_profile_unavailable_subtitle),
                         style = CorusFont.bodyMedium,
                         color = CorusColors.Secondary,
                         textAlign = TextAlign.Center,
@@ -600,14 +600,14 @@ fun OtherProfileScreen(
                     )
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
                     Text(
-                        stringResource(fm.corus.android.R.string.other_profile_blocked_message),
+                        stringResource(fm.corus.android.localization.CorusStrings.other_profile_blocked_message),
                         style = CorusFont.bodyMedium,
                         color = CorusColors.Secondary,
                         textAlign = TextAlign.Center,
                     )
                     Spacer(modifier = Modifier.height(CorusSpacing.xs))
                     Text(
-                        stringResource(fm.corus.android.R.string.other_profile_blocked_body),
+                        stringResource(fm.corus.android.localization.CorusStrings.profile_blocked_limited_body),
                         style = CorusFont.body,
                         color = CorusColors.Tertiary,
                         textAlign = TextAlign.Center,
@@ -615,11 +615,11 @@ fun OtherProfileScreen(
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
                     Row(horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm)) {
                         Button(onClick = { viewModel.unblockUser(userId) }) {
-                            Text(stringResource(fm.corus.android.R.string.common_unblock))
+                            Text(stringResource(fm.corus.android.localization.CorusStrings.profile_unblock))
                         }
                         OutlinedButton(onClick = { showBlockedReportSheet = true }) {
                             Text(
-                                stringResource(fm.corus.android.R.string.other_profile_menu_report),
+                                stringResource(fm.corus.android.localization.CorusStrings.profile_report),
                                 color = CorusColors.Error,
                             )
                         }
@@ -695,21 +695,21 @@ fun OtherProfileScreen(
                                         StatItemOrSkeleton(
                                             count = initialCymbalCount,
                                             label = stringResource(
-                                                if (initialCymbalCount == 1) fm.corus.android.R.string.post_noun
-                                                else fm.corus.android.R.string.profile_stat_coruses,
+                                                if (initialCymbalCount == 1) fm.corus.android.localization.CorusStrings.post_noun
+                                                else fm.corus.android.localization.CorusStrings.profile_stat_coruses,
                                             ),
                                             modifier = statMod,
                                             instagram = true,
                                         )
                                         StatItemOrSkeleton(
                                             count = initialFollowerCount,
-                                            label = stringResource(fm.corus.android.R.string.profile_stat_followers),
+                                            label = stringResource(fm.corus.android.localization.CorusStrings.hashtag_followers),
                                             modifier = statMod,
                                             instagram = true,
                                         )
                                         StatItemOrSkeleton(
                                             count = initialFollowingCount,
-                                            label = stringResource(fm.corus.android.R.string.profile_stat_following),
+                                            label = stringResource(fm.corus.android.localization.CorusStrings.profile_stat_following),
                                             modifier = statMod,
                                             instagram = true,
                                         )
@@ -773,7 +773,7 @@ fun OtherProfileScreen(
                                     ) {
                                         Icon(
                                             imageVector = Icons.Filled.QueueMusic,
-                                            contentDescription = stringResource(fm.corus.android.R.string.profile_cd_playlist),
+                                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.profile_playlist_button),
                                             modifier = Modifier.size(CorusSpacing.profileActionPlaylistIcon),
                                             tint = CorusColors.Secondary,
                                         )
@@ -788,9 +788,9 @@ fun OtherProfileScreen(
                             val unselectedLineColor = CorusColors.Divider
                             Row(modifier = Modifier.fillMaxWidth()) {
                                 listOf(
-                                    stringResource(fm.corus.android.R.string.profile_tab_music),
-                                    stringResource(fm.corus.android.R.string.profile_tab_film),
-                                    stringResource(fm.corus.android.R.string.other_profile_tab_likes),
+                                    stringResource(fm.corus.android.localization.CorusStrings.profile_tab_music),
+                                    stringResource(fm.corus.android.localization.CorusStrings.profile_tab_film),
+                                    stringResource(fm.corus.android.localization.CorusStrings.profile_tab_likes),
                                 ).forEachIndexed { index, title ->
                                     val isSelected = index == 0
                                     Column(
@@ -953,21 +953,21 @@ fun OtherProfileScreen(
                                 StatItem(
                                     count = currentProfile.cymbalCount,
                                     label = stringResource(
-                                        if (currentProfile.cymbalCount == 1) fm.corus.android.R.string.post_noun
-                                        else fm.corus.android.R.string.profile_stat_coruses,
+                                        if (currentProfile.cymbalCount == 1) fm.corus.android.localization.CorusStrings.post_noun
+                                        else fm.corus.android.localization.CorusStrings.profile_stat_coruses,
                                     ),
                                     modifier = statMod,
                                     instagram = true,
                                 )
                                 StatItem(
                                     count = currentProfile.followerCount,
-                                    label = stringResource(fm.corus.android.R.string.profile_stat_followers),
+                                    label = stringResource(fm.corus.android.localization.CorusStrings.hashtag_followers),
                                     modifier = statMod.clickable { onNavigateToFollowList(userId, true, currentProfile.username, currentProfile.followerCount, currentProfile.followingCount) },
                                     instagram = true,
                                 )
                                 StatItem(
                                     count = currentProfile.followingCount,
-                                    label = stringResource(fm.corus.android.R.string.profile_stat_following),
+                                    label = stringResource(fm.corus.android.localization.CorusStrings.profile_stat_following),
                                     modifier = statMod.clickable { onNavigateToFollowList(userId, false, currentProfile.username, currentProfile.followerCount, currentProfile.followingCount) },
                                     instagram = true,
                                 )
@@ -1080,7 +1080,7 @@ fun OtherProfileScreen(
                                     .border(1.dp, CorusColors.Divider, RoundedCornerShape(50))
                                     .clickable(enabled = instagramHasSongs && !instagramGenerating) {
                                         if (!instagramHasSongs) {
-                                            ToastManager.show(playlistContext.getString(fm.corus.android.R.string.profile_toast_no_songs_for_playlist))
+                                            ToastManager.show(playlistContext.getString(fm.corus.android.localization.CorusStrings.profile_toast_no_songs_for_playlist))
                                         } else if (viewModel.shouldPaywallOtherProfilePlaylist()) {
                                             clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT
                                             clubPlaylistTrialContext = fm.corus.android.domain.PlaylistTrialField.OtherProfile
@@ -1115,7 +1115,7 @@ fun OtherProfileScreen(
                                 } else {
                                     Icon(
                                         imageVector = Icons.Filled.QueueMusic,
-                                        contentDescription = stringResource(fm.corus.android.R.string.profile_cd_playlist),
+                                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.profile_playlist_button),
                                         modifier = Modifier
                                             .size(CorusSpacing.profileActionPlaylistIcon)
                                             .alpha(if (!instagramHasSongs) 0.35f else 1f),
@@ -1157,9 +1157,9 @@ fun OtherProfileScreen(
                     Spacer(modifier = Modifier.height(CorusSpacing.lg))
 
                     // Segment control — bots only show their content type (no tabs)
-                    val tabMusic = stringResource(fm.corus.android.R.string.profile_tab_music)
-                    val tabFilm = stringResource(fm.corus.android.R.string.profile_tab_film)
-                    val tabLikes = stringResource(fm.corus.android.R.string.other_profile_tab_likes)
+                    val tabMusic = stringResource(fm.corus.android.localization.CorusStrings.profile_tab_music)
+                    val tabFilm = stringResource(fm.corus.android.localization.CorusStrings.profile_tab_film)
+                    val tabLikes = stringResource(fm.corus.android.localization.CorusStrings.profile_tab_likes)
                     val otherTabsOrder = when {
                         currentProfile.isMusicBot -> listOf(0)
                         currentProfile.isFilmBot -> listOf(0)
@@ -1357,9 +1357,9 @@ fun OtherProfileScreen(
                                 .height(200.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            val noSongsMsg = stringResource(fm.corus.android.R.string.other_profile_empty_no_songs)
-                            val noFilmsMsg = stringResource(fm.corus.android.R.string.other_profile_empty_no_films)
-                            val noLikedMsg = stringResource(fm.corus.android.R.string.other_profile_empty_no_liked)
+                            val noSongsMsg = stringResource(fm.corus.android.localization.CorusStrings.other_profile_empty_no_songs)
+                            val noFilmsMsg = stringResource(fm.corus.android.localization.CorusStrings.parity_6683bd1a6bb4)
+                            val noLikedMsg = stringResource(fm.corus.android.localization.CorusStrings.profile_empty_likes)
                             val (icon, message) = when {
                                 currentProfile.isMusicBot || (!currentProfile.isBot && selectedSegment == 0) ->
                                     Icons.Filled.MusicNote to noSongsMsg
@@ -1607,7 +1607,7 @@ fun OtherProfileScreen(
             showShareSheet = false
         } else {
             val shareSheetState = fm.corus.android.ui.components.rememberGuardedSheetState(skipPartiallyExpanded = true)
-            val sentMsg = stringResource(fm.corus.android.R.string.profile_share_toast_profile_sent)
+            val sentMsg = stringResource(fm.corus.android.localization.CorusStrings.share_toast_message_sent)
             LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
             fm.corus.android.ui.components.CorusModalBottomSheet(
                 onDismissRequest = { showShareSheet = false },
@@ -1845,7 +1845,7 @@ internal fun RowScope.ProfileMessagePill(
         contentAlignment = Alignment.Center,
     ) {
         ShrinkToFitText(
-            text = stringResource(fm.corus.android.R.string.other_profile_button_message),
+            text = stringResource(fm.corus.android.localization.CorusStrings.other_profile_button_message),
             style = messageStyle,
             color = CorusColors.Secondary,
         )
@@ -1862,7 +1862,7 @@ internal fun RowScope.ProfileFollowPill(
     val labelStyle = profileActionButtonBaseStyle(
         LocalConfiguration.current.screenWidthDp,
     )
-    val followingOptionsLabel = stringResource(fm.corus.android.R.string.other_profile_cd_following_options)
+    val followingOptionsLabel = stringResource(fm.corus.android.localization.CorusStrings.profile_following_options_a11y)
     Box(
         modifier = Modifier
             .weight(1f)
@@ -1892,7 +1892,7 @@ internal fun RowScope.ProfileFollowPill(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 ShrinkToFitText(
-                    text = stringResource(fm.corus.android.R.string.other_profile_button_following),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.parity_f0de6c8aaa3f),
                     style = labelStyle,
                     color = CorusColors.Secondary,
                 )
@@ -1906,9 +1906,9 @@ internal fun RowScope.ProfileFollowPill(
         } else {
             ShrinkToFitText(
                 text = if (followsMe) {
-                    stringResource(fm.corus.android.R.string.other_profile_button_follow_back)
+                    stringResource(fm.corus.android.localization.CorusStrings.other_profile_button_follow_back)
                 } else {
-                    stringResource(fm.corus.android.R.string.other_profile_button_follow)
+                    stringResource(fm.corus.android.localization.CorusStrings.parity_0137b9ad82f9)
                 },
                 style = labelStyle,
                 color = Color.White,
@@ -1949,8 +1949,8 @@ private fun FollowingOptionsSheet(
         if (showFavorites) {
             FollowingSheetRow(
                 title = stringResource(
-                    if (isFavorited) fm.corus.android.R.string.other_profile_action_remove_favorite
-                    else fm.corus.android.R.string.other_profile_action_add_favorite,
+                    if (isFavorited) fm.corus.android.localization.CorusStrings.other_profile_action_remove_favorite
+                    else fm.corus.android.localization.CorusStrings.other_profile_action_add_favorite,
                 ),
                 icon = if (isFavorited) Icons.Filled.Star else Icons.Filled.StarBorder,
                 onClick = onFavorite,
@@ -1961,8 +1961,8 @@ private fun FollowingOptionsSheet(
         if (showMute) {
             FollowingSheetRow(
                 title = stringResource(
-                    if (isMuted) fm.corus.android.R.string.other_profile_menu_unmute
-                    else fm.corus.android.R.string.other_profile_menu_mute,
+                    if (isMuted) fm.corus.android.localization.CorusStrings.common_unmute
+                    else fm.corus.android.localization.CorusStrings.other_profile_menu_mute,
                 ),
                 icon = if (isMuted) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
                 onClick = onMute,
@@ -1971,7 +1971,7 @@ private fun FollowingOptionsSheet(
         }
 
         FollowingSheetRow(
-            title = stringResource(fm.corus.android.R.string.other_profile_action_unfollow),
+            title = stringResource(fm.corus.android.localization.CorusStrings.profile_unfollow),
             icon = null,
             onClick = onUnfollow,
         )

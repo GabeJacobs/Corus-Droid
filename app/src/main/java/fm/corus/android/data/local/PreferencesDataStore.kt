@@ -477,6 +477,18 @@ class PreferencesDataStore @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     @ApplicationContext private val context: Context,
 ) {
+    suspend fun loadOnboardingFollowSession(userId: String, debugBuild: Boolean): fm.corus.android.data.model.OnboardingFollowSession? {
+        val key = stringPreferencesKey("onboarding_follow_v1_${if (debugBuild) "debug" else "release"}_$userId")
+        return dataStore.data.first()[key]?.let { encoded ->
+            runCatching { Json.decodeFromString<fm.corus.android.data.model.OnboardingFollowSession>(encoded) }.getOrNull()
+        }
+    }
+
+    suspend fun saveOnboardingFollowSession(userId: String, value: fm.corus.android.data.model.OnboardingFollowSession) {
+        val key = stringPreferencesKey("onboarding_follow_v1_${if (value.debugBuild) "debug" else "release"}_$userId")
+        dataStore.edit { it[key] = Json.encodeToString(value) }
+    }
+
     companion object {
         val FEED_ONE_PER_FOLLOWER = booleanPreferencesKey("feed_one_per_follower")
         val LAST_COMPOSE_MEDIA_TYPE = stringPreferencesKey("last_compose_media_type")

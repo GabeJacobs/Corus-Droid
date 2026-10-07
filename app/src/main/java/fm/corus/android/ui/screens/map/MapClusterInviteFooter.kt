@@ -49,12 +49,12 @@ internal fun MapClusterInviteFooter() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(stringResource(R.string.map_cluster_invite_copy), style = CorusFont.caption,
+        Text(stringResource(fm.corus.android.localization.CorusStrings.parity_41c2e9e827d6), style = CorusFont.caption,
             color = CorusColors.Secondary, textAlign = TextAlign.Center)
         Button(onClick = { context.shareCorusInvite() }, shape = RoundedCornerShape(50),
             colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent, contentColor = Color.White),
             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)) {
-            Text(stringResource(R.string.map_cluster_invite_action), style = CorusFont.bodyMedium)
+            Text(stringResource(fm.corus.android.localization.CorusStrings.parity_129daef04d80), style = CorusFont.bodyMedium)
         }
     }
 }

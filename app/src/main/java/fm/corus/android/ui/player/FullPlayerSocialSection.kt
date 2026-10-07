@@ -511,6 +511,7 @@ private fun FullPlayerSourcePostCard(
                 postId = post.id,
                 giftCount = post.giftCount,
                 recentGifts = post.recentGifts,
+                recipientId = post.user.id,
                 onSenderTap = onGiftSenderTap,
                 contentPadding = PaddingValues(top = 5.dp, bottom = 9.dp),
             )
@@ -689,7 +690,7 @@ private fun FullPlayerCommentsSection(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = stringResource(R.string.full_player_add_comment),
+                text = stringResource(fm.corus.android.localization.CorusStrings.full_player_add_comment),
                 style = CorusFont.body.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
                 color = CorusColors.Text.copy(alpha = 0.9f),
             )
@@ -782,7 +783,7 @@ private fun FullPlayerCommentRow(
                         model = ImageRequest.Builder(context)
                             .data(gifURL)
                             .build(),
-                        contentDescription = stringResource(R.string.comments_cd_gif),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.comments_cd_gif),
                         modifier = Modifier
                             .widthIn(max = 200.dp)
                             .heightIn(max = 260.dp)
@@ -843,7 +844,7 @@ private fun FullPlayerCommentRow(
                     }
                 }
                 Text(
-                    text = stringResource(R.string.comments_reply),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.thread_reply),
                     style = CorusFont.caption,
                     color = CorusColors.Text.copy(alpha = 0.7f),
                     modifier = Modifier.clickable(
@@ -890,7 +891,7 @@ private fun FullPlayerCatalogPostedBySection(
         when {
             showSkeleton && isLoading && posts.isEmpty() -> {
                 Text(
-                    text = stringResource(R.string.song_detail_posted_by),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.film_detail_posted_by),
                     style = CorusFont.sectionHeader,
                     color = CorusColors.Text.copy(alpha = 0.62f),
                     modifier = Modifier
@@ -946,13 +947,13 @@ private fun FullPlayerCatalogPostedBySection(
                 ) {
                     Spacer(modifier = Modifier.height(24.dp))
                     Text(
-                        text = stringResource(R.string.song_detail_load_error),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.film_detail_load_error),
                         style = CorusFont.bodyMedium,
                         color = CorusColors.Text.copy(alpha = 0.58f),
                     )
                     TextButton(onClick = onRetry, enabled = interactive) {
                         Text(
-                            text = stringResource(R.string.song_detail_try_again),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.gift_try_again),
                             style = CorusFont.buttonSmall,
                             color = CorusColors.Accent,
                         )
@@ -968,7 +969,7 @@ private fun FullPlayerCatalogPostedBySection(
                 ) {
                     Spacer(modifier = Modifier.height(28.dp))
                     Text(
-                        text = stringResource(R.string.song_detail_empty),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.song_detail_empty),
                         style = CorusFont.body,
                         color = CorusColors.Text.copy(alpha = 0.58f),
                     )
@@ -982,7 +983,7 @@ private fun FullPlayerCatalogPostedBySection(
                             contentColor = Color.White,
                         ),
                     ) {
-                        Text(stringResource(R.string.song_detail_be_the_first), style = CorusFont.buttonSmall)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.film_detail_be_the_first), style = CorusFont.buttonSmall)
                     }
                 }
             }

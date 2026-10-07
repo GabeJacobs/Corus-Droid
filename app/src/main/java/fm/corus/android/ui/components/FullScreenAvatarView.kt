@@ -48,7 +48,7 @@ fun FullScreenAvatarOverlay(
         ) {
             AsyncImage(
                 model = avatarURL,
-                contentDescription = stringResource(R.string.full_screen_cd_avatar),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.full_screen_cd_avatar),
                 modifier = Modifier
                     .size(250.dp)
                     .clip(CircleShape)

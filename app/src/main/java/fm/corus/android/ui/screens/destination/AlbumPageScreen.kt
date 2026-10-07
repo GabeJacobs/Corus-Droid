@@ -242,7 +242,7 @@ fun AlbumPageScreen(
                     CorusHeaderIconButton(
                         onClick = onBack,
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.feed_cd_back),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                     )
                 },
                 actions = {
@@ -256,7 +256,7 @@ fun AlbumPageScreen(
                             CorusHeaderIconButton(
                                 onClick = { showMenu = true },
                                 imageVector = Icons.Filled.MoreVert,
-                                contentDescription = stringResource(R.string.feed_cd_more_options),
+                                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.feed_cd_more_options),
                             )
                             DropdownMenu(
                                 expanded = showMenu,
@@ -265,7 +265,7 @@ fun AlbumPageScreen(
                             ) {
                                 if (viewModel.entityShareEnabled) {
                                     DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                        text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_share), style = CorusFont.body) },
                                         onClick = {
                                             showMenu = false
                                             showShareSheet = true
@@ -274,7 +274,7 @@ fun AlbumPageScreen(
                                 }
                                 if (artistId != null) {
                                     DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.post_menu_go_to_artist), style = CorusFont.body) },
+                                        text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_go_to_artist), style = CorusFont.body) },
                                         onClick = {
                                             showMenu = false
                                             onNavigateToArtist(
@@ -349,7 +349,7 @@ fun AlbumPageScreen(
                     }
                     if (title != null || catalogError) {
                         Text(
-                            text = title ?: stringResource(R.string.destination_album_label),
+                            text = title ?: stringResource(fm.corus.android.localization.CorusStrings.share_album_word),
                             style = CorusFont.songTitleLarge,
                             color = CorusColors.Text,
                             textAlign = TextAlign.Center,
@@ -385,7 +385,7 @@ fun AlbumPageScreen(
                     // catalog lands — no layout shift.
                     val trackCount = catalog?.tracks?.size ?: 0
                     val metaParts = buildList {
-                        add(stringResource(R.string.destination_album_label))
+                        add(stringResource(fm.corus.android.localization.CorusStrings.share_album_word))
                         (catalog?.year ?: yearHint)?.let { add(it.toString()) }
                         if (trackCount > 0) {
                             add(pluralStringResource(R.plurals.destination_song_count, trackCount, trackCount))
@@ -400,7 +400,7 @@ fun AlbumPageScreen(
                     if (showPreReleaseAlbumUI) {
                         Spacer(modifier = Modifier.height(CorusSpacing.xxs))
                         Text(
-                            text = stringResource(R.string.destination_prerelease_album_hint),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.destination_prerelease_album_hint),
                             style = CorusFont.caption,
                             color = CorusColors.Secondary,
                             textAlign = TextAlign.Center,
@@ -438,13 +438,13 @@ fun AlbumPageScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
-                            text = stringResource(R.string.destination_album_load_error),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.destination_album_load_error),
                             style = CorusFont.body,
                             color = CorusColors.Secondary,
                         )
                         TextButton(onClick = { viewModel.loadCatalog(albumId, titleHint, artistHint) }) {
                             Text(
-                                text = stringResource(R.string.song_detail_try_again),
+                                text = stringResource(fm.corus.android.localization.CorusStrings.gift_try_again),
                                 style = CorusFont.buttonSmall,
                                 color = CorusColors.Accent,
                             )
@@ -455,7 +455,7 @@ fun AlbumPageScreen(
                 if (tracks.isEmpty()) {
                     item {
                         Text(
-                            text = stringResource(R.string.destination_no_tracks),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.destination_no_tracks),
                             style = CorusFont.body,
                             color = CorusColors.Secondary,
                             textAlign = TextAlign.Center,
@@ -508,7 +508,7 @@ fun AlbumPageScreen(
                             formatDestinationCount(uniquePosterCount),
                         )
                     } else {
-                        stringResource(R.string.destination_shared_from_album)
+                        stringResource(fm.corus.android.localization.CorusStrings.destination_shared_from_album)
                     },
                 )
             }
@@ -526,7 +526,7 @@ fun AlbumPageScreen(
             } else if (postsError) {
                 item {
                     Text(
-                        text = stringResource(R.string.destination_album_posts_load_error),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.destination_album_posts_load_error),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                         modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
@@ -535,7 +535,7 @@ fun AlbumPageScreen(
             } else if (posts.isEmpty()) {
                 item {
                     Text(
-                        text = stringResource(R.string.destination_no_posts_album),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.destination_no_posts_album),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                         modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
@@ -555,7 +555,7 @@ fun AlbumPageScreen(
             // ── Attribution footer (Spotify link hidden for `am:` albums) ──
             item {
                 DestinationAttributionFooter(
-                    attribution = stringResource(R.string.destination_music_attribution),
+                    attribution = stringResource(fm.corus.android.localization.CorusStrings.destination_music_attribution),
                     onOpenSpotify = if (albumId.startsWith("am:")) null else {
                         {
                             val url = "https://open.spotify.com/album/${Uri.encode(albumId)}"
@@ -580,7 +580,7 @@ fun AlbumPageScreen(
                             CorusHeaderIconButton(
                                 onClick = { showMenu = true },
                                 imageVector = Icons.Filled.MoreVert,
-                                contentDescription = stringResource(R.string.feed_cd_more_options),
+                                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.feed_cd_more_options),
                                 tint = tint,
                             )
                             DropdownMenu(
@@ -590,7 +590,7 @@ fun AlbumPageScreen(
                             ) {
                                 if (viewModel.entityShareEnabled) {
                                     DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                        text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_share), style = CorusFont.body) },
                                         onClick = {
                                             showMenu = false
                                             showShareSheet = true
@@ -599,7 +599,7 @@ fun AlbumPageScreen(
                                 }
                                 if (artistId != null) {
                                     DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.post_menu_go_to_artist), style = CorusFont.body) },
+                                        text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_go_to_artist), style = CorusFont.body) },
                                         onClick = {
                                             showMenu = false
                                             onNavigateToArtist(
@@ -622,7 +622,7 @@ fun AlbumPageScreen(
 
     if (showShareSheet) {
         val shareSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
-        val sentMsg = stringResource(R.string.album_detail_toast_album_sent)
+        val sentMsg = stringResource(fm.corus.android.localization.CorusStrings.share_toast_message_sent)
         LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
         CorusModalBottomSheet(
             onDismissRequest = { showShareSheet = false },

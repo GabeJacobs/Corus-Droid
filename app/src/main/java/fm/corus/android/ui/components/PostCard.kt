@@ -423,7 +423,7 @@ fun PostCard(
                             tint = CorusColors.Secondary,
                         )
                         Text(
-                            text = stringResource(R.string.post_card_reposted_from),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.post_card_reposted_from),
                             style = CorusFont.caption,
                             color = CorusColors.Secondary,
                         )
@@ -495,7 +495,7 @@ fun PostCard(
             ) {
                 Icon(
                     imageVector = Icons.Filled.MoreHoriz,
-                    contentDescription = stringResource(R.string.post_card_cd_more_options),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.feed_cd_more_options),
                     modifier = Modifier.size(14.dp),
                     tint = CorusColors.Secondary,
                 )
@@ -662,7 +662,7 @@ fun PostCard(
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = stringResource(R.string.post_card_cd_track_unavailable),
+                                text = stringResource(fm.corus.android.localization.CorusStrings.post_card_cd_track_unavailable),
                                 color = Color.White,
                                 style = CorusFont.caption.copy(fontWeight = FontWeight.Medium),
                             )
@@ -680,7 +680,7 @@ fun PostCard(
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             Text(
-                                text = stringResource(R.string.post_card_finding_back_cover),
+                                text = stringResource(fm.corus.android.localization.CorusStrings.post_back_cover_loading),
                                 color = Color.White,
                                 style = CorusFont.caption.copy(fontWeight = FontWeight.Medium),
                                 modifier = Modifier.padding(bottom = CorusSpacing.xs),
@@ -703,7 +703,7 @@ fun PostCard(
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = stringResource(R.string.post_card_no_back_cover),
+                                text = stringResource(fm.corus.android.localization.CorusStrings.post_toast_no_back_cover),
                                 color = Color.White,
                                 style = CorusFont.body.copy(fontWeight = FontWeight.Medium),
                             )
@@ -764,7 +764,7 @@ fun PostCard(
                                     modifier = Modifier.size(24.dp),
                                 )
                                 Text(
-                                    text = stringResource(R.string.post_card_view_film_page),
+                                    text = stringResource(fm.corus.android.localization.CorusStrings.post_kebab_view_film),
                                     style = CorusFont.button,
                                 )
                             }
@@ -796,7 +796,7 @@ fun PostCard(
                                         modifier = Modifier.size(24.dp),
                                     )
                                     Text(
-                                        text = stringResource(R.string.post_card_watch_trailer),
+                                        text = stringResource(fm.corus.android.localization.CorusStrings.post_kebab_watch_trailer),
                                         style = CorusFont.button,
                                     )
                                 }
@@ -897,7 +897,7 @@ fun PostCard(
                             .data(flipState.backCoverURL)
                             .size(Size(640, 640))
                             .build(),
-                        contentDescription = stringResource(R.string.post_card_cd_album_back_cover),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.post_card_cd_album_back_cover),
                         modifier = Modifier
                             .fillMaxSize()
                             .albumArtPinchZoom(),
@@ -985,7 +985,7 @@ fun PostCard(
                     if (!post.trailerURL.isNullOrBlank()) {
                         YouTubeIcon(
                             height = 22.dp,
-                            contentDescription = stringResource(R.string.post_card_cd_watch_trailer),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.post_kebab_watch_trailer),
                             modifier = Modifier
                                 .offset(y = PostRowServiceControlYOffset)
                                 .clickable(
@@ -1009,9 +1009,9 @@ fun PostCard(
                 val isAppleMusic = post.track.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC
                 val cd = stringResource(
                     when {
-                        isSoundCloud -> R.string.post_card_cd_play_soundcloud
-                        isAppleMusic -> R.string.post_card_cd_play_spotify // reuse generic "play" copy; brand handled via icon
-                        else -> R.string.post_card_cd_play_spotify
+                        isSoundCloud -> fm.corus.android.localization.CorusStrings.post_card_cd_play_soundcloud
+                        isAppleMusic -> fm.corus.android.localization.CorusStrings.featured_cd_play_spotify // reuse generic "play" copy; brand handled via icon
+                        else -> fm.corus.android.localization.CorusStrings.featured_cd_play_spotify
                     }
                 )
                 val tapModifier = Modifier
@@ -1140,7 +1140,7 @@ fun PostCard(
                         interactionSource = likeInteraction,
                         indication = null,
                         onClick = onLikeTap,
-                        onLongClickLabel = stringResource(R.string.gift_send_action),
+                        onLongClickLabel = stringResource(fm.corus.android.localization.CorusStrings.gift_send_action),
                         onLongClick = onLikeLongPress,
                     )
                 } else {
@@ -1155,7 +1155,7 @@ fun PostCard(
             ) {
                 Icon(
                     imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = stringResource(R.string.post_card_cd_like),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.comment_like_action),
                     modifier = Modifier.size(22.dp),
                     tint = if (isLiked) CorusColors.Like else CorusColors.Text,
                 )
@@ -1181,7 +1181,7 @@ fun PostCard(
             ) {
                 Icon(
                     imageVector = Icons.Outlined.ChatBubbleOutline,
-                    contentDescription = stringResource(R.string.post_card_cd_comment),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.post_card_cd_comment),
                     modifier = Modifier.size(20.dp),
                     tint = CorusColors.Text,
                 )
@@ -1217,7 +1217,7 @@ fun PostCard(
             ) {
                 Icon(
                     imageVector = Icons.Filled.Repeat,
-                    contentDescription = stringResource(R.string.post_card_cd_repost),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.compose_repost),
                     modifier = Modifier.size(20.dp),
                     tint = CorusColors.Text,
                 )
@@ -1233,7 +1233,7 @@ fun PostCard(
             // Share button
             Icon(
                 imageVector = Icons.Filled.Send,
-                contentDescription = stringResource(R.string.post_card_cd_share),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.concert_share),
                 modifier = Modifier
                     .size(20.dp)
                     .clickable(
@@ -1297,7 +1297,7 @@ fun PostCard(
                 }
                 Icon(
                     imageVector = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                    contentDescription = stringResource(R.string.post_card_cd_save),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.save_post),
                     modifier = Modifier.size(20.dp),
                     tint = CorusColors.Text,
                 )
@@ -1305,7 +1305,7 @@ fun PostCard(
         }
 
         if (showGifts && displayedGiftCount > 0) {
-            PostGiftRow(post.id, displayedGiftCount, displayedRecentGifts, onSenderTap = onGiftSenderTap)
+            PostGiftRow(post.id, displayedGiftCount, displayedRecentGifts, recipientId = post.user.id, onSenderTap = onGiftSenderTap)
         }
 
         // 5. LIKED BY
@@ -1532,7 +1532,7 @@ private fun InlineFollowPill(
         )
         Text(
             text = stringResource(
-                if (confirmed) R.string.likes_button_following else R.string.likes_button_follow
+                if (confirmed) fm.corus.android.localization.CorusStrings.following_status else fm.corus.android.localization.CorusStrings.follow_action
             ),
             style = CorusFont.caption.copy(fontWeight = FontWeight.SemiBold),
             color = Color.White,

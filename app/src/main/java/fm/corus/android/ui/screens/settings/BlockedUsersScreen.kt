@@ -60,9 +60,9 @@ fun BlockedUsersScreen(
                 CorusHeaderIconButton(
                     onClick = onBack,
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.common_back),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                 )
-                Text(stringResource(R.string.blocked_users_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.blocked_users_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
             }
 
             HorizontalDivider(color = CorusColors.Divider)
@@ -91,7 +91,7 @@ fun BlockedUsersScreen(
                             )
                             Spacer(modifier = Modifier.height(CorusSpacing.md))
                             Text(
-                                text = stringResource(R.string.blocked_users_empty),
+                                text = stringResource(fm.corus.android.localization.CorusStrings.blocked_users_empty),
                                 style = CorusFont.bodyMedium,
                                 color = CorusColors.Secondary,
                             )
@@ -185,7 +185,7 @@ private fun BlockedUserRow(
                     color = CorusColors.Secondary,
                 )
             } else {
-                Text(stringResource(R.string.common_unblock), style = CorusFont.buttonSmall)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.profile_unblock), style = CorusFont.buttonSmall)
             }
         }
     }

@@ -36,6 +36,7 @@ internal data class ProfileStoriesGridLayout(
 enum class ProfileStoryGridSize(val artworkLimit: Int) {
     STANDARD(9),
     LARGE(16),
+    FULL(28),
 }
 
 enum class ProfileStoryBackground(
@@ -43,6 +44,7 @@ enum class ProfileStoryBackground(
     val color: Int,
     val usesDarkInk: Boolean,
 ) {
+    INVITATION_BLUE("Blue", 0xffeaf1ff.toInt(), true),
     CORUS_BLUE("Blue", 0xff6495ed.toInt(), true),
     LIGHT("Light", 0xffffffff.toInt(), true),
     DARK("Dark", 0xff000000.toInt(), false),
@@ -119,6 +121,7 @@ suspend fun generateProfileStoriesCardBitmap(
     showBio: Boolean = true,
     gridSize: ProfileStoryGridSize = ProfileStoryGridSize.STANDARD,
     background: ProfileStoryBackground? = null,
+    profileSharingV2: Boolean = false,
 ): Bitmap = withContext(Dispatchers.IO) {
     val canvasWidth = 1080
     val canvasHeight = 1920
@@ -136,6 +139,11 @@ suspend fun generateProfileStoriesCardBitmap(
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
 
     val avatarBitmap = profile.avatarUrl?.takeIf { it.isNotBlank() }?.let { downloadShareBitmap(it) }
+    if (profileSharingV2 && profile.isInvitation) {
+        drawProfileInvitation(canvas, context, profile, palette, avatarBitmap, paint, showBio)
+        avatarBitmap?.recycle()
+        return@withContext bitmap
+    }
     val artworkUrls = profile.artworkUrls
     val artworkBitmaps = artworkUrls.take(gridSize.artworkLimit).mapNotNull { downloadShareBitmap(it) }
 
@@ -242,6 +250,71 @@ suspend fun generateProfileStoriesCardBitmap(
     bitmap
 }
 
+private fun drawProfileInvitation(
+    canvas: Canvas,
+    context: Context,
+    profile: ShareProfileSubject,
+    palette: ProfileStoriesPalette,
+    avatar: Bitmap?,
+    paint: Paint,
+    showBio: Boolean,
+) {
+    val centerX = 540f
+    val maxWidth = 936f
+    val avatarSize = 340f
+    val name = profile.displayName?.trim()?.takeIf { it.isNotEmpty() }
+    val distinctName = name?.takeIf { !it.removePrefix("@").equals(profile.username, ignoreCase = true) }
+    fun fittedPaint(text: String, size: Float, color: Int) = shareNunitoPaint(context, size, 800, color, Paint.Align.CENTER).apply {
+        if (measureText(text) > maxWidth) textSize *= (maxWidth / measureText(text)).coerceAtLeast(0.5f)
+    }
+    val heading = context.getString(R.string.share_profile_invitation)
+    val headingPaint = fittedPaint(heading, 76f, palette.ink)
+    val handle = "@${profile.username}"
+    val handlePaint = fittedPaint(handle, 56f, palette.accent)
+    val namePaint = fittedPaint(distinctName.orEmpty(), 48f, palette.ink)
+    val bioPaint = shareNunitoPaint(context, 42f, 500, palette.muted, Paint.Align.CENTER)
+    val bioLines = profile.bio?.trim()?.takeIf { showBio && it.isNotEmpty() }
+        ?.let { ellipsizeShareLines(it, bioPaint, maxWidth, 3) }.orEmpty()
+    val brandPaint = shareNunitoPaint(context, 48f, 800, palette.ink)
+    fun lineHeight(p: Paint) = p.descent() - p.ascent()
+    val height = avatarSize + 40f + lineHeight(headingPaint) +
+        (if (distinctName != null) 16f + lineHeight(namePaint) else 0f) +
+        16f + lineHeight(handlePaint) + (if (bioLines.isNotEmpty()) 24f + lineHeight(bioPaint) * bioLines.size else 0f) +
+        48f + max(44f, lineHeight(brandPaint))
+    var y = (1920f - height) / 2f
+    if (avatar != null) {
+        val circle = shareCircularBitmap(avatar, avatarSize.toInt())
+        canvas.drawBitmap(circle, centerX - avatarSize / 2f, y, paint)
+        circle.recycle()
+    } else {
+        canvas.drawCircle(centerX, y + avatarSize / 2f, avatarSize / 2f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = palette.surface })
+        val initialPaint = shareNunitoPaint(context, avatarSize * 0.42f, 800, palette.accent, Paint.Align.CENTER)
+        canvas.drawText((name ?: profile.username).take(1).uppercase(), centerX,
+            y + avatarSize / 2f - (initialPaint.ascent() + initialPaint.descent()) / 2f, initialPaint)
+    }
+    y += avatarSize + 40f
+    canvas.drawText(heading, centerX, y - headingPaint.ascent(), headingPaint)
+    y += lineHeight(headingPaint)
+    if (distinctName != null) {
+        y += 16f
+        canvas.drawText(distinctName, centerX, y - namePaint.ascent(), namePaint)
+        y += lineHeight(namePaint)
+    }
+    y += 16f
+    canvas.drawText(handle, centerX, y - handlePaint.ascent(), handlePaint)
+    y += lineHeight(handlePaint)
+    if (bioLines.isNotEmpty()) {
+        y += 24f
+        bioLines.forEach { line -> canvas.drawText(line, centerX, y - bioPaint.ascent(), bioPaint); y += lineHeight(bioPaint) }
+    }
+    y += 48f
+    val brandWidth = 44f + 14f + brandPaint.measureText("corus")
+    val brandLeft = centerX - brandWidth / 2f
+    val brandHeight = max(44f, lineHeight(brandPaint))
+    drawTintedLogo(canvas, context, brandLeft, y + (brandHeight - 44f) / 2f, 44f, palette.ink)
+    canvas.drawText("corus", brandLeft + 58f, y + brandHeight / 2f - (brandPaint.ascent() + brandPaint.descent()) / 2f, brandPaint)
+}
+
 private fun drawEmptyArtworkGrid(
     canvas: Canvas,
     context: Context,
@@ -287,7 +360,7 @@ private fun drawAspectFillTile(canvas: Canvas, bitmap: Bitmap, x: Float, y: Floa
     canvas.drawBitmap(bitmap, src, dst, paint)
 }
 
-private fun drawTintedLogo(
+internal fun drawTintedLogo(
     canvas: Canvas,
     context: Context,
     left: Float,
@@ -410,10 +483,11 @@ suspend fun shareProfileToInstagramStories(
     showBio: Boolean = true,
     gridSize: ProfileStoryGridSize = ProfileStoryGridSize.STANDARD,
     background: ProfileStoryBackground? = null,
+    profileSharingV2: Boolean = false,
 ): Boolean = withContext(Dispatchers.IO) {
     try {
         Log.i(IG_PROFILE_SHARE_TAG, "Building Stories card theme=${theme.analyticsValue} user=${profile.username}")
-        val bitmap = generateProfileStoriesCardBitmap(context, profile, theme, showBio, gridSize, background)
+        val bitmap = generateProfileStoriesCardBitmap(context, profile, theme, showBio, gridSize, background, profileSharingV2)
         // Unique filename per theme + share so Instagram can't reuse a stale cached URI.
         val file = File(
             context.cacheDir,

@@ -338,7 +338,7 @@ private fun IdleState(onStartRecording: () -> Unit) {
     ) {
         Icon(Icons.Filled.Mic, contentDescription = null, tint = CorusColors.Accent, modifier = Modifier.size(18.dp))
         Spacer(modifier = Modifier.width(CorusSpacing.sm))
-        Text(stringResource(R.string.voice_note_record), style = CorusFont.body, color = CorusColors.Accent)
+        Text(stringResource(fm.corus.android.localization.CorusStrings.voice_note_record), style = CorusFont.body, color = CorusColors.Accent)
     }
 }
 
@@ -404,7 +404,7 @@ private fun RecordingState(recorderState: VoiceNoteRecorderState) {
         // Stop button
         Icon(
             Icons.Filled.Stop,
-            contentDescription = stringResource(R.string.voice_note_cd_stop),
+            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.voice_note_cd_stop),
             tint = Color.Red,
             modifier = Modifier
                 .size(28.dp)
@@ -431,7 +431,7 @@ private fun RecordedState(
         // Play/Pause
         Icon(
             imageVector = if (recorderState.isPreviewing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-            contentDescription = if (recorderState.isPreviewing) stringResource(R.string.voice_note_cd_pause) else stringResource(R.string.voice_note_cd_play),
+            contentDescription = if (recorderState.isPreviewing) stringResource(fm.corus.android.localization.CorusStrings.compose_cd_pause) else stringResource(fm.corus.android.localization.CorusStrings.voice_note_cd_play),
             tint = CorusColors.Accent,
             modifier = Modifier
                 .size(28.dp)
@@ -470,7 +470,7 @@ private fun RecordedState(
         // Delete
         Icon(
             Icons.Filled.Delete,
-            contentDescription = stringResource(R.string.voice_note_cd_delete),
+            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.voice_note_cd_delete),
             tint = CorusColors.Secondary,
             modifier = Modifier
                 .size(16.dp)

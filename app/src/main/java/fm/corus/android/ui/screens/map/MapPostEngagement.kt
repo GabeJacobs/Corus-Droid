@@ -63,16 +63,16 @@ fun MapPostEngagement(post: CymbalPost, onComments: () -> Unit, onRepost: (Cymba
 
     @Composable fun leadingActions() {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MAP_ENGAGEMENT_ITEM_GAP_DP.dp)) {
-            MapEngagementChip(if (engagement?.isLiked == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder, stringResource(R.string.map_cd_like), likeCount, if (engagement?.isLiked == true) CorusColors.Like else CorusColors.Text) { onAnalytics("like"); model.toggleLike(post.id) }
-            MapEngagementChip(Icons.Default.ChatBubbleOutline, stringResource(R.string.map_cd_comments), commentCount) { onAnalytics("comments"); onComments() }
-            MapEngagementChip(Icons.Default.Repeat, stringResource(R.string.map_cd_repost), repostCount) { onAnalytics("repost"); onRepost(post) }
-            MapEngagementChip(Icons.AutoMirrored.Outlined.Send, stringResource(R.string.map_cd_share), post.sendCount) { onAnalytics("share"); model.loadRecentShareContacts(); shareTarget = post }
+            MapEngagementChip(if (engagement?.isLiked == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder, stringResource(fm.corus.android.localization.CorusStrings.comment_like_action), likeCount, if (engagement?.isLiked == true) CorusColors.Like else CorusColors.Text) { onAnalytics("like"); model.toggleLike(post.id) }
+            MapEngagementChip(Icons.Default.ChatBubbleOutline, stringResource(fm.corus.android.localization.CorusStrings.activity_filter_comments), commentCount) { onAnalytics("comments"); onComments() }
+            MapEngagementChip(Icons.Default.Repeat, stringResource(fm.corus.android.localization.CorusStrings.compose_repost), repostCount) { onAnalytics("repost"); onRepost(post) }
+            MapEngagementChip(Icons.AutoMirrored.Outlined.Send, stringResource(fm.corus.android.localization.CorusStrings.concert_share), post.sendCount) { onAnalytics("share"); model.loadRecentShareContacts(); shareTarget = post }
             if (hasCatalog) MapCatalogEngagementChip(post.trackPostCount ?: 0) { onAnalytics("catalog"); onCatalog() }
         }
     }
 
     @Composable fun saveAction() {
-        MapEngagementChip(if (engagement?.isSaved == true) Icons.Default.Bookmark else Icons.Default.BookmarkBorder, stringResource(if (engagement?.isSaved == true) R.string.map_cd_remove_saved else R.string.map_cd_save), saveCount, countBeforeIcon = true) { onAnalytics("save"); model.toggleSave(post.id) }
+        MapEngagementChip(if (engagement?.isSaved == true) Icons.Default.Bookmark else Icons.Default.BookmarkBorder, stringResource(if (engagement?.isSaved == true) fm.corus.android.localization.CorusStrings.map_cd_remove_saved else fm.corus.android.localization.CorusStrings.save_post), saveCount, countBeforeIcon = true) { onAnalytics("save"); model.toggleSave(post.id) }
     }
 
     BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
@@ -108,7 +108,7 @@ private fun MapEngagementChip(icon: ImageVector, label: String, count: Int, tint
 
 @Composable
 private fun MapCatalogEngagementChip(count: Int, onClick: () -> Unit) {
-    Row(Modifier.height(48.dp).clickable(onClickLabel = stringResource(R.string.map_cd_catalog), role = Role.Button, onClick = onClick), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MAP_ENGAGEMENT_ICON_COUNT_GAP_DP.dp)) {
+    Row(Modifier.height(48.dp).clickable(onClickLabel = stringResource(fm.corus.android.localization.CorusStrings.map_cd_catalog), role = Role.Button, onClick = onClick), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MAP_ENGAGEMENT_ICON_COUNT_GAP_DP.dp)) {
         VennDiagramIcon(size = 18.dp, color = CorusColors.Text)
         Text(count.toString(), style = CorusFont.bodyMedium, color = CorusColors.Text)
     }

@@ -1422,7 +1422,7 @@ class ComposeViewModel @Inject constructor(
             return true
         } catch (e: Exception) {
             Log.e("ComposeViewModel", "saveCurrentDraft failed", e)
-            _draftToast.tryEmit(fm.corus.android.R.string.compose_draft_save_failed)
+            _draftToast.tryEmit(fm.corus.android.localization.CorusStrings.compose_draft_save_failed)
             return false
         } finally {
             _savingDraft.value = false
@@ -1522,10 +1522,10 @@ class ComposeViewModel @Inject constructor(
                     draftCreatedAt = null
                 }
                 _drafts.value = _drafts.value.filterNot { it.id == draftId }
-                _draftToast.tryEmit(fm.corus.android.R.string.compose_draft_deleted)
+                _draftToast.tryEmit(fm.corus.android.localization.CorusStrings.compose_draft_deleted)
             } catch (e: Exception) {
                 Log.e("ComposeViewModel", "deleteDraft failed", e)
-                _draftToast.tryEmit(fm.corus.android.R.string.compose_draft_delete_failed)
+                _draftToast.tryEmit(fm.corus.android.localization.CorusStrings.compose_draft_delete_failed)
             }
         }
     }

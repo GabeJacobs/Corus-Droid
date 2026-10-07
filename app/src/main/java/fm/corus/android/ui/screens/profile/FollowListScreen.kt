@@ -99,7 +99,7 @@ fun FollowListScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(fm.corus.android.R.string.common_back),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                             tint = CorusColors.Text,
                         )
                     }
@@ -364,14 +364,14 @@ private fun FollowListContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-            placeholder = { Text(stringResource(fm.corus.android.R.string.follow_list_search_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
+            placeholder = { Text(stringResource(fm.corus.android.localization.CorusStrings.nav_search), style = CorusFont.body, color = CorusColors.Tertiary) },
             leadingIcon = {
-                Icon(Icons.Filled.Search, contentDescription = stringResource(fm.corus.android.R.string.follow_list_search_placeholder), tint = CorusColors.Secondary)
+                Icon(Icons.Filled.Search, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.nav_search), tint = CorusColors.Secondary)
             },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
                     IconButton(onClick = { searchQuery = "" }) {
-                        Icon(Icons.Filled.Close, contentDescription = stringResource(fm.corus.android.R.string.follow_list_cd_clear), tint = CorusColors.Secondary, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.search_clear_aria), tint = CorusColors.Secondary, modifier = Modifier.size(16.dp))
                     }
                 }
             },
@@ -407,10 +407,10 @@ private fun FollowListContent(
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
                     Text(
                         text = when {
-                            searching -> stringResource(fm.corus.android.R.string.follow_list_no_results)
-                            mode == FollowListMode.FOLLOWERS -> stringResource(fm.corus.android.R.string.follow_list_no_followers)
-                            mode == FollowListMode.FOLLOWING -> stringResource(fm.corus.android.R.string.follow_list_not_following)
-                            else -> stringResource(fm.corus.android.R.string.follow_list_no_mutuals)
+                            searching -> stringResource(fm.corus.android.localization.CorusStrings.follow_list_no_results)
+                            mode == FollowListMode.FOLLOWERS -> stringResource(fm.corus.android.localization.CorusStrings.hashtag_followers_empty)
+                            mode == FollowListMode.FOLLOWING -> stringResource(fm.corus.android.localization.CorusStrings.follow_list_not_following)
+                            else -> stringResource(fm.corus.android.localization.CorusStrings.follow_list_no_mutuals)
                         },
                         style = CorusFont.bodyMedium,
                         color = CorusColors.Secondary,
@@ -495,7 +495,7 @@ private fun FollowUserRow(
                 )
                 if (showFollowsYou) {
                     Text(
-                        text = " · " + stringResource(fm.corus.android.R.string.follow_list_follows_you),
+                        text = " · " + stringResource(fm.corus.android.localization.CorusStrings.follow_list_follows_you),
                         style = CorusFont.caption,
                         color = CorusColors.Tertiary,
                         maxLines = 1,
@@ -509,9 +509,9 @@ private fun FollowUserRow(
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
 
             val buttonText = when {
-                isFollowing -> stringResource(fm.corus.android.R.string.follow_list_button_following)
-                showFollowBack -> stringResource(fm.corus.android.R.string.follow_list_button_follow_back)
-                else -> stringResource(fm.corus.android.R.string.follow_list_button_follow)
+                isFollowing -> stringResource(fm.corus.android.localization.CorusStrings.following_status)
+                showFollowBack -> stringResource(fm.corus.android.localization.CorusStrings.activity_follow_back)
+                else -> stringResource(fm.corus.android.localization.CorusStrings.follow_action)
             }
 
             Button(

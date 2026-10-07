@@ -160,9 +160,9 @@ fun HashtagPeopleListScreen(
         fm.corus.android.R.string.hashtag_contributors_title
     }
     val emptyMessageRes = if (isFollowers) {
-        fm.corus.android.R.string.hashtag_followers_empty
+        fm.corus.android.localization.CorusStrings.hashtag_followers_empty
     } else {
-        fm.corus.android.R.string.hashtag_contributors_empty
+        fm.corus.android.localization.CorusStrings.hashtag_contributors_empty
     }
 
     Scaffold(
@@ -179,7 +179,7 @@ fun HashtagPeopleListScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(fm.corus.android.R.string.common_back),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                             tint = CorusColors.Text,
                         )
                     }
@@ -201,7 +201,7 @@ fun HashtagPeopleListScreen(
                     .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                 placeholder = {
                     Text(
-                        stringResource(fm.corus.android.R.string.follow_list_search_placeholder),
+                        stringResource(fm.corus.android.localization.CorusStrings.nav_search),
                         style = CorusFont.body, color = CorusColors.Tertiary,
                     )
                 },
@@ -213,7 +213,7 @@ fun HashtagPeopleListScreen(
                         IconButton(onClick = { searchQuery = "" }) {
                             Icon(
                                 Icons.Filled.Close,
-                                contentDescription = stringResource(fm.corus.android.R.string.follow_list_cd_clear),
+                                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.search_clear_aria),
                                 tint = CorusColors.Secondary,
                                 modifier = Modifier.size(16.dp),
                             )
@@ -281,7 +281,7 @@ fun HashtagPeopleListScreen(
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
                         Text(
                             text = if (searchQuery.isNotBlank())
-                                stringResource(fm.corus.android.R.string.follow_list_no_results)
+                                stringResource(fm.corus.android.localization.CorusStrings.follow_list_no_results)
                             else stringResource(emptyMessageRes),
                             style = CorusFont.bodyMedium,
                             color = CorusColors.Secondary,

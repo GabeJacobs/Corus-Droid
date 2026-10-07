@@ -90,9 +90,9 @@ internal fun MultiUserPickerContent(
     val selectedIds = selected.map { it.id }.toSet()
 
     val confirmLabel = when {
-        !showNameField -> stringResource(id = R.string.messaging_group_add_cta)
-        selected.size >= 2 -> stringResource(id = R.string.messaging_group_create)
-        else -> stringResource(id = R.string.messaging_group_message_cta)
+        !showNameField -> stringResource(id = fm.corus.android.localization.CorusStrings.group_add_cta)
+        selected.size >= 2 -> stringResource(id = fm.corus.android.localization.CorusStrings.group_create)
+        else -> stringResource(id = fm.corus.android.localization.CorusStrings.profile_message)
     }
 
     Column(
@@ -106,7 +106,7 @@ internal fun MultiUserPickerContent(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(onClick = onCancel) {
-                    Text(stringResource(id = R.string.messaging_group_cancel), style = CorusFont.body, color = CorusColors.Accent)
+                    Text(stringResource(id = fm.corus.android.localization.CorusStrings.common_cancel), style = CorusFont.body, color = CorusColors.Accent)
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 Text(title, style = CorusFont.screenTitle, color = CorusColors.Text)
@@ -132,7 +132,7 @@ internal fun MultiUserPickerContent(
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
             Box(modifier = Modifier.weight(1f)) {
                 if (searchText.isEmpty()) {
-                    Text(stringResource(id = R.string.messaging_list_search_placeholder), style = CorusFont.body, color = CorusColors.Tertiary)
+                    Text(stringResource(id = fm.corus.android.localization.CorusStrings.parity_8d232b28b92f), style = CorusFont.body, color = CorusColors.Tertiary)
                 }
                 BasicTextField(
                     value = searchText,
@@ -158,8 +158,8 @@ internal fun MultiUserPickerContent(
             } else if (displayed.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        if (searchText.isNotBlank()) stringResource(id = R.string.search_no_users_found)
-                        else stringResource(id = R.string.messaging_list_no_suggestions),
+                        if (searchText.isNotBlank()) stringResource(id = fm.corus.android.localization.CorusStrings.parity_612eb3c64c41)
+                        else stringResource(id = fm.corus.android.localization.CorusStrings.messaging_list_no_suggestions),
                         style = CorusFont.body, color = CorusColors.Secondary,
                     )
                 }
@@ -190,7 +190,7 @@ internal fun MultiUserPickerContent(
             ) {
                 if (groupName.isEmpty()) {
                     Text(
-                        stringResource(id = R.string.messaging_group_name_optional),
+                        stringResource(id = fm.corus.android.localization.CorusStrings.group_name_placeholder),
                         style = CorusFont.body,
                         color = CorusColors.Tertiary,
                     )

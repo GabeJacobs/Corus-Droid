@@ -87,7 +87,7 @@ fun FullScreenImageView(
         ) {
             AsyncImage(
                 model = imageUrl,
-                contentDescription = stringResource(R.string.full_screen_image_cd),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.full_screen_cd_image),
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer(
@@ -155,7 +155,7 @@ fun FullScreenImageView(
                 onClick = onDismiss,
                 modifier = Modifier.align(Alignment.TopEnd),
             ) {
-                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.full_screen_image_cd_close), tint = Color.White)
+                Icon(Icons.Filled.Close, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.concert_close), tint = Color.White)
             }
         }
     }

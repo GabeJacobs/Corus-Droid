@@ -355,7 +355,7 @@ fun FeaturedMoviePosterView(
             ) {
                 Icon(
                     imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = stringResource(R.string.featured_cd_like),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.comment_like_action),
                     tint = if (isLiked) CorusColors.Like else CorusColors.Secondary,
                     modifier = Modifier.size(20.dp),
                 )
@@ -374,7 +374,7 @@ fun FeaturedMoviePosterView(
                 Spacer(modifier = Modifier.width(CorusSpacing.md))
                 YouTubeIcon(
                     height = 22.dp,
-                    contentDescription = stringResource(R.string.featured_cd_watch_trailer),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.post_kebab_watch_trailer),
                     modifier = Modifier.clickable(onClick = onTrailerTap),
                 )
             }

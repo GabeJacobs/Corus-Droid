@@ -101,8 +101,18 @@ class SocialSetupViewModel @Inject constructor(
     private val _isLoadingSuggestions = MutableStateFlow(false)
     val isLoadingSuggestions: StateFlow<Boolean> = _isLoadingSuggestions.asStateFlow()
 
-    private val _followedIds = MutableStateFlow<Set<String>>(emptySet())
-    val followedIds: StateFlow<Set<String>> = _followedIds.asStateFlow()
+    private val followMeasurement = OnboardingFollowMeasurement(
+        scope = viewModelScope,
+        write = { target, following ->
+            val uid = authRepository.currentUserId ?: error("Signed out")
+            if (following) userRepository.followUser(uid, target) else userRepository.unfollowUser(uid, target)
+        },
+        save = { value -> authRepository.currentUserId?.let { preferencesDataStore.saveOnboardingFollowSession(it, value) } },
+        emit = { name, parameters -> analyticsService.logEvent(name, parameters) },
+    )
+    val followedIds: StateFlow<Set<String>> = followMeasurement.followedIds
+    val onboardingFollowSession = followMeasurement.session
+    val onboardingViewerId: String? get() = authRepository.currentUserId
 
     private val _searchResults = MutableStateFlow<List<CymbalUser>>(emptyList())
     val searchResults: StateFlow<List<CymbalUser>> = _searchResults.asStateFlow()
@@ -119,6 +129,9 @@ class SocialSetupViewModel @Inject constructor(
     // ── User Preview Sheet ──
 
     /** The user being previewed in the half-sheet, or null when closed. */
+    val revisedUserPreviewEnabled: Boolean
+        get() = followMeasurement.session.value?.revised ?: remoteConfigService.revisedOnboardingTasteMatches
+
     private val _previewSheetUser = MutableStateFlow<CymbalUser?>(null)
     val previewSheetUser: StateFlow<CymbalUser?> = _previewSheetUser.asStateFlow()
 
@@ -202,25 +215,25 @@ class SocialSetupViewModel @Inject constructor(
     }
 
     fun toggleFollow(userId: String) {
-        val currentUserId = authRepository.currentUserId ?: return
-        val isFollowed = _followedIds.value.contains(userId)
-
-        // Optimistic update
-        _followedIds.value = if (isFollowed) _followedIds.value - userId else _followedIds.value + userId
-
-        viewModelScope.launch {
-            try {
-                if (isFollowed) {
-                    userRepository.unfollowUser(currentUserId, userId)
-                } else {
-                    userRepository.followUser(currentUserId, userId)
-                }
-            } catch (_: Exception) {
-                // Revert
-                _followedIds.value = if (isFollowed) _followedIds.value + userId else _followedIds.value - userId
-            }
-        }
+        if (authRepository.currentUserId == null) return
+        followMeasurement.toggleFollow(userId)
     }
+
+    suspend fun prepareOnboardingFollowMeasurement(matchCount: Int) {
+        if (followMeasurement.session.value != null) return
+        remoteConfigService.awaitInitialFetch()
+        val uid = authRepository.currentUserId ?: return
+        analyticsService.setUserId(uid)
+        val debug = fm.corus.android.BuildConfig.DEBUG
+        val restored = runCatching { preferencesDataStore.loadOnboardingFollowSession(uid, debug) }.getOrNull()
+        followMeasurement.prepare(restored ?: fm.corus.android.data.model.OnboardingFollowSession(
+            revised = remoteConfigService.revisedOnboardingTasteMatches, debugBuild = debug,
+            quizPickCount = _quizPicks.value.size, matchCount = matchCount,
+            uiVersion = fm.corus.android.data.model.OnboardingFollowSession.REVISED_UI_VERSION,
+            minimumFollows = remoteConfigService.onboardingMinimumFollows))
+    }
+
+    suspend fun exposeOnboardingFollowMeasurement() { followMeasurement.expose() }
 
     fun saveMusicService(service: MusicService, spotifyInstalled: Boolean) {
         analyticsService.logMusicServiceSelected(service.value)
@@ -327,8 +340,16 @@ class SocialSetupViewModel @Inject constructor(
         }
     }
 
-    fun logFollowFriendsOnboardingCompleted() {
-        analyticsService.logFollowFriendsOnboardingCompleted(_followedIds.value.size)
+    fun logFollowFriendsOnboardingCompleted(onFinished: () -> Unit = {}) {
+        if (_isFinishing.value) return
+        _isFinishing.value = true
+        viewModelScope.launch {
+            try {
+                val confirmedCount = followMeasurement.finish()
+                analyticsService.logFollowFriendsOnboardingCompleted(confirmedCount)
+                onFinished()
+            } finally { _isFinishing.value = false }
+        }
     }
 
     /**
@@ -337,7 +358,7 @@ class SocialSetupViewModel @Inject constructor(
      * Call just before finishing onboarding, while [followedIds] is still known.
      */
     fun applyPostOnboardingFeedDefault() {
-        feedSwitchHintManager.applyPostOnboardingFeedDefault(_followedIds.value.size)
+        feedSwitchHintManager.applyPostOnboardingFeedDefault(followedIds.value.size)
     }
 
     // ═══════════════════════════════════════════════

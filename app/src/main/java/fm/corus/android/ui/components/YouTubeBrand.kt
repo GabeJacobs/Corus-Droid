@@ -84,7 +84,7 @@ fun YouTubePlayerDismiss(
     onDark: Boolean = true,
     contentDescription: String? = null,
 ) {
-    val label = contentDescription ?: stringResource(R.string.post_card_cd_close_trailer)
+    val label = contentDescription ?: stringResource(fm.corus.android.localization.CorusStrings.post_card_cd_close_trailer)
     Box(
         modifier = modifier
             // Match iOS: inset from the corner, then a tappable area around a

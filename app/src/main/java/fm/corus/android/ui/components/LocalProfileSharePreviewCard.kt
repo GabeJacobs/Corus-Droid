@@ -29,8 +29,10 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -50,6 +52,7 @@ fun LocalProfileSharePreviewCard(
     profile: ShareProfileSubject,
     theme: ShareCardTheme,
     modifier: Modifier = Modifier,
+    profileSharingV2: Boolean = false,
 ) {
     val palette = ProfileSharePalette.forTheme(theme)
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
@@ -82,6 +85,9 @@ fun LocalProfileSharePreviewCard(
             .border(0.5.dp, CorusColors.Divider, RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
             .padding(s(56f)),
     ) {
+        if (profileSharingV2 && profile.isInvitation) {
+            ProfileInvitationLinkContent(profile, palette, scale)
+        } else {
         Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(s(44f))) {
             Column(
                 modifier = Modifier
@@ -162,6 +168,41 @@ fun LocalProfileSharePreviewCard(
                 palette = palette,
                 side = s(484f),
             )
+        }
+        }
+    }
+}
+
+@Composable
+private fun ProfileInvitationLinkContent(profile: ShareProfileSubject, palette: ProfileSharePalette, scale: Float) {
+    fun s(value: Float) = (value * scale).dp
+    val name = profile.displayName?.trim()?.takeIf { it.isNotEmpty() }
+    Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Box(Modifier.size(s(152f)).clip(CircleShape).background(palette.surface), contentAlignment = Alignment.Center) {
+            Text((name ?: profile.username).take(1).uppercase(), fontSize = (64f * scale).sp,
+                fontWeight = FontWeight.ExtraBold, color = palette.accent)
+            if (!profile.avatarUrl.isNullOrBlank()) AsyncImage(model = profile.avatarUrl, contentDescription = null,
+                modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        }
+        Spacer(Modifier.height(s(20f)))
+        Text(stringResource(R.string.share_profile_invitation), fontSize = (54f * scale).sp,
+            fontWeight = FontWeight.ExtraBold, color = palette.ink, textAlign = TextAlign.Center,
+            maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (name != null && !name.removePrefix("@").equals(profile.username, ignoreCase = true)) {
+            Text(name, fontSize = (28f * scale).sp, fontWeight = FontWeight.ExtraBold, color = palette.ink,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = s(6f)))
+        }
+        Text("@${profile.username}", fontSize = (38f * scale).sp, fontWeight = FontWeight.ExtraBold,
+            color = palette.accent, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = s(6f)))
+        profile.bio?.trim()?.takeIf { it.isNotEmpty() }?.let { bio ->
+            Text(bio, fontSize = (24f * scale).sp, color = palette.muted, textAlign = TextAlign.Center,
+                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = s(12f)))
+        }
+        Row(Modifier.padding(top = s(24f)), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(s(10f))) {
+            androidx.compose.foundation.Image(painterResource(R.drawable.logo_no_background), null,
+                modifier = Modifier.size(s(28f)), colorFilter = ColorFilter.tint(palette.ink))
+            Text("corus", fontSize = (28f * scale).sp, fontWeight = FontWeight.ExtraBold, color = palette.ink)
         }
     }
 }

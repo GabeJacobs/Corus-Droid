@@ -179,7 +179,7 @@ fun DirectorPageScreen(
                     CorusHeaderIconButton(
                         onClick = onBack,
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.feed_cd_back),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                     )
                 },
                 actions = {
@@ -188,7 +188,7 @@ fun DirectorPageScreen(
                             CorusHeaderIconButton(
                                 onClick = { showMenu = true },
                                 imageVector = Icons.Filled.MoreVert,
-                                contentDescription = stringResource(R.string.feed_cd_more_options),
+                                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.feed_cd_more_options),
                             )
                             DropdownMenu(
                                 expanded = showMenu,
@@ -196,7 +196,7 @@ fun DirectorPageScreen(
                                 containerColor = CorusColors.CardBackground,
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                    text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_share), style = CorusFont.body) },
                                     onClick = {
                                         showMenu = false
                                         showShareSheet = true
@@ -249,7 +249,7 @@ fun DirectorPageScreen(
                     if (directorName != null || catalogError) {
                         Text(
                             text = directorName
-                                ?: stringResource(R.string.destination_director_label),
+                                ?: stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_row_director),
                             style = CorusFont.songTitleLarge,
                             color = CorusColors.Text,
                             textAlign = TextAlign.Center,
@@ -258,7 +258,7 @@ fun DirectorPageScreen(
                     }
                     Spacer(modifier = Modifier.height(CorusSpacing.xxs))
                     Text(
-                        text = stringResource(R.string.destination_director_label),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_row_director),
                         style = CorusFont.captionMedium,
                         color = CorusColors.Secondary,
                     )
@@ -285,7 +285,7 @@ fun DirectorPageScreen(
             // ── Your posts ──
             if (viewerPosts.isNotEmpty()) {
                 item {
-                    DestinationSectionHeader(stringResource(R.string.destination_your_posts))
+                    DestinationSectionHeader(stringResource(fm.corus.android.localization.CorusStrings.parity_a1a5b173e056))
                 }
                 items(viewerPosts.size) { index ->
                     val post = viewerPosts[index]
@@ -303,7 +303,7 @@ fun DirectorPageScreen(
             // ── Filmography ──
             if (isCatalogLoading && detail == null) {
                 item {
-                    DestinationSectionHeader(stringResource(R.string.destination_filmography))
+                    DestinationSectionHeader(stringResource(fm.corus.android.localization.CorusStrings.destination_filmography))
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
                         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
@@ -321,7 +321,7 @@ fun DirectorPageScreen(
             } else if (catalogError && detail == null) {
                 item {
                     Text(
-                        text = stringResource(R.string.destination_catalog_load_error),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.destination_catalog_load_error),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                         modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.lg),
@@ -332,7 +332,7 @@ fun DirectorPageScreen(
                 if (films.isNotEmpty()) {
                     item {
                         DestinationSectionHeader(
-                            title = stringResource(R.string.destination_filmography),
+                            title = stringResource(fm.corus.android.localization.CorusStrings.destination_filmography),
                             onSeeAll = onSeeAllFilmography,
                         )
                         LazyRow(
@@ -365,7 +365,7 @@ fun DirectorPageScreen(
             // ── Recent posts ──
             item {
                 DestinationSectionHeader(
-                    title = stringResource(R.string.destination_recent_posts),
+                    title = stringResource(fm.corus.android.localization.CorusStrings.parity_5690d9243775),
                     onSeeAll = if (posts.size >= DirectorPageViewModel.PAGE_SIZE) onSeeAllPosts else null,
                 )
             }
@@ -383,7 +383,7 @@ fun DirectorPageScreen(
             } else if (postsError) {
                 item {
                     Text(
-                        text = stringResource(R.string.destination_posts_load_error),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.destination_posts_load_error),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                         modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
@@ -392,7 +392,7 @@ fun DirectorPageScreen(
             } else if (posts.isEmpty()) {
                 item {
                     Text(
-                        text = stringResource(R.string.destination_no_posts_director),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.destination_no_posts_director),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                         modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
@@ -427,7 +427,7 @@ fun DirectorPageScreen(
                         },
                         onClosePlayer = { activeTrailer = null },
                         onSeeAll = if (matchedTrailers.size > 12) onSeeAllTrailers else null,
-                        title = stringResource(R.string.destination_trailers),
+                        title = stringResource(fm.corus.android.localization.CorusStrings.destination_trailers),
                     )
                 }
             }
@@ -435,7 +435,7 @@ fun DirectorPageScreen(
             // ── Attribution (TMDB; no Spotify link on director pages) ──
             item {
                 DestinationAttributionFooter(
-                    attribution = stringResource(R.string.destination_film_attribution),
+                    attribution = stringResource(fm.corus.android.localization.CorusStrings.destination_film_attribution),
                 )
             }
         }
@@ -452,7 +452,7 @@ fun DirectorPageScreen(
                             CorusHeaderIconButton(
                                 onClick = { showMenu = true },
                                 imageVector = Icons.Filled.MoreVert,
-                                contentDescription = stringResource(R.string.feed_cd_more_options),
+                                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.feed_cd_more_options),
                                 tint = tint,
                             )
                             DropdownMenu(
@@ -461,7 +461,7 @@ fun DirectorPageScreen(
                                 containerColor = CorusColors.CardBackground,
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                    text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_share), style = CorusFont.body) },
                                     onClick = {
                                         showMenu = false
                                         showShareSheet = true
@@ -478,7 +478,7 @@ fun DirectorPageScreen(
 
     if (showShareSheet) {
         val shareSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
-        val sentMsg = stringResource(R.string.director_detail_toast_director_sent)
+        val sentMsg = stringResource(fm.corus.android.localization.CorusStrings.share_toast_message_sent)
         LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
         CorusModalBottomSheet(
             onDismissRequest = { showShareSheet = false },
@@ -542,7 +542,7 @@ internal fun DirectorPhotoCard(
             .then(
                 if (photo != null) {
                     Modifier.clickable(
-                        onClickLabel = stringResource(R.string.photo_viewer_open_cd),
+                        onClickLabel = stringResource(fm.corus.android.localization.CorusStrings.photo_viewer_open_cd),
                     ) { onTap(photo) }
                 } else {
                     Modifier

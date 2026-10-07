@@ -256,7 +256,7 @@ fun MiniPlayerBar(
                 } else if (isSoundCloud) {
                     MiniPlayerIconButton(
                         onClick = { openCurrentInMusicService() },
-                        contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.post_aria_open_spotify),
                         width = miniPlayerServiceButtonWidth,
                     ) {
                         SoundCloudAdaptiveLogo(size = 22.dp)
@@ -266,7 +266,7 @@ fun MiniPlayerBar(
                     // so ContentScale.Fit doesn't clip the right tip.
                     MiniPlayerIconButton(
                         onClick = { openCurrentInMusicService() },
-                        contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.post_aria_open_spotify),
                         width = miniPlayerAudiomackButtonWidth,
                     ) {
                         AudiomackLogo(height = 22.dp)
@@ -274,7 +274,7 @@ fun MiniPlayerBar(
                 } else if (isBandcamp) {
                     MiniPlayerIconButton(
                         onClick = { openCurrentInMusicService() },
-                        contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.post_aria_open_spotify),
                         width = miniPlayerServiceButtonWidth,
                     ) {
                         BandcampLogo(size = 22.dp)
@@ -282,7 +282,7 @@ fun MiniPlayerBar(
                 } else if (isTidal) {
                     MiniPlayerIconButton(
                         onClick = { openCurrentInMusicService() },
-                        contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.post_aria_open_spotify),
                         width = miniPlayerServiceButtonWidth,
                     ) {
                         Image(
@@ -294,7 +294,7 @@ fun MiniPlayerBar(
                 } else if (isDeezer) {
                     MiniPlayerIconButton(
                         onClick = { openCurrentInMusicService() },
-                        contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.post_aria_open_spotify),
                         width = miniPlayerServiceButtonWidth,
                     ) {
                         Image(
@@ -306,7 +306,7 @@ fun MiniPlayerBar(
                 } else {
                     MiniPlayerIconButton(
                         onClick = { openCurrentInMusicService() },
-                        contentDescription = stringResource(R.string.mini_player_cd_open_spotify),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.post_aria_open_spotify),
                         width = miniPlayerServiceButtonWidth,
                     ) {
                         Image(
@@ -321,7 +321,7 @@ fun MiniPlayerBar(
                 if (state.sourcePostId != null && onLikeTap != null) {
                     MiniPlayerIconButton(
                         onClick = onLikeTap,
-                        contentDescription = stringResource(R.string.post_card_cd_like),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.comment_like_action),
                     ) {
                         Icon(
                             imageVector = if (isCurrentTrackLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
@@ -343,9 +343,9 @@ fun MiniPlayerBar(
                         }
                     },
                     contentDescription = when {
-                        showsTransportSpinner -> stringResource(R.string.mini_player_cd_cancel_loading)
-                        state.isPlaying -> stringResource(R.string.mini_player_cd_pause)
-                        else -> stringResource(R.string.mini_player_cd_play)
+                        showsTransportSpinner -> stringResource(fm.corus.android.localization.CorusStrings.mini_player_cd_cancel_loading)
+                        state.isPlaying -> stringResource(fm.corus.android.localization.CorusStrings.compose_cd_pause)
+                        else -> stringResource(fm.corus.android.localization.CorusStrings.voice_note_cd_play)
                     },
                 ) {
                     if (showsTransportSpinner) {
@@ -369,7 +369,7 @@ fun MiniPlayerBar(
                 // disabled (grayed) when the current queue has no next track.
                 MiniPlayerIconButton(
                     onClick = if (state.hasNext) ({ nowPlayingManager.skipToNext(preferPreviewOnNext = nowPlayingManager.preferPreviewOnInAppSkip) }) else null,
-                    contentDescription = stringResource(R.string.mini_player_cd_next),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.player_next_track),
                 ) {
                     Icon(
                         imageVector = Icons.Filled.SkipNext,
@@ -727,9 +727,9 @@ internal fun MiniPlayerPlaybackModeToggle(
     onSelect: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val previewLabel = stringResource(R.string.mini_player_playback_mode_preview)
-    val fullLabel = stringResource(R.string.mini_player_playback_mode_full)
-    val cd = stringResource(R.string.mini_player_cd_playback_mode)
+    val previewLabel = stringResource(fm.corus.android.localization.CorusStrings.mini_player_playback_mode_preview)
+    val fullLabel = stringResource(fm.corus.android.localization.CorusStrings.mini_player_playback_mode_full)
+    val cd = stringResource(fm.corus.android.localization.CorusStrings.mini_player_cd_playback_mode)
     var displayedFull by remember { mutableStateOf(playFullSongs) }
 
     LaunchedEffect(playFullSongs) {

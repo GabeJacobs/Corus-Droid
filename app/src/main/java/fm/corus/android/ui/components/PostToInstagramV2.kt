@@ -102,6 +102,7 @@ internal data class InstagramV2Subject(
     val flairStyle: FlairStyle = FlairStyle.NONE,
     val isFirstPoster: Boolean = false,
     val isNewRelease: Boolean = false,
+    val isPost: Boolean = false,
 )
 
 /** Pure palette math is shared by preview and export and tested with known artwork populations. */
@@ -642,7 +643,7 @@ internal fun PostToInstagramV2Sheet(
                 if (small !== art) small.recycle()
                 result
             }
-        } else error = context.getString(R.string.instagram_v2_artwork_error)
+        } else error = context.getString(fm.corus.android.localization.CorusStrings.instagram_v2_artwork_error)
         loading = false
     }
     LaunchedEffect(artwork, avatar, accent, layout, background, renderedSubject, loading) {
@@ -657,7 +658,7 @@ internal fun PostToInstagramV2Sheet(
 
     fun copyLink(link: String) {
         (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-            .setPrimaryClip(ClipData.newPlainText(context.getString(R.string.share_post_clip_label), link))
+            .setPrimaryClip(ClipData.newPlainText(context.getString(fm.corus.android.localization.CorusStrings.share_post_clip_label), link))
         copied = true
     }
     fun shareImage(instagram: Boolean) {
@@ -700,10 +701,10 @@ internal fun PostToInstagramV2Sheet(
                     onAnalyticsLog?.invoke("instagram_stories")
                 } else {
                     val intent = Intent(Intent.ACTION_SEND).apply { type = "image/png"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-                    context.startActivity(Intent.createChooser(intent, context.getString(R.string.instagram_v2_share_image)))
+                    context.startActivity(Intent.createChooser(intent, context.getString(fm.corus.android.localization.CorusStrings.instagram_v2_share_image)))
                 }
             } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
-            catch (_: Exception) { error = context.getString(R.string.instagram_v2_share_error) }
+            catch (_: Exception) { error = context.getString(fm.corus.android.localization.CorusStrings.instagram_v2_share_error) }
             finally { sharing = false; copied = false }
         }
     }
@@ -763,19 +764,19 @@ internal fun PostToInstagramV2Sheet(
                             Icon(Icons.Default.Search, contentDescription = null, tint = CorusColors.Tertiary, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(8.dp))
                             Box(Modifier.weight(1f)) {
-                                if (query.isEmpty()) Text(stringResource(R.string.share_post_search_placeholder), style = CorusFont.body, color = CorusColors.Tertiary)
+                                if (query.isEmpty()) Text(stringResource(fm.corus.android.localization.CorusStrings.nav_search), style = CorusFont.body, color = CorusColors.Tertiary)
                                 innerTextField()
                             }
                             if (query.isNotEmpty()) {
                                 IconButton(onClick = { query = ""; onSearchQueryChange("") }, modifier = Modifier.size(32.dp)) {
-                                    Icon(Icons.Default.Cancel, contentDescription = stringResource(R.string.share_post_cd_clear), tint = CorusColors.Tertiary, modifier = Modifier.size(20.dp))
+                                    Icon(Icons.Default.Cancel, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.search_clear_aria), tint = CorusColors.Tertiary, modifier = Modifier.size(20.dp))
                                 }
                             }
                         }
                     },
                 )
                 TextButton(onClick = { searching = false; query = ""; onSearchQueryChange(""); focus.clearFocus() }) {
-                    Text(stringResource(R.string.instagram_v2_done), style = CorusFont.bodyMedium, color = CorusColors.Accent)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_done), style = CorusFont.bodyMedium, color = CorusColors.Accent)
                 }
             }
             selected?.let { recipient ->
@@ -787,7 +788,7 @@ internal fun PostToInstagramV2Sheet(
             }
             LazyColumn(Modifier.weight(1f).dismissKeyboardOnDownwardDrag()) {
                 val hasQuery = query.isNotBlank()
-                if (hasQuery && isSearching) item {
+                if (hasQuery && isSearching && searchResults.isEmpty()) item {
                     Box(
                         modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
                         contentAlignment = Alignment.Center,
@@ -814,7 +815,7 @@ internal fun PostToInstagramV2Sheet(
                             }
                         }
                     } else if (hasQuery && recipients.isEmpty()) {
-                        item { Text(stringResource(R.string.share_post_no_results), style = CorusFont.body, color = CorusColors.Secondary, modifier = Modifier.fillMaxWidth().padding(top = 32.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
+                        item { Text(stringResource(fm.corus.android.localization.CorusStrings.share_post_no_results), style = CorusFont.body, color = CorusColors.Secondary, modifier = Modifier.fillMaxWidth().padding(top = 32.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
                     }
                     items(recipients, key = { it.id }) { recipient ->
                         ShareUserRow(recipient, selected?.id == recipient.id) { selected = if (selected?.id == recipient.id) null else recipient }
@@ -822,20 +823,37 @@ internal fun PostToInstagramV2Sheet(
                 }
             }
         } else if (composing) {
-            Row(
+            Column(
                 Modifier.fillMaxWidth().dismissKeyboardOnDownwardDrag().padding(16.dp)
                     .background(CorusColors.CardBackground, RoundedCornerShape(12.dp)).padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                artwork?.let {
-                    Image(it.asImageBitmap(), contentDescription = null,
-                        modifier = Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop)
-                } ?: Box(Modifier.size(56.dp).background(CorusColors.Skeleton, RoundedCornerShape(8.dp)))
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(subject.title, style = CorusFont.bodyMedium, color = CorusColors.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(subject.artist, style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (subject.isPost) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        UserAvatarView(avatarURL = subject.avatarUrl, username = subject.username, size = 24.dp)
+                        Text(
+                            stringResource(R.string.share_post_author_preview, "@${subject.username.orEmpty()}"),
+                            style = CorusFont.captionMedium, color = CorusColors.Text,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    artwork?.let {
+                        Image(it.asImageBitmap(), contentDescription = null,
+                            modifier = Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop)
+                    } ?: Box(Modifier.size(56.dp).background(CorusColors.Skeleton, RoundedCornerShape(8.dp)))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(subject.title, style = CorusFont.bodyMedium, color = CorusColors.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(subject.artist, style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                if (subject.isPost) {
+                    subject.caption?.trim()?.takeIf { it.isNotEmpty() }?.let { caption ->
+                        Text(caption, style = CorusFont.caption, color = CorusColors.Secondary,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
             selected?.let { recipient ->
@@ -858,14 +876,14 @@ internal fun PostToInstagramV2Sheet(
                     contentAlignment = Alignment.Center,
                 ) {
                     image?.let {
-                        Image(it.asImageBitmap(), stringResource(R.string.instagram_v2_preview), modifier = Modifier.fillMaxSize())
+                        Image(it.asImageBitmap(), stringResource(fm.corus.android.localization.CorusStrings.instagram_v2_preview), modifier = Modifier.fillMaxSize())
                     } ?: if (loading || artwork != null) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
                             strokeWidth = 2.dp,
                         )
                     } else {
-                        TextButton(onClick = { retry++ }) { Text(stringResource(R.string.instagram_v2_retry)) }
+                        TextButton(onClick = { retry++ }) { Text(stringResource(fm.corus.android.localization.CorusStrings.common_retry)) }
                     }
                     if (!subject.caption.isNullOrBlank() || subject.isFirstPoster || subject.isNewRelease) {
                         Box(Modifier.align(Alignment.TopEnd).offset(x = 22.dp, y = (-22).dp)) {
@@ -879,7 +897,7 @@ internal fun PostToInstagramV2Sheet(
                                 ) {
                                     Icon(
                                         Icons.Default.Settings,
-                                        stringResource(R.string.instagram_v2_options),
+                                        stringResource(fm.corus.android.localization.CorusStrings.instagram_v2_options),
                                         modifier = Modifier.size(15.dp),
                                     )
                                 }
@@ -887,14 +905,14 @@ internal fun PostToInstagramV2Sheet(
                             DropdownMenu(expanded = optionsExpanded, onDismissRequest = { optionsExpanded = false }) {
                                 if (!subject.caption.isNullOrBlank()) {
                                     DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.instagram_v2_show_caption)) },
+                                        text = { Text(stringResource(fm.corus.android.localization.CorusStrings.instagram_v2_show_caption)) },
                                         leadingIcon = { Checkbox(checked = includeCaption, onCheckedChange = null) },
                                         onClick = { includeCaption = !includeCaption },
                                     )
                                 }
                                 if (subject.isFirstPoster || subject.isNewRelease) {
                                     DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.instagram_v2_show_tags)) },
+                                        text = { Text(stringResource(fm.corus.android.localization.CorusStrings.instagram_v2_show_tags)) },
                                         leadingIcon = { Checkbox(checked = includeTags, onCheckedChange = null) },
                                         onClick = { includeTags = !includeTags },
                                     )
@@ -905,7 +923,7 @@ internal fun PostToInstagramV2Sheet(
                 }
             }
             Text(
-                stringResource(R.string.instagram_v2_preview_label),
+                stringResource(fm.corus.android.localization.CorusStrings.instagram_v2_preview_label),
                 style = CorusFont.caption,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp, bottom = 12.dp),
@@ -923,9 +941,9 @@ internal fun PostToInstagramV2Sheet(
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
             ) {
                 listOf(
-                    "frosted" to R.string.instagram_v2_frosted,
-                    "solid" to R.string.instagram_v2_solid,
-                    "gradient" to R.string.instagram_v2_gradient,
+                    "frosted" to fm.corus.android.localization.CorusStrings.instagram_v2_frosted,
+                    "solid" to fm.corus.android.localization.CorusStrings.instagram_v2_solid,
+                    "gradient" to fm.corus.android.localization.CorusStrings.instagram_v2_gradient,
                 ).forEach { (value, label) ->
                     InstagramV2BackgroundOption(
                         value = value,
@@ -955,7 +973,7 @@ internal fun PostToInstagramV2Sheet(
                             Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(25.dp))
                         }
                         Spacer(Modifier.height(8.dp))
-                        Text(stringResource(R.string.share_post_search_placeholder), style = CorusFont.caption)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.nav_search), style = CorusFont.caption)
                     }
                 }
                 items(contacts, key = { it.id }) { recipient ->
@@ -990,7 +1008,7 @@ internal fun PostToInstagramV2Sheet(
                             maxLines = if (composing) Int.MAX_VALUE else 4,
                             decorationBox = { innerTextField ->
                                 Box(Modifier.fillMaxWidth().heightIn(min = 44.dp), contentAlignment = Alignment.CenterStart) {
-                                    if (message.text.isEmpty()) Text(stringResource(R.string.share_post_message_placeholder), style = CorusFont.body, color = CorusColors.Tertiary)
+                                    if (message.text.isEmpty()) Text(stringResource(fm.corus.android.localization.CorusStrings.share_post_message_placeholder), style = CorusFont.body, color = CorusColors.Tertiary)
                                     innerTextField()
                                 }
                             },
@@ -1002,7 +1020,7 @@ internal fun PostToInstagramV2Sheet(
                             shape = RoundedCornerShape(50),
                             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
                         ) {
-                            Text(stringResource(R.string.share_post_send), style = CorusFont.buttonSmall, color = Color.White)
+                            Text(stringResource(fm.corus.android.localization.CorusStrings.thread_send_aria), style = CorusFont.buttonSmall, color = Color.White)
                         }
                     }
                 }
@@ -1010,12 +1028,12 @@ internal fun PostToInstagramV2Sheet(
         } else if (!searching) {
             HorizontalDivider()
             LazyRow(contentPadding = PaddingValues(16.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                if (onRepost != null) item { ShareActionButton(icon = Icons.Default.Repeat, label = stringResource(R.string.share_post_repost), isProminent = true) { onAnalyticsLog?.invoke("repost"); onRepost() } }
+                if (onRepost != null) item { ShareActionButton(icon = Icons.Default.Repeat, label = stringResource(fm.corus.android.localization.CorusStrings.compose_repost), isProminent = true) { onAnalyticsLog?.invoke("repost"); onRepost() } }
                 if (instagramShareEnabled && isInstagramAvailable(context)) item {
                     InstagramShareButton(isLoading = sharing, onClick = { if (canShareImage) shareImage(true) })
                 }
                 if (isWhatsAppAvailable(context)) item {
-                    ShareActionButton(label = stringResource(R.string.share_post_whatsapp), painter = painterResource(R.drawable.whatsapp_logo), backgroundColor = Color(0xff25D366), iconTint = Color.White) {
+                    ShareActionButton(label = stringResource(fm.corus.android.localization.CorusStrings.share_post_whatsapp), painter = painterResource(R.drawable.whatsapp_logo), backgroundColor = Color(0xff25D366), iconTint = Color.White) {
                         onAnalyticsLog?.invoke("whatsapp")
                         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/?text=${Uri.encode(subject.outboundLink)}"))) }
                     }
@@ -1024,13 +1042,13 @@ internal fun PostToInstagramV2Sheet(
                     onAnalyticsLog?.invoke("x")
                     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://twitter.com/intent/tweet?text=${Uri.encode(subject.title + " by " + subject.artist + " on @corusapp")}&url=${Uri.encode(subject.outboundLink)}"))) }
                 } }
-                item { ShareActionButton(icon = Icons.Default.Share, label = stringResource(R.string.share_post_share_link)) {
+                item { ShareActionButton(icon = Icons.Default.Share, label = stringResource(fm.corus.android.localization.CorusStrings.share_post_share_link)) {
                     onAnalyticsLog?.invoke("share_link")
-                    context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, subject.outboundLink) }, context.getString(R.string.share_post_share_chooser)))
+                    context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, subject.outboundLink) }, context.getString(fm.corus.android.localization.CorusStrings.share_post_share_chooser)))
                 } }
-                item { ShareActionButton(icon = Icons.Default.ContentCopy, label = stringResource(R.string.share_post_copy_link)) { copyLink(subject.outboundLink); onAnalyticsLog?.invoke("copy_link") } }
+                item { ShareActionButton(icon = Icons.Default.ContentCopy, label = stringResource(fm.corus.android.localization.CorusStrings.post_menu_copy_link)) { copyLink(subject.outboundLink); onAnalyticsLog?.invoke("copy_link") } }
                 if (image != null) item {
-                    ShareActionButton(icon = Icons.Default.Image, label = stringResource(R.string.instagram_v2_share_image)) {
+                    ShareActionButton(icon = Icons.Default.Image, label = stringResource(fm.corus.android.localization.CorusStrings.instagram_v2_share_image)) {
                         if (!canShareImage) return@ShareActionButton
                         onAnalyticsLog?.invoke("share_image")
                         shareImage(false)
@@ -1060,8 +1078,8 @@ internal fun PostToInstagramV2Sheet(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
-                Text(stringResource(R.string.instagram_v2_copied), style = CorusFont.bodyMedium)
-                if (sharing) Text(stringResource(R.string.instagram_v2_paste_hint), style = CorusFont.caption)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.instagram_v2_copied), style = CorusFont.bodyMedium)
+                if (sharing) Text(stringResource(fm.corus.android.localization.CorusStrings.instagram_v2_paste_hint), style = CorusFont.caption)
             }
         }
     }
@@ -1079,7 +1097,7 @@ private fun ShareSelectedRecipientRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(stringResource(R.string.share_recipient_to), style = CorusFont.captionMedium, color = CorusColors.Secondary)
+        Text(stringResource(fm.corus.android.localization.CorusStrings.share_recipient_to), style = CorusFont.captionMedium, color = CorusColors.Secondary)
         Row(
             modifier = Modifier
                 .weight(1f, fill = false)
@@ -1101,7 +1119,7 @@ private fun ShareSelectedRecipientRow(
             IconButton(onClick = onRemove, modifier = Modifier.size(48.dp)) {
                 Icon(
                     Icons.Default.Close,
-                    contentDescription = stringResource(R.string.instagram_v2_remove_recipient),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.instagram_v2_remove_recipient),
                     tint = CorusColors.Secondary,
                     modifier = Modifier.size(16.dp),
                 )
@@ -1124,8 +1142,8 @@ private fun InstagramV2LayoutPicker(
             .background(CorusColors.CardBackground, RoundedCornerShape(16.dp)),
     ) {
         listOf(
-            "cover" to stringResource(R.string.instagram_v2_cover),
-            "vinyl" to stringResource(R.string.instagram_v2_vinyl),
+            "cover" to stringResource(fm.corus.android.localization.CorusStrings.instagram_v2_cover),
+            "vinyl" to stringResource(fm.corus.android.localization.CorusStrings.instagram_v2_vinyl),
         ).forEach { (value, label) ->
             val selected = layout == value
             Box(

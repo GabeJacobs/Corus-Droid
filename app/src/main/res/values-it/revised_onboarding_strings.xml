@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="corus_native_400157a33bff">"LA TUA MAGGIORE AFFINITÀ DI GUSTI"</string>
+    <string name="corus_native_de09e9efb9a5">"Entrambi amate"</string>
+    <string name="corus_onboarding_corus_stars">"STELLE DI CORUS"</string>
+    <plurals name="corus_onboarding_follow_remaining"><item quantity="one">"SEGUI ANCORA %1$d PERSONA"</item><item quantity="other">"SEGUI ANCORA %1$d PERSONE"</item></plurals>
+    <plurals name="corus_onboarding_follow_required"><item quantity="one">"SEGUI %1$d PERSONA"</item><item quantity="other">"SEGUI %1$d PERSONE"</item></plurals>
+    <plurals name="corus_onboarding_follow_requirement_subtitle"><item quantity="one">"Segui %1$d persona per iniziare il tuo feed."</item><item quantity="other">"Segui %1$d persone per iniziare il tuo feed."</item></plurals>
+    <string name="corus_onboarding_more_taste_matches">"ALTRE PERSONE CON I TUOI GUSTI"</string>
+    <string name="corus_onboarding_see_all_taste_matches">"Vedi tutte le %1$d persone con gusti simili"</string>
+</resources>

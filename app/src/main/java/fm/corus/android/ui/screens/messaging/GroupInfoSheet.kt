@@ -132,7 +132,7 @@ internal fun GroupInfoSheet(
         ) { addingPeople ->
             if (addingPeople) {
                 MultiUserPickerContent(
-                    title = stringResource(id = R.string.messaging_group_add_people),
+                    title = stringResource(id = fm.corus.android.localization.CorusStrings.group_add_people),
                     showNameField = false,
                     excludeIds = (memberIds + (currentUserId ?: "")).toSet(),
                     loadSuggestions = { viewModel.fetchSuggestionsList() },
@@ -150,7 +150,7 @@ internal fun GroupInfoSheet(
             // group name below acts as the header.
             Box(modifier = Modifier.fillMaxWidth().padding(CorusSpacing.lg)) {
                 Text(
-                    stringResource(id = R.string.messaging_group_done),
+                    stringResource(id = fm.corus.android.localization.CorusStrings.common_done),
                     style = CorusFont.button,
                     color = CorusColors.Accent,
                     modifier = Modifier
@@ -203,7 +203,7 @@ internal fun GroupInfoSheet(
 
                 if (canEditIdentity) Row(horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg)) {
                     Text(
-                        stringResource(id = R.string.messaging_group_change_name),
+                        stringResource(id = fm.corus.android.localization.CorusStrings.group_change_name),
                         style = CorusFont.body, color = CorusColors.Accent,
                         modifier = Modifier.clickable {
                             renameDraft = name
@@ -211,7 +211,7 @@ internal fun GroupInfoSheet(
                         },
                     )
                     Text(
-                        stringResource(id = R.string.messaging_group_change_photo),
+                        stringResource(id = fm.corus.android.localization.CorusStrings.group_change_photo),
                         style = CorusFont.body, color = CorusColors.Accent,
                         modifier = Modifier.clickable(enabled = !uploadingPhoto && canEditIdentity) { launchPhotoPicker() },
                     )
@@ -245,7 +245,7 @@ internal fun GroupInfoSheet(
                     ) {
                         Icon(Icons.Filled.PersonAdd, contentDescription = null, tint = CorusColors.Accent, modifier = Modifier.size(20.dp))
                     }
-                    Text(stringResource(id = R.string.messaging_group_add_people), style = CorusFont.body, color = CorusColors.Text)
+                    Text(stringResource(id = fm.corus.android.localization.CorusStrings.group_add_people), style = CorusFont.body, color = CorusColors.Text)
                 }
             }
 
@@ -275,10 +275,10 @@ internal fun GroupInfoSheet(
                                 }
                             }
                             if (groupInfo.createdBy == id) {
-                                Text(stringResource(id = R.string.messaging_group_creator), style = CorusFont.caption, color = CorusColors.Tertiary)
+                                Text(stringResource(id = fm.corus.android.localization.CorusStrings.group_creator_badge), style = CorusFont.caption, color = CorusColors.Tertiary)
                             } else if (isCreator) {
                                 IconButton(onClick = { confirmRemove = u }) {
-                                    Icon(Icons.Filled.PersonRemove, contentDescription = stringResource(id = R.string.messaging_group_remove), tint = CorusColors.Tertiary, modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Filled.PersonRemove, contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.concert_remove), tint = CorusColors.Tertiary, modifier = Modifier.size(18.dp))
                                 }
                             }
                         }
@@ -288,7 +288,7 @@ internal fun GroupInfoSheet(
 
             HorizontalDivider(color = CorusColors.Divider)
             Text(
-                text = stringResource(id = R.string.messaging_group_leave),
+                text = stringResource(id = fm.corus.android.localization.CorusStrings.group_leave),
                 style = CorusFont.button,
                 color = Color.Red,
                 textAlign = TextAlign.Center,
@@ -330,12 +330,12 @@ internal fun GroupInfoSheet(
     if (showRename) {
         AlertDialog(
             onDismissRequest = { showRename = false },
-            title = { Text(stringResource(id = R.string.messaging_group_name_label)) },
+            title = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.group_name_label)) },
             text = {
                 OutlinedTextField(
                     value = renameDraft,
                     onValueChange = { renameDraft = it.take(60) },
-                    placeholder = { Text(stringResource(id = R.string.messaging_group_name_label)) },
+                    placeholder = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.group_name_label)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = {
@@ -351,11 +351,11 @@ internal fun GroupInfoSheet(
                     name = renameDraft.trim()
                     viewModel.renameGroup(name)
                     showRename = false
-                }) { Text(stringResource(id = R.string.common_save)) }
+                }) { Text(stringResource(id = fm.corus.android.localization.CorusStrings.common_save)) }
             },
             dismissButton = {
                 TextButton(onClick = { showRename = false }) {
-                    Text(stringResource(id = R.string.messaging_group_cancel))
+                    Text(stringResource(id = fm.corus.android.localization.CorusStrings.common_cancel))
                 }
             },
             containerColor = CorusColors.Background,
@@ -365,17 +365,17 @@ internal fun GroupInfoSheet(
     if (confirmLeave) {
         AlertDialog(
             onDismissRequest = { confirmLeave = false },
-            title = { Text(stringResource(id = R.string.messaging_group_leave_confirm)) },
+            title = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.group_leave_confirm_title)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmLeave = false
                     leaving = true
                     viewModel.leaveGroup { onLeft() }
-                }) { Text(stringResource(id = R.string.messaging_group_leave), color = Color.Red) }
+                }) { Text(stringResource(id = fm.corus.android.localization.CorusStrings.group_leave), color = Color.Red) }
             },
             dismissButton = {
                 TextButton(onClick = { confirmLeave = false }) {
-                    Text(stringResource(id = R.string.messaging_group_cancel))
+                    Text(stringResource(id = fm.corus.android.localization.CorusStrings.common_cancel))
                 }
             },
             containerColor = CorusColors.Background,
@@ -385,17 +385,17 @@ internal fun GroupInfoSheet(
     confirmRemove?.let { target ->
         AlertDialog(
             onDismissRequest = { confirmRemove = null },
-            title = { Text(stringResource(id = R.string.messaging_group_remove)) },
+            title = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.concert_remove)) },
             text = { Text("@${target.username}") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmRemove = null
                     viewModel.removeGroupMember(target.id)
-                }) { Text(stringResource(id = R.string.messaging_group_remove), color = Color.Red) }
+                }) { Text(stringResource(id = fm.corus.android.localization.CorusStrings.concert_remove), color = Color.Red) }
             },
             dismissButton = {
                 TextButton(onClick = { confirmRemove = null }) {
-                    Text(stringResource(id = R.string.messaging_group_cancel))
+                    Text(stringResource(id = fm.corus.android.localization.CorusStrings.common_cancel))
                 }
             },
             containerColor = CorusColors.Background,

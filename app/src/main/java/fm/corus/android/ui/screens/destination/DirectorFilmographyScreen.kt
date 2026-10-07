@@ -77,7 +77,7 @@ fun DirectorFilmographyScreen(
                     CorusHeaderIconButton(
                         onClick = onBack,
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.feed_cd_back),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
@@ -92,7 +92,7 @@ fun DirectorFilmographyScreen(
         ) {
             Column(modifier = Modifier.padding(horizontal = CorusSpacing.lg)) {
                 Text(
-                    text = stringResource(R.string.destination_filmography),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.destination_filmography),
                     style = CorusFont.songTitleLarge,
                     color = CorusColors.Text,
                 )
@@ -128,7 +128,7 @@ fun DirectorFilmographyScreen(
                 }
             } else if (catalogError && detail == null) {
                 Text(
-                    text = stringResource(R.string.destination_catalog_load_error),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.destination_catalog_load_error),
                     style = CorusFont.body,
                     color = CorusColors.Secondary,
                     modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.lg),

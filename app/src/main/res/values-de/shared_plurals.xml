@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <plurals name="song_detail_like_all_title"><item quantity="one">"%1$d Post liken?"</item><item quantity="other">"%1$d Posts liken?"</item></plurals>
+    <plurals name="taste_discovery_remaining"><item quantity="one">"Du hast noch %1$d Übereinstimmung"</item><item quantity="other">"Du hast noch %1$d Übereinstimmungen"</item></plurals>
+</resources>

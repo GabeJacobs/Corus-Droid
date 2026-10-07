@@ -119,7 +119,7 @@ fun AvatarCropView(
                     onClick = onCancel,
                     modifier = Modifier.padding(start = 8.dp, top = 8.dp)
                 ) {
-                    Text(stringResource(R.string.avatar_crop_cancel), color = Color.White, fontSize = 17.sp)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_cancel), color = Color.White, fontSize = 17.sp)
                 }
 
                 Spacer(Modifier.weight(1f))
@@ -202,7 +202,7 @@ fun AvatarCropView(
                         contentColor = Color.Black,
                     ),
                 ) {
-                    Text(stringResource(R.string.avatar_crop_use_photo), fontSize = 17.sp)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.avatar_crop_use_photo), fontSize = 17.sp)
                 }
             }
         }

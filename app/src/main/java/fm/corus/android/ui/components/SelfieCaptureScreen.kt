@@ -153,7 +153,7 @@ private fun CameraPreview(
         ) {
             Icon(
                 Icons.Filled.Close,
-                contentDescription = stringResource(R.string.selfie_cd_cancel),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_cancel),
                 tint = Color.White,
             )
         }
@@ -208,13 +208,13 @@ private fun PermissionPrompt(
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            text = stringResource(R.string.selfie_permission_title),
+            text = stringResource(fm.corus.android.localization.CorusStrings.selfie_permission_title),
             style = CorusFont.songTitleLarge,
             color = Color.White,
             textAlign = TextAlign.Center,
         )
         Text(
-            text = stringResource(R.string.selfie_permission_message),
+            text = stringResource(fm.corus.android.localization.CorusStrings.selfie_permission_message),
             style = CorusFont.bodyMedium,
             color = Color.White.copy(alpha = 0.7f),
             textAlign = TextAlign.Center,
@@ -230,13 +230,13 @@ private fun PermissionPrompt(
                 onClick = onCancel,
                 colors = ButtonDefaults.buttonColors(containerColor = CorusColors.CardBackground),
             ) {
-                Text(stringResource(R.string.selfie_permission_cancel), color = CorusColors.Text)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.common_cancel), color = CorusColors.Text)
             }
             Button(
                 onClick = onRequest,
                 colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
             ) {
-                Text(stringResource(R.string.selfie_permission_allow), color = Color.White)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.selfie_permission_allow), color = Color.White)
             }
         }
     }

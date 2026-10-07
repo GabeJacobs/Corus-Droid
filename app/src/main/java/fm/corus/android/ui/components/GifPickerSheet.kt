@@ -108,16 +108,16 @@ fun GifPickerSheet(
                     doSearch(it)
                 },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text(stringResource(R.string.gif_picker_search_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
+                placeholder = { Text(stringResource(fm.corus.android.localization.CorusStrings.parity_9e867d1a518b), style = CorusFont.body, color = CorusColors.Tertiary) },
                 singleLine = true,
                 leadingIcon = {
-                    Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.gif_picker_cd_search), tint = CorusColors.Secondary)
+                    Icon(Icons.Filled.Search, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.nav_search), tint = CorusColors.Secondary)
                 },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         Icon(
                             Icons.Filled.Close,
-                            contentDescription = stringResource(R.string.gif_picker_cd_clear),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.search_clear_aria),
                             modifier = Modifier.clickable {
                                 searchQuery = ""
                                 doSearch("")
@@ -173,7 +173,7 @@ fun GifPickerSheet(
                             model = ImageRequest.Builder(LocalContext.current)
                                 .data(gif.thumbnailURL)
                                 .build(),
-                            contentDescription = stringResource(R.string.gif_picker_cd_gif),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.comments_cd_gif),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(120.dp)
@@ -219,7 +219,7 @@ fun GifPickerSheet(
             // Attribution
             Image(
                 painter = painterResource(id = R.drawable.powered_by_klipy),
-                contentDescription = stringResource(R.string.gif_picker_powered_by),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.gif_picker_powered_by),
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
                     .height(14.dp)

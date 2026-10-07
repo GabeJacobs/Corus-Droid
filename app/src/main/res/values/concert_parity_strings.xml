@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="concert_make_personal">Make it personal</string>
-    <string name="concert_personal_message">Post music you love. We\'ll keep track of your favorite artists and show you when they\'re playing nearby.</string>
-    <string name="concert_keep_posting_message">Check back for new concerts. Keep posting music you love to track more artists here.</string>
-    <string name="concert_post_music">Post music</string>
-    <string name="concert_view_all">View all concerts</string>
-    <string name="concert_no_matches">No matches from your artists yet</string>
-    <string name="concert_choose_your_city">Choose your city</string>
-    <string name="concert_choose_location">Choose location</string>
-    <string name="concert_browse">Browse concerts</string>
-    <string name="concert_choose_another_city">Choose another city</string>
-    <string name="concert_no_plans_title">No concert plans yet</string>
-    <string name="concert_post_personal_title">Post music to get personal picks</string>
-    <string name="concert_no_artist_shows">No shows from your artists yet</string>
-    <string name="concert_no_shows_around">We couldn\'t find any shows around %1$s. Try another city.</string>
-    <string name="concert_find_nearby">Find concerts near you</string>
-    <string name="concert_choose_location_message">Choose a city or use your current location to see upcoming shows.</string>
-    <string name="concert_remove">Remove</string>
-    <string name="concert_calendar_error">Could not open a calendar app. Please install one and try again.</string>
+    <string name="concert_make_personal">"Make it personal"</string>
+    <string name="concert_personal_message">"Post music you love. We’ll keep track of your favorite artists and show you when they’re playing nearby."</string>
+    <string name="concert_keep_posting_message">"Check back for new concerts. Keep posting music you love to track more artists here."</string>
+    <string name="concert_post_music">"Post music"</string>
+    <string name="concert_view_all">"View all concerts"</string>
+    <string name="concert_no_matches">"No matches from your artists yet"</string>
+    <string name="concert_choose_your_city">"Choose your city"</string>
+    <string name="concert_choose_location">"Choose location"</string>
+    <string name="concert_browse">"Browse concerts"</string>
+    <string name="concert_choose_another_city">"Choose another city"</string>
+    <string name="concert_no_plans_title">"No concert plans yet"</string>
+    <string name="concert_post_personal_title">"Post music to get personal picks"</string>
+    <string name="concert_no_artist_shows">"No shows from your artists yet"</string>
+    <string name="concert_no_shows_around">"We couldn’t find any shows around %1$s. Try another city."</string>
+    <string name="concert_find_nearby">"Find concerts near you"</string>
+    <string name="concert_choose_location_message">"Choose a city or use your current location to see upcoming shows."</string>
+    <string name="concert_remove">"Remove"</string>
+    <string name="concert_calendar_error">"Could not open a calendar app. Please install one and try again."</string>
 </resources>

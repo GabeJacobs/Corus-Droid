@@ -142,13 +142,13 @@ internal fun MusicServiceScreen(
     // would be wrong: the CTA reads CONTINUE. Defaults preserve the legacy
     // (flag-off) GET STARTED label. The system push dialog no longer fires
     // here — the notification primer is the real last step.
-    ctaLabelRes: Int = R.string.music_service_get_started,
+    ctaLabelRes: Int = fm.corus.android.localization.CorusStrings.onboarding_get_started,
 ) {
     var selected by remember { mutableStateOf(MusicService.SPOTIFY) }
     val tidalEnabled = viewModel.tidalEnabled
     val youtubeMusicEnabled = viewModel.youtubeMusicEnabled
     val deezerEnabled = viewModel.deezerEnabled
-    val fullPlaybackSubtitle = stringResource(R.string.music_service_full_playback)
+    val fullPlaybackSubtitle = stringResource(fm.corus.android.localization.CorusStrings.music_service_apple_subtitle)
     val context = LocalContext.current
 
     Column(
@@ -161,13 +161,13 @@ internal fun MusicServiceScreen(
         Spacer(modifier = Modifier.height(80.dp))
 
         Text(
-            stringResource(id = R.string.music_service_title),
+            stringResource(id = fm.corus.android.localization.CorusStrings.onboarding_step3_title),
             style = CorusFont.appTitle,
             color = CorusColors.Text,
         )
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
         Text(
-            stringResource(id = R.string.music_service_subtitle),
+            stringResource(id = fm.corus.android.localization.CorusStrings.onboarding_step3_subtitle),
             style = CorusFont.body,
             color = CorusColors.Secondary,
         )
@@ -272,7 +272,7 @@ internal fun MusicServiceScreen(
             onFinished()
         }) {
             Text(
-                stringResource(id = R.string.music_service_skip),
+                stringResource(id = fm.corus.android.localization.CorusStrings.common_skip),
                 style = CorusFont.caption,
                 color = CorusColors.Tertiary,
             )
@@ -390,7 +390,7 @@ internal fun SyncContactsScreen(
     onContinue: () -> Unit,
     // The taste flow retitles this page to the umbrella "Find People to Follow"
     // (contacts + taste quiz + suggestions are all one people-finding arc there).
-    titleRes: Int = R.string.social_setup_find_friends_title,
+    titleRes: Int = fm.corus.android.localization.CorusStrings.social_setup_find_friends_title,
 ) {
     val context = LocalContext.current
     val isSyncing by viewModel.isSyncing.collectAsState()
@@ -423,7 +423,7 @@ internal fun SyncContactsScreen(
         )
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
         Text(
-            stringResource(id = R.string.social_setup_find_friends_subtitle),
+            stringResource(id = fm.corus.android.localization.CorusStrings.social_setup_find_friends_subtitle),
             style = CorusFont.body,
             color = CorusColors.Secondary,
         )
@@ -437,7 +437,7 @@ internal fun SyncContactsScreen(
             Spacer(modifier = Modifier.height(CorusSpacing.xxl))
 
             Text(
-                stringResource(id = R.string.social_setup_sync_explainer),
+                stringResource(id = fm.corus.android.localization.CorusStrings.social_setup_sync_explainer),
                 style = CorusFont.bodyMedium,
                 color = CorusColors.Secondary,
                 textAlign = TextAlign.Center,
@@ -473,7 +473,7 @@ internal fun SyncContactsScreen(
                     tint = Color.White,
                 )
                 Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                Text(stringResource(id = R.string.social_setup_sync_button), style = CorusFont.button, color = Color.White)
+                Text(stringResource(id = fm.corus.android.localization.CorusStrings.social_setup_sync_button), style = CorusFont.button, color = Color.White)
             }
         }
 
@@ -481,7 +481,7 @@ internal fun SyncContactsScreen(
             viewModel.analyticsService.logContactsSyncSkipped()
             onContinue()
         }) {
-            Text(stringResource(id = R.string.social_setup_sync_later), style = CorusFont.caption, color = CorusColors.Tertiary)
+            Text(stringResource(id = fm.corus.android.localization.CorusStrings.social_setup_sync_later), style = CorusFont.caption, color = CorusColors.Tertiary)
         }
 
         // lg + the ~40dp link above = ONBOARDING_CTA_BOTTOM_ZONE baseline.
@@ -615,7 +615,7 @@ private fun RadarAnimation() {
         // blue so it reads against the dark radar (the bare black logo is near-invisible there).
         Image(
             painter = painterResource(R.drawable.logo_no_background),
-            contentDescription = stringResource(id = R.string.social_setup_cd_corus_logo),
+            contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.app_name),
             modifier = Modifier.size(64.dp),
             colorFilter = if (LocalCorusDarkTheme.current) {
                 ColorFilter.tint(CorusColors.Accent)
@@ -638,8 +638,7 @@ private fun FollowFriendsScreen(
     // Curate Your Feed is a middle step now; just log completion and advance to
     // the music-service picker. The push prompt fires on that final step.
     val advanceToMusicService: () -> Unit = {
-        viewModel.logFollowFriendsOnboardingCompleted()
-        onContinue()
+        viewModel.logFollowFriendsOnboardingCompleted(onFinished = onContinue)
     }
 
     val contactMatches by viewModel.contactMatches.collectAsState()
@@ -715,6 +714,9 @@ private fun FollowFriendsScreen(
     previewSheetUser?.let { sheetUser ->
         UserPreviewSheet(
             user = sheetUser,
+            usesRevisedDesign = viewModel.revisedUserPreviewEnabled,
+            matchData = viewModel.tasteMatches.collectAsState().value?.users
+                ?.firstOrNull { it.user.id == sheetUser.id }?.matchData,
             posts = previewSheetPosts,
             isLoading = previewSheetIsLoading,
             isLoadingMore = previewSheetIsLoadingMore,
@@ -753,7 +755,7 @@ private fun FollowFriendsMainContent(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                stringResource(id = R.string.social_setup_curate_title),
+                stringResource(id = fm.corus.android.localization.CorusStrings.social_setup_curate_title),
                 style = CorusFont.appTitle,
                 color = CorusColors.Text,
                 modifier = Modifier.fillMaxWidth(),
@@ -761,7 +763,7 @@ private fun FollowFriendsMainContent(
             )
             Spacer(modifier = Modifier.height(CorusSpacing.sm))
             Text(
-                stringResource(id = R.string.social_setup_curate_subtitle),
+                stringResource(id = fm.corus.android.localization.CorusStrings.onboarding_step2_subtitle),
                 style = CorusFont.body,
                 color = CorusColors.Secondary,
                 modifier = Modifier.fillMaxWidth(),
@@ -796,7 +798,7 @@ private fun FollowFriendsMainContent(
                             modifier = Modifier.fillMaxWidth().padding(CorusSpacing.xxl),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            Text(stringResource(id = R.string.search_no_users_found), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                            Text(stringResource(id = fm.corus.android.localization.CorusStrings.parity_612eb3c64c41), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
                         }
                     }
                 } else {
@@ -834,14 +836,14 @@ private fun FollowFriendsMainContent(
                             if (contactMatches.isNotEmpty()) {
                             Column(modifier = Modifier.fillMaxWidth()) {
                                 OnboardingSectionHeader(
-                                    title = stringResource(id = R.string.social_setup_section_friends),
+                                    title = stringResource(id = fm.corus.android.localization.CorusStrings.social_setup_section_friends),
                                     showSeeAll = contactMatches.size > 5,
                                     onSeeAll = { onSeeAll(SeeAllDestination.FRIENDS) },
                                 )
                                 contactMatches.take(5).forEach { user ->
                                     OnboardingUserRow(
                                         user = user,
-                                        subtitle = stringResource(id = R.string.search_subtitle_from_contacts),
+                                        subtitle = stringResource(id = fm.corus.android.localization.CorusStrings.search_subtitle_from_contacts),
                                         isFollowed = followedIds.contains(user.id),
                                         onFollow = { viewModel.toggleFollow(user.id) },
                                         onTap = { viewModel.openUserPreview(user) },
@@ -851,7 +853,7 @@ private fun FollowFriendsMainContent(
                         } else if (contactsSynced) {
                             Column(modifier = Modifier.fillMaxWidth()) {
                                 OnboardingSectionHeader(
-                                    title = stringResource(id = R.string.social_setup_section_friends),
+                                    title = stringResource(id = fm.corus.android.localization.CorusStrings.social_setup_section_friends),
                                 )
                                 Column(
                                     modifier = Modifier
@@ -860,13 +862,13 @@ private fun FollowFriendsMainContent(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                 ) {
                                     Text(
-                                        stringResource(id = R.string.search_no_contact_matches_title),
+                                        stringResource(id = fm.corus.android.localization.CorusStrings.search_no_contact_matches_title),
                                         style = CorusFont.bodyMedium,
                                         color = CorusColors.Secondary,
                                     )
                                     Spacer(modifier = Modifier.height(CorusSpacing.xs))
                                     Text(
-                                        stringResource(id = R.string.social_setup_will_notify),
+                                        stringResource(id = fm.corus.android.localization.CorusStrings.social_setup_will_notify),
                                         style = CorusFont.caption,
                                         color = CorusColors.Tertiary,
                                     )
@@ -896,7 +898,7 @@ private fun FollowFriendsMainContent(
             if (isFinishing) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
             } else {
-                Text(stringResource(id = R.string.onboarding_button_continue), style = CorusFont.button, color = Color.White)
+                Text(stringResource(id = fm.corus.android.localization.CorusStrings.onboarding_cta_continue), style = CorusFont.button, color = Color.White)
             }
         }
     }
@@ -908,7 +910,7 @@ private fun FollowFriendsMainContent(
 // ═══════════════════════════════════════════════
 
 enum class SeeAllDestination(val titleRes: Int, val analyticsName: String) {
-    FRIENDS(R.string.social_setup_seeall_friends, "friends"),
+    FRIENDS(fm.corus.android.localization.CorusStrings.contacts_list_title, "friends"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -926,7 +928,7 @@ private fun OnboardingSeeAllScreen(
                 title = { Text(stringResource(id = destination.titleRes), style = CorusFont.screenTitle, color = CorusColors.Text) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.Close, contentDescription = stringResource(id = R.string.common_back), tint = CorusColors.Text)
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.common_back), tint = CorusColors.Text)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
@@ -939,7 +941,7 @@ private fun OnboardingSeeAllScreen(
                     items(contactMatches, key = { it.id }) { user ->
                         OnboardingUserRow(
                             user = user,
-                            subtitle = stringResource(id = R.string.search_subtitle_from_contacts),
+                            subtitle = stringResource(id = fm.corus.android.localization.CorusStrings.search_subtitle_from_contacts),
                             isFollowed = followedIds.contains(user.id),
                             onFollow = { onFollow(user.id) },
                         )
@@ -960,7 +962,7 @@ internal fun OnboardingSearchBar(
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit = {},
     modifier: Modifier = Modifier,
-    placeholderRes: Int = R.string.search_placeholder_users,
+    placeholderRes: Int = fm.corus.android.localization.CorusStrings.search_placeholder_users_d2b4126f,
 ) {
     TextField(
         value = query,
@@ -977,7 +979,7 @@ internal fun OnboardingSearchBar(
         trailingIcon = {
             if (query.isNotEmpty()) {
                 IconButton(onClick = { onQueryChange("") }) {
-                    Icon(Icons.Filled.Close, contentDescription = stringResource(id = R.string.search_cd_clear), tint = CorusColors.Tertiary)
+                    Icon(Icons.Filled.Close, contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.search_clear_aria), tint = CorusColors.Tertiary)
                 }
             }
         },
@@ -1065,7 +1067,7 @@ internal fun OnboardingUserRow(
             contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
         ) {
             Text(
-                if (isFollowed) stringResource(id = R.string.search_button_following) else stringResource(id = R.string.search_button_follow),
+                if (isFollowed) stringResource(id = fm.corus.android.localization.CorusStrings.following_status) else stringResource(id = fm.corus.android.localization.CorusStrings.follow_action),
                 style = CorusFont.buttonSmall,
             )
         }

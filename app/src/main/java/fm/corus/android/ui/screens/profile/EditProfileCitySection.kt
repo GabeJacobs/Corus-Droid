@@ -140,7 +140,7 @@ fun EditProfileCitySection(viewModel: EditProfileViewModel) {
             text = { Text(shareError!!, style = CorusFont.body, color = CorusColors.Text) },
             confirmButton = {
                 TextButton(onClick = { viewModel.clearShareError() }) {
-                    Text(stringResource(R.string.common_ok), style = CorusFont.button, color = CorusColors.Accent)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_ok), style = CorusFont.button, color = CorusColors.Accent)
                 }
             },
             containerColor = CorusColors.Background,
@@ -148,7 +148,7 @@ fun EditProfileCitySection(viewModel: EditProfileViewModel) {
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.edit_profile_field_city), style = CorusFont.sectionHeader, color = CorusColors.Secondary)
+        Text(stringResource(fm.corus.android.localization.CorusStrings.parity_55f447a461be), style = CorusFont.sectionHeader, color = CorusColors.Secondary)
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
         if (findingCity) {
             Row(
@@ -169,7 +169,7 @@ fun EditProfileCitySection(viewModel: EditProfileViewModel) {
                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
             ) {
                 Text(
-                    "${stringResource(R.string.map_sharing_label)} $sharingLabel",
+                    "${stringResource(fm.corus.android.localization.CorusStrings.map_sharing_label)} $sharingLabel",
                     style = CorusFont.captionMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

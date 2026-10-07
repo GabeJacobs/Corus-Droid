@@ -1,5 +1,7 @@
 package fm.corus.android.ui.components
 
+import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.GiftAnalytics
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -76,6 +78,7 @@ data class GiftSelectionState(
 class GiftSelectionViewModel @Inject constructor(
     private val repository: GiftRepository,
     private val subscriptionRepository: SubscriptionRepository,
+    private val analytics: AnalyticsService,
 ) : ViewModel() {
     private val _state = MutableStateFlow(GiftSelectionState())
     val state: StateFlow<GiftSelectionState> = _state.asStateFlow()
@@ -92,6 +95,7 @@ class GiftSelectionViewModel @Inject constructor(
     }
 
     fun open(postId: String) {
+        analytics.logGiftEvent("picker_opened", "picker")
         this.postId = postId
         val warm = repository.cachedStatus()
         _state.value = GiftSelectionState(
@@ -120,6 +124,7 @@ class GiftSelectionViewModel @Inject constructor(
     }
 
     fun select(giftId: String) {
+        analytics.logGiftEvent("gift_selected", "picker", giftType = giftId)
         _state.update { it.copy(selectedGiftId = giftId, error = null) }
     }
 
@@ -136,6 +141,7 @@ class GiftSelectionViewModel @Inject constructor(
             _state.update { it.copy(loading = it.inventory == null, error = null) }
             try {
                 val status = repository.getStatus()
+                analytics.logGiftEvent("inventory_loaded", "picker", available = status.inventory.available, capacity = status.inventory.capacity)
                 _state.update {
                     it.copy(
                         loading = false,
@@ -146,6 +152,7 @@ class GiftSelectionViewModel @Inject constructor(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
+                analytics.logGiftEvent("inventory_failed", "picker", errorCode = GiftAnalytics.errorCode(error))
                 _state.update { it.copy(loading = false, error = error.message ?: "Corus couldn't load your Gifts.") }
             }
         }
@@ -159,6 +166,7 @@ class GiftSelectionViewModel @Inject constructor(
      */
     fun refreshAfterPurchase() {
         if (_state.value.sending) return
+        analytics.logGiftEvent("upgrade_recovery_started", "picker")
         _state.update { it.copy(loading = true, inventory = null, error = null) }
         viewModelScope.launch {
             var lastError: String? = null
@@ -171,6 +179,8 @@ class GiftSelectionViewModel @Inject constructor(
                     val isFinal = status.inventory.capacity >= FULL_CAPACITY ||
                         attempt == POST_PURCHASE_RETRY_DELAYS_MS.size
                     if (isFinal) {
+                        val ready = status.inventory.capacity >= FULL_CAPACITY
+                        analytics.logGiftEvent(if (ready) "upgrade_recovery_completed" else "upgrade_recovery_failed", "picker", available = status.inventory.available, capacity = status.inventory.capacity, result = if (ready) "ready" else "pending")
                         _state.update {
                             it.copy(inventory = status.inventory, catalogIds = status.catalogIds.toSet())
                         }
@@ -182,6 +192,7 @@ class GiftSelectionViewModel @Inject constructor(
                     lastError = error.message ?: "Corus couldn't load your Gifts."
                 }
             }
+            if (_state.value.inventory == null) analytics.logGiftEvent("upgrade_recovery_failed", "picker", errorCode = "unknown")
             _state.update { it.copy(loading = false, error = if (it.inventory == null) lastError else null) }
         }
     }
@@ -198,6 +209,7 @@ class GiftSelectionViewModel @Inject constructor(
         val stableRequestId = requestId ?: return
 
         viewModelScope.launch {
+            analytics.logGiftEvent("send_started", "picker", giftType = snapshot.selectedGiftId, hasNote = note.isNotEmpty())
             _state.update { it.copy(sending = true, error = null) }
             try {
                 val result = repository.sendGift(
@@ -206,6 +218,7 @@ class GiftSelectionViewModel @Inject constructor(
                     note = note.takeIf { it.isNotEmpty() },
                     requestId = stableRequestId,
                 )
+                analytics.logGiftEvent("send_completed", "picker", giftType = result.giftType, hasNote = note.isNotEmpty(), available = result.inventory.available, capacity = result.inventory.capacity, result = if (result.alreadySent) "already_sent" else "sent")
                 // Same gift back = a retry of a send that already succeeded (lost response).
                 // A different gift back = the server refused a second one; nothing was sent.
                 if (result.alreadySent && result.giftType != snapshot.selectedGiftId) {
@@ -227,9 +240,11 @@ class GiftSelectionViewModel @Inject constructor(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: GiftRepositoryException.NoSlots) {
+                analytics.logGiftEvent("send_failed", "picker", giftType = snapshot.selectedGiftId, errorCode = "resource-exhausted")
                 _state.update { it.copy(sending = false, error = error.message) }
                 refresh()
             } catch (error: Exception) {
+                analytics.logGiftEvent("send_failed", "picker", giftType = snapshot.selectedGiftId, errorCode = GiftAnalytics.errorCode(error))
                 _state.update { it.copy(sending = false, error = error.message ?: "Gift couldn't be sent. Please try again.") }
             }
         }

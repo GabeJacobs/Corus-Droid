@@ -1,10 +1,10 @@
 <resources>
-    <string name="gift_say_thanks">说声谢谢</string>
-    <string name="gift_thanked">已感谢 ✓</string>
-    <string name="gift_thanks_sending">发送中…</string>
-    <string name="gift_open_post">打开帖子</string>
-    <string name="gift_thanks_error">无法发送感谢，请重试。</string>
-    <string name="gift_note_from">来自%1$s的留言</string>
-    <string name="gift_thanks_message">感谢了你的礼物。</string>
-    <string name="gift_thanks_sender">%1$s感谢了你的礼物。</string>
+    <string name="gift_say_thanks">"说声谢谢"</string>
+    <string name="gift_thanked">"已感谢 ✓"</string>
+    <string name="gift_thanks_sending">"发送中…"</string>
+    <string name="gift_open_post">"查看帖子"</string>
+    <string name="gift_thanks_error">"无法发送感谢，请重试。"</string>
+    <string name="gift_note_from">"来自%1$s的留言"</string>
+    <string name="gift_thanks_message">"感谢了你的礼物。"</string>
+    <string name="gift_thanks_sender">"%1$s感谢了你的礼物。"</string>
 </resources>

@@ -139,7 +139,7 @@ fun SinglePostCommentsScreen(
     // Resolve-on-tap state for the tappable artist name (subtitle) — shared HUD +
     // miss toast, matching the "…" menu's Go to Artist row.
     var isResolvingSubtitle by remember { mutableStateOf(false) }
-    val subtitleArtistNotFound = stringResource(R.string.song_detail_artist_not_found)
+    val subtitleArtistNotFound = stringResource(fm.corus.android.localization.CorusStrings.post_toast_artist_not_found)
 
     val pendingSong by viewModel.pendingSong.collectAsState()
     val pendingFilm by viewModel.pendingFilm.collectAsState()
@@ -239,12 +239,12 @@ fun SinglePostCommentsScreen(
             // Immersive draws the shared frosted bar over the content below instead.
             if (!immersive) {
                 TopAppBar(
-                    title = { Text(stringResource(R.string.feed_screen_title_Corus), style = CorusFont.screenTitle, color = CorusColors.Text) },
+                    title = { Text(stringResource(fm.corus.android.localization.CorusStrings.app_name), style = CorusFont.screenTitle, color = CorusColors.Text) },
                     navigationIcon = {
                         CorusHeaderIconButton(
                             onClick = onBack,
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.feed_cd_back),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                         )
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
@@ -289,7 +289,7 @@ fun SinglePostCommentsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            stringResource(R.string.comments_editing_your_comment),
+                            stringResource(fm.corus.android.localization.CorusStrings.comments_editing_your_comment),
                             style = CorusFont.caption,
                             color = CorusColors.Secondary,
                             modifier = Modifier.weight(1f),
@@ -302,7 +302,7 @@ fun SinglePostCommentsScreen(
                             },
                             modifier = Modifier.size(20.dp),
                         ) {
-                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.comments_cd_cancel_edit), tint = CorusColors.Tertiary, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.comments_cd_cancel_edit), tint = CorusColors.Tertiary, modifier = Modifier.size(14.dp))
                         }
                     }
                 }
@@ -325,7 +325,7 @@ fun SinglePostCommentsScreen(
                             onClick = { viewModel.clearReply() },
                             modifier = Modifier.size(20.dp),
                         ) {
-                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.comments_cd_cancel_reply), tint = CorusColors.Tertiary, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.thread_cancel_reply_aria), tint = CorusColors.Tertiary, modifier = Modifier.size(14.dp))
                         }
                     }
                 }
@@ -392,7 +392,7 @@ fun SinglePostCommentsScreen(
                             ) {
                                 Icon(
                                     Icons.Filled.Add,
-                                    contentDescription = stringResource(R.string.comment_attachment_attach),
+                                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.comment_attach_aria),
                                     tint = Color.White,
                                     modifier = Modifier.size(20.dp),
                                 )
@@ -403,7 +403,7 @@ fun SinglePostCommentsScreen(
                             ) {
                                 if (viewModel.gifSupport) {
                                     DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.comment_attachment_gif)) },
+                                        text = { Text(stringResource(fm.corus.android.localization.CorusStrings.comments_cd_gif)) },
                                         onClick = {
                                             showAttachmentMenu = false
                                             showGifPicker = true
@@ -414,8 +414,8 @@ fun SinglePostCommentsScreen(
                                     text = {
                                         Text(
                                             stringResource(
-                                                if (entityAttachments) R.string.comment_attachment_music
-                                                else R.string.comment_attachment_song,
+                                                if (entityAttachments) fm.corus.android.localization.CorusStrings.search_tab_music
+                                                else fm.corus.android.localization.CorusStrings.destination_song_label,
                                             ),
                                         )
                                     },
@@ -425,7 +425,7 @@ fun SinglePostCommentsScreen(
                                     },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.comment_attachment_film)) },
+                                    text = { Text(stringResource(fm.corus.android.localization.CorusStrings.search_tab_film)) },
                                     onClick = {
                                         showAttachmentMenu = false
                                         openPicker(true)
@@ -455,9 +455,9 @@ fun SinglePostCommentsScreen(
                         placeholder = {
                             Text(
                                 when {
-                                    editingComment != null -> stringResource(R.string.comments_input_placeholder_edit)
-                                    replyingTo != null -> stringResource(R.string.comments_input_placeholder_reply)
-                                    else -> stringResource(R.string.comments_input_placeholder_add)
+                                    editingComment != null -> stringResource(fm.corus.android.localization.CorusStrings.comment_edit_placeholder)
+                                    replyingTo != null -> stringResource(fm.corus.android.localization.CorusStrings.notifications_reply_placeholder)
+                                    else -> stringResource(fm.corus.android.localization.CorusStrings.post_detail_add_comment_placeholder)
                                 },
                                 style = CorusFont.body,
                                 color = CorusColors.Tertiary,
@@ -516,7 +516,7 @@ fun SinglePostCommentsScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.ArrowUpward,
-                            contentDescription = stringResource(R.string.comments_cd_send),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.thread_send_aria),
                             modifier = Modifier.size(18.dp),
                             tint = if (canSend) Color.White else CorusColors.Tertiary,
                         )
@@ -680,7 +680,7 @@ fun SinglePostCommentsScreen(
                                 type = "text/plain"
                                 putExtra(Intent.EXTRA_TEXT, "https://corus.fm/post/${p.id}")
                             }
-                            try { context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.post_detail_share_chooser))) } catch (_: Exception) { }
+                            try { context.startActivity(Intent.createChooser(shareIntent, context.getString(fm.corus.android.localization.CorusStrings.concert_share))) } catch (_: Exception) { }
                         },
                         onSpotifyTap = {
                             if (p.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD) {
@@ -779,9 +779,9 @@ fun SinglePostCommentsScreen(
                         modifier = Modifier.fillMaxWidth().padding(CorusSpacing.xxl),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(stringResource(R.string.comments_no_comments), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.comments_no_comments), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
                         Spacer(modifier = Modifier.height(CorusSpacing.xs))
-                        Text(stringResource(R.string.comments_be_the_first), style = CorusFont.caption, color = CorusColors.Tertiary)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.comments_be_the_first), style = CorusFont.caption, color = CorusColors.Tertiary)
                     }
                 }
             } else {
@@ -853,7 +853,7 @@ fun SinglePostCommentsScreen(
         if (immersive) {
             ImmersiveFrostedBar(
                 hazeState = frost.hazeState,
-                title = stringResource(R.string.feed_screen_title_Corus),
+                title = stringResource(fm.corus.android.localization.CorusStrings.app_name),
                 onBack = onBack,
                 topInset = frost.statusBarPadding,
             )
@@ -1038,19 +1038,19 @@ internal fun CommentContentRow(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text(stringResource(R.string.comments_dialog_delete_title), style = CorusFont.songTitleLarge) },
-            text = { Text(stringResource(R.string.comments_dialog_delete_message), style = CorusFont.body) },
+            title = { Text(stringResource(fm.corus.android.localization.CorusStrings.comments_dialog_delete_title), style = CorusFont.songTitleLarge) },
+            text = { Text(stringResource(fm.corus.android.localization.CorusStrings.comments_dialog_delete_message), style = CorusFont.body) },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteConfirm = false
                     onDelete()
                 }) {
-                    Text(stringResource(R.string.comments_dialog_delete_confirm), color = CorusColors.Error)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_delete), color = CorusColors.Error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text(stringResource(R.string.common_cancel))
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_cancel))
                 }
             },
         )
@@ -1062,7 +1062,7 @@ internal fun CommentContentRow(
             title = { Text(stringResource(R.string.comments_dialog_block_title_format, comment.user.username), style = CorusFont.songTitleLarge) },
             text = {
                 Text(
-                    stringResource(R.string.comments_dialog_block_message),
+                    stringResource(fm.corus.android.localization.CorusStrings.comments_dialog_block_message),
                     style = CorusFont.body,
                 )
             },
@@ -1071,12 +1071,12 @@ internal fun CommentContentRow(
                     showBlockConfirm = false
                     onBlock()
                 }) {
-                    Text(stringResource(R.string.comments_dialog_block_confirm), color = CorusColors.Error)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.comments_menu_block), color = CorusColors.Error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showBlockConfirm = false }) {
-                    Text(stringResource(R.string.common_cancel))
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_cancel))
                 }
             },
         )
@@ -1105,17 +1105,17 @@ internal fun CommentContentRow(
         ) {
             if (canCopy) {
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.comments_menu_copy), style = CorusFont.body, color = CorusColors.Text) },
+                    text = { Text(stringResource(fm.corus.android.localization.CorusStrings.thread_copy), style = CorusFont.body, color = CorusColors.Text) },
                     onClick = {
                         showContextMenu = false
                         clipboardManager.setText(AnnotatedString(comment.text))
-                        ToastManager.show(localContextForCopy.getString(R.string.comments_toast_copied))
+                        ToastManager.show(localContextForCopy.getString(fm.corus.android.localization.CorusStrings.thread_copied))
                     },
                 )
             }
             if (!isOwnComment && !comment.user.isBot) {
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.comments_menu_report), style = CorusFont.body, color = CorusColors.Error) },
+                    text = { Text(stringResource(fm.corus.android.localization.CorusStrings.profile_report), style = CorusFont.body, color = CorusColors.Error) },
                     onClick = {
                         showContextMenu = false
                         onReport()
@@ -1124,7 +1124,7 @@ internal fun CommentContentRow(
             }
             if (canBlock) {
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.comments_menu_block), style = CorusFont.body, color = CorusColors.Error) },
+                    text = { Text(stringResource(fm.corus.android.localization.CorusStrings.comments_menu_block), style = CorusFont.body, color = CorusColors.Error) },
                     onClick = {
                         showContextMenu = false
                         showBlockConfirm = true
@@ -1160,7 +1160,7 @@ internal fun CommentContentRow(
                 )
                 Text(DateUtils.relativeTime(LocalContext.current, comment.timestamp), style = CorusFont.caption, color = CorusColors.Tertiary)
                 if (comment.isEdited) {
-                    Text(stringResource(R.string.comments_edited), style = CorusFont.caption, color = CorusColors.Tertiary)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.comment_edited_badge), style = CorusFont.caption, color = CorusColors.Tertiary)
                 }
             }
             Spacer(modifier = Modifier.height(CorusSpacing.xxs))
@@ -1197,7 +1197,7 @@ internal fun CommentContentRow(
                             AsyncImage(
                                 model = ImageRequest.Builder(LocalContext.current)
                                     .data(comment.gifURL).build(),
-                                contentDescription = stringResource(R.string.comments_cd_gif),
+                                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.comments_cd_gif),
                                 modifier = Modifier
                                     .widthIn(max = 200.dp)
                                     .heightIn(max = 150.dp)
@@ -1226,7 +1226,7 @@ internal fun CommentContentRow(
                     if (canReply) {
                         Spacer(modifier = Modifier.height(CorusSpacing.xs))
                         Text(
-                            stringResource(R.string.comments_reply),
+                            stringResource(fm.corus.android.localization.CorusStrings.thread_reply),
                             style = CorusFont.captionMedium,
                             color = CorusColors.Secondary,
                             modifier = Modifier.clickable(onClick = onReply),
@@ -1257,7 +1257,7 @@ internal fun CommentContentRow(
                     ) {
                         Icon(
                             if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                            contentDescription = stringResource(R.string.comments_cd_like),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.comment_like_action),
                             tint = if (isLiked) CorusColors.Like else CorusColors.Secondary,
                             modifier = Modifier.size(14.dp),
                         )
@@ -1278,7 +1278,7 @@ internal fun CommentContentRow(
                         Box {
                             Icon(
                                 imageVector = Icons.Filled.MoreHoriz,
-                                contentDescription = stringResource(R.string.comments_cd_options),
+                                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.comments_cd_options),
                                 modifier = Modifier
                                     .size(16.dp)
                                     .clickable(
@@ -1294,7 +1294,7 @@ internal fun CommentContentRow(
                             ) {
                                 if (comment.isEditable()) {
                                     DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.comments_menu_edit), style = CorusFont.body, color = CorusColors.Text) },
+                                        text = { Text(stringResource(fm.corus.android.localization.CorusStrings.profile_edit_profile_short), style = CorusFont.body, color = CorusColors.Text) },
                                         onClick = {
                                             showMenu = false
                                             onEdit()
@@ -1302,7 +1302,7 @@ internal fun CommentContentRow(
                                     )
                                 }
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.comments_menu_delete), style = CorusFont.body, color = CorusColors.Error) },
+                                    text = { Text(stringResource(fm.corus.android.localization.CorusStrings.common_delete), style = CorusFont.body, color = CorusColors.Error) },
                                     onClick = {
                                         showMenu = false
                                         showDeleteConfirm = true

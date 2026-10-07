@@ -90,7 +90,7 @@ class NotificationsViewModel @Inject constructor(
         // Keep the request alive if the sheet is dismissed while sending.
         viewModelScope.launch {
             try {
-                val confirmed = giftRepository.thankGift(notification.postId!!, notification.giftId!!)
+                val confirmed = giftRepository.thankGift(notification.postId!!, notification.giftId!!, "notification")
                 _giftThanks.value += notification.id to GiftThanksState(thankedAt = confirmed)
                 fun List<CymbalNotification>.updated() = map {
                     if (it.id == notification.id) it.copy(giftThankedAt = confirmed) else it
@@ -976,10 +976,10 @@ class NotificationsViewModel @Inject constructor(
                     )
                 } catch (_: Exception) { }
 
-                _replyToastEvents.trySend(context.getString(R.string.notifications_toast_reply_sent))
+                _replyToastEvents.trySend(context.getString(fm.corus.android.localization.CorusStrings.notifications_toast_reply_sent))
             } catch (e: Exception) {
                 Log.e("Notifications", "Failed to send reply", e)
-                _replyToastEvents.trySend(context.getString(R.string.notifications_toast_reply_failed))
+                _replyToastEvents.trySend(context.getString(fm.corus.android.localization.CorusStrings.notifications_toast_reply_failed))
                 // Restore so the user can retry
                 _replyingToNotification.value = notification
                 _replyPendingSong.value = attachedSong
@@ -1039,10 +1039,10 @@ class NotificationsViewModel @Inject constructor(
                     )
                 } catch (_: Exception) { }
 
-                _replyToastEvents.trySend(context.getString(R.string.notifications_toast_reply_sent))
+                _replyToastEvents.trySend(context.getString(fm.corus.android.localization.CorusStrings.notifications_toast_reply_sent))
             } catch (e: Exception) {
                 Log.e("Notifications", "Failed to send GIF reply", e)
-                _replyToastEvents.trySend(context.getString(R.string.notifications_toast_reply_failed))
+                _replyToastEvents.trySend(context.getString(fm.corus.android.localization.CorusStrings.notifications_toast_reply_failed))
                 _replyingToNotification.value = notification
             }
             _isSendingReply.value = false

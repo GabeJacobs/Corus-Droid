@@ -1,5 +1,8 @@
 package fm.corus.android.ui.components
 
+import fm.corus.android.service.GiftAnalytics
+import androidx.compose.runtime.DisposableEffect
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -111,7 +114,7 @@ internal fun giftRefillCountdown(nextRefillAtMs: Long, nowMs: Long): String {
 internal fun shouldShowGiftClubOffer(capacity: Int): Boolean = capacity < 3
 internal fun areGiftControlsEnabled(available: Int): Boolean = available > 0
 internal fun giftPickerIntroResource(available: Int?): Int =
-    if (available == 0) R.string.gift_picker_empty_intro else R.string.gift_picker_intro
+    if (available == 0) fm.corus.android.localization.CorusStrings.gift_picker_empty_intro else R.string.gift_picker_intro
 
 /** Hides the keyboard when the user starts scrolling and leaves the gesture
  *  untouched, so the list still scrolls and the sheet is never dismissed. */
@@ -155,6 +158,7 @@ fun GiftSelectionSheet(
     val hasClubIntroTrial by viewModel.hasClubIntroTrial.collectAsState()
     var showClubOffer by remember(post.id) { mutableStateOf(false) }
 
+    DisposableEffect(post.id) { onDispose { GiftAnalytics.log(context, "picker_closed", "picker") } }
     LaunchedEffect(post.id) { viewModel.open(post.id) }
     // iOS holds for 1.15s; Android holds longer so the sent gift is actually seen (Gabe's call).
     LaunchedEffect(state.sentGiftId) {
@@ -175,6 +179,8 @@ fun GiftSelectionSheet(
     // camera cutout. Content scrolls in the weighted region; the CTA is pinned
     // below it so it stays reachable on short screens.
     val inventory = state.inventory
+    val showOffer = inventory?.let { it.isEmpty && shouldShowGiftClubOffer(it.capacity) } == true
+    LaunchedEffect(showOffer) { if (showOffer) GiftAnalytics.log(context, "club_offer_shown", "picker") }
     val resultShown = state.sentGiftId != null || state.alreadySentGiftId != null
     val showActions = !resultShown && inventory != null
     val keyboardOnSend = LocalSoftwareKeyboardController.current
@@ -205,7 +211,7 @@ fun GiftSelectionSheet(
         ) {
             Spacer(Modifier.height(4.dp))
             if (!resultShown) Text(
-                text = stringResource(R.string.gift_send_action),
+                text = stringResource(fm.corus.android.localization.CorusStrings.gift_send_action),
                 style = CorusFont.custom(700, 22),
                 color = CorusColors.Text,
                 textAlign = TextAlign.Center,
@@ -302,25 +308,25 @@ fun GiftSelectionSheet(
                                 verticalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
                                 Text(
-                                    stringResource(R.string.gift_club_offer_title),
+                                    stringResource(fm.corus.android.localization.CorusStrings.gift_club_offer_title),
                                     style = CorusFont.bodyMedium,
                                     color = CorusColors.Text,
                                 )
                                 Text(
-                                    stringResource(R.string.gift_club_offer_body),
+                                    stringResource(fm.corus.android.localization.CorusStrings.gift_club_offer_body),
                                     style = CorusFont.body,
                                     color = CorusColors.Secondary,
                                     textAlign = TextAlign.Center,
                                 )
                                 Button(
-                                    onClick = { showClubOffer = true },
+                                    onClick = { GiftAnalytics.log(context, "club_offer_tapped", "picker"); showClubOffer = true },
                                     colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
                                     modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Text(
                                         stringResource(
-                                            if (hasClubIntroTrial) R.string.gift_club_offer_cta_trial
-                                            else R.string.gift_club_offer_cta_standard,
+                                            if (hasClubIntroTrial) fm.corus.android.localization.CorusStrings.gift_club_offer_cta_trial
+                                            else fm.corus.android.localization.CorusStrings.gift_club_offer_cta_standard,
                                         ),
                                         style = CorusFont.button,
                                     )
@@ -361,7 +367,7 @@ fun GiftSelectionSheet(
                 }
                 state.error?.let {
                     Spacer(Modifier.height(8.dp))
-                    Text(stringResource(R.string.gift_send_error), color = CorusColors.Error, textAlign = TextAlign.Center, style = CorusFont.caption)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.gift_send_error), color = CorusColors.Error, textAlign = TextAlign.Center, style = CorusFont.caption)
                 }
         }
     }
@@ -419,7 +425,7 @@ private fun GiftNoteField(
                 .alpha(if (enabled) 1f else .5f),
             enabled = enabled,
             textStyle = CorusFont.body,
-            label = { Text(stringResource(R.string.gift_note_optional), style = CorusFont.body) },
+            label = { Text(stringResource(fm.corus.android.localization.CorusStrings.gift_note_optional), style = CorusFont.body) },
             supportingText = { Text(stringResource(R.string.gift_note_count, note.length), style = CorusFont.caption) },
             minLines = 2,
             maxLines = 4,
@@ -450,9 +456,9 @@ private fun GiftNoteField(
             ) {
                 Icon(Icons.Outlined.Edit, contentDescription = null, tint = CorusColors.Accent, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(12.dp))
-                Text(stringResource(R.string.gift_note_add), style = CorusFont.bodyMedium, color = CorusColors.Text)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.gift_note_add), style = CorusFont.bodyMedium, color = CorusColors.Text)
                 Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.gift_note_optional_tag), style = CorusFont.caption, color = CorusColors.Secondary)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.gift_note_optional_tag), style = CorusFont.caption, color = CorusColors.Secondary)
                 Spacer(Modifier.weight(1f))
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = CorusColors.Secondary)
             }
@@ -543,7 +549,7 @@ private fun InventorySection(inventory: GiftInventory) {
         }
     }
     val availableText = if (inventory.available == 1) {
-        stringResource(R.string.gift_available_one)
+        stringResource(fm.corus.android.localization.CorusStrings.gift_available_one)
     } else {
         stringResource(R.string.gift_available_many, inventory.available)
     }
@@ -566,7 +572,7 @@ private fun InventorySection(inventory: GiftInventory) {
         )
     }
     if (inventory.capacity <= 1 && !inventory.isEmpty) {
-        Text(stringResource(R.string.gift_club_slots), style = CorusFont.caption, color = CorusColors.Secondary)
+        Text(stringResource(fm.corus.android.localization.CorusStrings.gift_club_slots), style = CorusFont.caption, color = CorusColors.Secondary)
     }
 }
 
@@ -585,7 +591,7 @@ private fun SentGiftConfirmation(giftId: String) {
         ) {
             GiftNotificationArtwork(giftId, 168.dp)
             Spacer(Modifier.height(20.dp))
-            Text(stringResource(R.string.gift_sent), style = CorusFont.displayName, color = CorusColors.Text)
+            Text(stringResource(fm.corus.android.localization.CorusStrings.gift_sent), style = CorusFont.displayName, color = CorusColors.Text)
         }
     }
 }
@@ -600,9 +606,9 @@ private fun AlreadySentNotice(giftId: String) {
     ) {
         GiftNotificationArtwork(giftId, 168.dp)
         Spacer(Modifier.height(20.dp))
-        Text(stringResource(R.string.gift_already_sent_title), style = CorusFont.displayName, color = CorusColors.Text, textAlign = TextAlign.Center)
+        Text(stringResource(fm.corus.android.localization.CorusStrings.gift_already_sent_title), style = CorusFont.displayName, color = CorusColors.Text, textAlign = TextAlign.Center)
         Spacer(Modifier.height(6.dp))
-        Text(stringResource(R.string.gift_already_sent_body), style = CorusFont.body, color = CorusColors.Secondary, textAlign = TextAlign.Center)
+        Text(stringResource(fm.corus.android.localization.CorusStrings.gift_already_sent_body), style = CorusFont.body, color = CorusColors.Secondary, textAlign = TextAlign.Center)
     }
 }
 
@@ -642,7 +648,7 @@ private fun GiftLoadError(retry: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(stringResource(R.string.gift_load_error), style = CorusFont.body, color = CorusColors.Secondary, textAlign = TextAlign.Center)
-        TextButton(onClick = retry) { Text(stringResource(R.string.gift_try_again), style = CorusFont.button) }
+        Text(stringResource(fm.corus.android.localization.CorusStrings.gift_load_error), style = CorusFont.body, color = CorusColors.Secondary, textAlign = TextAlign.Center)
+        TextButton(onClick = retry) { Text(stringResource(fm.corus.android.localization.CorusStrings.gift_try_again), style = CorusFont.button) }
     }
 }

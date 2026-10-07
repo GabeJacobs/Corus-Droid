@@ -67,9 +67,9 @@ fun ChangePhoneNumberScreen(
             CorusHeaderIconButton(
                 onClick = onBack,
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.common_back),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
             )
-            Text(stringResource(R.string.change_phone_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
+            Text(stringResource(fm.corus.android.localization.CorusStrings.change_phone_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
         }
 
         HorizontalDivider(color = CorusColors.Divider)
@@ -90,12 +90,12 @@ fun ChangePhoneNumberScreen(
                 modifier = Modifier.padding(CorusSpacing.lg),
                 verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
             ) {
-                Text(stringResource(R.string.change_phone_section_verification), style = CorusFont.sectionHeader, color = CorusColors.Secondary)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.change_phone_section_verification), style = CorusFont.sectionHeader, color = CorusColors.Secondary)
 
                 OutlinedTextField(
                     value = verificationCode,
                     onValueChange = { viewModel.onCodeChanged(it) },
-                    placeholder = { Text(stringResource(R.string.change_phone_code_placeholder)) },
+                    placeholder = { Text(stringResource(fm.corus.android.localization.CorusStrings.change_phone_code_placeholder)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
@@ -117,7 +117,7 @@ fun ChangePhoneNumberScreen(
                             color = Color.White,
                         )
                     } else {
-                        Text(stringResource(R.string.common_verify), style = CorusFont.button, color = Color.White)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.auth_button_verify_short), style = CorusFont.button, color = Color.White)
                     }
                 }
 
@@ -128,7 +128,7 @@ fun ChangePhoneNumberScreen(
                     enabled = canResend,
                 ) {
                     Text(
-                        text = if (canResend) stringResource(R.string.change_phone_resend_code) else stringResource(R.string.change_phone_resend_in_format, resendSeconds),
+                        text = if (canResend) stringResource(fm.corus.android.localization.CorusStrings.auth_button_resend_code) else stringResource(R.string.change_phone_resend_in_format, resendSeconds),
                         style = CorusFont.body,
                         color = if (canResend) CorusColors.Accent else CorusColors.Tertiary,
                     )
@@ -137,7 +137,7 @@ fun ChangePhoneNumberScreen(
                 // Use different number
                 TextButton(onClick = { viewModel.goBack() }) {
                     Text(
-                        stringResource(R.string.change_phone_use_different_number),
+                        stringResource(fm.corus.android.localization.CorusStrings.change_phone_use_different_number),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                     )
@@ -157,7 +157,7 @@ fun ChangePhoneNumberScreen(
                 modifier = Modifier.padding(CorusSpacing.lg),
                 verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
             ) {
-                Text(stringResource(R.string.change_phone_section_new_number), style = CorusFont.sectionHeader, color = CorusColors.Secondary)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.change_phone_section_new_number), style = CorusFont.sectionHeader, color = CorusColors.Secondary)
 
                 // Country code + phone input
                 Row(
@@ -185,7 +185,7 @@ fun ChangePhoneNumberScreen(
                     OutlinedTextField(
                         value = phoneNumber,
                         onValueChange = { viewModel.onPhoneChanged(it) },
-                        placeholder = { Text(stringResource(R.string.change_phone_placeholder)) },
+                        placeholder = { Text(stringResource(fm.corus.android.localization.CorusStrings.auth_phone_label)) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.weight(1f),
@@ -208,12 +208,12 @@ fun ChangePhoneNumberScreen(
                             color = Color.White,
                         )
                     } else {
-                        Text(stringResource(R.string.change_phone_send_code), style = CorusFont.button, color = Color.White)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.change_phone_send_code), style = CorusFont.button, color = Color.White)
                     }
                 }
 
                 Text(
-                    text = stringResource(R.string.change_phone_send_code_explainer),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.change_phone_send_code_explainer),
                     style = CorusFont.caption,
                     color = CorusColors.Tertiary,
                 )
@@ -225,7 +225,7 @@ fun ChangePhoneNumberScreen(
     if (showCountryPicker) {
         AlertDialog(
             onDismissRequest = { showCountryPicker = false },
-            title = { Text(stringResource(R.string.change_phone_select_country_title), style = CorusFont.songTitleLarge) },
+            title = { Text(stringResource(fm.corus.android.localization.CorusStrings.change_phone_select_country_title), style = CorusFont.songTitleLarge) },
             text = {
                 Column(
                     modifier = Modifier
@@ -259,11 +259,11 @@ fun ChangePhoneNumberScreen(
     if (showSuccess) {
         AlertDialog(
             onDismissRequest = { onBack() },
-            title = { Text(stringResource(R.string.change_phone_updated_title), style = CorusFont.songTitleLarge) },
-            text = { Text(stringResource(R.string.change_phone_updated_message), style = CorusFont.body) },
+            title = { Text(stringResource(fm.corus.android.localization.CorusStrings.change_phone_updated_title), style = CorusFont.songTitleLarge) },
+            text = { Text(stringResource(fm.corus.android.localization.CorusStrings.change_phone_updated_message), style = CorusFont.body) },
             confirmButton = {
                 TextButton(onClick = { onBack() }) {
-                    Text(stringResource(R.string.common_ok))
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_ok))
                 }
             },
         )

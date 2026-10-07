@@ -663,7 +663,7 @@ class MapExploreViewModel @Inject constructor(
                 // user's existing player. End Listen Mode before presenting the
                 // error so the normal map marker and app chrome are restored.
                 repository.event("playback_unavailable", mode, if (history.isEmpty()) "error_or_empty" else "exhausted")
-                stop(error = repository.text(fm.corus.android.R.string.map_no_more_posts))
+                stop(error = repository.text(fm.corus.android.localization.CorusStrings.map_no_more_posts))
             } finally { if (gen == generation) { advanceBusy = false; updateState { it.copy(busy = false) } } }
         }
     }

@@ -123,9 +123,9 @@ import java.util.Locale
 internal fun albumKindCaption(album: AlbumSummary): String {
     val kind = stringResource(
         when (album.albumType) {
-            "single" -> R.string.destination_single_label
-            "compilation" -> R.string.destination_compilation_label
-            else -> R.string.destination_album_label
+            "single" -> fm.corus.android.localization.CorusStrings.parity_dd1186892a2f
+            "compilation" -> fm.corus.android.localization.CorusStrings.parity_aad755de4295
+            else -> fm.corus.android.localization.CorusStrings.share_album_word
         }
     )
     return listOfNotNull(kind, album.year?.toString()).joinToString(" · ")
@@ -324,7 +324,7 @@ fun ArtistPageScreen(
                         CorusHeaderIconButton(
                             onClick = onBack,
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.feed_cd_back),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                         )
                     },
                     actions = {
@@ -333,7 +333,7 @@ fun ArtistPageScreen(
                                 CorusHeaderIconButton(
                                     onClick = { showMenu = true },
                                     imageVector = Icons.Filled.MoreVert,
-                                    contentDescription = stringResource(R.string.feed_cd_more_options),
+                                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.feed_cd_more_options),
                                 )
                                 DropdownMenu(
                                     expanded = showMenu,
@@ -341,7 +341,7 @@ fun ArtistPageScreen(
                                     containerColor = CorusColors.CardBackground,
                                 ) {
                                     DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                        text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_share), style = CorusFont.body) },
                                         onClick = {
                                             showMenu = false
                                             showShareSheet = true
@@ -390,7 +390,7 @@ fun ArtistPageScreen(
                         ArtistHeroCard(
                             heroImage = heroImage,
                             artistName = artistName,
-                            artistLabel = stringResource(R.string.destination_artist_label),
+                            artistLabel = stringResource(fm.corus.android.localization.CorusStrings.profile_artist_fallback),
                             onTap = { onShowPhoto(ExpandedPhoto(heroImage, artistName)) },
                         )
                     }
@@ -417,7 +417,7 @@ fun ArtistPageScreen(
                     ArtistHeroCard(
                         heroImage = heroImage,
                         artistName = artistName,
-                        artistLabel = stringResource(R.string.destination_artist_label),
+                        artistLabel = stringResource(fm.corus.android.localization.CorusStrings.profile_artist_fallback),
                         onTap = { onShowPhoto(ExpandedPhoto(heroImage, artistName)) },
                     )
                 } else if (detail == null && isCatalogLoading) {
@@ -460,7 +460,7 @@ fun ArtistPageScreen(
                                 )
                                 Spacer(modifier = Modifier.height(CorusSpacing.xxs))
                                 Text(
-                                    text = stringResource(R.string.destination_artist_label),
+                                    text = stringResource(fm.corus.android.localization.CorusStrings.profile_artist_fallback),
                                     style = CorusFont.captionMedium,
                                     color = Color.White.copy(alpha = 0.8f),
                                 )
@@ -495,14 +495,14 @@ fun ArtistPageScreen(
                         ) {
                             Text(
                                 text = artistName
-                                    ?: stringResource(R.string.destination_artist_label),
+                                    ?: stringResource(fm.corus.android.localization.CorusStrings.profile_artist_fallback),
                                 style = CorusFont.songTitleLarge,
                                 color = CorusColors.Text,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
-                                text = stringResource(R.string.destination_artist_label),
+                                text = stringResource(fm.corus.android.localization.CorusStrings.profile_artist_fallback),
                                 style = CorusFont.captionMedium,
                                 color = CorusColors.Secondary,
                             )
@@ -555,9 +555,9 @@ fun ArtistPageScreen(
             if (isCatalogLoading && detail == null) {
                 item {
                     Column {
-                        DestinationSectionHeader(stringResource(R.string.destination_popular))
+                        DestinationSectionHeader(stringResource(fm.corus.android.localization.CorusStrings.destination_popular))
                         repeat(4) { SkeletonSongRow() }
-                        DestinationSectionHeader(stringResource(R.string.destination_discography))
+                        DestinationSectionHeader(stringResource(fm.corus.android.localization.CorusStrings.parity_19a4b0a062c8))
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
                             horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
@@ -575,7 +575,7 @@ fun ArtistPageScreen(
             } else if (catalogError && detail == null) {
                 item {
                     Text(
-                        text = stringResource(R.string.destination_catalog_load_error),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.destination_catalog_load_error),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                         modifier = Modifier
@@ -593,7 +593,7 @@ fun ArtistPageScreen(
                 val popularQueue = topTracks.map { it.toQueuedTrack(artistOrigin) }
                 if (topTracks.isNotEmpty()) {
                     item {
-                        DestinationSectionHeader(stringResource(R.string.destination_popular))
+                        DestinationSectionHeader(stringResource(fm.corus.android.localization.CorusStrings.destination_popular))
                     }
                     items(topTracks.size) { index ->
                         val track = topTracks[index]
@@ -627,8 +627,8 @@ fun ArtistPageScreen(
                         item {
                             Text(
                                 text = stringResource(
-                                    if (showAllPopular) R.string.destination_show_less
-                                    else R.string.destination_show_more
+                                    if (showAllPopular) fm.corus.android.localization.CorusStrings.concert_show_less
+                                    else fm.corus.android.localization.CorusStrings.parity_25911d48e023
                                 ),
                                 style = CorusFont.captionMedium,
                                 color = CorusColors.Secondary,
@@ -644,7 +644,7 @@ fun ArtistPageScreen(
                 if (albums.isNotEmpty()) {
                     item {
                         DestinationSectionHeader(
-                            title = stringResource(R.string.destination_discography),
+                            title = stringResource(fm.corus.android.localization.CorusStrings.parity_19a4b0a062c8),
                             onSeeAll = onSeeAllDiscography,
                         )
                         LazyRow(
@@ -678,7 +678,7 @@ fun ArtistPageScreen(
             //    → Your posts → Recent). ──
             if (viewerPosts.isNotEmpty()) {
                 item {
-                    DestinationSectionHeader(stringResource(R.string.destination_your_posts))
+                    DestinationSectionHeader(stringResource(fm.corus.android.localization.CorusStrings.parity_a1a5b173e056))
                 }
                 items(viewerPosts.size) { index ->
                     val post = viewerPosts[index]
@@ -693,7 +693,7 @@ fun ArtistPageScreen(
             // ── Recent posts ──
             item {
                 DestinationSectionHeader(
-                    title = stringResource(R.string.destination_recent_posts),
+                    title = stringResource(fm.corus.android.localization.CorusStrings.parity_5690d9243775),
                     // 6 inline + See all when there are more (matches web + iOS).
                     onSeeAll = if (posts.size > ArtistPageViewModel.INLINE_POSTS_CAP) onSeeAllPosts else null,
                 )
@@ -712,7 +712,7 @@ fun ArtistPageScreen(
             } else if (postsError) {
                 item {
                     Text(
-                        text = stringResource(R.string.destination_posts_load_error),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.destination_posts_load_error),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                         modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
@@ -721,7 +721,7 @@ fun ArtistPageScreen(
             } else if (posts.isEmpty()) {
                 item {
                     Text(
-                        text = stringResource(R.string.destination_no_posts_artist),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.destination_no_posts_artist),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                         modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
@@ -742,7 +742,7 @@ fun ArtistPageScreen(
             // ── Concerts — immediately above music videos. ──
             if (!artistId.startsWith("bc:") && isTourDatesLoading) {
                 item {
-                    DestinationSectionHeader(title = stringResource(R.string.concerts_title))
+                    DestinationSectionHeader(title = stringResource(fm.corus.android.localization.CorusStrings.concerts_title))
                 }
                 items(3) {
                     SkeletonTourDateRow()
@@ -750,7 +750,7 @@ fun ArtistPageScreen(
             } else if (tourDates.isNotEmpty()) {
                 item {
                     DestinationSectionHeader(
-                        title = stringResource(R.string.concerts_title),
+                        title = stringResource(fm.corus.android.localization.CorusStrings.concerts_title),
                         onSeeAll = if (tourDates.size > 4 && !showAllTourDates) {
                             { viewModel.logConcertsSeeAll(tourDates.size); showAllTourDates = true }
                         } else null,
@@ -825,8 +825,8 @@ fun ArtistPageScreen(
                 val isBandcampArtist = artistId.startsWith("bc:")
                 DestinationAttributionFooter(
                     attribution = stringResource(
-                        if (isBandcampArtist) R.string.destination_bandcamp_attribution
-                        else R.string.destination_music_attribution,
+                        if (isBandcampArtist) fm.corus.android.localization.CorusStrings.destination_bandcamp_attribution
+                        else fm.corus.android.localization.CorusStrings.destination_music_attribution,
                     ),
                     onOpenSpotify = if (isBandcampArtist) null else {
                         {
@@ -859,7 +859,7 @@ fun ArtistPageScreen(
                             CorusHeaderIconButton(
                                 onClick = { showMenu = true },
                                 imageVector = Icons.Filled.MoreVert,
-                                contentDescription = stringResource(R.string.feed_cd_more_options),
+                                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.feed_cd_more_options),
                                 tint = tint,
                             )
                             DropdownMenu(
@@ -868,7 +868,7 @@ fun ArtistPageScreen(
                                 containerColor = CorusColors.CardBackground,
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                    text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_share), style = CorusFont.body) },
                                     onClick = {
                                         showMenu = false
                                         showShareSheet = true
@@ -885,7 +885,7 @@ fun ArtistPageScreen(
 
     if (showShareSheet) {
         val shareSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
-        val sentMsg = stringResource(R.string.artist_detail_toast_artist_sent)
+        val sentMsg = stringResource(fm.corus.android.localization.CorusStrings.share_toast_message_sent)
         LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
         CorusModalBottomSheet(
             onDismissRequest = { showShareSheet = false },
@@ -1072,7 +1072,7 @@ internal fun ArtistHeroCard(
             .padding(horizontal = CorusSpacing.lg)
             .aspectRatio(5f / 3f)
             .clip(RoundedCornerShape(CorusSpacing.cornerRadiusLarge))
-            .clickable(onClickLabel = stringResource(R.string.photo_viewer_open_cd)) { onTap() }
+            .clickable(onClickLabel = stringResource(fm.corus.android.localization.CorusStrings.photo_viewer_open_cd)) { onTap() }
             .background(CorusColors.CardBackground),
     ) {
         AsyncImage(

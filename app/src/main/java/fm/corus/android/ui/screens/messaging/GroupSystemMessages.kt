@@ -86,7 +86,7 @@ object GroupSystemMessages {
 
     private fun localizePerson(name: String, getString: (Int, Array<out Any>) -> String): String {
         if (name.equals("someone", ignoreCase = true)) {
-            return getString(R.string.notif_favorite_someone, emptyArray())
+            return getString(fm.corus.android.localization.CorusStrings.activity_someone, emptyArray())
         }
         return name
     }
@@ -95,7 +95,7 @@ object GroupSystemMessages {
 
     private fun localizeNameList(raw: String, getString: (Int, Array<out Any>) -> String): String {
         if (raw.equals("someone", ignoreCase = true)) {
-            return getString(R.string.notif_favorite_someone, emptyArray())
+            return getString(fm.corus.android.localization.CorusStrings.activity_someone, emptyArray())
         }
         othersPattern.matchEntire(raw)?.let { match ->
             val a = localizePerson(match.groupValues[1], getString)

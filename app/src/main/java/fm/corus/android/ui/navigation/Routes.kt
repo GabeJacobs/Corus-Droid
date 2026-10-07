@@ -134,6 +134,7 @@ const val CATALOG_SCROLL_TO_TRACK_KEY = "catalogScrollToTrack"
 @Serializable data class TrendingListRoute(val kind: String)
 @Serializable data class EditCaptionRoute(val postId: String, val initialCaption: String, val albumArtURL: String? = null)
 @Serializable object SettingsRoute
+@Serializable object AppIconSettingsRoute
 @Serializable data object NotificationSettingsRoute
 @Serializable object BlockedUsersRoute
 @Serializable data object MutedUsersRoute
@@ -143,7 +144,6 @@ const val CATALOG_SCROLL_TO_TRACK_KEY = "catalogScrollToTrack"
 @Serializable data class CymbalClubOfferRoute(val source: String = "DEFAULT")
 @Serializable object ThreadListRoute
 @Serializable data class MessageThreadRoute(val threadId: String, val otherUserId: String)
-@Serializable data class BotListRoute(val botType: String? = null)
 @Serializable data class SinglePostCommentsRoute(val postId: String, val commentId: String? = null)
 @Serializable data class CommentLikesRoute(val postId: String, val commentId: String)
 @Serializable data class SuggestedUsersListRoute(

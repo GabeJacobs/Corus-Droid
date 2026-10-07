@@ -471,7 +471,9 @@ class ConcertsViewModel @Inject constructor(
             delay(250)
             try {
                 auth.currentUser?.uid?.let { userId ->
-                    _shareSearchResults.value = messages.searchShareRecipients(userId, trimmed, users)
+                    _shareSearchResults.value = messages.searchShareRecipients(userId, trimmed, users) { partial ->
+                        _shareSearchResults.value = partial
+                    }
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled

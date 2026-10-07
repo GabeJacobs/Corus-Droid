@@ -101,21 +101,21 @@ fun PostActionMenu(
         if (isMine) {
             MenuRow(
                 icon = Icons.Filled.Edit,
-                label = stringResource(R.string.post_menu_edit_caption),
+                label = stringResource(fm.corus.android.localization.CorusStrings.post_kebab_edit_caption),
                 onClick = { onEditCaption(); onDismiss() },
             )
         } else {
             if (canSendGift) {
                 MenuRow(
                     icon = Icons.Filled.CardGiftcard,
-                    label = stringResource(R.string.gift_send_action),
+                    label = stringResource(fm.corus.android.localization.CorusStrings.gift_send_action),
                     onClick = { onSendGift(); onDismiss() },
                 )
             }
             MenuRow(
                 icon = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                 label = stringResource(
-                    if (isSaved) R.string.post_menu_unsave else R.string.post_menu_save
+                    if (isSaved) fm.corus.android.localization.CorusStrings.post_kebab_unsave else fm.corus.android.localization.CorusStrings.save_post
                 ),
                 onClick = { onToggleSave(); onDismiss() },
             )
@@ -123,7 +123,7 @@ fun PostActionMenu(
 
         MenuRow(
             icon = Icons.AutoMirrored.Filled.Send,
-            label = stringResource(R.string.post_menu_share),
+            label = stringResource(fm.corus.android.localization.CorusStrings.concert_share),
             onClick = { onSharePost(); onDismiss() },
         )
 
@@ -136,21 +136,21 @@ fun PostActionMenu(
         if (isMovie) {
             MenuRow(
                 icon = Icons.Filled.Movie,
-                label = stringResource(R.string.post_menu_view_film_page),
+                label = stringResource(fm.corus.android.localization.CorusStrings.post_kebab_view_film),
                 onClick = { onViewFilmPage(); onDismiss() },
             )
             if (showGoToDirectorRow(post = post, artistPagesEnabled = artistPagesEnabled)) {
                 MenuRow(
                     // Material Campaign ≡ megaphone (matches iOS SF Symbol "megaphone").
                     icon = Icons.Filled.Campaign,
-                    label = stringResource(R.string.post_menu_go_to_director),
+                    label = stringResource(fm.corus.android.localization.CorusStrings.post_kebab_go_to_director),
                     onClick = { onGoToDirector(); onDismiss() },
                 )
             }
         } else {
             MenuRow(
                 icon = Icons.Filled.MusicNote,
-                label = stringResource(R.string.post_menu_view_song_page),
+                label = stringResource(fm.corus.android.localization.CorusStrings.post_kebab_view_song),
                 onClick = { onViewSongPage(); onDismiss() },
             )
         }
@@ -158,14 +158,14 @@ fun PostActionMenu(
         if (showGoToArtistRow(post = post, artistPagesEnabled = artistPagesEnabled)) {
             MenuRow(
                 icon = Icons.Filled.Person,
-                label = stringResource(R.string.post_menu_go_to_artist),
+                label = stringResource(fm.corus.android.localization.CorusStrings.concert_go_to_artist),
                 onClick = { onGoToArtist(); onDismiss() },
             )
         }
         if (showGoToAlbumRow(post = post, artistPagesEnabled = artistPagesEnabled)) {
             MenuRow(
                 icon = Icons.Filled.Album,
-                label = stringResource(R.string.post_menu_go_to_album),
+                label = stringResource(fm.corus.android.localization.CorusStrings.post_kebab_go_to_album),
                 onClick = { onGoToAlbum(); onDismiss() },
             )
         }
@@ -174,8 +174,8 @@ fun PostActionMenu(
             MenuRow(
                 icon = Icons.Outlined.Style,
                 label = stringResource(
-                    if (isBackCoverFlipped) R.string.post_menu_view_front_cover
-                    else R.string.post_menu_view_back_cover
+                    if (isBackCoverFlipped) fm.corus.android.localization.CorusStrings.post_kebab_view_front_cover
+                    else fm.corus.android.localization.CorusStrings.post_kebab_view_back_cover
                 ),
                 onClick = { onViewBackCover(); onDismiss() },
             )
@@ -189,11 +189,11 @@ fun PostActionMenu(
             )
 
             val openLabel = when (post.track.source) {
-                TrackSource.SOUNDCLOUD -> stringResource(R.string.post_menu_open_soundcloud)
-                TrackSource.AUDIOMACK -> stringResource(R.string.post_menu_open_audiomack)
-                TrackSource.BANDCAMP -> stringResource(R.string.post_menu_open_bandcamp)
-                TrackSource.TIDAL -> stringResource(R.string.post_menu_open_tidal)
-                TrackSource.DEEZER -> stringResource(R.string.post_menu_open_deezer)
+                TrackSource.SOUNDCLOUD -> stringResource(fm.corus.android.localization.CorusStrings.post_aria_open_soundcloud)
+                TrackSource.AUDIOMACK -> stringResource(fm.corus.android.localization.CorusStrings.post_menu_open_audiomack)
+                TrackSource.BANDCAMP -> stringResource(fm.corus.android.localization.CorusStrings.post_menu_open_bandcamp)
+                TrackSource.TIDAL -> stringResource(fm.corus.android.localization.CorusStrings.post_menu_open_tidal)
+                TrackSource.DEEZER -> stringResource(fm.corus.android.localization.CorusStrings.post_menu_open_deezer)
                 TrackSource.APPLEMUSIC ->
                     stringResource(R.string.post_menu_play_in_service, MusicService.APPLE_MUSIC.displayLabel)
                 else ->
@@ -208,7 +208,7 @@ fun PostActionMenu(
             if (showAddToQueueRow(post)) {
                 MenuRow(
                     icon = Icons.AutoMirrored.Filled.PlaylistAdd,
-                    label = stringResource(R.string.post_menu_add_to_queue),
+                    label = stringResource(fm.corus.android.localization.CorusStrings.post_menu_add_to_queue),
                     onClick = { onAddToQueue(); onDismiss() },
                 )
             }
@@ -226,20 +226,20 @@ fun PostActionMenu(
         if (isMine) {
             MenuRow(
                 icon = Icons.Filled.Delete,
-                label = stringResource(R.string.post_menu_delete_post),
+                label = stringResource(fm.corus.android.localization.CorusStrings.post_menu_delete_post),
                 tint = CorusColors.Error,
                 onClick = { onDeletePost(); onDismiss() },
             )
         } else if (showReportBlockActions) {
             MenuRow(
                 icon = Icons.Filled.Flag,
-                label = stringResource(R.string.post_menu_report),
+                label = stringResource(fm.corus.android.localization.CorusStrings.profile_report),
                 onClick = { onReportPost(); onDismiss() },
             )
 
             MenuRow(
                 icon = Icons.Filled.Block,
-                label = stringResource(R.string.post_menu_block_user),
+                label = stringResource(fm.corus.android.localization.CorusStrings.post_menu_block_user),
                 tint = CorusColors.Error,
                 onClick = { onBlockUser(); onDismiss() },
             )

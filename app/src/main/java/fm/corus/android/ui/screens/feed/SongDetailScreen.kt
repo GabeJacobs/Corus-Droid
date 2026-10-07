@@ -263,10 +263,10 @@ fun SongDetailScreen(
         AlertDialog(
             onDismissRequest = { showLikeAllConfirmation = false },
             title = { Text(pluralStringResource(R.plurals.song_detail_like_all_title, count, count)) },
-            text = { Text(stringResource(R.string.song_detail_like_all_message)) },
+            text = { Text(stringResource(fm.corus.android.localization.CorusStrings.song_detail_like_all_message)) },
             dismissButton = {
                 TextButton(onClick = { showLikeAllConfirmation = false }) {
-                    Text(stringResource(R.string.common_cancel))
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_cancel))
                 }
             },
             confirmButton = {
@@ -274,7 +274,7 @@ fun SongDetailScreen(
                     showLikeAllConfirmation = false
                     viewModel.likeAllSongPosts(composeTrack)
                 }) {
-                    Text(stringResource(R.string.song_detail_like_all))
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.song_detail_like_all))
                 }
             },
         )
@@ -295,8 +295,8 @@ fun SongDetailScreen(
     // page / no Spotify catalog presence to resolve against — a dead end.
     val canShowAlbum = !isSoundCloud && !isAudiomack && !isBandcamp && !isTidal && !isDeezer
 
-    val artistMissMsg = stringResource(R.string.song_detail_artist_not_found)
-    val albumMissMsg = stringResource(R.string.song_detail_album_not_found)
+    val artistMissMsg = stringResource(fm.corus.android.localization.CorusStrings.post_toast_artist_not_found)
+    val albumMissMsg = stringResource(fm.corus.android.localization.CorusStrings.post_toast_album_not_found)
 
     fun openArtist(id: String, idCount: Int) {
         onNavigateToArtist?.invoke(
@@ -480,7 +480,7 @@ fun SongDetailScreen(
                     CorusHeaderIconButton(
                         onClick = onBack,
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.feed_cd_back),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                     )
                 },
                 actions = {
@@ -489,14 +489,14 @@ fun SongDetailScreen(
                         CorusHeaderIconButton(
                             onClick = { menuExpanded = true },
                             imageVector = Icons.Filled.MoreVert,
-                            contentDescription = stringResource(R.string.feed_cd_more_options),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.feed_cd_more_options),
                         )
                         DropdownMenu(
                             expanded = menuExpanded,
                             onDismissRequest = { menuExpanded = false },
                         ) {
                             DropdownMenuItem(
-                                text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_share), style = CorusFont.body) },
                                 leadingIcon = { Icon(Icons.Filled.Share, contentDescription = null) },
                                 onClick = {
                                     menuExpanded = false
@@ -507,7 +507,7 @@ fun SongDetailScreen(
                             // the id on tap if the seed track lacks one.
                             if (onNavigateToArtist != null) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.post_menu_go_to_artist), style = CorusFont.body) },
+                                    text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_go_to_artist), style = CorusFont.body) },
                                     leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) },
                                     onClick = {
                                         menuExpanded = false
@@ -518,7 +518,7 @@ fun SongDetailScreen(
                             // Album everywhere except SoundCloud (no album).
                             if (onNavigateToAlbum != null && canShowAlbum) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.post_menu_go_to_album), style = CorusFont.body) },
+                                    text = { Text(stringResource(fm.corus.android.localization.CorusStrings.post_kebab_go_to_album), style = CorusFont.body) },
                                     leadingIcon = { Icon(Icons.Filled.Album, contentDescription = null) },
                                     onClick = {
                                         menuExpanded = false
@@ -616,13 +616,13 @@ fun SongDetailScreen(
                                 )
                                 isPlayingThisTrack -> Icon(
                                     imageVector = Icons.Filled.Pause,
-                                    contentDescription = stringResource(R.string.song_detail_cd_pause_preview),
+                                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.compose_pause_preview),
                                     tint = Color.White,
                                     modifier = Modifier.size(28.dp),
                                 )
                                 else -> Icon(
                                     imageVector = Icons.Filled.PlayArrow,
-                                    contentDescription = stringResource(R.string.song_detail_cd_play_preview),
+                                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.compose_play_preview),
                                     tint = Color.White,
                                     modifier = Modifier.size(28.dp),
                                 )
@@ -715,7 +715,7 @@ fun SongDetailScreen(
                         ),
                         contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                     ) {
-                        Text(stringResource(R.string.song_detail_post_song), style = CorusFont.buttonSmall)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.song_detail_post_song), style = CorusFont.buttonSmall)
                     }
 
                     if (isSoundCloud) {
@@ -740,7 +740,7 @@ fun SongDetailScreen(
                                 modifier = Modifier.size(16.dp),
                             )
                             Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                            Text(stringResource(R.string.song_detail_listen_soundcloud), style = CorusFont.buttonSmall)
+                            Text(stringResource(fm.corus.android.localization.CorusStrings.post_kebab_listen_soundcloud), style = CorusFont.buttonSmall)
                         }
                     } else if (isBandcamp) {
                         val isDark = LocalCorusDarkTheme.current
@@ -763,7 +763,7 @@ fun SongDetailScreen(
                         ) {
                             fm.corus.android.ui.components.BandcampLogo(size = 16.dp)
                             Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                            Text(stringResource(R.string.song_detail_listen_bandcamp), style = CorusFont.buttonSmall)
+                            Text(stringResource(fm.corus.android.localization.CorusStrings.song_detail_listen_bandcamp), style = CorusFont.buttonSmall)
                         }
                     } else if (isAudiomack && !effectiveAudiomackUrl.isNullOrBlank()) {
                         // Listen on Audiomack capsule — link-out only (no in-app
@@ -782,7 +782,7 @@ fun SongDetailScreen(
                         ) {
                             fm.corus.android.ui.components.AudiomackLogo(height = 16.dp)
                             Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                            Text(stringResource(R.string.song_detail_listen_audiomack), style = CorusFont.buttonSmall)
+                            Text(stringResource(fm.corus.android.localization.CorusStrings.song_detail_listen_audiomack), style = CorusFont.buttonSmall)
                         }
                     } else if (isTidal && !effectiveTidalURL.isNullOrBlank()) {
                         // Open in TIDAL capsule — exclusive source, link-out only
@@ -921,7 +921,7 @@ fun SongDetailScreen(
             if (isLoading) {
                 item {
                     Text(
-                        text = stringResource(R.string.song_detail_posted_by),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.film_detail_posted_by),
                         style = CorusFont.sectionHeader,
                         color = CorusColors.Secondary,
                         modifier = Modifier
@@ -946,10 +946,10 @@ fun SongDetailScreen(
                         modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(stringResource(R.string.song_detail_load_error), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.film_detail_load_error), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
                         TextButton(onClick = { viewModel.loadSongPosts(trackId) }) {
-                            Text(stringResource(R.string.song_detail_try_again), style = CorusFont.buttonSmall, color = CorusColors.Accent)
+                            Text(stringResource(fm.corus.android.localization.CorusStrings.gift_try_again), style = CorusFont.buttonSmall, color = CorusColors.Accent)
                         }
                     }
                 }
@@ -959,7 +959,7 @@ fun SongDetailScreen(
                         modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(stringResource(R.string.song_detail_empty), style = CorusFont.body, color = CorusColors.Secondary)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.song_detail_empty), style = CorusFont.body, color = CorusColors.Secondary)
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
                         Button(
                             onClick = { onNavigateToCompose(composeTrack) },
@@ -970,7 +970,7 @@ fun SongDetailScreen(
                             ),
                             contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                         ) {
-                            Text(stringResource(R.string.song_detail_be_the_first), style = CorusFont.buttonSmall)
+                            Text(stringResource(fm.corus.android.localization.CorusStrings.film_detail_be_the_first), style = CorusFont.buttonSmall)
                         }
                     }
                 }
@@ -1001,7 +1001,7 @@ fun SongDetailScreen(
                                 )
                                 Spacer(Modifier.width(CorusSpacing.xxs))
                                 Text(
-                                    stringResource(R.string.song_detail_all_liked),
+                                    stringResource(fm.corus.android.localization.CorusStrings.song_detail_all_liked),
                                     style = CorusFont.sectionHeader,
                                     color = CorusColors.Like,
                                 )
@@ -1017,7 +1017,7 @@ fun SongDetailScreen(
                                         modifier = Modifier.size(14.dp),
                                     )
                                     Spacer(Modifier.width(CorusSpacing.xxs))
-                                    Text(stringResource(R.string.song_detail_like_all), style = CorusFont.sectionHeader)
+                                    Text(stringResource(fm.corus.android.localization.CorusStrings.song_detail_like_all), style = CorusFont.sectionHeader)
                                 }
                             }
                         }
@@ -1079,7 +1079,7 @@ fun SongDetailScreen(
                 )
                 Spacer(modifier = Modifier.width(CorusSpacing.sm))
                 Text(
-                    text = stringResource(R.string.song_detail_resolving),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.common_loading),
                     style = CorusFont.caption,
                     color = Color.White,
                 )
@@ -1098,7 +1098,7 @@ fun SongDetailScreen(
                         CorusHeaderIconButton(
                             onClick = { menuOpen = true },
                             imageVector = Icons.Filled.MoreVert,
-                            contentDescription = stringResource(R.string.feed_cd_more_options),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.feed_cd_more_options),
                             tint = tint,
                         )
                         DropdownMenu(
@@ -1106,7 +1106,7 @@ fun SongDetailScreen(
                             onDismissRequest = { menuOpen = false },
                         ) {
                             DropdownMenuItem(
-                                text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_share), style = CorusFont.body) },
                                 leadingIcon = { Icon(Icons.Filled.Share, contentDescription = null) },
                                 onClick = {
                                     menuOpen = false
@@ -1115,7 +1115,7 @@ fun SongDetailScreen(
                             )
                             if (onNavigateToArtist != null) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.post_menu_go_to_artist), style = CorusFont.body) },
+                                    text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_go_to_artist), style = CorusFont.body) },
                                     leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) },
                                     onClick = {
                                         menuOpen = false
@@ -1125,7 +1125,7 @@ fun SongDetailScreen(
                             }
                             if (onNavigateToAlbum != null && canShowAlbum) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.post_menu_go_to_album), style = CorusFont.body) },
+                                    text = { Text(stringResource(fm.corus.android.localization.CorusStrings.post_kebab_go_to_album), style = CorusFont.body) },
                                     leadingIcon = { Icon(Icons.Filled.Album, contentDescription = null) },
                                     onClick = {
                                         menuOpen = false
@@ -1144,7 +1144,7 @@ fun SongDetailScreen(
     // ── Share Song bottom sheet ──
     if (showShareSheet) {
         val shareSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
-        val songSharedMsg = stringResource(R.string.song_detail_toast_song_sent)
+        val songSharedMsg = stringResource(fm.corus.android.localization.CorusStrings.share_toast_message_sent)
 
         LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
 

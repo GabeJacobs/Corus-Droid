@@ -62,9 +62,9 @@ fun MutedUsersScreen(
                 CorusHeaderIconButton(
                     onClick = onNavigateBack,
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.common_back),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                 )
-                Text(stringResource(R.string.muted_users_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.muted_users_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
             }
 
             HorizontalDivider(color = CorusColors.Divider)
@@ -93,7 +93,7 @@ fun MutedUsersScreen(
                             )
                             Spacer(modifier = Modifier.height(CorusSpacing.md))
                             Text(
-                                text = stringResource(R.string.muted_users_empty),
+                                text = stringResource(fm.corus.android.localization.CorusStrings.muted_users_empty),
                                 style = CorusFont.bodyMedium,
                                 color = CorusColors.Secondary,
                             )
@@ -190,7 +190,7 @@ private fun MutedUserRow(
                     color = CorusColors.Secondary,
                 )
             } else {
-                Text(stringResource(R.string.common_unmute), style = CorusFont.buttonSmall)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.common_unmute), style = CorusFont.buttonSmall)
             }
         }
     }

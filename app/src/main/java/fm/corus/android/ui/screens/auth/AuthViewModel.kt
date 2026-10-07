@@ -52,6 +52,7 @@ class AuthViewModel @Inject constructor(
     private val exploreRepository: ExploreRepository,
     private val engagementManager: PostEngagementManager,
     private val remoteConfigService: RemoteConfigService,
+    val forYouPrototype: fm.corus.android.service.ForYouPrototypeStore,
     val analyticsService: AnalyticsService,
     private val firebaseAuth: FirebaseAuth,
     private val unreadCountsRepository: UnreadCountsRepository,
@@ -251,7 +252,7 @@ class AuthViewModel @Inject constructor(
                     val isBanned = authRepository.checkIfUserIsBanned(user.uid)
                     if (isBanned) {
                         authRepository.signOut()
-                        _error.value = context.getString(R.string.auth_error_account_suspended)
+                        _error.value = context.getString(fm.corus.android.localization.CorusStrings.auth_error_account_suspended)
                         _authState.value = AuthState.SignedOut
                         return@launch
                     }
@@ -328,7 +329,7 @@ class AuthViewModel @Inject constructor(
                     val isBanned = authRepository.checkIfUserIsBanned(user.uid)
                     if (isBanned) {
                         authRepository.signOut()
-                        _error.value = context.getString(R.string.auth_error_account_suspended)
+                        _error.value = context.getString(fm.corus.android.localization.CorusStrings.auth_error_account_suspended)
                         _authState.value = AuthState.SignedOut
                         needsRefreshAfterReconnect = false
                         return@collect
@@ -380,7 +381,7 @@ class AuthViewModel @Inject constructor(
 
             if (authRepository.checkIfUserIsBanned(user.uid)) {
                 authRepository.signOut()
-                _error.value = context.getString(R.string.auth_error_account_suspended)
+                _error.value = context.getString(fm.corus.android.localization.CorusStrings.auth_error_account_suspended)
                 _authState.value = AuthState.SignedOut
                 return
             }
@@ -457,9 +458,9 @@ class AuthViewModel @Inject constructor(
                                 }
                             } catch (e: Exception) {
                                 _error.value = if (isAppCheckUnavailable(e)) {
-                                    context.getString(R.string.auth_error_device_verification)
+                                    context.getString(fm.corus.android.localization.CorusStrings.auth_error_device_verification)
                                 } else {
-                                    context.getString(R.string.auth_error_verification_failed)
+                                    context.getString(fm.corus.android.localization.CorusStrings.auth_error_verification_failed)
                                 }
                             }
                             _isLoading.value = false
@@ -468,7 +469,7 @@ class AuthViewModel @Inject constructor(
 
                     override fun onVerificationFailed(e: FirebaseException) {
                         Log.e("AuthViewModel", "phone verification failed", e)
-                        _error.value = context.getString(R.string.auth_error_could_not_send_code)
+                        _error.value = context.getString(fm.corus.android.localization.CorusStrings.auth_error_could_not_send_code)
                         _isLoading.value = false
                     }
 
@@ -497,9 +498,9 @@ class AuthViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 _error.value = if (isAppCheckUnavailable(e)) {
-                    context.getString(R.string.auth_error_device_verification)
+                    context.getString(fm.corus.android.localization.CorusStrings.auth_error_device_verification)
                 } else {
-                    context.getString(R.string.auth_error_invalid_code)
+                    context.getString(fm.corus.android.localization.CorusStrings.auth_error_invalid_code)
                 }
             }
             _isLoading.value = false
@@ -620,7 +621,7 @@ class AuthViewModel @Inject constructor(
                 )
                 _authState.value = AuthState.NeedsSocialSetup
             } catch (e: Exception) {
-                _error.value = context.getString(R.string.auth_error_generic)
+                _error.value = context.getString(fm.corus.android.localization.CorusStrings.auth_error_generic)
             }
             _isLoading.value = false
         }
@@ -737,19 +738,19 @@ class AuthViewModel @Inject constructor(
         apple: Boolean = false,
     ): String = when (kind) {
         AuthSignupErrorKind.DeviceVerification ->
-            context.getString(R.string.auth_error_device_verification)
+            context.getString(fm.corus.android.localization.CorusStrings.auth_error_device_verification)
         AuthSignupErrorKind.EmailOtpRateLimited ->
-            context.getString(R.string.auth_error_email_otp_rate_limited)
+            context.getString(fm.corus.android.localization.CorusStrings.auth_error_too_many_requests)
         AuthSignupErrorKind.EmailOtpUnavailable ->
-            context.getString(R.string.auth_error_email_otp_unavailable)
+            context.getString(fm.corus.android.localization.CorusStrings.auth_error_email_otp_unavailable)
         AuthSignupErrorKind.AccountSuspended ->
-            context.getString(R.string.auth_error_account_suspended)
+            context.getString(fm.corus.android.localization.CorusStrings.auth_error_account_suspended)
         AuthSignupErrorKind.InvalidCode ->
-            context.getString(R.string.auth_error_invalid_code)
+            context.getString(fm.corus.android.localization.CorusStrings.auth_error_invalid_code)
         AuthSignupErrorKind.Generic -> when {
-            google -> context.getString(R.string.auth_google_signin_error)
-            apple -> context.getString(R.string.auth_apple_signin_error)
-            else -> context.getString(R.string.auth_error_generic)
+            google -> context.getString(fm.corus.android.localization.CorusStrings.auth_google_signin_error)
+            apple -> context.getString(fm.corus.android.localization.CorusStrings.auth_apple_signin_error)
+            else -> context.getString(fm.corus.android.localization.CorusStrings.auth_error_generic)
         }
     }
 
@@ -813,12 +814,12 @@ class AuthViewModel @Inject constructor(
                     !email.isNullOrBlank() ->
                         _needsReauth.tryEmit("email")
                     else ->
-                        _error.value = context.getString(R.string.settings_reauth_signout_prompt)
+                        _error.value = context.getString(fm.corus.android.localization.CorusStrings.settings_reauth_signout_prompt)
                 }
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "deleteAccount failed", e)
                 _isDeletingAccount.value = false
-                _error.value = context.getString(R.string.auth_error_delete_account)
+                _error.value = context.getString(fm.corus.android.localization.CorusStrings.auth_error_delete_account)
             }
         }
     }
@@ -833,7 +834,7 @@ class AuthViewModel @Inject constructor(
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "reauthenticateAndDelete failed", e)
                 _isDeletingAccount.value = false
-                _error.value = context.getString(R.string.auth_error_delete_account)
+                _error.value = context.getString(fm.corus.android.localization.CorusStrings.auth_error_delete_account)
             }
         }
     }
@@ -873,7 +874,7 @@ class AuthViewModel @Inject constructor(
                             } catch (e: Exception) {
                                 Log.e("AuthViewModel", "auto phone reauth+delete failed", e)
                                 _isDeletingAccount.value = false
-                                _error.value = context.getString(R.string.auth_error_delete_account)
+                                _error.value = context.getString(fm.corus.android.localization.CorusStrings.auth_error_delete_account)
                             }
                         }
                     }
@@ -881,7 +882,7 @@ class AuthViewModel @Inject constructor(
                     override fun onVerificationFailed(e: FirebaseException) {
                         Log.e("AuthViewModel", "phone reauth verification failed", e)
                         _isDeletingAccount.value = false
-                        _error.value = context.getString(R.string.auth_error_could_not_send_code)
+                        _error.value = context.getString(fm.corus.android.localization.CorusStrings.auth_error_could_not_send_code)
                     }
                 },
             )
@@ -905,7 +906,7 @@ class AuthViewModel @Inject constructor(
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "verifyPhoneReauthAndDelete failed", e)
                 _isDeletingAccount.value = false
-                _error.value = context.getString(R.string.auth_error_invalid_phone_reauth_code)
+                _error.value = context.getString(fm.corus.android.localization.CorusStrings.auth_error_invalid_phone_reauth_code)
             }
         }
     }
@@ -953,7 +954,7 @@ class AuthViewModel @Inject constructor(
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "verifyEmailReauthAndDelete failed", e)
                 _isDeletingAccount.value = false
-                _error.value = context.getString(R.string.auth_error_invalid_code)
+                _error.value = context.getString(fm.corus.android.localization.CorusStrings.auth_error_invalid_code)
             }
         }
     }

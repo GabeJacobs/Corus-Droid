@@ -119,6 +119,8 @@ platform :android do
   lane :production do |options|
     version_code = options[:version_code].to_s.strip
     json_key = ENV["SUPPLY_JSON_KEY"].to_s
+    rollout = options[:rollout] ? Float(options[:rollout]) : 1.0
+    UI.user_error!("rollout must be greater than 0 and at most 1") unless rollout > 0 && rollout <= 1
 
     UI.user_error!("Pass the approved internal version_code") if version_code.empty?
     UI.user_error!("Set SUPPLY_JSON_KEY to the Play service-account JSON file") if json_key.empty?
@@ -136,7 +138,8 @@ platform :android do
       json_key: json_key,
       track: "internal",
       track_promote_to: "production",
-      track_promote_release_status: "completed",
+      track_promote_release_status: rollout < 1 ? "inProgress" : "completed",
+      rollout: rollout.to_s,
       skip_upload_apk: true,
       skip_upload_aab: true,
       skip_upload_metadata: true,
@@ -144,6 +147,6 @@ platform :android do
       skip_upload_screenshots: true
     )
 
-    UI.success("Promoted Corus version code #{version_code} from internal testing to production")
+    UI.success("Promoted Corus version code #{version_code} from internal testing to production at #{rollout * 100}%")
   end
 end

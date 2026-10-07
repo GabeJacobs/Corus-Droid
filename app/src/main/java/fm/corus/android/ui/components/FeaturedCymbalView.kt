@@ -289,7 +289,7 @@ fun FeaturedCymbalView(
             ) {
                 Icon(
                     imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = stringResource(R.string.featured_cd_like),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.comment_like_action),
                     tint = if (isLiked) CorusColors.Like else CorusColors.Secondary,
                     modifier = Modifier.size(20.dp),
                 )
@@ -339,7 +339,7 @@ fun FeaturedCymbalView(
                 }
                 Image(
                     painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(displayedService)),
-                    contentDescription = stringResource(R.string.featured_cd_play_spotify),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.featured_cd_play_spotify),
                     modifier = Modifier
                         .size(21.dp)
                         .clickable(onClick = onSpotifyTap),

@@ -26,6 +26,7 @@
          Stories and WhatsApp buttons would silently never appear. -->
     <queries>
         <package android:name="com.instagram.android" />
+        <package android:name="com.twitter.android" />
         <package android:name="com.whatsapp" />
         <package android:name="com.spotify.music" />
     </queries>
@@ -71,11 +72,6 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.Corus"
             android:windowSoftInputMode="adjustResize">
-
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
 
             <!-- Deep link: corus:// -->
             <intent-filter>
@@ -134,6 +130,43 @@
                 <data android:path="/settings/club" />
             </intent-filter>
         </activity>
+
+        <!-- A launcher alias must not host the open app: disabling that alias
+             finishes its activity even with DONT_KILL_APP. Hand off immediately
+             to the stable MainActivity before the user can change icons. -->
+        <activity
+            android:name=".LauncherActivity"
+            android:exported="false"
+            android:noHistory="true"
+            android:relinquishTaskIdentity="true"
+            android:theme="@android:style/Theme.NoDisplay" />
+
+        <activity-alias
+            android:name=".DefaultLauncher"
+            android:targetActivity=".LauncherActivity"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".CorusBlueLauncher"
+            android:targetActivity=".LauncherActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_blue"
+            android:roundIcon="@mipmap/ic_launcher_blue_round"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <!-- TIDAL OAuth login (hosts the TIDAL web login, captures the
              corus://tidal-auth redirect for client-side playlist creation). -->

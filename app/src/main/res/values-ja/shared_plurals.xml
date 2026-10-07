@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <plurals name="song_detail_like_all_title"><item quantity="one">"%1$d件の投稿にいいねしますか？"</item><item quantity="other">"%1$d件の投稿にいいねしますか？"</item></plurals>
+    <plurals name="taste_discovery_remaining"><item quantity="one">"好みが合う人があと%1$d人います"</item><item quantity="other">"好みが合う人があと%1$d人います"</item></plurals>
+</resources>

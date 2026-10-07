@@ -125,6 +125,11 @@ class AnalyticsService @Inject constructor(
         ),
     )
 
+    fun logGiftEvent(action: String, source: String, giftType: String? = null,
+                     hasNote: Boolean? = null, available: Int? = null, capacity: Int? = null,
+                     result: String? = null, errorCode: String? = null) =
+        logEvent("gift_event", GiftAnalytics.params(action, source, giftType, hasNote, available, capacity, result, errorCode))
+
     // MARK: - Screen Tracking
 
     fun logScreenView(screen: String) = logEvent("screen_view", mapOf("screen_name" to screen))

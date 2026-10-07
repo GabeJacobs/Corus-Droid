@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="corus_native_400157a33bff">"与你品味最相投的人"</string>
+    <string name="corus_native_de09e9efb9a5">"你们都喜欢"</string>
+    <string name="corus_onboarding_corus_stars">"CORUS之星"</string>
+    <plurals name="corus_onboarding_follow_remaining"><item quantity="one">"再关注%1$d人"</item><item quantity="other">"再关注%1$d人"</item></plurals>
+    <plurals name="corus_onboarding_follow_required"><item quantity="one">"关注%1$d人"</item><item quantity="other">"关注%1$d人"</item></plurals>
+    <plurals name="corus_onboarding_follow_requirement_subtitle"><item quantity="one">"关注%1$d人，开启你的动态。"</item><item quantity="other">"关注%1$d人，开启你的动态。"</item></plurals>
+    <string name="corus_onboarding_more_taste_matches">"更多与你品味相似的人"</string>
+    <string name="corus_onboarding_see_all_taste_matches">"查看全部%1$d位品味相似的人"</string>
+</resources>

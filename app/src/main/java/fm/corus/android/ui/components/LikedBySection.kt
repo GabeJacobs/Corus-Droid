@@ -110,8 +110,8 @@ fun LikedBySection(
 
         Spacer(modifier = Modifier.width(CorusSpacing.xs))
 
-        val prefix = stringResource(R.string.post_card_liked_by_prefix)
-        val andConnector = stringResource(R.string.post_card_liked_by_and)
+        val prefix = stringResource(fm.corus.android.localization.CorusStrings.post_card_liked_by_prefix)
+        val andConnector = stringResource(fm.corus.android.localization.CorusStrings.post_card_liked_by_and)
         val othersText = if (likeCount > 1) {
             pluralStringResource(R.plurals.post_card_others_count, likeCount - 1, likeCount - 1)
         } else null

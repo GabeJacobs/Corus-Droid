@@ -79,7 +79,7 @@ internal fun FullScreenPhotoViewer(
             var loadFailed by remember { mutableStateOf(false) }
             var imageAspect by remember { mutableFloatStateOf(0f) }
 
-            val closeLabel = stringResource(R.string.full_screen_image_cd_close)
+            val closeLabel = stringResource(fm.corus.android.localization.CorusStrings.concert_close)
             val view = LocalView.current
             DisposableEffect(Unit) {
                 val window = (view.context as? Activity)?.window
@@ -208,7 +208,7 @@ internal fun FullScreenPhotoViewer(
                         model = p.url,
                         contentDescription = p.subjectName
                             ?.let { stringResource(R.string.photo_viewer_photo_of, it) }
-                            ?: stringResource(R.string.photo_viewer_photo),
+                            ?: stringResource(fm.corus.android.localization.CorusStrings.thread_photo),
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Fit,
                         onState = { state ->
@@ -243,7 +243,7 @@ internal fun FullScreenPhotoViewer(
                 }
                 if (loadFailed) {
                     Text(
-                        text = stringResource(R.string.photo_viewer_error),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.photo_viewer_error),
                         style = CorusFont.body,
                         color = Color.White.copy(alpha = 0.7f),
                         modifier = Modifier

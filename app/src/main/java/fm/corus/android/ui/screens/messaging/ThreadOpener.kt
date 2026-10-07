@@ -101,7 +101,7 @@ fun ThreadOpener(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = stringResource(id = R.string.messaging_thread_view_profile),
+                text = stringResource(id = fm.corus.android.localization.CorusStrings.thread_view_profile),
                 style = CorusFont.button,
                 color = CorusColors.Secondary,
             )

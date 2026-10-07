@@ -41,7 +41,6 @@ import fm.corus.android.ui.screens.settings.MutedUsersScreen
 import fm.corus.android.ui.screens.settings.ChangePhoneNumberScreen
 import fm.corus.android.ui.screens.settings.ChangeUsernameScreen
 import fm.corus.android.ui.screens.settings.FeedbackFormScreen
-import fm.corus.android.ui.screens.search.BotListScreen
 import fm.corus.android.ui.screens.search.SearchScreen
 import fm.corus.android.ui.screens.search.ConcertsScreen
 import fm.corus.android.ui.screens.search.ConcertDetailScreen
@@ -131,7 +130,7 @@ private fun rememberUserRepository(): UserRepository {
 private fun rememberNavigateToUserByUsername(navController: NavHostController): (String) -> Unit {
     val scope = rememberCoroutineScope()
     val userRepository = rememberUserRepository()
-    val unavailable = stringResource(R.string.other_profile_unavailable_title)
+    val unavailable = stringResource(fm.corus.android.localization.CorusStrings.other_profile_unavailable_title)
     return { username ->
         scope.launch {
             val user = userRepository.fetchUserByUsername(username)
@@ -977,7 +976,7 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
 
     composable<EditCaptionRoute> { backStackEntry ->
         val route = backStackEntry.toRoute<EditCaptionRoute>()
-        val captionUpdatedMsg = stringResource(fm.corus.android.R.string.nav_toast_caption_updated)
+        val captionUpdatedMsg = stringResource(fm.corus.android.localization.CorusStrings.nav_toast_caption_updated)
         EditCaptionSheet(
             postId = route.postId,
             initialCaption = route.initialCaption,
@@ -1007,6 +1006,14 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onSendFeedback = { navController.navigate(FeedbackFormRoute) },
             onNotificationSettings = { navController.navigate(NotificationSettingsRoute) },
             onSyncContacts = { navController.navigate(SyncContactsSettingsRoute) },
+            onAppIcon = { navController.navigate(AppIconSettingsRoute) },
+        )
+    }
+
+    composable<AppIconSettingsRoute> {
+        fm.corus.android.ui.screens.settings.AppIconSettingsScreen(
+            onBack = { navController.safePopBackStack() },
+            onUnlock = { navController.navigate(CymbalClubOfferRoute("SETTINGS")) },
         )
     }
 
@@ -1127,15 +1134,6 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onNavigateToArtist = { route -> navController.navigate(route) },
             onNavigateToAlbum = { albumRoute -> navController.navigate(albumRoute) },
             onNavigateToDirector = { route -> navController.navigate(route) },
-        )
-    }
-
-    composable<BotListRoute> { backStackEntry ->
-        val route = backStackEntry.toRoute<BotListRoute>()
-        BotListScreen(
-            botType = route.botType,
-            onBack = { navController.safePopBackStack() },
-            onNavigateToUser = { user -> navController.navigate(user.toOtherProfileRoute()) },
         )
     }
 

@@ -161,13 +161,14 @@ internal fun TasteOnboardingFlow(
     // fired the system dialog on the music-service step, which is now #2).
     val context = LocalContext.current
     val finishFlow: () -> Unit = {
-        viewModel.logFollowFriendsOnboardingCompleted()
-        viewModel.applyPostOnboardingFeedDefault()
-        if (PushNotificationPermission.shouldRequestPushPermission(context)) {
-            step = TasteStep.NOTIFICATIONS
-        } else {
-            viewModel.markPushPermissionRequested()
-            onFinished()
+        viewModel.logFollowFriendsOnboardingCompleted {
+            viewModel.applyPostOnboardingFeedDefault()
+            if (PushNotificationPermission.shouldRequestPushPermission(context)) {
+                step = TasteStep.NOTIFICATIONS
+            } else {
+                viewModel.markPushPermissionRequested()
+                onFinished()
+            }
         }
     }
 
@@ -180,7 +181,7 @@ internal fun TasteOnboardingFlow(
             // is a one-line transition change; flag-off keeps today's
             // contacts step untouched.
             onFinished = { step = TasteStep.TASTE_INTRO },
-            ctaLabelRes = R.string.onboarding_cta_continue,
+            ctaLabelRes = fm.corus.android.localization.CorusStrings.onboarding_cta_continue,
         )
         // Quiz skippers gave no taste signal — grab the contacts signal
         // instead (product decision 07-16). All outcomes advance to
@@ -188,7 +189,7 @@ internal fun TasteOnboardingFlow(
         TasteStep.SYNC_CONTACTS -> SyncContactsScreen(
             viewModel = viewModel,
             onContinue = { step = TasteStep.SUGGESTIONS },
-            titleRes = R.string.onboarding_sync_contacts_title,
+            titleRes = fm.corus.android.localization.CorusStrings.onboarding_sync_contacts_title,
         )
         TasteStep.TASTE_INTRO -> {
             // Warm the trending caches while the venn intro plays so the
@@ -285,7 +286,7 @@ private fun TasteIntroScreen(
         Spacer(modifier = Modifier.height(80.dp))
 
         Text(
-            stringResource(R.string.onboarding_taste_intro_title),
+            stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_intro_title),
             style = CorusFont.appTitle,
             color = CorusColors.Text,
             textAlign = TextAlign.Center,
@@ -300,7 +301,7 @@ private fun TasteIntroScreen(
         Spacer(modifier = Modifier.height(28.dp))
 
         Text(
-            stringResource(R.string.onboarding_taste_intro_body),
+            stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_intro_body),
             style = CorusFont.body,
             color = CorusColors.Secondary,
             textAlign = TextAlign.Center,
@@ -308,7 +309,7 @@ private fun TasteIntroScreen(
         )
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
         Text(
-            stringResource(R.string.onboarding_taste_intro_duration),
+            stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_intro_duration),
             style = CorusFont.caption,
             color = CorusColors.Tertiary,
             textAlign = TextAlign.Center,
@@ -324,14 +325,14 @@ private fun TasteIntroScreen(
             colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
         ) {
             Text(
-                stringResource(R.string.onboarding_taste_intro_cta),
+                stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_intro_cta),
                 style = CorusFont.button,
                 color = Color.White,
             )
         }
         TextButton(onClick = onSkip) {
             Text(
-                stringResource(R.string.onboarding_taste_do_it_later),
+                stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_do_it_later),
                 style = CorusFont.caption,
                 color = CorusColors.Tertiary,
             )
@@ -372,14 +373,14 @@ private fun VennSearchingScreen(
         )
         Spacer(modifier = Modifier.height(CorusSpacing.xxl))
         Text(
-            stringResource(R.string.onboarding_taste_searching_title),
+            stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_searching_title),
             style = CorusFont.bodyMedium,
             color = CorusColors.Text,
             textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(CorusSpacing.xs))
         Text(
-            stringResource(R.string.onboarding_taste_searching_body),
+            stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_searching_body),
             style = CorusFont.caption,
             color = CorusColors.Secondary,
             textAlign = TextAlign.Center,
@@ -440,7 +441,7 @@ private fun TasteQuizScreen(
         Spacer(modifier = Modifier.height(60.dp))
 
         Text(
-            stringResource(R.string.onboarding_taste_intro_title),
+            stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_intro_title),
             style = CorusFont.appTitle,
             color = CorusColors.Text,
             textAlign = TextAlign.Center,
@@ -468,7 +469,7 @@ private fun TasteQuizScreen(
             ) {
                 Column {
                     Text(
-                        stringResource(R.string.onboarding_taste_quiz_question),
+                        stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_quiz_question),
                         style = CorusFont.screenTitle,
                         color = CorusColors.Text,
                         textAlign = TextAlign.Center,
@@ -478,7 +479,7 @@ private fun TasteQuizScreen(
                     )
                     Spacer(modifier = Modifier.height(CorusSpacing.xs))
                     Text(
-                        stringResource(R.string.onboarding_taste_quiz_instruction),
+                        stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_quiz_instruction),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                         textAlign = TextAlign.Center,
@@ -499,7 +500,7 @@ private fun TasteQuizScreen(
                     .padding(horizontal = CorusSpacing.xxl)
                     .focusRequester(searchFocus)
                     .onFocusChanged { searchFocused = it.isFocused },
-                placeholderRes = R.string.onboarding_taste_search_placeholder,
+                placeholderRes = fm.corus.android.localization.CorusStrings.onboarding_taste_search_placeholder,
             )
 
             val browsing = searchFocused && !searching
@@ -509,9 +510,9 @@ private fun TasteQuizScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm, Alignment.CenterHorizontally),
                 ) {
-                    QuizFilterChip(stringResource(R.string.onboarding_taste_chip_all), filter == QuizFilter.ALL) { filter = QuizFilter.ALL }
-                    QuizFilterChip(stringResource(R.string.onboarding_taste_chip_music), filter == QuizFilter.MUSIC) { filter = QuizFilter.MUSIC }
-                    QuizFilterChip(stringResource(R.string.onboarding_taste_chip_film), filter == QuizFilter.FILM) { filter = QuizFilter.FILM }
+                    QuizFilterChip(stringResource(fm.corus.android.localization.CorusStrings.concert_tab_all), filter == QuizFilter.ALL) { filter = QuizFilter.ALL }
+                    QuizFilterChip(stringResource(fm.corus.android.localization.CorusStrings.search_tab_music), filter == QuizFilter.MUSIC) { filter = QuizFilter.MUSIC }
+                    QuizFilterChip(stringResource(fm.corus.android.localization.CorusStrings.film_category), filter == QuizFilter.FILM) { filter = QuizFilter.FILM }
                 }
                 Spacer(modifier = Modifier.height(CorusSpacing.md))
             }
@@ -578,14 +579,14 @@ private fun TasteQuizScreen(
                 ),
             ) {
                 Text(
-                    stringResource(R.string.onboarding_taste_find_matches_cta),
+                    stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_find_matches_cta),
                     style = CorusFont.button,
                     color = Color.White,
                 )
             }
             TextButton(onClick = onSkip) {
                 Text(
-                    stringResource(R.string.onboarding_taste_do_it_later),
+                    stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_do_it_later),
                     style = CorusFont.caption,
                     color = CorusColors.Tertiary,
                 )
@@ -658,9 +659,9 @@ private fun QuizResultsList(
         films.isEmpty() && directors.isEmpty()
     if (nothingVisible) {
         val messageRes = when {
-            !results.isEmpty && filter == QuizFilter.MUSIC -> R.string.onboarding_taste_no_results_music
-            !results.isEmpty && filter == QuizFilter.FILM -> R.string.onboarding_taste_no_results_film
-            else -> R.string.onboarding_taste_no_results
+            !results.isEmpty && filter == QuizFilter.MUSIC -> fm.corus.android.localization.CorusStrings.onboarding_taste_no_results_music
+            !results.isEmpty && filter == QuizFilter.FILM -> fm.corus.android.localization.CorusStrings.onboarding_taste_no_results_film
+            else -> fm.corus.android.localization.CorusStrings.onboarding_taste_no_results
         }
         Text(
             stringResource(messageRes),
@@ -676,7 +677,7 @@ private fun QuizResultsList(
         contentPadding = PaddingValues(bottom = CorusSpacing.xxl),
     ) {
         if (artists.isNotEmpty()) {
-            item(key = "header-artists") { QuizSectionLabel(stringResource(R.string.onboarding_taste_section_artists)) }
+            item(key = "header-artists") { QuizSectionLabel(stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_section_artists)) }
             items(artists.size, key = { "artist-${artists[it].id}" }) { i ->
                 val artist = artists[i]
                 QuizResultRow(
@@ -684,7 +685,7 @@ private fun QuizResultsList(
                     circleImage = true,
                     fallbackInitial = artist.name,
                     title = artist.name,
-                    subtitle = stringResource(R.string.onboarding_taste_row_artist),
+                    subtitle = stringResource(fm.corus.android.localization.CorusStrings.profile_artist_fallback),
                     added = "artist:${artist.id}" in pickIds,
                     enabled = !atMax,
                     onAdd = {
@@ -695,7 +696,7 @@ private fun QuizResultsList(
             }
         }
         if (albums.isNotEmpty()) {
-            item(key = "header-albums") { QuizSectionLabel(stringResource(R.string.onboarding_taste_section_albums)) }
+            item(key = "header-albums") { QuizSectionLabel(stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_section_albums)) }
             items(albums.size, key = { "album-${albums[it].id}" }) { i ->
                 val album = albums[i]
                 QuizResultRow(
@@ -716,7 +717,7 @@ private fun QuizResultsList(
             }
         }
         if (songs.isNotEmpty()) {
-            item(key = "header-songs") { QuizSectionLabel(stringResource(R.string.onboarding_taste_section_songs)) }
+            item(key = "header-songs") { QuizSectionLabel(stringResource(fm.corus.android.localization.CorusStrings.search_tab_songs)) }
             items(songs.size, key = { "song-${songs[it].id}" }) { i ->
                 val song = songs[i]
                 QuizResultRow(
@@ -735,7 +736,7 @@ private fun QuizResultsList(
             }
         }
         if (films.isNotEmpty()) {
-            item(key = "header-films") { QuizSectionLabel(stringResource(R.string.onboarding_taste_section_films)) }
+            item(key = "header-films") { QuizSectionLabel(stringResource(fm.corus.android.localization.CorusStrings.search_tab_films)) }
             items(films.size, key = { "film-${films[it].id}" }) { i ->
                 val film = films[i]
                 QuizResultRow(
@@ -756,7 +757,7 @@ private fun QuizResultsList(
             }
         }
         if (directors.isNotEmpty()) {
-            item(key = "header-directors") { QuizSectionLabel(stringResource(R.string.onboarding_taste_section_directors)) }
+            item(key = "header-directors") { QuizSectionLabel(stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_section_directors)) }
             items(directors.size, key = { "director-${directors[it].id}" }) { i ->
                 val director = directors[i]
                 QuizResultRow(
@@ -764,7 +765,7 @@ private fun QuizResultsList(
                     circleImage = true,
                     fallbackInitial = director.name,
                     title = director.name,
-                    subtitle = stringResource(R.string.onboarding_taste_row_director),
+                    subtitle = stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_row_director),
                     added = "director:${director.id}" in pickIds,
                     enabled = !atMax,
                     onAdd = {
@@ -824,7 +825,7 @@ private fun QuizBrowseList(
         }
         if (filter != QuizFilter.FILM && artists.isNotEmpty()) {
             item(key = "header-popular-artists") {
-                QuizSectionLabel(stringResource(R.string.onboarding_taste_popular_artists))
+                QuizSectionLabel(stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_popular_artists))
             }
             items(artists.size, key = { "popular-artist-${artists[it].id}" }) { i ->
                 val artist = artists[i]
@@ -833,7 +834,7 @@ private fun QuizBrowseList(
                     circleImage = true,
                     fallbackInitial = artist.artistName,
                     title = artist.artistName,
-                    subtitle = stringResource(R.string.onboarding_taste_row_artist),
+                    subtitle = stringResource(fm.corus.android.localization.CorusStrings.profile_artist_fallback),
                     added = "artist:${artist.id}" in pickIds,
                     enabled = !atMax,
                     onAdd = {
@@ -846,7 +847,7 @@ private fun QuizBrowseList(
         }
         if (filter != QuizFilter.MUSIC && films.isNotEmpty()) {
             item(key = "header-popular-films") {
-                QuizSectionLabel(stringResource(R.string.onboarding_taste_popular_films))
+                QuizSectionLabel(stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_popular_films))
             }
             items(films.size, key = { "popular-film-${films[it].movieId}" }) { i ->
                 val movie = films[i]
@@ -1065,7 +1066,7 @@ private fun QuizPicksTray(
                 ) {
                     Icon(
                         Icons.Filled.Add,
-                        contentDescription = stringResource(R.string.onboarding_taste_cd_add_another),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_add_another_aria),
                         tint = CorusColors.Tertiary,
                         modifier = Modifier.size(16.dp),
                     )
@@ -1080,7 +1081,7 @@ private fun QuizPicksTray(
                 CountRollIn {
                     Text(
                         if (picks.size >= 3) {
-                            stringResource(R.string.onboarding_taste_nice_taste)
+                            stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_nice_taste)
                         } else {
                             pluralStringResource(
                                 R.plurals.onboarding_taste_pick_more,
@@ -1218,7 +1219,7 @@ private fun IdleEmptySlot(onTap: () -> Unit) {
     ) {
         Icon(
             Icons.Filled.Add,
-            contentDescription = stringResource(R.string.onboarding_taste_cd_slot_search),
+            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_slot_search_aria),
             tint = CorusColors.Tertiary,
             modifier = Modifier.size(20.dp),
         )
@@ -1269,6 +1270,7 @@ private fun TasteSuggestionsScreen(
     val previewSheetIsLoadingMore by viewModel.previewSheetIsLoadingMore.collectAsState()
     val previewSheetHasMore by viewModel.previewSheetHasMore.collectAsState()
     val keyboardController = LocalSoftwareKeyboardController.current
+    val isFinishing by viewModel.isFinishing.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.loadVennAvatarsIfNeeded()
@@ -1288,6 +1290,19 @@ private fun TasteSuggestionsScreen(
     }
     if (picks.isNotEmpty() && (!dwellDone || matches == null)) {
         VennSearchingScreen(picks = picks, avatars = vennAvatars)
+        return
+    }
+
+    val followSession by viewModel.onboardingFollowSession.collectAsState()
+    LaunchedEffect(Unit) { viewModel.prepareOnboardingFollowMeasurement(matches?.users?.size ?: 0) }
+    if (followSession == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        return
+    }
+    LaunchedEffect(followSession?.id) { viewModel.exposeOnboardingFollowMeasurement() }
+
+    if (followSession?.usesRevisedSuggestions == true) {
+        RevisedTasteSuggestionsScreen(viewModel, onBack, onContinue)
         return
     }
 
@@ -1311,7 +1326,7 @@ private fun TasteSuggestionsScreen(
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.onboarding_taste_cd_back),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_back_to_quiz_aria),
                 tint = CorusColors.Secondary,
             )
         }
@@ -1321,7 +1336,7 @@ private fun TasteSuggestionsScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                stringResource(R.string.social_setup_curate_title),
+                stringResource(fm.corus.android.localization.CorusStrings.social_setup_curate_title),
                 style = CorusFont.appTitle,
                 color = CorusColors.Text,
                 modifier = Modifier.fillMaxWidth(),
@@ -1329,7 +1344,7 @@ private fun TasteSuggestionsScreen(
             )
             Spacer(modifier = Modifier.height(CorusSpacing.sm))
             Text(
-                stringResource(R.string.onboarding_suggestions_subtitle),
+                stringResource(fm.corus.android.localization.CorusStrings.onboarding_suggestions_subtitle),
                 style = CorusFont.body,
                 color = CorusColors.Secondary,
                 modifier = Modifier.fillMaxWidth(),
@@ -1371,7 +1386,7 @@ private fun TasteSuggestionsScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             Text(
-                                stringResource(R.string.search_no_users_found),
+                                stringResource(fm.corus.android.localization.CorusStrings.parity_612eb3c64c41),
                                 style = CorusFont.bodyMedium,
                                 color = CorusColors.Secondary,
                             )
@@ -1405,12 +1420,12 @@ private fun TasteSuggestionsScreen(
                         Column(modifier = Modifier.fillMaxWidth()) {
                             if (hasFriendsSection) {
                                 OnboardingSectionHeader(
-                                    title = stringResource(R.string.social_setup_section_friends),
+                                    title = stringResource(fm.corus.android.localization.CorusStrings.social_setup_section_friends),
                                 )
                                 contactMatches.take(5).forEach { user ->
                                     OnboardingUserRow(
                                         user = user,
-                                        subtitle = stringResource(R.string.search_subtitle_from_contacts),
+                                        subtitle = stringResource(fm.corus.android.localization.CorusStrings.search_subtitle_from_contacts),
                                         isFollowed = followedIds.contains(user.id),
                                         onFollow = { viewModel.toggleFollow(user.id) },
                                         onTap = { viewModel.openUserPreview(user) },
@@ -1451,17 +1466,22 @@ private fun TasteSuggestionsScreen(
         ) {
             Button(
                 onClick = onContinue,
+                enabled = !isFinishing,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = CorusSpacing.xxl)
                     .height(CorusSpacing.touchTarget),
                 colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
             ) {
-                Text(
-                    stringResource(R.string.onboarding_cta_continue),
-                    style = CorusFont.button,
-                    color = Color.White,
-                )
+                if (isFinishing) {
+                    CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                } else {
+                    Text(
+                        stringResource(fm.corus.android.localization.CorusStrings.onboarding_cta_continue),
+                        style = CorusFont.button,
+                        color = Color.White,
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(CorusSpacing.lg))
         }
@@ -1471,6 +1491,9 @@ private fun TasteSuggestionsScreen(
     previewSheetUser?.let { sheetUser ->
         UserPreviewSheet(
             user = sheetUser,
+            usesRevisedDesign = viewModel.revisedUserPreviewEnabled,
+            matchData = viewModel.tasteMatches.collectAsState().value?.users
+                ?.firstOrNull { it.user.id == sheetUser.id }?.matchData,
             posts = previewSheetPosts,
             isLoading = previewSheetIsLoading,
             isLoadingMore = previewSheetIsLoadingMore,
@@ -1511,7 +1534,7 @@ private fun TasteMatchesSection(
             )
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
             Text(
-                stringResource(R.string.onboarding_taste_matches_header).uppercase(),
+                stringResource(fm.corus.android.localization.CorusStrings.feed_mode_taste_matches).uppercase(),
                 style = CorusFont.sectionHeader,
                 color = CorusColors.Secondary,
             )
@@ -1581,14 +1604,14 @@ private fun TasteMakerCard(viewModel: SocialSetupViewModel) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            stringResource(R.string.onboarding_taste_maker_title),
+            stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_maker_title),
             style = CorusFont.bodyMedium,
             color = CorusColors.Text,
             textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(CorusSpacing.xs))
         Text(
-            stringResource(R.string.onboarding_taste_maker_body),
+            stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_maker_body),
             style = CorusFont.caption,
             color = CorusColors.Secondary,
             textAlign = TextAlign.Center,
@@ -1625,14 +1648,14 @@ private fun HeadstartScreen(
         Spacer(modifier = Modifier.weight(0.85f))
 
         Text(
-            stringResource(R.string.onboarding_headstart_title),
+            stringResource(fm.corus.android.localization.CorusStrings.onboarding_headstart_title),
             style = CorusFont.appTitle,
             color = CorusColors.Text,
             textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
         Text(
-            stringResource(R.string.onboarding_headstart_subtitle),
+            stringResource(fm.corus.android.localization.CorusStrings.onboarding_headstart_subtitle),
             style = CorusFont.body,
             color = CorusColors.Secondary,
             textAlign = TextAlign.Center,
@@ -1698,7 +1721,7 @@ private fun HeadstartScreen(
         }
         TextButton(onClick = onDone, enabled = !isPosting) {
             Text(
-                stringResource(R.string.onboarding_headstart_start_fresh),
+                stringResource(fm.corus.android.localization.CorusStrings.onboarding_headstart_start_fresh),
                 style = CorusFont.caption,
                 color = CorusColors.Tertiary,
             )

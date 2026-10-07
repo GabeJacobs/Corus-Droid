@@ -218,16 +218,16 @@ fun FullPlayerScreen(
     var showShareSheet by remember { mutableStateOf(false) }
     val openInLabel = fullPlayerOpenInServiceLabelKey(state.source, musicService)
     val openInServiceTitle = when (openInLabel) {
-        FullPlayerOpenInLabel.OpenSoundCloud -> stringResource(R.string.post_menu_open_soundcloud)
-        FullPlayerOpenInLabel.OpenAudiomack -> stringResource(R.string.post_menu_open_audiomack)
-        FullPlayerOpenInLabel.OpenBandcamp -> stringResource(R.string.post_menu_open_bandcamp)
-        FullPlayerOpenInLabel.OpenTidal -> stringResource(R.string.post_menu_open_tidal)
-        FullPlayerOpenInLabel.OpenDeezer -> stringResource(R.string.post_menu_open_deezer)
+        FullPlayerOpenInLabel.OpenSoundCloud -> stringResource(fm.corus.android.localization.CorusStrings.post_aria_open_soundcloud)
+        FullPlayerOpenInLabel.OpenAudiomack -> stringResource(fm.corus.android.localization.CorusStrings.post_menu_open_audiomack)
+        FullPlayerOpenInLabel.OpenBandcamp -> stringResource(fm.corus.android.localization.CorusStrings.post_menu_open_bandcamp)
+        FullPlayerOpenInLabel.OpenTidal -> stringResource(fm.corus.android.localization.CorusStrings.post_menu_open_tidal)
+        FullPlayerOpenInLabel.OpenDeezer -> stringResource(fm.corus.android.localization.CorusStrings.post_menu_open_deezer)
         is FullPlayerOpenInLabel.PlayIn ->
             stringResource(R.string.post_menu_play_in_service, openInLabel.serviceLabel)
     }
-    val artistNotFoundMsg = stringResource(R.string.song_detail_artist_not_found)
-    val albumNotFoundMsg = stringResource(R.string.song_detail_album_not_found)
+    val artistNotFoundMsg = stringResource(fm.corus.android.localization.CorusStrings.post_toast_artist_not_found)
+    val albumNotFoundMsg = stringResource(fm.corus.android.localization.CorusStrings.post_toast_album_not_found)
     val onGoToArtist = menuPost?.let { post ->
         resolveMenuGoToArtistTap(
             context = context,
@@ -541,7 +541,7 @@ fun FullPlayerScreen(
         }
 
         val bannerText = when {
-            isResolvingDestination -> stringResource(R.string.full_player_resolving_destination)
+            isResolvingDestination -> stringResource(fm.corus.android.localization.CorusStrings.common_loading)
             else -> destinationMissMessage
         }
         if (bannerText != null) {
@@ -581,7 +581,7 @@ fun FullPlayerScreen(
 
     if (showShareSheet && shareTrack != null) {
         val shareSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
-        val songSharedMsg = stringResource(R.string.song_detail_toast_song_sent)
+        val songSharedMsg = stringResource(fm.corus.android.localization.CorusStrings.share_toast_message_sent)
         val recentShareContacts by fullPlayerViewModel.recentShareContacts.collectAsState()
         val shareSearchResults by fullPlayerViewModel.shareSearchResults.collectAsState()
         val isShareSearching by fullPlayerViewModel.isShareSearching.collectAsState()
@@ -678,7 +678,7 @@ private fun FullPlayerTopChrome(
         ) {
             Icon(
                 imageVector = Icons.Rounded.KeyboardArrowDown,
-                contentDescription = stringResource(R.string.full_player_cd_close),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.full_player_cd_close),
                 tint = CorusColors.Text,
                 modifier = Modifier.size(28.dp),
             )
@@ -706,7 +706,7 @@ private fun FullPlayerTopChrome(
             ) {
                 Icon(
                     imageVector = Icons.Filled.MoreVert,
-                    contentDescription = stringResource(R.string.full_player_cd_more),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.full_player_cd_more),
                     tint = CorusColors.Text,
                 )
             }
@@ -726,7 +726,7 @@ private fun FullPlayerTopChrome(
                 )
                 if (showsArtistRow) {
                     DropdownMenuItem(
-                        text = { Text(stringResource(R.string.post_menu_go_to_artist), style = CorusFont.body) },
+                        text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_go_to_artist), style = CorusFont.body) },
                         leadingIcon = {
                             Icon(Icons.Filled.Person, contentDescription = null)
                         },
@@ -738,7 +738,7 @@ private fun FullPlayerTopChrome(
                 }
                 if (showsAlbumRow) {
                     DropdownMenuItem(
-                        text = { Text(stringResource(R.string.post_menu_go_to_album), style = CorusFont.body) },
+                        text = { Text(stringResource(fm.corus.android.localization.CorusStrings.post_kebab_go_to_album), style = CorusFont.body) },
                         leadingIcon = {
                             Icon(Icons.Filled.Album, contentDescription = null)
                         },
@@ -750,7 +750,7 @@ private fun FullPlayerTopChrome(
                 }
                 if (showsShareRow) {
                     DropdownMenuItem(
-                        text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                        text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_share), style = CorusFont.body) },
                         leadingIcon = {
                             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
                         },
@@ -762,7 +762,7 @@ private fun FullPlayerTopChrome(
                 }
                 if (onSendGift != null) {
                     DropdownMenuItem(
-                        text = { Text(stringResource(R.string.gift_send_action), style = CorusFont.body) },
+                        text = { Text(stringResource(fm.corus.android.localization.CorusStrings.gift_send_action), style = CorusFont.body) },
                         leadingIcon = { Icon(Icons.Filled.CardGiftcard, contentDescription = null) },
                         onClick = {
                             menuOpen = false
@@ -771,7 +771,7 @@ private fun FullPlayerTopChrome(
                     )
                 }
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.full_player_queue_title), style = CorusFont.body) },
+                    text = { Text(stringResource(fm.corus.android.localization.CorusStrings.full_player_queue_title), style = CorusFont.body) },
                     leadingIcon = {
                         Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null)
                     },
@@ -952,11 +952,11 @@ private fun FullPlayerTransport(
         haptics.impact(HapticManager.ImpactStyle.LIGHT)
         action()
     }
-    val cancelLoadingLabel = stringResource(R.string.mini_player_cd_cancel_loading)
-    val pauseLabel = stringResource(R.string.full_player_cd_pause)
-    val playLabel = stringResource(R.string.full_player_cd_play)
-    val previousLabel = stringResource(R.string.full_player_cd_previous)
-    val nextLabel = stringResource(R.string.full_player_cd_next)
+    val cancelLoadingLabel = stringResource(fm.corus.android.localization.CorusStrings.mini_player_cd_cancel_loading)
+    val pauseLabel = stringResource(fm.corus.android.localization.CorusStrings.compose_cd_pause)
+    val playLabel = stringResource(fm.corus.android.localization.CorusStrings.voice_note_cd_play)
+    val previousLabel = stringResource(fm.corus.android.localization.CorusStrings.player_previous_track)
+    val nextLabel = stringResource(fm.corus.android.localization.CorusStrings.player_next_track)
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -985,7 +985,7 @@ private fun FullPlayerTransport(
             showsComposeButton -> {
                 // Same glyph as the tab-bar ComposeButton (Icons.Rounded.Add) —
                 // scaled for the 32dp disc (tab uses 25dp in a 40dp circle).
-                val composeCd = stringResource(R.string.full_player_post)
+                val composeCd = stringResource(fm.corus.android.localization.CorusStrings.nav_post)
                 Box(
                     modifier = Modifier
                         .size(44.dp)

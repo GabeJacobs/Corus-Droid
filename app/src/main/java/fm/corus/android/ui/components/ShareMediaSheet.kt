@@ -39,6 +39,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -91,7 +92,11 @@ data class ShareProfileSubject(
     val bio: String? = null,
     val artworkUrls: List<String> = emptyList(),
     val previewVersion: String? = null,
+    val postCount: Int? = null,
+    val featuredMoviePosterUrl: String? = null,
 ) {
+    val isInvitation: Boolean get() = artworkUrls.isEmpty()
+
     /** Enough profile context to draw the light card locally in the share sheet. */
     val hasLocalPreview: Boolean
         get() = !avatarUrl.isNullOrBlank() || artworkUrls.isNotEmpty() || !bio.isNullOrBlank()
@@ -130,6 +135,9 @@ data class ProfileShareAnalytics(
     val onShared: (method: String, cardTheme: ShareCardTheme?) -> Unit,
     val onSheetOpened: () -> Unit,
     val onThemeChanged: (ShareCardTheme) -> Unit,
+    val onV2Event: (Map<String, Any>) -> Unit = {},
+    val onDiscovery: (Map<String, Any>) -> Unit = {},
+    val onBackgroundChanged: (String) -> Unit = {},
 )
 
 private fun logShareMethod(
@@ -245,6 +253,10 @@ private fun OwnProfileShareSheet(
     profileShareAnalytics: ProfileShareAnalytics? = null,
     onAnalyticsLog: ((method: String) -> Unit)? = null,
 ) {
+    if (ProfileShareEligibility.usesV2(profileSharingV2, profile)) {
+        ProfileSharingV2Sheet(profile, instagramShareEnabled, profileShareAnalytics)
+        return
+    }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val isDarkTheme = LocalCorusDarkTheme.current
@@ -258,20 +270,25 @@ private fun OwnProfileShareSheet(
     var storyPreviewBitmap by remember(profile) { mutableStateOf<android.graphics.Bitmap?>(null) }
     var profileStoryShowsBio by remember { mutableStateOf(true) }
     var profileStoryGridSize by remember { mutableStateOf(ProfileStoryGridSize.STANDARD) }
+    var showsInvitationLinkPreview by remember { mutableStateOf(false) }
+    // The original card, controls, events and links remain unchanged below nine.
+    val usesStoryPreview = false
     var profileStoryBackground by remember(isDarkTheme) {
-        mutableStateOf(if (isDarkTheme) ProfileStoryBackground.DARK else ProfileStoryBackground.LIGHT)
+        mutableStateOf(if (profile.isInvitation) ProfileStoryBackground.INVITATION_BLUE else if (isDarkTheme) ProfileStoryBackground.DARK else ProfileStoryBackground.LIGHT)
     }
     var profileOptionsExpanded by remember { mutableStateOf(false) }
+    val invitationPreviewWidth = ((LocalConfiguration.current.screenHeightDp - 380) * 9f / 16f)
+        .coerceIn(144f, 244f).dp
 
     LaunchedEffect(
-        profileSharingV2,
+        usesStoryPreview,
         profile,
         shareCardTheme,
         profileStoryShowsBio,
         profileStoryGridSize,
         profileStoryBackground,
     ) {
-        if (!profileSharingV2) return@LaunchedEffect
+        if (!usesStoryPreview) return@LaunchedEffect
         storyPreviewBitmap = null
         storyPreviewBitmap = generateProfileStoriesCardBitmap(
             context,
@@ -280,6 +297,7 @@ private fun OwnProfileShareSheet(
             showBio = profileStoryShowsBio,
             gridSize = profileStoryGridSize,
             background = profileStoryBackground,
+            profileSharingV2 = usesStoryPreview,
         )
     }
 
@@ -292,11 +310,10 @@ private fun OwnProfileShareSheet(
     }
 
     val shareableLink = "https://corus.fm/u/${profile.username}"
-    val outboundShareLink = if (shareCardTheme == ShareCardTheme.LIGHT) {
-        "$shareableLink?theme=light"
-    } else {
-        shareableLink
-    }
+    val outboundShareLink = android.net.Uri.parse(shareableLink).buildUpon().apply {
+        if (shareCardTheme == ShareCardTheme.LIGHT) appendQueryParameter("theme", "light")
+        if (usesStoryPreview) appendQueryParameter("profile_sharing_v2", "true")
+    }.build().toString()
 
     LaunchedEffect(showCopied) {
         if (showCopied) {
@@ -318,7 +335,7 @@ private fun OwnProfileShareSheet(
     ) {
         ShareSheetDragIndicator()
 
-        if (!profileSharingV2) {
+        if (!usesStoryPreview || profile.isInvitation) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -326,19 +343,33 @@ private fun OwnProfileShareSheet(
                     .padding(bottom = CorusSpacing.sm),
             ) {
                 Text(
-                    stringResource(R.string.share_profile_title),
+                    stringResource(fm.corus.android.localization.CorusStrings.share_profile_title),
                     style = CorusFont.songTitleLarge,
                     color = CorusColors.Text,
                 )
                 Text(
-                    stringResource(R.string.share_profile_subtitle),
+                    stringResource(if (usesStoryPreview && profile.isInvitation && !showsInvitationLinkPreview) fm.corus.android.localization.CorusStrings.instagram_v2_preview_label else fm.corus.android.localization.CorusStrings.share_profile_subtitle),
                     style = CorusFont.caption,
                     color = CorusColors.Secondary,
                 )
             }
         }
 
-        if (!profileSharingV2) {
+        if (usesStoryPreview && profile.isInvitation) {
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = CorusSpacing.xxl).padding(bottom = CorusSpacing.sm),
+            ) {
+                listOf(false, true).forEachIndexed { index, link ->
+                    SegmentedButton(selected = showsInvitationLinkPreview == link,
+                        onClick = { showsInvitationLinkPreview = link },
+                        shape = SegmentedButtonDefaults.itemShape(index, 2)) {
+                        Text(if (link) stringResource(R.string.share_profile_link_preview) else "Instagram", style = CorusFont.bodyMedium)
+                    }
+                }
+            }
+        }
+
+        if (!usesStoryPreview || showsInvitationLinkPreview) {
             SingleChoiceSegmentedButtonRow(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -357,10 +388,10 @@ private fun OwnProfileShareSheet(
             }
         }
 
-        if (profileSharingV2) {
+        if (usesStoryPreview && !showsInvitationLinkPreview) {
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 val previewModifier = Modifier
-                    .width(244.dp)
+                    .width(if (profile.isInvitation) invitationPreviewWidth else 244.dp)
                     .aspectRatio(9f / 16f)
                     .clip(RoundedCornerShape(CorusSpacing.cornerRadiusMedium))
                 Box(modifier = previewModifier) {
@@ -368,7 +399,7 @@ private fun OwnProfileShareSheet(
                     if (bitmap != null) {
                         Image(
                             bitmap = bitmap.asImageBitmap(),
-                            contentDescription = stringResource(R.string.share_profile_instagram_preview_cd),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.instagram_v2_preview),
                             modifier = Modifier.fillMaxSize(),
                         )
                     } else {
@@ -384,7 +415,7 @@ private fun OwnProfileShareSheet(
                         }
                     }
 
-                    Box(
+                    if (!profile.isInvitation || !profile.bio.isNullOrBlank()) Box(
                         modifier = Modifier.align(Alignment.TopEnd).offset(x = 22.dp, y = (-22).dp),
                     ) {
                         Box(
@@ -397,7 +428,7 @@ private fun OwnProfileShareSheet(
                             ) {
                                 Icon(
                                     Icons.Filled.Settings,
-                                    contentDescription = stringResource(R.string.share_profile_options),
+                                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.share_profile_options),
                                     modifier = Modifier.size(15.dp),
                                 )
                             }
@@ -407,7 +438,7 @@ private fun OwnProfileShareSheet(
                             onDismissRequest = { profileOptionsExpanded = false },
                         ) {
                             DropdownMenuItem(
-                                text = { Text(stringResource(R.string.share_profile_show_bio)) },
+                                text = { Text(stringResource(fm.corus.android.localization.CorusStrings.share_profile_show_bio)) },
                                 leadingIcon = { Checkbox(checked = profileStoryShowsBio, onCheckedChange = null) },
                                 onClick = { profileStoryShowsBio = !profileStoryShowsBio },
                             )
@@ -416,21 +447,22 @@ private fun OwnProfileShareSheet(
                 }
             }
 
-            Text(
-                stringResource(R.string.instagram_v2_preview_label),
+            if (!profile.isInvitation) Text(
+                stringResource(fm.corus.android.localization.CorusStrings.instagram_v2_preview_label),
                 style = CorusFont.caption,
                 color = CorusColors.Secondary,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             )
 
-            ProfileStoryGridPicker(
+            if (!profile.isInvitation) ProfileStoryGridPicker(
                 gridSize = profileStoryGridSize,
                 onGridSizeChange = { profileStoryGridSize = it },
                 modifier = Modifier.fillMaxWidth().padding(top = CorusSpacing.xs),
             )
 
             ProfileStoryBackgroundPicker(
+                isInvitation = profile.isInvitation,
                 background = profileStoryBackground,
                 onBackgroundChange = { selected ->
                     profileStoryBackground = selected
@@ -439,8 +471,8 @@ private fun OwnProfileShareSheet(
                 },
                 modifier = Modifier.fillMaxWidth().padding(top = CorusSpacing.xs),
             )
-        } else if (profile.hasLocalPreview) {
-            LocalProfileSharePreviewCard(profile = profile, theme = shareCardTheme)
+        } else if (profile.hasLocalPreview || (usesStoryPreview && profile.isInvitation)) {
+            LocalProfileSharePreviewCard(profile = profile, theme = shareCardTheme, profileSharingV2 = usesStoryPreview)
         } else {
             ShareLinkPreviewCard(
                 shareableLink = shareableLink,
@@ -449,7 +481,10 @@ private fun OwnProfileShareSheet(
             )
         }
 
-        Spacer(modifier = Modifier.height(CorusSpacing.md))
+        if (profileSharingV2) {
+            ProfileCollageTeaser(profile, profileShareAnalytics)
+            Spacer(modifier = Modifier.height(4.dp))
+        } else Spacer(modifier = Modifier.height(CorusSpacing.md))
 
         HorizontalDivider(color = CorusColors.Divider)
 
@@ -479,7 +514,7 @@ private fun OwnProfileShareSheet(
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             clipboard.setPrimaryClip(
                                 ClipData.newPlainText(
-                                    context.getString(R.string.share_post_clip_label),
+                                    context.getString(fm.corus.android.localization.CorusStrings.share_post_clip_label),
                                     shareableLink,
                                 ),
                             )
@@ -488,7 +523,7 @@ private fun OwnProfileShareSheet(
                             val themeToShare = shareCardTheme
                             val showBioToShare = profileStoryShowsBio
                             val gridSizeToShare = profileStoryGridSize
-                            val backgroundToShare = if (profileSharingV2) profileStoryBackground else null
+                            val backgroundToShare = if (usesStoryPreview) profileStoryBackground else null
                             coroutineScope.launch {
                                 shareProfileToInstagramStories(
                                     context,
@@ -497,6 +532,7 @@ private fun OwnProfileShareSheet(
                                     showBio = showBioToShare,
                                     gridSize = gridSizeToShare,
                                     background = backgroundToShare,
+                                    profileSharingV2 = usesStoryPreview,
                                 )
                                 isSharingToInstagram = false
                             }
@@ -507,7 +543,7 @@ private fun OwnProfileShareSheet(
             if (showWhatsApp) {
                 item {
                     ShareActionButton(
-                        label = stringResource(R.string.share_post_whatsapp),
+                        label = stringResource(fm.corus.android.localization.CorusStrings.share_post_whatsapp),
                         painter = painterResource(R.drawable.whatsapp_logo),
                         iconSize = 22.dp,
                         backgroundColor = Color(0xFF25D366),
@@ -535,11 +571,12 @@ private fun OwnProfileShareSheet(
                         profileShareAnalytics = profileShareAnalytics,
                         onAnalyticsLog = onAnalyticsLog,
                     )
-                    shareMediaToX(context, ShareMediaSubject.Profile(profile))
+                    if (profileSharingV2) shareFlaggedProfileLinkToX(context, profile)
+                    else shareMediaToX(context, ShareMediaSubject.Profile(profile))
                 }
             }
             item {
-                ShareActionButton(icon = Icons.Filled.Share, label = stringResource(R.string.share_post_share_link)) {
+                ShareActionButton(icon = Icons.Filled.Share, label = stringResource(fm.corus.android.localization.CorusStrings.share_post_share_link)) {
                     logShareMethod(
                         method = "share_link",
                         cardTheme = shareCardTheme,
@@ -550,13 +587,13 @@ private fun OwnProfileShareSheet(
                         type = "text/plain"
                         putExtra(Intent.EXTRA_TEXT, outboundShareLink)
                     }
-                    context.startActivity(Intent.createChooser(intent, context.getString(R.string.share_post_share_chooser)))
+                    context.startActivity(Intent.createChooser(intent, context.getString(fm.corus.android.localization.CorusStrings.share_post_share_chooser)))
                 }
             }
             item {
                 ShareActionButton(
                     icon = if (showCopied) Icons.Filled.Check else Icons.Filled.ContentCopy,
-                    label = if (showCopied) stringResource(R.string.share_post_copied) else stringResource(R.string.share_post_copy_link),
+                    label = if (showCopied) stringResource(fm.corus.android.localization.CorusStrings.thread_copied) else stringResource(fm.corus.android.localization.CorusStrings.post_menu_copy_link),
                 ) {
                     logShareMethod(
                         method = "copy_link",
@@ -565,7 +602,7 @@ private fun OwnProfileShareSheet(
                         onAnalyticsLog = onAnalyticsLog,
                     )
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.share_post_clip_label), outboundShareLink))
+                    clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(fm.corus.android.localization.CorusStrings.share_post_clip_label), outboundShareLink))
                     showCopied = true
                 }
             }
@@ -593,7 +630,7 @@ private fun OwnProfileShareSheet(
                         modifier = Modifier.size(18.dp),
                     )
                     Text(
-                        stringResource(R.string.share_profile_toast_instagram_link),
+                        stringResource(fm.corus.android.localization.CorusStrings.share_profile_toast_instagram_link),
                         style = CorusFont.bodyMedium,
                         color = CorusColors.Text,
                     )
@@ -650,6 +687,7 @@ private fun ProfileStoryBackgroundPicker(
     background: ProfileStoryBackground,
     onBackgroundChange: (ProfileStoryBackground) -> Unit,
     modifier: Modifier = Modifier,
+    isInvitation: Boolean = false,
 ) {
     Row(
         modifier = modifier
@@ -657,7 +695,9 @@ private fun ProfileStoryBackgroundPicker(
             .padding(horizontal = CorusSpacing.xxl),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        ProfileStoryBackground.entries.forEach { option ->
+        val options = if (isInvitation) listOf(ProfileStoryBackground.INVITATION_BLUE, ProfileStoryBackground.LIGHT, ProfileStoryBackground.DARK)
+            else ProfileStoryBackground.entries.filter { it != ProfileStoryBackground.INVITATION_BLUE }
+        options.forEach { option ->
             Column(
                 modifier = Modifier
                     .widthIn(min = 64.dp)
@@ -686,7 +726,7 @@ private fun ProfileStoryBackgroundPicker(
 }
 
 @Composable
-private fun ShareSheetDragIndicator() {
+internal fun ShareSheetDragIndicator() {
     Box(
         modifier = Modifier
             .padding(top = CorusSpacing.sm, bottom = CorusSpacing.xs)
@@ -790,7 +830,7 @@ private fun RecipientPickerShareMediaSheet(
                 modifier = Modifier
                     .weight(1f)
                     .onFocusChanged { isSearchFocused = it.isFocused },
-                placeholder = { Text(stringResource(R.string.share_post_search_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
+                placeholder = { Text(stringResource(fm.corus.android.localization.CorusStrings.nav_search), style = CorusFont.body, color = CorusColors.Tertiary) },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = CorusColors.Tertiary) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
@@ -798,7 +838,7 @@ private fun RecipientPickerShareMediaSheet(
                             searchQuery = ""
                             onSearchQueryChange("")
                         }) {
-                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.share_post_cd_clear), tint = CorusColors.Tertiary)
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.search_clear_aria), tint = CorusColors.Tertiary)
                         }
                     }
                 },
@@ -823,7 +863,7 @@ private fun RecipientPickerShareMediaSheet(
                     focusManager.clearFocus()
                     keyboardController?.hide()
                 }) {
-                    Text(stringResource(R.string.share_post_cancel), style = CorusFont.bodyMedium, color = CorusColors.Accent)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_cancel), style = CorusFont.bodyMedium, color = CorusColors.Accent)
                 }
             }
         }
@@ -838,7 +878,7 @@ private fun RecipientPickerShareMediaSheet(
             LazyColumn(
                 modifier = Modifier.weight(1f),
             ) {
-                if (isSearching) {
+                if (isSearching && usersToShow.isEmpty()) {
                     item {
                         Box(
                             modifier = Modifier.fillMaxWidth().padding(top = CorusSpacing.xxl),
@@ -854,7 +894,7 @@ private fun RecipientPickerShareMediaSheet(
                 } else if (usersToShow.isEmpty() && hasQuery) {
                     item {
                         Text(
-                            stringResource(R.string.share_post_no_results),
+                            stringResource(fm.corus.android.localization.CorusStrings.share_post_no_results),
                             style = CorusFont.body,
                             color = CorusColors.Secondary,
                             modifier = Modifier.fillMaxWidth().padding(top = CorusSpacing.xxl),
@@ -888,7 +928,7 @@ private fun RecipientPickerShareMediaSheet(
                         .padding(vertical = CorusSpacing.xxl),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(stringResource(R.string.share_post_no_recent), style = CorusFont.caption, color = CorusColors.Secondary)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.share_post_no_recent), style = CorusFont.caption, color = CorusColors.Secondary)
                 }
             } else {
                 LazyVerticalGrid(
@@ -925,7 +965,7 @@ private fun RecipientPickerShareMediaSheet(
                             value = messageText,
                             onValueChange = { messageText = it },
                             modifier = Modifier.weight(1f).onFocusChanged { messageFocused = it.isFocused },
-                            placeholder = { Text(stringResource(R.string.share_post_message_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
+                            placeholder = { Text(stringResource(fm.corus.android.localization.CorusStrings.share_post_message_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
                             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                             singleLine = true,
                             textStyle = CorusFont.body,
@@ -953,7 +993,7 @@ private fun RecipientPickerShareMediaSheet(
                             shape = RoundedCornerShape(50),
                             contentPadding = PaddingValues(horizontal = CorusSpacing.xl, vertical = CorusSpacing.sm),
                         ) {
-                            Text(stringResource(R.string.share_post_send), style = CorusFont.buttonSmall, color = Color.White)
+                            Text(stringResource(fm.corus.android.localization.CorusStrings.thread_send_aria), style = CorusFont.buttonSmall, color = Color.White)
                         }
                     }
                 }
@@ -971,7 +1011,7 @@ private fun RecipientPickerShareMediaSheet(
                     if (showWhatsApp) {
                         item {
                             ShareActionButton(
-                                label = stringResource(R.string.share_post_whatsapp),
+                                label = stringResource(fm.corus.android.localization.CorusStrings.share_post_whatsapp),
                                 painter = painterResource(R.drawable.whatsapp_logo),
                                 iconSize = 22.dp,
                                 backgroundColor = Color(0xFF25D366),
@@ -1001,7 +1041,7 @@ private fun RecipientPickerShareMediaSheet(
                         }
                     }
                     item {
-                        ShareActionButton(icon = Icons.Filled.Share, label = stringResource(R.string.share_post_share_link)) {
+                        ShareActionButton(icon = Icons.Filled.Share, label = stringResource(fm.corus.android.localization.CorusStrings.share_post_share_link)) {
                             logShareMethod(
                                 method = "share_link",
                                 profileShareAnalytics = profileShareAnalytics,
@@ -1011,13 +1051,13 @@ private fun RecipientPickerShareMediaSheet(
                                 type = "text/plain"
                                 putExtra(Intent.EXTRA_TEXT, shareableLink)
                             }
-                            context.startActivity(Intent.createChooser(intent, context.getString(R.string.share_post_share_chooser)))
+                            context.startActivity(Intent.createChooser(intent, context.getString(fm.corus.android.localization.CorusStrings.share_post_share_chooser)))
                         }
                     }
                     item {
                         ShareActionButton(
                             icon = if (showCopied) Icons.Filled.Check else Icons.Filled.ContentCopy,
-                            label = if (showCopied) stringResource(R.string.share_post_copied) else stringResource(R.string.share_post_copy_link),
+                            label = if (showCopied) stringResource(fm.corus.android.localization.CorusStrings.thread_copied) else stringResource(fm.corus.android.localization.CorusStrings.post_menu_copy_link),
                         ) {
                             logShareMethod(
                                 method = "copy_link",
@@ -1025,7 +1065,7 @@ private fun RecipientPickerShareMediaSheet(
                                 onAnalyticsLog = onAnalyticsLog,
                             )
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.share_post_clip_label), shareableLink))
+                            clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(fm.corus.android.localization.CorusStrings.share_post_clip_label), shareableLink))
                             showCopied = true
                         }
                     }

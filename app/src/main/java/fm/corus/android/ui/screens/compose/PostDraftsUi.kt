@@ -61,7 +61,7 @@ fun DraftsSheetContent(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = stringResource(R.string.compose_drafts_title),
+            text = stringResource(fm.corus.android.localization.CorusStrings.compose_drafts_title),
             style = CorusFont.displayName,
             color = CorusColors.Text,
             modifier = Modifier.padding(
@@ -71,7 +71,7 @@ fun DraftsSheetContent(
         )
         if (drafts.isEmpty()) {
             Text(
-                text = stringResource(R.string.compose_drafts_empty),
+                text = stringResource(fm.corus.android.localization.CorusStrings.compose_drafts_empty),
                 style = CorusFont.body,
                 color = CorusColors.Secondary,
                 textAlign = TextAlign.Center,
@@ -105,7 +105,7 @@ fun DraftsSheetContent(
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.Delete,
-                                    contentDescription = stringResource(R.string.compose_draft_delete_aria),
+                                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.compose_draft_delete_aria),
                                     tint = androidx.compose.ui.graphics.Color.White,
                                     modifier = Modifier.size(20.dp),
                                 )
@@ -203,9 +203,9 @@ private fun draftSubtitle(draft: PostDraft, context: android.content.Context): S
     val caption = draft.caption.trim()
     if (caption.isNotEmpty()) return caption
     return if (draft.captionMode == "voice") {
-        context.getString(R.string.compose_draft_voice_note)
+        context.getString(fm.corus.android.localization.CorusStrings.compose_draft_voice_note)
     } else {
-        context.getString(R.string.compose_draft_no_caption)
+        context.getString(fm.corus.android.localization.CorusStrings.compose_draft_no_caption)
     }
 }
 
@@ -228,7 +228,7 @@ fun ExitDraftSheetContent(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Text(
-            text = stringResource(R.string.compose_exit_save_title),
+            text = stringResource(fm.corus.android.localization.CorusStrings.compose_exit_save_title),
             style = CorusFont.caption,
             color = CorusColors.Secondary,
             textAlign = TextAlign.Center,
@@ -238,7 +238,7 @@ fun ExitDraftSheetContent(
         )
         HorizontalDivider(color = CorusColors.Divider)
         ExitRow(
-            label = stringResource(R.string.compose_draft_discard),
+            label = stringResource(fm.corus.android.localization.CorusStrings.compose_draft_discard),
             color = CorusColors.Error,
             enabled = !saving,
             onClick = onDiscard,
@@ -246,9 +246,9 @@ fun ExitDraftSheetContent(
         HorizontalDivider(color = CorusColors.Divider)
         ExitRow(
             label = if (saving) {
-                stringResource(R.string.compose_draft_saving)
+                stringResource(fm.corus.android.localization.CorusStrings.compose_draft_saving)
             } else {
-                stringResource(R.string.compose_draft_save)
+                stringResource(fm.corus.android.localization.CorusStrings.compose_draft_save)
             },
             color = CorusColors.Text,
             enabled = !saving,
@@ -257,7 +257,7 @@ fun ExitDraftSheetContent(
         )
         HorizontalDivider(color = CorusColors.Divider)
         ExitRow(
-            label = stringResource(R.string.compose_draft_cancel),
+            label = stringResource(fm.corus.android.localization.CorusStrings.common_cancel),
             color = CorusColors.Text,
             enabled = !saving,
             onClick = onCancel,

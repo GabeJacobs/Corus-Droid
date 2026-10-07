@@ -18,9 +18,9 @@ import kotlin.math.sin
 import kotlin.math.tan
 import kotlin.random.Random
 
-private enum class RainLayer { FOREGROUND, BACKGROUND }
+internal enum class RainLayer { FOREGROUND, BACKGROUND }
 
-private data class Raindrop(
+internal data class Raindrop(
     var x: Float,
     var y: Float,
     var speed: Float,
@@ -29,7 +29,7 @@ private data class Raindrop(
     var layer: RainLayer,
 )
 
-private data class Splash(
+internal data class Splash(
     val x: Float,
     val y: Float,
     val startTick: Int,
@@ -222,7 +222,7 @@ private fun LightningFlashOverlay(subtle: Boolean) {
     }
 }
 
-private fun createRaindrop(
+internal fun createRaindrop(
     width: Float,
     height: Float,
     intensity: RainIntensity,

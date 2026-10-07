@@ -69,7 +69,7 @@ fun ChromeLoadingHud(visible: Boolean) {
 
 @Composable
 private fun ChromeLoadingHudCard() {
-    val loading = stringResource(R.string.song_detail_resolving)
+    val loading = stringResource(fm.corus.android.localization.CorusStrings.common_loading)
     Surface(
         modifier = Modifier
             .fillMaxSize()

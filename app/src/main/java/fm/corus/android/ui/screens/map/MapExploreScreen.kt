@@ -500,7 +500,7 @@ fun MapExploreScreen(
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Box(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
-                IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart).size(48.dp), colors = IconButtonDefaults.iconButtonColors(containerColor = androidx.compose.ui.graphics.Color.Transparent)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(fm.corus.android.R.string.map_cd_back), modifier = Modifier.size(24.dp)) }
+                IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart).size(48.dp), colors = IconButtonDefaults.iconButtonColors(containerColor = androidx.compose.ui.graphics.Color.Transparent)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(fm.corus.android.localization.CorusStrings.common_back), modifier = Modifier.size(24.dp)) }
                 Text(parityCopy("Map"), style = CorusFont.songTitleLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 IconButton(
                     enabled = !resolvingCity,
@@ -557,7 +557,7 @@ fun MapExploreScreen(
                 Row(Modifier.weight(1f).padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     val sharedCity = state.ownCity?.takeIf { state.ownAudience != "off" }
                     if (sharedCity != null) {
-                        Text("${stringResource(fm.corus.android.R.string.map_sharing_label)} ${sharedCity.cityName}", modifier = Modifier.weight(1f, fill = false), style = CorusFont.captionMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${stringResource(fm.corus.android.localization.CorusStrings.map_sharing_label)} ${sharedCity.cityName}", modifier = Modifier.weight(1f, fill = false), style = CorusFont.captionMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     TextButton(
                         onClick = { audience = model.repository.sheetAudience(state.ownAudience, sharedCity != null); model.repository.event("audience_picker_opened"); dialog = "audience" },
@@ -620,9 +620,9 @@ fun MapExploreScreen(
                     browsingCityId = next.city.cityId
                     citySheetFocusRevision++
                 }
-                IconButton(onClick = { browse(-1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronLeft, stringResource(fm.corus.android.R.string.map_cd_previous_city)) }
+                IconButton(onClick = { browse(-1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronLeft, stringResource(fm.corus.android.localization.CorusStrings.parity_c21c3d0c6b59)) }
                 TextButton(onClick = { openCitySheet(browsingCity) }) { Text(browsingCity.cityName, color = CorusColors.Text, maxLines = 1, modifier = Modifier.widthIn(max = 180.dp)) }
-                IconButton(onClick = { browse(1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronRight, stringResource(fm.corus.android.R.string.map_cd_next_city)) }
+                IconButton(onClick = { browse(1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronRight, stringResource(fm.corus.android.localization.CorusStrings.map_cd_next_city)) }
             }
         }
         if (state.selected == null && state.playing == null && view == "map") Row(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -667,14 +667,14 @@ fun MapExploreScreen(
                             val next = nextMapCitySummary(cities, city.cityId, delta) ?: return
                             openCitySheet(next.city)
                         }
-                        IconButton(onClick = { step(-1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronLeft, stringResource(fm.corus.android.R.string.map_cd_previous_city)) }
+                        IconButton(onClick = { step(-1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronLeft, stringResource(fm.corus.android.localization.CorusStrings.parity_c21c3d0c6b59)) }
                         val peopleCount = cities.firstOrNull { it.city.cityId == city.cityId }?.facets?.get(state.filter)?.count ?: 0
                         val country = java.util.Locale("", city.countryCode).displayCountry.ifBlank { city.countryCode }
                         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(city.cityName, style = CorusFont.bodyMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold), maxLines = 1)
                             Text("${city.regionName}, $country · ${pluralStringResource(fm.corus.android.R.plurals.map_people_count, peopleCount, peopleCount)}", style = CorusFont.caption, color = CorusColors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        IconButton(onClick = { step(1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronRight, stringResource(fm.corus.android.R.string.map_cd_next_city)) }
+                        IconButton(onClick = { step(1) }, enabled = cities.size > 1) { Icon(Icons.Default.ChevronRight, stringResource(fm.corus.android.localization.CorusStrings.map_cd_next_city)) }
                     }
                     Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         // Keep a confirmed chat action visible while a background
@@ -691,17 +691,17 @@ fun MapExploreScreen(
                         items(state.people, key = { it.user.id }) { person ->
                             val post = state.posts[person.user.id]
                             val rowLayout = mapPersonRowLayout(post != null)
-                            Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).clickable(onClickLabel = stringResource(fm.corus.android.R.string.map_cd_view_profile), role = androidx.compose.ui.semantics.Role.Button) { openUser(person.user) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).clickable(onClickLabel = stringResource(fm.corus.android.localization.CorusStrings.thread_view_profile), role = androidx.compose.ui.semantics.Role.Button) { openUser(person.user) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 AsyncImage(model = person.user.avatarThumbURL ?: person.user.avatarURL, contentDescription = null, modifier = Modifier.size(44.dp).clip(CircleShape))
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     UsernameWithFlair(username = person.user.username, isVerified = person.user.isVerified, isClubMember = person.user.isClubMember, flairStyle = person.user.flairStyle, isBot = person.user.isBot, showAtPrefix = true, flairYOffset = (-1).dp, flairSpacing = 2.dp)
                                     if (rowLayout == MapPersonRowLayout.LATEST_POST && post != null) {
-                                        Text(stringResource(fm.corus.android.R.string.map_latest_post), style = CorusFont.caption, color = CorusColors.Secondary)
+                                        Text(stringResource(fm.corus.android.localization.CorusStrings.map_latest_post), style = CorusFont.caption, color = CorusColors.Secondary)
                                         Text(if (post.isMovie) post.movieTitle.orEmpty() else listOf(post.track.name, post.track.artistName).filter { value -> value.isNotBlank() }.joinToString(" · "), style = CorusFont.captionMedium, color = CorusColors.Text, minLines = 1, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                     }
                                 }
                                 if (rowLayout == MapPersonRowLayout.LATEST_POST && post != null) AsyncImage(model = post.displayImageURL, contentDescription = null, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)))
-                                Icon(Icons.Default.ChevronRight, contentDescription = stringResource(fm.corus.android.R.string.map_cd_view_profile), tint = CorusColors.Tertiary)
+                                Icon(Icons.Default.ChevronRight, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.thread_view_profile), tint = CorusColors.Tertiary)
                             }; HorizontalDivider(color = CorusColors.Divider)
                         }
                         if (state.peopleLoading && state.people.isNotEmpty()) {
@@ -749,7 +749,7 @@ fun MapExploreScreen(
                     Surface(onClick = { showMapPaywall(if (watchMode) "MAP_WATCH" else "MAP_LISTEN", entryPoint = "banner") }, modifier = Modifier.fillMaxWidth(), color = CorusColors.Accent) {
                         Row(Modifier.padding(horizontal = 18.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Icon(if (watchMode) Icons.Default.Movie else Icons.Default.Headphones, null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(20.dp))
-                            Text(stringResource(if (watchMode) fm.corus.android.R.string.map_watch_mode_preview else fm.corus.android.R.string.map_listen_mode_preview), style = CorusFont.caption, color = androidx.compose.ui.graphics.Color.White, modifier = Modifier.weight(1f))
+                            Text(stringResource(if (watchMode) fm.corus.android.localization.CorusStrings.map_watch_mode_preview else fm.corus.android.localization.CorusStrings.map_listen_mode_preview), style = CorusFont.caption, color = androidx.compose.ui.graphics.Color.White, modifier = Modifier.weight(1f))
                             Icon(Icons.Default.ChevronRight, null, tint = androidx.compose.ui.graphics.Color.White)
                         }
                     }
@@ -797,10 +797,10 @@ fun MapExploreScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         IconButton(onClick = { model.previous() }, enabled = state.historyIndex > 0 && !state.busy, modifier = Modifier.size(MAP_WATCH_NAVIGATION_TARGET_DP.dp)) {
-                            Icon(Icons.Default.SkipPrevious, stringResource(fm.corus.android.R.string.map_cd_previous_trailer), modifier = Modifier.size(23.dp))
+                            Icon(Icons.Default.SkipPrevious, stringResource(fm.corus.android.localization.CorusStrings.map_cd_previous_trailer), modifier = Modifier.size(23.dp))
                         }
                         IconButton(onClick = { model.next(true) }, enabled = !state.busy, modifier = Modifier.size(MAP_WATCH_NAVIGATION_TARGET_DP.dp)) {
-                            Icon(Icons.Default.SkipNext, stringResource(fm.corus.android.R.string.map_cd_next_trailer), modifier = Modifier.size(23.dp))
+                            Icon(Icons.Default.SkipNext, stringResource(fm.corus.android.localization.CorusStrings.map_cd_next_trailer), modifier = Modifier.size(23.dp))
                         }
                     }
                 }
@@ -830,7 +830,7 @@ fun MapExploreScreen(
             }
             }
         }
-        state.error?.let { message -> AlertDialog(onDismissRequest = { model.error(null) }, title = { Text(stringResource(fm.corus.android.R.string.map_please_try_again)) }, text = { Text(message) }, confirmButton = { TextButton(onClick = { model.error(null) }) { Text(parityCopy("OK")) } }) }
+        state.error?.let { message -> AlertDialog(onDismissRequest = { model.error(null) }, title = { Text(stringResource(fm.corus.android.localization.CorusStrings.map_please_try_again)) }, text = { Text(message) }, confirmButton = { TextButton(onClick = { model.error(null) }) { Text(parityCopy("OK")) } }) }
     }
     val sharingSheet = rememberGuardedSheetState(skipPartiallyExpanded = true, confirmValueChange = { value -> value != SheetValue.Hidden || (dialog != "intro" && dialog != "confirm" && !state.busy) })
     // Give the growing country directory enough initial room for roughly three
@@ -902,10 +902,10 @@ fun MapExploreScreen(
                 }
                 "location" -> item { Column(Modifier.fillMaxWidth().padding(vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Box(Modifier.size(64.dp).clip(CircleShape).background(CorusColors.Accent.copy(alpha = .14f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.LocationOn, null, tint = CorusColors.Accent, modifier = Modifier.size(30.dp)) }
-                    Text(stringResource(fm.corus.android.R.string.map_location_needed), style = CorusFont.songTitleLarge)
-                    Text(stringResource(fm.corus.android.R.string.map_privacy_location), style = CorusFont.caption, color = CorusColors.Secondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    MapSheetPrimaryButton(onClick = { dialog = ""; requestLocation(sharing = true) { location -> model.resolveAndShare(location, audience, onShared = ::focusSharedCity) { resolvingCity = false } } }) { Text(stringResource(fm.corus.android.R.string.map_try_again)) }
-                    TextButton(onClick = { model.repository.rememberAudience("off"); model.stopSharing { dialog = "" } }) { Text(stringResource(fm.corus.android.R.string.map_dont_share)) }
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.map_location_needed), style = CorusFont.songTitleLarge)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.map_privacy_location), style = CorusFont.caption, color = CorusColors.Secondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    MapSheetPrimaryButton(onClick = { dialog = ""; requestLocation(sharing = true) { location -> model.resolveAndShare(location, audience, onShared = ::focusSharedCity) { resolvingCity = false } } }) { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_retry)) }
+                    TextButton(onClick = { model.repository.rememberAudience("off"); model.stopSharing { dialog = "" } }) { Text(stringResource(fm.corus.android.localization.CorusStrings.map_dont_share)) }
                 } }
                 "countries" -> {
                     item {
@@ -922,9 +922,9 @@ fun MapExploreScreen(
                                 },
                                 enabled = countrySelection.canStart && !state.busy,
                                 modifier = Modifier.align(Alignment.CenterEnd).semantics {
-                                    contentDescription = context.getString(fm.corus.android.R.string.map_cd_start_selected_countries)
+                                    contentDescription = context.getString(fm.corus.android.localization.CorusStrings.map_cd_start_selected_countries)
                                 },
-                            ) { Text(stringResource(fm.corus.android.R.string.map_start), style = CorusFont.bodyMedium) }
+                            ) { Text(stringResource(fm.corus.android.localization.CorusStrings.map_start), style = CorusFont.bodyMedium) }
                         }
                         Text(parityCopy(if (pendingMode == "listen") "Listen to music posted by people in the countries you choose." else "Watch films posted by people in the countries you choose."), style = CorusFont.bodyMedium, color = CorusColors.Secondary, modifier = Modifier.padding(top = 20.dp, bottom = 16.dp))
                         // Match iOS: Anywhere is a complete selection, not a
@@ -939,7 +939,7 @@ fun MapExploreScreen(
                                 Icon(Icons.Default.ChevronRight, null, tint = CorusColors.Tertiary)
                             }
                         }
-                        Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text(stringResource(fm.corus.android.R.string.map_countries), style = CorusFont.bodyMedium, color = CorusColors.Secondary); TextButton(onClick = { countrySelection = if (countrySelection.isSelectingMultiple) countrySelection.cancelMultiple() else countrySelection.beginMultiple() }, modifier = Modifier.height(32.dp), contentPadding = PaddingValues(horizontal = 4.dp)) { Text(if (countrySelection.isSelectingMultiple) parityCopy("Cancel") else stringResource(fm.corus.android.R.string.map_select_multiple), style = CorusFont.caption, color = CorusColors.Accent) } }
+                        Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text(stringResource(fm.corus.android.localization.CorusStrings.map_countries), style = CorusFont.bodyMedium, color = CorusColors.Secondary); TextButton(onClick = { countrySelection = if (countrySelection.isSelectingMultiple) countrySelection.cancelMultiple() else countrySelection.beginMultiple() }, modifier = Modifier.height(32.dp), contentPadding = PaddingValues(horizontal = 4.dp)) { Text(if (countrySelection.isSelectingMultiple) parityCopy("Cancel") else stringResource(fm.corus.android.localization.CorusStrings.map_select_multiple), style = CorusFont.caption, color = CorusColors.Accent) } }
                     }
                     items(cities.map { it.city.countryCode }.distinct().sorted().filter { java.util.Locale("", it).displayCountry.contains(countryQuery, true) }) { code ->
                         val count = cities.filter { it.city.countryCode == code }.sumOf { it.facets[state.filter]?.count ?: 0 }
@@ -950,7 +950,7 @@ fun MapExploreScreen(
                             if (countrySelection.isSelectingMultiple) Checkbox(checked = code.uppercase() in countrySelection.pendingCountryCodes, onCheckedChange = null) else if (code.uppercase() in countrySelection.activeCountryCodes) Icon(Icons.Default.CheckCircle, null, tint = CorusColors.Accent) else Icon(Icons.Default.ChevronRight, null, tint = CorusColors.Tertiary)
                         }; HorizontalDivider(color = CorusColors.Divider)
                     }
-                    item { OutlinedTextField(value = countryQuery, onValueChange = { countryQuery = it }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp), leadingIcon = { Icon(Icons.Default.Search, null) }, placeholder = { Text(stringResource(fm.corus.android.R.string.map_search_countries)) }, singleLine = true) }
+                    item { OutlinedTextField(value = countryQuery, onValueChange = { countryQuery = it }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp), leadingIcon = { Icon(Icons.Default.Search, null) }, placeholder = { Text(stringResource(fm.corus.android.localization.CorusStrings.map_search_countries)) }, singleLine = true) }
                 }
                 }
             }

@@ -610,7 +610,7 @@ fun FirstPosterBadge(modifier: Modifier = Modifier) {
             modifier = Modifier.size(9.dp),
         )
         Text(
-            text = stringResource(R.string.mention_badge_first),
+            text = stringResource(fm.corus.android.localization.CorusStrings.mention_badge_first),
             style = CorusFont.caption.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 9.sp,
@@ -653,7 +653,7 @@ fun NewReleaseBadge(
             modifier = Modifier.size(scale.dp),
         )
         Text(
-            text = stringResource(R.string.mention_badge_new_release),
+            text = stringResource(fm.corus.android.localization.CorusStrings.mention_badge_new_release),
             style = CorusFont.caption.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = fontSize,
@@ -713,7 +713,7 @@ fun UsernameWithFlair(
                     // UsernameWithBotBadge (asset = symbol + 6pt).
                     Image(
                         painter = painterResource(R.drawable.logo_no_background),
-                        contentDescription = stringResource(R.string.mention_cd_corus),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.corus_post_label),
                         modifier = Modifier
                             .size(flairAssetSize)
                             .offset(y = flairYOffset),
@@ -757,7 +757,7 @@ fun UsernameWithFlair(
                     .padding(horizontal = 6.dp, vertical = 2.dp),
             ) {
                 Text(
-                    text = stringResource(R.string.mention_badge_bot),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.mention_badge_bot),
                     style = CorusFont.caption.copy(
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 9.sp,
@@ -943,7 +943,7 @@ private fun MentionSearchingRow() {
         )
         Spacer(modifier = Modifier.width(CorusSpacing.sm))
         Text(
-            text = stringResource(R.string.mention_searching),
+            text = stringResource(fm.corus.android.localization.CorusStrings.compose_searching),
             style = CorusFont.caption,
             color = CorusColors.Secondary,
         )
@@ -1011,7 +1011,7 @@ private fun HashtagSuggestionRow(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (tag.trending) {
                         Text(
-                            text = stringResource(R.string.hashtag_suggestion_trending),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.feed_mode_trending),
                             style = CorusFont.caption,
                             color = CorusColors.Accent,
                             maxLines = 1,

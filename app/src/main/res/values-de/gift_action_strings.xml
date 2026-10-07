@@ -1,6 +1,6 @@
 <resources>
-    <string name="gift_send_action">Geschenk senden</string>
-    <string name="gift_picker_intro">Sende %1$s als besonderes Dankeschön ein Geschenk.</string>
-    <string name="gift_picker_empty_intro">Du hast vorerst alle deine Geschenke aufgebraucht.</string>
-    <string name="gift_club_slots">Dein Geschenk wird jeden Sonntag zurückgesetzt.</string>
+    <string name="gift_send_action">"Geschenk senden"</string>
+    <string name="gift_picker_intro">"Sende %1$s als besonderes Dankeschön ein Geschenk."</string>
+    <string name="gift_picker_empty_intro">"Du hast vorerst alle deine Geschenke aufgebraucht."</string>
+    <string name="gift_club_slots">"Dein Geschenk wird jeden Sonntag zurückgesetzt."</string>
 </resources>

@@ -157,7 +157,7 @@ fun FullPlayerQueueSheet(
             currentIndex?.let { idx ->
                 if (idx in queue.indices) {
                     item(key = "now-header") {
-                        SectionHeader(stringResource(R.string.full_player_queue_now_playing))
+                        SectionHeader(stringResource(fm.corus.android.localization.CorusStrings.full_player_queue_now_playing))
                     }
                     item(key = "now-${queueRowIdentity(queue[idx])}") {
                         QueueRow(
@@ -170,7 +170,7 @@ fun FullPlayerQueueSheet(
 
             if (upNext.isNotEmpty()) {
                 item(key = "next-header") {
-                    SectionHeader(stringResource(R.string.full_player_queue_up_next))
+                    SectionHeader(stringResource(fm.corus.android.localization.CorusStrings.full_player_queue_up_next))
                 }
                 items(
                     upNext,
@@ -213,7 +213,7 @@ fun FullPlayerQueueSheet(
             } else if (queue.size <= 1) {
                 item(key = "empty") {
                     Text(
-                        text = stringResource(R.string.full_player_queue_empty),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.full_player_queue_empty),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                         modifier = Modifier.padding(vertical = CorusSpacing.md),
@@ -223,7 +223,7 @@ fun FullPlayerQueueSheet(
 
             if (earlier.isNotEmpty()) {
                 item(key = "earlier-header") {
-                    SectionHeader(stringResource(R.string.full_player_queue_earlier))
+                    SectionHeader(stringResource(fm.corus.android.localization.CorusStrings.full_player_queue_earlier))
                 }
                 items(
                     earlier,
@@ -314,8 +314,8 @@ private fun QueueSheetToolbar(
                 TextButton(onClick = onToggleEdit) {
                     Text(
                         text = stringResource(
-                            if (isEditing) R.string.full_player_queue_done
-                            else R.string.full_player_queue_edit,
+                            if (isEditing) fm.corus.android.localization.CorusStrings.common_done
+                            else fm.corus.android.localization.CorusStrings.profile_edit_profile_short,
                         ),
                         style = CorusFont.body.copy(fontWeight = FontWeight.Medium),
                         color = CorusColors.Secondary,
@@ -324,7 +324,7 @@ private fun QueueSheetToolbar(
             }
         }
         Text(
-            text = stringResource(R.string.full_player_queue_title),
+            text = stringResource(fm.corus.android.localization.CorusStrings.full_player_queue_title),
             style = CorusFont.usernameLarge.copy(fontWeight = FontWeight.SemiBold),
             color = CorusColors.Text,
             textAlign = TextAlign.Center,
@@ -332,7 +332,7 @@ private fun QueueSheetToolbar(
         )
         CorusSheetCloseButton(
             onClick = onClose,
-            contentDescription = stringResource(R.string.full_player_queue_close),
+            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.concert_close),
             modifier = Modifier.width(72.dp),
         )
     }
@@ -473,7 +473,7 @@ private fun EditableQueueRow(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Delete,
-                            contentDescription = stringResource(R.string.full_player_queue_remove),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.concert_remove),
                             tint = androidx.compose.ui.graphics.Color.White,
                             modifier = Modifier.size(20.dp),
                         )
@@ -542,7 +542,7 @@ private fun QueueRow(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.RemoveCircle,
-                        contentDescription = stringResource(R.string.full_player_queue_remove),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.concert_remove),
                         tint = CorusColors.Error,
                     )
                 }
@@ -585,7 +585,7 @@ private fun QueueRow(
         if (showHandle) {
             Icon(
                 imageVector = Icons.Filled.DragHandle,
-                contentDescription = stringResource(R.string.full_player_queue_reorder),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.full_player_queue_reorder),
                 tint = CorusColors.Secondary,
                 modifier = dragHandleModifier
                     .width(EditHandleSlot * editChromeProgress)

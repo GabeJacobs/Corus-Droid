@@ -25,23 +25,23 @@ fun PlaybackModePromptOverlay(
 
     val title = when (kind) {
         SpotifyFtuePromptKind.LINK_SPOTIFY ->
-            stringResource(R.string.playback_mode_prompt_title_link)
+            stringResource(fm.corus.android.localization.CorusStrings.playback_mode_prompt_title_link)
         SpotifyFtuePromptKind.CHOOSE_LISTEN ->
-            stringResource(R.string.playback_mode_prompt_title)
+            stringResource(fm.corus.android.localization.CorusStrings.playback_mode_prompt_title)
     }
     val secondary = when (kind) {
         SpotifyFtuePromptKind.LINK_SPOTIFY ->
-            stringResource(R.string.playback_mode_prompt_not_now)
+            stringResource(fm.corus.android.localization.CorusStrings.playback_mode_prompt_not_now)
         SpotifyFtuePromptKind.CHOOSE_LISTEN ->
-            stringResource(R.string.playback_mode_prompt_previews)
+            stringResource(fm.corus.android.localization.CorusStrings.playback_mode_prompt_previews)
     }
 
     CorusPromptOverlay(
         visible = visible,
         title = title,
-        message = stringResource(R.string.playback_mode_prompt_body_spotify_link),
+        message = stringResource(fm.corus.android.localization.CorusStrings.playback_mode_prompt_body_spotify_link),
         footnote = if (kind == SpotifyFtuePromptKind.LINK_SPOTIFY) {
-            stringResource(R.string.playback_mode_prompt_link_footnote)
+            stringResource(fm.corus.android.localization.CorusStrings.playback_mode_prompt_link_footnote)
         } else {
             null
         },
@@ -52,7 +52,7 @@ fun PlaybackModePromptOverlay(
                 onClick = onSecondary,
             ),
             CorusPromptButton(
-                label = stringResource(R.string.playback_mode_prompt_link_spotify),
+                label = stringResource(fm.corus.android.localization.CorusStrings.playback_mode_prompt_link_spotify),
                 emphasized = true,
                 onClick = onLinkSpotify,
             ),

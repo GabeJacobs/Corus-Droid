@@ -47,6 +47,7 @@ import kotlinx.coroutines.delay
 import fm.corus.android.R
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
+import fm.corus.android.ui.components.ScreenViewAnalytics
 import fm.corus.android.ui.screens.settings.CountryCode
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -56,6 +57,7 @@ import fm.corus.android.ui.theme.CorusSpacing
 fun AuthScreen(
     viewModel: AuthViewModel = hiltViewModel(),
 ) {
+    ScreenViewAnalytics("Auth", viewModel.analyticsService)
     val isLoading by viewModel.isLoading.collectAsState()
     val busyProvider by viewModel.busyProvider.collectAsState()
     val error by viewModel.error.collectAsState()
@@ -80,14 +82,14 @@ fun AuthScreen(
             if (idToken != null) {
                 viewModel.signInWithGoogle(idToken)
             } else {
-                viewModel.setError(context.getString(R.string.auth_google_signin_error))
+                viewModel.setError(context.getString(fm.corus.android.localization.CorusStrings.auth_google_signin_error))
             }
         } catch (e: ApiException) {
             android.util.Log.e("AuthScreen", "Google sign-in failed: status=${e.statusCode}", e)
             if (e.statusCode == GoogleSignInStatusCodes.SIGN_IN_CANCELLED) {
                 viewModel.setBusyProvider(null)
             } else {
-                viewModel.setError(context.getString(R.string.auth_google_signin_error))
+                viewModel.setError(context.getString(fm.corus.android.localization.CorusStrings.auth_google_signin_error))
             }
         }
     }
@@ -187,7 +189,7 @@ fun AuthScreen(
                 // Logo image — 90dp frame, tinted with cymbalText color (matching iOS)
                 Image(
                     painter = painterResource(id = R.drawable.logo_no_background),
-                    contentDescription = stringResource(id = R.string.auth_cd_corus_logo),
+                    contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.auth_cd_corus_logo),
                     modifier = Modifier.size(90.dp),
                     colorFilter = ColorFilter.tint(CorusColors.Text),
                 )
@@ -205,7 +207,7 @@ fun AuthScreen(
 
                 // Tagline — bodyMedium: Nunito Medium 15sp
                 Text(
-                    text = stringResource(id = R.string.auth_tagline),
+                    text = stringResource(id = fm.corus.android.localization.CorusStrings.auth_tagline),
                     style = CorusFont.bodyMedium,
                     color = CorusColors.Secondary,
                 )
@@ -233,7 +235,7 @@ fun AuthScreen(
                 val haptics = LocalHapticManager.current
                 // Google Sign-In button
                 AuthButton(
-                    text = stringResource(id = R.string.auth_button_google),
+                    text = stringResource(id = fm.corus.android.localization.CorusStrings.auth_button_google),
                     icon = {
                         Image(
                             painter = painterResource(id = R.drawable.google_logo),
@@ -259,7 +261,7 @@ fun AuthScreen(
 
                 // Apple Sign-In button
                 AuthButton(
-                    text = stringResource(id = R.string.auth_button_apple),
+                    text = stringResource(id = fm.corus.android.localization.CorusStrings.auth_button_apple),
                     icon = {
                         Icon(
                             painter = painterResource(id = R.drawable.apple_logo),
@@ -277,7 +279,7 @@ fun AuthScreen(
 
                 // Phone button
                 AuthButton(
-                    text = stringResource(id = R.string.auth_button_phone),
+                    text = stringResource(id = fm.corus.android.localization.CorusStrings.auth_button_phone),
                     icon = {
                         Icon(
                             Icons.Filled.Phone,
@@ -298,7 +300,7 @@ fun AuthScreen(
                 // late pop-in. Server `email_otp_auth_enabled` remains the kill
                 // switch — same approach as web.
                 AuthButton(
-                    text = stringResource(id = R.string.auth_button_email),
+                    text = stringResource(id = fm.corus.android.localization.CorusStrings.auth_button_email),
                     icon = {
                         Icon(
                             Icons.Filled.Email,
@@ -417,7 +419,7 @@ private fun EmailAuthContent(
         ) {
             if (verificationSent) {
                 Text(
-                    text = stringResource(id = R.string.auth_email_check_title),
+                    text = stringResource(id = fm.corus.android.localization.CorusStrings.auth_email_check_title),
                     style = CorusFont.custom(900, 28),
                     color = CorusColors.Text,
                 )
@@ -450,7 +452,7 @@ private fun EmailAuthContent(
 
             if (!verificationSent) {
                 Text(
-                    text = stringResource(id = R.string.auth_email_prompt),
+                    text = stringResource(id = fm.corus.android.localization.CorusStrings.auth_email_prompt),
                     style = CorusFont.bodyMedium,
                     color = CorusColors.Text,
                 )
@@ -459,7 +461,7 @@ private fun EmailAuthContent(
                     value = email,
                     onValueChange = onEmailChange,
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text(stringResource(id = R.string.auth_email_placeholder)) },
+                    placeholder = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.auth_email_label)) },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Email,
                         imeAction = ImeAction.Done,
@@ -487,7 +489,7 @@ private fun EmailAuthContent(
                             strokeWidth = 2.dp,
                         )
                     } else {
-                        Text(stringResource(id = R.string.auth_button_send_code), style = CorusFont.button, color = Color.White)
+                        Text(stringResource(id = fm.corus.android.localization.CorusStrings.auth_button_send_code), style = CorusFont.button, color = Color.White)
                     }
                 }
             } else {
@@ -495,7 +497,7 @@ private fun EmailAuthContent(
                     value = verificationCode,
                     onValueChange = onVerificationCodeChange,
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text(stringResource(id = R.string.auth_code_placeholder)) },
+                    placeholder = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.auth_code_placeholder)) },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number,
                         imeAction = ImeAction.Done,
@@ -523,7 +525,7 @@ private fun EmailAuthContent(
                             strokeWidth = 2.dp,
                         )
                     } else {
-                        Text(stringResource(id = R.string.auth_button_verify), style = CorusFont.button, color = Color.White)
+                        Text(stringResource(id = fm.corus.android.localization.CorusStrings.auth_button_verify), style = CorusFont.button, color = Color.White)
                     }
                 }
                 Spacer(modifier = Modifier.height(CorusSpacing.md))
@@ -538,7 +540,7 @@ private fun EmailAuthContent(
                         if (resendCooldown > 0) {
                             stringResource(id = R.string.change_phone_resend_in_format, resendCooldown)
                         } else {
-                            stringResource(id = R.string.change_phone_resend_code)
+                            stringResource(id = fm.corus.android.localization.CorusStrings.auth_button_resend_code)
                         },
                         style = CorusFont.captionMedium,
                         color = if (resendCooldown > 0) CorusColors.Tertiary else CorusColors.Accent,
@@ -546,7 +548,7 @@ private fun EmailAuthContent(
                 }
                 TextButton(onClick = onUseDifferentEmail) {
                     Text(
-                        stringResource(id = R.string.auth_email_use_different),
+                        stringResource(id = fm.corus.android.localization.CorusStrings.auth_email_use_different),
                         style = CorusFont.captionMedium,
                         color = CorusColors.Accent,
                     )
@@ -563,7 +565,7 @@ private fun EmailAuthContent(
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(id = R.string.common_back),
+                contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.common_back),
                 tint = CorusColors.Text,
             )
         }
@@ -627,7 +629,7 @@ private fun PhoneAuthContent(
 
         if (!verificationSent) {
             Text(
-                text = stringResource(id = R.string.auth_phone_prompt),
+                text = stringResource(id = fm.corus.android.localization.CorusStrings.auth_phone_prompt),
                 style = CorusFont.bodyMedium,
                 color = CorusColors.Text,
             )
@@ -660,7 +662,7 @@ private fun PhoneAuthContent(
                     value = phoneNumber,
                     onValueChange = onPhoneNumberChange,
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text(stringResource(id = R.string.change_phone_placeholder)) },
+                    placeholder = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.auth_phone_label)) },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Phone,
                         imeAction = ImeAction.Done,
@@ -691,7 +693,7 @@ private fun PhoneAuthContent(
                         strokeWidth = 2.dp,
                     )
                 } else {
-                    Text(stringResource(id = R.string.auth_button_send_code), style = CorusFont.button, color = Color.White)
+                    Text(stringResource(id = fm.corus.android.localization.CorusStrings.auth_button_send_code), style = CorusFont.button, color = Color.White)
                 }
             }
         } else {
@@ -708,7 +710,7 @@ private fun PhoneAuthContent(
                 value = verificationCode,
                 onValueChange = onVerificationCodeChange,
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text(stringResource(id = R.string.auth_code_placeholder)) },
+                placeholder = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.auth_code_placeholder)) },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Number,
                     imeAction = ImeAction.Done,
@@ -738,7 +740,7 @@ private fun PhoneAuthContent(
                         strokeWidth = 2.dp,
                     )
                 } else {
-                    Text(stringResource(id = R.string.auth_button_verify), style = CorusFont.button, color = Color.White)
+                    Text(stringResource(id = fm.corus.android.localization.CorusStrings.auth_button_verify), style = CorusFont.button, color = Color.White)
                 }
             }
 
@@ -752,7 +754,7 @@ private fun PhoneAuthContent(
                 enabled = resendCooldown == 0 && !isLoading,
             ) {
                 Text(
-                    if (resendCooldown > 0) stringResource(id = R.string.change_phone_resend_in_format, resendCooldown) else stringResource(id = R.string.change_phone_resend_code),
+                    if (resendCooldown > 0) stringResource(id = R.string.change_phone_resend_in_format, resendCooldown) else stringResource(id = fm.corus.android.localization.CorusStrings.auth_button_resend_code),
                     style = CorusFont.captionMedium,
                     color = if (resendCooldown > 0) CorusColors.Tertiary else CorusColors.Accent,
                 )
@@ -761,7 +763,7 @@ private fun PhoneAuthContent(
             // Use a different number — matches iOS
             TextButton(onClick = onUseDifferentNumber) {
                 Text(
-                    stringResource(id = R.string.change_phone_use_different_number),
+                    stringResource(id = fm.corus.android.localization.CorusStrings.change_phone_use_different_number),
                     style = CorusFont.captionMedium,
                     color = CorusColors.Accent,
                 )
@@ -784,7 +786,7 @@ private fun PhoneAuthContent(
         if (showCountryPicker) {
             AlertDialog(
                 onDismissRequest = { showCountryPicker = false },
-                title = { Text(stringResource(id = R.string.change_phone_select_country_title), style = CorusFont.songTitleLarge) },
+                title = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.change_phone_select_country_title), style = CorusFont.songTitleLarge) },
                 text = {
                     Column(
                         modifier = Modifier
@@ -824,7 +826,7 @@ private fun PhoneAuthContent(
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(id = R.string.common_back),
+                contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.common_back),
                 tint = CorusColors.Text,
             )
         }

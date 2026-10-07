@@ -111,7 +111,7 @@ internal fun AlbumPlayPausePill(
             )
             Text(
                 text = stringResource(
-                    if (isPlaying) R.string.destination_album_pause else R.string.destination_album_play,
+                    if (isPlaying) fm.corus.android.localization.CorusStrings.compose_cd_pause else fm.corus.android.localization.CorusStrings.voice_note_cd_play,
                 ),
                 style = CorusFont.buttonSmall,
                 color = Color.White,
@@ -181,7 +181,7 @@ internal fun DestinationSectionHeader(
         Spacer(modifier = Modifier.weight(1f))
         if (onSeeAll != null) {
             Text(
-                text = stringResource(R.string.destination_see_all),
+                text = stringResource(fm.corus.android.localization.CorusStrings.rail_see_all),
                 style = CorusFont.captionMedium,
                 color = CorusColors.Accent,
                 modifier = Modifier.clickable(onClick = onSeeAll),
@@ -634,8 +634,8 @@ internal fun CatalogTrackRow(
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
     ) {
         val playCd = stringResource(
-            if (isPlayingThis) R.string.song_detail_cd_pause_preview
-            else R.string.song_detail_cd_play_preview
+            if (isPlayingThis) fm.corus.android.localization.CorusStrings.compose_pause_preview
+            else fm.corus.android.localization.CorusStrings.compose_play_preview
         )
         if (discoveryRank != null) Text("$discoveryRank", modifier = Modifier.width(20.dp), color = CorusColors.Secondary, style = CorusFont.caption)
         if (number == null) {
@@ -790,7 +790,7 @@ internal fun CatalogTrackRow(
                 }
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = stringResource(R.string.destination_see_all),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.rail_see_all),
                     tint = CorusColors.Tertiary,
                     modifier = Modifier.size(16.dp),
                 )
@@ -836,7 +836,7 @@ internal fun DestinationAttributionFooter(
                 BandcampLogo(size = 13.dp)
                 Spacer(modifier = Modifier.width(CorusSpacing.xs))
                 Text(
-                    text = stringResource(R.string.destination_open_in_bandcamp),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.post_menu_open_bandcamp),
                     style = CorusFont.caption,
                     color = CorusColors.Tertiary,
                 )
@@ -854,7 +854,7 @@ internal fun DestinationAttributionFooter(
                 )
                 Spacer(modifier = Modifier.width(CorusSpacing.xs))
                 Text(
-                    text = stringResource(R.string.destination_open_in_spotify),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.post_aria_open_spotify),
                     style = CorusFont.caption,
                     color = CorusColors.Tertiary,
                 )
@@ -875,7 +875,7 @@ internal fun BandcampArtistExtras(
     if (shows.isEmpty() && merch.isEmpty() && sites.isEmpty()) return
     Column(modifier = Modifier.fillMaxWidth()) {
         if (shows.isNotEmpty()) {
-            DestinationSectionHeader(stringResource(R.string.destination_upcoming_shows))
+            DestinationSectionHeader(stringResource(fm.corus.android.localization.CorusStrings.parity_8d6779fdd977))
             shows.forEach { show ->
                 BandcampExtrasRow(
                     title = show.title,
@@ -886,12 +886,12 @@ internal fun BandcampArtistExtras(
         }
         if (merch.isNotEmpty()) {
             DestinationSectionHeader(
-                title = stringResource(R.string.destination_merch),
+                title = stringResource(fm.corus.android.localization.CorusStrings.destination_merch),
                 onSeeAll = merchUrl?.let { url -> { onOpenUrl(url) } },
             )
             merch.forEach { item ->
                 val trailing = if (item.soldOut) {
-                    stringResource(R.string.destination_merch_sold_out)
+                    stringResource(fm.corus.android.localization.CorusStrings.parity_02ff65909856)
                 } else {
                     item.price
                 }
@@ -904,7 +904,7 @@ internal fun BandcampArtistExtras(
             }
         }
         if (sites.isNotEmpty()) {
-            DestinationSectionHeader(stringResource(R.string.destination_links))
+            DestinationSectionHeader(stringResource(fm.corus.android.localization.CorusStrings.destination_links))
             sites.forEach { site ->
                 BandcampExtrasRow(
                     title = site.title,

@@ -47,7 +47,7 @@ fun EntityLinkScreen(
                     CorusHeaderIconButton(
                         onClick = onBack,
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.common_back),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
@@ -61,8 +61,8 @@ fun EntityLinkScreen(
             when (state) {
                 is EntityLinkViewModel.State.Unreachable -> OfflineRetryState(
                     onRetry = onRetry,
-                    title = stringResource(R.string.entity_link_unreachable_title),
-                    subtitle = stringResource(R.string.entity_link_unreachable_subtitle),
+                    title = stringResource(fm.corus.android.localization.CorusStrings.entity_link_unreachable_title),
+                    subtitle = stringResource(fm.corus.android.localization.CorusStrings.entity_link_unreachable_subtitle),
                 )
                 is EntityLinkViewModel.State.Missing -> Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -70,7 +70,7 @@ fun EntityLinkScreen(
                     modifier = Modifier.padding(horizontal = CorusSpacing.lg),
                 ) {
                     Text(
-                        text = stringResource(R.string.entity_link_not_found),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.entity_link_not_found),
                         style = CorusFont.bodyMedium,
                         color = CorusColors.Secondary,
                         textAlign = TextAlign.Center,

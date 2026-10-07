@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="concert_make_personal">Deixe do seu jeito</string>
-    <string name="concert_personal_message">Poste as músicas que você ama. Vamos acompanhar seus artistas favoritos e mostrar quando eles tocarem por perto.</string>
-    <string name="concert_keep_posting_message">Volte para conferir novos shows. Continue postando as músicas que você ama para acompanhar mais artistas por aqui.</string>
-    <string name="concert_post_music">Postar música</string>
-    <string name="concert_view_all">Ver todos os shows</string>
-    <string name="concert_no_matches">Ainda não há shows dos seus artistas</string>
-    <string name="concert_choose_your_city">Escolha sua cidade</string>
-    <string name="concert_choose_location">Escolher localização</string>
-    <string name="concert_browse">Explorar shows</string>
-    <string name="concert_choose_another_city">Escolher outra cidade</string>
-    <string name="concert_no_plans_title">Nenhum show planejado</string>
-    <string name="concert_post_personal_title">Poste músicas para receber sugestões personalizadas</string>
-    <string name="concert_no_artist_shows">Ainda não há shows dos seus artistas</string>
-    <string name="concert_no_shows_around">Não encontramos shows perto de %1$s. Tente outra cidade.</string>
-    <string name="concert_find_nearby">Encontre shows perto de você</string>
-    <string name="concert_choose_location_message">Escolha uma cidade ou use sua localização atual para ver os próximos shows.</string>
-    <string name="concert_remove">Remover</string>
-    <string name="concert_calendar_error">Não foi possível abrir um app de calendário. Instale um e tente novamente.</string>
+    <string name="concert_make_personal">"Deixe com a sua cara"</string>
+    <string name="concert_personal_message">"Publique as músicas que você ama. Vamos acompanhar seus artistas favoritos e mostrar quando eles forem tocar por perto."</string>
+    <string name="concert_keep_posting_message">"Volte para conferir novos shows. Continue postando as músicas que você ama para acompanhar mais artistas por aqui."</string>
+    <string name="concert_post_music">"Publicar música"</string>
+    <string name="concert_view_all">"Ver todos os shows"</string>
+    <string name="concert_no_matches">"Ainda não há shows dos seus artistas"</string>
+    <string name="concert_choose_your_city">"Escolha sua cidade"</string>
+    <string name="concert_choose_location">"Escolher localização"</string>
+    <string name="concert_browse">"Explorar shows"</string>
+    <string name="concert_choose_another_city">"Escolher outra cidade"</string>
+    <string name="concert_no_plans_title">"Nenhum show planejado"</string>
+    <string name="concert_post_personal_title">"Poste músicas para receber sugestões personalizadas"</string>
+    <string name="concert_no_artist_shows">"Ainda não há shows dos seus artistas"</string>
+    <string name="concert_no_shows_around">"Não encontramos shows perto de %1$s. Tente outra cidade."</string>
+    <string name="concert_find_nearby">"Encontre shows perto de você"</string>
+    <string name="concert_choose_location_message">"Escolha uma cidade ou use sua localização atual para ver os próximos shows."</string>
+    <string name="concert_remove">"Remover"</string>
+    <string name="concert_calendar_error">"Não foi possível abrir um app de calendário. Instale um e tente novamente."</string>
 </resources>

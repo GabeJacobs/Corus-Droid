@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -83,6 +84,8 @@ fun PopularUsersInfiniteGrid(
     bottomContentPadding: Dp = CorusSpacing.xxl,
     topContent: (@Composable () -> Unit)? = null,
     viewModel: PopularUsersInfiniteGridViewModel = hiltViewModel(),
+    headerTitle: String = "POPULAR ON CORUS",
+    headerIcon: ImageVector = Icons.Filled.LocalFireDepartment,
 ) {
     val matches by viewModel.matches.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -125,7 +128,7 @@ fun PopularUsersInfiniteGrid(
         }
 
         item(span = { GridItemSpan(maxLineSpan) }, key = "header") {
-            SectionHeader(verticalPadding = headerVerticalPadding)
+            SectionHeader(headerTitle, headerIcon, verticalPadding = headerVerticalPadding)
         }
 
         if (matches.isEmpty() && isLoading) {
@@ -156,7 +159,7 @@ fun PopularUsersInfiniteGrid(
 }
 
 @Composable
-private fun SectionHeader(verticalPadding: Dp = CorusSpacing.sm) {
+private fun SectionHeader(title: String, icon: ImageVector, verticalPadding: Dp = CorusSpacing.sm) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -164,14 +167,14 @@ private fun SectionHeader(verticalPadding: Dp = CorusSpacing.sm) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = Icons.Filled.LocalFireDepartment,
+            imageVector = icon,
             contentDescription = null,
             tint = CorusColors.Accent,
             modifier = Modifier.size(16.dp),
         )
         Spacer(modifier = Modifier.width(CorusSpacing.sm))
         Text(
-            text = "POPULAR ON CORUS",
+            text = title,
             style = CorusFont.sectionHeader,
             color = CorusColors.Secondary,
         )

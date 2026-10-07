@@ -116,7 +116,7 @@ fun ComposePlusButton(
     ) {
         Icon(
             imageVector = Icons.Filled.Add,
-            contentDescription = stringResource(R.string.tab_cd_compose),
+            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.tab_cd_compose),
             tint = CorusColors.Secondary,
             modifier = Modifier.size(CorusSpacing.composePlusIcon),
         )

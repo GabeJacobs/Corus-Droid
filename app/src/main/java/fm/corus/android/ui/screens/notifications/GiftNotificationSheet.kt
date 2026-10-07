@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.notifications
 
+import fm.corus.android.service.GiftAnalytics
+
 import fm.corus.android.ui.components.rememberGuardedSheetState
 
 import fm.corus.android.ui.components.CorusModalBottomSheet
@@ -133,7 +135,7 @@ internal fun giftReceiptSenderLine(
     val nameToken = "__GIFT_NAME__"
     val gift = GiftDefinition.from(notification.giftType)
     val sender = notification.fromUser.username.ifBlank {
-        notification.fromUser.displayName.ifBlank { context.getString(R.string.gift_someone) }
+        notification.fromUser.displayName.ifBlank { context.getString(fm.corus.android.localization.CorusStrings.activity_someone) }
     }
     val phrase = gift.sentPhrase(context).replace(gift.name(context), nameToken)
     val text = if (notification.type == NotificationType.GIFT_THANKS) emphasizedGiftAttribution(
@@ -168,10 +170,11 @@ internal fun GiftNotificationSheet(
     val context = LocalContext.current
     val gift = GiftDefinition.from(notification.giftType)
     val isThanksReceipt = notification.type == NotificationType.GIFT_THANKS
+    LaunchedEffect(notification.id) { GiftAnalytics.log(context, if (isThanksReceipt) "thanks_receipt_viewed" else "receipt_viewed", "notification", notification.giftType ?: "unknown", !notification.giftNote.isNullOrBlank()) }
     val isThanked = notification.giftThankedAt != null || thanksState.thankedAt != null
     val showsThankAction = !isThanksReceipt && (notification.canThankGift || isThanked)
     val sender = notification.fromUser.username.ifBlank {
-        notification.fromUser.displayName.ifBlank { stringResource(R.string.gift_someone) }
+        notification.fromUser.displayName.ifBlank { stringResource(fm.corus.android.localization.CorusStrings.activity_someone) }
     }
     CorusModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -184,7 +187,7 @@ internal fun GiftNotificationSheet(
                 .padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(stringResource(R.string.gift_sheet_title_one), style = CorusFont.screenTitle, color = CorusColors.Text)
+            Text(stringResource(fm.corus.android.localization.CorusStrings.gift_name_generic), style = CorusFont.screenTitle, color = CorusColors.Text)
             Spacer(Modifier.height(24.dp))
             GiftNotificationArtwork(notification.giftType, 164.dp)
             Spacer(Modifier.height(22.dp))
@@ -238,9 +241,9 @@ internal fun GiftNotificationSheet(
                             ),
                         ) {
                             Text(stringResource(when {
-                                isThanked -> R.string.gift_thanked
-                                thanksState.sending -> R.string.gift_thanks_sending
-                                else -> R.string.gift_say_thanks
+                                isThanked -> fm.corus.android.localization.CorusStrings.gift_thanked
+                                thanksState.sending -> fm.corus.android.localization.CorusStrings.auth_button_sending
+                                else -> fm.corus.android.localization.CorusStrings.gift_say_thanks
                             }), style = CorusFont.button, textAlign = TextAlign.Center)
                         }
                     }
@@ -255,13 +258,13 @@ internal fun GiftNotificationSheet(
                                 containerColor = if (isThanksReceipt) CorusColors.Accent else Color.Transparent,
                                 contentColor = if (isThanksReceipt) Color.White else CorusColors.Text,
                             ),
-                        ) { Text(stringResource(R.string.gift_open_post), style = CorusFont.button, textAlign = TextAlign.Center) }
+                        ) { Text(stringResource(fm.corus.android.localization.CorusStrings.gift_go_to_post), style = CorusFont.button, textAlign = TextAlign.Center) }
                     }
                 }
             }
             if (thanksState.error) {
                 Spacer(Modifier.height(22.dp))
-                Text(stringResource(R.string.gift_thanks_error), style = CorusFont.caption,
+                Text(stringResource(fm.corus.android.localization.CorusStrings.gift_thanks_failed), style = CorusFont.caption,
                     color = CorusColors.Secondary, textAlign = TextAlign.Center)
             }
         }

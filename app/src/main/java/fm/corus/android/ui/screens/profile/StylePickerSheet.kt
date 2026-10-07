@@ -2,6 +2,7 @@ package fm.corus.android.ui.screens.profile
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -21,6 +22,8 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
@@ -74,6 +77,8 @@ import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.components.CorusSheetCloseButton
 import fm.corus.android.ui.theme.LocalCorusDarkTheme
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 data class StyleSelections(
     val vinylColor: VinylStyle = VinylStyle.BLACK,
@@ -184,6 +189,17 @@ fun StylePickerSheet(
         pageCount = { pages.size },
     )
 
+    val pageScope = rememberCoroutineScope()
+    var pageNavigationJob by remember { mutableStateOf<Job?>(null) }
+    // targetPage includes a pending animation, so quick taps keep advancing.
+    fun movePage(direction: Int) {
+        val destination = (pagerState.targetPage + direction).coerceIn(0, pages.lastIndex)
+        pageNavigationJob?.cancel()
+        pageNavigationJob = pageScope.launch {
+            pagerState.animateScrollToPage(destination, animationSpec = tween(durationMillis = 250))
+        }
+    }
+
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }.collect { onPageChange(it) }
     }
@@ -201,29 +217,57 @@ fun StylePickerSheet(
         Box(modifier = Modifier.fillMaxWidth().height(64.dp)) {
             CorusSheetCloseButton(
                 onClick = onDismiss,
-                contentDescription = stringResource(R.string.style_picker_cd_close),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.concert_close),
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = CorusSpacing.md),
             )
         }
 
-        // Page indicator dots
+        // Fixed navigation; only the pager content slides.
         if (pages.size > 1) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = CorusSpacing.sm),
-                horizontalArrangement = Arrangement.Center,
+                    .padding(top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                pages.forEachIndexed { index, _ ->
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 3.dp)
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (index == pagerState.currentPage) CorusColors.Text
-                                else CorusColors.Secondary.copy(alpha = 0.3f)
-                            ),
+                val canGoBack = pagerState.targetPage > 0
+                val canGoForward = pagerState.targetPage < pages.lastIndex
+                IconButton(
+                    onClick = { movePage(-1) },
+                    enabled = canGoBack,
+                    modifier = Modifier.size(44.dp),
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.player_previous_track),
+                        tint = CorusColors.Secondary.copy(alpha = if (canGoBack) 1f else 0.25f),
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    pages.forEachIndexed { index, _ ->
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (index == pagerState.currentPage) CorusColors.Text
+                                    else CorusColors.Secondary.copy(alpha = 0.25f)
+                                ),
+                        )
+                    }
+                }
+                IconButton(
+                    onClick = { movePage(1) },
+                    enabled = canGoForward,
+                    modifier = Modifier.size(44.dp),
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.player_next_track),
+                        tint = CorusColors.Secondary.copy(alpha = if (canGoForward) 1f else 0.25f),
+                        modifier = Modifier.size(24.dp),
                     )
                 }
             }
@@ -262,7 +306,7 @@ fun StylePickerSheet(
                     stylePack1Enabled = stylePack1Enabled,
                 )
                 StylePage.RAIN -> EffectTogglePage(
-                    title = stringResource(R.string.style_picker_rain_effect),
+                    title = stringResource(fm.corus.android.localization.CorusStrings.style_picker_rain_effect),
                     entries = RainIntensity.entries,
                     selected = draft.rainEffect,
                     onSelect = { newValue ->
@@ -286,7 +330,7 @@ fun StylePickerSheet(
                     },
                 )
                 StylePage.SNOW -> EffectTogglePage(
-                    title = stringResource(R.string.style_picker_snow_effect),
+                    title = stringResource(fm.corus.android.localization.CorusStrings.style_picker_snow_effect),
                     entries = SnowIntensity.entries,
                     selected = draft.snowEffect,
                     onSelect = { newValue ->
@@ -310,7 +354,7 @@ fun StylePickerSheet(
                     },
                 )
                 StylePage.DISCO -> EffectTogglePage(
-                    title = stringResource(R.string.style_picker_disco_effect),
+                    title = stringResource(fm.corus.android.localization.CorusStrings.style_picker_disco_effect),
                     entries = DiscoIntensity.entries,
                     selected = draft.discoEffect,
                     onSelect = { newValue ->
@@ -378,7 +422,7 @@ fun StylePickerSheet(
                     color = Color.White,
                 )
             } else {
-                Text(stringResource(R.string.style_picker_save_changes), style = CorusFont.bodyMedium)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.parity_fa2984b367b8), style = CorusFont.bodyMedium)
             }
         }
     }
@@ -481,7 +525,7 @@ private fun VinylColorPickerPage(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = stringResource(R.string.style_picker_choose_vinyl),
+            text = stringResource(fm.corus.android.localization.CorusStrings.style_picker_choose_vinyl),
             style = CorusFont.appTitle,
             color = CorusColors.Text,
             modifier = Modifier.padding(top = CorusSpacing.xl, bottom = CorusSpacing.md),
@@ -613,7 +657,7 @@ private fun FrameColorPickerPage(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = stringResource(R.string.style_picker_choose_frame),
+            text = stringResource(fm.corus.android.localization.CorusStrings.style_picker_choose_frame),
             style = CorusFont.appTitle,
             color = CorusColors.Text,
             modifier = Modifier.padding(top = CorusSpacing.xl),
@@ -770,7 +814,7 @@ private fun FlairPickerPage(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = stringResource(R.string.style_picker_choose_flair),
+            text = stringResource(fm.corus.android.localization.CorusStrings.style_picker_choose_flair),
             style = CorusFont.appTitle,
             color = CorusColors.Text,
             modifier = Modifier.padding(top = CorusSpacing.xl),
@@ -823,7 +867,7 @@ private fun FlairPreview(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = username.ifEmpty { stringResource(R.string.style_picker_username_placeholder) },
+                text = username.ifEmpty { stringResource(fm.corus.android.localization.CorusStrings.style_picker_username_placeholder) },
                 style = CorusFont.username,
                 color = CorusColors.Text,
             )
@@ -1181,7 +1225,7 @@ private fun DiscoDarkModeOnlyToggle(
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
     ) {
         Text(
-            text = stringResource(R.string.style_picker_disco_dark_mode_only),
+            text = stringResource(fm.corus.android.localization.CorusStrings.style_picker_disco_dark_mode_only),
             style = CorusFont.caption,
             color = CorusColors.Secondary,
             modifier = Modifier.weight(1f),
@@ -1204,19 +1248,19 @@ private fun DiscoDarkModeOnlyToggle(
 @Composable
 private fun VinylStyle.localizedLabel(): String {
     val res = when (this) {
-        VinylStyle.PINK -> R.string.style_vinyl_cotton_candy
-        VinylStyle.ORANGE -> R.string.style_vinyl_channel_orange
-        VinylStyle.YELLOW -> R.string.style_vinyl_yellow
-        VinylStyle.PINK_MATTE -> R.string.style_vinyl_pink
-        VinylStyle.LIME -> R.string.style_vinyl_brat_green
-        VinylStyle.PURPLE_TIE_DYE -> R.string.style_vinyl_purple_tie_dye
-        VinylStyle.BLUE_TIE_DYE -> R.string.style_vinyl_blue_tie_dye
-        VinylStyle.ORANGE_TIE_DYE -> R.string.style_vinyl_orange_tie_dye
-        VinylStyle.ICY_BLUE -> R.string.style_vinyl_icy_blue
-        VinylStyle.GALAXY -> R.string.style_vinyl_galaxy
-        VinylStyle.PEACH -> R.string.style_vinyl_peach
-        VinylStyle.LAVENDER -> R.string.style_vinyl_lavender
-        VinylStyle.BLOOD_RED -> R.string.style_vinyl_depression_cherry
+        VinylStyle.PINK -> fm.corus.android.localization.CorusStrings.style_vinyl_cotton_candy
+        VinylStyle.ORANGE -> fm.corus.android.localization.CorusStrings.style_vinyl_channel_orange
+        VinylStyle.YELLOW -> fm.corus.android.localization.CorusStrings.style_vinyl_yellow
+        VinylStyle.PINK_MATTE -> fm.corus.android.localization.CorusStrings.style_vinyl_pink
+        VinylStyle.LIME -> fm.corus.android.localization.CorusStrings.style_vinyl_brat_green
+        VinylStyle.PURPLE_TIE_DYE -> fm.corus.android.localization.CorusStrings.style_vinyl_purple_tie_dye
+        VinylStyle.BLUE_TIE_DYE -> fm.corus.android.localization.CorusStrings.style_vinyl_blue_tie_dye
+        VinylStyle.ORANGE_TIE_DYE -> fm.corus.android.localization.CorusStrings.style_vinyl_orange_tie_dye
+        VinylStyle.ICY_BLUE -> fm.corus.android.localization.CorusStrings.style_vinyl_icy_blue
+        VinylStyle.GALAXY -> fm.corus.android.localization.CorusStrings.style_vinyl_galaxy
+        VinylStyle.PEACH -> fm.corus.android.localization.CorusStrings.style_vinyl_peach
+        VinylStyle.LAVENDER -> fm.corus.android.localization.CorusStrings.style_vinyl_lavender
+        VinylStyle.BLOOD_RED -> fm.corus.android.localization.CorusStrings.style_vinyl_depression_cherry
         else -> null
     }
     return if (res != null) stringResource(res) else displayName
@@ -1225,7 +1269,7 @@ private fun VinylStyle.localizedLabel(): String {
 @Composable
 private fun FrameStyle.localizedLabel(): String =
     if (this == FrameStyle.THEATER) {
-        stringResource(R.string.style_frame_marquee)
+        stringResource(fm.corus.android.localization.CorusStrings.style_frame_marquee)
     } else {
         displayName
     }
@@ -1233,10 +1277,10 @@ private fun FrameStyle.localizedLabel(): String =
 @Composable
 private fun DiscoIntensity.localizedLabel(): String {
     val res = when (this) {
-        DiscoIntensity.LIGHT -> R.string.style_disco_slow_dance
-        DiscoIntensity.DISCO_BALL -> R.string.style_disco_disco_ball
-        DiscoIntensity.DANCE_PARTY -> R.string.style_disco_dance_party
-        DiscoIntensity.SPOTIFLIGHT -> R.string.style_disco_spotiflight
+        DiscoIntensity.LIGHT -> fm.corus.android.localization.CorusStrings.style_disco_slow_dance
+        DiscoIntensity.DISCO_BALL -> fm.corus.android.localization.CorusStrings.style_disco_disco_ball
+        DiscoIntensity.DANCE_PARTY -> fm.corus.android.localization.CorusStrings.style_disco_dance_party
+        DiscoIntensity.SPOTIFLIGHT -> fm.corus.android.localization.CorusStrings.style_disco_spotiflight_0460c7ff
         else -> null
     }
     return if (res != null) stringResource(res) else displayName

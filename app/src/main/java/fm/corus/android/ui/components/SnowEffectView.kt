@@ -13,9 +13,9 @@ import kotlin.math.min
 import kotlin.math.sin
 import kotlin.random.Random
 
-private enum class SnowLayer { FOREGROUND, BACKGROUND }
+internal enum class SnowLayer { FOREGROUND, BACKGROUND }
 
-private data class Snowflake(
+internal data class Snowflake(
     var x: Float,
     var y: Float,
     var radius: Float,
@@ -159,7 +159,7 @@ fun SnowEffectView(
     }
 }
 
-private fun createSnowflake(
+internal fun createSnowflake(
     width: Float,
     height: Float,
     isBlizzard: Boolean,

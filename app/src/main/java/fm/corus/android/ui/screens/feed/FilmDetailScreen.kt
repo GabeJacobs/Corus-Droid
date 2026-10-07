@@ -131,7 +131,7 @@ fun FilmDetailScreen(
     val menuDirectorIds = posts.firstOrNull { it.directorIds.isNotEmpty() }?.directorIds ?: emptyList()
     val effectiveDirectorId = menuDirectorIds.firstOrNull() ?: resolvedDirectorId
     val directorNameForHint = movieHeader?.directorName ?: initialDirectorName ?: ""
-    val directorMissMsg = stringResource(R.string.film_detail_director_not_found)
+    val directorMissMsg = stringResource(fm.corus.android.localization.CorusStrings.film_detail_director_not_found)
 
     fun openDirector(id: String, idCount: Int) {
         onNavigateToDirector?.invoke(
@@ -250,7 +250,7 @@ fun FilmDetailScreen(
                     CorusHeaderIconButton(
                         onClick = onBack,
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.feed_cd_back),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                     )
                 },
                 actions = {
@@ -259,14 +259,14 @@ fun FilmDetailScreen(
                         CorusHeaderIconButton(
                             onClick = { menuExpanded = true },
                             imageVector = Icons.Filled.MoreVert,
-                            contentDescription = stringResource(R.string.feed_cd_more_options),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.feed_cd_more_options),
                         )
                         DropdownMenu(
                             expanded = menuExpanded,
                             onDismissRequest = { menuExpanded = false },
                         ) {
                             DropdownMenuItem(
-                                text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_share), style = CorusFont.body) },
                                 leadingIcon = { Icon(Icons.Filled.Share, contentDescription = null) },
                                 onClick = {
                                     menuExpanded = false
@@ -277,7 +277,7 @@ fun FilmDetailScreen(
                             // the director id on tap if the seed post lacks it.
                             if (onNavigateToDirector != null) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.post_menu_go_to_director), style = CorusFont.body) },
+                                    text = { Text(stringResource(fm.corus.android.localization.CorusStrings.post_kebab_go_to_director), style = CorusFont.body) },
                                     leadingIcon = { Icon(Icons.Filled.Campaign, contentDescription = null) },
                                     onClick = {
                                         menuExpanded = false
@@ -415,7 +415,7 @@ fun FilmDetailScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.PlayArrow,
-                                        contentDescription = stringResource(R.string.film_detail_watch_trailer),
+                                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.post_kebab_watch_trailer),
                                         tint = Color.White,
                                         modifier = Modifier.size(28.dp),
                                     )
@@ -514,7 +514,7 @@ fun FilmDetailScreen(
                                     modifier = Modifier.size(14.dp),
                                 )
                                 Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                                Text(stringResource(R.string.film_detail_post_film), style = CorusFont.buttonSmall)
+                                Text(stringResource(fm.corus.android.localization.CorusStrings.film_detail_post_film), style = CorusFont.buttonSmall)
                             }
 
                             // Watch Trailer capsule
@@ -546,7 +546,7 @@ fun FilmDetailScreen(
                                         modifier = Modifier.size(14.dp),
                                     )
                                     Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                                    Text(stringResource(R.string.film_detail_watch_trailer), style = CorusFont.buttonSmall)
+                                    Text(stringResource(fm.corus.android.localization.CorusStrings.post_kebab_watch_trailer), style = CorusFont.buttonSmall)
                                 }
                             }
                         }
@@ -571,7 +571,7 @@ fun FilmDetailScreen(
                                     tint = CorusColors.Accent,
                                 )
                                 Spacer(modifier = Modifier.width(CorusSpacing.sm))
-                                Text(stringResource(R.string.film_detail_where_to_watch), style = CorusFont.buttonSmall, color = CorusColors.Accent)
+                                Text(stringResource(fm.corus.android.localization.CorusStrings.film_detail_where_to_watch), style = CorusFont.buttonSmall, color = CorusColors.Accent)
                             }
                         }
                     }
@@ -586,7 +586,7 @@ fun FilmDetailScreen(
             if (isLoading) {
                 item {
                     Text(
-                        text = stringResource(R.string.film_detail_posted_by),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.film_detail_posted_by),
                         style = CorusFont.sectionHeader,
                         color = CorusColors.Secondary,
                         modifier = Modifier
@@ -611,10 +611,10 @@ fun FilmDetailScreen(
                         modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(stringResource(R.string.film_detail_load_error), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.film_detail_load_error), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
                         TextButton(onClick = { viewModel.loadMoviePosts(movieId) }) {
-                            Text(stringResource(R.string.film_detail_try_again), style = CorusFont.buttonSmall, color = CorusColors.Accent)
+                            Text(stringResource(fm.corus.android.localization.CorusStrings.gift_try_again), style = CorusFont.buttonSmall, color = CorusColors.Accent)
                         }
                     }
                 }
@@ -624,7 +624,7 @@ fun FilmDetailScreen(
                         modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(stringResource(R.string.film_detail_empty), style = CorusFont.body, color = CorusColors.Secondary)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.film_detail_empty), style = CorusFont.body, color = CorusColors.Secondary)
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
                         Button(
                             onClick = { onNavigateToCompose(movieId) },
@@ -635,7 +635,7 @@ fun FilmDetailScreen(
                             ),
                             contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
                         ) {
-                            Text(stringResource(R.string.film_detail_be_the_first), style = CorusFont.buttonSmall)
+                            Text(stringResource(fm.corus.android.localization.CorusStrings.film_detail_be_the_first), style = CorusFont.buttonSmall)
                         }
                     }
                 }
@@ -707,7 +707,7 @@ fun FilmDetailScreen(
                 )
                 Spacer(modifier = Modifier.width(CorusSpacing.sm))
                 Text(
-                    text = stringResource(R.string.film_detail_resolving),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.common_loading),
                     style = CorusFont.caption,
                     color = Color.White,
                 )
@@ -726,7 +726,7 @@ fun FilmDetailScreen(
                         CorusHeaderIconButton(
                             onClick = { menuOpen = true },
                             imageVector = Icons.Filled.MoreVert,
-                            contentDescription = stringResource(R.string.feed_cd_more_options),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.feed_cd_more_options),
                             tint = tint,
                         )
                         DropdownMenu(
@@ -734,7 +734,7 @@ fun FilmDetailScreen(
                             onDismissRequest = { menuOpen = false },
                         ) {
                             DropdownMenuItem(
-                                text = { Text(stringResource(R.string.post_menu_share), style = CorusFont.body) },
+                                text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_share), style = CorusFont.body) },
                                 leadingIcon = { Icon(Icons.Filled.Share, contentDescription = null) },
                                 onClick = {
                                     menuOpen = false
@@ -743,7 +743,7 @@ fun FilmDetailScreen(
                             )
                             if (onNavigateToDirector != null) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.post_menu_go_to_director), style = CorusFont.body) },
+                                    text = { Text(stringResource(fm.corus.android.localization.CorusStrings.post_kebab_go_to_director), style = CorusFont.body) },
                                     leadingIcon = { Icon(Icons.Filled.Campaign, contentDescription = null) },
                                     onClick = {
                                         menuOpen = false
@@ -762,7 +762,7 @@ fun FilmDetailScreen(
     // ── Share Film bottom sheet ──
     if (showShareSheet) {
         val shareSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
-        val filmSharedMsg = stringResource(R.string.film_detail_toast_film_sent)
+        val filmSharedMsg = stringResource(fm.corus.android.localization.CorusStrings.share_toast_message_sent)
 
         LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
 

@@ -72,6 +72,7 @@ fun CorusApp(
     CorusTheme(darkTheme = darkTheme) {
         val viewModel: AuthViewModel = hiltViewModel()
         val authState by viewModel.authState.collectAsState()
+        val prototypeState by viewModel.forYouPrototype.state.collectAsState()
         val isConnected by viewModel.networkConnected.collectAsState()
 
         LaunchedEffect(Unit) {
@@ -113,7 +114,11 @@ fun CorusApp(
                         SocialSetupFlow(onFinished = { viewModel.finishSocialSetup() })
                     }
                     AuthViewModel.AuthState.SignedIn -> {
-                        MainTabScreen(
+                        if (!prototypeState.hasPresentation || viewModel.forYouPrototype.isResolvingAccess) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = CorusColors.Accent)
+                            }
+                        } else MainTabScreen(
                             pendingNotificationDestination = pendingNotificationDestination,
                             onNotificationDestinationConsumed = onNotificationDestinationConsumed,
                         )
@@ -153,7 +158,7 @@ private fun OfflineBanner() {
             modifier = Modifier.padding(end = 0.dp),
         )
         Text(
-            text = stringResource(R.string.offline_banner_no_connection),
+            text = stringResource(fm.corus.android.localization.CorusStrings.connection_offline),
             color = Color.White,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,

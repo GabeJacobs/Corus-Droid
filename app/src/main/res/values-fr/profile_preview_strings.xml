@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="user_preview_shared_taste">Vous aimez tous les deux</string>
+    <string name="user_preview_playback_label">Extrait</string>
+</resources>

@@ -1,6 +1,3 @@
 <resources>
-    <plurals name="parity_trophy_count">
-        <item quantity="one">%d Trophy</item>
-        <item quantity="other">%d Trophies</item>
-    </plurals>
+    <plurals name="parity_trophy_count"><item quantity="one">"%1$d Trophy"</item><item quantity="other">"%1$d Trophies"</item></plurals>
 </resources>

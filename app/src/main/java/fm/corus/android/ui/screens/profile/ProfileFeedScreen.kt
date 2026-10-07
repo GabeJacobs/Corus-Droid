@@ -95,7 +95,7 @@ fun ProfileFeedScreen(
     // Resolve-on-tap state for the tappable artist name (subtitle) — shared HUD +
     // miss toast, matching the "…" menu's Go to Artist row.
     var isResolvingSubtitle by remember { mutableStateOf(false) }
-    val subtitleArtistNotFound = androidx.compose.ui.res.stringResource(fm.corus.android.R.string.song_detail_artist_not_found)
+    val subtitleArtistNotFound = androidx.compose.ui.res.stringResource(fm.corus.android.localization.CorusStrings.post_toast_artist_not_found)
 
     var sharePost by remember { mutableStateOf<CymbalPost?>(null) }
     var giftPost by remember { mutableStateOf<CymbalPost?>(null) }
@@ -230,7 +230,7 @@ fun ProfileFeedScreen(
                         IconButton(onClick = onBack) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = androidx.compose.ui.res.stringResource(fm.corus.android.R.string.common_back),
+                                contentDescription = androidx.compose.ui.res.stringResource(fm.corus.android.localization.CorusStrings.common_back),
                                 tint = CorusColors.Text,
                             )
                         }

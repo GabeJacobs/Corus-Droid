@@ -7,8 +7,8 @@ import fm.corus.android.R
 /** The existing Settings invite text and native share surface. */
 fun Context.shareCorusInvite() {
     val sendIntent = Intent(Intent.ACTION_SEND).apply {
-        putExtra(Intent.EXTRA_TEXT, getString(R.string.settings_share_app_text))
+        putExtra(Intent.EXTRA_TEXT, getString(fm.corus.android.localization.CorusStrings.settings_share_app_text))
         type = "text/plain"
     }
-    startActivity(Intent.createChooser(sendIntent, getString(R.string.settings_share_app_chooser)))
+    startActivity(Intent.createChooser(sendIntent, getString(fm.corus.android.localization.CorusStrings.settings_share_app_chooser)))
 }

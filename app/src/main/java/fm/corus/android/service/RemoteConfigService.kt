@@ -3,6 +3,7 @@ package fm.corus.android.service
 import android.content.Context
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.remoteconfig.CustomSignals
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
 import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings
@@ -71,7 +72,7 @@ class RemoteConfigService @Inject constructor(
     /// otherwise the last value we persisted (so feed-gated UI renders correctly
     /// before the disk-cached config loads / a fetch completes).
     private fun feedFlag(key: String): Boolean {
-        if (BuildConfig.DEBUG && devPrefs.contains(key)) return devPrefs.getBoolean(key, false)
+        debugOverride(key)?.let { return it }
         val value = remoteConfig.getValue(key)
         return if (value.source == FirebaseRemoteConfig.VALUE_SOURCE_REMOTE) {
             value.asBoolean()
@@ -87,7 +88,7 @@ class RemoteConfigService @Inject constructor(
     /// which silently drops flag-gated UI. Defaults are applied locally in init(),
     /// so the window is small, but the picker must be correct from its first frame.
     private fun flagWithDefault(key: String, default: Boolean): Boolean {
-        if (BuildConfig.DEBUG && devPrefs.contains(key)) return devPrefs.getBoolean(key, default)
+        debugOverride(key)?.let { return it }
         val value = remoteConfig.getValue(key)
         return if (value.source == FirebaseRemoteConfig.VALUE_SOURCE_STATIC) {
             default
@@ -112,26 +113,26 @@ class RemoteConfigService @Inject constructor(
 
     // Existing flags
     val movieModeEnabled: Boolean
-        get() = remoteConfig.getBoolean("movie_mode")
+        get() = booleanFlag("movie_mode")
 
     val maintenanceMode: Boolean
-        get() = remoteConfig.getBoolean("maintenance_mode")
+        get() = booleanFlag("maintenance_mode")
 
     // New flags (matching iOS RemoteConfigService)
     val postToInstagramV2: Boolean
-        get() = remoteConfig.getBoolean("post_to_instagram_v2")
+        get() = booleanFlag("post_to_instagram_v2")
 
     val instagramShareEnabled: Boolean
-        get() = remoteConfig.getBoolean("instagram_share_enabled")
+        get() = booleanFlag("instagram_share_enabled")
 
     val corusClubEnabled: Boolean
-        get() = remoteConfig.getBoolean("corus_club_enabled")
+        get() = booleanFlag("corus_club_enabled")
 
     val vinylFlipEnabled: Boolean
-        get() = remoteConfig.getBoolean("vinyl_flip_enabled")
+        get() = booleanFlag("vinyl_flip_enabled")
 
     val reviewPromptEnabled: Boolean
-        get() = remoteConfig.getBoolean("review_prompt_enabled")
+        get() = booleanFlag("review_prompt_enabled")
 
     val maintenanceMessage: String
         get() = remoteConfig.getString("maintenance_message")
@@ -147,31 +148,31 @@ class RemoteConfigService @Inject constructor(
         }
 
     val dailyPostLimitEnabled: Boolean
-        get() = remoteConfig.getBoolean("daily_post_limit_enabled")
+        get() = booleanFlag("daily_post_limit_enabled")
 
     val paywallDefaultYearly: Boolean
-        get() = remoteConfig.getBoolean("paywall_default_yearly")
+        get() = booleanFlag("paywall_default_yearly")
 
     val gifSupport: Boolean
-        get() = remoteConfig.getBoolean("gif_support")
+        get() = booleanFlag("gif_support")
 
     /** Instagram-style group messaging gate (create/expand). Default false; on
      *  per cohort via the user_id allowlist condition. */
     val groupMessagingEnabled: Boolean
-        get() = remoteConfig.getBoolean("group_messaging_enabled")
+        get() = booleanFlag("group_messaging_enabled")
 
     /** In-thread typing indicators. Default on; flip `typing_indicators_enabled`
      *  off to kill the feature with no app release. Mirrors iOS/web. */
     val typingIndicatorsEnabled: Boolean
-        get() = remoteConfig.getBoolean("typing_indicators_enabled")
+        get() = booleanFlag("typing_indicators_enabled")
 
     /** DM video attachments. Default off; ON for @gabe + @clifton via RC.
      *  Shares `dm_video_enabled` with iOS/web. */
     val dmVideoEnabled: Boolean
-        get() = remoteConfig.getBoolean("dm_video_enabled")
+        get() = booleanFlag("dm_video_enabled")
 
     val serverNotificationsEnabled: Boolean
-        get() = remoteConfig.getBoolean("server_notifications_enabled")
+        get() = booleanFlag("server_notifications_enabled")
 
     /// Master gate for the per-post save COUNT shown next to the bookmark.
     /// When false the bookmark renders exactly as before (no number); the
@@ -179,13 +180,13 @@ class RemoteConfigService @Inject constructor(
     /// reveals the already-accumulated counts with no rebuild. Keep OFF until
     /// the backend is deployed + backfilled and all clients have shipped.
     val saveCountEnabled: Boolean
-        get() = remoteConfig.getBoolean("save_count_enabled")
+        get() = booleanFlag("save_count_enabled")
 
     val fullPlayerSaveButtonEnabled: Boolean
-        get() = remoteConfig.getBoolean("full_player_save_button_enabled")
+        get() = booleanFlag("full_player_save_button_enabled")
 
     val saveCapEnforced: Boolean
-        get() = remoteConfig.getBoolean("save_cap_enforced")
+        get() = booleanFlag("save_cap_enforced")
 
     val saveCapLimit: Int
         get() {
@@ -202,7 +203,7 @@ class RemoteConfigService @Inject constructor(
     // Favorite-people cap. `favoritePeopleCapEnforced` is the master switch —
     // false means no cap at all. Mirrors the save cap above.
     val favoritePeopleCapEnforced: Boolean
-        get() = remoteConfig.getBoolean("favorite_people_cap_enforced")
+        get() = booleanFlag("favorite_people_cap_enforced")
 
     val favoritePeopleCapLimit: Int
         get() {
@@ -211,7 +212,7 @@ class RemoteConfigService @Inject constructor(
         }
 
     val soundcloudEnabled: Boolean
-        get() = remoteConfig.getBoolean("soundcloud_enabled")
+        get() = booleanFlag("soundcloud_enabled")
 
     /**
      * Client gate for Bandcamp catalog search. Default ON (launched).
@@ -224,6 +225,7 @@ class RemoteConfigService @Inject constructor(
         )
 
     fun isBandcampEnabled(viewerUid: String?, viewerUsername: String? = null): Boolean {
+        debugOverride("bandcamp_enabled")?.let { return it }
         if (flagWithDefault("bandcamp_enabled", true)) return true
         if (viewerUid != null && viewerUid in BANDCAMP_TESTER_UIDS) return true
         val name = viewerUsername?.trim()?.lowercase().orEmpty()
@@ -275,10 +277,10 @@ class RemoteConfigService @Inject constructor(
         get() = flagWithDefault("following_denorm_reads_enabled", true)
 
     val newReleaseFilterClubOnly: Boolean
-        get() = remoteConfig.getBoolean("new_release_filter_club_only")
+        get() = booleanFlag("new_release_filter_club_only")
 
     val stylePack1Enabled: Boolean
-        get() = remoteConfig.getBoolean("style_pack_1_enabled")
+        get() = booleanFlag("style_pack_1_enabled")
 
     /// Gate for who may pick the staff-only "Corus" profile flair. Default false
     /// (today's behavior) restricts the picker option to staff, plus existing
@@ -287,7 +289,7 @@ class RemoteConfigService @Inject constructor(
     /// restrictive state is the fallback before the first RC fetch. Mirrors
     /// web/iOS `corus_flair_open`. Display/rendering of the flair is unaffected.
     val corusFlairOpen: Boolean
-        get() = remoteConfig.getBoolean("corus_flair_open")
+        get() = booleanFlag("corus_flair_open")
 
     /// Gate for the "Trending" feed mode — the ranked `getForYouFeed` callable
     /// scoped to the whole app's most-engaged posts (not just your follows).
@@ -372,7 +374,7 @@ class RemoteConfigService @Inject constructor(
     val immersiveArtistHeaderEnabled: Boolean
         get() {
             if (BuildConfig.DEBUG) {
-                return devPrefs.getBoolean("immersive_artist_header_enabled", true)
+                return debugOverride("immersive_artist_header_enabled") ?: true
             }
             return feedFlag("immersive_artist_header_enabled")
         }
@@ -435,7 +437,7 @@ class RemoteConfigService @Inject constructor(
         get() = feedFlag("profile_artist_link_enabled")
 
     fun isProfileArtistLinkEnabled(viewerUsername: String?): Boolean =
-        fm.corus.android.domain.ProfileArtistLinkGate.isEnabled(
+        (debugOverride("profile_artist_link_enabled")?.let { it && artistPagesEnabled }) ?: fm.corus.android.domain.ProfileArtistLinkGate.isEnabled(
             flag = profileArtistLinkEnabled,
             artistPagesEnabled = artistPagesEnabled,
             viewerUsername = viewerUsername,
@@ -456,7 +458,8 @@ class RemoteConfigService @Inject constructor(
     /// DEBUG builds force it ON so a fresh local signup can see the sheet
     /// without an RC allowlist. Release reads the console key (default false).
     val postSuccessOthersEnabled: Boolean
-        get() = BuildConfig.DEBUG || remoteConfig.getBoolean("post_success_others_enabled")
+        get() = debugOverride("post_success_others_enabled")
+            ?: (BuildConfig.DEBUG || booleanFlag("post_success_others_enabled"))
 
     /// Instagram-style Activity filter chips. Launched ON; RC false hides
     /// them with no app update. Off = today's unfiltered list.
@@ -503,6 +506,14 @@ class RemoteConfigService @Inject constructor(
         return true
     }
 
+    /// Same visual experiment as iOS; local Debug builds can inspect it.
+    val revisedOnboardingTasteMatches: Boolean
+        get() = debugOverride("Revised_onboarding_taste_matches")
+            ?: (BuildConfig.DEBUG || feedFlag("Revised_onboarding_taste_matches"))
+
+    val onboardingMinimumFollows: Int
+        get() = feedString("onboarding_minimum_follows").trim().toIntOrNull()?.coerceAtLeast(0) ?: 0
+
     val onboardingTasteMatchEnabled: Boolean
         get() = feedFlag("onboarding_taste_match_enabled")
 
@@ -543,7 +554,7 @@ class RemoteConfigService @Inject constructor(
     /// Gates the "Someone added you to their favorites" push + in-app row.
     /// Server-authoritative on the backend; mirrored here for completeness.
     val favoritesPushEnabled: Boolean
-        get() = remoteConfig.getBoolean("favorites_push_enabled")
+        get() = booleanFlag("favorites_push_enabled")
 
     /// Gate for play-milestone notifications ("N plays on your corus"). Gates
     /// the backend rows + push AND the "Plays" toggle row in notification
@@ -572,10 +583,8 @@ class RemoteConfigService @Inject constructor(
      */
     val commentControlsOnPosts: Boolean
         get() {
-            if (BuildConfig.DEBUG && devPrefs.contains("comment_controls_on_posts")) {
-                return devPrefs.getBoolean("comment_controls_on_posts", false)
-            }
-            return remoteConfig.getBoolean("comment_controls_on_posts")
+            debugOverride("comment_controls_on_posts")?.let { return it }
+            return booleanFlag("comment_controls_on_posts")
         }
 
     /// Master gate for the "who reposted this" list: long-press the repost count
@@ -586,10 +595,10 @@ class RemoteConfigService @Inject constructor(
     /// affordance only matters once feed content is on screen), so a plain
     /// getBoolean is fine.
     val repostersListEnabled: Boolean
-        get() = remoteConfig.getBoolean("reposters_list_enabled")
+        get() = booleanFlag("reposters_list_enabled")
 
     val feedEnergyFilterEnabled: Boolean
-        get() = remoteConfig.getBoolean("feed_energy_filter_enabled")
+        get() = booleanFlag("feed_energy_filter_enabled")
 
     val feedDecadeFilterEnabled: Boolean
         get() = feedFlag("feed_decade_filter_enabled")
@@ -629,6 +638,192 @@ class RemoteConfigService @Inject constructor(
     val emailOtpAuthEnabled: Boolean
         get() = feedFlag("email_otp_auth_enabled")
 
+
+    private fun booleanFlag(key: String): Boolean =
+        debugOverride(key) ?: remoteConfig.getBoolean(key)
+
+    fun debugOverride(key: String): Boolean? {
+        if (!BuildConfig.DEBUG || !devPrefs.contains(key)) return null
+        return devPrefs.getBoolean(key, false)
+    }
+
+    private var debugServerValues = emptyMap<String, String>()
+    private var debugServerUid: String? = null
+    var debugServerCatalogMessage: String? = null
+        private set
+
+    class DebugFeatureFlag(
+        val key: String,
+        val rawValue: String? = null,
+        val namespace: String = "client",
+        val allowsLocalOverride: Boolean = true,
+        val effectiveValue: () -> Boolean,
+    ) {
+        val rowId: String get() = "$namespace:$key"
+        val title: String get() = if (key == "for_you_prototype_enabled") "Your Mix / For You" else key.replace('_', ' ')
+    }
+
+    private val registeredDebugFeatureFlags: List<DebugFeatureFlag>
+        get() = if (!BuildConfig.DEBUG) emptyList() else listOf(
+            DebugFeatureFlag("audiomack_streaming_enabled") { audiomackStreamingEnabled },
+            DebugFeatureFlag("map_enabled") { mapEnabled },
+            DebugFeatureFlag("artist_pages_enabled") { artistPagesEnabled },
+            DebugFeatureFlag("artists_on_corus_section_enabled") { artistsOnCorusSectionEnabled },
+            DebugFeatureFlag("bandcamp_enabled") { bandcampEnabled },
+            DebugFeatureFlag("books_enabled") { booksEnabled },
+            DebugFeatureFlag("comment_controls_on_posts") { commentControlsOnPosts },
+            DebugFeatureFlag("comment_entity_attachments_enabled") { commentEntityAttachmentsEnabled },
+            DebugFeatureFlag("compose_unified_search_enabled") { composeUnifiedSearchEnabled },
+            DebugFeatureFlag("concert_calendar_enabled") { concertCalendarEnabled },
+            DebugFeatureFlag("concerts_enabled") { concertsEnabled },
+            DebugFeatureFlag("corus_club_enabled") { corusClubEnabled },
+            DebugFeatureFlag("corus_flair_open") { corusFlairOpen },
+            DebugFeatureFlag("daily_post_limit_enabled") { dailyPostLimitEnabled },
+            DebugFeatureFlag("deezer_enabled") { deezerEnabled },
+            DebugFeatureFlag("dm_video_enabled") { dmVideoEnabled },
+            DebugFeatureFlag("email_otp_auth_enabled") { emailOtpAuthEnabled },
+            DebugFeatureFlag("entity_share_enabled") { entityShareEnabled },
+            DebugFeatureFlag("favorite_people_cap_enforced") { favoritePeopleCapEnforced },
+            DebugFeatureFlag("favorites_enabled") { favoritesEnabled },
+            DebugFeatureFlag("favorites_push_enabled") { favoritesPushEnabled },
+            DebugFeatureFlag("feed_decade_filter_enabled") { feedDecadeFilterEnabled },
+            DebugFeatureFlag("feed_energy_filter_enabled") { feedEnergyFilterEnabled },
+            DebugFeatureFlag("feed_mode_tabs_enabled") { feedModeTabsEnabled },
+            DebugFeatureFlag("feed_switch_hint_enabled") { feedSwitchHintEnabled },
+            DebugFeatureFlag("following_denorm_reads_enabled") { followingDenormReadsEnabled },
+            DebugFeatureFlag("full_player_save_button_enabled") { fullPlayerSaveButtonEnabled },
+            DebugFeatureFlag("gif_support") { gifSupport },
+            DebugFeatureFlag("gifts_enabled") { giftsEnabledForCurrentUser },
+            DebugFeatureFlag("group_messaging_enabled") { groupMessagingEnabled },
+            DebugFeatureFlag("immersive_artist_header_enabled") { immersiveArtistHeaderEnabled },
+            DebugFeatureFlag("instagram_share_enabled") { instagramShareEnabled },
+            DebugFeatureFlag("maintenance_mode") { maintenanceMode },
+            DebugFeatureFlag("movie_mode") { movieModeEnabled },
+            DebugFeatureFlag("new_release_filter_club_only") { newReleaseFilterClubOnly },
+            DebugFeatureFlag("notification_filters_enabled") { notificationFiltersEnabled },
+            DebugFeatureFlag("onboarding_club_offer_enabled") { onboardingClubOfferEnabled },
+            DebugFeatureFlag("onboarding_taste_match_enabled") { onboardingTasteMatchEnabled },
+            DebugFeatureFlag("Revised_onboarding_taste_matches") { revisedOnboardingTasteMatches },
+            DebugFeatureFlag("paywall_default_yearly") { paywallDefaultYearly },
+            DebugFeatureFlag("play_milestone_enabled") { playMilestoneEnabled },
+            DebugFeatureFlag("post_success_others_enabled") { postSuccessOthersEnabled },
+            DebugFeatureFlag("post_to_instagram_v2") { postToInstagramV2 },
+            DebugFeatureFlag("prerelease_album_pages_enabled") { prereleaseAlbumPagesEnabled },
+            DebugFeatureFlag("profile_artist_link_enabled") { profileArtistLinkEnabled },
+            DebugFeatureFlag("profile_share_enabled") { profileShareEnabled },
+            DebugFeatureFlag("profile_sharing_v2") { profileSharingV2 },
+            DebugFeatureFlag("reposters_list_enabled") { repostersListEnabled },
+            DebugFeatureFlag("review_prompt_enabled") { reviewPromptEnabled },
+            DebugFeatureFlag("save_cap_enforced") { saveCapEnforced },
+            DebugFeatureFlag("save_count_enabled") { saveCountEnabled },
+            DebugFeatureFlag("segmented_search_enabled") { segmentedSearchEnabled },
+            DebugFeatureFlag("server_notifications_enabled") { serverNotificationsEnabled },
+            DebugFeatureFlag("soundcloud_enabled") { soundcloudEnabled },
+            DebugFeatureFlag("spotify_library_save_enabled") { spotifyLibrarySaveEnabled },
+            DebugFeatureFlag("style_pack_1_enabled") { stylePack1Enabled },
+            DebugFeatureFlag("taste_matches_enabled") { tasteMatchesEnabled },
+            DebugFeatureFlag("taste_matches_free_trial") { tasteMatchesFreeTrial },
+            DebugFeatureFlag("taste_matches_tester") { tasteMatchesTester },
+            DebugFeatureFlag("tidal_enabled") { tidalEnabled },
+            DebugFeatureFlag("tidal_full_playback_enabled") { tidalFullPlaybackEnabled },
+            DebugFeatureFlag("trending_artists_section_enabled") { trendingArtistsSectionEnabled },
+            DebugFeatureFlag("trending_feed_enabled") { trendingFeedEnabled },
+            DebugFeatureFlag("trending_songs_preview_context_enabled") { trendingSongsPreviewContextEnabled },
+            DebugFeatureFlag("typing_indicators_enabled") { typingIndicatorsEnabled },
+            DebugFeatureFlag("unified_search_enabled") { unifiedSearchEnabled },
+            DebugFeatureFlag("vinyl_flip_enabled") { vinylFlipEnabled },
+            DebugFeatureFlag("youtube_music_enabled") { youtubeMusicEnabled },
+            DebugFeatureFlag("youtube_music_integration_enabled") { youtubeMusicIntegrationEnabled },
+        )
+
+    val debugFeatureFlags: List<DebugFeatureFlag>
+        get() {
+            if (!BuildConfig.DEBUG) return emptyList()
+            val registered = registeredDebugFeatureFlags.associateBy { it.key }
+            val client = remoteConfig.all
+            val flags = (registered.keys + client.keys).map { key ->
+                registered[key] ?: DebugFeatureFlag(key, rawValue = client[key]?.asString(),
+                    allowsLocalOverride = false) { remoteConfig.getBoolean(key) }
+            }
+            val server = if (debugServerUid == auth.currentUser?.uid) debugServerValues else emptyMap()
+            val serverKeys = server.keys + "for_you_prototype_enabled"
+            return (flags + serverKeys.map { key ->
+                DebugFeatureFlag(key, rawValue = server[key], namespace = "server", allowsLocalOverride = false) {
+                    server[key] == "true"
+                }
+            }).sortedBy { it.rowId.lowercase() }
+        }
+
+    val debugOverrideCount: Int
+        get() = registeredDebugFeatureFlags.count { debugOverride(it.key) != null }
+
+    fun debugRemoteValue(key: String): Boolean = remoteConfig.getBoolean(key)
+
+    fun debugSource(key: String): String = when (remoteConfig.getValue(key).source) {
+        FirebaseRemoteConfig.VALUE_SOURCE_REMOTE -> "Remote Config"
+        FirebaseRemoteConfig.VALUE_SOURCE_DEFAULT -> "In-app default"
+        else -> "Not fetched"
+    }
+
+    fun setDebugOverride(key: String, value: Boolean?) {
+        if (!BuildConfig.DEBUG || registeredDebugFeatureFlags.none { it.key == key }) return
+        val edit = devPrefs.edit()
+        if (value == null) edit.remove(key) else edit.putBoolean(key, value)
+        edit.apply()
+        _revision.value += 1
+    }
+
+    fun resetDebugOverrides() {
+        if (!BuildConfig.DEBUG) return
+        val edit = devPrefs.edit()
+        registeredDebugFeatureFlags.forEach { edit.remove(it.key) }
+        edit.apply()
+        _revision.value += 1
+    }
+
+    suspend fun refreshDebugFeatureFlags() {
+        if (!BuildConfig.DEBUG) return
+        fetchAndActivate(forceFresh = true)
+        val uid = auth.currentUser?.uid
+        if (uid == null) {
+            debugServerValues = emptyMap()
+            debugServerUid = null
+            debugServerCatalogMessage = "Sign in to check backend flags."
+            _revision.value += 1
+            return
+        }
+        var values = emptyMap<String, String>()
+        var message: String? = null
+        val functions = FirebaseFunctions.getInstance("us-central1")
+        try {
+            val callable = functions.getHttpsCallable("getDebugFeatureFlags")
+            callable.setTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+            val data = callable.call().await().getData() as? Map<*, *>
+            val flags = data?.get("flags") as? Map<*, *> ?: error("Invalid flag catalog")
+            check(flags.keys.all { it is String } && flags.values.all { it is String })
+            values = flags.entries.associate { it.key as String to it.value as String }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            message = "Backend catalog unavailable. Showing Your Mix access only."
+            try {
+                val callable = functions.getHttpsCallable("getForYouPrototypeAccess")
+                callable.setTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                val data = callable.call().await().getData() as? Map<*, *>
+                (data?.get("enabled") as? Boolean)?.let { values = mapOf("for_you_prototype_enabled" to it.toString()) }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                message = "Couldn’t refresh backend flags. Try again."
+            }
+        }
+        if (auth.currentUser?.uid != uid) return
+        debugServerValues = values
+        debugServerUid = uid
+        debugServerCatalogMessage = message
+        _revision.value += 1
+    }
+
     // Tracks the UID last pushed as the `user_id` signal so we can tell when it
     // changes (login / account switch) and force a fresh fetch. Null-vs-unset is
     // distinguished by [hasAppliedUserSignal] so the first apply always counts.
@@ -646,6 +841,12 @@ class RemoteConfigService @Inject constructor(
     /// applied UID differs from the previously applied one (login / switch),
     /// meaning any cached config was evaluated for a different user.
     suspend fun setCurrentUserSignal(uid: String?): Boolean {
+        if (BuildConfig.DEBUG && debugServerUid != uid) {
+            debugServerValues = emptyMap()
+            debugServerUid = null
+            debugServerCatalogMessage = null
+            _revision.value += 1
+        }
         return try {
             val signals = CustomSignals.Builder()
                 .put("user_id", uid)
@@ -717,6 +918,7 @@ class RemoteConfigService @Inject constructor(
     /// Reads straight from Remote Config — by this point the fetch has activated.
     private fun cacheFeedFlags() {
         flagCache.edit()
+            .putString("onboarding_minimum_follows", remoteConfig.getString("onboarding_minimum_follows"))
             .putBoolean("concerts_enabled", remoteConfig.getBoolean("concerts_enabled"))
             .putBoolean("concert_calendar_enabled", remoteConfig.getBoolean("concert_calendar_enabled"))
             .putBoolean("trending_feed_enabled", remoteConfig.getBoolean("trending_feed_enabled"))
@@ -739,6 +941,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("feed_switch_hint_enabled", remoteConfig.getBoolean("feed_switch_hint_enabled"))
             .putBoolean("onboarding_club_offer_enabled", remoteConfig.getBoolean("onboarding_club_offer_enabled"))
             .putBoolean("onboarding_taste_match_enabled", remoteConfig.getBoolean("onboarding_taste_match_enabled"))
+            .putBoolean("Revised_onboarding_taste_matches", remoteConfig.getBoolean("Revised_onboarding_taste_matches"))
             .putBoolean("taste_matches_enabled", remoteConfig.getBoolean("taste_matches_enabled"))
             .putBoolean("taste_matches_tester", remoteConfig.getBoolean("taste_matches_tester"))
             .putBoolean("taste_matches_free_trial", remoteConfig.getBoolean("taste_matches_free_trial"))
@@ -771,8 +974,8 @@ class RemoteConfigService @Inject constructor(
                 "new_release_filter_club_only=$newReleaseFilterClubOnly " +
                 "style_pack_1_enabled=$stylePack1Enabled " +
                 "corus_flair_open=$corusFlairOpen " +
-                "trending_feed_enabled=${remoteConfig.getBoolean("trending_feed_enabled")} " +
-                "favorites_enabled=${remoteConfig.getBoolean("favorites_enabled")} " +
+                "trending_feed_enabled=${booleanFlag("trending_feed_enabled")} " +
+                "favorites_enabled=${booleanFlag("favorites_enabled")} " +
                 "unified_search_enabled=$unifiedSearchEnabled " +
                 "segmented_search_enabled=$segmentedSearchEnabled " +
                 "compose_unified_search_enabled=$composeUnifiedSearchEnabled " +
@@ -800,6 +1003,7 @@ class RemoteConfigService @Inject constructor(
         /// fetchAndActivate(). Single source of truth — keep in sync with the
         /// server template and the iOS/web defaults.
         private val DEFAULTS: Map<String, Any> = mapOf(
+            "onboarding_minimum_follows" to 0L,
             "concerts_enabled" to false,
             "concert_calendar_enabled" to false,
             "gifts_enabled" to false,
@@ -875,6 +1079,7 @@ class RemoteConfigService @Inject constructor(
             // in-code default keeps the flow dark even before the first fetch.
             "onboarding_club_offer_enabled" to false,
             "onboarding_taste_match_enabled" to false,
+            "Revised_onboarding_taste_matches" to false,
             "email_otp_auth_enabled" to false,
             "feed_switch_hint_min_session" to 1L,
             "feed_switch_hint_max_impressions" to 3L,

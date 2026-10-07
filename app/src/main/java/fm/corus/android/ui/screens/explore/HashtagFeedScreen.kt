@@ -145,7 +145,7 @@ fun HashtagFeedScreen(
                 title = {},
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.hashtag_feed_cd_back), tint = CorusColors.Text)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back), tint = CorusColors.Text)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
@@ -240,7 +240,7 @@ fun HashtagFeedScreen(
                                 isGenerating = isGeneratingPlaylist,
                                 onClick = {
                                     if (!hasSongs) {
-                                        ToastManager.show(context.getString(R.string.profile_toast_no_songs_for_playlist))
+                                        ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.profile_toast_no_songs_for_playlist))
                                     } else if (viewModel.shouldPaywallHashtagPlaylist()) {
                                         clubPlaylistTrialContext = fm.corus.android.domain.PlaylistTrialField.Hashtag
                                         showClubOffer = true
@@ -291,7 +291,7 @@ fun HashtagFeedScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
-                            text = stringResource(R.string.hashtag_feed_load_error),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.film_detail_load_error),
                             style = CorusFont.body,
                             color = CorusColors.Secondary,
                         )
@@ -301,7 +301,7 @@ fun HashtagFeedScreen(
                             border = BorderStroke(1.dp, CorusColors.Accent),
                         ) {
                             Text(
-                                text = stringResource(R.string.hashtag_feed_try_again),
+                                text = stringResource(fm.corus.android.localization.CorusStrings.gift_try_again),
                                 color = CorusColors.Accent,
                             )
                         }
@@ -333,7 +333,7 @@ fun HashtagFeedScreen(
                         )
                         Spacer(modifier = Modifier.height(CorusSpacing.md))
                         Text(
-                            text = stringResource(R.string.hashtag_feed_empty),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.hashtag_feed_empty),
                             style = CorusFont.body,
                             color = CorusColors.Secondary,
                         )
@@ -457,9 +457,9 @@ private fun HashtagStatsRow(
     onFollowersTap: () -> Unit,
     onContributorsTap: () -> Unit,
 ) {
-    val postsLabel = stringResource(R.string.post_noun_plural)
-    val followersLabel = stringResource(R.string.hashtag_followers)
-    val contributorsLabel = stringResource(R.string.hashtag_contributors)
+    val postsLabel = stringResource(fm.corus.android.localization.CorusStrings.profile_stat_coruses)
+    val followersLabel = stringResource(fm.corus.android.localization.CorusStrings.hashtag_followers)
+    val contributorsLabel = stringResource(fm.corus.android.localization.CorusStrings.hashtag_contributors)
     Row(
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xxl),
         verticalAlignment = Alignment.CenterVertically,
@@ -640,9 +640,9 @@ private fun HashtagFollowButton(
     onClick: () -> Unit,
 ) {
     val label = if (isFollowing) {
-        stringResource(R.string.hashtag_feed_following)
+        stringResource(fm.corus.android.localization.CorusStrings.following_status)
     } else {
-        stringResource(R.string.hashtag_feed_follow)
+        stringResource(fm.corus.android.localization.CorusStrings.follow_action)
     }
     Button(
         onClick = onClick,
@@ -702,12 +702,12 @@ private fun HashtagPlaylistButton(
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_music_note_list),
-                    contentDescription = stringResource(R.string.profile_cd_playlist),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.profile_playlist_button),
                     modifier = Modifier.size(14.dp),
                     tint = CorusColors.Secondary,
                 )
                 Text(
-                    text = stringResource(R.string.hashtag_button_playlist),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.profile_playlist_button),
                     style = CorusFont.buttonSmall,
                 )
             }

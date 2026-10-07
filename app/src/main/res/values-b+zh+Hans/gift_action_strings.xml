@@ -1,6 +1,6 @@
 <resources>
-    <string name="gift_send_action">发送礼物</string>
-    <string name="gift_picker_intro">向 %1$s 发送一份礼物，表达特别的感谢。</string>
-    <string name="gift_picker_empty_intro">你暂时已用完所有礼物。</string>
-    <string name="gift_club_slots">你的礼物每周日重置。</string>
+    <string name="gift_send_action">"发送礼物"</string>
+    <string name="gift_picker_intro">"向 %1$s 发送一份礼物，表达特别的感谢。"</string>
+    <string name="gift_picker_empty_intro">"你暂时已用完所有礼物。"</string>
+    <string name="gift_club_slots">"你的礼物每周日重置。"</string>
 </resources>

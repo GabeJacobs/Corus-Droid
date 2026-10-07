@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="concert_make_personal">Für dich personalisieren</string>
-    <string name="concert_personal_message">Poste Musik, die du liebst. Wir merken uns deine Lieblingskünstler und zeigen dir, wenn sie in der Nähe spielen.</string>
-    <string name="concert_keep_posting_message">Schau bald wieder nach neuen Konzerten. Poste weiter Musik, die du liebst, um hier mehr Künstler im Blick zu behalten.</string>
-    <string name="concert_post_music">Musik posten</string>
-    <string name="concert_view_all">Alle Konzerte ansehen</string>
-    <string name="concert_no_matches">Noch keine Treffer von deinen Künstlern</string>
-    <string name="concert_choose_your_city">Wähle deine Stadt</string>
-    <string name="concert_choose_location">Standort wählen</string>
-    <string name="concert_browse">Konzerte entdecken</string>
-    <string name="concert_choose_another_city">Andere Stadt wählen</string>
-    <string name="concert_no_plans_title">Noch keine Konzertpläne</string>
-    <string name="concert_post_personal_title">Poste Musik für persönliche Empfehlungen</string>
-    <string name="concert_no_artist_shows">Noch keine Konzerte von deinen Künstlern</string>
-    <string name="concert_no_shows_around">Wir konnten keine Konzerte in der Nähe von %1$s finden. Versuche eine andere Stadt.</string>
-    <string name="concert_find_nearby">Konzerte in deiner Nähe finden</string>
-    <string name="concert_choose_location_message">Wähle eine Stadt oder verwende deinen aktuellen Standort, um bevorstehende Konzerte zu sehen.</string>
-    <string name="concert_remove">Entfernen</string>
-    <string name="concert_calendar_error">Keine Kalender-App konnte geöffnet werden. Installiere eine und versuche es erneut.</string>
+    <string name="concert_make_personal">"Für dich personalisieren"</string>
+    <string name="concert_personal_message">"Poste Musik, die du liebst. Wir merken uns deine Lieblingskünstler und zeigen dir, wann sie in deiner Nähe spielen."</string>
+    <string name="concert_keep_posting_message">"Schau bald wieder nach neuen Konzerten. Poste weiter Musik, die du liebst, um hier mehr Künstler im Blick zu behalten."</string>
+    <string name="concert_post_music">"Musik posten"</string>
+    <string name="concert_view_all">"Alle Konzerte ansehen"</string>
+    <string name="concert_no_matches">"Noch keine Konzerte deiner Künstler"</string>
+    <string name="concert_choose_your_city">"Wähle deine Stadt"</string>
+    <string name="concert_choose_location">"Standort wählen"</string>
+    <string name="concert_browse">"Konzerte entdecken"</string>
+    <string name="concert_choose_another_city">"Andere Stadt wählen"</string>
+    <string name="concert_no_plans_title">"Noch keine Konzertpläne"</string>
+    <string name="concert_post_personal_title">"Poste Musik für persönliche Empfehlungen"</string>
+    <string name="concert_no_artist_shows">"Noch keine Konzerte von deinen Künstlern"</string>
+    <string name="concert_no_shows_around">"Wir konnten keine Konzerte in der Nähe von %1$s finden. Versuche eine andere Stadt."</string>
+    <string name="concert_find_nearby">"Konzerte in deiner Nähe finden"</string>
+    <string name="concert_choose_location_message">"Wähle eine Stadt oder verwende deinen aktuellen Standort, um bevorstehende Konzerte zu sehen."</string>
+    <string name="concert_remove">"Entfernen"</string>
+    <string name="concert_calendar_error">"Keine Kalender-App konnte geöffnet werden. Installiere eine und versuche es erneut."</string>
 </resources>

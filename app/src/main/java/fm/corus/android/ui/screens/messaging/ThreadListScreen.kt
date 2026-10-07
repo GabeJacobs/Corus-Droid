@@ -178,10 +178,10 @@ fun ThreadListScreen(
             CorusHeaderIconButton(
                 onClick = onBack,
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(id = R.string.common_back),
+                contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.common_back),
             )
             Text(
-                stringResource(id = R.string.messaging_list_title),
+                stringResource(id = fm.corus.android.localization.CorusStrings.nav_messages),
                 style = CorusFont.screenTitle,
                 color = CorusColors.Text,
                 modifier = Modifier.weight(1f),
@@ -189,7 +189,7 @@ fun ThreadListScreen(
             CorusHeaderIconButton(
                 onClick = { showNewMessagePicker = true },
                 painter = painterResource(id = R.drawable.ic_edit_square),
-                contentDescription = stringResource(id = R.string.messaging_list_cd_new_message),
+                contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.new_message_action),
                 tint = CorusColors.Secondary,
                 size = CorusSpacing.iconLg,
             )
@@ -216,7 +216,7 @@ fun ThreadListScreen(
                 CorusHeaderIconButton(
                     onClick = { showNewMessagePicker = true },
                     painter = painterResource(id = R.drawable.ic_edit_square),
-                    contentDescription = stringResource(id = R.string.messaging_list_cd_new_message),
+                    contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.new_message_action),
                     tint = CorusColors.Secondary,
                     size = CorusSpacing.iconLg,
                 )
@@ -258,7 +258,7 @@ fun ThreadListScreen(
                             tint = CorusColors.Tertiary,
                         )
                         Text(
-                            stringResource(id = R.string.messaging_list_empty),
+                            stringResource(id = fm.corus.android.localization.CorusStrings.messages_empty_title),
                             style = CorusFont.body,
                             color = CorusColors.Secondary,
                         )
@@ -270,7 +270,7 @@ fun ThreadListScreen(
                         CircularProgressIndicator(color = CorusColors.Accent)
                     } else {
                         Text(
-                            stringResource(id = R.string.messaging_list_no_matches),
+                            stringResource(id = fm.corus.android.localization.CorusStrings.messages_search_no_matches),
                             style = CorusFont.body,
                             color = CorusColors.Secondary,
                         )
@@ -284,7 +284,7 @@ fun ThreadListScreen(
                     if (isSearching) {
                         if (searchChats.isNotEmpty()) {
                             item(key = "header-chats") {
-                                InboxSearchSectionHeader(stringResource(id = R.string.messaging_search_section_chats))
+                                InboxSearchSectionHeader(stringResource(id = fm.corus.android.localization.CorusStrings.messages_search_section_chats))
                             }
                             items(searchChats, key = { "chat-${it.id}" }) { thread ->
                                 ThreadRow(
@@ -300,7 +300,7 @@ fun ThreadListScreen(
                         }
                         if (searchMessages.isNotEmpty()) {
                             item(key = "header-messages") {
-                                InboxSearchSectionHeader(stringResource(id = R.string.messaging_search_section_messages))
+                                InboxSearchSectionHeader(stringResource(id = fm.corus.android.localization.CorusStrings.nav_messages))
                             }
                             items(searchMessages, key = { "msg-${it.id}" }) { hit ->
                                 MessageSearchHitRow(
@@ -404,7 +404,7 @@ fun ThreadListScreen(
                             IconButton(onClick = { showGroupCreate = false }) {
                                 Icon(
                                     Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = stringResource(id = R.string.common_back),
+                                    contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.common_back),
                                     tint = CorusColors.Accent,
                                 )
                             }
@@ -413,12 +413,12 @@ fun ThreadListScreen(
                                 viewModel.clearSearch()
                                 showNewMessagePicker = false
                             }) {
-                                Text(stringResource(id = R.string.common_cancel), style = CorusFont.body, color = CorusColors.Accent)
+                                Text(stringResource(id = fm.corus.android.localization.CorusStrings.common_cancel), style = CorusFont.body, color = CorusColors.Accent)
                             }
                         }
                     }
                     Text(
-                        stringResource(id = if (showGroupCreate) R.string.messaging_group_new_title else R.string.messaging_list_new_message_title),
+                        stringResource(id = if (showGroupCreate) fm.corus.android.localization.CorusStrings.group_new_group_title else fm.corus.android.localization.CorusStrings.messaging_list_new_message_title),
                         style = CorusFont.screenTitle,
                         color = CorusColors.Text,
                         modifier = Modifier.align(Alignment.Center),
@@ -441,7 +441,7 @@ fun ThreadListScreen(
                 if (isGroupCreate) {
                     // Multi-select: one selection starts a 1:1 DM, two+ creates a group.
                     MultiUserPickerContent(
-                        title = stringResource(id = R.string.messaging_group_new_title),
+                        title = stringResource(id = fm.corus.android.localization.CorusStrings.group_new_group_title),
                         showNameField = true,
                         excludeIds = setOf(viewModel.currentUserId ?: ""),
                         loadSuggestions = { viewModel.fetchSuggestionsList() },
@@ -541,10 +541,10 @@ private fun NewMessagePickerContent(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(onClick = onCancel) {
-                    Text(stringResource(id = R.string.common_cancel), style = CorusFont.body, color = CorusColors.Accent)
+                    Text(stringResource(id = fm.corus.android.localization.CorusStrings.common_cancel), style = CorusFont.body, color = CorusColors.Accent)
                 }
                 Spacer(modifier = Modifier.weight(1f))
-                Text(stringResource(id = R.string.messaging_list_new_message_title), style = CorusFont.screenTitle, color = CorusColors.Text)
+                Text(stringResource(id = fm.corus.android.localization.CorusStrings.messaging_list_new_message_title), style = CorusFont.screenTitle, color = CorusColors.Text)
                 Spacer(modifier = Modifier.weight(1f))
                 // Invisible spacer to balance the Cancel button
                 Spacer(modifier = Modifier.width(64.dp))
@@ -561,7 +561,7 @@ private fun NewMessagePickerContent(
         ) {
             Icon(
                 Icons.Filled.Search,
-                contentDescription = stringResource(id = R.string.search_cd_search),
+                contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.nav_search),
                 tint = CorusColors.Tertiary,
                 modifier = Modifier.size(20.dp),
             )
@@ -569,7 +569,7 @@ private fun NewMessagePickerContent(
             Box(modifier = Modifier.weight(1f)) {
                 if (searchText.isEmpty()) {
                     Text(
-                        stringResource(id = R.string.messaging_list_search_placeholder),
+                        stringResource(id = fm.corus.android.localization.CorusStrings.parity_8d232b28b92f),
                         style = CorusFont.body,
                         color = CorusColors.Tertiary,
                     )
@@ -592,7 +592,7 @@ private fun NewMessagePickerContent(
                 ) {
                     Icon(
                         Icons.Filled.Close,
-                        contentDescription = stringResource(id = R.string.search_cd_clear),
+                        contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.search_clear_aria),
                         tint = CorusColors.Tertiary,
                         modifier = Modifier.size(16.dp),
                     )
@@ -619,7 +619,7 @@ private fun NewMessagePickerContent(
                 ) {
                     Icon(Icons.Filled.Group, contentDescription = null, tint = CorusColors.Accent, modifier = Modifier.size(20.dp))
                 }
-                Text(stringResource(id = R.string.messaging_group_chat), style = CorusFont.username, color = CorusColors.Text, modifier = Modifier.weight(1f))
+                Text(stringResource(id = fm.corus.android.localization.CorusStrings.parity_323d2167a2f2), style = CorusFont.username, color = CorusColors.Text, modifier = Modifier.weight(1f))
                 Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = CorusColors.Tertiary)
             }
             HorizontalDivider(color = CorusColors.Divider)
@@ -643,7 +643,7 @@ private fun NewMessagePickerContent(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    if (searchText.isNotBlank()) stringResource(id = R.string.search_no_users_found) else stringResource(id = R.string.messaging_list_no_suggestions),
+                    if (searchText.isNotBlank()) stringResource(id = fm.corus.android.localization.CorusStrings.parity_612eb3c64c41) else stringResource(id = fm.corus.android.localization.CorusStrings.messaging_list_no_suggestions),
                     style = CorusFont.body,
                     color = CorusColors.Secondary,
                 )
@@ -730,7 +730,7 @@ private fun InboxSearchBar(
     ) {
         Icon(
             Icons.Filled.Search,
-            contentDescription = stringResource(id = R.string.search_cd_search),
+            contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.nav_search),
             tint = CorusColors.Secondary,
             modifier = Modifier.size(20.dp),
         )
@@ -738,7 +738,7 @@ private fun InboxSearchBar(
         Box(modifier = Modifier.weight(1f)) {
             if (value.isEmpty()) {
                 Text(
-                    stringResource(id = R.string.messaging_list_inbox_search_placeholder),
+                    stringResource(id = fm.corus.android.localization.CorusStrings.messages_search_placeholder),
                     style = CorusFont.body,
                     color = CorusColors.Tertiary,
                 )
@@ -758,7 +758,7 @@ private fun InboxSearchBar(
             ) {
                 Icon(
                     Icons.Filled.Close,
-                    contentDescription = stringResource(id = R.string.search_cd_clear),
+                    contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.search_clear_aria),
                     tint = CorusColors.Tertiary,
                     modifier = Modifier.size(16.dp),
                 )
@@ -894,10 +894,10 @@ private fun ThreadRow(
     if (showActions) {
         AlertDialog(
             onDismissRequest = { showActions = false },
-            title = { Text(stringResource(R.string.messaging_conversation_actions)) },
+            title = { Text(stringResource(fm.corus.android.localization.CorusStrings.messaging_conversation_actions)) },
             confirmButton = {
                 TextButton(onClick = { showActions = false; onPin() }) {
-                    Text(stringResource(if (thread.isPinned) R.string.messaging_unpin_conversation else R.string.messaging_pin_conversation))
+                    Text(stringResource(if (thread.isPinned) fm.corus.android.localization.CorusStrings.messaging_conversation_unpin else fm.corus.android.localization.CorusStrings.messaging_conversation_pin))
                 }
             },
             dismissButton = { TextButton(onClick = { showActions = false }) { Text(stringResource(android.R.string.cancel)) } },
@@ -928,7 +928,7 @@ private fun ThreadRow(
     val preview = if (isGroup && !blocksReady) "…" else if (isGroup && thread.lastMessageType == MessageType.SYSTEM) {
         GroupSystemMessages.localize(thread.lastMessageText, context)
     } else if (isBlockedGroupAuthor(isGroup, thread.lastMessageFromUserId, blockedAuthors)) {
-        stringResource(R.string.messaging_blocked_message)
+        stringResource(fm.corus.android.localization.CorusStrings.messaging_blocked_message)
     } else if (isGroup) {
         val fromId = thread.lastMessageFromUserId
         val sender = if (fromId != null && fromId != currentUserId) membersById[fromId] else null
@@ -941,7 +941,7 @@ private fun ThreadRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(onClick = onClick, onLongClick = { showActions = true }, onLongClickLabel = stringResource(R.string.messaging_conversation_actions))
+            .combinedClickable(onClick = onClick, onLongClick = { showActions = true }, onLongClickLabel = stringResource(fm.corus.android.localization.CorusStrings.messaging_conversation_actions))
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -988,7 +988,7 @@ private fun ThreadRow(
         )
 
         if (thread.isPinned) {
-            Icon(Icons.Filled.PushPin, contentDescription = stringResource(R.string.messaging_pinned_conversation),
+            Icon(Icons.Filled.PushPin, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.messaging_conversation_pinned),
                 tint = CorusColors.Secondary, modifier = Modifier.padding(start = 8.dp).size(16.dp))
         }
         if (thread.unreadCount > 0) {

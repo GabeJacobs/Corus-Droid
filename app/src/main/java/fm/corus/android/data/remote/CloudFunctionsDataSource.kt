@@ -1134,6 +1134,25 @@ class CloudFunctionsDataSource @Inject constructor(
      * `threads` is the back-compat union; `messages` is the body-hit list.
      */
     @Suppress("UNCHECKED_CAST")
+    suspend fun searchShareGroups(query: String, limit: Int = 30): List<CymbalThread> {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) return emptyList()
+        val result = try {
+            functions.getHttpsCallable("searchShareGroups")
+                .call(mapOf("query" to trimmed, "limit" to limit)).await()
+        } catch (error: com.google.firebase.functions.FirebaseFunctionsException) {
+            if (error.code != com.google.firebase.functions.FirebaseFunctionsException.Code.NOT_FOUND) throw error
+            val uid = auth.currentUser?.uid ?: throw error
+            // Staged rollout: retain group name/member matching on old deployments.
+            return searchThreads(uid, trimmed, limit).threads.filter { groupMatchesShareQuery(it, trimmed) }
+        }
+        val data = result.getData() as? Map<String, Any?> ?: return emptyList()
+        return (data["threads"] as? List<Map<String, Any?>> ?: emptyList())
+            .map { CymbalThread.fromMap(it["id"] as? String ?: "", it) }
+            .filter { it.isGroup && it.id.isNotEmpty() }
+    }
+
+    @Suppress("UNCHECKED_CAST")
     suspend fun searchThreads(userId: String, query: String, limit: Int = 30): InboxSearchResult {
         val params = mapOf<String, Any>("userId" to userId, "query" to query, "limit" to limit)
         val result = functions.getHttpsCallable("searchThreads").call(params).await()

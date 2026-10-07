@@ -84,7 +84,7 @@ fun ReviewPromptView(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Text(
-                    stringResource(R.string.review_prompt_title),
+                    stringResource(fm.corus.android.localization.CorusStrings.review_prompt_title),
                     style = CorusFont.songTitleLarge,
                     color = CorusColors.Text,
                     textAlign = TextAlign.Center,
@@ -93,7 +93,7 @@ fun ReviewPromptView(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    stringResource(R.string.review_prompt_message),
+                    stringResource(fm.corus.android.localization.CorusStrings.review_prompt_message),
                     style = CorusFont.body,
                     color = CorusColors.Secondary,
                     textAlign = TextAlign.Center,
@@ -108,7 +108,7 @@ fun ReviewPromptView(
                     shape = RoundedCornerShape(14.dp),
                 ) {
                     Text(
-                        stringResource(R.string.review_prompt_button),
+                        stringResource(fm.corus.android.localization.CorusStrings.review_prompt_button),
                         style = CorusFont.button,
                         color = Color.White,
                         modifier = Modifier.padding(vertical = 2.dp),
@@ -119,7 +119,7 @@ fun ReviewPromptView(
 
                 TextButton(onClick = onDismiss) {
                     Text(
-                        stringResource(R.string.review_prompt_not_now),
+                        stringResource(fm.corus.android.localization.CorusStrings.parity_e45714907316),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                     )

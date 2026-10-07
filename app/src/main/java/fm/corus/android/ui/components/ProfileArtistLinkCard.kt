@@ -49,7 +49,7 @@ fun ProfileArtistLinkCard(
     onMatchTap: (() -> Unit)? = null,
 ) {
     val matchRow = match?.takeIf { it.hasDisplayableTiles }
-    val displayName = artist.name.ifBlank { stringResource(R.string.profile_artist_fallback) }
+    val displayName = artist.name.ifBlank { stringResource(fm.corus.android.localization.CorusStrings.profile_artist_fallback) }
     val artistA11y = stringResource(R.string.profile_view_artist_page_a11y, displayName)
     val shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium)
 
@@ -89,7 +89,7 @@ fun ProfileArtistLinkCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = stringResource(R.string.profile_view_artist_page),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.profile_view_artist_page),
                     style = CorusFont.caption,
                     color = CorusColors.Secondary,
                     maxLines = 1,

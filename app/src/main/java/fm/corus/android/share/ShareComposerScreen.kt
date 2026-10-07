@@ -109,7 +109,7 @@ fun ShareComposerScreen(
 
             is ShareComposerViewModel.Phase.Blocked -> BlockedView(p.reason, viewModel::retry, onFinish)
 
-            ShareComposerViewModel.Phase.LoadingAlbum -> CenteredLoading(stringResource(R.string.share_loading_album))
+            ShareComposerViewModel.Phase.LoadingAlbum -> CenteredLoading(stringResource(fm.corus.android.localization.CorusStrings.share_loading_album))
 
             ShareComposerViewModel.Phase.AlbumPicker -> AlbumPickerView(
                 album = album,
@@ -139,18 +139,18 @@ private fun CandidatePickerView(
     Column(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxWidth().height(56.dp)) {
             Text(
-                text = stringResource(R.string.share_title), style = CorusFont.screenTitle,
+                text = stringResource(fm.corus.android.localization.CorusStrings.share_title), style = CorusFont.screenTitle,
                 color = CorusColors.Text, modifier = Modifier.align(Alignment.Center),
             )
             TextButton(onClick = onCancel, modifier = Modifier.align(Alignment.CenterEnd)) {
-                Text(stringResource(R.string.share_cancel), style = CorusFont.body, color = CorusColors.Secondary)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.common_cancel), style = CorusFont.body, color = CorusColors.Secondary)
             }
         }
         LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(CorusSpacing.lg)) {
             item {
-                Text(stringResource(R.string.share_youtube_choose_title), style = CorusFont.displayName, color = CorusColors.Text)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.share_youtube_choose_title), style = CorusFont.displayName, color = CorusColors.Text)
                 Spacer(Modifier.height(CorusSpacing.sm))
-                Text(stringResource(R.string.share_youtube_choose_subtitle), style = CorusFont.body, color = CorusColors.Secondary)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.share_youtube_choose_subtitle), style = CorusFont.body, color = CorusColors.Secondary)
                 Spacer(Modifier.height(CorusSpacing.lg))
             }
             itemsIndexed(candidates) { _, candidate ->
@@ -215,13 +215,13 @@ private fun ComposerContent(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                        contentDescription = stringResource(R.string.share_back),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                         tint = CorusColors.Secondary,
                     )
                 }
             }
             Text(
-                text = stringResource(R.string.share_title),
+                text = stringResource(fm.corus.android.localization.CorusStrings.share_title),
                 style = CorusFont.screenTitle,
                 color = CorusColors.Text,
                 modifier = Modifier.align(Alignment.Center),
@@ -232,7 +232,7 @@ private fun ComposerContent(
                 modifier = Modifier.align(Alignment.CenterEnd),
             ) {
                 Text(
-                    text = stringResource(R.string.share_cancel),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.common_cancel),
                     style = CorusFont.body,
                     color = CorusColors.Secondary,
                 )
@@ -296,7 +296,7 @@ private fun ComposerContent(
                     )
                     Spacer(modifier = Modifier.width(CorusSpacing.sm))
                     Text(
-                        text = stringResource(R.string.share_loading_song),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.share_loading_song),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                     )
@@ -313,7 +313,7 @@ private fun ComposerContent(
         ) {
             if (caption.isEmpty()) {
                 Text(
-                    text = stringResource(R.string.share_caption_placeholder),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.compose_repost_quote_placeholder),
                     style = CorusFont.body,
                     color = CorusColors.Secondary.copy(alpha = 0.6f),
                 )
@@ -360,10 +360,10 @@ private fun ComposerContent(
         }
 
         // SET YOUR CORUS — the app's exact button (ComposeScreen parity).
-        val limitMessage = stringResource(R.string.share_post_limit)
-        val hardCapMessage = stringResource(R.string.share_hard_cap)
-        val bannedMessage = stringResource(R.string.share_posting_banned)
-        val genericMessage = stringResource(R.string.share_generic_error)
+        val limitMessage = stringResource(fm.corus.android.localization.CorusStrings.share_post_limit)
+        val hardCapMessage = stringResource(fm.corus.android.localization.CorusStrings.share_hard_cap)
+        val bannedMessage = stringResource(fm.corus.android.localization.CorusStrings.share_posting_banned)
+        val genericMessage = stringResource(fm.corus.android.localization.CorusStrings.share_generic_error)
         Button(
             onClick = {
                 keyboardController?.hide()
@@ -393,7 +393,7 @@ private fun ComposerContent(
                 )
             } else {
                 Text(
-                    text = stringResource(R.string.compose_post_button),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.compose_post_button),
                     style = CorusFont.button,
                     color = Color.White,
                 )
@@ -418,14 +418,14 @@ private fun AlbumPickerView(
                 .height(56.dp),
         ) {
             Text(
-                text = stringResource(R.string.share_title),
+                text = stringResource(fm.corus.android.localization.CorusStrings.share_title),
                 style = CorusFont.screenTitle,
                 color = CorusColors.Text,
                 modifier = Modifier.align(Alignment.Center),
             )
             TextButton(onClick = onCancel, modifier = Modifier.align(Alignment.CenterEnd)) {
                 Text(
-                    text = stringResource(R.string.share_cancel),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.common_cancel),
                     style = CorusFont.body,
                     color = CorusColors.Secondary,
                 )
@@ -475,7 +475,7 @@ private fun AlbumPickerView(
                         color = CorusColors.Secondary,
                     )
                     Text(
-                        text = stringResource(R.string.share_tap_song),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.share_tap_song),
                         style = CorusFont.caption,
                         color = CorusColors.Secondary,
                         modifier = Modifier.padding(top = CorusSpacing.md, bottom = CorusSpacing.lg),
@@ -496,11 +496,11 @@ private fun AlbumPickerView(
 
 @Composable
 private fun albumMetaLine(album: ShareAlbum): String {
-    val parts = mutableListOf(stringResource(R.string.share_album_word))
+    val parts = mutableListOf(stringResource(fm.corus.android.localization.CorusStrings.share_album_word))
     album.year?.let { parts.add(it) }
     val count = album.tracks.size
     parts.add(
-        if (count == 1) stringResource(R.string.share_song_count_one)
+        if (count == 1) stringResource(fm.corus.android.localization.CorusStrings.share_song_count_one)
         else stringResource(R.string.share_song_count_many, count)
     )
     return parts.joinToString(" · ")
@@ -595,7 +595,7 @@ private fun PostedConfirmation(onDone: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(CorusSpacing.md))
         Text(
-            text = stringResource(R.string.share_posted),
+            text = stringResource(fm.corus.android.localization.CorusStrings.share_posted),
             style = CorusFont.displayName,
             color = CorusColors.Text,
         )
@@ -627,14 +627,14 @@ private fun BlockedView(
         Text(
             text = stringResource(
                 when (reason) {
-                    ShareComposerViewModel.BlockedReason.NOT_SIGNED_IN -> R.string.share_blocked_signin_title
-                    ShareComposerViewModel.BlockedReason.UNSUPPORTED_LINK -> R.string.share_blocked_unsupported_title
-                    ShareComposerViewModel.BlockedReason.SONG_UNAVAILABLE -> R.string.share_blocked_song_title
+                    ShareComposerViewModel.BlockedReason.NOT_SIGNED_IN -> fm.corus.android.localization.CorusStrings.share_blocked_signin_title
+                    ShareComposerViewModel.BlockedReason.UNSUPPORTED_LINK -> fm.corus.android.localization.CorusStrings.share_blocked_unsupported_title
+                    ShareComposerViewModel.BlockedReason.SONG_UNAVAILABLE -> fm.corus.android.localization.CorusStrings.share_blocked_song_title
                     ShareComposerViewModel.BlockedReason.SOUNDCLOUD_RESTRICTED -> fm.corus.android.R.string.corus_share_soundcloud_restricted_title
-                    ShareComposerViewModel.BlockedReason.ALBUM_UNAVAILABLE -> R.string.share_blocked_album_title
-                    ShareComposerViewModel.BlockedReason.NOT_ON_CORUS -> R.string.share_blocked_nomatch_title
-                    ShareComposerViewModel.BlockedReason.UNRELEASED -> R.string.share_blocked_unreleased_title
-                    ShareComposerViewModel.BlockedReason.NO_CONFIDENT_MATCH -> R.string.share_youtube_not_found_title
+                    ShareComposerViewModel.BlockedReason.ALBUM_UNAVAILABLE -> fm.corus.android.localization.CorusStrings.share_blocked_album_title
+                    ShareComposerViewModel.BlockedReason.NOT_ON_CORUS -> fm.corus.android.localization.CorusStrings.share_blocked_nomatch_title
+                    ShareComposerViewModel.BlockedReason.UNRELEASED -> fm.corus.android.localization.CorusStrings.share_blocked_unreleased_title
+                    ShareComposerViewModel.BlockedReason.NO_CONFIDENT_MATCH -> fm.corus.android.localization.CorusStrings.share_youtube_not_found_title
                 }
             ),
             style = CorusFont.displayName,
@@ -645,13 +645,13 @@ private fun BlockedView(
         Text(
             text = stringResource(
                 when (reason) {
-                    ShareComposerViewModel.BlockedReason.NOT_SIGNED_IN -> R.string.share_blocked_signin_subtitle
-                    ShareComposerViewModel.BlockedReason.UNSUPPORTED_LINK -> R.string.share_blocked_unsupported_subtitle
-                    ShareComposerViewModel.BlockedReason.NOT_ON_CORUS -> R.string.share_blocked_nomatch_subtitle
-                    ShareComposerViewModel.BlockedReason.UNRELEASED -> R.string.share_blocked_unreleased_subtitle
-                    ShareComposerViewModel.BlockedReason.NO_CONFIDENT_MATCH -> R.string.share_youtube_not_found_subtitle
+                    ShareComposerViewModel.BlockedReason.NOT_SIGNED_IN -> fm.corus.android.localization.CorusStrings.share_blocked_signin_subtitle
+                    ShareComposerViewModel.BlockedReason.UNSUPPORTED_LINK -> fm.corus.android.localization.CorusStrings.share_blocked_unsupported_subtitle
+                    ShareComposerViewModel.BlockedReason.NOT_ON_CORUS -> fm.corus.android.localization.CorusStrings.share_blocked_nomatch_subtitle
+                    ShareComposerViewModel.BlockedReason.UNRELEASED -> fm.corus.android.localization.CorusStrings.share_blocked_unreleased_subtitle
+                    ShareComposerViewModel.BlockedReason.NO_CONFIDENT_MATCH -> fm.corus.android.localization.CorusStrings.share_youtube_not_found_subtitle
                     ShareComposerViewModel.BlockedReason.SOUNDCLOUD_RESTRICTED -> fm.corus.android.R.string.corus_share_soundcloud_restricted_subtitle
-                    else -> R.string.share_blocked_unavailable_subtitle
+                    else -> fm.corus.android.localization.CorusStrings.share_blocked_unavailable_subtitle
                 }
             ),
             style = CorusFont.body,
@@ -666,7 +666,7 @@ private fun BlockedView(
                 colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
             ) {
                 Text(
-                    text = stringResource(R.string.share_try_again),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.gift_try_again),
                     style = CorusFont.button,
                     color = Color.White,
                 )
@@ -675,7 +675,7 @@ private fun BlockedView(
         Spacer(modifier = Modifier.weight(1f))
         TextButton(onClick = onClose, modifier = Modifier.padding(bottom = CorusSpacing.xl)) {
             Text(
-                text = stringResource(R.string.share_close),
+                text = stringResource(fm.corus.android.localization.CorusStrings.concert_close),
                 style = CorusFont.button,
                 color = CorusColors.Accent,
             )

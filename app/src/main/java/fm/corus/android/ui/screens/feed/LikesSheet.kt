@@ -96,7 +96,7 @@ private fun LikesSheetContent(
     ) {
         // Title
         Text(
-            text = stringResource(R.string.likes_title),
+            text = stringResource(fm.corus.android.localization.CorusStrings.likes_title),
             style = CorusFont.screenTitle,
             color = CorusColors.Text,
             modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
@@ -109,14 +109,14 @@ private fun LikesSheetContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-            placeholder = { Text(stringResource(R.string.likes_search_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
+            placeholder = { Text(stringResource(fm.corus.android.localization.CorusStrings.nav_search), style = CorusFont.body, color = CorusColors.Tertiary) },
             leadingIcon = {
-                Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.likes_cd_search), tint = CorusColors.Tertiary, modifier = Modifier.size(15.dp))
+                Icon(Icons.Filled.Search, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.nav_search), tint = CorusColors.Tertiary, modifier = Modifier.size(15.dp))
             },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
                     IconButton(onClick = { searchQuery = "" }) {
-                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.likes_cd_clear), tint = CorusColors.Tertiary, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.search_clear_aria), tint = CorusColors.Tertiary, modifier = Modifier.size(14.dp))
                     }
                 }
             },
@@ -164,7 +164,7 @@ private fun LikesSheetContent(
                                 modifier = Modifier.size(36.dp),
                             )
                             Text(
-                                text = if (searchQuery.isEmpty()) stringResource(R.string.likes_empty_no_likes) else stringResource(R.string.likes_empty_no_results),
+                                text = if (searchQuery.isEmpty()) stringResource(fm.corus.android.localization.CorusStrings.likes_empty_no_likes) else stringResource(fm.corus.android.localization.CorusStrings.follow_list_no_results),
                                 style = CorusFont.bodyMedium,
                                 color = CorusColors.Secondary,
                             )
@@ -267,9 +267,9 @@ private fun LikerRow(
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
 
             val buttonText = when {
-                isFollowing -> stringResource(R.string.likes_button_following)
-                isFollower -> stringResource(R.string.likes_button_follow_back)
-                else -> stringResource(R.string.likes_button_follow)
+                isFollowing -> stringResource(fm.corus.android.localization.CorusStrings.following_status)
+                isFollower -> stringResource(fm.corus.android.localization.CorusStrings.activity_follow_back)
+                else -> stringResource(fm.corus.android.localization.CorusStrings.follow_action)
             }
 
             Button(

@@ -20,6 +20,10 @@ import java.util.concurrent.ConcurrentHashMap
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirebaseStorageDataSource
 import kotlinx.coroutines.async
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -139,14 +143,41 @@ class MessageRepository @Inject constructor(
         if (destinationId.startsWith("group:")) destinationId.removePrefix("group:")
         else getOrCreateThread(userId, destinationId)
 
-    suspend fun searchShareRecipients(userId: String, query: String, users: UserRepository): List<fm.corus.android.data.model.ShareRecipient> =
+    suspend fun searchShareRecipients(
+        userId: String,
+        query: String,
+        users: UserRepository,
+        onResults: (List<fm.corus.android.data.model.ShareRecipient>) -> Unit = {},
+    ): List<fm.corus.android.data.model.ShareRecipient> =
         kotlinx.coroutines.coroutineScope {
-            val people = async { users.searchUsers(query, includeFollowed = true) }
-            val groups = searchThreads(userId, query, 100).threads
-                .filter { fm.corus.android.data.model.groupMatchesShareQuery(it, query) }
-                .sortedByDescending { it.lastMessageAt }
-                .map { fm.corus.android.data.model.ShareRecipient(group = it.copy(members = it.members.filter { member -> member.id != userId })) }
-            groups + people.await().map { fm.corus.android.data.model.ShareRecipient(user = it) }
+            val people = async {
+                try {
+                    users.searchUsers(query, includeFollowed = true)
+                        .map { fm.corus.android.data.model.ShareRecipient(user = it) }
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) { emptyList() }
+            }
+            val groups = async {
+                try {
+                    cloudFunctions.searchShareGroups(query, 30)
+                        .map { fm.corus.android.data.model.ShareRecipient(group = it.copy(
+                            members = it.members.filter { member -> member.id != userId && !users.isUserHidden(member.id) },
+                        )) }
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) { emptyList() }
+            }
+            // Deliver the first source on the caller's context. A group lookup
+            // must not hide already-available people, or the other way around.
+            val first = select<List<fm.corus.android.data.model.ShareRecipient>> {
+                people.onAwait { it }
+                groups.onAwait { it }
+            }
+            currentCoroutineContext().ensureActive()
+            onResults(first)
+            val result = groups.await() + people.await()
+            currentCoroutineContext().ensureActive()
+            onResults(result)
+            result
         }
 
     suspend fun listMessages(threadId: String, limit: Int = 50, lastTimestamp: Long? = null): List<CymbalMessage> {

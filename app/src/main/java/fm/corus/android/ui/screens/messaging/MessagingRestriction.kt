@@ -26,7 +26,7 @@ fun messagingRestrictionMessage(
     name: String?,
 ): String {
     val display = name?.takeIf { it.isNotBlank() }
-        ?: context.getString(R.string.messaging_restriction_name_fallback)
+        ?: context.getString(fm.corus.android.localization.CorusStrings.messages_restriction_name_fallback)
     val resId = when (restriction) {
         MessagingRestriction.NOBODY -> R.string.messaging_restriction_nobody
         MessagingRestriction.FOLLOWERS -> R.string.messaging_restriction_followers

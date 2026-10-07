@@ -1333,10 +1333,10 @@ class NowPlayingManager @Inject constructor(
         if (!trialConsumed) return
         subscriptionRepository.markPlaylistTrialUsed(field)
         val messageRes = when (field) {
-            PlaylistTrialField.Feed -> fm.corus.android.R.string.playlist_trial_consumed_feed
-            PlaylistTrialField.OwnProfile -> fm.corus.android.R.string.playlist_trial_consumed_own_profile
-            PlaylistTrialField.OtherProfile -> fm.corus.android.R.string.playlist_trial_consumed_other_profile
-            PlaylistTrialField.Hashtag -> fm.corus.android.R.string.playlist_trial_consumed_hashtag
+            PlaylistTrialField.Feed -> fm.corus.android.localization.CorusStrings.playlist_trial_consumed_feed
+            PlaylistTrialField.OwnProfile -> fm.corus.android.localization.CorusStrings.playlist_trial_consumed_own_profile
+            PlaylistTrialField.OtherProfile -> fm.corus.android.localization.CorusStrings.playlist_trial_consumed_other_profile
+            PlaylistTrialField.Hashtag -> fm.corus.android.localization.CorusStrings.playlist_trial_consumed_hashtag
         }
         ToastManager.show(context.getString(messageRes))
     }
@@ -1494,7 +1494,7 @@ class NowPlayingManager @Inject constructor(
         } catch (e: CloudFunctionsDataSource.PaywallRequiredException) {
             requestPlaylistPaywall(PlaylistTrialField.Hashtag)
         } catch (e: CloudFunctionsDataSource.OnlySoundCloudException) {
-            _playlistError.value = context.getString(fm.corus.android.R.string.hashtag_playlist_only_soundcloud)
+            _playlistError.value = context.getString(fm.corus.android.localization.CorusStrings.hashtag_playlist_only_soundcloud)
         } catch (e: UnknownHostException) {
             _playlistError.value = "Couldn't connect. Check your connection."
         } catch (e: SocketTimeoutException) {
@@ -1809,18 +1809,30 @@ class NowPlayingManager @Inject constructor(
     val isPlaying: Boolean get() = _state.value.isPlaying
     val currentTrackId: String? get() = _state.value.trackId
 
-    /** Play a track that's part of a queue — enables autoplay and the mini-player next button. */
-    suspend fun play(track: QueuedTrack, queue: List<QueuedTrack>, mapOwned: Boolean = false) {
+    /**
+     * Play a track with its queue. Preview surfaces pass an empty queue and
+     * previewOnly to bypass provider upgrades without changing the user's settings.
+     */
+    suspend fun play(
+        track: QueuedTrack,
+        queue: List<QueuedTrack>,
+        mapOwned: Boolean = false,
+        previewOnly: Boolean = false,
+    ) {
         if (!mapOwned) MapPlaybackOwner.yield()
         queueOrderPinnedByUser = false
-        val preserved = snapshotUserQueuedUpNext()
+        val preserved = if (previewOnly) emptyList() else snapshotUserQueuedUpNext()
         this.queue = queue
         this.currentQueueIndex = queue.indexOfActive(track.trackId, track.sourcePostId)
         // New playback context — drop any previous paginated-queue hook until caller re-wires it.
         this.queueHasMore = false
         this.loadMoreQueue = null
         restoreUserQueuedUpNext(preserved)
-        playInternal(track)
+        playInternal(
+            track,
+            forceSwitch = previewOnly && isAudiomackFullPlayback,
+            previewOnly = previewOnly,
+        )
         // Map playback owns Next outside the one-item audio queue. playInternal
         // publishes the new NowPlayingState after it has checked hasNext, so
         // refresh after its track ID is current and the map owner can match.
@@ -1950,6 +1962,7 @@ class NowPlayingManager @Inject constructor(
         track: QueuedTrack,
         userInitiated: Boolean = true,
         forceSwitch: Boolean = false,
+        previewOnly: Boolean = false,
     ) {
         val trackId = track.trackId
 
@@ -2001,7 +2014,7 @@ class NowPlayingManager @Inject constructor(
         //   SoundCloud → fetch a fresh signed HLS URL (short-lived, never cached on the post).
         //   Spotify/Apple → use the 30s preview URL (looked up server-side via Apple Music).
         var resolvedBandcampPage = track.bandcampUrl
-        val fullAudiomack = if(SongPlayRouting.wantsAudiomackFullSong(track.source, musicServicePreference.current.value, remoteConfigService.audiomackStreamingEnabled)) {
+        val fullAudiomack = if (!previewOnly && SongPlayRouting.wantsAudiomackFullSong(track.source, musicServicePreference.current.value, remoteConfigService.audiomackStreamingEnabled)) {
             try { audiomackAuthService.stream(track) }
             catch(e: Exception) { if(e is kotlinx.coroutines.CancellationException) throw e; ToastManager.show(e.message ?: "Couldn’t play Audiomack."); null }
         } else null

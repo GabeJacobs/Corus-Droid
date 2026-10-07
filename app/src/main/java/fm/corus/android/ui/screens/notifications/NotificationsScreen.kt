@@ -594,7 +594,7 @@ private fun ActivityStandaloneTitle() {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = stringResource(id = R.string.notifications_activity_title),
+            text = stringResource(id = fm.corus.android.localization.CorusStrings.nav_activity),
             style = CorusFont.displayName,
             color = CorusColors.Text,
             textAlign = TextAlign.Center,
@@ -620,12 +620,12 @@ private fun NotificationFilterChipRow(
             val isActive = filter == selected
             val label = stringResource(
                 when (filter) {
-                    NotificationFilter.ALL -> R.string.notifications_filter_all
-                    NotificationFilter.PEOPLE_YOU_FOLLOW -> R.string.notifications_filter_people_you_follow
-                    NotificationFilter.COMMENTS -> R.string.notifications_filter_comments
-                    NotificationFilter.FOLLOWS -> R.string.notifications_filter_follows
-                    NotificationFilter.TAGS_AND_MENTIONS -> R.string.notifications_filter_tags_mentions
-                    NotificationFilter.GIFTS -> R.string.notifications_filter_gifts
+                    NotificationFilter.ALL -> fm.corus.android.localization.CorusStrings.concert_tab_all
+                    NotificationFilter.PEOPLE_YOU_FOLLOW -> fm.corus.android.localization.CorusStrings.activity_filter_people_you_follow
+                    NotificationFilter.COMMENTS -> fm.corus.android.localization.CorusStrings.activity_filter_comments
+                    NotificationFilter.FOLLOWS -> fm.corus.android.localization.CorusStrings.activity_filter_follows
+                    NotificationFilter.TAGS_AND_MENTIONS -> fm.corus.android.localization.CorusStrings.activity_filter_tags_mentions
+                    NotificationFilter.GIFTS -> fm.corus.android.localization.CorusStrings.activity_filter_gifts
                 },
             )
             Button(
@@ -762,7 +762,7 @@ private fun NotificationRow(
             // real actor to name, so it reads as normal prose, not a username.
             buildAnnotatedString {
                 withStyle(SpanStyle(fontWeight = FontWeight.Normal, fontSize = 15.sp)) {
-                    append(stringResource(id = R.string.notif_favorite_someone))
+                    append(stringResource(id = fm.corus.android.localization.CorusStrings.activity_someone))
                 }
                 append(" ")
                 withStyle(SpanStyle(fontWeight = FontWeight.Normal, fontSize = 15.sp)) {
@@ -898,14 +898,14 @@ private fun NotificationRow(
                     ) {
                         Icon(
                             imageVector = if (isCommentLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                            contentDescription = if (isCommentLiked) stringResource(id = R.string.notifications_cd_unlike) else stringResource(id = R.string.notifications_cd_like),
+                            contentDescription = if (isCommentLiked) stringResource(id = fm.corus.android.localization.CorusStrings.parity_e4fc40926893) else stringResource(id = fm.corus.android.localization.CorusStrings.comment_like_action),
                             modifier = Modifier.size(14.dp),
                             tint = if (isCommentLiked) CorusColors.Like else CorusColors.Tertiary,
                         )
                     }
                     Spacer(modifier = Modifier.width(CorusSpacing.lg))
                     Text(
-                        text = stringResource(id = R.string.comments_reply),
+                        text = stringResource(id = fm.corus.android.localization.CorusStrings.thread_reply),
                         style = CorusFont.body.copy(
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
@@ -924,9 +924,9 @@ private fun NotificationRow(
         if (showFollowButton) {
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
             val buttonText = when {
-                isFollowing -> stringResource(id = R.string.search_button_following)
-                followsMe -> stringResource(id = R.string.likes_button_follow_back)
-                else -> stringResource(id = R.string.search_button_follow)
+                isFollowing -> stringResource(id = fm.corus.android.localization.CorusStrings.following_status)
+                followsMe -> stringResource(id = fm.corus.android.localization.CorusStrings.activity_follow_back)
+                else -> stringResource(id = fm.corus.android.localization.CorusStrings.follow_action)
             }
             Button(
                 onClick = onFollowToggle,
@@ -982,7 +982,7 @@ private fun buildDiscoveryBodyLocalized(
         if (sharedArtists >= 2) return stringResource(R.string.notif_taste_match_body_artists, sharedArtists)
         if (sharedSongs >= 2) return stringResource(R.string.notif_taste_match_body_songs, sharedSongs)
         if (sharedFilms >= 2) return stringResource(R.string.notif_taste_match_body_films, sharedFilms)
-        return stringResource(R.string.notif_taste_match_discovery_taste_in_common)
+        return stringResource(fm.corus.android.localization.CorusStrings.taste_match_discovery_taste_in_common)
     }
     if (items.size == 1) {
         val item = items[0]
@@ -1038,9 +1038,9 @@ private fun localizedTasteMatchBody(notification: CymbalNotification): String {
             stringResource(R.string.notif_taste_match_body_films, it)
         }
         "activity_song" -> notification.bodyText?.takeIf { it.isNotEmpty() }
-            ?: stringResource(R.string.notif_taste_match_fallback_song)
+            ?: stringResource(fm.corus.android.localization.CorusStrings.taste_match_activity_fallback_song)
         "activity_film" -> notification.bodyText?.takeIf { it.isNotEmpty() }
-            ?: stringResource(R.string.notif_taste_match_fallback_film)
+            ?: stringResource(fm.corus.android.localization.CorusStrings.taste_match_activity_fallback_film)
         else -> null
     } ?: notification.bodyText.orEmpty()
 }
@@ -1054,12 +1054,12 @@ private fun buildTasteMatchAnnotated(
     // Activity types render as one flowing sentence; discovery + milestones
     // use an em-dash because their body is its own complete clause.
     val (prefixRes, suffixRes, bodySeparator) = when (notification.subtype) {
-        "discovery" -> Triple(R.string.notif_taste_match_prefix_discovery, null, " — ")
-        "activity_song" -> Triple(R.string.notif_taste_match_prefix_activity, R.string.notif_taste_match_suffix_activity_song, "")
-        "activity_film" -> Triple(R.string.notif_taste_match_prefix_activity, R.string.notif_taste_match_suffix_activity_film, "")
+        "discovery" -> Triple(fm.corus.android.localization.CorusStrings.taste_match_prefix_discovery, null, " — ")
+        "activity_song" -> Triple(fm.corus.android.localization.CorusStrings.taste_match_prefix_activity, fm.corus.android.localization.CorusStrings.notif_taste_match_suffix_activity_song, "")
+        "activity_film" -> Triple(fm.corus.android.localization.CorusStrings.taste_match_prefix_activity, fm.corus.android.localization.CorusStrings.notif_taste_match_suffix_activity_film, "")
         "milestone_song", "milestone_film", "milestone_artist" ->
-            Triple(R.string.notif_taste_match_prefix_milestone, null, " — ")
-        else -> Triple(R.string.notif_taste_match_prefix_default, null, " — ")
+            Triple(fm.corus.android.localization.CorusStrings.taste_match_prefix_milestone, null, " — ")
+        else -> Triple(fm.corus.android.localization.CorusStrings.taste_match_prefix_default, null, " — ")
     }
     val prefix = stringResource(prefixRes)
     val suffix = suffixRes?.let { stringResource(it) }.orEmpty()
@@ -1105,7 +1105,7 @@ private fun NotificationDisabledBanner(
                 .padding(start = CorusSpacing.lg, end = 8.dp, top = 14.dp, bottom = 14.dp),
         ) {
             Text(
-                text = stringResource(R.string.notif_disabled_banner_title),
+                text = stringResource(fm.corus.android.localization.CorusStrings.notif_disabled_banner_title),
                 style = CorusFont.bodyMedium,
                 color = CorusColors.Text,
                 modifier = Modifier.padding(end = 40.dp),
@@ -1113,7 +1113,7 @@ private fun NotificationDisabledBanner(
             Spacer(modifier = Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = stringResource(R.string.notif_disabled_banner_body),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.onboarding_notif_subtitle),
                     style = CorusFont.caption,
                     color = CorusColors.Secondary,
                     modifier = Modifier.weight(1f),
@@ -1132,7 +1132,7 @@ private fun NotificationDisabledBanner(
         ) {
             Icon(
                 imageVector = Icons.Filled.Close,
-                contentDescription = stringResource(R.string.common_cancel),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_cancel),
                 tint = CorusColors.Secondary,
                 modifier = Modifier.size(16.dp),
             )
@@ -1163,8 +1163,8 @@ private fun NotificationsEmptyState(
 
             Text(
                 text = stringResource(
-                    id = if (isFilterEmpty) R.string.notifications_filter_empty_title
-                    else R.string.notifications_empty_title,
+                    id = if (isFilterEmpty) fm.corus.android.localization.CorusStrings.activity_filter_empty_title
+                    else fm.corus.android.localization.CorusStrings.activity_empty_title,
                 ),
                 style = CorusFont.bodyMedium,
                 color = CorusColors.Secondary,
@@ -1174,8 +1174,8 @@ private fun NotificationsEmptyState(
 
             Text(
                 text = stringResource(
-                    id = if (isFilterEmpty) R.string.notifications_filter_empty_subtitle
-                    else R.string.notifications_empty_subtitle,
+                    id = if (isFilterEmpty) fm.corus.android.localization.CorusStrings.activity_filter_empty_subtitle
+                    else fm.corus.android.localization.CorusStrings.notifications_empty_subtitle,
                 ),
                 style = CorusFont.body,
                 color = CorusColors.Tertiary,
@@ -1290,7 +1290,7 @@ private fun InlineReplyBar(
                 ) {
                     Icon(
                         Icons.Filled.Add,
-                        contentDescription = stringResource(R.string.comment_attachment_attach),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.comment_attach_aria),
                         tint = Color.White,
                         modifier = Modifier.size(16.dp),
                     )
@@ -1304,15 +1304,15 @@ private fun InlineReplyBar(
                         properties = PopupProperties(focusable = false),
                     ) {
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.comment_attachment_gif)) },
+                            text = { Text(stringResource(fm.corus.android.localization.CorusStrings.comments_cd_gif)) },
                             onClick = onAttachGif,
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.comment_attachment_song)) },
+                            text = { Text(stringResource(fm.corus.android.localization.CorusStrings.destination_song_label)) },
                             onClick = onAttachSong,
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.comment_attachment_film)) },
+                            text = { Text(stringResource(fm.corus.android.localization.CorusStrings.search_tab_film)) },
                             onClick = onAttachFilm,
                         )
                     }
@@ -1362,7 +1362,7 @@ private fun InlineReplyBar(
                     decorationBox = { inner ->
                         if (text.text.isEmpty()) {
                             Text(
-                                text = stringResource(id = R.string.notifications_reply_placeholder),
+                                text = stringResource(id = fm.corus.android.localization.CorusStrings.notifications_reply_placeholder),
                                 style = CorusFont.body.copy(color = CorusColors.Tertiary),
                             )
                         }
@@ -1381,7 +1381,7 @@ private fun InlineReplyBar(
             ) {
                 Icon(
                     imageVector = Icons.Filled.ArrowUpward,
-                    contentDescription = stringResource(id = R.string.notifications_cd_send_reply),
+                    contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.comment_send_reply_aria),
                     modifier = Modifier.size(18.dp),
                     tint = if (canSend) Color.White else CorusColors.Tertiary,
                 )
@@ -1402,8 +1402,8 @@ private fun localizedNotificationMessage(
     notification: CymbalNotification,
     context: android.content.Context,
 ): String {
-    val postNoun = context.getString(R.string.post_noun)
-    val appName = context.getString(R.string.app_name)
+    val postNoun = context.getString(fm.corus.android.localization.CorusStrings.post_noun)
+    val appName = context.getString(fm.corus.android.localization.CorusStrings.app_name)
     // Mirror iOS: when commentText is exactly 100 chars and not already truncated, append ellipsis.
     val commentExcerpt = notification.commentText?.let {
         if (it.length == 100 && !it.endsWith("…")) "$it…" else it
@@ -1414,32 +1414,32 @@ private fun localizedNotificationMessage(
             "",
             GiftDefinition.from(notification.giftType).sentPhrase(context),
         ).trim()
-        NotificationType.GIFT_THANKS -> context.getString(R.string.gift_thanks_message)
+        NotificationType.GIFT_THANKS -> context.getString(fm.corus.android.localization.CorusStrings.notif_gift_thanks)
         NotificationType.LIKE -> context.getString(R.string.notif_msg_like, postNoun)
         NotificationType.COMMENT -> commentExcerpt
             ?.let { context.getString(R.string.notif_msg_comment_with_text, it) }
             ?: context.getString(R.string.notif_msg_comment_no_text, postNoun)
-        NotificationType.COMMENT_LIKE -> context.getString(R.string.notif_msg_comment_like)
+        NotificationType.COMMENT_LIKE -> context.getString(fm.corus.android.localization.CorusStrings.notif_comment_like)
         NotificationType.MENTION -> commentExcerpt
             ?.let { context.getString(R.string.notif_msg_mention_with_text, it) }
-            ?: context.getString(R.string.notif_msg_mention_no_text)
+            ?: context.getString(fm.corus.android.localization.CorusStrings.notif_mention)
         NotificationType.TAG -> context.getString(R.string.notif_msg_tag, postNoun)
         NotificationType.SAVE -> context.getString(R.string.notif_msg_save, postNoun)
-        NotificationType.FOLLOW -> context.getString(R.string.notif_msg_follow)
+        NotificationType.FOLLOW -> context.getString(fm.corus.android.localization.CorusStrings.notif_follow)
         NotificationType.NEW_POST -> context.getString(R.string.notif_msg_new_post, postNoun)
         NotificationType.REPOST -> context.getString(R.string.notif_msg_repost, postNoun)
         NotificationType.REPLY -> commentExcerpt
             ?.let { context.getString(R.string.notif_msg_reply_with_text, it) }
-            ?: context.getString(R.string.notif_msg_reply_no_text)
+            ?: context.getString(fm.corus.android.localization.CorusStrings.notif_reply)
         NotificationType.CONTACT_JOINED -> context.getString(R.string.notif_msg_contact_joined, appName)
         NotificationType.TASTE_MATCH -> notification.bodyText
-            ?: context.getString(R.string.notif_msg_taste_match_default)
-        NotificationType.FAVORITE -> context.getString(R.string.notif_msg_favorite)
+            ?: context.getString(fm.corus.android.localization.CorusStrings.notif_taste_match_default)
+        NotificationType.FAVORITE -> context.getString(fm.corus.android.localization.CorusStrings.notif_favorite)
         NotificationType.PLAY_MILESTONE -> context.getString(R.string.notif_msg_play_milestone, notification.playCount ?: 0)
-        NotificationType.TRENDING -> context.getString(R.string.notif_msg_trending)
+        NotificationType.TRENDING -> context.getString(fm.corus.android.localization.CorusStrings.notif_trending)
         NotificationType.CONCERT_GOING -> notification.concertTitle?.let {
             context.getString(R.string.concert_notif_going, it)
-        } ?: context.getString(R.string.concert_notif_going_fallback)
+        } ?: context.getString(fm.corus.android.localization.CorusStrings.concert_notification_going_fallback)
     }
 }
 
@@ -1470,7 +1470,7 @@ private fun FavoriteInfoDialog(onDismiss: () -> Unit) {
         },
         title = {
             Text(
-                text = stringResource(id = R.string.notif_favorite_sheet_title),
+                text = stringResource(id = fm.corus.android.localization.CorusStrings.activity_favorite_sheet_title),
                 style = CorusFont.displayName,
                 color = CorusColors.Text,
             )
@@ -1478,14 +1478,14 @@ private fun FavoriteInfoDialog(onDismiss: () -> Unit) {
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = stringResource(id = R.string.notif_favorite_sheet_body),
+                    text = stringResource(id = fm.corus.android.localization.CorusStrings.activity_favorite_sheet_body),
                     style = CorusFont.body,
                     color = CorusColors.Secondary,
                     textAlign = TextAlign.Center,
                 )
                 Spacer(modifier = Modifier.height(CorusSpacing.md))
                 Text(
-                    text = stringResource(id = R.string.notif_favorite_sheet_nudge),
+                    text = stringResource(id = fm.corus.android.localization.CorusStrings.activity_favorite_sheet_nudge),
                     style = CorusFont.body.copy(fontSize = 12.sp),
                     color = CorusColors.Secondary,
                     textAlign = TextAlign.Center,
@@ -1495,7 +1495,7 @@ private fun FavoriteInfoDialog(onDismiss: () -> Unit) {
         confirmButton = {
             TextButton(onClick = onDismiss) {
                 Text(
-                    text = stringResource(id = R.string.notif_favorite_sheet_dismiss),
+                    text = stringResource(id = fm.corus.android.localization.CorusStrings.feed_energy_got_it),
                     color = CorusColors.Accent,
                 )
             }

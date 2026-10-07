@@ -1,0 +1,71 @@
+[
+  [
+    "free-light",
+    "Free account",
+    "Light theme \u00b7 choices locked",
+    {
+      "member": false
+    }
+  ],
+  [
+    "free-dark",
+    "Free account",
+    "Dark theme \u00b7 choices locked",
+    {
+      "member": false,
+      "dark": true
+    }
+  ],
+  [
+    "club-default",
+    "Corus Club",
+    "Light theme \u00b7 Default selected",
+    {}
+  ],
+  [
+    "club-blue",
+    "Corus Club",
+    "Dark theme \u00b7 Corus Blue selected",
+    {
+      "dark": true,
+      "blue": true
+    }
+  ],
+  [
+    "switching",
+    "Changing icon",
+    "Choices disabled while switching",
+    {
+      "dark": true,
+      "changing": true
+    }
+  ],
+  [
+    "error",
+    "Switch failed",
+    "Current icon retained \u00b7 retry message",
+    {
+      "dark": true,
+      "error": true
+    }
+  ],
+  [
+    "large-text",
+    "Large text",
+    "Free account \u00b7 200% font size",
+    {
+      "member": false,
+      "fontScale": 2.0
+    }
+  ],
+  [
+    "expired",
+    "Club access expired",
+    "Existing Blue icon retained \u00b7 choices locked",
+    {
+      "member": false,
+      "dark": true,
+      "blue": true
+    }
+  ]
+]

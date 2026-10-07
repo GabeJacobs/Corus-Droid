@@ -71,7 +71,7 @@ fun DestinationPostsScreen(
                     CorusHeaderIconButton(
                         onClick = onBack,
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.feed_cd_back),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
@@ -93,9 +93,9 @@ fun DestinationPostsScreen(
                         } else {
                             stringResource(
                                 if (kind == DestinationPostsViewModel.Kind.ARTIST) {
-                                    R.string.destination_who_shared_artist
+                                    fm.corus.android.localization.CorusStrings.destination_who_shared_artist
                                 } else {
-                                    R.string.destination_who_shared_director
+                                    fm.corus.android.localization.CorusStrings.destination_who_shared_director
                                 }
                             )
                         },
@@ -132,7 +132,7 @@ fun DestinationPostsScreen(
             } else if (loadError) {
                 item {
                     Text(
-                        text = stringResource(R.string.destination_posts_load_error),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.destination_posts_load_error),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                         modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.lg),
@@ -141,7 +141,7 @@ fun DestinationPostsScreen(
             } else if (posts.isEmpty()) {
                 item {
                     Text(
-                        text = stringResource(R.string.destination_no_posts_yet),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.destination_no_posts_yet),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                         modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.lg),

@@ -262,7 +262,7 @@ fun ComposeScreen(
     // in those flows), otherwise the live count.
     val draftsCount = if (isRepost || preSelectedTrackId != null || preSelectedMovieId != null) 0 else drafts.size
     val draftsEntryAccessibilityLabel =
-        "${stringResource(R.string.compose_drafts_title)} ($draftsCount)"
+        "${stringResource(fm.corus.android.localization.CorusStrings.compose_drafts_title)} ($draftsCount)"
 
     // voiceNoteData to hand to post/save: a freshly recorded note (bytes to
     // upload); null when the note was loaded from the resumed draft (reuse the
@@ -353,7 +353,7 @@ fun ComposeScreen(
                 if (backReturnsToPicker) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.compose_cd_back),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                         tint = CorusColors.Secondary,
                         modifier = Modifier
                             .align(Alignment.CenterStart)
@@ -389,7 +389,7 @@ fun ComposeScreen(
 
                 // Center: title
                 Text(
-                    text = stringResource(R.string.compose_title),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.compose_title),
                     style = CorusFont.displayName,
                     color = CorusColors.Text,
                     modifier = Modifier.align(Alignment.Center),
@@ -397,7 +397,7 @@ fun ComposeScreen(
 
                 // Right: Cancel button
                 Text(
-                    text = stringResource(R.string.compose_cancel),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.common_cancel),
                     style = CorusFont.body,
                     color = CorusColors.Secondary,
                     modifier = Modifier
@@ -702,7 +702,7 @@ fun ComposeScreen(
     // ── Save-on-exit action sheet — Discard / Save draft / Cancel ──
     if (showExitSheet) {
         val exitSheetState = rememberGuardedSheetState()
-        val draftSavedMsg = stringResource(R.string.compose_draft_saved)
+        val draftSavedMsg = stringResource(fm.corus.android.localization.CorusStrings.compose_draft_saved)
         // After Discard/Save the follow-up "leave" depends on which affordance
         // opened the sheet: the up/back chevron returns to the picker (composer
         // stays open); the top-level Cancel dismisses the composer entirely.
@@ -840,7 +840,7 @@ private fun UnifiedSearchModeContent(
                 decorationBox = { innerTextField ->
                     if (searchQuery.isEmpty()) {
                         Text(
-                            text = stringResource(R.string.compose_search_song_or_film),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.compose_unified_search_placeholder),
                             style = CorusFont.body,
                             color = CorusColors.Secondary,
                         )
@@ -932,9 +932,9 @@ private fun ComposeUnifiedChipRow(
         items(ComposeUnifiedFilter.entries.toList(), key = { it.value }) { filter ->
             val isActive = filter == selected
             val label = when (filter) {
-                ComposeUnifiedFilter.ALL -> stringResource(R.string.search_filter_all_chip)
-                ComposeUnifiedFilter.SONGS -> stringResource(R.string.compose_segment_songs)
-                ComposeUnifiedFilter.FILMS -> stringResource(R.string.compose_segment_films)
+                ComposeUnifiedFilter.ALL -> stringResource(fm.corus.android.localization.CorusStrings.concert_tab_all)
+                ComposeUnifiedFilter.SONGS -> stringResource(fm.corus.android.localization.CorusStrings.search_tab_songs)
+                ComposeUnifiedFilter.FILMS -> stringResource(fm.corus.android.localization.CorusStrings.search_tab_films)
             }
             Button(
                 onClick = { if (!isActive) onSelect(filter) },
@@ -985,7 +985,7 @@ private fun UnifiedZeroState(
     if (savedItems.isEmpty() && trendingSongs.isEmpty() && trendingMovies.isEmpty()) {
         PickerEmptyState(
             icon = Icons.Filled.Search,
-            message = stringResource(R.string.compose_search_song_or_film),
+            message = stringResource(fm.corus.android.localization.CorusStrings.compose_unified_search_placeholder),
         )
         return
     }
@@ -996,7 +996,7 @@ private fun UnifiedZeroState(
             item(key = "hdr-saved") {
                 PickerSectionHeader(
                     icon = Icons.Outlined.BookmarkBorder,
-                    title = stringResource(R.string.compose_recently_saved),
+                    title = stringResource(fm.corus.android.localization.CorusStrings.compose_recently_saved),
                 )
             }
             itemsIndexed(visible, key = { _, item -> "sv-${item.id}" }) { index, item ->
@@ -1022,7 +1022,7 @@ private fun UnifiedZeroState(
             item(key = "hdr-tsongs") {
                 PickerSectionHeader(
                     icon = Icons.Filled.TrendingUp,
-                    title = stringResource(R.string.compose_trending_songs),
+                    title = stringResource(fm.corus.android.localization.CorusStrings.compose_trending_songs),
                 )
             }
             itemsIndexed(visible, key = { _, song -> "ts-${song.id}" }) { index, song ->
@@ -1039,7 +1039,7 @@ private fun UnifiedZeroState(
             item(key = "hdr-tfilms") {
                 PickerSectionHeader(
                     icon = Icons.Filled.TrendingUp,
-                    title = stringResource(R.string.compose_trending_films),
+                    title = stringResource(fm.corus.android.localization.CorusStrings.compose_trending_films),
                 )
             }
             itemsIndexed(visible, key = { _, movie -> "tf-${movie.id}" }) { index, movie ->
@@ -1103,7 +1103,7 @@ private fun UnifiedAllPickerResults(
         item(key = "hdr-songs") {
             PickerSectionHeader(
                 icon = null,
-                title = stringResource(R.string.compose_segment_songs).uppercase(),
+                title = stringResource(fm.corus.android.localization.CorusStrings.search_tab_songs).uppercase(),
                 onSeeAll = { onSelectFilter(ComposeUnifiedFilter.SONGS) },
             )
         }
@@ -1126,7 +1126,7 @@ private fun UnifiedAllPickerResults(
         item(key = "hdr-films") {
             PickerSectionHeader(
                 icon = null,
-                title = stringResource(R.string.compose_segment_films).uppercase(),
+                title = stringResource(fm.corus.android.localization.CorusStrings.search_tab_films).uppercase(),
                 onSeeAll = { onSelectFilter(ComposeUnifiedFilter.FILMS) },
             )
         }
@@ -1156,7 +1156,7 @@ private fun UnifiedAllPickerResults(
         if (noMatches) {
             item(key = "no-matches") {
                 Text(
-                    text = stringResource(R.string.search_no_matches),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.search_no_matches),
                     style = CorusFont.body,
                     color = CorusColors.Secondary,
                     modifier = Modifier.fillMaxWidth().padding(CorusSpacing.xxl),
@@ -1186,19 +1186,19 @@ private fun UnifiedNarrowedResults(
             onRetry = onRetrySearch,
             icon = if (isConnected) Icons.Filled.WarningAmber else Icons.Filled.WifiOff,
             title = if (isConnected) {
-                stringResource(R.string.search_service_unavailable_title)
+                stringResource(fm.corus.android.localization.CorusStrings.search_service_unavailable_title)
             } else {
-                stringResource(R.string.feed_offline_title)
+                stringResource(fm.corus.android.localization.CorusStrings.feed_offline_title)
             },
             subtitle = if (isConnected) {
-                stringResource(R.string.search_service_unavailable_subtitle)
+                stringResource(fm.corus.android.localization.CorusStrings.search_service_unavailable_body)
             } else {
-                stringResource(R.string.feed_offline_subtitle)
+                stringResource(fm.corus.android.localization.CorusStrings.feed_offline_subtitle)
             },
         )
         isEmpty -> PickerEmptyState(
             icon = if (film) Icons.Filled.Movie else Icons.Filled.MusicNote,
-            message = stringResource(R.string.search_no_matches),
+            message = stringResource(fm.corus.android.localization.CorusStrings.search_no_matches),
         )
         else -> LazyColumn(modifier = Modifier.fillMaxSize()) { rows() }
     }
@@ -1266,7 +1266,7 @@ private fun PickerSectionHeader(
         if (onSeeAll != null) {
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = stringResource(R.string.search_see_all),
+                text = stringResource(fm.corus.android.localization.CorusStrings.concert_see_all),
                 style = CorusFont.captionMedium,
                 color = CorusColors.Accent,
                 modifier = Modifier.clickable(onClick = onSeeAll),
@@ -1408,7 +1408,7 @@ private fun SearchModeContent(
     Column(modifier = Modifier.fillMaxSize().imePadding().nestedScroll(scrollDismissConnection)) {
         // ── Songs / Films segmented toggle ──
         SegmentedToggle(
-            options = listOf(stringResource(R.string.compose_segment_songs), stringResource(R.string.compose_segment_films)),
+            options = listOf(stringResource(fm.corus.android.localization.CorusStrings.search_tab_songs), stringResource(fm.corus.android.localization.CorusStrings.search_tab_films)),
             selectedIndex = if (mediaType == MediaType.TRACK) 0 else 1,
             onSelected = { index ->
                 onMediaTypeChange(if (index == 0) MediaType.TRACK else MediaType.MOVIE)
@@ -1447,7 +1447,7 @@ private fun SearchModeContent(
                 decorationBox = { innerTextField ->
                     if (searchQuery.isEmpty()) {
                         Text(
-                            text = if (mediaType == MediaType.TRACK) stringResource(R.string.compose_search_song) else stringResource(R.string.compose_search_film),
+                            text = if (mediaType == MediaType.TRACK) stringResource(fm.corus.android.localization.CorusStrings.compose_search_song) else stringResource(fm.corus.android.localization.CorusStrings.compose_search_film),
                             style = CorusFont.body,
                             color = CorusColors.Secondary,
                         )
@@ -1487,14 +1487,14 @@ private fun SearchModeContent(
                     onRetry = onRetrySearch,
                     icon = if (isConnected) Icons.Filled.WarningAmber else Icons.Filled.WifiOff,
                     title = if (isConnected) {
-                        stringResource(fm.corus.android.R.string.search_service_unavailable_title)
+                        stringResource(fm.corus.android.localization.CorusStrings.search_service_unavailable_title)
                     } else {
-                        stringResource(fm.corus.android.R.string.feed_offline_title)
+                        stringResource(fm.corus.android.localization.CorusStrings.feed_offline_title)
                     },
                     subtitle = if (isConnected) {
-                        stringResource(fm.corus.android.R.string.search_service_unavailable_subtitle)
+                        stringResource(fm.corus.android.localization.CorusStrings.search_service_unavailable_body)
                     } else {
-                        stringResource(fm.corus.android.R.string.feed_offline_subtitle)
+                        stringResource(fm.corus.android.localization.CorusStrings.feed_offline_subtitle)
                     },
                 )
             } else {
@@ -1640,7 +1640,7 @@ private fun TrendingSongsSection(
                     modifier = Modifier.size(16.dp),
                 )
                 Text(
-                    text = stringResource(R.string.compose_trending_songs),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.compose_trending_songs),
                     style = CorusFont.sectionHeader,
                     color = CorusColors.Secondary,
                 )
@@ -1686,7 +1686,7 @@ private fun TrendingMoviesSection(
                     modifier = Modifier.size(16.dp),
                 )
                 Text(
-                    text = stringResource(R.string.compose_trending_films),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.compose_trending_films),
                     style = CorusFont.sectionHeader,
                     color = CorusColors.Secondary,
                 )
@@ -1897,7 +1897,7 @@ private fun SearchResultRow(
                         } else {
                             Icon(
                                 imageVector = Icons.Filled.Pause,
-                                contentDescription = stringResource(R.string.compose_cd_pause),
+                                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.compose_cd_pause),
                                 tint = Color.White,
                                 modifier = Modifier.size(20.dp),
                             )
@@ -1912,7 +1912,7 @@ private fun SearchResultRow(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.PlayArrow,
-                            contentDescription = stringResource(R.string.compose_cd_play_preview),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.compose_play_preview),
                             tint = Color.White,
                             modifier = Modifier.size(20.dp),
                         )
@@ -1988,7 +1988,7 @@ private fun ComposeModeContent(
         selectedTrack?.albumArtLargeURL ?: selectedTrack?.albumArtURL
     }
     val title = if (isMovie) selectedMovie?.title.orEmpty() else selectedTrack?.name.orEmpty()
-    val unknownDirector = stringResource(R.string.compose_director_unknown)
+    val unknownDirector = stringResource(fm.corus.android.localization.CorusStrings.post_unknown_user)
     val subtitle = if (!isMovie) {
         selectedTrack?.artistName.orEmpty()
     } else {
@@ -2059,13 +2059,13 @@ private fun ComposeModeContent(
                             )
                             isPreviewPlaying -> Icon(
                                 imageVector = Icons.Filled.Pause,
-                                contentDescription = stringResource(R.string.compose_cd_pause_preview),
+                                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.compose_pause_preview),
                                 tint = Color.White,
                                 modifier = Modifier.size(12.dp),
                             )
                             else -> Icon(
                                 imageVector = Icons.Filled.PlayArrow,
-                                contentDescription = stringResource(R.string.comment_attachment_play_preview),
+                                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.compose_play_preview),
                                 tint = Color.White,
                                 modifier = Modifier.size(12.dp),
                             )
@@ -2128,7 +2128,7 @@ private fun ComposeModeContent(
 
         // ── Caption mode toggle (Text / Voice) — segmented style like iOS ──
         SegmentedToggle(
-            options = listOf(stringResource(R.string.compose_segment_text), stringResource(R.string.compose_segment_voice)),
+            options = listOf(stringResource(fm.corus.android.localization.CorusStrings.compose_caption_mode_text), stringResource(fm.corus.android.localization.CorusStrings.compose_caption_mode_voice)),
             selectedIndex = if (captionMode == "text") 0 else 1,
             onSelected = { index ->
                 onCaptionModeChange(if (index == 0) "text" else "voice")
@@ -2159,7 +2159,7 @@ private fun ComposeModeContent(
         ) {
             if (caption.text.isEmpty()) {
                 Text(
-                    text = stringResource(R.string.compose_caption_placeholder),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.compose_repost_quote_placeholder),
                     style = CorusFont.body,
                     color = CorusColors.Secondary.copy(alpha = 0.6f),
                     modifier = Modifier.padding(top = CorusSpacing.xs),
@@ -2224,13 +2224,13 @@ private fun ComposeModeContent(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = stringResource(R.string.compose_attachment_unavailable),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.compose_attachment_unavailable),
                         style = CorusFont.caption,
                         color = CorusColors.Error,
                     )
                     Spacer(modifier = Modifier.width(CorusSpacing.xs))
                     Text(
-                        text = stringResource(R.string.compose_draft_choose_another),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.compose_draft_choose_another),
                         style = CorusFont.captionMedium,
                         color = CorusColors.Error,
                         modifier = Modifier.clickable(onClick = onChooseAnother),
@@ -2277,7 +2277,7 @@ private fun ComposeModeContent(
                     )
                 } else {
                     Text(
-                        text = stringResource(R.string.compose_post_button),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.compose_post_button),
                         style = CorusFont.button,
                         color = Color.White,
                     )
@@ -2381,7 +2381,7 @@ private fun ComposeHashtagSuggestionsCard(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 if (tag.trending) {
                                     Text(
-                                        text = stringResource(R.string.hashtag_suggestion_trending),
+                                        text = stringResource(fm.corus.android.localization.CorusStrings.feed_mode_trending),
                                         style = CorusFont.caption,
                                         color = CorusColors.Accent,
                                         maxLines = 1,

@@ -97,16 +97,16 @@ fun visibleFeedModeTabs(
 
 @Composable
 fun feedModeLabel(mode: String): String = when (mode) {
-    FeedModeOrder.FOLLOWING -> stringResource(R.string.feed_mode_following)
-    FeedModeOrder.TRENDING -> stringResource(R.string.feed_mode_trending)
-    FeedModeOrder.TASTE_MATCHES -> stringResource(R.string.feed_mode_taste_matches)
-    FeedModeOrder.FAVORITES -> stringResource(R.string.feed_mode_favorites)
+    FeedModeOrder.FOLLOWING -> stringResource(fm.corus.android.localization.CorusStrings.rail_following)
+    FeedModeOrder.TRENDING -> stringResource(fm.corus.android.localization.CorusStrings.feed_mode_trending)
+    FeedModeOrder.TASTE_MATCHES -> stringResource(fm.corus.android.localization.CorusStrings.feed_mode_taste_matches)
+    FeedModeOrder.FAVORITES -> stringResource(fm.corus.android.localization.CorusStrings.feed_mode_favorites)
     else -> mode
 }
 
 @Composable
 fun feedModeTabLabel(mode: String): String = when (mode) {
-    FeedModeOrder.TASTE_MATCHES -> stringResource(R.string.feed_mode_taste_matches_tab)
+    FeedModeOrder.TASTE_MATCHES -> stringResource(fm.corus.android.localization.CorusStrings.feed_mode_taste_matches_tab)
     else -> feedModeLabel(mode)
 }
 

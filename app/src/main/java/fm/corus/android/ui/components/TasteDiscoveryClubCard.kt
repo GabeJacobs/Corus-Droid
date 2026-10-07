@@ -79,18 +79,18 @@ fun TasteDiscoveryClubCard(
             Box(Modifier.size(48.dp).background(MaterialTheme.colorScheme.surface, CircleShape), contentAlignment = Alignment.Center) {
                 Icon(Icons.Filled.Lock, contentDescription = null, tint = CorusColors.Accent, modifier = Modifier.size(22.dp))
             }
-            Text(stringResource(R.string.taste_discovery_locked_card_label),
+            Text(stringResource(fm.corus.android.localization.CorusStrings.taste_discovery_locked_card_label),
                 style = CorusFont.buttonSmall, textAlign = TextAlign.Center)
             if (hasIntroTrial) {
                 Text(
-                    stringResource(R.string.taste_discovery_locked_card_trial),
+                    stringResource(fm.corus.android.localization.CorusStrings.taste_discovery_locked_card_trial),
                     color = CorusColors.Secondary,
                     style = CorusFont.captionMedium,
                     textAlign = TextAlign.Center,
                 )
             }
             }
-            Text(stringResource(R.string.taste_discovery_cta), color = Color.White, style = CorusFont.buttonSmall, textAlign = TextAlign.Center,
+            Text(stringResource(fm.corus.android.localization.CorusStrings.taste_discovery_cta), color = Color.White, style = CorusFont.buttonSmall, textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().height(32.dp).background(CorusColors.Accent, RoundedCornerShape(50)).wrapContentHeight(Alignment.CenterVertically))
         }
     }

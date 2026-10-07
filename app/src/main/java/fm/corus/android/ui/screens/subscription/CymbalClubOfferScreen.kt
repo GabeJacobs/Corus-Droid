@@ -72,39 +72,39 @@ internal object ClubOnboardingPaywallContract {
 
     val playStoreReviews = listOf(
         PlayStoreReview(
-            R.string.club_onboarding_review_toby_quote,
-            R.string.club_onboarding_review_toby_name,
+            fm.corus.android.localization.CorusStrings.club_onboarding_review_toby_quote,
+            fm.corus.android.localization.CorusStrings.club_onboarding_review_toby_name,
         ),
         PlayStoreReview(
-            R.string.club_onboarding_review_voidlike_quote,
-            R.string.club_onboarding_review_voidlike_name,
+            fm.corus.android.localization.CorusStrings.club_onboarding_review_voidlike_quote,
+            fm.corus.android.localization.CorusStrings.club_onboarding_review_voidlike_name,
         ),
         PlayStoreReview(
-            R.string.club_onboarding_review_audible_orange_quote,
-            R.string.club_onboarding_review_audible_orange_name,
+            fm.corus.android.localization.CorusStrings.club_onboarding_review_audible_orange_quote,
+            fm.corus.android.localization.CorusStrings.club_onboarding_review_audible_orange_name,
         ),
         PlayStoreReview(
-            R.string.club_onboarding_review_freakybr0_quote,
-            R.string.club_onboarding_review_freakybr0_name,
+            fm.corus.android.localization.CorusStrings.club_onboarding_review_freakybr0_quote,
+            fm.corus.android.localization.CorusStrings.club_onboarding_review_freakybr0_name,
         ),
         PlayStoreReview(
-            R.string.club_onboarding_review_eh7429_quote,
-            R.string.club_onboarding_review_eh7429_name,
+            fm.corus.android.localization.CorusStrings.club_onboarding_review_eh7429_quote,
+            fm.corus.android.localization.CorusStrings.club_onboarding_review_eh7429_name,
         ),
         PlayStoreReview(
-            R.string.club_onboarding_review_russell_quote,
-            R.string.club_onboarding_review_russell_name,
+            fm.corus.android.localization.CorusStrings.club_onboarding_review_russell_quote,
+            fm.corus.android.localization.CorusStrings.club_onboarding_review_russell_name,
         ),
         PlayStoreReview(
-            R.string.club_onboarding_review_dakota_quote,
-            R.string.club_onboarding_review_dakota_name,
+            fm.corus.android.localization.CorusStrings.club_onboarding_review_dakota_quote,
+            fm.corus.android.localization.CorusStrings.club_onboarding_review_dakota_name,
         ),
     )
 
     fun renewalStringResource(hasTrial: Boolean): Int = if (hasTrial) {
-        R.string.club_onboarding_renewal
+        fm.corus.android.localization.CorusStrings.club_onboarding_renewal
     } else {
-        R.string.club_onboarding_renewal_no_trial
+        fm.corus.android.localization.CorusStrings.club_onboarding_renewal_no_trial
     }
 
     fun showsReviews(contentHeight: Dp): Boolean =
@@ -119,19 +119,19 @@ internal object ClubOnboardingPaywallContract {
         contentHeight: Dp,
         mapEnabled: Boolean = false,
     ): List<Int> = buildList {
-        add(R.string.club_feature_unlock_all_taste_matches)
-        add(R.string.club_feature_customization)
+        add(fm.corus.android.localization.CorusStrings.club_feature_unlock_all_taste_matches)
+        add(fm.corus.android.localization.CorusStrings.parity_8624339e6a12)
         val showReviews = showsReviews(contentHeight)
         val showFivePerks = contentHeight >= expandedBenefitMinimumContentHeight
         // Drop saves on mid-height phones so the review quote can sit fully
         // above the pinned plans. Keep it on compact (no reviews) and tall.
         if (!showReviews || showFivePerks || !supportsPlaylistExport) {
-            add(R.string.club_feature_unlimited_saves)
+            add(fm.corus.android.localization.CorusStrings.parity_4cb955a437ea)
         }
         if (supportsPlaylistExport && showReviews) {
-            add(R.string.club_feature_unlimited_playlists)
+            add(fm.corus.android.localization.CorusStrings.club_feature_unlimited_playlists)
         }
-        add(R.string.club_feature_support)
+        add(fm.corus.android.localization.CorusStrings.club_feature_support)
     }
 }
 
@@ -159,18 +159,18 @@ private fun formatPeriod(context: Context, period: Period): String? {
     val v = period.value
     if (v <= 0) return null
     return when (period.unit) {
-        Period.Unit.YEAR -> if (v == 1) context.getString(R.string.club_period_year_one) else context.getString(R.string.club_period_year_format, v)
-        Period.Unit.MONTH -> if (v == 1) context.getString(R.string.club_period_month_one) else context.getString(R.string.club_period_month_format, v)
-        Period.Unit.WEEK -> if (v == 1) context.getString(R.string.club_period_week_one) else context.getString(R.string.club_period_week_format, v)
-        Period.Unit.DAY -> if (v == 1) context.getString(R.string.club_period_day_one) else context.getString(R.string.club_period_day_format, v)
+        Period.Unit.YEAR -> if (v == 1) context.getString(fm.corus.android.localization.CorusStrings.club_period_year_one) else context.getString(R.string.club_period_year_format, v)
+        Period.Unit.MONTH -> if (v == 1) context.getString(fm.corus.android.localization.CorusStrings.club_period_month_one) else context.getString(R.string.club_period_month_format, v)
+        Period.Unit.WEEK -> if (v == 1) context.getString(fm.corus.android.localization.CorusStrings.club_period_week_one) else context.getString(R.string.club_period_week_format, v)
+        Period.Unit.DAY -> if (v == 1) context.getString(fm.corus.android.localization.CorusStrings.club_period_day_one) else context.getString(R.string.club_period_day_format, v)
         Period.Unit.UNKNOWN -> null
     }
 }
 
 private fun ctaText(context: Context, selectedPackage: Package?, isClubMember: Boolean, useDefaultOption: Boolean = false): String {
-    if (isClubMember) return context.getString(R.string.club_cta_member)
+    if (isClubMember) return context.getString(fm.corus.android.localization.CorusStrings.club_cta_member)
     val trial = trialDurationText(context, selectedPackage, useDefaultOption)
-    return if (trial != null) context.getString(R.string.club_cta_try_free_format, trial) else context.getString(R.string.club_cta_join)
+    return if (trial != null) context.getString(R.string.club_cta_try_free_format, trial) else context.getString(fm.corus.android.localization.CorusStrings.club_cta_join)
 }
 
 private fun monthlyDetailText(context: Context, pkg: Package?, price: String, useDefaultOption: Boolean = false): String {
@@ -208,11 +208,11 @@ private fun savingsBadge(monthly: Package?, yearly: Package?): String? {
 @Composable
 private fun playlistLimitSubtitle(context: PlaylistTrialField?): String {
     return when (context) {
-        PlaylistTrialField.Feed -> stringResource(R.string.club_subtitle_playlist_limit_feed)
-        PlaylistTrialField.OwnProfile -> stringResource(R.string.club_subtitle_playlist_limit_own_profile)
-        PlaylistTrialField.OtherProfile -> stringResource(R.string.club_subtitle_playlist_limit_other_profile)
-        PlaylistTrialField.Hashtag -> stringResource(R.string.club_subtitle_playlist_limit_hashtag)
-        null -> stringResource(R.string.club_subtitle_playlist_limit)
+        PlaylistTrialField.Feed -> stringResource(fm.corus.android.localization.CorusStrings.paywall_playlist_limit_feed)
+        PlaylistTrialField.OwnProfile -> stringResource(fm.corus.android.localization.CorusStrings.paywall_playlist_limit_feed)
+        PlaylistTrialField.OtherProfile -> stringResource(fm.corus.android.localization.CorusStrings.paywall_playlist_limit_feed)
+        PlaylistTrialField.Hashtag -> stringResource(fm.corus.android.localization.CorusStrings.paywall_playlist_limit_feed)
+        null -> stringResource(fm.corus.android.localization.CorusStrings.club_subtitle_playlist_limit)
     }
 }
 
@@ -258,7 +258,7 @@ internal fun ClubCloseButton(modifier: Modifier = Modifier, onClick: () -> Unit)
     ) {
         Icon(
             Icons.Filled.Close,
-            contentDescription = stringResource(R.string.club_cd_close),
+            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.concert_close),
             tint = CorusColors.Secondary,
         )
     }
@@ -329,12 +329,12 @@ fun CymbalClubOfferScreen(
     LaunchedEffect(purchaseResult) {
         when (purchaseResult) {
             CymbalClubViewModel.PurchaseResult.Success -> {
-                ToastManager.show(context.getString(R.string.club_toast_welcome))
+                ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.club_toast_welcome))
                 viewModel.clearResult()
                 onBack()
             }
             CymbalClubViewModel.PurchaseResult.Restored -> {
-                ToastManager.show(context.getString(R.string.club_toast_restored))
+                ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.club_toast_restored))
                 viewModel.clearResult()
             }
             CymbalClubViewModel.PurchaseResult.Cancelled -> {
@@ -381,7 +381,7 @@ fun CymbalClubOfferScreen(
 
                 if (source == PaywallSource.POST_LIMIT) {
                     Text(
-                        text = stringResource(R.string.club_post_limit_eyebrow),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.club_post_limit_eyebrow),
                         style = CorusFont.caption.copy(
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                             letterSpacing = androidx.compose.ui.unit.TextUnit(1.2f, androidx.compose.ui.unit.TextUnitType.Sp),
@@ -407,7 +407,7 @@ fun CymbalClubOfferScreen(
                             shadedIntersection = true,
                         )
                         Text(
-                            text = stringResource(R.string.search_section_taste_matches),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.search_section_taste_matches),
                             style = CorusFont.sectionHeader,
                             color = CorusColors.Accent,
                         )
@@ -416,7 +416,7 @@ fun CymbalClubOfferScreen(
                 }
 
                 Text(
-                    text = if (isOnboarding) stringResource(R.string.club_onboarding_title) else stringResource(R.string.club_title),
+                    text = if (isOnboarding) stringResource(fm.corus.android.localization.CorusStrings.parity_42e01b33038c) else stringResource(fm.corus.android.localization.CorusStrings.settings_row_join_club),
                     textAlign = if (isOnboarding) TextAlign.Center else TextAlign.Unspecified,
                     modifier = if (isOnboarding) Modifier.padding(horizontal = CorusSpacing.lg) else Modifier,
                     style = CorusFont.appTitle,
@@ -436,7 +436,7 @@ fun CymbalClubOfferScreen(
                 val subtitleText = if (source == PaywallSource.POST_LIMIT && trial != null)
                     context.getString(R.string.club_subtitle_post_limit_trial_format, trial)
                 else
-                    if (isOnboarding) stringResource(R.string.club_onboarding_subtitle) else if (source == PaywallSource.STAY_CLOSE || source == PaywallSource.STAY_CLOSE_BANNER) stringResource(R.string.for_you_stay_close_club_subtitle) else source.subtitle
+                    if (isOnboarding) stringResource(fm.corus.android.localization.CorusStrings.club_onboarding_subtitle) else if (source == PaywallSource.STAY_CLOSE || source == PaywallSource.STAY_CLOSE_BANNER) stringResource(R.string.for_you_stay_close_club_subtitle) else source.subtitle
 
                 Text(
                     text = subtitleText,
@@ -472,18 +472,18 @@ fun CymbalClubOfferScreen(
                         ).forEach { OnboardingBenefitRow(it) }
                     } else {
                         if (tasteMatchesEnabled) {
-                            FeatureRow(text = stringResource(R.string.club_feature_taste_matches)) {
+                            FeatureRow(text = stringResource(fm.corus.android.localization.CorusStrings.parity_f035d9bdea71)) {
                                 VennDiagramIcon(size = 20.dp, color = CorusColors.Accent, shadedIntersection = true)
                             }
                         }
-                        FeatureRow(icon = Icons.Filled.Brush, text = stringResource(R.string.club_feature_customization))
-                        FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
+                        FeatureRow(icon = Icons.Filled.Brush, text = stringResource(fm.corus.android.localization.CorusStrings.parity_8624339e6a12))
+                        FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(fm.corus.android.localization.CorusStrings.parity_29a7a1e058da))
                         if (musicService != MusicService.YOUTUBE_MUSIC) {
-                            FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
+                            FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(fm.corus.android.localization.CorusStrings.parity_3a03d227b2f2))
                         }
-                        FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
+                        FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(fm.corus.android.localization.CorusStrings.club_feature_support))
                         if (!tasteMatchesEnabled) {
-                            FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
+                            FeatureRow(icon = Icons.Filled.Verified, text = stringResource(fm.corus.android.localization.CorusStrings.parity_5c419b5daae2))
                         }
                     }
                 }
@@ -494,7 +494,7 @@ fun CymbalClubOfferScreen(
                     OnboardingPlayStoreReviews()
                 } else if (!isOnboarding) {
                     Text(
-                        text = stringResource(R.string.club_disclaimer),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.club_disclaimer),
                         style = CorusFont.caption,
                         color = CorusColors.Secondary,
                         textAlign = TextAlign.Center,
@@ -525,7 +525,7 @@ fun CymbalClubOfferScreen(
                     val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 29.99) / 12)}"
 
                     PlanCard(
-                        label = stringResource(R.string.club_plan_monthly),
+                        label = stringResource(fm.corus.android.localization.CorusStrings.club_plan_monthly),
                         price = stringResource(R.string.club_plan_monthly_price_format, monthlyPrice),
                         detail = if (isOnboarding) {
                             onboardingPlanDetailText(
@@ -541,7 +541,7 @@ fun CymbalClubOfferScreen(
                         modifier = Modifier.weight(1f),
                     )
                     PlanCard(
-                        label = stringResource(R.string.club_plan_yearly),
+                        label = stringResource(fm.corus.android.localization.CorusStrings.club_plan_yearly),
                         price = stringResource(R.string.club_plan_yearly_price_format, yearlyPrice),
                         detail = if (isOnboarding) {
                             onboardingPlanDetailText(
@@ -632,7 +632,7 @@ fun CymbalClubOfferScreen(
                         enabled = !isPurchasing,
                     ) {
                         Text(
-                            text = stringResource(R.string.club_onboarding_skip),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.parity_27ad1d833422),
                             style = CorusFont.bodyMedium,
                             color = CorusColors.Secondary,
                         )
@@ -645,17 +645,17 @@ fun CymbalClubOfferScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     TextButton(onClick = { viewModel.restorePurchases() }) {
-                        Text(stringResource(R.string.club_restore_purchases), style = CorusFont.caption, color = CorusColors.Secondary)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.club_restore_purchases), style = CorusFont.caption, color = CorusColors.Secondary)
                     }
                     TextButton(onClick = {
                         try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://corus.fm/terms"))) } catch (_: Exception) { }
                     }) {
-                        Text(stringResource(R.string.club_terms), style = CorusFont.caption, color = CorusColors.Secondary)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.rail_terms), style = CorusFont.caption, color = CorusColors.Secondary)
                     }
                     TextButton(onClick = {
                         try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://corus.fm/privacy"))) } catch (_: Exception) { }
                     }) {
-                        Text(stringResource(R.string.club_privacy), style = CorusFont.caption, color = CorusColors.Secondary)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.rail_privacy), style = CorusFont.caption, color = CorusColors.Secondary)
                     }
                 }
             }
@@ -729,13 +729,13 @@ fun CymbalClubOfferSheet(
     LaunchedEffect(purchaseResult) {
         when (purchaseResult) {
             CymbalClubViewModel.PurchaseResult.Success -> {
-                ToastManager.show(context.getString(R.string.club_toast_welcome))
+                ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.club_toast_welcome))
                 viewModel.clearResult()
                 onPurchaseSuccess()
                 onDismiss()
             }
             CymbalClubViewModel.PurchaseResult.Restored -> {
-                ToastManager.show(context.getString(R.string.club_toast_restored))
+                ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.club_toast_restored))
                 viewModel.clearResult()
             }
             CymbalClubViewModel.PurchaseResult.Cancelled -> {
@@ -798,7 +798,7 @@ fun CymbalClubOfferSheet(
             }) {
                 Icon(
                     Icons.Filled.Close,
-                    contentDescription = stringResource(R.string.club_cd_close),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.concert_close),
                     tint = CorusColors.Secondary,
                 )
             }
@@ -829,7 +829,7 @@ fun CymbalClubOfferSheet(
 
             if (source == PaywallSource.POST_LIMIT) {
                 Text(
-                    text = stringResource(R.string.club_post_limit_eyebrow),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.club_post_limit_eyebrow),
                     style = CorusFont.caption.copy(
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                         letterSpacing = androidx.compose.ui.unit.TextUnit(1.2f, androidx.compose.ui.unit.TextUnitType.Sp),
@@ -853,7 +853,7 @@ fun CymbalClubOfferSheet(
                         shadedIntersection = true,
                     )
                     Text(
-                        text = stringResource(R.string.search_section_taste_matches),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.search_section_taste_matches),
                         style = CorusFont.sectionHeader,
                         color = CorusColors.Accent,
                     )
@@ -873,7 +873,7 @@ fun CymbalClubOfferSheet(
                         modifier = Modifier.size(15.dp),
                     )
                     Text(
-                        text = stringResource(R.string.club_playlist_trial_used_eyebrow),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.club_playlist_trial_used_eyebrow),
                         style = CorusFont.caption.copy(
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                             letterSpacing = androidx.compose.ui.unit.TextUnit(1.2f, androidx.compose.ui.unit.TextUnitType.Sp),
@@ -885,7 +885,7 @@ fun CymbalClubOfferSheet(
             }
 
             Text(
-                text = stringResource(R.string.club_title),
+                text = stringResource(fm.corus.android.localization.CorusStrings.settings_row_join_club),
                 style = CorusFont.appTitle,
                 color = CorusColors.Text,
             )
@@ -896,8 +896,8 @@ fun CymbalClubOfferSheet(
             // otherwise the source's default subtitle ("Remove posting limits").
             val trial = trialDurationText(context, selectedPackage, source == PaywallSource.ONBOARDING || source == PaywallSource.THIRD_POST)
             val subtitleText = when {
-                source == PaywallSource.TASTE_DISCOVERY -> stringResource(R.string.taste_discovery_subtitle)
-                source == PaywallSource.GIFT -> stringResource(R.string.club_subtitle_gift)
+                source == PaywallSource.TASTE_DISCOVERY -> stringResource(fm.corus.android.localization.CorusStrings.taste_discovery_subtitle)
+                source == PaywallSource.GIFT -> stringResource(fm.corus.android.localization.CorusStrings.club_subtitle_gift)
                 source == PaywallSource.POST_LIMIT && trial != null ->
                     context.getString(R.string.club_subtitle_post_limit_trial_format, trial)
                 source == PaywallSource.PLAYLIST_LIMIT && playlistTrialContext != null ->
@@ -930,35 +930,35 @@ fun CymbalClubOfferSheet(
                 // Source-specific perk leads when present, since it's the reason the
                 // user opened the paywall (e.g. the favorites cap).
                 if (source == PaywallSource.TASTE_DISCOVERY) {
-                    FeatureRow(text = stringResource(R.string.taste_discovery_perk)) {
+                    FeatureRow(text = stringResource(fm.corus.android.localization.CorusStrings.taste_discovery_perk)) {
                         VennDiagramIcon(size = 20.dp, color = CorusColors.Accent, shadedIntersection = true)
                     }
                 }
                 if (source == PaywallSource.FAVORITE_LIMIT) {
-                    FeatureRow(icon = Icons.Filled.Star, text = stringResource(R.string.club_feature_favorites))
+                    FeatureRow(icon = Icons.Filled.Star, text = stringResource(fm.corus.android.localization.CorusStrings.club_feature_favorites))
                 }
                 if (source == PaywallSource.GIFT) {
-                    FeatureRow(icon = Icons.Filled.CardGiftcard, text = stringResource(R.string.club_feature_gifts))
+                    FeatureRow(icon = Icons.Filled.CardGiftcard, text = stringResource(fm.corus.android.localization.CorusStrings.club_feature_gifts))
                 }
                 if (source != PaywallSource.TASTE_DISCOVERY && tasteMatchesEnabled) {
-                    FeatureRow(text = stringResource(R.string.club_feature_taste_matches)) {
+                    FeatureRow(text = stringResource(fm.corus.android.localization.CorusStrings.parity_f035d9bdea71)) {
                         VennDiagramIcon(size = 20.dp, color = CorusColors.Accent, shadedIntersection = true)
                     }
                 }
-                FeatureRow(icon = Icons.Filled.Brush, text = stringResource(R.string.club_feature_customization))
+                FeatureRow(icon = Icons.Filled.Brush, text = stringResource(fm.corus.android.localization.CorusStrings.parity_8624339e6a12))
                 // Free-tier posting is generous now, so this sits mid-list rather than
                 // leading; it's no longer the main draw.
                 if (source != PaywallSource.FIRST_POST) {
-                    FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.club_feature_unlimited))
+                    FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(fm.corus.android.localization.CorusStrings.parity_29a7a1e058da))
                 }
                 if (musicService != fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
-                    FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(R.string.club_feature_playlists))
+                    FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(fm.corus.android.localization.CorusStrings.parity_3a03d227b2f2))
                 }
-                FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(R.string.club_feature_support))
+                FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(fm.corus.android.localization.CorusStrings.club_feature_support))
                 // Drop the badge line on the favorites or Taste Matches paywalls
                 // to keep the list compact on phones (room is tight).
                 if (source != PaywallSource.FAVORITE_LIMIT && !tasteMatchesEnabled) {
-                    FeatureRow(icon = Icons.Filled.Verified, text = stringResource(R.string.club_feature_verified))
+                    FeatureRow(icon = Icons.Filled.Verified, text = stringResource(fm.corus.android.localization.CorusStrings.parity_5c419b5daae2))
                 }
             }
 
@@ -967,7 +967,7 @@ fun CymbalClubOfferSheet(
 
             if (source != PaywallSource.ONBOARDING && disclaimerFits) {
                 Text(
-                    text = stringResource(R.string.club_disclaimer),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.club_disclaimer),
                     style = CorusFont.caption,
                     color = CorusColors.Secondary,
                     textAlign = TextAlign.Center,
@@ -993,12 +993,12 @@ fun CymbalClubOfferSheet(
                     .padding(horizontal = CorusSpacing.xl),
                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
             ) {
-                val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: stringResource(R.string.club_plan_monthly_default_price)
-                val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: stringResource(R.string.club_plan_yearly_default_price)
+                val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: stringResource(fm.corus.android.localization.CorusStrings.club_plan_monthly_default_price)
+                val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: stringResource(fm.corus.android.localization.CorusStrings.club_plan_yearly_default_price)
                 val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 29.99) / 12)}"
 
                 PlanCard(
-                    label = stringResource(R.string.club_plan_monthly),
+                    label = stringResource(fm.corus.android.localization.CorusStrings.club_plan_monthly),
                     price = stringResource(R.string.club_plan_monthly_price_format, monthlyPrice),
                     detail = monthlyDetailText(context, monthlyPackage, monthlyPrice, source == PaywallSource.ONBOARDING || source == PaywallSource.THIRD_POST),
                     isSelected = selectedPlan == "monthly",
@@ -1006,7 +1006,7 @@ fun CymbalClubOfferSheet(
                     modifier = Modifier.weight(1f),
                 )
                 PlanCard(
-                    label = stringResource(R.string.club_plan_yearly),
+                    label = stringResource(fm.corus.android.localization.CorusStrings.club_plan_yearly),
                     price = stringResource(R.string.club_plan_yearly_price_format, yearlyPrice),
                     detail = yearlyDetailText(context, yearlyPackage, yearlyPrice, yearlyMonthly, source == PaywallSource.ONBOARDING || source == PaywallSource.THIRD_POST),
                     isSelected = selectedPlan == "yearly",
@@ -1069,17 +1069,17 @@ fun CymbalClubOfferSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(onClick = { viewModel.restorePurchases() }) {
-                    Text(stringResource(R.string.club_restore_purchases), style = CorusFont.caption, color = CorusColors.Secondary)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.club_restore_purchases), style = CorusFont.caption, color = CorusColors.Secondary)
                 }
                 TextButton(onClick = {
                     try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://corus.fm/terms"))) } catch (_: Exception) { }
                 }) {
-                    Text(stringResource(R.string.club_terms), style = CorusFont.caption, color = CorusColors.Secondary)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.rail_terms), style = CorusFont.caption, color = CorusColors.Secondary)
                 }
                 TextButton(onClick = {
                     try { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://corus.fm/privacy"))) } catch (_: Exception) { }
                 }) {
-                    Text(stringResource(R.string.club_privacy), style = CorusFont.caption, color = CorusColors.Secondary)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.rail_privacy), style = CorusFont.caption, color = CorusColors.Secondary)
                 }
             }
 
@@ -1155,15 +1155,15 @@ private fun OnboardingPlayStoreReviews() {
 private fun OnboardingBenefitRow(stringRes: Int) {
     val text = stringResource(stringRes)
     when (stringRes) {
-        R.string.club_feature_unlock_all_taste_matches -> FeatureRow(text = text) {
+        fm.corus.android.localization.CorusStrings.club_feature_unlock_all_taste_matches -> FeatureRow(text = text) {
             VennDiagramIcon(size = 20.dp, color = CorusColors.Accent, shadedIntersection = true)
         }
-        R.string.club_feature_customization -> FeatureRow(icon = Icons.Filled.Brush, text = text)
-        R.string.club_feature_unlimited_saves -> FeatureRow(icon = Icons.Filled.Bookmark, text = text)
-        R.string.club_feature_unlimited_playlists -> FeatureRow(icon = Icons.Filled.QueueMusic, text = text)
-        R.string.club_feature_favorites -> FeatureRow(icon = Icons.Filled.Star, text = text)
-        R.string.club_feature_see_whos_nearby -> FeatureRow(icon = Icons.Filled.LocationOn, text = text)
-        R.string.club_feature_verified -> FeatureRow(icon = Icons.Filled.Verified, text = text)
+        fm.corus.android.localization.CorusStrings.parity_8624339e6a12 -> FeatureRow(icon = Icons.Filled.Brush, text = text)
+        fm.corus.android.localization.CorusStrings.parity_4cb955a437ea -> FeatureRow(icon = Icons.Filled.Bookmark, text = text)
+        fm.corus.android.localization.CorusStrings.club_feature_unlimited_playlists -> FeatureRow(icon = Icons.Filled.QueueMusic, text = text)
+        fm.corus.android.localization.CorusStrings.club_feature_favorites -> FeatureRow(icon = Icons.Filled.Star, text = text)
+        fm.corus.android.localization.CorusStrings.club_feature_see_whos_nearby -> FeatureRow(icon = Icons.Filled.LocationOn, text = text)
+        fm.corus.android.localization.CorusStrings.parity_5c419b5daae2 -> FeatureRow(icon = Icons.Filled.Verified, text = text)
         else -> FeatureRow(icon = Icons.Filled.Favorite, text = text)
     }
 }

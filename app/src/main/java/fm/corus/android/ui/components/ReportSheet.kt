@@ -34,14 +34,14 @@ enum class ReportContentType(val label: String) {
 
 @Composable
 private fun reportReasons(): List<String> = listOf(
-    stringResource(R.string.report_reason_spam),
-    stringResource(R.string.report_reason_harassment),
-    stringResource(R.string.report_reason_hate),
-    stringResource(R.string.report_reason_nudity),
-    stringResource(R.string.report_reason_violence),
-    stringResource(R.string.report_reason_false_info),
-    stringResource(R.string.report_reason_ip_violation),
-    stringResource(R.string.report_reason_other),
+    stringResource(fm.corus.android.localization.CorusStrings.report_reason_spam),
+    stringResource(fm.corus.android.localization.CorusStrings.report_reason_harassment),
+    stringResource(fm.corus.android.localization.CorusStrings.report_reason_hate),
+    stringResource(fm.corus.android.localization.CorusStrings.report_reason_nudity),
+    stringResource(fm.corus.android.localization.CorusStrings.report_reason_violence),
+    stringResource(fm.corus.android.localization.CorusStrings.report_reason_false_info),
+    stringResource(fm.corus.android.localization.CorusStrings.report_reason_ip_violation),
+    stringResource(fm.corus.android.localization.CorusStrings.report_reason_other),
 )
 
 @Composable
@@ -64,10 +64,10 @@ fun ReportSheet(
     val scope = rememberCoroutineScope()
     val reasons = reportReasons()
     val whyTextRes = when (contentType) {
-        ReportContentType.POST -> R.string.report_why_post
-        ReportContentType.COMMENT -> R.string.report_why_comment
-        ReportContentType.USER -> R.string.report_why_user
-        ReportContentType.MESSAGE -> R.string.report_why_message
+        ReportContentType.POST -> fm.corus.android.localization.CorusStrings.report_why_post
+        ReportContentType.COMMENT -> fm.corus.android.localization.CorusStrings.report_why_comment
+        ReportContentType.USER -> fm.corus.android.localization.CorusStrings.report_why_user
+        ReportContentType.MESSAGE -> fm.corus.android.localization.CorusStrings.report_why_message
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -80,10 +80,10 @@ fun ReportSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.report_cancel), style = CorusFont.body, color = CorusColors.Accent)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_cancel), style = CorusFont.body, color = CorusColors.Accent)
                 }
                 Spacer(modifier = Modifier.weight(1f))
-                Text(stringResource(R.string.report_title), style = CorusFont.screenTitle, color = CorusColors.Text)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.profile_report), style = CorusFont.screenTitle, color = CorusColors.Text)
                 Spacer(modifier = Modifier.weight(1f))
                 TextButton(
                     onClick = {
@@ -118,7 +118,7 @@ fun ReportSheet(
                     },
                     enabled = selectedReason != null && !isSubmitting,
                 ) {
-                    Text(stringResource(R.string.report_submit), style = CorusFont.button, color = CorusColors.Accent)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_submit), style = CorusFont.button, color = CorusColors.Accent)
                 }
             }
 
@@ -162,7 +162,7 @@ fun ReportSheet(
                         value = details,
                         onValueChange = { details = it },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text(stringResource(R.string.report_details_placeholder)) },
+                        placeholder = { Text(stringResource(fm.corus.android.localization.CorusStrings.report_details_placeholder)) },
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                         minLines = 3,
                         maxLines = 6,
@@ -190,9 +190,9 @@ fun ReportSheet(
                         tint = CorusColors.Accent,
                         modifier = Modifier.size(48.dp),
                     )
-                    Text(stringResource(R.string.report_thanks_title), style = CorusFont.songTitleLarge, color = CorusColors.Text)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.report_thanks_title), style = CorusFont.songTitleLarge, color = CorusColors.Text)
                     Text(
-                        stringResource(R.string.report_thanks_message),
+                        stringResource(fm.corus.android.localization.CorusStrings.report_thanks_message),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                     )

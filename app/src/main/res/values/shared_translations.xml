@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="app_icon_club_required">"App icons are available to Corus Club members."</string>
+    <string name="app_icon_corus_blue">"Corus Blue"</string>
+    <string name="app_icon_default">"Default"</string>
+    <string name="app_icon_error_message">"Please try again. Your app icon could not be changed."</string>
+    <string name="app_icon_error_title">"Unable to Change App Icon"</string>
+    <string name="app_icon_launcher_hint">"Your home screen may take a moment to update. With themed icons on, your phone chooses the icon colors."</string>
+    <string name="app_icon_title">"App Icon"</string>
+    <string name="corus_profile_share_background_black">"Black"</string>
+    <string name="corus_profile_share_background_blue">"Blue"</string>
+    <string name="corus_profile_share_background_green">"Green"</string>
+    <string name="corus_profile_share_background_orange">"Orange"</string>
+    <string name="corus_profile_share_background_purple">"Purple"</string>
+    <string name="corus_profile_share_background_rose">"Rose"</string>
+    <string name="corus_profile_share_background_white">"White"</string>
+    <string name="corus_profile_share_card_style">"Card style"</string>
+    <string name="corus_profile_share_effect_disco">"Disco"</string>
+    <string name="corus_profile_share_effect_none">"None"</string>
+    <string name="corus_profile_share_effect_off">"Off"</string>
+    <string name="corus_profile_share_effect_on">"On"</string>
+    <string name="corus_profile_share_effect_rain">"Rain"</string>
+    <string name="corus_profile_share_effect_snow">"Snow"</string>
+    <string name="corus_profile_share_grid_full">"Full"</string>
+    <string name="corus_profile_share_grid_latest">"Latest"</string>
+    <string name="corus_profile_share_image_error_body">"Please try again, or use Share Link."</string>
+    <string name="corus_profile_share_image_error_title">"Couldn’t create profile image"</string>
+    <string name="corus_profile_share_loading_full">"Loading your Full grid…"</string>
+    <string name="corus_profile_share_loading_grid">"Loading your grid…"</string>
+    <string name="corus_profile_share_preparing_preview">"Preparing preview…"</string>
+    <string name="corus_profile_share_unlock_full_many">"Post %1$d more coruses to unlock Full"</string>
+    <string name="corus_profile_share_unlock_full_one">"Post 1 more corus to unlock Full"</string>
+    <string name="corus_profile_share_video_error_body">"Please try again, or turn off the effects to share an image."</string>
+    <string name="corus_profile_share_video_error_title">"Couldn’t create Story video"</string>
+    <string name="corus_profile_share_x_caption">"Follow me on Corus"</string>
+    <string name="corus_profile_share_preview">"Preview"</string>
+    <string name="corus_profile_share_x_paste_hint">"Image copied. Paste it into your post in X."</string>
+    <string name="corus_profile_share_collage_progress">"%1$d of %2$d coruses"</string>
+    <string name="corus_profile_share_collage_teaser_title">"Share your taste as a collage"</string>
+    <string name="corus_profile_share_unlock_collage_many">"Post %1$d more coruses to unlock."</string>
+    <string name="corus_profile_share_unlock_collage_one">"Post 1 more corus to unlock."</string>
+    <string name="corus_profile_share_unlock_large_many">"Post %1$d more coruses to unlock 4 × 4"</string>
+    <string name="corus_profile_share_unlock_large_one">"Post 1 more corus to unlock 4 × 4"</string>
+</resources>

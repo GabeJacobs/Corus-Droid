@@ -322,7 +322,7 @@ fun ProfileScreen(
 
     fun handlePlaylistTap() {
         if (!hasSongs) {
-            ToastManager.show(context.getString(fm.corus.android.R.string.profile_toast_no_songs_for_playlist))
+            ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.profile_toast_no_songs_for_playlist))
         } else if (viewModel.shouldPaywallOwnProfilePlaylist()) {
             clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.PLAYLIST_LIMIT
             clubPlaylistTrialContext = fm.corus.android.domain.PlaylistTrialField.OwnProfile
@@ -403,6 +403,22 @@ fun ProfileScreen(
     }
 
     val currentProfile = profile ?: return
+    // Warm bounded share artwork from the existing 30-post profile page. No count
+    // query or larger profile fetch, and absolutely no V2 work while the flag is off.
+    LaunchedEffect(currentProfile.id, currentProfile.cymbalCount, currentProfile.featuredTab, posts, viewModel.profileSharingV2) {
+        if (viewModel.profileSharingV2 && currentProfile.cymbalCount >= 9) {
+            val sharePosts = posts.distinctBy { it.id }.sortedByDescending { it.timestamp }.take(28)
+            val required = if (currentProfile.cymbalCount >= 28) 28 else 9
+            if (sharePosts.size >= required) {
+                val warmProfile = ShareProfileSubject(currentProfile.id, currentProfile.username, currentProfile.displayName, null,
+                    artworkUrls = sharePosts.map { it.displayImageLargeURL ?: it.displayImageURL ?: "" },
+                    postCount = currentProfile.cymbalCount,
+                    featuredMoviePosterUrl = if (currentProfile.featuredTab == "film")
+                        sharePosts.filter { it.isMovie }.maxByOrNull { it.timestamp }?.let { it.displayImageLargeURL ?: it.displayImageURL }.orEmpty() else null)
+                fm.corus.android.ui.components.ProfileShareArtCache.prepare(context, warmProfile)
+            }
+        }
+    }
 
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val hasMore = rawHasMore
@@ -543,7 +559,7 @@ fun ProfileScreen(
                         if (currentProfile.cymbalCount > 0) {
                             Icon(
                                 painter = painterResource(fm.corus.android.R.drawable.corus_club_vector),
-                                contentDescription = stringResource(fm.corus.android.R.string.profile_cd_customize),
+                                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.profile_cd_customize),
                                 tint = CorusColors.Accent,
                                 modifier = Modifier
                                     .size(CorusSpacing.profileStyleIcon)
@@ -553,7 +569,7 @@ fun ProfileScreen(
                         }
                         Icon(
                             Icons.Filled.Settings,
-                            contentDescription = stringResource(fm.corus.android.R.string.profile_cd_settings),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.nav_settings),
                             tint = CorusColors.Secondary,
                             modifier = Modifier
                                 .size(CorusSpacing.profileSettingsIcon)
@@ -597,14 +613,14 @@ fun ProfileScreen(
                             containerColor = CorusColors.Background,
                         ) {
                             DropdownMenuItem(
-                                text = { Text(stringResource(fm.corus.android.R.string.profile_avatar_take_photo), style = CorusFont.body, color = CorusColors.Text) },
+                                text = { Text(stringResource(fm.corus.android.localization.CorusStrings.profile_avatar_take_photo), style = CorusFont.body, color = CorusColors.Text) },
                                 onClick = {
                                     showAvatarMenu = false
                                     showSelfieCapture = true
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text(stringResource(fm.corus.android.R.string.profile_avatar_choose_library), style = CorusFont.body, color = CorusColors.Text) },
+                                text = { Text(stringResource(fm.corus.android.localization.CorusStrings.profile_choose_from_library), style = CorusFont.body, color = CorusColors.Text) },
                                 onClick = {
                                     showAvatarMenu = false
                                     photoPickerLauncher.launch(
@@ -616,7 +632,7 @@ fun ProfileScreen(
                             // Include pending bytes so View Photo stays available right after upload.
                             if (!currentProfile.avatarURL.isNullOrBlank() || pendingAvatarBytes != null) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(fm.corus.android.R.string.profile_avatar_view_photo), style = CorusFont.body, color = CorusColors.Text) },
+                                    text = { Text(stringResource(fm.corus.android.localization.CorusStrings.profile_view_photo), style = CorusFont.body, color = CorusColors.Text) },
                                     onClick = {
                                         showAvatarMenu = false
                                         showFullScreenAvatar = true
@@ -624,7 +640,7 @@ fun ProfileScreen(
                                 )
                             }
                             DropdownMenuItem(
-                                text = { Text(stringResource(fm.corus.android.R.string.profile_avatar_share_link), style = CorusFont.body, color = CorusColors.Text) },
+                                text = { Text(stringResource(fm.corus.android.localization.CorusStrings.profile_share_profile_link), style = CorusFont.body, color = CorusColors.Text) },
                                 onClick = {
                                     showAvatarMenu = false
                                     // Launch-dark: with profile_share_enabled ON, open the
@@ -660,22 +676,22 @@ fun ProfileScreen(
                             StatItem(
                                 count = currentProfile.cymbalCount,
                                 label = stringResource(
-                                    if (currentProfile.cymbalCount == 1) fm.corus.android.R.string.post_noun
-                                    else fm.corus.android.R.string.profile_stat_coruses,
+                                    if (currentProfile.cymbalCount == 1) fm.corus.android.localization.CorusStrings.post_noun
+                                    else fm.corus.android.localization.CorusStrings.profile_stat_coruses,
                                 ),
                                 instagram = true,
                                 modifier = statMod,
                             )
                             StatItem(
                                 count = currentProfile.followerCount,
-                                label = stringResource(fm.corus.android.R.string.profile_stat_followers),
+                                label = stringResource(fm.corus.android.localization.CorusStrings.hashtag_followers),
                                 onClick = { onNavigateToFollowList(currentProfile.id, true, currentProfile.username, currentProfile.followerCount, currentProfile.followingCount) },
                                 instagram = true,
                                 modifier = statMod,
                             )
                             StatItem(
                                 count = currentProfile.followingCount,
-                                label = stringResource(fm.corus.android.R.string.profile_stat_following),
+                                label = stringResource(fm.corus.android.localization.CorusStrings.profile_stat_following),
                                 onClick = { onNavigateToFollowList(currentProfile.id, false, currentProfile.username, currentProfile.followerCount, currentProfile.followingCount) },
                                 instagram = true,
                                 modifier = statMod,
@@ -741,10 +757,10 @@ fun ProfileScreen(
                 }
 
                 run {
-                    val editFull = stringResource(fm.corus.android.R.string.profile_button_edit)
-                    val editShort = stringResource(fm.corus.android.R.string.profile_button_edit_short)
-                    val shareFull = stringResource(fm.corus.android.R.string.profile_button_share)
-                    val shareShort = stringResource(fm.corus.android.R.string.profile_button_share_short)
+                    val editFull = stringResource(fm.corus.android.localization.CorusStrings.profile_button_edit)
+                    val editShort = stringResource(fm.corus.android.localization.CorusStrings.profile_button_edit_short)
+                    val shareFull = stringResource(fm.corus.android.localization.CorusStrings.profile_button_share)
+                    val shareShort = stringResource(fm.corus.android.localization.CorusStrings.profile_button_share_short)
                     val actionStyle = profileActionButtonBaseStyle(
                         LocalConfiguration.current.screenWidthDp,
                     )
@@ -820,7 +836,7 @@ fun ProfileScreen(
                             } else {
                                 Icon(
                                     imageVector = Icons.Filled.QueueMusic,
-                                    contentDescription = stringResource(fm.corus.android.R.string.profile_cd_playlist),
+                                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.profile_playlist_button),
                                     modifier = Modifier
                                         .size(CorusSpacing.profileActionPlaylistIcon)
                                         .alpha(if (!hasSongs) 0.35f else 1f),
@@ -864,10 +880,10 @@ fun ProfileScreen(
                 // (0=Music, 1=Film, 2=Likes, 3=Saves) so the existing
                 // when-on-segment dispatch downstream is unchanged. We map
                 // through `tabsOrder` here to translate displayed-tap → logical.
-                val musicLabel = stringResource(fm.corus.android.R.string.profile_tab_music)
-                val filmLabel = stringResource(fm.corus.android.R.string.profile_tab_film)
-                val likesLabel = stringResource(fm.corus.android.R.string.profile_tab_likes)
-                val savesLabel = stringResource(fm.corus.android.R.string.profile_tab_saves)
+                val musicLabel = stringResource(fm.corus.android.localization.CorusStrings.profile_tab_music)
+                val filmLabel = stringResource(fm.corus.android.localization.CorusStrings.profile_tab_film)
+                val likesLabel = stringResource(fm.corus.android.localization.CorusStrings.profile_tab_likes)
+                val savesLabel = stringResource(fm.corus.android.localization.CorusStrings.profile_tab_saves)
                 val mediaTabs = profile?.visibleMediaTabIndices() ?: listOf(0, 1)
                 val tabsOrder = mediaTabs + listOf(2, 3)
                 val tabs = tabsOrder.map { logical ->
@@ -1101,25 +1117,25 @@ fun ProfileScreen(
                     when (selectedSegment) {
                         0 -> ProfileEmptyPrompt(
                             icon = Icons.Filled.Headphones,
-                            title = stringResource(fm.corus.android.R.string.profile_empty_music_title),
-                            subtitle = stringResource(fm.corus.android.R.string.profile_empty_music_subtitle),
-                            buttonText = stringResource(fm.corus.android.R.string.profile_empty_music_button),
+                            title = stringResource(fm.corus.android.localization.CorusStrings.parity_7cc4c50bed35),
+                            subtitle = stringResource(fm.corus.android.localization.CorusStrings.profile_empty_music_subtitle),
+                            buttonText = stringResource(fm.corus.android.localization.CorusStrings.parity_f58d094c6ad7),
                             onButtonClick = { onOpenCompose("track") },
                         )
                         1 -> ProfileEmptyPrompt(
                             icon = Icons.Filled.Movie,
-                            title = stringResource(fm.corus.android.R.string.profile_empty_film_title),
-                            subtitle = stringResource(fm.corus.android.R.string.profile_empty_film_subtitle),
-                            buttonText = stringResource(fm.corus.android.R.string.profile_empty_film_button),
+                            title = stringResource(fm.corus.android.localization.CorusStrings.parity_00ec7c4bb4f0),
+                            subtitle = stringResource(fm.corus.android.localization.CorusStrings.profile_empty_film_subtitle),
+                            buttonText = stringResource(fm.corus.android.localization.CorusStrings.parity_4702964a2944),
                             onButtonClick = { onOpenCompose("movie") },
                         )
                         2 -> ProfileEmptyPlaceholder(
                             icon = Icons.Filled.Favorite,
                             message = stringResource(
                                 when (likesSavesFilter) {
-                                    ProfileMediaFilter.MUSIC -> fm.corus.android.R.string.profile_empty_likes_music
-                                    ProfileMediaFilter.FILM -> fm.corus.android.R.string.profile_empty_likes_films
-                                    ProfileMediaFilter.ALL -> fm.corus.android.R.string.profile_empty_likes
+                                    ProfileMediaFilter.MUSIC -> fm.corus.android.localization.CorusStrings.profile_empty_likes_music
+                                    ProfileMediaFilter.FILM -> fm.corus.android.localization.CorusStrings.profile_empty_likes_films
+                                    ProfileMediaFilter.ALL -> fm.corus.android.localization.CorusStrings.profile_empty_likes
                                 }
                             ),
                         )
@@ -1127,9 +1143,9 @@ fun ProfileScreen(
                             icon = Icons.Filled.Bookmark,
                             message = stringResource(
                                 when (likesSavesFilter) {
-                                    ProfileMediaFilter.MUSIC -> fm.corus.android.R.string.profile_empty_saves_music
-                                    ProfileMediaFilter.FILM -> fm.corus.android.R.string.profile_empty_saves_films
-                                    ProfileMediaFilter.ALL -> fm.corus.android.R.string.profile_empty_saves
+                                    ProfileMediaFilter.MUSIC -> fm.corus.android.localization.CorusStrings.profile_empty_saves_music
+                                    ProfileMediaFilter.FILM -> fm.corus.android.localization.CorusStrings.profile_empty_saves_films
+                                    ProfileMediaFilter.ALL -> fm.corus.android.localization.CorusStrings.profile_empty_saves
                                 }
                             ),
                         )
@@ -1330,10 +1346,10 @@ fun ProfileScreen(
                     }
                     viewModel.saveStyleSelections(fields) { ok ->
                         if (ok) {
-                            ToastManager.show(context.getString(fm.corus.android.R.string.profile_toast_style_updated))
+                            ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.profile_toast_style_updated))
                             showStylePicker = false
                         } else {
-                            ToastManager.show(context.getString(fm.corus.android.R.string.edit_profile_save_style_error))
+                            ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.edit_profile_save_style_error))
                         }
                     }
                 },
@@ -1366,7 +1382,7 @@ fun ProfileScreen(
     // ── Profile Share Sheet (in-app Corus DM share), gated by profile_share_enabled ──
     if (showShareSheet) {
         val shareSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
-        val sentMsg = stringResource(fm.corus.android.R.string.profile_share_toast_profile_sent)
+        val sentMsg = stringResource(fm.corus.android.localization.CorusStrings.share_toast_message_sent)
         val shareCardVersion = remember(currentProfile.id, currentProfile.cymbalCount, posts.firstOrNull()?.id) {
             "${currentProfile.cymbalCount}-${posts.firstOrNull()?.id ?: "none"}"
         }
@@ -1377,9 +1393,15 @@ fun ProfileScreen(
                 displayName = currentProfile.displayName,
                 avatarUrl = currentProfile.avatarURL ?: currentProfile.avatarThumbURL,
                 bio = currentProfile.bio.takeIf { it.isNotBlank() },
-                artworkUrls = posts.take(if (viewModel.profileSharingV2) 16 else 9)
-                    .mapNotNull { it.displayImageLargeURL ?: it.displayImageURL },
+                artworkUrls = if (viewModel.profileSharingV2 && currentProfile.cymbalCount >= 9)
+                    posts.distinctBy { it.id }.sortedByDescending { it.timestamp }.take(28)
+                        .map { it.displayImageLargeURL ?: it.displayImageURL ?: "" }
+                    else posts.take(9).mapNotNull { it.displayImageLargeURL ?: it.displayImageURL },
                 previewVersion = shareCardVersion,
+                postCount = currentProfile.cymbalCount,
+                featuredMoviePosterUrl = if (viewModel.profileSharingV2 && currentProfile.cymbalCount >= 9 && currentProfile.featuredTab == "film")
+                    posts.filter { it.isMovie }.maxByOrNull { it.timestamp }?.let { it.displayImageLargeURL ?: it.displayImageURL }.orEmpty()
+                    else null,
             )
         }
         LaunchedEffect(shareCardVersion) {
@@ -1441,6 +1463,9 @@ fun ProfileScreen(
                     onThemeChanged = { theme ->
                         viewModel.logProfileShareThemeChanged(currentProfile.id, theme)
                     },
+                    onV2Event = viewModel::logProfileShareV2,
+                    onDiscovery = viewModel::logProfileShareDiscovery,
+                    onBackgroundChanged = { background -> viewModel.logProfileShareBackgroundChanged(currentProfile.id, background) },
                 ),
             )
         }
@@ -1475,7 +1500,7 @@ fun ProfileScreen(
             onConfirm = { croppedBytes ->
                 cropBitmap = null
                 viewModel.uploadAvatar(croppedBytes)
-                ToastManager.show(context.getString(fm.corus.android.R.string.profile_toast_avatar_updated))
+                ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.profile_toast_avatar_updated))
             },
             onCancel = { cropBitmap = null },
         )
@@ -1762,15 +1787,15 @@ private fun ShareAnotherPrompt(
             Spacer(modifier = Modifier.height(CorusSpacing.md))
             Text(
                 text = stringResource(
-                    if (isFilm) fm.corus.android.R.string.profile_share_another_film
-                    else fm.corus.android.R.string.profile_share_another_track
+                    if (isFilm) fm.corus.android.localization.CorusStrings.parity_94023f5a4a52
+                    else fm.corus.android.localization.CorusStrings.profile_share_another_track
                 ),
                 style = CorusFont.bodyMedium,
                 color = CorusColors.Text,
             )
             Spacer(modifier = Modifier.height(CorusSpacing.xs))
             Text(
-                text = stringResource(fm.corus.android.R.string.profile_share_another_subtitle),
+                text = stringResource(fm.corus.android.localization.CorusStrings.profile_share_another_subtitle),
                 style = CorusFont.caption,
                 color = CorusColors.Secondary,
             )

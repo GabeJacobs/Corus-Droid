@@ -31,7 +31,7 @@ class SettingsViewModel @Inject constructor(
     private val preferencesDataStore: PreferencesDataStore,
     val youtubeMusicService: fm.corus.android.domain.YouTubeMusicService,
     val audiomackAuthService: fm.corus.android.domain.AudiomackAuthService,
-    private val remoteConfigService: RemoteConfigService,
+    val remoteConfigService: RemoteConfigService,
     private val analyticsService: AnalyticsService,
     private val nowPlayingManager: NowPlayingManager,
     private val playbackModePromptManager: fm.corus.android.domain.PlaybackModePromptManager,

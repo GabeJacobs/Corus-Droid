@@ -65,7 +65,7 @@ fun UserAvatarView(
     } else {
         ShimmerAsyncImage(
             model = resolvedModel,
-            contentDescription = stringResource(R.string.user_avatar_cd),
+            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.user_avatar_cd),
             modifier = modifier.size(size),
             shape = CircleShape,
             usesSolidLoadingPlaceholder = usesSolidLoadingPlaceholder,

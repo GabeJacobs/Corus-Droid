@@ -32,7 +32,7 @@ fun ChangeUsernameScreen(
     val validationState by viewModel.validationState.collectAsState()
     val invalidReason by viewModel.invalidReason.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
-    val usernameUpdatedMsg = stringResource(R.string.change_username_username_updated_toast)
+    val usernameUpdatedMsg = stringResource(fm.corus.android.localization.CorusStrings.change_username_username_updated_toast)
 
     Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background)) {
         // Header
@@ -45,9 +45,9 @@ fun ChangeUsernameScreen(
             CorusHeaderIconButton(
                 onClick = onBack,
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.common_back),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
             )
-            Text(stringResource(R.string.change_username_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
+            Text(stringResource(fm.corus.android.localization.CorusStrings.change_username_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
 
             Spacer(modifier = Modifier.weight(1f))
 
@@ -67,7 +67,7 @@ fun ChangeUsernameScreen(
                         color = CorusColors.Accent,
                     )
                 } else {
-                    Text(stringResource(R.string.common_save), style = CorusFont.button, color = CorusColors.Accent)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_save), style = CorusFont.button, color = CorusColors.Accent)
                 }
             }
         }
@@ -80,7 +80,7 @@ fun ChangeUsernameScreen(
             OutlinedTextField(
                 value = username,
                 onValueChange = { viewModel.onUsernameChanged(it) },
-                label = { Text(stringResource(R.string.change_username_field_label)) },
+                label = { Text(stringResource(fm.corus.android.localization.CorusStrings.onboarding_field_username)) },
                 prefix = { Text("@", style = CorusFont.body, color = CorusColors.Secondary) },
                 trailingIcon = {
                     when (validationState) {
@@ -111,12 +111,12 @@ fun ChangeUsernameScreen(
 
             Text(
                 text = when (validationState) {
-                    ChangeUsernameViewModel.ValidationState.Available -> stringResource(R.string.change_username_status_available)
-                    ChangeUsernameViewModel.ValidationState.Taken -> stringResource(R.string.change_username_status_taken)
+                    ChangeUsernameViewModel.ValidationState.Available -> stringResource(fm.corus.android.localization.CorusStrings.change_username_status_available)
+                    ChangeUsernameViewModel.ValidationState.Taken -> stringResource(fm.corus.android.localization.CorusStrings.onboarding_username_taken)
                     ChangeUsernameViewModel.ValidationState.Invalid ->
-                        invalidReason ?: stringResource(R.string.change_username_status_invalid_default)
-                    ChangeUsernameViewModel.ValidationState.Checking -> stringResource(R.string.change_username_status_checking)
-                    else -> stringResource(R.string.change_username_status_invalid_default)
+                        invalidReason ?: stringResource(fm.corus.android.localization.CorusStrings.change_username_status_invalid_default)
+                    ChangeUsernameViewModel.ValidationState.Checking -> stringResource(fm.corus.android.localization.CorusStrings.change_username_status_checking)
+                    else -> stringResource(fm.corus.android.localization.CorusStrings.change_username_status_invalid_default)
                 },
                 style = CorusFont.caption,
                 color = when (validationState) {

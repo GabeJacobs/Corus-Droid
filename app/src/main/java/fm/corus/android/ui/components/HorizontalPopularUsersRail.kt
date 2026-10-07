@@ -122,7 +122,7 @@ fun HorizontalPopularUsersRail(
     androidx.compose.foundation.layout.Column(modifier = modifier.fillMaxWidth()) {
         fm.corus.android.ui.screens.search.SectionHeader(
             icon = "fire",
-            title = stringResource(fm.corus.android.R.string.search_section_popular),
+            title = stringResource(fm.corus.android.localization.CorusStrings.search_section_popular),
             showSeeAll = onSeeAll != null,
             onSeeAll = onSeeAll ?: {},
             trailingAction = trailingAction,

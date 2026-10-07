@@ -229,18 +229,18 @@ internal fun replyPreviewText(msg: CymbalMessage, context: android.content.Conte
     val text = msg.text
     if (!text.isNullOrBlank()) return text.take(100)
     return when (msg.type) {
-        MessageType.IMAGE -> context.getString(R.string.messaging_thread_attachment_photo)
-        MessageType.VIDEO -> context.getString(R.string.messaging_thread_attachment_video)
-        MessageType.GIF -> context.getString(R.string.comments_cd_gif)
-        MessageType.SHARED_TRACK -> msg.trackName?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_song)
-        MessageType.SHARED_FILM -> msg.movieTitle?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_film)
-        MessageType.SHARED_ARTIST -> msg.artistName?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_artist)
-        MessageType.SHARED_CONCERT -> msg.concertTitle?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messages_preview_shared_concert)
-        MessageType.SHARED_ALBUM -> msg.albumTitle?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_album)
-        MessageType.SHARED_DIRECTOR -> msg.directorName?.takeIf { it.isNotBlank() } ?: context.getString(R.string.messaging_thread_attachment_director)
-        MessageType.SHARED_PROFILE -> msg.sharedUsername?.takeIf { it.isNotBlank() }?.let { "@$it" } ?: context.getString(R.string.messaging_thread_shared_profile)
-        MessageType.SHARED_POST -> context.getString(R.string.messaging_thread_attachment_post)
-        else -> context.getString(R.string.messaging_thread_message_fallback)
+        MessageType.IMAGE -> context.getString(fm.corus.android.localization.CorusStrings.thread_photo)
+        MessageType.VIDEO -> context.getString(fm.corus.android.localization.CorusStrings.messaging_thread_attachment_video)
+        MessageType.GIF -> context.getString(fm.corus.android.localization.CorusStrings.comments_cd_gif)
+        MessageType.SHARED_TRACK -> msg.trackName?.takeIf { it.isNotBlank() } ?: context.getString(fm.corus.android.localization.CorusStrings.destination_song_label)
+        MessageType.SHARED_FILM -> msg.movieTitle?.takeIf { it.isNotBlank() } ?: context.getString(fm.corus.android.localization.CorusStrings.search_tab_film)
+        MessageType.SHARED_ARTIST -> msg.artistName?.takeIf { it.isNotBlank() } ?: context.getString(fm.corus.android.localization.CorusStrings.profile_artist_fallback)
+        MessageType.SHARED_CONCERT -> msg.concertTitle?.takeIf { it.isNotBlank() } ?: context.getString(fm.corus.android.localization.CorusStrings.messages_preview_shared_concert)
+        MessageType.SHARED_ALBUM -> msg.albumTitle?.takeIf { it.isNotBlank() } ?: context.getString(fm.corus.android.localization.CorusStrings.share_album_word)
+        MessageType.SHARED_DIRECTOR -> msg.directorName?.takeIf { it.isNotBlank() } ?: context.getString(fm.corus.android.localization.CorusStrings.onboarding_taste_row_director)
+        MessageType.SHARED_PROFILE -> msg.sharedUsername?.takeIf { it.isNotBlank() }?.let { "@$it" } ?: context.getString(fm.corus.android.localization.CorusStrings.nav_profile)
+        MessageType.SHARED_POST -> context.getString(fm.corus.android.localization.CorusStrings.corus_post_label)
+        else -> context.getString(fm.corus.android.localization.CorusStrings.profile_message)
     }
 }
 
@@ -420,8 +420,8 @@ internal fun separatorText(date: java.util.Date, dayBoundary: Boolean, context: 
     if (!dayBoundary) return time.uppercase()
     val daysAgo = ((startOfDayMs(java.util.Date()) - startOfDayMs(date)) / DAY_MS).toInt()
     val label = when {
-        daysAgo == 0 -> context.getString(R.string.messaging_separator_today)
-        daysAgo == 1 -> context.getString(R.string.messaging_separator_yesterday)
+        daysAgo == 0 -> context.getString(fm.corus.android.localization.CorusStrings.messages_separator_today)
+        daysAgo == 1 -> context.getString(fm.corus.android.localization.CorusStrings.messages_separator_yesterday)
         daysAgo in 2..6 -> separatorWeekdayFormatter.format(date)
         else -> {
             val cal = java.util.Calendar.getInstance().also { it.time = date }
@@ -465,7 +465,7 @@ internal fun groupDisplayTitle(
 ): String {
     if (!name.isNullOrBlank()) return name
     val names = otherMembers.take(3).map { it.displayName.ifBlank { it.username } }
-    if (names.isEmpty()) return context.getString(R.string.messaging_group_fallback_title)
+    if (names.isEmpty()) return context.getString(fm.corus.android.localization.CorusStrings.group_fallback_title)
     if (otherMembers.size <= 3) return names.joinToString(", ")
     return names.joinToString(", ") + " " +
         context.getString(R.string.messaging_group_and_others, otherMembers.size - 3)
@@ -755,7 +755,7 @@ private fun ClosedThread(
             IconButton(onClick = onBack) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(id = R.string.common_back),
+                    contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.common_back),
                 )
             }
         }
@@ -771,7 +771,7 @@ private fun ClosedThread(
             } else {
                 val closedText = if (restriction != null) {
                     val displayName = name?.takeIf { it.isNotBlank() }
-                        ?: stringResource(id = R.string.messaging_restriction_name_fallback)
+                        ?: stringResource(id = fm.corus.android.localization.CorusStrings.messages_restriction_name_fallback)
                     when (restriction) {
                         MessagingRestriction.NOBODY ->
                             stringResource(id = R.string.messaging_restriction_nobody, displayName)
@@ -781,7 +781,7 @@ private fun ClosedThread(
                             stringResource(id = R.string.messaging_restriction_following, displayName)
                     }
                 } else {
-                    stringResource(id = R.string.messaging_thread_unavailable)
+                    stringResource(id = fm.corus.android.localization.CorusStrings.messages_thread_unavailable)
                 }
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -945,7 +945,7 @@ fun MessageThreadScreen(
     val hashtagSuggestions by viewModel.hashtagSuggestions.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     var mentionSearchJob by remember { mutableStateOf<Job?>(null) }
-    val profileUnavailable = stringResource(R.string.other_profile_unavailable_title)
+    val profileUnavailable = stringResource(fm.corus.android.localization.CorusStrings.other_profile_unavailable_title)
     val handleMentionTap: (String) -> Unit = { username ->
         keyboardController?.hide()
         coroutineScope.launch {
@@ -1215,7 +1215,7 @@ fun MessageThreadScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(id = R.string.common_back))
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.common_back))
             }
             if (isGroup) {
                 val otherMembers = (groupInfo?.memberIds ?: emptyList())
@@ -1280,8 +1280,8 @@ fun MessageThreadScreen(
 
         if (hasBlockedGroupContent) {
             Column(Modifier.fillMaxWidth().padding(horizontal = CorusSpacing.md, vertical = CorusSpacing.xs)) {
-                Text(stringResource(R.string.messaging_group_block_warning), style = CorusFont.caption, color = CorusColors.Secondary)
-                TextButton(onClick = { showGroupInfo = true }) { Text(stringResource(R.string.messaging_group_options)) }
+                Text(stringResource(fm.corus.android.localization.CorusStrings.messaging_group_block_warning), style = CorusFont.caption, color = CorusColors.Secondary)
+                TextButton(onClick = { showGroupInfo = true }) { Text(stringResource(fm.corus.android.localization.CorusStrings.messaging_group_options)) }
             }
         }
 
@@ -1339,7 +1339,7 @@ fun MessageThreadScreen(
                     (older == null || older.isSystem || older.fromUserId != message.fromUserId || collapseGroupMessage(isGroup, older.fromUserId, older.isSystem, groupBlocked, older.id in revealedBlockedMessages))
                 val showAvatar = incomingInGroup &&
                     (newer == null || newer.isSystem || newer.fromUserId != message.fromUserId || collapseGroupMessage(isGroup, newer.fromUserId, newer.isSystem, groupBlocked, newer.id in revealedBlockedMessages))
-                val deletedAccountLabel = stringResource(id = R.string.messaging_thread_deleted_account)
+                val deletedAccountLabel = stringResource(id = fm.corus.android.localization.CorusStrings.messaging_thread_deleted_account)
                 val replyName = if (isGroup && message.replyToUserId != null && !mine)
                     membersById[message.replyToUserId]?.username
                         ?: if (groupInfo != null &&
@@ -1374,9 +1374,9 @@ fun MessageThreadScreen(
                         }
                         if (collapseGroupMessage(isGroup, message.fromUserId, message.isSystem, groupBlocked, message.id in revealedBlockedMessages)) {
                             Row(Modifier.padding(horizontal = CorusSpacing.md), verticalAlignment = Alignment.CenterVertically) {
-                                Text(stringResource(R.string.messaging_blocked_message), style = CorusFont.caption, color = CorusColors.Secondary)
+                                Text(stringResource(fm.corus.android.localization.CorusStrings.messaging_blocked_message), style = CorusFont.caption, color = CorusColors.Secondary)
                                 TextButton(onClick = { revealedBlockedMessages = revealedBlockedMessages + message.id }) {
-                                    Text(stringResource(R.string.messaging_show_blocked_message))
+                                    Text(stringResource(fm.corus.android.localization.CorusStrings.messaging_show_blocked_message))
                                 }
                             }
                         } else if (message.isSystem) {
@@ -1542,7 +1542,7 @@ fun MessageThreadScreen(
 
         if (messagingRestriction != null) {
             val displayName = otherUsername.takeIf { it.isNotBlank() }
-                ?: stringResource(id = R.string.messaging_restriction_name_fallback)
+                ?: stringResource(id = fm.corus.android.localization.CorusStrings.messages_restriction_name_fallback)
             val restrictionText = when (messagingRestriction) {
                 MessagingRestriction.NOBODY ->
                     stringResource(id = R.string.messaging_restriction_nobody, displayName)
@@ -1579,7 +1579,7 @@ fun MessageThreadScreen(
                 Spacer(modifier = Modifier.width(CorusSpacing.sm))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = stringResource(id = R.string.messaging_thread_editing),
+                        text = stringResource(id = fm.corus.android.localization.CorusStrings.messaging_thread_editing),
                         style = CorusFont.caption,
                         color = CorusColors.Text,
                     )
@@ -1598,7 +1598,7 @@ fun MessageThreadScreen(
                 }) {
                     Icon(
                         Icons.Filled.Close,
-                        contentDescription = stringResource(id = R.string.comments_cd_cancel_edit),
+                        contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.comments_cd_cancel_edit),
                         modifier = Modifier.size(18.dp),
                         tint = CorusColors.Secondary,
                     )
@@ -1622,8 +1622,8 @@ fun MessageThreadScreen(
                 Spacer(modifier = Modifier.width(CorusSpacing.sm))
                 Column(modifier = Modifier.weight(1f)) {
                     val replyAuthorLabel =
-                        if (replyToMessage?.fromUserId == viewModel.currentUserId) stringResource(id = R.string.messaging_thread_yourself)
-                        else otherUsername.ifBlank { stringResource(id = R.string.messaging_thread_message_fallback) }
+                        if (replyToMessage?.fromUserId == viewModel.currentUserId) stringResource(id = fm.corus.android.localization.CorusStrings.messaging_thread_yourself)
+                        else otherUsername.ifBlank { stringResource(id = fm.corus.android.localization.CorusStrings.profile_message) }
                     Text(
                         text = stringResource(id = R.string.messaging_thread_replying_to_format, replyAuthorLabel),
                         style = CorusFont.caption,
@@ -1638,7 +1638,7 @@ fun MessageThreadScreen(
                     )
                 }
                 IconButton(onClick = { viewModel.setReplyTo(null) }) {
-                    Icon(Icons.Filled.Close, contentDescription = stringResource(id = R.string.comments_cd_cancel_reply), modifier = Modifier.size(18.dp), tint = CorusColors.Secondary)
+                    Icon(Icons.Filled.Close, contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.thread_cancel_reply_aria), modifier = Modifier.size(18.dp), tint = CorusColors.Secondary)
                 }
             }
         }
@@ -1710,7 +1710,7 @@ fun MessageThreadScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Add,
-                            contentDescription = stringResource(id = R.string.messaging_thread_cd_add_attachment),
+                            contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.messaging_thread_cd_add_attachment),
                             tint = Color.White,
                             modifier = Modifier.size(18.dp),
                         )
@@ -1721,7 +1721,7 @@ fun MessageThreadScreen(
                     onDismissRequest = { showAttachmentMenu = false },
                 ) {
                     DropdownMenuItem(
-                        text = { Text(stringResource(id = R.string.messaging_thread_attachment_photo)) },
+                        text = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.thread_photo)) },
                         leadingIcon = { Icon(Icons.Filled.Photo, contentDescription = null) },
                         onClick = {
                             showAttachmentMenu = false
@@ -1738,7 +1738,7 @@ fun MessageThreadScreen(
                     )
                     if (viewModel.gifSupport) {
                         DropdownMenuItem(
-                            text = { Text(stringResource(id = R.string.comment_attachment_gif)) },
+                            text = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.comments_cd_gif)) },
                             leadingIcon = { Icon(Icons.Filled.Gif, contentDescription = null) },
                             onClick = {
                                 showAttachmentMenu = false
@@ -1748,7 +1748,7 @@ fun MessageThreadScreen(
                     }
                     HorizontalDivider(color = CorusColors.Divider)
                     DropdownMenuItem(
-                        text = { Text(stringResource(id = R.string.comment_attachment_music)) },
+                        text = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.search_tab_music)) },
                         leadingIcon = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
                         onClick = {
                             showAttachmentMenu = false
@@ -1756,7 +1756,7 @@ fun MessageThreadScreen(
                         },
                     )
                     DropdownMenuItem(
-                        text = { Text(stringResource(id = R.string.messaging_thread_attachment_film)) },
+                        text = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.search_tab_film)) },
                         leadingIcon = { Icon(Icons.Filled.Movie, contentDescription = null) },
                         onClick = {
                             showAttachmentMenu = false
@@ -1772,7 +1772,7 @@ fun MessageThreadScreen(
             val composerPlaceholder: @Composable () -> Unit = {
                 Text(
                     if (hasComposerMedia) "Add a caption..."
-                    else stringResource(id = R.string.messaging_thread_placeholder),
+                    else stringResource(id = fm.corus.android.localization.CorusStrings.thread_message_placeholder),
                     style = CorusFont.body,
                 )
             }
@@ -1878,7 +1878,7 @@ fun MessageThreadScreen(
             ) {
                 Icon(
                     if (editingMessage != null) Icons.Filled.Check else Icons.AutoMirrored.Filled.Send,
-                    contentDescription = stringResource(id = R.string.comments_cd_send),
+                    contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.thread_send_aria),
                     tint = if (canSendComposer) CorusColors.Accent else CorusColors.Tertiary,
                 )
             }
@@ -1903,10 +1903,10 @@ fun MessageThreadScreen(
                 initialMode = mode,
                 modes = listOf(mode),
                 title = when (mode) {
-                    PickerMode.MUSIC_ALL -> stringResource(R.string.comment_attachment_music)
-                    PickerMode.FILM_ALL -> stringResource(R.string.messaging_thread_attachment_film)
-                    PickerMode.SONG -> stringResource(R.string.messaging_thread_attachment_song)
-                    else -> stringResource(R.string.messaging_thread_attachment_film)
+                    PickerMode.MUSIC_ALL -> stringResource(fm.corus.android.localization.CorusStrings.search_tab_music)
+                    PickerMode.FILM_ALL -> stringResource(fm.corus.android.localization.CorusStrings.search_tab_film)
+                    PickerMode.SONG -> stringResource(fm.corus.android.localization.CorusStrings.destination_song_label)
+                    else -> stringResource(fm.corus.android.localization.CorusStrings.search_tab_film)
                 },
                 onSongSelected = { track ->
                     viewModel.sendSongMessage(threadId, track)
@@ -2167,21 +2167,21 @@ private fun ReactionOverlay(
                     if (onEdit != null) {
                         ActionMenuItem(
                             icon = Icons.Filled.Edit,
-                            label = stringResource(id = R.string.comments_menu_edit),
+                            label = stringResource(id = fm.corus.android.localization.CorusStrings.profile_edit_profile_short),
                             onClick = onEdit,
                         )
                         HorizontalDivider(color = CorusColors.Divider)
                     }
                     ActionMenuItem(
                         icon = Icons.AutoMirrored.Filled.Reply,
-                        label = stringResource(id = R.string.comments_reply),
+                        label = stringResource(id = fm.corus.android.localization.CorusStrings.thread_reply),
                         onClick = onReply,
                     )
                     if (!message.text.isNullOrBlank()) {
                         HorizontalDivider(color = CorusColors.Divider)
                         ActionMenuItem(
                             icon = Icons.Filled.ContentCopy,
-                            label = stringResource(id = R.string.comments_menu_copy),
+                            label = stringResource(id = fm.corus.android.localization.CorusStrings.thread_copy),
                             onClick = onCopy,
                         )
                     }
@@ -2197,14 +2197,14 @@ private fun ReactionOverlay(
                         HorizontalDivider(color = CorusColors.Divider)
                         ActionMenuItem(
                             icon = Icons.Filled.Flag,
-                            label = stringResource(id = R.string.comments_menu_report),
+                            label = stringResource(id = fm.corus.android.localization.CorusStrings.profile_report),
                             tint = CorusColors.Error,
                             onClick = onReport,
                         )
                         HorizontalDivider(color = CorusColors.Divider)
                         ActionMenuItem(
                             icon = Icons.Filled.Block,
-                            label = stringResource(id = R.string.comments_menu_block),
+                            label = stringResource(id = fm.corus.android.localization.CorusStrings.comments_menu_block),
                             tint = CorusColors.Error,
                             onClick = onBlock,
                         )
@@ -2378,7 +2378,7 @@ private fun MessageBubble(
             )
         } else if (showSenderLabel && senderMissing) {
             Text(
-                text = stringResource(id = R.string.messaging_thread_deleted_account),
+                text = stringResource(id = fm.corus.android.localization.CorusStrings.messaging_thread_deleted_account),
                 style = CorusFont.caption,
                 color = CorusColors.Secondary,
                 modifier = Modifier.padding(start = 2.dp, bottom = 2.dp),
@@ -2389,7 +2389,7 @@ private fun MessageBubble(
         // edge below. Kept to one line so a narrow bubble can't wrap it to slivers.
         if (message.isEdited && message.sendStatus != MessageSendStatus.FAILED) {
             Text(
-                text = stringResource(id = R.string.messaging_thread_edited),
+                text = stringResource(id = fm.corus.android.localization.CorusStrings.comment_edited_badge),
                 fontSize = 10.sp,
                 color = CorusColors.Tertiary,
                 maxLines = 1,
@@ -2473,7 +2473,7 @@ private fun MessageBubble(
                 // Quoted reply context, inside the bubble
                 if (message.replyToText != null) {
                     val isOwnQuote = message.replyToUserId == currentUserId
-                    val authorName = if (hideReply) "" else if (isOwnQuote) stringResource(id = R.string.messaging_thread_you)
+                    val authorName = if (hideReply) "" else if (isOwnQuote) stringResource(id = fm.corus.android.localization.CorusStrings.concert_you)
                                      else replyName ?: otherUsername
                     val accentBarColor = if (isFromCurrentUser) Color.White.copy(alpha = 0.6f)
                                          else CorusColors.Accent.copy(alpha = 0.6f)
@@ -2500,7 +2500,7 @@ private fun MessageBubble(
                                 )
                             }
                             Text(
-                                text = if (hideReply) stringResource(R.string.messaging_blocked_message) else message.replyToText ?: "",
+                                text = if (hideReply) stringResource(fm.corus.android.localization.CorusStrings.messaging_blocked_message) else message.replyToText ?: "",
                                 style = CorusFont.caption,
                                 color = quotedTextColor,
                                 maxLines = 1,
@@ -2515,7 +2515,7 @@ private fun MessageBubble(
                     if (message.mediaURL != null) {
                         MessageMediaImage(
                             url = message.mediaURL,
-                            contentDescription = stringResource(id = R.string.messaging_thread_cd_shared_image),
+                            contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.messaging_thread_cd_shared_image),
                             onClick = { onImageTap(message.mediaURL!!) },
                             onDoubleClick = onDoubleTap,
                             onLongClick = onLongPress,
@@ -2547,12 +2547,12 @@ private fun MessageBubble(
                         if (message.thumbnailURL != null) {
                             MessageMediaImage(
                                 url = message.thumbnailURL,
-                                contentDescription = stringResource(id = R.string.messaging_thread_attachment_video),
+                                contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.messaging_thread_attachment_video),
                             )
                         } else if (message.localPoster != null) {
                             Image(
                                 bitmap = message.localPoster.asImageBitmap(),
-                                contentDescription = stringResource(id = R.string.messaging_thread_attachment_video),
+                                contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.messaging_thread_attachment_video),
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.size(MessageMediaPreviewSize),
                             )
@@ -2606,7 +2606,7 @@ private fun MessageBubble(
                 if (message.type == MessageType.GIF && message.mediaURL != null) {
                     MessageMediaImage(
                         url = message.mediaURL,
-                        contentDescription = stringResource(id = R.string.comments_cd_gif),
+                        contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.comments_cd_gif),
                     )
                 }
 
@@ -2805,7 +2805,7 @@ private fun MessageBubble(
                     Text(text = failure.message(LocalContext.current), style = CorusFont.caption, color = Color.Red)
                 } else if (message.failureReason == MessageFailureReason.MESSAGING_DISABLED) {
                     val displayName = otherUsername.takeIf { it.isNotBlank() }
-                        ?: stringResource(id = R.string.messaging_restriction_name_fallback)
+                        ?: stringResource(id = fm.corus.android.localization.CorusStrings.messages_restriction_name_fallback)
                     val disabledText = when (messagingRestriction) {
                         MessagingRestriction.FOLLOWERS ->
                             stringResource(id = R.string.messaging_restriction_followers, displayName)
@@ -2821,12 +2821,12 @@ private fun MessageBubble(
                     )
                 } else {
                     Text(
-                        text = stringResource(id = R.string.messaging_thread_failed_to_deliver),
+                        text = stringResource(id = fm.corus.android.localization.CorusStrings.messaging_thread_failed_to_deliver),
                         style = CorusFont.caption,
                         color = Color.Red,
                     )
                     Text(
-                        text = stringResource(id = R.string.messaging_thread_tap_to_retry),
+                        text = stringResource(id = fm.corus.android.localization.CorusStrings.messaging_thread_tap_to_retry),
                         style = CorusFont.caption.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
                         color = Color.Red,
                     )
@@ -3057,7 +3057,7 @@ private fun SharedPostContent(
     }
 
     if (post?.user?.id in blockedAuthors) {
-        Text(stringResource(R.string.messaging_blocked_message), style = CorusFont.caption, color = CorusColors.Secondary)
+        Text(stringResource(fm.corus.android.localization.CorusStrings.messaging_blocked_message), style = CorusFont.caption, color = CorusColors.Secondary)
         return
     }
 
@@ -3223,7 +3223,7 @@ private fun SharedArtistContent(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = stringResource(R.string.messaging_thread_attachment_artist),
+                text = stringResource(fm.corus.android.localization.CorusStrings.profile_artist_fallback),
                 style = CorusFont.caption,
                 color = subtitleColor,
                 maxLines = 1,
@@ -3273,7 +3273,7 @@ private fun SharedAlbumContent(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = artist.ifBlank { stringResource(R.string.messaging_thread_attachment_album) },
+                text = artist.ifBlank { stringResource(fm.corus.android.localization.CorusStrings.share_album_word) },
                 style = CorusFont.caption,
                 color = subtitleColor,
                 maxLines = 1,
@@ -3323,7 +3323,7 @@ private fun SharedDirectorContent(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = stringResource(R.string.messaging_thread_attachment_director),
+                text = stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_row_director),
                 style = CorusFont.caption,
                 color = subtitleColor,
                 maxLines = 1,
@@ -3372,14 +3372,14 @@ private fun SharedProfileContent(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = if (username.isNotBlank()) "@$username"
-                    else stringResource(R.string.messaging_thread_shared_profile),
+                    else stringResource(fm.corus.android.localization.CorusStrings.nav_profile),
                 style = CorusFont.body,
                 color = textColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = displayName ?: stringResource(R.string.messaging_thread_shared_profile),
+                text = displayName ?: stringResource(fm.corus.android.localization.CorusStrings.nav_profile),
                 style = CorusFont.caption,
                 color = subtitleColor,
                 maxLines = 1,
@@ -3400,7 +3400,7 @@ private fun TypingIndicatorRow(isGroup: Boolean, names: List<String>) {
     val cleaned = names.map { it.trim() }.filter { it.isNotEmpty() }
     val caption = when {
         !isGroup -> null
-        cleaned.isEmpty() -> stringResource(R.string.messaging_typing_several)
+        cleaned.isEmpty() -> stringResource(fm.corus.android.localization.CorusStrings.messages_typing_several)
         cleaned.size == 1 -> stringResource(R.string.messaging_typing_one, cleaned[0])
         cleaned.size == 2 -> stringResource(R.string.messaging_typing_two, cleaned[0], cleaned[1])
         else -> stringResource(
@@ -3514,7 +3514,7 @@ private fun ComposerMediaChip(
         }
         Icon(
             Icons.Filled.Close,
-            contentDescription = stringResource(id = R.string.comments_cd_cancel_reply),
+            contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.thread_cancel_reply_aria),
             tint = Color.White,
             modifier = Modifier
                 .align(Alignment.TopEnd)

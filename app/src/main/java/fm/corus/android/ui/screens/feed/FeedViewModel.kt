@@ -1655,7 +1655,9 @@ class FeedViewModel @Inject constructor(
         shareSearchJob = viewModelScope.launch {
             delay(250)
             try {
-                _shareSearchResults.value = messageRepository.searchShareRecipients(authRepository.currentUserId ?: return@launch, trimmed, userRepository)
+                _shareSearchResults.value = messageRepository.searchShareRecipients(authRepository.currentUserId ?: return@launch, trimmed, userRepository) { partial ->
+                    _shareSearchResults.value = partial
+                }
             } catch (error: kotlinx.coroutines.CancellationException) {
                 throw error
             } catch (_: Exception) {
@@ -1696,9 +1698,9 @@ class FeedViewModel @Inject constructor(
                     reason = "reported_from_feed",
                     details = "",
                 )
-                ToastManager.show(context.getString(R.string.feed_toast_post_reported))
+                ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.feed_toast_post_reported))
             } catch (_: Exception) {
-                ToastManager.show(context.getString(R.string.feed_toast_failed_report))
+                ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.feed_toast_failed_report))
             }
         }
     }
@@ -1709,9 +1711,9 @@ class FeedViewModel @Inject constructor(
             try {
                 userRepository.blockUser(currentUserId, targetUserId)
                 _posts.value = _posts.value.filter { it.user.id != targetUserId }
-                ToastManager.show(context.getString(R.string.feed_toast_user_blocked))
+                ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.feed_toast_user_blocked))
             } catch (_: Exception) {
-                ToastManager.show(context.getString(R.string.feed_toast_failed_block))
+                ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.feed_toast_failed_block))
             }
         }
     }
@@ -1722,9 +1724,9 @@ class FeedViewModel @Inject constructor(
             try {
                 userRepository.muteUser(currentUserId, targetUserId)
                 _posts.value = _posts.value.filter { it.user.id != targetUserId }
-                ToastManager.show(context.getString(R.string.feed_toast_user_muted))
+                ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.feed_toast_user_muted))
             } catch (_: Exception) {
-                ToastManager.show(context.getString(R.string.feed_toast_failed_mute))
+                ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.feed_toast_failed_mute))
             }
         }
     }
@@ -1737,9 +1739,9 @@ class FeedViewModel @Inject constructor(
                 _posts.value = _posts.value.filter { it.id != postId }
                 authRepository.bumpCymbalCount(-1)
                 postDeletionEvent.notifyPostDeleted(postId)
-                ToastManager.show(context.getString(R.string.feed_toast_post_deleted))
+                ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.post_toast_deleted))
             } catch (_: Exception) {
-                ToastManager.show(context.getString(R.string.feed_toast_failed_delete))
+                ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.feed_toast_failed_delete))
             }
         }
     }

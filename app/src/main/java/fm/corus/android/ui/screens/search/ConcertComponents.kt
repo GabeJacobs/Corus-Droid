@@ -78,10 +78,10 @@ internal fun ConcertDetailSkeleton(onBack: () -> Unit) {
                 CorusHeaderIconButton(
                     onClick = onBack,
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.common_back),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                 )
             }
-            Text(stringResource(R.string.concert_label), style = CorusFont.screenTitle)
+            Text(stringResource(fm.corus.android.localization.CorusStrings.concert_label), style = CorusFont.screenTitle)
         }
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).shimmer(), verticalArrangement = Arrangement.spacedBy(22.dp)) {
             Bone(Modifier.fillMaxWidth().aspectRatio(5f / 3f))
@@ -112,12 +112,12 @@ internal fun ConcertPlansCard(attendance: ConcertAttendance?, past: Boolean, una
         border = if (boxed) BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .07f)) else null,
     ) {
         Column(Modifier.animateContentSize(tween(220)).padding(if (boxed) 16.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text(stringResource(R.string.concert_your_plans), style = CorusFont.bodyMedium)
+            Text(stringResource(fm.corus.android.localization.CorusStrings.concert_your_plans), style = CorusFont.bodyMedium)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("interested", "going").forEach { status ->
                     val selected = attendance?.status == status
-                    val label = if (status == "going") { if (past && selected) R.string.concert_went else R.string.concert_im_going }
-                        else { if (past && selected) R.string.concert_was_interested else R.string.concert_im_interested }
+                    val label = if (status == "going") { if (past && selected) fm.corus.android.localization.CorusStrings.concert_went else fm.corus.android.localization.CorusStrings.concert_im_going }
+                        else { if (past && selected) fm.corus.android.localization.CorusStrings.concert_was_interested else fm.corus.android.localization.CorusStrings.concert_im_interested }
                     val active = (!past && !unavailable) || selected
                     OutlinedButton(onClick = { onChoice(status) }, enabled = active,
                         modifier = Modifier.weight(1f),
@@ -142,19 +142,19 @@ internal fun ConcertPlansCard(attendance: ConcertAttendance?, past: Boolean, una
             }
             if (past) {
                 Text(
-                    stringResource(R.string.concert_plans_started),
+                    stringResource(fm.corus.android.localization.CorusStrings.concert_plans_started),
                     style = CorusFont.captionMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             if (loadError) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.concert_plans_load_error), Modifier.weight(1f), style = CorusFont.caption)
-                    TextButton(onClick = onRetry) { Text(stringResource(R.string.concert_retry), style = CorusFont.buttonSmall) }
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.concert_plans_load_error), Modifier.weight(1f), style = CorusFont.caption)
+                    TextButton(onClick = onRetry) { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_retry), style = CorusFont.buttonSmall) }
                 }
             }
             if ((past || unavailable) && attendance?.status != null) {
-                TextButton(onClick = { onChoice(attendance.status) }) { Text(stringResource(R.string.concert_remove), style = CorusFont.buttonSmall) }
+                TextButton(onClick = { onChoice(attendance.status) }) { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_remove), style = CorusFont.buttonSmall) }
             }
             if (hasPeople) {
                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).alpha(opacity).clickable(onClick = onPeople), verticalAlignment = Alignment.CenterVertically) {
@@ -164,10 +164,10 @@ internal fun ConcertPlansCard(attendance: ConcertAttendance?, past: Boolean, una
                     }
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("${attendance!!.goingCount} ${stringResource(R.string.concert_going_section)} · ${attendance.interestedCount} ${stringResource(R.string.concert_interested_section)}", style = CorusFont.captionMedium)
+                        Text("${attendance!!.goingCount} ${stringResource(fm.corus.android.localization.CorusStrings.concert_going_section)} · ${attendance.interestedCount} ${stringResource(fm.corus.android.localization.CorusStrings.concert_interested_section)}", style = CorusFont.captionMedium)
                         if (attendance.people.isNotEmpty()) Text(attendance.people.take(2).joinToString(", ") { it.name }, style = CorusFont.caption, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                     }
-                    Text(stringResource(R.string.concert_see_all), style = CorusFont.captionMedium)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.rail_see_all), style = CorusFont.captionMedium)
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
                 }
             }
@@ -182,7 +182,7 @@ internal fun ConcertSheetHeader(title: String, showCloseButton: Boolean = true, 
         if (showCloseButton) {
             CorusSheetCloseButton(
                 onClick = onClose,
-                contentDescription = stringResource(R.string.share_close),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.concert_close),
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 16.dp),
             )
         }

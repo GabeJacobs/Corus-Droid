@@ -41,22 +41,22 @@ data class GiftDefinition(
 
     companion object {
         val selectable = listOf(
-            GiftDefinition("corus_heart", R.string.gift_name_super_like, R.string.gift_phrase_super_like, "💙", "Corus Heart", R.string.gift_meaning_super_like),
-            GiftDefinition("flowers", R.string.gift_name_flowers, R.string.gift_phrase_flowers, "💐", "Flowers", R.string.gift_meaning_flowers, R.string.gift_detail_flowers),
-            GiftDefinition("mind_blown", R.string.gift_name_mind_blown, R.string.gift_phrase_mind_blown, "🤯", "Mind Blown", R.string.gift_meaning_mind_blown, R.string.gift_detail_mind_blown),
-            GiftDefinition("boombox", R.string.gift_name_boombox, R.string.gift_phrase_boombox, "📻", "Boombox", R.string.gift_meaning_boombox),
+            GiftDefinition("corus_heart", fm.corus.android.localization.CorusStrings.gift_name_super_like, fm.corus.android.localization.CorusStrings.gift_phrase_super_like, "💙", "Corus Heart", fm.corus.android.localization.CorusStrings.gift_meaning_super_like),
+            GiftDefinition("flowers", fm.corus.android.localization.CorusStrings.gift_name_flowers, fm.corus.android.localization.CorusStrings.gift_phrase_flowers, "💐", "Flowers", fm.corus.android.localization.CorusStrings.gift_meaning_flowers, fm.corus.android.localization.CorusStrings.gift_detail_flowers),
+            GiftDefinition("mind_blown", fm.corus.android.localization.CorusStrings.gift_name_mind_blown, fm.corus.android.localization.CorusStrings.gift_phrase_mind_blown, "🤯", "Mind Blown", fm.corus.android.localization.CorusStrings.gift_meaning_mind_blown, fm.corus.android.localization.CorusStrings.gift_detail_mind_blown),
+            GiftDefinition("boombox", fm.corus.android.localization.CorusStrings.gift_name_boombox, fm.corus.android.localization.CorusStrings.gift_phrase_boombox, "📻", "Boombox", fm.corus.android.localization.CorusStrings.gift_meaning_boombox),
         )
 
         fun from(type: String?): GiftDefinition = when (type) {
             "corus_heart", "flowers", "mind_blown", "boombox" -> selectable.first { it.id == type }
-            "disco_ball" -> GiftDefinition("disco_ball", R.string.gift_name_disco_ball, R.string.gift_phrase_disco_ball, "🪩")
-            "madvillain_mask" -> GiftDefinition("madvillain_mask", R.string.gift_name_madvillain_mask, R.string.gift_phrase_madvillain_mask, "🎭")
-            else -> GiftDefinition(type.orEmpty(), R.string.gift_name_generic, R.string.gift_phrase_generic, "🎁")
+            "disco_ball" -> GiftDefinition("disco_ball", fm.corus.android.localization.CorusStrings.style_disco_disco_ball, fm.corus.android.localization.CorusStrings.gift_phrase_disco_ball, "🪩")
+            "madvillain_mask" -> GiftDefinition("madvillain_mask", fm.corus.android.localization.CorusStrings.gift_name_madvillain_mask, fm.corus.android.localization.CorusStrings.gift_phrase_madvillain_mask, "🎭")
+            else -> GiftDefinition(type.orEmpty(), fm.corus.android.localization.CorusStrings.gift_name_generic, fm.corus.android.localization.CorusStrings.gift_phrase_generic, "🎁")
         }
 
         fun context(context: Context, title: String?): String = title?.trim()?.takeIf { it.isNotEmpty() }
             ?.let { context.getString(R.string.gift_context_sharing, it) }
-            ?: context.getString(R.string.gift_context_generic)
+            ?: context.getString(fm.corus.android.localization.CorusStrings.gift_context_generic)
 
         fun context(title: String?): String = title?.trim()?.takeIf { it.isNotEmpty() }
             ?.let { "For sharing “$it”" } ?: "For something you shared on Corus"

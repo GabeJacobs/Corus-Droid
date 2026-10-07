@@ -71,7 +71,7 @@ fun SyncContactsSettingsScreen(
     val isSyncing by viewModel.isSyncing.collectAsState()
     var showResults by rememberSaveable { mutableStateOf(false) }
 
-    val permissionDeniedMessage = stringResource(R.string.sync_contacts_permission_denied)
+    val permissionDeniedMessage = stringResource(fm.corus.android.localization.CorusStrings.sync_contacts_permission_denied)
     val contactPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -130,7 +130,7 @@ private fun SyncContactsIntro(
             TopAppBar(
                 title = {
                     Text(
-                        stringResource(R.string.settings_row_sync_contacts),
+                        stringResource(fm.corus.android.localization.CorusStrings.search_contacts_card_sync),
                         style = CorusFont.screenTitle,
                         color = CorusColors.Text,
                     )
@@ -139,7 +139,7 @@ private fun SyncContactsIntro(
                     CorusHeaderIconButton(
                         onClick = onBack,
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.common_back),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
@@ -172,7 +172,7 @@ private fun SyncContactsIntro(
                 Spacer(modifier = Modifier.height(CorusSpacing.xl))
 
                 Text(
-                    stringResource(R.string.search_contacts_card_title),
+                    stringResource(fm.corus.android.localization.CorusStrings.search_contacts_card_title),
                     style = CorusFont.songTitleLarge,
                     color = CorusColors.Text,
                     textAlign = TextAlign.Center,
@@ -181,7 +181,7 @@ private fun SyncContactsIntro(
                 Spacer(modifier = Modifier.height(CorusSpacing.xs))
 
                 Text(
-                    stringResource(R.string.search_contacts_card_subtitle),
+                    stringResource(fm.corus.android.localization.CorusStrings.search_contacts_card_subtitle),
                     style = CorusFont.bodyMedium,
                     color = CorusColors.Secondary,
                     textAlign = TextAlign.Center,
@@ -201,7 +201,7 @@ private fun SyncContactsIntro(
                         vertical = CorusSpacing.sm,
                     ),
                 ) {
-                    Text(stringResource(R.string.search_contacts_card_sync), style = CorusFont.buttonSmall)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.search_contacts_card_sync), style = CorusFont.buttonSmall)
                 }
             }
         }

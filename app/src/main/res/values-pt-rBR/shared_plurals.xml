@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <plurals name="song_detail_like_all_title"><item quantity="one">"Curtir %1$d post?"</item><item quantity="other">"Curtir %1$d posts?"</item></plurals>
+</resources>

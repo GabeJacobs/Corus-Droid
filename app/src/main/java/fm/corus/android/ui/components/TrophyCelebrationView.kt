@@ -128,7 +128,7 @@ fun TrophyCelebrationView(
                     // Trophy
                     Icon(
                         Icons.Filled.EmojiEvents,
-                        contentDescription = stringResource(R.string.trophy_cd_trophy),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.trophy_cd_trophy),
                         tint = Color(0xFFFFD700),
                         modifier = Modifier
                             .size(72.dp)
@@ -142,14 +142,14 @@ fun TrophyCelebrationView(
                 AnimatedVisibility(visible = showText, enter = fadeIn()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            stringResource(R.string.trophy_title),
+                            stringResource(fm.corus.android.localization.CorusStrings.trophy_first_to_share),
                             style = CorusFont.appTitle,
                             color = Color.White,
                             textAlign = TextAlign.Center,
                         )
                         Spacer(modifier = Modifier.height(CorusSpacing.xs))
                         Text(
-                            stringResource(R.string.trophy_subtitle),
+                            stringResource(fm.corus.android.localization.CorusStrings.trophy_subtitle_1e8a17e8),
                             style = CorusFont.body,
                             color = Color.White.copy(alpha = 0.8f),
                             textAlign = TextAlign.Center,
@@ -204,7 +204,7 @@ fun TrophyCelebrationView(
                             shape = RoundedCornerShape(50),
                             modifier = Modifier.width(120.dp),
                         ) {
-                            Text(stringResource(R.string.trophy_button), style = CorusFont.button, color = Color.White)
+                            Text(stringResource(fm.corus.android.localization.CorusStrings.trophy_nice_button), style = CorusFont.button, color = Color.White)
                         }
                     }
                 }

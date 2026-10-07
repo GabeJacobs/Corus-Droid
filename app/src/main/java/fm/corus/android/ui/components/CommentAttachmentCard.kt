@@ -163,13 +163,13 @@ fun CommentAttachmentCard(
                                 )
                                 isPlaying -> Icon(
                                     Icons.Filled.Pause,
-                                    contentDescription = stringResource(R.string.comment_attachment_pause_preview),
+                                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.compose_pause_preview),
                                     tint = Color.White,
                                     modifier = Modifier.size(12.dp),
                                 )
                                 else -> Icon(
                                     Icons.Filled.PlayArrow,
-                                    contentDescription = stringResource(R.string.comment_attachment_play_preview),
+                                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.compose_play_preview),
                                     tint = Color.White,
                                     modifier = Modifier.size(12.dp),
                                 )
@@ -258,7 +258,7 @@ fun CommentAttachmentCard(
                 imageUrl = attachedArtist.artistImageURL,
                 circle = true,
                 title = attachedArtist.artistName,
-                subtitle = stringResource(R.string.messaging_thread_attachment_artist),
+                subtitle = stringResource(fm.corus.android.localization.CorusStrings.profile_artist_fallback),
                 secondaryLabelColor = secondaryLabel,
                 onClick = onNavigateToArtist?.let { cb -> { cb(attachedArtist) } },
             )
@@ -268,7 +268,7 @@ fun CommentAttachmentCard(
                 circle = false,
                 title = attachedAlbum.albumTitle,
                 subtitle = attachedAlbum.albumArtistName.ifBlank {
-                    stringResource(R.string.messaging_thread_attachment_album)
+                    stringResource(fm.corus.android.localization.CorusStrings.share_album_word)
                 },
                 secondaryLabelColor = secondaryLabel,
                 onClick = onNavigateToAlbum?.let { cb -> { cb(attachedAlbum) } },
@@ -278,7 +278,7 @@ fun CommentAttachmentCard(
                 imageUrl = attachedDirector.directorImageURL,
                 circle = true,
                 title = attachedDirector.directorName,
-                subtitle = stringResource(R.string.messaging_thread_attachment_director),
+                subtitle = stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_row_director),
                 secondaryLabelColor = secondaryLabel,
                 onClick = onNavigateToDirector?.let { cb -> { cb(attachedDirector) } },
             )
@@ -388,7 +388,7 @@ fun CommentAttachmentPendingChip(
             ) {
                 Icon(
                     Icons.Filled.Close,
-                    contentDescription = stringResource(R.string.comment_attachment_remove),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.comment_attachment_remove),
                     tint = Color.White,
                     modifier = Modifier.size(14.dp),
                 )
@@ -463,13 +463,13 @@ fun CommentAttachmentPendingChip(
                                 )
                                 isPlaying -> Icon(
                                     Icons.Filled.Pause,
-                                    contentDescription = stringResource(R.string.comment_attachment_pause_preview),
+                                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.compose_pause_preview),
                                     tint = Color.White,
                                     modifier = Modifier.size(10.dp),
                                 )
                                 else -> Icon(
                                     Icons.Filled.PlayArrow,
-                                    contentDescription = stringResource(R.string.comment_attachment_play_preview),
+                                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.compose_play_preview),
                                     tint = Color.White,
                                     modifier = Modifier.size(10.dp),
                                 )
@@ -536,7 +536,7 @@ fun CommentAttachmentPendingChip(
                 imageUrl = attachedArtist.artistImageURL,
                 circle = true,
                 title = attachedArtist.artistName,
-                subtitle = stringResource(R.string.messaging_thread_attachment_artist),
+                subtitle = stringResource(fm.corus.android.localization.CorusStrings.profile_artist_fallback),
             )
 
             attachedAlbum != null -> ChipEntityContent(
@@ -544,7 +544,7 @@ fun CommentAttachmentPendingChip(
                 circle = false,
                 title = attachedAlbum.albumTitle,
                 subtitle = attachedAlbum.albumArtistName.ifBlank {
-                    stringResource(R.string.messaging_thread_attachment_album)
+                    stringResource(fm.corus.android.localization.CorusStrings.share_album_word)
                 },
             )
 
@@ -552,14 +552,14 @@ fun CommentAttachmentPendingChip(
                 imageUrl = attachedDirector.directorImageURL,
                 circle = true,
                 title = attachedDirector.directorName,
-                subtitle = stringResource(R.string.messaging_thread_attachment_director),
+                subtitle = stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_row_director),
             )
         }
 
         Spacer(Modifier.width(CorusSpacing.sm))
         Icon(
             Icons.Filled.Close,
-            contentDescription = stringResource(R.string.comment_attachment_remove),
+            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.comment_attachment_remove),
             tint = CorusColors.Tertiary,
             modifier = Modifier
                 .size(18.dp)

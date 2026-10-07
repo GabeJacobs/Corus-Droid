@@ -23,7 +23,7 @@ object DateUtils {
         val days = TimeUnit.MILLISECONDS.toDays(diff)
 
         return when {
-            seconds < 60 -> context.getString(R.string.relative_time_just_now)
+            seconds < 60 -> context.getString(fm.corus.android.localization.CorusStrings.relative_time_just_now)
             minutes < 60 -> "${minutes}m"
             hours < 24 -> "${hours}h"
             days < 7 -> "${days}d"
@@ -49,7 +49,7 @@ object DateUtils {
         val res = context.resources
 
         return when {
-            seconds < 60 -> context.getString(R.string.post_time_just_now)
+            seconds < 60 -> context.getString(fm.corus.android.localization.CorusStrings.post_time_just_now)
             minutes < 60 -> res.getQuantityString(R.plurals.post_time_minutes_ago, minutes, minutes)
             hours < 24 -> res.getQuantityString(R.plurals.post_time_hours_ago, hours, hours)
             days < 7 -> res.getQuantityString(R.plurals.post_time_days_ago, days, days)
@@ -58,9 +58,9 @@ object DateUtils {
                 val currentYear = Calendar.getInstance().get(Calendar.YEAR)
                 val postYear = Calendar.getInstance().apply { time = date }.get(Calendar.YEAR)
                 val patternRes = if (currentYear == postYear) {
-                    R.string.post_time_date_format_same_year
+                    fm.corus.android.localization.CorusStrings.post_time_date_format_same_year
                 } else {
-                    R.string.post_time_date_format_other_year
+                    fm.corus.android.localization.CorusStrings.post_time_date_format_other_year
                 }
                 SimpleDateFormat(context.getString(patternRes), locale).format(date)
             }

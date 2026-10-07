@@ -129,6 +129,7 @@ import fm.corus.android.ui.components.rememberImmersiveHeaderState
 import fm.corus.android.ui.components.PostCard
 import fm.corus.android.ui.components.PostMenuSheets
 import fm.corus.android.ui.components.SkeletonPostCard
+import fm.corus.android.ui.components.ScreenViewAnalytics
 import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.VennDiagramIcon
 import fm.corus.android.ui.theme.CorusColors
@@ -181,6 +182,7 @@ fun FeedScreen(
      *  hides the "…" menu's "Go to Album" row. */
     onNavigateToAlbum: ((fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit)? = null,
 ) {
+    ScreenViewAnalytics("Feed", viewModel.analyticsService, isVisible = isAtRoot)
     val posts by viewModel.filteredPosts.collectAsState()
     val allPosts by viewModel.posts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -287,7 +289,7 @@ fun FeedScreen(
     // Resolve-on-tap state for the tappable artist name (subtitle). Shared HUD +
     // miss toast so tapping the name behaves like the "…" menu's Go to Artist row.
     var isResolvingSubtitle by remember { mutableStateOf(false) }
-    val subtitleArtistNotFound = stringResource(R.string.song_detail_artist_not_found)
+    val subtitleArtistNotFound = stringResource(fm.corus.android.localization.CorusStrings.post_toast_artist_not_found)
     fun backCoverStateFor(postId: String) =
         backCoverStates.getOrPut(postId) { fm.corus.android.ui.components.BackCoverFlipState() }
     var filmInfoPost by remember { mutableStateOf<CymbalPost?>(null) }
@@ -908,7 +910,7 @@ fun FeedScreen(
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
                     Text(
                         text = stringResource(
-                            if (isConnected) R.string.feed_error_title else R.string.feed_offline_title,
+                            if (isConnected) fm.corus.android.localization.CorusStrings.feed_error_title else fm.corus.android.localization.CorusStrings.feed_offline_title,
                         ),
                         style = CorusFont.bodyMedium,
                         color = CorusColors.Secondary,
@@ -917,7 +919,7 @@ fun FeedScreen(
                     Spacer(modifier = Modifier.height(CorusSpacing.xs))
                     Text(
                         text = stringResource(
-                            if (isConnected) R.string.feed_error_subtitle else R.string.feed_offline_subtitle,
+                            if (isConnected) fm.corus.android.localization.CorusStrings.feed_error_subtitle else fm.corus.android.localization.CorusStrings.feed_offline_subtitle,
                         ),
                         style = CorusFont.caption,
                         color = CorusColors.Tertiary,
@@ -934,7 +936,7 @@ fun FeedScreen(
                         shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
                     ) {
                         Text(
-                            text = stringResource(R.string.feed_offline_retry),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.common_retry),
                             style = CorusFont.button,
                             color = CorusColors.Background,
                         )
@@ -966,18 +968,18 @@ fun FeedScreen(
                     FeedFilter.ALL -> Icons.Filled.Movie
                 }
                 val titleRes = when (feedFilter) {
-                    FeedFilter.MUSIC -> R.string.feed_empty_taste_matches_music_title
-                    FeedFilter.FILM -> R.string.feed_empty_taste_matches_film_title
-                    FeedFilter.MUSIC_NEW_RELEASES -> R.string.feed_empty_taste_matches_new_music_title
-                    FeedFilter.FILM_NEW_RELEASES -> R.string.feed_empty_taste_matches_new_film_title
-                    FeedFilter.ALL -> R.string.feed_empty_taste_matches_film_title
+                    FeedFilter.MUSIC -> fm.corus.android.localization.CorusStrings.feed_empty_taste_matches_music_title
+                    FeedFilter.FILM -> fm.corus.android.localization.CorusStrings.feed_empty_taste_matches_film_title
+                    FeedFilter.MUSIC_NEW_RELEASES -> fm.corus.android.localization.CorusStrings.feed_empty_taste_matches_new_music_title
+                    FeedFilter.FILM_NEW_RELEASES -> fm.corus.android.localization.CorusStrings.feed_empty_taste_matches_new_film_title
+                    FeedFilter.ALL -> fm.corus.android.localization.CorusStrings.feed_empty_taste_matches_film_title
                 }
                 val subtitleRes = when (feedFilter) {
-                    FeedFilter.MUSIC -> R.string.feed_empty_taste_matches_music_subtitle
-                    FeedFilter.FILM -> R.string.feed_empty_taste_matches_film_subtitle
-                    FeedFilter.MUSIC_NEW_RELEASES -> R.string.feed_empty_taste_matches_new_music_subtitle
-                    FeedFilter.FILM_NEW_RELEASES -> R.string.feed_empty_taste_matches_new_film_subtitle
-                    FeedFilter.                    ALL -> R.string.feed_empty_taste_matches_film_subtitle
+                    FeedFilter.MUSIC -> fm.corus.android.localization.CorusStrings.feed_empty_taste_matches_music_subtitle
+                    FeedFilter.FILM -> fm.corus.android.localization.CorusStrings.feed_empty_taste_matches_film_subtitle
+                    FeedFilter.MUSIC_NEW_RELEASES -> fm.corus.android.localization.CorusStrings.feed_empty_taste_matches_new_music_subtitle
+                    FeedFilter.FILM_NEW_RELEASES -> fm.corus.android.localization.CorusStrings.feed_empty_taste_matches_new_film_subtitle
+                    FeedFilter.                    ALL -> fm.corus.android.localization.CorusStrings.feed_empty_taste_matches_film_subtitle
                 }
                 Column(
                     modifier = Modifier
@@ -1019,7 +1021,7 @@ fun FeedScreen(
                         shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
                     ) {
                         Text(
-                            text = stringResource(R.string.feed_empty_clear_filter),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.feed_empty_clear_filter),
                             style = CorusFont.button,
                             color = CorusColors.Background,
                         )
@@ -1050,14 +1052,14 @@ fun FeedScreen(
                     )
                     Spacer(modifier = Modifier.height(CorusSpacing.md))
                     Text(
-                        text = stringResource(R.string.feed_empty_new_releases_title),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.search_nothing_new_releases),
                         style = CorusFont.body,
                         color = CorusColors.Secondary,
                         textAlign = TextAlign.Center,
                     )
                     Spacer(modifier = Modifier.height(CorusSpacing.xs))
                     Text(
-                        text = stringResource(R.string.feed_empty_new_releases_subtitle),
+                        text = stringResource(fm.corus.android.localization.CorusStrings.feed_empty_new_releases_subtitle),
                         style = CorusFont.caption,
                         color = CorusColors.Tertiary,
                         textAlign = TextAlign.Center,
@@ -1070,7 +1072,7 @@ fun FeedScreen(
                         shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
                     ) {
                         Text(
-                            text = stringResource(R.string.feed_empty_new_releases_show_all),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.feed_empty_new_releases_show_all),
                             style = CorusFont.button,
                             color = CorusColors.Background,
                         )
@@ -1094,18 +1096,18 @@ fun FeedScreen(
                     FeedFilter.ALL -> Icons.Filled.Star
                 }
                 val titleRes = when (feedFilter) {
-                    FeedFilter.MUSIC -> R.string.feed_empty_favorites_music_title
-                    FeedFilter.FILM -> R.string.feed_empty_favorites_film_title
-                    FeedFilter.MUSIC_NEW_RELEASES -> R.string.feed_empty_favorites_new_music_title
-                    FeedFilter.FILM_NEW_RELEASES -> R.string.feed_empty_favorites_new_film_title
-                    FeedFilter.ALL -> R.string.feed_empty_favorites_title
+                    FeedFilter.MUSIC -> fm.corus.android.localization.CorusStrings.feed_empty_favorites_music_title
+                    FeedFilter.FILM -> fm.corus.android.localization.CorusStrings.feed_empty_favorites_film_title
+                    FeedFilter.MUSIC_NEW_RELEASES -> fm.corus.android.localization.CorusStrings.feed_empty_favorites_new_music_title
+                    FeedFilter.FILM_NEW_RELEASES -> fm.corus.android.localization.CorusStrings.feed_empty_favorites_new_film_title
+                    FeedFilter.ALL -> fm.corus.android.localization.CorusStrings.feed_empty_favorites_title
                 }
                 val subtitleRes = when (feedFilter) {
-                    FeedFilter.MUSIC -> R.string.feed_empty_favorites_music_subtitle
-                    FeedFilter.FILM -> R.string.feed_empty_favorites_film_subtitle
-                    FeedFilter.MUSIC_NEW_RELEASES -> R.string.feed_empty_favorites_new_music_subtitle
-                    FeedFilter.FILM_NEW_RELEASES -> R.string.feed_empty_favorites_new_film_subtitle
-                    FeedFilter.ALL -> R.string.feed_empty_favorites_subtitle
+                    FeedFilter.MUSIC -> fm.corus.android.localization.CorusStrings.feed_empty_favorites_music_subtitle
+                    FeedFilter.FILM -> fm.corus.android.localization.CorusStrings.feed_empty_favorites_film_subtitle
+                    FeedFilter.MUSIC_NEW_RELEASES -> fm.corus.android.localization.CorusStrings.feed_empty_favorites_new_music_subtitle
+                    FeedFilter.FILM_NEW_RELEASES -> fm.corus.android.localization.CorusStrings.feed_empty_favorites_new_film_subtitle
+                    FeedFilter.ALL -> fm.corus.android.localization.CorusStrings.feed_empty_favorites_subtitle
                 }
                 Column(
                     modifier = Modifier
@@ -1155,7 +1157,7 @@ fun FeedScreen(
                         shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
                     ) {
                         Text(
-                            text = stringResource(R.string.feed_empty_clear_filter),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.feed_empty_clear_filter),
                             style = CorusFont.button,
                             color = CorusColors.Background,
                         )
@@ -1185,8 +1187,8 @@ fun FeedScreen(
             }
 
             isSelected && posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing -> {
-                val inviteShareText = stringResource(R.string.feed_empty_invite_share_text)
-                val inviteChooser = stringResource(R.string.feed_empty_invite_chooser)
+                val inviteShareText = stringResource(fm.corus.android.localization.CorusStrings.settings_share_app_text)
+                val inviteChooser = stringResource(fm.corus.android.localization.CorusStrings.settings_row_invite_friends)
                 Column(modifier = Modifier.fillMaxSize()) {
                     ChromeInset()
                     if (includeHeader) header()
@@ -1203,14 +1205,14 @@ fun FeedScreen(
                             ) {
                                 Spacer(modifier = Modifier.height(40.dp))
                                 Text(
-                                    text = stringResource(R.string.feed_empty_invite_title),
+                                    text = stringResource(fm.corus.android.localization.CorusStrings.feed_empty_invite_title),
                                     style = CorusFont.songTitleLarge,
                                     color = CorusColors.Text,
                                     textAlign = TextAlign.Center,
                                 )
                                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
                                 Text(
-                                    text = stringResource(R.string.feed_empty_invite_subtitle),
+                                    text = stringResource(fm.corus.android.localization.CorusStrings.feed_empty_invite_subtitle),
                                     style = CorusFont.body,
                                     color = CorusColors.Secondary,
                                     textAlign = TextAlign.Center,
@@ -1231,7 +1233,7 @@ fun FeedScreen(
                                     shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
                                 ) {
                                     Text(
-                                        text = stringResource(R.string.feed_empty_invite_button),
+                                        text = stringResource(fm.corus.android.localization.CorusStrings.feed_empty_invite_button),
                                         style = CorusFont.button,
                                         color = CorusColors.Background,
                                     )
@@ -1663,11 +1665,11 @@ fun FeedScreen(
     if (showEnergyFilter && showEnergyIntroduction) {
         fm.corus.android.ui.components.CorusPromptOverlay(
             visible = true,
-            title = stringResource(R.string.feed_energy_intro_title),
-            message = stringResource(R.string.feed_energy_intro_message),
+            title = stringResource(fm.corus.android.localization.CorusStrings.feed_energy_intro_title),
+            message = stringResource(fm.corus.android.localization.CorusStrings.feed_energy_intro_message),
             onDismiss = { viewModel.dismissEnergyIntroduction() },
             buttons = listOf(fm.corus.android.ui.components.CorusPromptButton(
-                label = stringResource(R.string.feed_energy_got_it),
+                label = stringResource(fm.corus.android.localization.CorusStrings.feed_energy_got_it),
                 onClick = { viewModel.dismissEnergyIntroduction() },
             )),
         )
@@ -1727,7 +1729,7 @@ fun FeedScreen(
         val destination = if (musicService == fm.corus.android.data.model.MusicService.TIDAL) "TIDAL" else "Spotify"
         fm.corus.android.ui.components.CorusPromptOverlay(
             visible = true,
-            title = stringResource(R.string.playlist_first_time_title),
+            title = stringResource(fm.corus.android.localization.CorusStrings.playlist_first_time_title),
             message = stringResource(R.string.feed_playlist_first_time_body, destination),
             iconRes = fm.corus.android.domain.MusicServiceLinkOut.logoRes(musicService),
             onDismiss = { showFirstTimePlaylistDialog = false },
@@ -1848,7 +1850,7 @@ private fun FeedTitleWithModeMenu(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = stringResource(R.string.feed_app_title),
+                text = stringResource(fm.corus.android.localization.CorusStrings.feed_app_title),
                 style = CorusFont.appTitle,
                 color = CorusColors.Text,
             )
@@ -2038,14 +2040,14 @@ private fun FeedSwitchHintBubble(onDismiss: () -> Unit, arrowOffset: Dp = 0.dp) 
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
             Text(
-                text = stringResource(R.string.feed_switch_hint_title),
+                text = stringResource(fm.corus.android.localization.CorusStrings.feed_switch_hint_title),
                 style = CorusFont.body.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
                 color = Color.White,
                 textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = stringResource(R.string.feed_switch_hint_subtitle),
+                text = stringResource(fm.corus.android.localization.CorusStrings.feed_switch_hint_body),
                 style = CorusFont.body.copy(fontSize = 13.sp),
                 color = Color.White.copy(alpha = 0.85f),
                 textAlign = TextAlign.Center,
@@ -2224,14 +2226,14 @@ private fun TasteMatchesColdStart(
             shadedIntersection = true,
         )
         Text(
-            text = stringResource(R.string.search_section_taste_matches),
+            text = stringResource(fm.corus.android.localization.CorusStrings.search_section_taste_matches),
             style = CorusFont.sectionHeader,
             color = CorusColors.Accent,
         )
     }
     Spacer(modifier = Modifier.height(CorusSpacing.xs))
     Text(
-        text = stringResource(R.string.feed_taste_matches_coldstart_title),
+        text = stringResource(fm.corus.android.localization.CorusStrings.feed_taste_matches_coldstart_title),
         style = CorusFont.songTitleLarge,
         color = CorusColors.Text,
         textAlign = TextAlign.Center,
@@ -2239,7 +2241,7 @@ private fun TasteMatchesColdStart(
     )
     Spacer(modifier = Modifier.height(CorusSpacing.sm))
     Text(
-        text = stringResource(R.string.feed_taste_matches_coldstart_body),
+        text = stringResource(fm.corus.android.localization.CorusStrings.feed_taste_matches_coldstart_body),
         style = CorusFont.body,
         color = CorusColors.Secondary,
         textAlign = TextAlign.Center,
@@ -2252,7 +2254,7 @@ private fun TasteMatchesColdStart(
         shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
     ) {
         Text(
-            text = stringResource(R.string.feed_taste_matches_coldstart_cta),
+            text = stringResource(fm.corus.android.localization.CorusStrings.feed_taste_matches_coldstart_cta),
             style = CorusFont.button,
             color = Color.White,
         )
@@ -2273,7 +2275,7 @@ private fun TasteMatchesEndOfFeed(onPost: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = stringResource(R.string.feed_taste_matches_end_more),
+            text = stringResource(fm.corus.android.localization.CorusStrings.feed_taste_matches_end_more),
             style = CorusFont.bodyMedium,
             color = CorusColors.Secondary,
             textAlign = TextAlign.Center,
@@ -2285,7 +2287,7 @@ private fun TasteMatchesEndOfFeed(onPost: () -> Unit) {
             shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
         ) {
             Text(
-                text = stringResource(R.string.feed_taste_matches_coldstart_cta),
+                text = stringResource(fm.corus.android.localization.CorusStrings.feed_taste_matches_coldstart_cta),
                 style = CorusFont.button,
                 color = Color.White,
             )
@@ -2308,14 +2310,14 @@ private fun TasteMatchesNeutralEmpty() {
     )
     Spacer(modifier = Modifier.height(CorusSpacing.md))
     Text(
-        text = stringResource(R.string.feed_taste_matches_unavailable_title),
+        text = stringResource(fm.corus.android.localization.CorusStrings.feed_taste_matches_unavailable_title),
         style = CorusFont.bodyMedium,
         color = CorusColors.Secondary,
         textAlign = TextAlign.Center,
     )
     Spacer(modifier = Modifier.height(CorusSpacing.xs))
     Text(
-        text = stringResource(R.string.feed_taste_matches_unavailable_body),
+        text = stringResource(fm.corus.android.localization.CorusStrings.feed_taste_matches_unavailable_body_6146aa2a),
         style = CorusFont.caption,
         color = CorusColors.Tertiary,
         textAlign = TextAlign.Center,
@@ -2353,20 +2355,20 @@ private fun TasteMatchesNoMatchesYet(onPost: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
         Text(
-            text = stringResource(R.string.search_section_taste_matches).uppercase(),
+            text = stringResource(fm.corus.android.localization.CorusStrings.search_section_taste_matches).uppercase(),
             style = CorusFont.sectionHeader.copy(letterSpacing = 0.8.sp),
             color = CorusColors.Accent,
         )
         Spacer(modifier = Modifier.height(CorusSpacing.xs))
         Text(
-            text = stringResource(R.string.feed_taste_matches_no_matches_title),
+            text = stringResource(fm.corus.android.localization.CorusStrings.feed_taste_matches_no_matches_title),
             style = CorusFont.songTitleLarge.copy(fontSize = 21.sp),
             color = CorusColors.Text,
             textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
         Text(
-            text = stringResource(R.string.feed_taste_matches_no_matches_body),
+            text = stringResource(fm.corus.android.localization.CorusStrings.feed_taste_matches_no_matches_body),
             style = CorusFont.body.copy(fontSize = 16.sp),
             color = CorusColors.Secondary,
             textAlign = TextAlign.Center,
@@ -2382,7 +2384,7 @@ private fun TasteMatchesNoMatchesYet(onPost: () -> Unit) {
             ),
         ) {
             Text(
-                text = stringResource(R.string.feed_taste_matches_coldstart_cta),
+                text = stringResource(fm.corus.android.localization.CorusStrings.feed_taste_matches_coldstart_cta),
                 style = CorusFont.button.copy(fontSize = 17.sp),
                 color = Color.White,
             )
@@ -2396,7 +2398,7 @@ private fun TasteMatchesNoMatchesYet(onPost: () -> Unit) {
  */
 @Composable
 private fun TasteMatchesTrialBanner(onClick: () -> Unit, stayCloseDays: Int? = null) {
-    val text = if (stayCloseDays != null) "Corus Club" else stringResource(R.string.feed_taste_matches_trial_banner_preview)
+    val text = if (stayCloseDays != null) "Corus Club" else stringResource(fm.corus.android.localization.CorusStrings.feed_taste_matches_trial_banner_preview)
     // Full-bleed square strip (no rounded corners) — matches iOS/web.
     Column(
         modifier = Modifier
@@ -2419,7 +2421,7 @@ private fun TasteMatchesTrialBanner(onClick: () -> Unit, stayCloseDays: Int? = n
         ) {
             Text(
                 text = if (stayCloseDays != null) stringResource(R.string.for_you_stay_close_trial_remaining, stayCloseDays)
-                    else stringResource(R.string.settings_row_join_club),
+                    else stringResource(fm.corus.android.localization.CorusStrings.settings_row_join_club),
                 style = CorusFont.captionMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = Color.White,
             )
@@ -2465,20 +2467,20 @@ private fun FavoritesEmptyState(onBackToFollowing: () -> Unit) {
         }
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
         Text(
-            text = stringResource(R.string.feed_empty_favorites_eyebrow).uppercase(),
+            text = stringResource(fm.corus.android.localization.CorusStrings.feed_empty_favorites_eyebrow).uppercase(),
             style = CorusFont.sectionHeader.copy(letterSpacing = 0.8.sp),
             color = CorusColors.Accent,
         )
         Spacer(modifier = Modifier.height(CorusSpacing.xs))
         Text(
-            text = stringResource(R.string.feed_empty_favorites_title),
+            text = stringResource(fm.corus.android.localization.CorusStrings.feed_empty_favorites_title),
             style = CorusFont.songTitleLarge.copy(fontSize = 21.sp),
             color = CorusColors.Text,
             textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
         Text(
-            text = stringResource(R.string.feed_empty_favorites_subtitle),
+            text = stringResource(fm.corus.android.localization.CorusStrings.feed_empty_favorites_subtitle),
             style = CorusFont.body.copy(fontSize = 16.sp),
             color = CorusColors.Secondary,
             textAlign = TextAlign.Center,
@@ -2494,7 +2496,7 @@ private fun FavoritesEmptyState(onBackToFollowing: () -> Unit) {
             ),
         ) {
             Text(
-                text = stringResource(R.string.feed_empty_favorites_button),
+                text = stringResource(fm.corus.android.localization.CorusStrings.feed_empty_favorites_button),
                 style = CorusFont.button.copy(fontSize = 17.sp),
                 color = Color.White,
             )
@@ -2571,15 +2573,15 @@ private fun TasteMatchesPaywallState(
         )
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
         Text(
-            text = stringResource(R.string.search_section_taste_matches).uppercase(),
+            text = stringResource(fm.corus.android.localization.CorusStrings.search_section_taste_matches).uppercase(),
             style = CorusFont.sectionHeader.copy(letterSpacing = 0.8.sp),
             color = CorusColors.Accent,
         )
         Spacer(modifier = Modifier.height(CorusSpacing.xs))
         Text(
             text = stringResource(
-                if (hasClubIntroTrial) R.string.feed_taste_matches_paywall_trial_title
-                else R.string.feed_taste_matches_paywall_title,
+                if (hasClubIntroTrial) fm.corus.android.localization.CorusStrings.feed_taste_matches_paywall_trial_title
+                else fm.corus.android.localization.CorusStrings.feed_taste_matches_paywall_title,
             ),
             style = CorusFont.songTitleLarge.copy(fontSize = 21.sp),
             color = CorusColors.Text,
@@ -2588,8 +2590,8 @@ private fun TasteMatchesPaywallState(
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
         Text(
             text = stringResource(
-                if (hasClubIntroTrial) R.string.feed_taste_matches_paywall_trial_body
-                else R.string.feed_taste_matches_paywall_body,
+                if (hasClubIntroTrial) fm.corus.android.localization.CorusStrings.feed_taste_matches_paywall_trial_body
+                else fm.corus.android.localization.CorusStrings.feed_taste_matches_paywall_body,
             ),
             style = CorusFont.body.copy(fontSize = 16.sp),
             color = CorusColors.Secondary,
@@ -2607,8 +2609,8 @@ private fun TasteMatchesPaywallState(
         ) {
             Text(
                 text = stringResource(
-                    if (hasClubIntroTrial) R.string.feed_taste_matches_paywall_trial_cta
-                    else R.string.feed_taste_matches_paywall_cta,
+                    if (hasClubIntroTrial) fm.corus.android.localization.CorusStrings.taste_discovery_cta
+                    else fm.corus.android.localization.CorusStrings.taste_discovery_cta,
                 ),
                 style = CorusFont.button.copy(fontSize = 17.sp),
                 color = Color.White,
@@ -2661,7 +2663,7 @@ internal fun FeedDecadeEmptyState(decade: Int, onShowAllDecades: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(CorusSpacing.xs))
         Text(
-            text = stringResource(R.string.feed_empty_decade_subtitle),
+            text = stringResource(fm.corus.android.localization.CorusStrings.feed_empty_decade_subtitle),
             style = CorusFont.body,
             color = CorusColors.Tertiary,
             textAlign = TextAlign.Center,
@@ -2674,7 +2676,7 @@ internal fun FeedDecadeEmptyState(decade: Int, onShowAllDecades: () -> Unit) {
             shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
         ) {
             Text(
-                text = stringResource(R.string.feed_empty_decade_show_all),
+                text = stringResource(fm.corus.android.localization.CorusStrings.feed_empty_decade_show_all),
                 style = CorusFont.button,
                 color = CorusColors.Background,
             )
@@ -2726,7 +2728,7 @@ internal fun FeedHeader(
     ) {
         if (tabsVisible) {
             Text(
-                text = stringResource(R.string.feed_app_title),
+                text = stringResource(fm.corus.android.localization.CorusStrings.feed_app_title),
                 style = CorusFont.appTitle,
                 color = CorusColors.Text,
             )
@@ -2751,7 +2753,7 @@ internal fun FeedHeader(
             )
         } else {
             Text(
-                text = stringResource(R.string.feed_app_title),
+                text = stringResource(fm.corus.android.localization.CorusStrings.feed_app_title),
                 style = CorusFont.appTitle,
                 color = CorusColors.Text,
             )
@@ -2799,7 +2801,7 @@ internal fun FeedHeader(
                     } else {
                         Icon(
                             imageVector = Icons.Filled.QueueMusic,
-                            contentDescription = stringResource(R.string.feed_cd_generate_playlist),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.feed_cd_generate_playlist),
                             tint = CorusColors.Secondary,
                             modifier = Modifier.size(CorusSpacing.feedPlaylistIcon),
                         )
@@ -2832,7 +2834,7 @@ internal fun FeedHeader(
                     } else {
                         Icon(
                             imageVector = Icons.Filled.FilterList,
-                            contentDescription = stringResource(R.string.feed_cd_filter),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.feed_cd_filter),
                             tint = if (!feedFilter.isAll) CorusColors.Accent else CorusColors.Secondary,
                             modifier = Modifier.size(
                                 if (feedFilter.isAll) CorusSpacing.feedFilterIcon
@@ -2848,20 +2850,20 @@ internal fun FeedHeader(
                     val activeCheckmark: @Composable () -> Unit = {
                         Icon(
                             imageVector = Icons.Filled.Check,
-                            contentDescription = stringResource(R.string.common_selected),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.gift_selected),
                             tint = CorusColors.Accent,
                         )
                     }
-                    val decadeName = stringResource(R.string.feed_filter_decade)
+                    val decadeName = stringResource(fm.corus.android.localization.CorusStrings.feed_filter_decade)
                     val decadeGroupLabel =
                         if (feedDecade == null) decadeName
                         else "$decadeName · ${FeedDecade.label(feedDecade)}"
                     if (energyDrillIn && showEnergyFilter) {
-                        DropdownMenuItem(text = { Text(stringResource(R.string.feed_filter_energy)) },
+                        DropdownMenuItem(text = { Text(stringResource(fm.corus.android.localization.CorusStrings.feed_filter_energy)) },
                             leadingIcon = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null) },
                             onClick = { energyDrillIn = false })
                         HorizontalDivider()
-                        DropdownMenuItem(text = { Text(stringResource(R.string.feed_energy_any)) },
+                        DropdownMenuItem(text = { Text(stringResource(fm.corus.android.localization.CorusStrings.feed_energy_any)) },
                             trailingIcon = if (feedEnergy == null) activeCheckmark else null,
                             onClick = { onSetEnergy(null); onFilterMenuExpandedChange(false) })
                         HorizontalDivider()
@@ -2887,7 +2889,7 @@ internal fun FeedHeader(
                         )
                         HorizontalDivider()
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.feed_filter_decade_any)) },
+                            text = { Text(stringResource(fm.corus.android.localization.CorusStrings.feed_filter_decade_any)) },
                             trailingIcon = if (feedDecade == null) activeCheckmark else null,
                             onClick = {
                                 onSetDecade(null)
@@ -2907,7 +2909,7 @@ internal fun FeedHeader(
                         }
                     } else {
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.feed_filter_all)) },
+                            text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_tab_all)) },
                             trailingIcon = if (feedFilter == FeedFilter.ALL) activeCheckmark else null,
                             onClick = {
                                 onSetFilter(FeedFilter.ALL)
@@ -2916,7 +2918,7 @@ internal fun FeedHeader(
                         )
                         HorizontalDivider()
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.feed_filter_music)) },
+                            text = { Text(stringResource(fm.corus.android.localization.CorusStrings.feed_filter_music)) },
                             trailingIcon = if (feedFilter == FeedFilter.MUSIC) activeCheckmark else null,
                             onClick = {
                                 onSetFilter(FeedFilter.MUSIC)
@@ -2924,7 +2926,7 @@ internal fun FeedHeader(
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.feed_filter_film)) },
+                            text = { Text(stringResource(fm.corus.android.localization.CorusStrings.feed_filter_film)) },
                             trailingIcon = if (feedFilter == FeedFilter.FILM) activeCheckmark else null,
                             onClick = {
                                 onSetFilter(FeedFilter.FILM)
@@ -2933,7 +2935,7 @@ internal fun FeedHeader(
                         )
                         HorizontalDivider()
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.feed_filter_music_new_releases)) },
+                            text = { Text(stringResource(fm.corus.android.localization.CorusStrings.feed_filter_music_new_releases)) },
                             trailingIcon = if (feedFilter == FeedFilter.MUSIC_NEW_RELEASES) activeCheckmark else null,
                             onClick = {
                                 onSetFilter(FeedFilter.MUSIC_NEW_RELEASES)
@@ -2941,7 +2943,7 @@ internal fun FeedHeader(
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.feed_filter_film_new_releases)) },
+                            text = { Text(stringResource(fm.corus.android.localization.CorusStrings.feed_filter_film_new_releases)) },
                             trailingIcon = if (feedFilter == FeedFilter.FILM_NEW_RELEASES) activeCheckmark else null,
                             onClick = {
                                 onSetFilter(FeedFilter.FILM_NEW_RELEASES)
@@ -2969,7 +2971,7 @@ internal fun FeedHeader(
                         if (showEnergyFilter) {
                             HorizontalDivider()
                             DropdownMenuItem(
-                                text = { Text(if (feedEnergy == null) stringResource(R.string.feed_filter_energy) else "${stringResource(R.string.feed_filter_energy)} · ${stringResource(feedEnergy.labelRes)}") },
+                                text = { Text(if (feedEnergy == null) stringResource(fm.corus.android.localization.CorusStrings.feed_filter_energy) else "${stringResource(fm.corus.android.localization.CorusStrings.feed_filter_energy)} · ${stringResource(feedEnergy.labelRes)}") },
                                 trailingIcon = {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         if (feedEnergy != null) activeCheckmark()
@@ -3013,10 +3015,10 @@ internal fun FeedHeader(
 @Composable
 internal fun FeedEnergyEmptyState(energy: FeedEnergy, mode: String, onClear: () -> Unit) {
     val message = when (mode) {
-        "following" -> R.string.feed_energy_empty_following
-        "favorites" -> R.string.feed_energy_empty_favorites
-        "tasteMatches" -> R.string.feed_energy_empty_matches
-        else -> R.string.feed_energy_empty_trending
+        "following" -> fm.corus.android.localization.CorusStrings.feed_energy_empty_following
+        "favorites" -> fm.corus.android.localization.CorusStrings.feed_energy_empty_favorites
+        "tasteMatches" -> fm.corus.android.localization.CorusStrings.feed_energy_empty_matches
+        else -> fm.corus.android.localization.CorusStrings.feed_energy_empty_trending
     }
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = CorusSpacing.xl), horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(Modifier.height(60.dp))
@@ -3026,10 +3028,10 @@ internal fun FeedEnergyEmptyState(energy: FeedEnergy, mode: String, onClear: () 
         Spacer(Modifier.height(CorusSpacing.xs))
         Text(stringResource(message), style = CorusFont.body, color = CorusColors.Tertiary, textAlign = TextAlign.Center)
         Spacer(Modifier.height(CorusSpacing.md))
-        Text(stringResource(R.string.feed_energy_classified_only), style = CorusFont.body, color = CorusColors.Tertiary, textAlign = TextAlign.Center)
+        Text(stringResource(fm.corus.android.localization.CorusStrings.feed_energy_classified_only), style = CorusFont.body, color = CorusColors.Tertiary, textAlign = TextAlign.Center)
         Spacer(Modifier.height(CorusSpacing.lg))
         Button(onClick = onClear, colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent), shape = RoundedCornerShape(CorusSpacing.pillCornerRadius)) {
-            Text(stringResource(R.string.feed_energy_show_all), style = CorusFont.button, color = CorusColors.Background)
+            Text(stringResource(fm.corus.android.localization.CorusStrings.feed_energy_show_all), style = CorusFont.button, color = CorusColors.Background)
         }
     }
 }

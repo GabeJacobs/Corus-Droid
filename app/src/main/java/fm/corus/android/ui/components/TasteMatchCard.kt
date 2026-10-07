@@ -218,8 +218,8 @@ fun TasteMatchCard(
         ) {
             Text(
                 stringResource(
-                    if (isFollowing) fm.corus.android.R.string.likes_button_following
-                    else fm.corus.android.R.string.likes_button_follow
+                    if (isFollowing) fm.corus.android.localization.CorusStrings.following_status
+                    else fm.corus.android.localization.CorusStrings.follow_action
                 ),
                 style = CorusFont.buttonSmall,
             )

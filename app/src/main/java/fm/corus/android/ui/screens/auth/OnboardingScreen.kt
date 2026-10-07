@@ -246,7 +246,7 @@ fun OnboardingScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = stringResource(id = R.string.onboarding_welcome),
+                    text = stringResource(id = fm.corus.android.localization.CorusStrings.onboarding_step1_title),
                     style = CorusFont.custom(900, 28),
                     color = CorusColors.Text,
                 )
@@ -254,7 +254,7 @@ fun OnboardingScreen(
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
                 Text(
-                    text = stringResource(id = R.string.onboarding_subtitle),
+                    text = stringResource(id = fm.corus.android.localization.CorusStrings.onboarding_step1_subtitle),
                     style = CorusFont.bodyMedium,
                     color = CorusColors.Secondary,
                 )
@@ -274,7 +274,7 @@ fun OnboardingScreen(
                     if (avatarUri != null) {
                         AsyncImage(
                             model = avatarUri,
-                            contentDescription = stringResource(id = R.string.onboarding_cd_avatar),
+                            contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.onboarding_cd_avatar),
                             modifier = Modifier
                                 .size(100.dp)
                                 .clip(CircleShape),
@@ -291,7 +291,7 @@ fun OnboardingScreen(
                         ) {
                             Icon(
                                 Icons.Filled.Person,
-                                contentDescription = stringResource(id = R.string.onboarding_add_photo),
+                                contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.onboarding_add_photo),
                                 modifier = Modifier.size(40.dp),
                                 tint = CorusColors.Tertiary,
                             )
@@ -319,7 +319,7 @@ fun OnboardingScreen(
             if (avatarUri == null) {
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
                 Text(
-                    text = stringResource(id = R.string.onboarding_add_photo),
+                    text = stringResource(id = fm.corus.android.localization.CorusStrings.onboarding_add_photo),
                     style = CorusFont.captionMedium,
                     color = CorusColors.Accent,
                 )
@@ -356,7 +356,7 @@ fun OnboardingScreen(
                     Box(modifier = Modifier.weight(1f)) {
                         if (displayName.isEmpty()) {
                             Text(
-                                stringResource(id = R.string.onboarding_full_name),
+                                stringResource(id = fm.corus.android.localization.CorusStrings.onboarding_field_display_name),
                                 style = CorusFont.body,
                                 color = CorusColors.Tertiary,
                             )
@@ -411,7 +411,7 @@ fun OnboardingScreen(
                     Box(modifier = Modifier.weight(1f)) {
                         if (username.isEmpty()) {
                             Text(
-                                stringResource(id = R.string.change_username_field_label),
+                                stringResource(id = fm.corus.android.localization.CorusStrings.onboarding_field_username),
                                 style = CorusFont.body,
                                 color = CorusColors.Tertiary,
                             )
@@ -471,7 +471,7 @@ fun OnboardingScreen(
                     }
                     usernameAvailable == false -> {
                         Text(
-                            stringResource(id = R.string.change_username_status_taken),
+                            stringResource(id = fm.corus.android.localization.CorusStrings.onboarding_username_taken),
                             style = CorusFont.caption,
                             color = CorusColors.Error,
                         )
@@ -502,9 +502,9 @@ fun OnboardingScreen(
                 enter = fadeIn(),
                 exit = fadeOut(),
             ) {
-                val termsText = stringResource(id = R.string.onboarding_terms)
-                val termsLabel = stringResource(id = R.string.onboarding_terms_link)
-                val privacyLabel = stringResource(id = R.string.onboarding_privacy_link)
+                val termsText = stringResource(id = fm.corus.android.localization.CorusStrings.onboarding_terms)
+                val termsLabel = stringResource(id = fm.corus.android.localization.CorusStrings.auth_terms_link)
+                val privacyLabel = stringResource(id = fm.corus.android.localization.CorusStrings.auth_privacy_link)
                 val legalText = remember(termsText, termsLabel, privacyLabel) {
                     buildAnnotatedString {
                         append(termsText)
@@ -581,7 +581,7 @@ fun OnboardingScreen(
                         strokeWidth = 2.dp,
                     )
                 } else {
-                    Text(stringResource(id = R.string.onboarding_button_continue), style = CorusFont.button, color = Color.White)
+                    Text(stringResource(id = fm.corus.android.localization.CorusStrings.onboarding_cta_continue), style = CorusFont.button, color = Color.White)
                 }
             }
         }
@@ -596,7 +596,7 @@ fun OnboardingScreen(
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(id = R.string.common_back),
+                contentDescription = stringResource(id = fm.corus.android.localization.CorusStrings.common_back),
                 tint = CorusColors.Text,
             )
         }
@@ -620,7 +620,7 @@ fun OnboardingScreen(
     if (showPhotoDialog) {
         AlertDialog(
             onDismissRequest = { showPhotoDialog = false },
-            title = { Text(stringResource(id = R.string.onboarding_dialog_photo_title), style = CorusFont.songTitleLarge) },
+            title = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.onboarding_dialog_photo_title), style = CorusFont.songTitleLarge) },
             text = {
                 Column {
                     TextButton(
@@ -630,7 +630,7 @@ fun OnboardingScreen(
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text(stringResource(id = R.string.profile_avatar_take_photo), style = CorusFont.body, color = CorusColors.Text)
+                        Text(stringResource(id = fm.corus.android.localization.CorusStrings.profile_avatar_take_photo), style = CorusFont.body, color = CorusColors.Text)
                     }
                     TextButton(
                         onClick = {
@@ -641,7 +641,7 @@ fun OnboardingScreen(
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text(stringResource(id = R.string.profile_avatar_choose_library), style = CorusFont.body, color = CorusColors.Text)
+                        Text(stringResource(id = fm.corus.android.localization.CorusStrings.profile_choose_from_library), style = CorusFont.body, color = CorusColors.Text)
                     }
                     if (avatarUri != null) {
                         TextButton(
@@ -652,14 +652,14 @@ fun OnboardingScreen(
                             },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text(stringResource(id = R.string.onboarding_remove_photo), style = CorusFont.body, color = CorusColors.Error)
+                            Text(stringResource(id = fm.corus.android.localization.CorusStrings.onboarding_remove_photo), style = CorusFont.body, color = CorusColors.Error)
                         }
                     }
                 }
             },
             confirmButton = {
                 TextButton(onClick = { showPhotoDialog = false }) {
-                    Text(stringResource(id = R.string.common_cancel), color = CorusColors.Secondary)
+                    Text(stringResource(id = fm.corus.android.localization.CorusStrings.common_cancel), color = CorusColors.Secondary)
                 }
             },
         )
@@ -669,15 +669,15 @@ fun OnboardingScreen(
     if (showAvatarNudge) {
         AlertDialog(
             onDismissRequest = { showAvatarNudge = false },
-            title = { Text(stringResource(id = R.string.onboarding_avatar_nudge_title), style = CorusFont.songTitleLarge) },
-            text = { Text(stringResource(id = R.string.onboarding_avatar_nudge_message), style = CorusFont.body) },
+            title = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.onboarding_avatar_nudge_title), style = CorusFont.songTitleLarge) },
+            text = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.onboarding_avatar_nudge_message), style = CorusFont.body) },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.analyticsService.logOnboardingAvatarNudge("add_photo")
                     showAvatarNudge = false
                     showPhotoDialog = true
                 }) {
-                    Text(stringResource(id = R.string.onboarding_add_photo_button), color = CorusColors.Accent)
+                    Text(stringResource(id = fm.corus.android.localization.CorusStrings.onboarding_add_photo_button), color = CorusColors.Accent)
                 }
             },
             dismissButton = {
@@ -686,7 +686,7 @@ fun OnboardingScreen(
                     showAvatarNudge = false
                     viewModel.completeOnboarding(username, displayName, avatarData)
                 }) {
-                    Text(stringResource(id = R.string.onboarding_skip), color = CorusColors.Secondary)
+                    Text(stringResource(id = fm.corus.android.localization.CorusStrings.common_skip), color = CorusColors.Secondary)
                 }
             },
         )

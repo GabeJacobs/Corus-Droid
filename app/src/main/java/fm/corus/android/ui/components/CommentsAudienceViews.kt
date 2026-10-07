@@ -130,16 +130,16 @@ fun CommentsLockedNotice(
     modifier: Modifier = Modifier,
 ) {
     val message = when (reason) {
-        CommentsBlockReason.OFF -> stringResource(R.string.comments_locked_off)
+        CommentsBlockReason.OFF -> stringResource(fm.corus.android.localization.CorusStrings.comments_locked_off)
         CommentsBlockReason.FOLLOWERS -> if (authorUsername != null) {
             stringResource(R.string.comments_locked_followers_known, authorUsername)
         } else {
-            stringResource(R.string.comments_locked_followers_unknown)
+            stringResource(fm.corus.android.localization.CorusStrings.comments_locked_followers_unknown)
         }
         CommentsBlockReason.FOLLOWING -> if (authorUsername != null) {
             stringResource(R.string.comments_locked_authorfollow_known, authorUsername)
         } else {
-            stringResource(R.string.comments_locked_authorfollow_unknown)
+            stringResource(fm.corus.android.localization.CorusStrings.comments_locked_authorfollow_unknown)
         }
     }
     Row(
@@ -177,8 +177,8 @@ private fun CommentsBlockReason.icon(): ImageVector = when (this) {
 }
 
 private fun CommentsAudience.summaryStringRes(): Int = when (this) {
-    CommentsAudience.EVERYONE -> R.string.comments_audience_everyone
-    CommentsAudience.FOLLOWERS -> R.string.comments_audience_followers
-    CommentsAudience.FOLLOWING -> R.string.comments_audience_following
-    CommentsAudience.OFF -> R.string.comments_audience_off
+    CommentsAudience.EVERYONE -> fm.corus.android.localization.CorusStrings.comments_audience_everyone
+    CommentsAudience.FOLLOWERS -> fm.corus.android.localization.CorusStrings.comments_audience_followers
+    CommentsAudience.FOLLOWING -> fm.corus.android.localization.CorusStrings.comments_audience_following
+    CommentsAudience.OFF -> fm.corus.android.localization.CorusStrings.comments_audience_off
 }

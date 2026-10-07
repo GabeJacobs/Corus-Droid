@@ -76,7 +76,7 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
             ) {
                 Icon(
                     Icons.Default.Search,
-                    contentDescription = stringResource(R.string.map_cd_search),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.nav_search),
                     tint = CorusColors.Secondary,
                     modifier = Modifier.size(20.dp),
                 )
@@ -100,7 +100,7 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
                 }
                 if (search.isNotEmpty()) {
                     IconButton(onClick = { search = "" }, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Close, stringResource(R.string.map_cd_clear_search), tint = CorusColors.Tertiary, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Close, stringResource(fm.corus.android.localization.CorusStrings.map_cd_clear_search), tint = CorusColors.Tertiary, modifier = Modifier.size(16.dp))
                     }
                 }
             }
@@ -144,7 +144,7 @@ fun MapPeopleDirectory(cities: List<MapCitySummary>, state: MapScreenState, mode
                             }
                         }
                     }
-                    Icon(if (closed) Icons.Default.ChevronRight else Icons.Default.ExpandMore, stringResource(if (closed) R.string.map_cd_expand_city else R.string.map_cd_collapse_city))
+                    Icon(if (closed) Icons.Default.ChevronRight else Icons.Default.ExpandMore, stringResource(if (closed) fm.corus.android.localization.CorusStrings.map_cd_expand_city else fm.corus.android.localization.CorusStrings.map_cd_collapse_city))
                 }
             }
             if (!closed) {

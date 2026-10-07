@@ -108,7 +108,7 @@ private fun RepostersSheetContent(
             .defaultMinSize(minHeight = 400.dp),
     ) {
         Text(
-            text = stringResource(R.string.reposters_title),
+            text = stringResource(fm.corus.android.localization.CorusStrings.reposters_title),
             style = CorusFont.screenTitle,
             color = CorusColors.Text,
             modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
@@ -133,7 +133,7 @@ private fun RepostersSheetContent(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = stringResource(R.string.reposters_load_error),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.reposters_load_error),
                             style = CorusFont.bodyMedium,
                             color = CorusColors.Secondary,
                         )
@@ -148,7 +148,7 @@ private fun RepostersSheetContent(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = stringResource(R.string.reposters_empty),
+                            text = stringResource(fm.corus.android.localization.CorusStrings.reposters_empty),
                             style = CorusFont.bodyMedium,
                             color = CorusColors.Secondary,
                         )

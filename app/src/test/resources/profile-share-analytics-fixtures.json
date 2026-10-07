@@ -1,0 +1,107 @@
+[
+  {
+    "title": "Full video prepared",
+    "action": "export_ready",
+    "context": {
+      "share_session_id": "00000000-0000-0000-0000-000000000001",
+      "source": "action_row",
+      "layout": "full",
+      "background": "blue",
+      "effect": "snow",
+      "post_count": 35,
+      "artwork_count": 28,
+      "full_available": true,
+      "large_available": true
+    },
+    "extra": {
+      "destination": "instagram",
+      "format": "story_video",
+      "duration_ms": 1240.4
+    },
+    "expected": {
+      "action": "export_ready",
+      "source": "action_row",
+      "share_version": 2,
+      "share_session_id": "00000000-0000-0000-0000-000000000001",
+      "layout": "full",
+      "background": "blue",
+      "effect": "snow",
+      "post_count": 35,
+      "artwork_count": 28,
+      "full_available": "true",
+      "large_available": "true",
+      "destination": "instagram",
+      "format": "story_video",
+      "duration_ms": 1240,
+      "preview_kind": "story"
+    }
+  },
+  {
+    "title": "Untrusted values are rejected",
+    "action": "raw error with a username",
+    "context": {
+      "share_session_id": "00000000-0000-0000-0000-000000000001",
+      "source": "private-username",
+      "layout": "url",
+      "background": "untrusted",
+      "effect": "disco",
+      "post_count": -3,
+      "artwork_count": 99,
+      "full_available": false,
+      "large_available": false
+    },
+    "extra": {
+      "destination": "a-person",
+      "format": "a-path",
+      "result": "raw-error",
+      "error_code": "private-error",
+      "duration_ms": -1,
+      "bio": "private bio",
+      "username": "private"
+    },
+    "expected": {
+      "action": "unknown",
+      "source": "unknown",
+      "share_version": 2,
+      "share_session_id": "00000000-0000-0000-0000-000000000001",
+      "layout": "unknown",
+      "background": "unknown",
+      "effect": "none",
+      "post_count": 0,
+      "artwork_count": 28,
+      "full_available": "false",
+      "large_available": "false",
+      "duration_ms": 0,
+      "preview_kind": "story"
+    }
+  },
+  {
+    "title": "Unknown count is absent",
+    "action": "opened",
+    "context": {
+      "share_session_id": "00000000-0000-0000-0000-000000000001",
+      "source": "action_row",
+      "layout": "latest",
+      "background": "blue",
+      "effect": "none",
+      "post_count": null,
+      "artwork_count": 1,
+      "full_available": false,
+      "large_available": false
+    },
+    "extra": {},
+    "expected": {
+      "action": "opened",
+      "source": "action_row",
+      "share_version": 2,
+      "share_session_id": "00000000-0000-0000-0000-000000000001",
+      "layout": "latest",
+      "background": "blue",
+      "effect": "none",
+      "artwork_count": 1,
+      "full_available": "false",
+      "large_available": "false",
+      "preview_kind": "story"
+    }
+  }
+]

@@ -379,7 +379,7 @@ class EditProfileViewModel @Inject constructor(
                 analyticsService.logEditProfileSaved()
                 onSuccess()
             } catch (e: Exception) {
-                _saveError.value = context.getString(R.string.edit_profile_save_error)
+                _saveError.value = context.getString(fm.corus.android.localization.CorusStrings.comments_edit_error)
                 analyticsService.logProfileUpdateError(e.message ?: "unknown")
             } finally {
                 _isSaving.value = false
@@ -401,7 +401,7 @@ class EditProfileViewModel @Inject constructor(
                 _styleSelections.value = selections
                 onSuccess()
             } catch (e: Exception) {
-                _saveError.value = context.getString(R.string.edit_profile_save_style_error)
+                _saveError.value = context.getString(fm.corus.android.localization.CorusStrings.edit_profile_save_style_error)
             }
             _isStyleSaving.value = false
         }
@@ -434,17 +434,17 @@ class EditProfileViewModel @Inject constructor(
                     onFinished()
                     return@launch
                 }
-                val fix = location ?: error(context.getString(R.string.map_location_needed))
+                val fix = location ?: error(context.getString(fm.corus.android.localization.CorusStrings.map_location_needed))
                 _findingCity.value = true
                 val city = mapRepository.resolve(fix)
-                val user = _profile.value ?: error(context.getString(R.string.map_please_try_again))
+                val user = _profile.value ?: error(context.getString(fm.corus.android.localization.CorusStrings.map_please_try_again))
                 mapRepository.share(user, city, audience, "device")
                 mapRepository.event("sharing_saved", mode = "edit_profile", value = "device")
                 _ownCity.value = city
                 _ownAudience.value = audience
             } catch (e: Exception) {
                 mapRepository.event("sharing_failed", mode = "edit_profile", value = "device")
-                _shareError.value = e.message ?: context.getString(R.string.map_please_try_again)
+                _shareError.value = e.message ?: context.getString(fm.corus.android.localization.CorusStrings.map_please_try_again)
             } finally {
                 _findingCity.value = false
                 onFinished()

@@ -112,7 +112,7 @@ class SongDetailViewModelShareTest {
     @Test
     fun `searchShareUsers debounces and publishes results`() = runTest {
         val results = listOf(CymbalUser(id = "u1", username = "alice", displayName = "Alice"))
-        whenever(messageRepository.searchShareRecipients(eq("me"), eq("ali"), eq(userRepository))).doReturn(results.map { fm.corus.android.data.model.ShareRecipient(user = it) })
+        whenever(messageRepository.searchShareRecipients(eq("me"), eq("ali"), eq(userRepository), any())).doReturn(results.map { fm.corus.android.data.model.ShareRecipient(user = it) })
 
         viewModel.searchShareUsers("ali")
         advanceUntilIdle()

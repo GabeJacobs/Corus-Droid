@@ -1,10 +1,10 @@
 <resources>
-    <string name="gift_say_thanks">Dar las gracias</string>
-    <string name="gift_thanked">Agradecido ✓</string>
-    <string name="gift_thanks_sending">Enviando…</string>
-    <string name="gift_open_post">Abrir publicación</string>
-    <string name="gift_thanks_error">No se pudo enviar el agradecimiento. Inténtalo de nuevo.</string>
-    <string name="gift_note_from">Una nota de %1$s</string>
-    <string name="gift_thanks_message">te dio las gracias por tu regalo.</string>
-    <string name="gift_thanks_sender">%1$s te dio las gracias por tu regalo.</string>
+    <string name="gift_say_thanks">"Dar las gracias"</string>
+    <string name="gift_thanked">"Agradecido ✓"</string>
+    <string name="gift_thanks_sending">"Enviando…"</string>
+    <string name="gift_open_post">"Ir a la publicación"</string>
+    <string name="gift_thanks_error">"No se pudo enviar el agradecimiento. Inténtalo de nuevo."</string>
+    <string name="gift_note_from">"Una nota de %1$s"</string>
+    <string name="gift_thanks_message">"te dio las gracias por tu regalo."</string>
+    <string name="gift_thanks_sender">"%1$s te dio las gracias por tu regalo."</string>
 </resources>

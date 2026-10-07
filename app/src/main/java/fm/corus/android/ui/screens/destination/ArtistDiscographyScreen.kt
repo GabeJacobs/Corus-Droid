@@ -92,7 +92,7 @@ fun ArtistDiscographyScreen(
                     CorusHeaderIconButton(
                         onClick = onBack,
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.feed_cd_back),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
@@ -107,7 +107,7 @@ fun ArtistDiscographyScreen(
         ) {
             Column(modifier = Modifier.padding(horizontal = CorusSpacing.lg)) {
                 Text(
-                    text = stringResource(R.string.destination_discography),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.parity_19a4b0a062c8),
                     style = CorusFont.songTitleLarge,
                     color = CorusColors.Text,
                 )
@@ -135,10 +135,10 @@ fun ArtistDiscographyScreen(
                         Text(
                             text = stringResource(
                                 when (chip) {
-                                    DiscographyFilter.ALL -> R.string.search_filter_all
-                                    DiscographyFilter.ALBUMS -> R.string.destination_filter_albums
-                                    DiscographyFilter.SINGLES_EPS -> R.string.destination_filter_singles_eps
-                                    DiscographyFilter.COMPILATIONS -> R.string.destination_filter_compilations
+                                    DiscographyFilter.ALL -> fm.corus.android.localization.CorusStrings.concert_tab_all
+                                    DiscographyFilter.ALBUMS -> fm.corus.android.localization.CorusStrings.onboarding_taste_section_albums
+                                    DiscographyFilter.SINGLES_EPS -> fm.corus.android.localization.CorusStrings.destination_filter_singles_eps
+                                    DiscographyFilter.COMPILATIONS -> fm.corus.android.localization.CorusStrings.destination_filter_compilations
                                 }
                             ),
                             style = CorusFont.captionMedium,
@@ -176,7 +176,7 @@ fun ArtistDiscographyScreen(
                 }
             } else if (catalogError && detail == null) {
                 Text(
-                    text = stringResource(R.string.destination_catalog_load_error),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.destination_catalog_load_error),
                     style = CorusFont.body,
                     color = CorusColors.Secondary,
                     modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.lg),

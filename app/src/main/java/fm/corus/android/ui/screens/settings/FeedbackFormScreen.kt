@@ -48,9 +48,9 @@ fun FeedbackFormScreen(
                 CorusHeaderIconButton(
                     onClick = onBack,
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.common_back),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                 )
-                Text(stringResource(R.string.feedback_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.feedback_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
 
                 Spacer(modifier = Modifier.weight(1f))
 
@@ -58,7 +58,7 @@ fun FeedbackFormScreen(
                     onClick = { viewModel.submit(onDismiss = onBack) },
                     enabled = viewModel.canSubmit,
                 ) {
-                    Text(stringResource(R.string.common_submit), style = CorusFont.button, color = CorusColors.Accent)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_submit), style = CorusFont.button, color = CorusColors.Accent)
                 }
             }
 
@@ -97,8 +97,8 @@ fun FeedbackFormScreen(
                 OutlinedTextField(
                     value = subject,
                     onValueChange = { viewModel.onSubjectChanged(it) },
-                    label = { Text(stringResource(R.string.feedback_subject_label)) },
-                    placeholder = { Text(stringResource(R.string.feedback_subject_placeholder), color = CorusColors.Tertiary) },
+                    label = { Text(stringResource(fm.corus.android.localization.CorusStrings.feedback_subject_label)) },
+                    placeholder = { Text(stringResource(fm.corus.android.localization.CorusStrings.feedback_subject_placeholder), color = CorusColors.Tertiary) },
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -109,8 +109,8 @@ fun FeedbackFormScreen(
                 OutlinedTextField(
                     value = description,
                     onValueChange = { viewModel.onDescriptionChanged(it) },
-                    label = { Text(stringResource(R.string.feedback_description_label)) },
-                    placeholder = { Text(stringResource(R.string.feedback_description_placeholder), color = CorusColors.Tertiary) },
+                    label = { Text(stringResource(fm.corus.android.localization.CorusStrings.feedback_description_label)) },
+                    placeholder = { Text(stringResource(fm.corus.android.localization.CorusStrings.feedback_description_placeholder), color = CorusColors.Tertiary) },
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -121,7 +121,7 @@ fun FeedbackFormScreen(
 
                 // Device info note
                 Text(
-                    text = stringResource(R.string.feedback_device_info_note),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.feedback_device_info_note),
                     style = CorusFont.caption,
                     color = CorusColors.Tertiary,
                     modifier = Modifier.fillMaxWidth(),
@@ -147,7 +147,7 @@ fun FeedbackFormScreen(
                         verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                     ) {
                         CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp)
-                        Text(stringResource(R.string.feedback_submitting), style = CorusFont.bodyMedium, color = Color.White)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.feedback_submitting), style = CorusFont.bodyMedium, color = Color.White)
                     }
                 }
             }
@@ -176,7 +176,7 @@ fun FeedbackFormScreen(
                             tint = CorusColors.Verified,
                             modifier = Modifier.size(48.dp),
                         )
-                        Text(stringResource(R.string.feedback_success), style = CorusFont.bodyMedium, color = Color.White)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.feedback_success), style = CorusFont.bodyMedium, color = Color.White)
                     }
                 }
             }
@@ -186,11 +186,11 @@ fun FeedbackFormScreen(
         if (errorMessage != null) {
             AlertDialog(
                 onDismissRequest = { viewModel.clearError() },
-                title = { Text(stringResource(R.string.common_error), style = CorusFont.songTitleLarge) },
+                title = { Text(stringResource(fm.corus.android.localization.CorusStrings.common_error_7104f711), style = CorusFont.songTitleLarge) },
                 text = { Text(errorMessage ?: "", style = CorusFont.body) },
                 confirmButton = {
                     TextButton(onClick = { viewModel.clearError() }) {
-                        Text(stringResource(R.string.common_ok))
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.common_ok))
                     }
                 },
             )

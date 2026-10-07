@@ -204,7 +204,9 @@ class ProfileViewModel @Inject constructor(
             _isShareSearching.value = true
             delay(250)
             try {
-                _shareSearchResults.value = messageRepository.searchShareRecipients(authRepository.currentUserId ?: return@launch, trimmed, userRepository)
+                _shareSearchResults.value = messageRepository.searchShareRecipients(authRepository.currentUserId ?: return@launch, trimmed, userRepository) { partial ->
+                    _shareSearchResults.value = partial
+                }
             } catch (error: kotlinx.coroutines.CancellationException) {
                 throw error
             } catch (_: Exception) {
@@ -254,6 +256,18 @@ class ProfileViewModel @Inject constructor(
 
     fun logProfileShareThemeChanged(profileUserId: String, cardTheme: ShareCardTheme) {
         analyticsService.logProfileShareThemeChanged(profileUserId, cardTheme.analyticsValue)
+    }
+
+    fun logProfileShareBackgroundChanged(profileUserId: String, background: String) {
+        analyticsService.logProfileShareThemeChanged(profileUserId, background)
+    }
+
+    fun logProfileShareV2(params: Map<String, Any>) {
+        analyticsService.logEvent(fm.corus.android.service.ProfileShareAnalytics.EVENT, params)
+    }
+
+    fun logProfileShareDiscovery(params: Map<String, Any>) {
+        analyticsService.logEvent("profile_share_discovery", params)
     }
 
     val engagementStates = engagementManager.states

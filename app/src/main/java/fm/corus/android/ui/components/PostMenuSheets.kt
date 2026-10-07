@@ -98,11 +98,11 @@ fun PostMenuSheets(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val postSentMsg = stringResource(R.string.post_menu_toast_post_sent)
-    val captionUpdatedMsg = stringResource(R.string.post_menu_toast_caption_updated)
-    val addedToQueueMsg = stringResource(R.string.post_menu_toast_added_to_queue)
-    val albumNotFoundMsg = stringResource(R.string.song_detail_album_not_found)
-    val artistNotFoundMsg = stringResource(R.string.song_detail_artist_not_found)
+    val postSentMsg = stringResource(fm.corus.android.localization.CorusStrings.share_toast_message_sent)
+    val captionUpdatedMsg = stringResource(fm.corus.android.localization.CorusStrings.nav_toast_caption_updated)
+    val addedToQueueMsg = stringResource(fm.corus.android.localization.CorusStrings.post_menu_toast_added_to_queue)
+    val albumNotFoundMsg = stringResource(fm.corus.android.localization.CorusStrings.post_toast_album_not_found)
+    val artistNotFoundMsg = stringResource(fm.corus.android.localization.CorusStrings.post_toast_artist_not_found)
     var isResolvingAlbum by remember { mutableStateOf(false) }
     var isResolvingArtist by remember { mutableStateOf(false) }
     val engagementStates by actions.engagementStates.collectAsState()
@@ -316,10 +316,10 @@ fun PostMenuSheets(
     deleteConfirmPost?.let { post ->
         AlertDialog(
             onDismissRequest = { onDeleteConfirmPostChange(null) },
-            title = { Text(stringResource(R.string.post_menu_dialog_delete_title), style = CorusFont.songTitle, color = CorusColors.Text) },
+            title = { Text(stringResource(fm.corus.android.localization.CorusStrings.post_menu_delete_post), style = CorusFont.songTitle, color = CorusColors.Text) },
             text = {
                 Text(
-                    stringResource(R.string.post_menu_dialog_delete_message),
+                    stringResource(fm.corus.android.localization.CorusStrings.post_menu_dialog_delete_message),
                     style = CorusFont.body,
                     color = CorusColors.Secondary,
                 )
@@ -330,12 +330,12 @@ fun PostMenuSheets(
                     onDeleteConfirmPostChange(null)
                     onPostDeleted(post)
                 }) {
-                    Text(stringResource(R.string.post_menu_dialog_delete_confirm), style = CorusFont.button, color = CorusColors.Error)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_delete), style = CorusFont.button, color = CorusColors.Error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { onDeleteConfirmPostChange(null) }) {
-                    Text(stringResource(R.string.post_menu_dialog_delete_cancel), style = CorusFont.button, color = CorusColors.Text)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_cancel), style = CorusFont.button, color = CorusColors.Text)
                 }
             },
             containerColor = CorusColors.Background,
@@ -395,7 +395,7 @@ fun DestinationResolvingHud(visible: Boolean) {
             )
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
             Text(
-                text = stringResource(R.string.song_detail_resolving),
+                text = stringResource(fm.corus.android.localization.CorusStrings.common_loading),
                 style = CorusFont.caption,
                 color = Color.White,
             )

@@ -52,9 +52,9 @@ fun NotificationSettingsScreen(
             CorusHeaderIconButton(
                 onClick = onBack,
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.common_back),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
             )
-            Text(stringResource(R.string.notifications_screen_title), style = CorusFont.screenTitle, color = CorusColors.Text)
+            Text(stringResource(fm.corus.android.localization.CorusStrings.settings_row_notifications), style = CorusFont.screenTitle, color = CorusColors.Text)
         }
 
         HorizontalDivider(color = CorusColors.Divider)
@@ -66,42 +66,42 @@ fun NotificationSettingsScreen(
         ) {
             NotifToggleRow(
                 icon = Icons.Filled.Favorite,
-                title = stringResource(R.string.notifications_row_likes),
+                title = stringResource(fm.corus.android.localization.CorusStrings.likes_title),
                 checked = settings.likes,
                 onCheckedChange = viewModel::setLikes,
             )
 
             NotifToggleRow(
                 icon = Icons.Outlined.ChatBubbleOutline,
-                title = stringResource(R.string.notifications_row_comments_replies),
+                title = stringResource(fm.corus.android.localization.CorusStrings.notifications_row_comments_replies),
                 checked = settings.commentsAndReplies,
                 onCheckedChange = viewModel::setCommentsAndReplies,
             )
 
             NotifToggleRow(
                 icon = Icons.Outlined.PersonAdd,
-                title = stringResource(R.string.notifications_row_new_followers),
+                title = stringResource(fm.corus.android.localization.CorusStrings.notifications_row_new_followers),
                 checked = settings.newFollowers,
                 onCheckedChange = viewModel::setNewFollowers,
             )
 
             NotifToggleRow(
                 icon = Icons.Filled.PersonSearch,
-                title = stringResource(R.string.notifications_row_follow_requests),
+                title = stringResource(fm.corus.android.localization.CorusStrings.notifications_row_follow_requests),
                 checked = settings.followRequests,
                 onCheckedChange = viewModel::setFollowRequests,
             )
 
             NotifToggleRow(
                 icon = Icons.Filled.HowToReg,
-                title = stringResource(R.string.notifications_row_contact_joined),
+                title = stringResource(fm.corus.android.localization.CorusStrings.notifications_row_contact_joined),
                 checked = settings.contactJoined,
                 onCheckedChange = viewModel::setContactJoined,
             )
 
             NotifToggleRow(
                 icon = Icons.Filled.Map,
-                title = stringResource(R.string.notifications_row_map_updates),
+                title = stringResource(fm.corus.android.localization.CorusStrings.notifications_row_map_updates),
                 checked = settings.mapUpdates,
                 onCheckedChange = viewModel::setMapUpdates,
             )
@@ -109,7 +109,7 @@ fun NotificationSettingsScreen(
             if (viewModel.concertsEnabled) {
                 NotifToggleRow(
                     icon = Icons.Filled.NotificationsActive,
-                    title = stringResource(R.string.concerts_title),
+                    title = stringResource(fm.corus.android.localization.CorusStrings.concerts_title),
                     checked = settings.concerts,
                     onCheckedChange = viewModel::setConcerts,
                 )
@@ -127,7 +127,7 @@ fun NotificationSettingsScreen(
             if (viewModel.playMilestoneEnabled) {
                 NotifToggleRow(
                     icon = Icons.Filled.PlayArrow,
-                    title = stringResource(R.string.notifications_row_plays),
+                    title = stringResource(fm.corus.android.localization.CorusStrings.notifications_row_plays),
                     checked = settings.plays,
                     onCheckedChange = viewModel::setPlays,
                 )
@@ -135,29 +135,29 @@ fun NotificationSettingsScreen(
 
             NotifToggleRow(
                 icon = Icons.AutoMirrored.Filled.TrendingUp,
-                title = stringResource(R.string.notifications_row_trending),
+                title = stringResource(fm.corus.android.localization.CorusStrings.feed_mode_trending),
                 checked = settings.trending,
                 onCheckedChange = viewModel::setTrending,
             )
 
             NotifToggleRow(
                 icon = Icons.Filled.Notifications,
-                title = stringResource(R.string.notifications_row_messages),
+                title = stringResource(fm.corus.android.localization.CorusStrings.nav_messages),
                 checked = settings.messagePush,
                 onCheckedChange = viewModel::setMessagePush,
             )
 
             NotifToggleRow(
                 icon = Icons.Filled.AddReaction,
-                title = stringResource(R.string.notifications_row_reactions),
+                title = stringResource(fm.corus.android.localization.CorusStrings.notifications_row_reactions),
                 checked = settings.reactions,
                 onCheckedChange = viewModel::setReactions,
             )
 
             NotifToggleRow(
                 icon = Icons.Filled.NotificationsActive,
-                title = stringResource(R.string.notifications_row_updates_reminders),
-                subtitle = stringResource(R.string.notifications_row_updates_reminders_subtitle),
+                title = stringResource(fm.corus.android.localization.CorusStrings.notifications_row_updates_reminders),
+                subtitle = stringResource(fm.corus.android.localization.CorusStrings.notifications_row_updates_reminders_subtitle),
                 checked = settings.updatesAndReminders,
                 onCheckedChange = viewModel::setUpdatesAndReminders,
             )

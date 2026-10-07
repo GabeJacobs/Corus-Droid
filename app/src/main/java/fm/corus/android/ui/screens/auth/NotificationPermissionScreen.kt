@@ -137,14 +137,14 @@ internal fun NotificationPermissionScreen(
             modifier = Modifier.padding(start = CorusSpacing.xxl, top = 60.dp, end = CorusSpacing.xxl),
         ) {
             Text(
-                stringResource(R.string.onboarding_notif_title),
+                stringResource(fm.corus.android.localization.CorusStrings.onboarding_notif_title),
                 style = CorusFont.custom(900, 28),
                 color = CorusColors.Text,
                 textAlign = TextAlign.Center,
             )
             Spacer(modifier = Modifier.height(CorusSpacing.sm))
             Text(
-                stringResource(R.string.onboarding_notif_subtitle),
+                stringResource(fm.corus.android.localization.CorusStrings.onboarding_notif_subtitle),
                 style = CorusFont.bodyMedium,
                 color = CorusColors.Secondary,
                 textAlign = TextAlign.Center,
@@ -207,13 +207,13 @@ internal fun NotificationPermissionScreen(
             colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
         ) {
             Text(
-                stringResource(R.string.onboarding_notif_allow),
+                stringResource(fm.corus.android.localization.CorusStrings.onboarding_notif_allow),
                 style = CorusFont.button,
                 color = Color.White,
             )
         }
         Text(
-            stringResource(R.string.onboarding_notif_not_now),
+            stringResource(fm.corus.android.localization.CorusStrings.common_skip),
             style = CorusFont.captionMedium,
             color = CorusColors.Secondary,
             modifier = Modifier

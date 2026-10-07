@@ -39,9 +39,9 @@ fun OfflineRetryState(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     icon: ImageVector = Icons.Filled.WifiOff,
-    title: String = stringResource(R.string.feed_offline_title),
-    subtitle: String = stringResource(R.string.feed_offline_subtitle),
-    retryLabel: String = stringResource(R.string.feed_offline_retry),
+    title: String = stringResource(fm.corus.android.localization.CorusStrings.feed_offline_title),
+    subtitle: String = stringResource(fm.corus.android.localization.CorusStrings.feed_offline_subtitle),
+    retryLabel: String = stringResource(fm.corus.android.localization.CorusStrings.common_retry),
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="corus_native_400157a33bff">"最も好みが合う人"</string>
+    <string name="corus_native_de09e9efb9a5">"共通のお気に入り"</string>
+    <string name="corus_onboarding_corus_stars">"CORUSのスター"</string>
+    <plurals name="corus_onboarding_follow_remaining"><item quantity="one">"あと%1$d人をフォロー"</item><item quantity="other">"あと%1$d人をフォロー"</item></plurals>
+    <plurals name="corus_onboarding_follow_required"><item quantity="one">"%1$d人をフォロー"</item><item quantity="other">"%1$d人をフォロー"</item></plurals>
+    <plurals name="corus_onboarding_follow_requirement_subtitle"><item quantity="one">"%1$d人をフォローしてフィードを始めましょう。"</item><item quantity="other">"%1$d人をフォローしてフィードを始めましょう。"</item></plurals>
+    <string name="corus_onboarding_more_taste_matches">"同じ好みの人をもっと見つけよう"</string>
+    <string name="corus_onboarding_see_all_taste_matches">"好みが合う%1$d人をすべて見る"</string>
+</resources>

@@ -89,7 +89,7 @@ fun SuggestedUsersListScreen(
             source = fm.corus.android.ui.screens.subscription.PaywallSource.TASTE_DISCOVERY,
             onDismiss = { showDiscoveryPaywall = false }, onPurchaseSuccess = onRefresh)
     }
-    val resolvedTitle = title ?: stringResource(fm.corus.android.R.string.suggested_users_default_title)
+    val resolvedTitle = title ?: stringResource(fm.corus.android.localization.CorusStrings.feed_mode_taste_matches)
     val context = LocalContext.current
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -100,7 +100,7 @@ fun SuggestedUsersListScreen(
                     CorusHeaderIconButton(
                         onClick = onBack,
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(fm.corus.android.R.string.common_back),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
                     )
                 },
                 actions = {
@@ -114,7 +114,7 @@ fun SuggestedUsersListScreen(
                         UnfollowedUsersFilterMenu(
                             filterUnfollowed = filterUnfollowed,
                             onSetFilterUnfollowed = onSetFilterUnfollowed,
-                            contentDescription = stringResource(fm.corus.android.R.string.search_cd_filter_taste_matches),
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.search_cd_filter_taste_matches),
                             modifier = Modifier.padding(end = CorusSpacing.sm),
                         )
                     }
@@ -192,19 +192,19 @@ fun SuggestedUsersListScreen(
                         ) {
                             Text(
                                 // No em dashes in user-facing copy (repo rule).
-                                text = stringResource(fm.corus.android.R.string.suggested_users_followed_all_taste_matches),
+                                text = stringResource(fm.corus.android.localization.CorusStrings.suggested_users_followed_all_taste_matches),
                                 style = CorusFont.bodyMedium,
                                 color = CorusColors.Secondary,
                             )
                             Text(
-                                text = stringResource(fm.corus.android.R.string.suggested_users_show_all),
+                                text = stringResource(fm.corus.android.localization.CorusStrings.suggested_users_show_all),
                                 style = CorusFont.captionMedium,
                                 color = CorusColors.Accent,
                                 modifier = Modifier.clickable { onSetFilterUnfollowed(false) },
                             )
                         }
                     } else {
-                        Text(stringResource(fm.corus.android.R.string.suggested_users_empty), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.suggested_users_empty), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
                     }
                 }
             }
@@ -365,7 +365,7 @@ private fun TasteMatchesFeedCta(
         verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
     ) {
         Text(
-            text = stringResource(fm.corus.android.R.string.search_taste_matches_feed_cta_body),
+            text = stringResource(fm.corus.android.localization.CorusStrings.search_taste_matches_feed_cta_body),
             style = CorusFont.body,
             color = CorusColors.Secondary,
             textAlign = TextAlign.Center,
@@ -383,7 +383,7 @@ private fun TasteMatchesFeedCta(
             contentPadding = PaddingValues(horizontal = CorusSpacing.xl, vertical = CorusSpacing.sm),
         ) {
             Text(
-                text = stringResource(fm.corus.android.R.string.search_taste_matches_feed_cta_button),
+                text = stringResource(fm.corus.android.localization.CorusStrings.search_taste_matches_feed_cta_button),
                 style = CorusFont.bodyMedium,
             )
         }

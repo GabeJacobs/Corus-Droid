@@ -90,7 +90,7 @@ fun PostSuccessOthersSheet(
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text = stringResource(R.string.destination_see_all),
+                text = stringResource(fm.corus.android.localization.CorusStrings.rail_see_all),
                 style = CorusFont.captionMedium,
                 color = CorusColors.Accent,
                 modifier = Modifier.clickable(onClick = onSeeAll),
@@ -111,7 +111,7 @@ fun PostSuccessOthersSheet(
                 .padding(top = 24.dp, bottom = 4.dp),
         ) {
             Text(
-                text = stringResource(R.string.post_success_others_done),
+                text = stringResource(fm.corus.android.localization.CorusStrings.common_done),
                 style = CorusFont.button.copy(fontSize = 15.sp),
                 color = CorusColors.Secondary,
             )
@@ -219,7 +219,7 @@ private fun PostSuccessOthersRow(
         if (person.postId.isNotEmpty()) {
             Icon(
                 imageVector = if (liked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                contentDescription = stringResource(R.string.post_card_cd_like),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.comment_like_action),
                 tint = if (liked) CorusColors.Like else CorusColors.Secondary,
                 modifier = Modifier
                     .size(36.dp)
@@ -279,7 +279,7 @@ private fun StayVisibleFollowPill(
         )
         Text(
             text = stringResource(
-                if (following) R.string.likes_button_following else R.string.likes_button_follow,
+                if (following) fm.corus.android.localization.CorusStrings.following_status else fm.corus.android.localization.CorusStrings.follow_action,
             ),
             style = CorusFont.caption.copy(fontWeight = FontWeight.SemiBold),
             color = contentColor,

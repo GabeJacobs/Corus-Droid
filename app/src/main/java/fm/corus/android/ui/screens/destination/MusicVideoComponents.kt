@@ -57,7 +57,7 @@ fun MusicVideoRail(
     onPlay: (MusicVideo) -> Unit,
     onClosePlayer: () -> Unit,
     onSeeAll: (() -> Unit)?,
-    title: String = stringResource(R.string.destination_music_videos),
+    title: String = stringResource(fm.corus.android.localization.CorusStrings.destination_music_videos),
 ) {
     Column {
         DestinationSectionHeader(

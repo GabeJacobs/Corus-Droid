@@ -158,10 +158,10 @@ import kotlin.math.roundToInt
 import androidx.compose.foundation.lazy.LazyRow
 
 enum class SearchTab(val labelRes: Int) {
-    USERS(fm.corus.android.R.string.search_tab_users),
-    SONGS(fm.corus.android.R.string.search_tab_songs),
-    FILMS(fm.corus.android.R.string.search_tab_films),
-    HASHTAGS(fm.corus.android.R.string.search_tab_hashtags),
+    USERS(fm.corus.android.localization.CorusStrings.search_tab_users),
+    SONGS(fm.corus.android.localization.CorusStrings.search_tab_songs),
+    FILMS(fm.corus.android.localization.CorusStrings.search_tab_films),
+    HASHTAGS(fm.corus.android.localization.CorusStrings.search_tab_hashtags),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -300,7 +300,7 @@ fun SearchScreen(
             if (route != null) navigateToDirector(route)
             else android.widget.Toast.makeText(
                 searchContext,
-                searchContext.getString(fm.corus.android.R.string.film_detail_director_not_found),
+                searchContext.getString(fm.corus.android.localization.CorusStrings.film_detail_director_not_found),
                 android.widget.Toast.LENGTH_SHORT,
             ).show()
         }
@@ -334,7 +334,7 @@ fun SearchScreen(
                     is TrendingAlbumOpen.Song -> navigateToSong(dest.track)
                     null -> android.widget.Toast.makeText(
                         searchContext,
-                        searchContext.getString(fm.corus.android.R.string.search_no_matches),
+                        searchContext.getString(fm.corus.android.localization.CorusStrings.search_no_matches),
                         android.widget.Toast.LENGTH_SHORT,
                     ).show()
                 }
@@ -565,20 +565,20 @@ fun SearchScreen(
             onFocusChanged = { isSearchFocused = it },
             placeholder = if (unifiedQueryMode) {
                 // No pre-picked vertical: one placeholder names them all.
-                stringResource(fm.corus.android.R.string.search_placeholder_unified)
+                stringResource(fm.corus.android.localization.CorusStrings.search_placeholder_unified)
             } else when (activeTab) {
                 // Artist pages on: songs/films placeholders widen to cover the
                 // new artist/album/director rows ("Music" / "Film" tabs).
                 SearchTab.SONGS -> stringResource(
-                    if (artistPagesEnabled) fm.corus.android.R.string.search_placeholder_music
-                    else fm.corus.android.R.string.search_placeholder_songs
+                    if (artistPagesEnabled) fm.corus.android.localization.CorusStrings.search_placeholder_music_3ae80b08
+                    else fm.corus.android.localization.CorusStrings.compose_search_song
                 )
                 SearchTab.FILMS -> stringResource(
-                    if (artistPagesEnabled) fm.corus.android.R.string.search_placeholder_film
-                    else fm.corus.android.R.string.search_placeholder_films
+                    if (artistPagesEnabled) fm.corus.android.localization.CorusStrings.search_placeholder_film_952681e3
+                    else fm.corus.android.localization.CorusStrings.compose_search_film
                 )
-                SearchTab.USERS -> stringResource(fm.corus.android.R.string.search_placeholder_users)
-                SearchTab.HASHTAGS -> stringResource(fm.corus.android.R.string.search_placeholder_hashtags)
+                SearchTab.USERS -> stringResource(fm.corus.android.localization.CorusStrings.search_placeholder_users_d2b4126f)
+                SearchTab.HASHTAGS -> stringResource(fm.corus.android.localization.CorusStrings.search_placeholder_hashtags_aec01a25)
             },
         )
 
@@ -638,14 +638,14 @@ fun SearchScreen(
                         onRetry = { viewModel.retrySearch() },
                         icon = if (isConnected) Icons.Filled.WarningAmber else Icons.Filled.WifiOff,
                         title = if (isConnected) {
-                            stringResource(fm.corus.android.R.string.search_service_unavailable_title)
+                            stringResource(fm.corus.android.localization.CorusStrings.search_service_unavailable_title)
                         } else {
-                            stringResource(fm.corus.android.R.string.feed_offline_title)
+                            stringResource(fm.corus.android.localization.CorusStrings.feed_offline_title)
                         },
                         subtitle = if (isConnected) {
-                            stringResource(fm.corus.android.R.string.search_service_unavailable_subtitle)
+                            stringResource(fm.corus.android.localization.CorusStrings.search_service_unavailable_body)
                         } else {
-                            stringResource(fm.corus.android.R.string.feed_offline_subtitle)
+                            stringResource(fm.corus.android.localization.CorusStrings.feed_offline_subtitle)
                         },
                     )
                 } else {
@@ -713,7 +713,7 @@ fun SearchScreen(
                                     showRank = true,
                                     viewModel = viewModel,
                                     section = SearchSection.TrendingAlbums,
-                                    titleRes = fm.corus.android.R.string.search_trending_albums_title,
+                                    titleRes = fm.corus.android.localization.CorusStrings.search_section_trending_albums,
                                     icon = "album",
                                     onAlbumTap = openTrendingAlbum,
                                     onSeeAll = { onNavigateToTrending("albums") },
@@ -732,7 +732,7 @@ fun SearchScreen(
                                                 if (route != null) navigateToArtist(route)
                                                 else android.widget.Toast.makeText(
                                                     searchContext,
-                                                    searchContext.getString(fm.corus.android.R.string.song_detail_artist_not_found),
+                                                    searchContext.getString(fm.corus.android.localization.CorusStrings.post_toast_artist_not_found),
                                                     android.widget.Toast.LENGTH_SHORT,
                                                 ).show()
                                             }
@@ -747,7 +747,7 @@ fun SearchScreen(
                                     showRank = false,
                                     viewModel = viewModel,
                                     section = SearchSection.NewReleaseAlbums,
-                                    titleRes = fm.corus.android.R.string.search_new_release_albums_title,
+                                    titleRes = fm.corus.android.localization.CorusStrings.new_release_music,
                                     icon = "sparkle",
                                     onAlbumTap = { album ->
                                         album.asSongTrack()?.let { navigateToSong(it) }
@@ -799,7 +799,7 @@ fun SearchScreen(
                                     showRank = false,
                                     showYear = true,
                                     section = SearchSection.NewReleaseFilms,
-                                    titleRes = fm.corus.android.R.string.search_new_release_films_title,
+                                    titleRes = fm.corus.android.localization.CorusStrings.new_release_films,
                                     icon = "sparkle",
                                     itemKeyPrefix = "nrf",
                                 )
@@ -951,7 +951,7 @@ fun SearchScreen(
                                     if (route != null) navigateToArtist(route)
                                     else android.widget.Toast.makeText(
                                         searchContext,
-                                        searchContext.getString(fm.corus.android.R.string.song_detail_artist_not_found),
+                                        searchContext.getString(fm.corus.android.localization.CorusStrings.post_toast_artist_not_found),
                                         android.widget.Toast.LENGTH_SHORT,
                                     ).show()
                                 }
@@ -1029,7 +1029,7 @@ private fun SearchBarSection(
         ) {
             Icon(
                 Icons.Filled.Search,
-                contentDescription = stringResource(fm.corus.android.R.string.search_cd_search),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.nav_search),
                 tint = CorusColors.Secondary,
                 modifier = Modifier.size(20.dp),
             )
@@ -1058,7 +1058,7 @@ private fun SearchBarSection(
                 ) {
                     Icon(
                         Icons.Filled.Close,
-                        contentDescription = stringResource(fm.corus.android.R.string.search_cd_clear),
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.search_clear_aria),
                         tint = CorusColors.Tertiary,
                         modifier = Modifier.size(16.dp),
                     )
@@ -1079,8 +1079,8 @@ private fun SearchCategoryTabBar(
     val labels = ArrayList<String>(tabs.size)
     for (tab in tabs) {
         val labelRes = when {
-            artistPagesEnabled && tab == SearchTab.SONGS -> fm.corus.android.R.string.search_tab_music
-            artistPagesEnabled && tab == SearchTab.FILMS -> fm.corus.android.R.string.search_tab_film
+            artistPagesEnabled && tab == SearchTab.SONGS -> fm.corus.android.localization.CorusStrings.search_tab_music
+            artistPagesEnabled && tab == SearchTab.FILMS -> fm.corus.android.localization.CorusStrings.film_category
             else -> tab.labelRes
         }
         labels.add(stringResource(labelRes))
@@ -1115,10 +1115,10 @@ private fun RecentSearchesOverlay(
                     .padding(top = CorusSpacing.sm, bottom = CorusSpacing.xs),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(stringResource(fm.corus.android.R.string.search_recent), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.search_recent), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
                 Spacer(modifier = Modifier.weight(1f))
                 Text(
-                    text = stringResource(fm.corus.android.R.string.search_clear_all),
+                    text = stringResource(fm.corus.android.localization.CorusStrings.search_recent_clear_all),
                     style = CorusFont.captionMedium,
                     color = CorusColors.Accent,
                     modifier = Modifier.clickable { onClearAll() },
@@ -1195,7 +1195,7 @@ private fun RecentSearchItemRow(
         IconButton(onClick = onRemove) {
             Icon(
                 Icons.Filled.Close,
-                contentDescription = stringResource(fm.corus.android.R.string.search_cd_remove),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.concert_remove),
                 tint = CorusColors.Tertiary,
                 modifier = Modifier.size(16.dp),
             )
@@ -1218,19 +1218,19 @@ private fun recentItemTitle(item: RecentSearchItem): String = when (item) {
 @Composable
 private fun recentItemSubtitle(item: RecentSearchItem): String? = when (item) {
     is RecentSearchItem.UserEntry -> item.displayName.ifBlank { null }
-    is RecentSearchItem.ArtistEntry -> stringResource(fm.corus.android.R.string.destination_artist_label)
-    is RecentSearchItem.DirectorEntry -> stringResource(fm.corus.android.R.string.destination_director_label)
+    is RecentSearchItem.ArtistEntry -> stringResource(fm.corus.android.localization.CorusStrings.profile_artist_fallback)
+    is RecentSearchItem.DirectorEntry -> stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_row_director)
     is RecentSearchItem.AlbumEntry ->
         if (item.artistName.isNotBlank()) stringResource(fm.corus.android.R.string.destination_album_artist_format, item.artistName)
-        else stringResource(fm.corus.android.R.string.destination_album_label)
+        else stringResource(fm.corus.android.localization.CorusStrings.share_album_word)
     is RecentSearchItem.SongEntry ->
         if (item.artistName.isNotBlank()) stringResource(fm.corus.android.R.string.destination_song_artist_format, item.artistName)
-        else stringResource(fm.corus.android.R.string.destination_song_label)
+        else stringResource(fm.corus.android.localization.CorusStrings.destination_song_label)
     is RecentSearchItem.FilmEntry ->
         item.releaseYear?.takeIf { it.isNotBlank() }
             ?.let { stringResource(fm.corus.android.R.string.destination_film_year_format, it) }
-            ?: stringResource(fm.corus.android.R.string.destination_film_label)
-    is RecentSearchItem.HashtagEntry -> stringResource(fm.corus.android.R.string.destination_hashtag_label)
+            ?: stringResource(fm.corus.android.localization.CorusStrings.search_tab_film)
+    is RecentSearchItem.HashtagEntry -> stringResource(fm.corus.android.localization.CorusStrings.destination_hashtag_label)
 }
 
 /** Leading 40dp media: circle for people (user/artist/director), rounded square
@@ -1473,7 +1473,7 @@ private fun LazyListScope.contactsSections(
     // ── Friends on Corus (contact matches) ──
     if (isSyncingContacts && contactsSyncStatus == "synced") {
         item {
-            SectionHeader(icon = "contacts", title = stringResource(fm.corus.android.R.string.search_section_friends_on_corus))
+            SectionHeader(icon = "contacts", title = stringResource(fm.corus.android.localization.CorusStrings.search_section_friends_on_corus))
         }
         items(3) {
             SkeletonUserRow()
@@ -1483,7 +1483,7 @@ private fun LazyListScope.contactsSections(
         item {
             SectionHeader(
                 icon = "contacts",
-                title = stringResource(fm.corus.android.R.string.search_section_friends_on_corus),
+                title = stringResource(fm.corus.android.localization.CorusStrings.search_section_friends_on_corus),
                 showSeeAll = contactMatches.size > 3,
                 onSeeAll = {
                     viewModel.logSearchSectionSeeAllTapped(SearchSection.FriendsOnCorus)
@@ -1494,7 +1494,7 @@ private fun LazyListScope.contactsSections(
         items(contactMatches.take(3), key = { "contact-${it.id}" }) { user ->
             SuggestedUserRow(
                 user = user,
-                subtitle = stringResource(fm.corus.android.R.string.search_subtitle_from_contacts),
+                subtitle = stringResource(fm.corus.android.localization.CorusStrings.search_subtitle_from_contacts),
                 isFollowed = viewModel.isFollowed(user.id),
                 onTap = {
                     viewModel.logSearchSectionUserTapped(SearchSection.FriendsOnCorus, user.id)
@@ -1541,8 +1541,8 @@ private fun LazyListScope.tasteMatchesSections(
             // pagination, and filter; the parent only gates section
             // visibility on musicMatchUsers (from getSuggestedUsers), the
             // same way iOS keeps its parent gate.
-            val tasteFilterCd = stringResource(fm.corus.android.R.string.search_cd_filter_taste_matches)
-            val tasteMatchesTitle = stringResource(fm.corus.android.R.string.search_taste_matches_title)
+            val tasteFilterCd = stringResource(fm.corus.android.localization.CorusStrings.search_cd_filter_taste_matches)
+            val tasteMatchesTitle = stringResource(fm.corus.android.localization.CorusStrings.feed_mode_taste_matches)
             HorizontalTasteMatchesRail(
                 refreshKey = musicMatchUsers.hashCode(),
                 initialMatches = seedTasteMatches.ifEmpty { musicMatchUsers },
@@ -1578,7 +1578,7 @@ private fun LazyListScope.tasteMatchesSections(
         }
     } else if ((isSuggestedLoading || isTasteMatchPolling) && seedTasteMatches.isEmpty()) {
         item {
-            SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.R.string.search_section_taste_matches))
+            SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.localization.CorusStrings.search_section_taste_matches))
         }
         item {
             val cardWidth = horizontalRailCardWidth()
@@ -1602,7 +1602,7 @@ private fun LazyListScope.tasteMatchesSections(
         // signup promised matches. Simple static rail (no pagination/filter:
         // the onboarding matcher already returned the full ranked page).
         item {
-            SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.R.string.search_section_taste_matches))
+            SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.localization.CorusStrings.search_section_taste_matches))
         }
         item {
             val cardWidth = horizontalRailCardWidth()
@@ -1629,7 +1629,7 @@ private fun LazyListScope.tasteMatchesSections(
         }
     } else {
         item {
-            SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.R.string.search_section_taste_matches))
+            SectionHeader(icon = "sparkles", title = stringResource(fm.corus.android.localization.CorusStrings.search_section_taste_matches))
         }
         item {
             TasteMatchesEmptyCard()
@@ -1651,8 +1651,8 @@ private fun LazyListScope.popularSection(
 ) {
     // ── Popular on Corus — paginated horizontal rail of real users ──
     item {
-        val popularFilterCd = stringResource(fm.corus.android.R.string.search_cd_filter_popular_users)
-        val popularOnCorusTitle = stringResource(fm.corus.android.R.string.search_popular_title)
+        val popularFilterCd = stringResource(fm.corus.android.localization.CorusStrings.search_cd_filter_popular_users)
+        val popularOnCorusTitle = stringResource(fm.corus.android.localization.CorusStrings.rail_popular_on_corus)
         HorizontalPopularUsersRail(
             // Fold the followed-id set into excludeIds so the query never
             // returns already-followed accounts under the "Unfollowed"
@@ -1698,10 +1698,10 @@ private fun LazyListScope.clubMembersSection(
     if (clubMembers.isEmpty() && !isLoading) return
     if (clubMembers.isNotEmpty() || isLoading) {
         item {
-            val clubMembersTitle = stringResource(fm.corus.android.R.string.search_club_members_title)
+            val clubMembersTitle = stringResource(fm.corus.android.localization.CorusStrings.search_section_club_members)
             SectionHeader(
                 icon = "club",
-                title = stringResource(fm.corus.android.R.string.search_section_club_members),
+                title = stringResource(fm.corus.android.localization.CorusStrings.search_section_club_members_3667655c),
                 showSeeAll = true,
                 onSeeAll = {
                     viewModel.logSearchSectionSeeAllTapped(SearchSection.ClubMembers)
@@ -1739,10 +1739,10 @@ private fun LazyListScope.artistsOnCorusSection(
 ) {
     if (artists.isEmpty()) return
     item {
-        val title = stringResource(fm.corus.android.R.string.search_artists_on_corus_title)
+        val title = stringResource(fm.corus.android.localization.CorusStrings.search_section_artists_on_corus)
         SectionHeader(
             icon = "mic",
-            title = stringResource(fm.corus.android.R.string.search_section_artists_on_corus),
+            title = stringResource(fm.corus.android.localization.CorusStrings.search_section_artists_on_corus_ee1b8916),
             showSeeAll = true,
             onSeeAll = {
                 viewModel.logSearchSectionSeeAllTapped(SearchSection.ArtistsOnCorus)
@@ -1788,10 +1788,10 @@ private fun LazyListScope.mutualConnectionsSection(
     // SearchView.mutualConnectionsSection / MutualConnectionsCardGrid.
     if (mutualConnectionUsers.isNotEmpty()) {
         item {
-            val mutualConnectionsTitle = stringResource(fm.corus.android.R.string.search_mutual_connections_title)
+            val mutualConnectionsTitle = stringResource(fm.corus.android.localization.CorusStrings.search_mutual_connections_title)
             SectionHeader(
                 icon = "people",
-                title = stringResource(fm.corus.android.R.string.search_section_mutual_connections),
+                title = stringResource(fm.corus.android.localization.CorusStrings.search_section_mutual_connections),
                 showSeeAll = mutualConnectionUsers.size > 2,
                 onSeeAll = {
                     viewModel.logSearchSectionSeeAllTapped(SearchSection.MutualConnections)
@@ -1830,10 +1830,10 @@ private fun LazyListScope.newOnCorusSection(
     if (displayNewUsers.isEmpty() && !isLoading) return
     if (displayNewUsers.isNotEmpty() || isLoading) {
         item {
-            val newOnCorusTitle = stringResource(fm.corus.android.R.string.search_new_title)
+            val newOnCorusTitle = stringResource(fm.corus.android.localization.CorusStrings.search_section_new_on_corus)
             SectionHeader(
                 icon = "new",
-                title = stringResource(fm.corus.android.R.string.search_section_new),
+                title = stringResource(fm.corus.android.localization.CorusStrings.search_section_new),
                 showSeeAll = displayNewUsers.size > 3,
                 onSeeAll = {
                     viewModel.logSearchSectionSeeAllTapped(SearchSection.NewOnCorus)
@@ -1871,7 +1871,7 @@ private fun LazyListScope.inviteFriendsSection() {
                     .padding(vertical = CorusSpacing.xxxl, horizontal = CorusSpacing.lg),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(stringResource(fm.corus.android.R.string.search_invite_title), style = CorusFont.songTitleLarge, color = CorusColors.Text)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.feed_empty_invite_subtitle), style = CorusFont.songTitleLarge, color = CorusColors.Text)
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
                 Button(
                     onClick = { /* share intent */ },
@@ -1879,7 +1879,7 @@ private fun LazyListScope.inviteFriendsSection() {
                     colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent, contentColor = Color.White),
                     contentPadding = PaddingValues(horizontal = CorusSpacing.xl, vertical = CorusSpacing.sm),
                 ) {
-                    Text(stringResource(fm.corus.android.R.string.search_invite_button), style = CorusFont.bodyMedium)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.feed_empty_invite_button), style = CorusFont.bodyMedium)
                 }
             }
         }
@@ -1902,7 +1902,7 @@ private fun LazyListScope.compactTrendingSongsSection(
         val window by viewModel.trendingSongsWindow.collectAsState()
         SectionHeader(
             icon = "music",
-            title = stringResource(fm.corus.android.R.string.search_trending_songs_title).uppercase(),
+            title = stringResource(fm.corus.android.localization.CorusStrings.search_section_trending_songs).uppercase(),
             showSeeAll = true,
             trailingAction = if (viewModel.trendingSongsPreviewContextEnabled) {
                 { CompactTrendingWindowPicker(window, viewModel::setTrendingSongsWindow) }
@@ -1915,7 +1915,7 @@ private fun LazyListScope.compactTrendingSongsSection(
     }
     item {
         if (!isLoading && songs.isEmpty()) {
-            Text(stringResource(fm.corus.android.R.string.search_nothing_trending), style = CorusFont.caption, color = CorusColors.Secondary, modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md))
+            Text(stringResource(fm.corus.android.localization.CorusStrings.search_nothing_trending), style = CorusFont.caption, color = CorusColors.Secondary, modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md))
         } else {
             CompactDiscoverySongs(songs.map { it.track }, isLoading, nowPlaying, ranked = true, peopleCounts = if (viewModel.trendingSongsPreviewContextEnabled) songs.associate { it.track.id to it.distinctAuthors } else emptyMap(), onSong = onSongTap)
         }
@@ -1934,7 +1934,7 @@ private fun LazyListScope.compactTrendingFilmsSection(
     showRank: Boolean = true,
     showYear: Boolean = false,
     section: SearchSection = SearchSection.TrendingFilms,
-    titleRes: Int = fm.corus.android.R.string.search_trending_films_title,
+    titleRes: Int = fm.corus.android.localization.CorusStrings.search_section_trending_films,
     icon: String = "film",
     itemKeyPrefix: String = "tf",
 ) {
@@ -2026,7 +2026,7 @@ private fun LazyListScope.compactTrendingDirectorsSection(
     item {
         SectionHeader(
             icon = "clapper",
-            title = stringResource(fm.corus.android.R.string.search_trending_directors_title).uppercase(),
+            title = stringResource(fm.corus.android.localization.CorusStrings.search_section_trending_directors).uppercase(),
             showSeeAll = true,
             onSeeAll = {
                 viewModel.logSearchSectionSeeAllTapped(SearchSection.TrendingDirectors)
@@ -2145,7 +2145,7 @@ private fun LazyListScope.compactTrendingHashtagsSection(
     item {
         SectionHeader(
             icon = "hashtag",
-            title = stringResource(fm.corus.android.R.string.search_trending_hashtags_title).uppercase(),
+            title = stringResource(fm.corus.android.localization.CorusStrings.search_section_trending_hashtags).uppercase(),
             showSeeAll = true,
             onSeeAll = {
                 viewModel.logSearchSectionSeeAllTapped(SearchSection.TrendingHashtags)
@@ -2159,9 +2159,9 @@ private fun LazyListScope.compactTrendingHashtagsSection(
         val visible = hashtags.take(3)
         itemsIndexed(visible, key = { _, tag -> "th-${tag.id}" }) { index, tag ->
             val people = tag.distinctAuthors ?: 0
-            val person = stringResource(fm.corus.android.R.string.search_trending_person)
-            val peoplePlural = stringResource(fm.corus.android.R.string.search_trending_people)
-            val followerWord = stringResource(fm.corus.android.R.string.hashtag_followers)
+            val person = stringResource(fm.corus.android.localization.CorusStrings.search_trending_person)
+            val peoplePlural = stringResource(fm.corus.android.localization.CorusStrings.search_trending_people)
+            val followerWord = stringResource(fm.corus.android.localization.CorusStrings.hashtag_followers)
             val noun = if (people == 1) person else peoplePlural
             val subtitle = if (tag.followerCount > 0) {
                 val fNoun = if (tag.followerCount == 1) followerWord.removeSuffix("s") else followerWord
@@ -2316,7 +2316,7 @@ private fun LazyListScope.compactTrendingArtistsSection(
     item {
         SectionHeader(
             icon = "mic",
-            title = stringResource(fm.corus.android.R.string.search_trending_artists_title).uppercase(),
+            title = stringResource(fm.corus.android.localization.CorusStrings.search_section_trending_artists).uppercase(),
             showSeeAll = true,
             onSeeAll = {
                 viewModel.logSearchSectionSeeAllTapped(SearchSection.TrendingArtists)
@@ -2504,7 +2504,7 @@ private fun UnifiedZeroStateContent(
             showRank = true,
             viewModel = viewModel,
             section = SearchSection.TrendingAlbums,
-            titleRes = fm.corus.android.R.string.search_trending_albums_title,
+            titleRes = fm.corus.android.localization.CorusStrings.search_section_trending_albums,
             icon = "album",
             onAlbumTap = onNavigateToAlbumRow,
             onSeeAll = { onNavigateToTrending("albums") },
@@ -2516,7 +2516,7 @@ private fun UnifiedZeroStateContent(
             showRank = false,
             viewModel = viewModel,
             section = SearchSection.NewReleaseAlbums,
-            titleRes = fm.corus.android.R.string.search_new_release_albums_title,
+            titleRes = fm.corus.android.localization.CorusStrings.new_release_music,
             icon = "sparkle",
             onAlbumTap = { album ->
                 album.asSongTrack()?.let { onNavigateToSong(it) }
@@ -2615,17 +2615,17 @@ private fun UnifiedFilterChipRow(
         items(UnifiedSearchFilter.entries.toList(), key = { it.value }) { filter ->
             val isActive = filter == selected
             val label = when (filter) {
-                UnifiedSearchFilter.ALL -> stringResource(fm.corus.android.R.string.search_filter_all_chip)
-                UnifiedSearchFilter.USERS -> stringResource(fm.corus.android.R.string.search_tab_users)
+                UnifiedSearchFilter.ALL -> stringResource(fm.corus.android.localization.CorusStrings.concert_tab_all)
+                UnifiedSearchFilter.USERS -> stringResource(fm.corus.android.localization.CorusStrings.search_tab_users)
                 UnifiedSearchFilter.MUSIC -> stringResource(
-                    if (artistPagesEnabled) fm.corus.android.R.string.search_tab_music
-                    else fm.corus.android.R.string.search_tab_songs
+                    if (artistPagesEnabled) fm.corus.android.localization.CorusStrings.search_tab_music
+                    else fm.corus.android.localization.CorusStrings.search_tab_songs
                 )
                 UnifiedSearchFilter.FILM -> stringResource(
-                    if (artistPagesEnabled) fm.corus.android.R.string.search_tab_film
-                    else fm.corus.android.R.string.search_tab_films
+                    if (artistPagesEnabled) fm.corus.android.localization.CorusStrings.film_category
+                    else fm.corus.android.localization.CorusStrings.search_tab_films
                 )
-                UnifiedSearchFilter.HASHTAGS -> stringResource(fm.corus.android.R.string.search_tab_hashtags)
+                UnifiedSearchFilter.HASHTAGS -> stringResource(fm.corus.android.localization.CorusStrings.search_tab_hashtags)
             }
             Button(
                 onClick = { if (!isActive) onSelect(filter) },
@@ -2726,8 +2726,8 @@ private fun UnifiedAllResults(
                 SectionHeader(
                     icon = "music",
                     title = stringResource(
-                        if (artistPagesEnabled) fm.corus.android.R.string.search_tab_music
-                        else fm.corus.android.R.string.search_tab_songs
+                        if (artistPagesEnabled) fm.corus.android.localization.CorusStrings.search_tab_music
+                        else fm.corus.android.localization.CorusStrings.search_tab_songs
                     ).uppercase(),
                     showSeeAll = true,
                     onSeeAll = { onSelectFilter(UnifiedSearchFilter.MUSIC) },
@@ -2769,8 +2769,8 @@ private fun UnifiedAllResults(
                 SectionHeader(
                     icon = "film",
                     title = stringResource(
-                        if (artistPagesEnabled) fm.corus.android.R.string.search_tab_film
-                        else fm.corus.android.R.string.search_tab_films
+                        if (artistPagesEnabled) fm.corus.android.localization.CorusStrings.film_category
+                        else fm.corus.android.localization.CorusStrings.search_tab_films
                     ).uppercase(),
                     showSeeAll = true,
                     onSeeAll = { onSelectFilter(UnifiedSearchFilter.FILM) },
@@ -2805,7 +2805,7 @@ private fun UnifiedAllResults(
             item {
                 SectionHeader(
                     icon = "people",
-                    title = stringResource(fm.corus.android.R.string.search_tab_users).uppercase(),
+                    title = stringResource(fm.corus.android.localization.CorusStrings.search_tab_users).uppercase(),
                     showSeeAll = true,
                     onSeeAll = { onSelectFilter(UnifiedSearchFilter.USERS) },
                 )
@@ -2836,7 +2836,7 @@ private fun UnifiedAllResults(
             item {
                 SectionHeader(
                     icon = "hashtag",
-                    title = stringResource(fm.corus.android.R.string.search_tab_hashtags).uppercase(),
+                    title = stringResource(fm.corus.android.localization.CorusStrings.search_tab_hashtags).uppercase(),
                     showSeeAll = true,
                     onSeeAll = { onSelectFilter(UnifiedSearchFilter.HASHTAGS) },
                 )
@@ -2860,7 +2860,7 @@ private fun UnifiedAllResults(
         if (noMatches) {
             item {
                 Text(
-                    stringResource(fm.corus.android.R.string.search_no_matches),
+                    stringResource(fm.corus.android.localization.CorusStrings.search_no_matches),
                     style = CorusFont.body,
                     color = CorusColors.Secondary,
                     modifier = Modifier
@@ -2898,7 +2898,7 @@ private fun FindFriendsFromContactsCard(
             Spacer(modifier = Modifier.size(18.dp))
 
             Text(
-                stringResource(fm.corus.android.R.string.search_contacts_card_title),
+                stringResource(fm.corus.android.localization.CorusStrings.search_contacts_card_title),
                 style = CorusFont.songTitle,
                 color = CorusColors.Text,
                 textAlign = TextAlign.Center,
@@ -2907,7 +2907,7 @@ private fun FindFriendsFromContactsCard(
 
             Icon(
                 Icons.Filled.Close,
-                contentDescription = stringResource(fm.corus.android.R.string.search_contacts_card_not_now),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.parity_e45714907316),
                 tint = CorusColors.Tertiary,
                 modifier = Modifier
                     .size(18.dp)
@@ -2919,7 +2919,7 @@ private fun FindFriendsFromContactsCard(
         Spacer(modifier = Modifier.height(CorusSpacing.xs))
 
         Text(
-            stringResource(fm.corus.android.R.string.search_contacts_card_subtitle),
+            stringResource(fm.corus.android.localization.CorusStrings.search_contacts_card_subtitle),
             style = CorusFont.caption,
             color = CorusColors.Secondary,
             textAlign = TextAlign.Center,
@@ -2945,7 +2945,7 @@ private fun FindFriendsFromContactsCard(
                     strokeWidth = 2.dp,
                 )
             } else {
-                Text(stringResource(fm.corus.android.R.string.search_contacts_card_sync), style = CorusFont.buttonSmall)
+                Text(stringResource(fm.corus.android.localization.CorusStrings.search_contacts_card_sync), style = CorusFont.buttonSmall)
             }
         }
     }
@@ -2960,13 +2960,13 @@ private fun NoContactMatchesCard() {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            stringResource(fm.corus.android.R.string.search_no_contact_matches_title),
+            stringResource(fm.corus.android.localization.CorusStrings.search_no_contact_matches_title),
             style = CorusFont.body,
             color = CorusColors.Secondary,
         )
         Spacer(modifier = Modifier.height(CorusSpacing.xxs))
         Text(
-            stringResource(fm.corus.android.R.string.search_no_contact_matches_subtitle),
+            stringResource(fm.corus.android.localization.CorusStrings.search_no_contact_matches_subtitle),
             style = CorusFont.caption,
             color = CorusColors.Tertiary,
         )
@@ -2991,7 +2991,7 @@ internal fun TasteMatchesEmptyCard() {
             .padding(CorusSpacing.md),
     ) {
         Text(
-            stringResource(fm.corus.android.R.string.search_taste_matches_empty),
+            stringResource(fm.corus.android.localization.CorusStrings.search_section_taste_matches_empty_signed_in),
             style = CorusFont.body,
             color = CorusColors.Secondary,
         )
@@ -3076,7 +3076,7 @@ internal fun SectionHeader(
         Spacer(modifier = Modifier.weight(1f))
         if (showSeeAll) {
             Text(
-                seeAllLabel ?: stringResource(fm.corus.android.R.string.search_see_all),
+                seeAllLabel ?: stringResource(fm.corus.android.localization.CorusStrings.concert_see_all),
                 style = CorusFont.captionMedium,
                 color = CorusColors.Accent,
                 modifier = Modifier.clickable(onClick = onSeeAll),
@@ -3114,7 +3114,7 @@ internal fun UnfollowedUsersFilterMenu(
             onDismissRequest = { expanded = false },
         ) {
             DropdownMenuItem(
-                text = { Text(stringResource(fm.corus.android.R.string.search_filter_all)) },
+                text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_tab_all)) },
                 onClick = {
                     onSetFilterUnfollowed(false)
                     expanded = false
@@ -3124,7 +3124,7 @@ internal fun UnfollowedUsersFilterMenu(
                 } else null,
             )
             DropdownMenuItem(
-                text = { Text(stringResource(fm.corus.android.R.string.search_filter_unfollowed)) },
+                text = { Text(stringResource(fm.corus.android.localization.CorusStrings.search_filter_unfollowed)) },
                 onClick = {
                     onSetFilterUnfollowed(true)
                     expanded = false
@@ -3155,7 +3155,7 @@ private fun UserSearchResults(
         } else if (results.isEmpty()) {
             item {
                 Text(
-                    stringResource(fm.corus.android.R.string.search_no_users_found),
+                    stringResource(fm.corus.android.localization.CorusStrings.parity_612eb3c64c41),
                     style = CorusFont.body,
                     color = CorusColors.Secondary,
                     modifier = Modifier
@@ -3243,7 +3243,7 @@ fun SuggestedUserRow(
             contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
             modifier = Modifier.height(30.dp),
         ) {
-            Text(if (isFollowed) stringResource(fm.corus.android.R.string.search_button_following) else stringResource(fm.corus.android.R.string.search_button_follow), style = CorusFont.buttonSmall)
+            Text(if (isFollowed) stringResource(fm.corus.android.localization.CorusStrings.following_status) else stringResource(fm.corus.android.localization.CorusStrings.follow_action), style = CorusFont.buttonSmall)
         }
     }
 }
@@ -3286,8 +3286,8 @@ internal fun TrendingSongsContent(
                 Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("\uD83C\uDFB5", style = CorusFont.songTitleLarge, modifier = Modifier.padding(bottom = CorusSpacing.sm))
-                        Text(stringResource(fm.corus.android.R.string.search_nothing_trending), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
-                        Text(stringResource(fm.corus.android.R.string.search_post_some_songs), style = CorusFont.body, color = CorusColors.Tertiary)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.search_nothing_trending), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.search_post_some_songs), style = CorusFont.body, color = CorusColors.Tertiary)
                     }
                 }
             }
@@ -3380,7 +3380,7 @@ internal fun TrendingArtistsContent(
                             tint = CorusColors.Tertiary,
                             modifier = Modifier.size(36.dp).padding(bottom = CorusSpacing.sm),
                         )
-                        Text(stringResource(fm.corus.android.R.string.search_nothing_trending), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.search_nothing_trending), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
                     }
                 }
             }
@@ -3487,7 +3487,7 @@ internal fun TrendingAlbumsContent(
             item {
                 Box(modifier = Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) {
                     Text(
-                        emptyMessage ?: stringResource(fm.corus.android.R.string.search_nothing_trending),
+                        emptyMessage ?: stringResource(fm.corus.android.localization.CorusStrings.search_nothing_trending),
                         style = CorusFont.bodyMedium,
                         color = CorusColors.Secondary,
                     )
@@ -3594,12 +3594,12 @@ internal fun TrendingFilmsContent(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("\uD83C\uDFAC", style = CorusFont.songTitleLarge, modifier = Modifier.padding(bottom = CorusSpacing.sm))
                         Text(
-                            emptyMessage ?: stringResource(fm.corus.android.R.string.search_no_trending_films),
+                            emptyMessage ?: stringResource(fm.corus.android.localization.CorusStrings.search_no_trending_films),
                             style = CorusFont.bodyMedium,
                             color = CorusColors.Secondary,
                         )
                         if (emptyMessage == null) {
-                            Text(stringResource(fm.corus.android.R.string.search_post_some_films), style = CorusFont.body, color = CorusColors.Tertiary)
+                            Text(stringResource(fm.corus.android.localization.CorusStrings.search_post_some_films), style = CorusFont.body, color = CorusColors.Tertiary)
                         }
                     }
                 }
@@ -3660,7 +3660,7 @@ internal fun TrendingDirectorsContent(
                             tint = CorusColors.Tertiary,
                             modifier = Modifier.size(36.dp).padding(bottom = CorusSpacing.sm),
                         )
-                        Text(stringResource(fm.corus.android.R.string.search_nothing_trending), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
+                        Text(stringResource(fm.corus.android.localization.CorusStrings.search_nothing_trending), style = CorusFont.bodyMedium, color = CorusColors.Secondary)
                     }
                 }
             }
@@ -3687,23 +3687,23 @@ internal fun TrendingDirectorsContent(
 private fun CompactTrendingWindowPicker(window: TrendingWindow, onWindowChange: (TrendingWindow) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     val labelRes = when (window) {
-        TrendingWindow.WEEK -> fm.corus.android.R.string.search_trending_window_week
-        TrendingWindow.MONTH -> fm.corus.android.R.string.search_trending_window_month
-        TrendingWindow.YEAR -> fm.corus.android.R.string.search_trending_window_year
+        TrendingWindow.WEEK -> fm.corus.android.localization.CorusStrings.search_trending_window_week_180bcf68
+        TrendingWindow.MONTH -> fm.corus.android.localization.CorusStrings.search_trending_window_month_ad6dd570
+        TrendingWindow.YEAR -> fm.corus.android.localization.CorusStrings.search_trending_window_year_bcfd14f2
     }
     Box {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { expanded = true }) {
             Text("·", style = CorusFont.sectionHeader, color = CorusColors.Secondary)
             Spacer(modifier = Modifier.width(4.dp))
             Text(stringResource(labelRes), style = CorusFont.sectionHeader, color = CorusColors.Text)
-            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = stringResource(fm.corus.android.R.string.search_trending_window_aria), tint = CorusColors.Text, modifier = Modifier.size(14.dp))
+            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.search_trending_window_aria), tint = CorusColors.Text, modifier = Modifier.size(14.dp))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             TrendingWindow.values().forEach { option ->
                 val optionLabel = when (option) {
-                    TrendingWindow.WEEK -> fm.corus.android.R.string.search_trending_window_week
-                    TrendingWindow.MONTH -> fm.corus.android.R.string.search_trending_window_month
-                    TrendingWindow.YEAR -> fm.corus.android.R.string.search_trending_window_year
+                    TrendingWindow.WEEK -> fm.corus.android.localization.CorusStrings.search_trending_window_week_180bcf68
+                    TrendingWindow.MONTH -> fm.corus.android.localization.CorusStrings.search_trending_window_month_ad6dd570
+                    TrendingWindow.YEAR -> fm.corus.android.localization.CorusStrings.search_trending_window_year_bcfd14f2
                 }
                 DropdownMenuItem(text = { Text(stringResource(optionLabel)) }, onClick = {
                     expanded = false
@@ -3733,15 +3733,15 @@ private fun TrendingHeader(
         else -> null
     }
     val windowLabelRes = when (window) {
-        TrendingWindow.WEEK -> fm.corus.android.R.string.search_trending_window_week
-        TrendingWindow.MONTH -> fm.corus.android.R.string.search_trending_window_month
-        TrendingWindow.YEAR -> fm.corus.android.R.string.search_trending_window_year
+        TrendingWindow.WEEK -> fm.corus.android.localization.CorusStrings.search_trending_window_week_180bcf68
+        TrendingWindow.MONTH -> fm.corus.android.localization.CorusStrings.search_trending_window_month_ad6dd570
+        TrendingWindow.YEAR -> fm.corus.android.localization.CorusStrings.search_trending_window_year_bcfd14f2
     }
     val prefixText = if (!noun.isNullOrEmpty()) {
-        stringResource(fm.corus.android.R.string.search_section_trending) +
+        stringResource(fm.corus.android.localization.CorusStrings.search_section_trending) +
             " " + noun.uppercase() + " · "
     } else {
-        stringResource(fm.corus.android.R.string.search_section_trending) + " · "
+        stringResource(fm.corus.android.localization.CorusStrings.search_section_trending) + " · "
     }
     Row(
         modifier = Modifier
@@ -3777,7 +3777,7 @@ private fun TrendingHeader(
                 )
                 Icon(
                     imageVector = Icons.Filled.KeyboardArrowDown,
-                    contentDescription = stringResource(fm.corus.android.R.string.search_trending_window_aria),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.search_trending_window_aria),
                     tint = CorusColors.Secondary,
                     modifier = Modifier.size(14.dp),
                 )
@@ -3788,9 +3788,9 @@ private fun TrendingHeader(
             ) {
                 TrendingWindow.values().forEach { option ->
                     val optionLabelRes = when (option) {
-                        TrendingWindow.WEEK -> fm.corus.android.R.string.search_trending_window_week
-                        TrendingWindow.MONTH -> fm.corus.android.R.string.search_trending_window_month
-                        TrendingWindow.YEAR -> fm.corus.android.R.string.search_trending_window_year
+                        TrendingWindow.WEEK -> fm.corus.android.localization.CorusStrings.search_trending_window_week_180bcf68
+                        TrendingWindow.MONTH -> fm.corus.android.localization.CorusStrings.search_trending_window_month_ad6dd570
+                        TrendingWindow.YEAR -> fm.corus.android.localization.CorusStrings.search_trending_window_year_bcfd14f2
                     }
                     DropdownMenuItem(
                         text = { Text(stringResource(optionLabelRes)) },
@@ -3932,7 +3932,7 @@ private fun SongSearchResultsList(
         }
     } else if (tracks.isEmpty() && !hasCatalogRows) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(stringResource(fm.corus.android.R.string.search_no_songs_found), style = CorusFont.body, color = CorusColors.Secondary)
+            Text(stringResource(fm.corus.android.localization.CorusStrings.search_no_songs_found), style = CorusFont.body, color = CorusColors.Secondary)
         }
     } else {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = CorusSpacing.sm)) {
@@ -4065,7 +4065,7 @@ private fun ArtistSearchRow(
         ) {
             Text(artist.name, style = CorusFont.bodyMedium, color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                stringResource(fm.corus.android.R.string.destination_artist_label),
+                stringResource(fm.corus.android.localization.CorusStrings.profile_artist_fallback),
                 style = CorusFont.caption,
                 color = CorusColors.Secondary,
                 maxLines = 1,
@@ -4175,7 +4175,7 @@ private fun DirectorSearchRow(
         ) {
             Text(director.name, style = CorusFont.bodyMedium, color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                stringResource(fm.corus.android.R.string.destination_director_label),
+                stringResource(fm.corus.android.localization.CorusStrings.onboarding_taste_row_director),
                 style = CorusFont.caption,
                 color = CorusColors.Secondary,
                 maxLines = 1,
@@ -4264,7 +4264,7 @@ private fun FilmSearchResultsList(
         }
     } else if (movies.isEmpty() && directors.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(stringResource(fm.corus.android.R.string.search_no_films_found), style = CorusFont.body, color = CorusColors.Secondary)
+            Text(stringResource(fm.corus.android.localization.CorusStrings.search_no_films_found), style = CorusFont.body, color = CorusColors.Secondary)
         }
     } else {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = CorusSpacing.sm)) {
@@ -4331,9 +4331,9 @@ internal fun TrendingHashtagsContent(
     onHashtagTap: (TrendingHashtag) -> Unit,
     onToggleFollow: (TrendingHashtag) -> Unit,
 ) {
-    val person = stringResource(fm.corus.android.R.string.search_trending_person)
-    val peoplePlural = stringResource(fm.corus.android.R.string.search_trending_people)
-    val followerWord = stringResource(fm.corus.android.R.string.hashtag_followers)
+    val person = stringResource(fm.corus.android.localization.CorusStrings.search_trending_person)
+    val peoplePlural = stringResource(fm.corus.android.localization.CorusStrings.search_trending_people)
+    val followerWord = stringResource(fm.corus.android.localization.CorusStrings.hashtag_followers)
     val followerSingular = followerWord.removeSuffix("s")
     LazyColumn(
         state = listState,
@@ -4364,7 +4364,7 @@ internal fun TrendingHashtagsContent(
                             modifier = Modifier.padding(bottom = CorusSpacing.sm),
                         )
                         Text(
-                            stringResource(fm.corus.android.R.string.search_no_trending_hashtags),
+                            stringResource(fm.corus.android.localization.CorusStrings.search_no_trending_hashtags),
                             style = CorusFont.bodyMedium,
                             color = CorusColors.Secondary,
                         )
@@ -4429,7 +4429,7 @@ private fun HashtagSearchResultsList(
     } else if (hashtags.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
-                stringResource(fm.corus.android.R.string.search_no_hashtags_found),
+                stringResource(fm.corus.android.localization.CorusStrings.search_no_hashtags_found),
                 style = CorusFont.body,
                 color = CorusColors.Secondary,
             )
@@ -4495,8 +4495,8 @@ private fun HashtagRow(
 
     val liveCount = preview?.totalCount
     val fallbackNoun = stringResource(
-        if (liveCount == 1) fm.corus.android.R.string.post_noun
-        else fm.corus.android.R.string.post_noun_plural
+        if (liveCount == 1) fm.corus.android.localization.CorusStrings.post_noun
+        else fm.corus.android.localization.CorusStrings.profile_stat_coruses
     )
     val subtitle: String? = subtitleOverride
         ?: liveCount?.let { "$it $fallbackNoun" }
@@ -4623,8 +4623,8 @@ private fun HashtagFollowPill(
     onClick: () -> Unit,
 ) {
     val label = stringResource(
-        if (isFollowing) fm.corus.android.R.string.hashtag_feed_following
-        else fm.corus.android.R.string.hashtag_feed_follow
+        if (isFollowing) fm.corus.android.localization.CorusStrings.following_status
+        else fm.corus.android.localization.CorusStrings.follow_action
     )
     Button(
         onClick = onClick,

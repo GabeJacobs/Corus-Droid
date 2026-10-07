@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="corus_native_400157a33bff">"YOUR CLOSEST TASTE MATCH"</string>
+    <string name="corus_native_de09e9efb9a5">"You both love"</string>
+    <string name="corus_onboarding_corus_stars">"CORUS STARS"</string>
+    <plurals name="corus_onboarding_follow_remaining"><item quantity="one">"FOLLOW %1$d MORE"</item><item quantity="other">"FOLLOW %1$d MORE"</item></plurals>
+    <plurals name="corus_onboarding_follow_required"><item quantity="one">"FOLLOW %1$d PERSON"</item><item quantity="other">"FOLLOW %1$d PEOPLE"</item></plurals>
+    <plurals name="corus_onboarding_follow_requirement_subtitle"><item quantity="one">"Follow %1$d person to start your feed."</item><item quantity="other">"Follow %1$d people to start your feed."</item></plurals>
+    <string name="corus_onboarding_more_taste_matches">"MORE PEOPLE WITH YOUR TASTE"</string>
+    <string name="corus_onboarding_see_all_taste_matches">"See all %1$d Taste Matches"</string>
+</resources>

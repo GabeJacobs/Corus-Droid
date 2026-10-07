@@ -83,6 +83,7 @@ fun SharePostSheet(
                 artworkUrl = post.displayImageLargeURL ?: post.displayImageURL,
                 songLink = filmLink,
                 outboundLink = postLink,
+                isPost = true,
                 username = post.user.username,
                 caption = post.caption,
                 avatarUrl = post.user.avatarURL,
@@ -101,6 +102,7 @@ fun SharePostSheet(
                 artworkUrl = post.displayImageLargeURL ?: post.displayImageURL,
                 songLink = "https://corus.fm/song/${post.track.id}",
                 outboundLink = postLink,
+                isPost = true,
                 username = post.user.username,
                 caption = post.caption,
                 avatarUrl = post.user.avatarURL,
@@ -189,7 +191,7 @@ fun SharePostSheet(
                 modifier = Modifier
                     .weight(1f)
                     .onFocusChanged { isSearchFocused = it.isFocused },
-                placeholder = { Text(stringResource(R.string.share_post_search_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
+                placeholder = { Text(stringResource(fm.corus.android.localization.CorusStrings.nav_search), style = CorusFont.body, color = CorusColors.Tertiary) },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = CorusColors.Tertiary) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
@@ -197,7 +199,7 @@ fun SharePostSheet(
                             searchQuery = ""
                             onSearchQueryChange("")
                         }) {
-                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.share_post_cd_clear), tint = CorusColors.Tertiary)
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.search_clear_aria), tint = CorusColors.Tertiary)
                         }
                     }
                 },
@@ -220,7 +222,7 @@ fun SharePostSheet(
                     onSearchQueryChange("")
                     isSearchFocused = false
                 }) {
-                    Text(stringResource(R.string.share_post_cancel), style = CorusFont.bodyMedium, color = CorusColors.Accent)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_cancel), style = CorusFont.bodyMedium, color = CorusColors.Accent)
                 }
             }
         }
@@ -235,7 +237,7 @@ fun SharePostSheet(
             LazyColumn(
                 modifier = Modifier.weight(1f),
             ) {
-                if (isSearching) {
+                if (isSearching && usersToShow.isEmpty()) {
                     item {
                         Box(
                             modifier = Modifier.fillMaxWidth().padding(top = CorusSpacing.xxl),
@@ -251,7 +253,7 @@ fun SharePostSheet(
                 } else if (usersToShow.isEmpty() && hasQuery) {
                     item {
                         Text(
-                            stringResource(R.string.share_post_no_results),
+                            stringResource(fm.corus.android.localization.CorusStrings.share_post_no_results),
                             style = CorusFont.body,
                             color = CorusColors.Secondary,
                             modifier = Modifier.fillMaxWidth().padding(top = CorusSpacing.xxl),
@@ -285,7 +287,7 @@ fun SharePostSheet(
                         .padding(vertical = CorusSpacing.xxl),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(stringResource(R.string.share_post_no_recent), style = CorusFont.caption, color = CorusColors.Secondary)
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.share_post_no_recent), style = CorusFont.caption, color = CorusColors.Secondary)
                 }
             } else {
                 LazyVerticalGrid(
@@ -322,7 +324,7 @@ fun SharePostSheet(
                             value = messageText,
                             onValueChange = { messageText = it },
                             modifier = Modifier.weight(1f).onFocusChanged { messageFocused = it.isFocused },
-                            placeholder = { Text(stringResource(R.string.share_post_message_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
+                            placeholder = { Text(stringResource(fm.corus.android.localization.CorusStrings.share_post_message_placeholder), style = CorusFont.body, color = CorusColors.Tertiary) },
                             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                             singleLine = true,
                             textStyle = CorusFont.body,
@@ -346,7 +348,7 @@ fun SharePostSheet(
                             shape = RoundedCornerShape(50),
                             contentPadding = PaddingValues(horizontal = CorusSpacing.xl, vertical = CorusSpacing.sm),
                         ) {
-                            Text(stringResource(R.string.share_post_send), style = CorusFont.buttonSmall, color = Color.White)
+                            Text(stringResource(fm.corus.android.localization.CorusStrings.thread_send_aria), style = CorusFont.buttonSmall, color = Color.White)
                         }
                     }
                 }
@@ -364,7 +366,7 @@ fun SharePostSheet(
                     contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
                 ) {
                     item {
-                        ShareActionButton(icon = Icons.Filled.Repeat, label = stringResource(R.string.share_post_repost), isProminent = true) {
+                        ShareActionButton(icon = Icons.Filled.Repeat, label = stringResource(fm.corus.android.localization.CorusStrings.compose_repost), isProminent = true) {
                             onAnalyticsLog?.invoke("repost")
                             onRepost()
                         }
@@ -387,7 +389,7 @@ fun SharePostSheet(
                     if (showWhatsApp) {
                         item {
                             ShareActionButton(
-                                label = stringResource(R.string.share_post_whatsapp),
+                                label = stringResource(fm.corus.android.localization.CorusStrings.share_post_whatsapp),
                                 painter = painterResource(R.drawable.whatsapp_logo),
                                 iconSize = 22.dp,
                                 backgroundColor = Color(0xFF25D366),
@@ -409,23 +411,23 @@ fun SharePostSheet(
                         }
                     }
                     item {
-                        ShareActionButton(icon = Icons.Filled.Share, label = stringResource(R.string.share_post_share_link)) {
+                        ShareActionButton(icon = Icons.Filled.Share, label = stringResource(fm.corus.android.localization.CorusStrings.share_post_share_link)) {
                             onAnalyticsLog?.invoke("share_link")
                             val intent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
                                 putExtra(Intent.EXTRA_TEXT, shareableLink)
                             }
-                            context.startActivity(Intent.createChooser(intent, context.getString(R.string.share_post_share_chooser)))
+                            context.startActivity(Intent.createChooser(intent, context.getString(fm.corus.android.localization.CorusStrings.share_post_share_chooser)))
                         }
                     }
                     item {
                         ShareActionButton(
                             icon = if (showCopied) Icons.Filled.Check else Icons.Filled.ContentCopy,
-                            label = if (showCopied) stringResource(R.string.share_post_copied) else stringResource(R.string.share_post_copy_link),
+                            label = if (showCopied) stringResource(fm.corus.android.localization.CorusStrings.thread_copied) else stringResource(fm.corus.android.localization.CorusStrings.post_menu_copy_link),
                         ) {
                             onAnalyticsLog?.invoke("copy_link")
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.share_post_clip_label), shareableLink))
+                            clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(fm.corus.android.localization.CorusStrings.share_post_clip_label), shareableLink))
                             showCopied = true
                         }
                     }
@@ -493,7 +495,7 @@ internal fun ShareContactCell(
                 ) {
                     Icon(
                         if (showRemoveAffordance) Icons.Filled.Close else Icons.Filled.Check,
-                        contentDescription = stringResource(if (showRemoveAffordance) R.string.instagram_v2_remove_recipient else R.string.share_post_cd_selected),
+                        contentDescription = stringResource(if (showRemoveAffordance) fm.corus.android.localization.CorusStrings.instagram_v2_remove_recipient else fm.corus.android.localization.CorusStrings.gift_selected),
                         tint = Color.White,
                         modifier = Modifier.size(11.dp),
                     )
@@ -539,14 +541,14 @@ internal fun ShareUserRow(
                 color = CorusColors.Text,
             )
             Text(
-                if (user.group != null) stringResource(R.string.messaging_group_fallback_title) else user.displayName,
+                if (user.group != null) stringResource(fm.corus.android.localization.CorusStrings.group_fallback_title) else user.displayName,
                 style = CorusFont.caption, color = CorusColors.Secondary,
             )
         }
         if (isSelected) {
             Icon(
                 if (showRemoveAffordance) Icons.Filled.Close else Icons.Filled.Check,
-                contentDescription = stringResource(if (showRemoveAffordance) R.string.instagram_v2_remove_recipient else R.string.share_post_cd_selected),
+                contentDescription = stringResource(if (showRemoveAffordance) fm.corus.android.localization.CorusStrings.instagram_v2_remove_recipient else fm.corus.android.localization.CorusStrings.gift_selected),
                 tint = if (showRemoveAffordance) CorusColors.Accent else Color.White,
                 modifier = if (showRemoveAffordance) Modifier.size(22.dp) else Modifier
                     .size(26.dp)
@@ -642,21 +644,21 @@ internal fun InstagramShareButton(
             } else {
                 Icon(
                     painter = painterResource(R.drawable.instagram_logo),
-                    contentDescription = stringResource(R.string.share_post_cd_instagram),
+                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.share_post_instagram),
                     tint = Color.White,
                     modifier = Modifier.size(22.dp),
                 )
             }
         }
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
-        Text(stringResource(R.string.share_post_instagram), style = CorusFont.captionMedium, color = CorusColors.Text)
+        Text(stringResource(fm.corus.android.localization.CorusStrings.share_post_instagram), style = CorusFont.captionMedium, color = CorusColors.Text)
     }
 }
 
 @Composable
-internal fun XShareButton(onClick: () -> Unit) {
+internal fun XShareButton(enabled: Boolean = true, onClick: () -> Unit) {
     Column(
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier.clickable(enabled = enabled, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
@@ -668,13 +670,13 @@ internal fun XShareButton(onClick: () -> Unit) {
         ) {
             Icon(
                 painter = painterResource(R.drawable.ic_x_logo),
-                contentDescription = stringResource(R.string.share_post_cd_x),
+                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.share_post_cd_x),
                 tint = Color.White,
                 modifier = Modifier.size(20.dp),
             )
         }
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
-        Text(stringResource(R.string.share_post_x), style = CorusFont.captionMedium, color = CorusColors.Text)
+        Text(stringResource(fm.corus.android.localization.CorusStrings.share_post_x), style = CorusFont.captionMedium, color = CorusColors.Text)
     }
 }
 
