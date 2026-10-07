@@ -1771,7 +1771,8 @@ class NowPlayingManager @Inject constructor(
         return id
     }
 
-    private fun feedPlaylistName(feedMode: String): String = when (feedMode) {
+    private fun feedPlaylistName(feedMode: String): String =
+        ForYouTuningMode.entries.firstOrNull { it.playlistFeedMode == feedMode }?.playlistName ?: when (feedMode) {
         "trending" -> "Corus Trending"
         "tasteMatches" -> "Corus Taste Matches"
         "favorites" -> "Corus Favorites"

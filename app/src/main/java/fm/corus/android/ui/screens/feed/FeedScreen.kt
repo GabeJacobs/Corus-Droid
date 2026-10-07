@@ -495,7 +495,7 @@ fun FeedScreen(
         // so this spacer is only for the in-list header.
         if (immersive && !feedModeTabsVisible) Spacer(Modifier.height(frost.statusBarPadding))
         FeedHeader(
-            showPlaylistButton = feedMediaFilter != MediaType.MOVIE && !usesForYouPrototype,
+            showPlaylistButton = feedMediaFilter != MediaType.MOVIE,
             playlistReady = posts.isNotEmpty() &&
                 tasteMatchesGate !is FeedViewModel.TasteMatchesGate.Paywall,
             isGeneratingPlaylist = isGeneratingPlaylist,

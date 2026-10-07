@@ -220,7 +220,8 @@ internal fun parseOnboardingTasteMatchesResponse(
  * Taste Matches playlist exports.
  */
 internal fun feedModeUsesRankedSession(feedMode: String): Boolean =
-    feedMode == "trending" || feedMode == "tasteMatches"
+    feedMode == "trending" || feedMode == "tasteMatches" ||
+        fm.corus.android.domain.ForYouTuningMode.entries.any { it.playlistFeedMode == feedMode }
 
 /**
  * Extracts the artist id whose name *exactly* matches [name] (trimmed,

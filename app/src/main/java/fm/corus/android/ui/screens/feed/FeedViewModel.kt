@@ -1599,18 +1599,22 @@ class FeedViewModel @Inject constructor(
     }
 
     fun generateFeedPlaylist() {
-        if (feedMode.value == "tasteMatches" && forYouPrototype.isAvailable) return
         analyticsService.logFeedPlaylistTapped()
         // Build the playlist from whichever feed is on screen, and (for the
         // ranked modes — Trending AND Taste Matches) from the exact ranked
         // session the user is scrolling. The server names it per mode
         // ("Corus Trending" / "Corus Taste Matches" / "Corus Favorites" / "Corus Feed").
-        val mode = feedMode.value
+        val visibleMode = feedMode.value
+        val prototypeMode = if (visibleMode == "tasteMatches" && forYouPrototype.isAvailable)
+            forYouPrototype.state.value.mode else null
+        val mode = prototypeMode?.playlistFeedMode ?: visibleMode
+        val token = if (visibleMode == "trending" || visibleMode == "tasteMatches") forYouSessionToken else null
+        val newReleasesOnly = _feedFilter.value.newReleasesOnly
         viewModelScope.launch {
             nowPlayingManager.generateFeedPlaylist(
-                newReleasesOnly = _feedFilter.value.newReleasesOnly,
+                newReleasesOnly = newReleasesOnly,
                 feedMode = mode,
-                sessionToken = if (mode == "trending" || mode == "tasteMatches") forYouSessionToken else null,
+                sessionToken = token,
             )
         }
     }
