@@ -47,7 +47,7 @@ class CenteredScrollRegionTest {
                     .height(viewportHeight)
                     .fillMaxWidth(),
             ) {
-                CenteredScrollRegion(verticalPadding = 0.dp) { _ ->
+                CenteredScrollRegion(verticalPadding = { 0.dp }) { _ ->
                     Box(
                         modifier = Modifier
                             .height(contentHeight)

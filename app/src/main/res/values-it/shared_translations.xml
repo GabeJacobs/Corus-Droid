@@ -203,4 +203,10 @@
     <string name="corus_favorites_feed_guide_body">"Nel Feed, tocca Seguiti, poi scegli Preferiti."</string>
     <string name="corus_favorites_feed_guide_done">"Ho capito"</string>
     <string name="corus_favorites_feed_guide_title">"Il tuo Feed dei Preferiti"</string>
+    <string name="for_you_unlock_club">"Sblocca con Club"</string>
+    <string name="corus_for_you_post_requirement">"Richiede almeno 5 post"</string>
+    <string name="corus_for_you_post_unlock_body">"Condividi 5 canzoni o film per sbloccare Equilibrato e Più familiare."</string>
+    <string name="corus_for_you_post_unlock_title">"Sblocca il Mix %1$s"</string>
+    <string name="corus_for_you_trial_preview">"Stai provando il tuo mix %1$s"</string>
+    <string name="corus_for_you_trial_remaining">"Giorni rimasti per provare %1$s: %2$d"</string>
 </resources>

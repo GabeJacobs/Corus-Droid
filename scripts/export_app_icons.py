@@ -1,46 +1,18 @@
 #!/usr/bin/env python3
-"""Export Corus Blue launcher assets from the existing vector mark.
+"""Export Blue from Default's exact silhouette, size and placement.
 
-Requires Pillow and CairoSVG. Run from any directory. The 108dp adaptive canvas
-keeps the full mark inside the central 66dp safe zone; previews use its 72dp
-launcher viewport. Android selects the launcher mask, so adaptive layers have
-no baked corners or shadows.
+Requires Pillow. Android selects the adaptive launcher mask; the transparent
+108dp foregrounds have no baked corners or shadows. Default's immutable
+originals ensure its accepted placement correction never accumulates.
 """
 from pathlib import Path
-import io
-import os
-import sys
-import xml.etree.ElementTree as ET
-# Apple's system Python strips DYLD variables at launch; restore the usual
-# Homebrew library lookup before CairoSVG asks ctypes to locate Cairo.
-if sys.platform == 'darwin' and Path('/opt/homebrew/lib/libcairo.dylib').exists():
-    os.environ.setdefault('DYLD_FALLBACK_LIBRARY_PATH', '/opt/homebrew/lib')
-import cairosvg
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / 'app/src/main/res'
 OUT = ROOT / 'design/app-icons'
 BLUE = '#5E91F0'  # Solid counterpart of the iOS Corus Blue background.
-NS = '{http://schemas.android.com/apk/res/android}'
-PATH = ' '.join(p.attrib[NS + 'pathData'] for p in ET.parse(RES / 'drawable/logo_no_background.xml').findall('.//path'))
-SVG = f'''<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 10240 10240">
-<g transform="translate(1394 1536) scale(0.7)"><g transform="translate(0 10240) scale(1 -1)"><path fill="white" d="{PATH}"/></g></g></svg>'''
-VECTOR = f'''<?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp" android:height="108dp"
-    android:viewportWidth="10240" android:viewportHeight="10240">
-    <group android:scaleX="0.7" android:scaleY="0.7" android:translateX="1394" android:translateY="1536">
-        <group android:translateY="10240" android:scaleY="-1">
-            <path android:fillColor="#FFFFFF" android:pathData="{PATH}" />
-        </group>
-    </group>
-</vector>
-'''
 OUT.mkdir(parents=True, exist_ok=True)
-(OUT / 'corus-blue-foreground.svg').write_text(SVG + '\n')
-(RES / 'drawable/ic_launcher_blue_foreground.xml').write_text(VECTOR)
-(RES / 'drawable/ic_launcher_blue_monochrome.xml').write_text(VECTOR)
 (RES / 'values/ic_launcher_blue_background.xml').write_text(f'''<?xml version="1.0" encoding="utf-8"?>
 <resources><color name="ic_launcher_blue_background">{BLUE}</color></resources>
 ''')
@@ -48,24 +20,11 @@ for name in ['ic_launcher_blue', 'ic_launcher_blue_round']:
     (RES / f'mipmap-anydpi-v26/{name}.xml').write_text('''<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_blue_background" />
-    <foreground android:drawable="@drawable/ic_launcher_blue_foreground" />
-    <monochrome android:drawable="@drawable/ic_launcher_blue_monochrome" />
+    <foreground android:drawable="@mipmap/ic_launcher_blue_foreground" />
+    <monochrome android:drawable="@mipmap/ic_launcher_monochrome" />
 </adaptive-icon>
 ''')
-foreground = Image.open(io.BytesIO(cairosvg.svg2png(bytestring=SVG.encode(), output_width=1296, output_height=1296))).convert('RGBA')
-canvas = Image.new('RGBA', foreground.size, BLUE)
-canvas.alpha_composite(foreground)
-# 108dp canvas, central 72dp visible viewport.
-viewport = canvas.crop((216, 216, 1080, 1080))
-for density, size in [('mdpi',48),('hdpi',72),('xhdpi',96),('xxhdpi',144),('xxxhdpi',192)]:
-    folder=RES / f'mipmap-{density}'
-    square=viewport.resize((size,size),Image.Resampling.LANCZOS)
-    square.convert('RGB').save(folder / 'ic_launcher_blue.png')
-    mask=Image.new('L',(size*4,size*4));ImageDraw.Draw(mask).ellipse((0,0,size*4-1,size*4-1),fill=255)
-    rounded=square.copy();rounded.putalpha(mask.resize((size,size),Image.Resampling.LANCZOS))
-    rounded.save(folder / 'ic_launcher_blue_round.png')
 preview=RES/'drawable-nodpi';preview.mkdir(exist_ok=True)
-viewport.resize((320,320),Image.Resampling.LANCZOS).convert('RGB').save(preview/'app_icon_blue_preview.png')
 # Placement correction for the existing Default artwork. Copy original pixels
 # horizontally; never scale, redraw, recolor, or alter the mark. Use immutable
 # sources so rerunning this exporter cannot apply the shift more than once.
@@ -99,6 +58,40 @@ for source in sorted((OUT/'source/default').glob('mipmap-*/*.png')):
     shifted.paste(original, (offset,0))
     shifted.save(RES/source.parent.name/source.name)
 default=Image.open(RES/'mipmap-xxxhdpi/ic_launcher_foreground.png').convert('RGBA')
-default.crop((72,72,360,360)).resize((320,320),Image.Resampling.LANCZOS).save(preview/'app_icon_default_preview.png')
-viewport.resize((512,512),Image.Resampling.LANCZOS).convert('RGBA').save(OUT/'corus-blue-play-store-512.png')
-print('Exported vector adaptive/themed layers, five square/round PNG densities, previews, SVG and optional 512px store artwork.')
+default_preview=default.crop((72,72,360,360)).resize((320,320),Image.Resampling.LANCZOS)
+default_preview.save(preview/'app_icon_default_preview.png')
+
+def white_foreground(default):
+    # Preserve every antialiased edge from the black-on-white original.
+    foreground = Image.new('RGBA', default.size, 'white')
+    foreground.putalpha(ImageOps.invert(default.convert('L')))
+    return foreground
+
+def white_on_blue(default):
+    canvas = Image.new('RGBA', default.size, BLUE)
+    canvas.alpha_composite(white_foreground(default))
+    return canvas
+
+for density in ['mdpi','hdpi','xhdpi','xxhdpi','xxxhdpi']:
+    folder=RES/f'mipmap-{density}'
+    adaptive=Image.open(folder/'ic_launcher_foreground.png').convert('RGBA')
+    white_foreground(adaptive).save(folder/'ic_launcher_blue_foreground.png')
+    legacy=Image.open(folder/'ic_launcher.png').convert('RGBA')
+    square=white_on_blue(legacy)
+    square.convert('RGB').save(folder/'ic_launcher_blue.png')
+    size=square.width
+    mask=Image.new('L',(size*4,size*4))
+    ImageDraw.Draw(mask).ellipse((0,0,size*4-1,size*4-1),fill=255)
+    square.putalpha(mask.resize((size,size),Image.Resampling.LANCZOS))
+    square.save(folder/'ic_launcher_blue_round.png')
+
+white_on_blue(default_preview).convert('RGB').save(preview/'app_icon_blue_preview.png')
+white_foreground(default).save(OUT/'corus-blue-foreground.png')
+store=default.crop((72,72,360,360)).resize((512,512),Image.Resampling.LANCZOS)
+white_on_blue(store).save(OUT/'corus-blue-play-store-512.png')
+# Remove the superseded vector mark so it cannot be used accidentally.
+for obsolete in [OUT/'corus-blue-foreground.svg',
+                 RES/'drawable/ic_launcher_blue_foreground.xml',
+                 RES/'drawable/ic_launcher_blue_monochrome.xml']:
+    obsolete.unlink(missing_ok=True)
+print('Exported matching adaptive/themed layers, five square/round PNG densities, previews and optional 512px store artwork.')

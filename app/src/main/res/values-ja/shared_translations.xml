@@ -203,4 +203,10 @@
     <string name="corus_favorites_feed_guide_body">"フィードで「フォロー中」をタップし、「お気に入り」を選びます。"</string>
     <string name="corus_favorites_feed_guide_done">"わかりました"</string>
     <string name="corus_favorites_feed_guide_title">"あなたのお気に入りフィード"</string>
+    <string name="for_you_unlock_club">"Clubでアンロック"</string>
+    <string name="corus_for_you_post_requirement">"5件以上の投稿が必要です"</string>
+    <string name="corus_for_you_post_unlock_body">"曲や映画を5件投稿すると、バランスと好みに近くが使えるようになります。"</string>
+    <string name="corus_for_you_post_unlock_title">"%1$sミックスを解放"</string>
+    <string name="corus_for_you_trial_preview">"あなたの%1$sミックスをお試し中"</string>
+    <string name="corus_for_you_trial_remaining">"%1$sのお試し期間：残り%2$d日"</string>
 </resources>

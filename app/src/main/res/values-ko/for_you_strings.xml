@@ -2,7 +2,7 @@
 <resources>
     <string name="for_you_title">나만의 믹스</string>
     <string name="for_you_title_compact">추천</string>
-    <string name="for_you_tune">피드 조정</string>
+    <string name="for_you_tune">"나만의 믹스 조정"</string>
     <string name="for_you_choose">"나만의 믹스를 어떻게 조정할지 선택하세요:"</string>
     <string name="for_you_eclectic">다채롭게</string>
     <string name="for_you_balanced">균형 있게</string>
@@ -15,11 +15,11 @@
     <string name="for_you_apply">적용</string>
     <string name="for_you_close">닫기</string>
     <string name="for_you_stay_close_locked">노래나 영화 5개를 게시하면 취향에 가깝게가 열려요.</string>
-    <string name="for_you_post_progress">%1$d/%2$d개 게시 완료</string>
+    <string name="for_you_post_progress">"%1$d/%2$d개 게시 완료"</string>
     <string name="for_you_unlock_title">취향에 가깝게 열기</string>
     <string name="for_you_locked">잠김</string>
     <string name="for_you_stay_close_club_locked">"Corus Club으로 취향에 가깝게를 열어보세요."</string>
-    <string name="for_you_stay_close_club_subtitle">"Corus Club으로 취향에 가깝게 피드를 계속 이용하세요."</string>
+    <string name="for_you_stay_close_club_subtitle">"Corus Club으로 균형과 취향에 가깝게를 계속 이용하세요."</string>
     <string name="for_you_stay_close_trial_offer">"7일 무료 체험 후 Corus Club으로 이용할 수 있어요."</string>
-    <string name="for_you_stay_close_trial_remaining">"취향에 가깝게 무료 체험 남은 일수: %1$d"</string>
+    <string name="for_you_stay_close_trial_remaining">"나만의 믹스 무료 체험 남은 일수: %1$d"</string>
 </resources>

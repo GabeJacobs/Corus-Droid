@@ -203,4 +203,10 @@
     <string name="corus_favorites_feed_guide_body">"在动态中，点击「关注」，然后选择「收藏」。"</string>
     <string name="corus_favorites_feed_guide_done">"知道了"</string>
     <string name="corus_favorites_feed_guide_title">"你的收藏动态"</string>
+    <string name="for_you_unlock_club">"加入Club解锁"</string>
+    <string name="corus_for_you_post_requirement">"需要至少发布 5 条动态"</string>
+    <string name="corus_for_you_post_unlock_body">"分享 5 首歌曲或电影，即可解锁均衡和贴近喜好。"</string>
+    <string name="corus_for_you_post_unlock_title">"解锁%1$s混合"</string>
+    <string name="corus_for_you_trial_preview">"你正在预览你的%1$s混合推荐"</string>
+    <string name="corus_for_you_trial_remaining">"%1$s试用剩余天数：%2$d"</string>
 </resources>

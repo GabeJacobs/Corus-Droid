@@ -662,6 +662,9 @@ class RemoteConfigService @Inject constructor(
     }
 
     private var debugServerValues = emptyMap<String, String>()
+    private val debugForYouKey = "for_you_prototype_enabled"
+    private val debugOverrideKeys: Set<String>
+        get() = registeredDebugFeatureFlags.map { it.key }.toSet() + debugForYouKey
     private var debugServerUid: String? = null
     var debugServerCatalogMessage: String? = null
         private set
@@ -763,14 +766,14 @@ class RemoteConfigService @Inject constructor(
             val server = if (debugServerUid == auth.currentUser?.uid) debugServerValues else emptyMap()
             val serverKeys = server.keys + "for_you_prototype_enabled"
             return (flags + serverKeys.map { key ->
-                DebugFeatureFlag(key, rawValue = server[key], namespace = "server", allowsLocalOverride = false) {
-                    server[key] == "true"
+                DebugFeatureFlag(key, rawValue = server[key], namespace = "server", allowsLocalOverride = key == debugForYouKey) {
+                    (if (key == debugForYouKey) debugOverride(key) else null) ?: (server[key] == "true")
                 }
-            }).sortedBy { it.rowId.lowercase() }
+            }).sortedWith(compareBy<DebugFeatureFlag> { it.key != debugForYouKey }.thenBy { it.rowId.lowercase() })
         }
 
     val debugOverrideCount: Int
-        get() = registeredDebugFeatureFlags.count { debugOverride(it.key) != null }
+        get() = if (BuildConfig.DEBUG) debugOverrideKeys.count { debugOverride(it) != null } else 0
 
     fun debugRemoteValue(key: String): Boolean = remoteConfig.getBoolean(key)
 
@@ -781,7 +784,7 @@ class RemoteConfigService @Inject constructor(
     }
 
     fun setDebugOverride(key: String, value: Boolean?) {
-        if (!BuildConfig.DEBUG || registeredDebugFeatureFlags.none { it.key == key }) return
+        if (!BuildConfig.DEBUG || key !in debugOverrideKeys) return
         val edit = devPrefs.edit()
         if (value == null) edit.remove(key) else edit.putBoolean(key, value)
         edit.apply()
@@ -791,7 +794,7 @@ class RemoteConfigService @Inject constructor(
     fun resetDebugOverrides() {
         if (!BuildConfig.DEBUG) return
         val edit = devPrefs.edit()
-        registeredDebugFeatureFlags.forEach { edit.remove(it.key) }
+        debugOverrideKeys.forEach { edit.remove(it) }
         edit.apply()
         _revision.value += 1
     }

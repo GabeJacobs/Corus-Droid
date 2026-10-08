@@ -360,7 +360,8 @@ class FeedViewModel @Inject constructor(
      *  paywall so the funnels stay separable. */
     fun onTasteMatchesBannerTapped() {
         val trial = _tasteMatchesTrial.value ?: return
-        if (forYouPrototype.isAvailable && forYouPrototype.state.value.mode == fm.corus.android.domain.ForYouTuningMode.STAY_CLOSE) {
+        if (forYouPrototype.isAvailable && forYouPrototype.state.value.mode != fm.corus.android.domain.ForYouTuningMode.ECLECTIC) {
+            pendingForYouTuning = forYouPrototype.state.value.mode
             _tasteMatchesPaywall.value = PaywallSource.STAY_CLOSE_BANNER
         } else {
             analyticsService.logTasteMatchesBannerTapped(trial.phase, trial.daysRemaining)
@@ -755,6 +756,11 @@ class FeedViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            subscriptionRepository.hasFullAccessFlow.collect {
+                forYouPrototype.refreshStayCloseProgress()
+            }
+        }
+        viewModelScope.launch {
             forYouPrototype.state.collect {
                 val next = feedRequestSignature()
                 if (appliedFeedSignature.isNotEmpty() && appliedFeedSignature != next) {
@@ -1061,7 +1067,7 @@ class FeedViewModel @Inject constructor(
                 )
                 if (prototypeMode != null && feedRequestSignature() == requestSignature) {
                     forYouPrototype.updateStayCloseProgress(forYouPage.stayCloseProgress, userId)
-                    if (forYouPage.gated == "stayCloseLocked" || forYouPage.gated == "stayClosePaywall") return
+                    if (forYouPage.gated == "stayCloseLocked" || forYouPage.gated == "forYouLocked" || forYouPage.gated == "stayClosePaywall" || forYouPage.gated == "forYouPaywall") return
                 }
                 // Superseded-mode guard for the RANKED branch. Every write below
                 // (gate, session token, page index, seen-IDs) mutates state that
@@ -1421,8 +1427,10 @@ class FeedViewModel @Inject constructor(
      */
     fun applyForYouTuning(mode: fm.corus.android.domain.ForYouTuningMode) {
         if (!forYouPrototype.isAvailable) return
+        if (mode != fm.corus.android.domain.ForYouTuningMode.ECLECTIC &&
+            forYouPrototype.state.value.stayCloseProgress?.canAccessBalanced != true) return
         if (mode == fm.corus.android.domain.ForYouTuningMode.STAY_CLOSE &&
-            forYouPrototype.state.value.stayCloseProgress?.canAccess != true) return
+            forYouPrototype.state.value.stayCloseProgress?.unlocked != true) return
         forYouPrototype.select(mode)
         val signature = feedRequestSignature("tasteMatches")
         feedPageCache.remove(signature)
@@ -1438,12 +1446,17 @@ class FeedViewModel @Inject constructor(
         } else setFeedMode("tasteMatches")
     }
 
-    fun onStayClosePaywallRequested() { _tasteMatchesPaywall.value = PaywallSource.STAY_CLOSE }
+    private var pendingForYouTuning = fm.corus.android.domain.ForYouTuningMode.STAY_CLOSE
+
+    fun onStayClosePaywallRequested(mode: fm.corus.android.domain.ForYouTuningMode = fm.corus.android.domain.ForYouTuningMode.STAY_CLOSE) {
+        pendingForYouTuning = mode
+        _tasteMatchesPaywall.value = PaywallSource.STAY_CLOSE
+    }
 
     fun onStayClosePurchased() {
         viewModelScope.launch {
             forYouPrototype.refreshStayCloseProgress()
-            applyForYouTuning(fm.corus.android.domain.ForYouTuningMode.STAY_CLOSE)
+            applyForYouTuning(pendingForYouTuning)
         }
     }
 

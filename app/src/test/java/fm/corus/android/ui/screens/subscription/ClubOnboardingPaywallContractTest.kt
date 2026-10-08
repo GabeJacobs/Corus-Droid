@@ -25,8 +25,8 @@ class ClubOnboardingPaywallContractTest {
     @Test fun `supported tall layout fills extra rows in approved order`() {
         val five = listOf(
             R.string.club_feature_unlock_all_taste_matches,
-            R.string.club_feature_customization,
-            R.string.club_feature_unlimited_saves,
+            R.string.parity_8624339e6a12,
+            R.string.parity_4cb955a437ea,
             R.string.club_feature_unlimited_playlists,
             R.string.club_feature_support,
         )
@@ -40,8 +40,8 @@ class ClubOnboardingPaywallContractTest {
     @Test fun `compact layout keeps the core four and youtube extras replace export`() {
         val compact = listOf(
             R.string.club_feature_unlock_all_taste_matches,
-            R.string.club_feature_customization,
-            R.string.club_feature_unlimited_saves,
+            R.string.parity_8624339e6a12,
+            R.string.parity_4cb955a437ea,
             R.string.club_feature_support,
         )
         assertEquals(compact, ClubOnboardingPaywallContract.benefitStringResources(true, 400.dp))
@@ -49,7 +49,7 @@ class ClubOnboardingPaywallContractTest {
         assertEquals(
             listOf(
                 R.string.club_feature_unlock_all_taste_matches,
-                R.string.club_feature_customization,
+                R.string.parity_8624339e6a12,
                 R.string.club_feature_unlimited_playlists,
                 R.string.club_feature_support,
             ),
@@ -60,7 +60,8 @@ class ClubOnboardingPaywallContractTest {
 
     @Test fun `artwork and close target meet layout contract`() {
         assertEquals(112.dp, ClubOnboardingPaywallContract.vinylSize)
-        assertEquals(36.dp, ClubOnboardingPaywallContract.headerVerticalPadding)
+        assertEquals(20.dp, ClubOnboardingPaywallContract.headerVerticalPadding(500.dp))
+        assertEquals(36.dp, ClubOnboardingPaywallContract.headerVerticalPadding(560.dp))
         assertTrue(ClubOnboardingPaywallContract.vinylSize < 140.dp)
 
         composeRule.setContent { Box { ClubCloseButton(onClick = {}) } }

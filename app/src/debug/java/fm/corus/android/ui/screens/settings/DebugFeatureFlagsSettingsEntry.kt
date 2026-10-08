@@ -67,7 +67,7 @@ private fun DebugFeatureFlagsPage(config: RemoteConfigService, onBack: () -> Uni
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp)) {
             item {
                 Text("Changes apply on this installation and survive relaunch. Server permissions and rollout checks still apply. Reopen a screen if it loads flags only on entry.", style = MaterialTheme.typography.bodySmall)
-                Text("New Remote Config keys appear after refresh. Backend flags and keys this build cannot override are read-only.", style = MaterialTheme.typography.bodySmall)
+                Text("New Remote Config keys appear after refresh. Your Mix supports a local visibility override. Other backend flags and keys this build cannot override are read-only.", style = MaterialTheme.typography.bodySmall)
                 config.debugServerCatalogMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(value = search, onValueChange = { search = it }, label = { Text("Find a flag") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -94,7 +94,13 @@ private fun DebugFeatureFlagsPage(config: RemoteConfigService, onBack: () -> Uni
                         }
                     }
                     if (flag.allowsLocalOverride) {
-                        Text("${config.debugSource(flag.key)}: ${if (config.debugRemoteValue(flag.key)) "ON" else "OFF"} · Effective: ${if (flag.effectiveValue()) "ON" else "OFF"}", style = MaterialTheme.typography.bodySmall)
+                        if (flag.namespace == "server") {
+                            val backend = when (flag.rawValue) { "true" -> "ON"; "false" -> "OFF"; else -> "Unavailable" }
+                            Text("Backend: $backend · Local: ${if (flag.effectiveValue()) "ON" else "OFF"}", style = MaterialTheme.typography.bodySmall)
+                            Text("Changes Your Mix visibility immediately on this installation. Loading the feed still requires backend tester access. Reset restores server-controlled visibility.", style = MaterialTheme.typography.bodySmall)
+                        } else {
+                            Text("${config.debugSource(flag.key)}: ${if (config.debugRemoteValue(flag.key)) "ON" else "OFF"} · Effective: ${if (flag.effectiveValue()) "ON" else "OFF"}", style = MaterialTheme.typography.bodySmall)
+                        }
                     } else {
                         val value = when (flag.rawValue?.lowercase()) {
                             "true" -> "ON"

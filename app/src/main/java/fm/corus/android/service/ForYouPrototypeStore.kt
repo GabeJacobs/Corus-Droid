@@ -37,6 +37,7 @@ class ForYouPrototypeStore @Inject constructor(
     private var deadline: Job? = null
     private var progressGeneration = 0
     private var trialExpiry: Job? = null
+    private var lastDebugOverride = remoteConfig.debugOverride("for_you_prototype_enabled")
 
     val isAvailable: Boolean
         get() = _state.value.let { it.uid != null && it.uid == auth.currentUser?.uid && it.enabled }
@@ -49,12 +50,13 @@ class ForYouPrototypeStore @Inject constructor(
 
     private fun initialState(uid: String?, generation: Int): ForYouPrototypeState {
         val default = remoteConfig.forYouDefaultMode
+        val override = remoteConfig.debugOverride("for_you_prototype_enabled")
         return ForYouPrototypeState(
             uid = uid, generation = generation,
-            enabled = uid != null && prefs.getBoolean("access.v1.$uid", false),
-            hasPresentation = uid == null,
+            enabled = uid != null && (override ?: prefs.getBoolean("access.v1.$uid", false)),
+            hasPresentation = uid == null || override != null,
             defaultMode = default,
-            mode = ForYouTuningMode.initial(uid?.let { prefs.getString("mode.$it", null) }, default),
+            mode = ForYouTuningMode.ECLECTIC,
         )
     }
 
@@ -62,11 +64,20 @@ class ForYouPrototypeStore @Inject constructor(
         auth.addAuthStateListener { scope.launch { beginSession(it.currentUser?.uid) } }
         scope.launch {
             remoteConfig.revision.collect {
+                val override = remoteConfig.debugOverride("for_you_prototype_enabled")
+                if (override != lastDebugOverride) {
+                    lastDebugOverride = override
+                    val current = _state.value
+                    _state.value = current.copy(
+                        enabled = current.uid != null && (override ?: prefs.getBoolean("access.v1.${current.uid}", false)),
+                        hasPresentation = true,
+                    )
+                }
                 val current = _state.value
                 if (!current.hasPresentation) {
                     val default = remoteConfig.forYouDefaultMode
                     _state.value = current.copy(defaultMode = default,
-                        mode = ForYouTuningMode.initial(prefs.getString("mode.${current.uid}", null), default))
+                        mode = if (current.stayCloseProgress == null) ForYouTuningMode.ECLECTIC else current.mode)
                 }
             }
         }
@@ -123,7 +134,8 @@ class ForYouPrototypeStore @Inject constructor(
     fun select(mode: ForYouTuningMode) {
         if (!isAvailable) return
         val current = _state.value
-        if (mode == ForYouTuningMode.STAY_CLOSE && current.stayCloseProgress?.canAccess != true) return
+        if (mode != ForYouTuningMode.ECLECTIC && current.stayCloseProgress?.canAccessBalanced != true) return
+        if (mode == ForYouTuningMode.STAY_CLOSE && current.stayCloseProgress?.unlocked != true) return
         prefs.edit().putString("mode.${current.uid}", mode.value).apply()
         _state.value = current.copy(mode = mode)
     }
@@ -135,8 +147,10 @@ class ForYouPrototypeStore @Inject constructor(
     fun updateStayCloseProgress(progress: ForYouStayCloseProgress?, uid: String) {
         val current = _state.value
         if (progress == null || current.uid != uid) return
-        val mode = if (!progress.canAccess && current.mode == ForYouTuningMode.STAY_CLOSE)
-            current.defaultMode.takeUnless { it == ForYouTuningMode.STAY_CLOSE } ?: ForYouTuningMode.BALANCED else current.mode
+        val preferredMode = if (current.stayCloseProgress == null)
+            ForYouTuningMode.initial(prefs.getString("mode.$uid", null), current.defaultMode) else current.mode
+        val mode = if (preferredMode != ForYouTuningMode.ECLECTIC && !progress.canAccess)
+            ForYouTuningMode.ECLECTIC else preferredMode
         _state.value = current.copy(stayCloseProgress = progress, mode = mode)
         trialExpiry?.cancel()
         val endsAt = progress.trialEndsAt

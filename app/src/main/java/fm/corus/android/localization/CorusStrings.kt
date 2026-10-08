@@ -519,11 +519,18 @@ object CorusStrings {
     @StringRes val follow_list_tab_mutual: Int = R.string.follow_list_tab_mutual
     @StringRes val following_status: Int = R.string.parity_90eeb1008380
     @StringRes val for_you_choose: Int = R.string.for_you_choose
+    @StringRes val for_you_post_progress: Int = R.string.for_you_post_progress
+    @StringRes val for_you_post_requirement: Int = R.string.corus_for_you_post_requirement
+    @StringRes val for_you_post_unlock_body: Int = R.string.corus_for_you_post_unlock_body
+    @StringRes val for_you_post_unlock_title: Int = R.string.corus_for_you_post_unlock_title
     @StringRes val for_you_posting_hint: Int = R.string.for_you_posting_hint
     @StringRes val for_you_stay_close_club_locked: Int = R.string.for_you_stay_close_club_locked
     @StringRes val for_you_stay_close_club_subtitle: Int = R.string.for_you_stay_close_club_subtitle
     @StringRes val for_you_stay_close_trial_offer: Int = R.string.for_you_stay_close_trial_offer
     @StringRes val for_you_stay_close_trial_remaining: Int = R.string.for_you_stay_close_trial_remaining
+    @StringRes val for_you_trial_preview: Int = R.string.corus_for_you_trial_preview
+    @StringRes val for_you_trial_remaining: Int = R.string.corus_for_you_trial_remaining
+    @StringRes val for_you_tune: Int = R.string.for_you_tune
     @StringRes val full_player_add_comment: Int = R.string.full_player_add_comment
     @StringRes val full_player_cd_close: Int = R.string.full_player_cd_close
     @StringRes val full_player_cd_more: Int = R.string.parity_4bab2d8fe13f
@@ -757,6 +764,7 @@ object CorusStrings {
     @StringRes val muted_users_screen_title: Int = R.string.settings_row_muted_users
     @StringRes val native_165e9250b511: Int = R.string.share_profile_link_preview
     @StringRes val native_400157a33bff: Int = R.string.corus_native_400157a33bff
+    @StringRes val native_8e62480111b3: Int = R.string.for_you_unlock_club
     @StringRes val native_de09e9efb9a5: Int = R.string.corus_native_de09e9efb9a5
     @StringRes val nav_activity: Int = R.string.tab_activity
     @StringRes val nav_home: Int = R.string.tab_feed

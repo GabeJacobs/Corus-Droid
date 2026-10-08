@@ -8,24 +8,27 @@ There are no baked corners or shadows in the adaptive layers.
 | Asset | Format and size |
 | --- | --- |
 | Adaptive icon and round icon | `mipmap-anydpi-v26/ic_launcher_blue{,_round}.xml` |
-| Foreground | Transparent vector drawable, 108 × 108dp, any density |
+| Foreground | Transparent PNGs, 108 × 108dp at all five densities, matching Default |
 | Background | Opaque color resource, fills the adaptive canvas |
-| Themed monochrome | Transparent vector drawable, 108 × 108dp, any density |
+| Themed monochrome | The same transparent monochrome resource as Default, 108 × 108dp |
 | Legacy square and circular fallback | PNGs in mdpi 48px, hdpi 72px, xhdpi 96px, xxhdpi 144px, xxxhdpi 192px |
 | Picker thumbnails | 320px PNGs in `drawable-nodpi` |
-| Reusable foreground source | `corus-blue-foreground.svg` |
+| Reusable foreground | `corus-blue-foreground.png`, transparent 432px PNG |
 | Optional store artwork | `corus-blue-play-store-512.png`, 512px RGBA; does not change the Play listing |
 
-Re-export with `python3 scripts/export_app_icons.py` (Pillow, CairoSVG and Cairo).
-The mark comes from the existing `drawable/logo_no_background.xml` vector; no
-sibling iOS repository is required to regenerate it. The current Default assets
-retain their artwork and size. Both options receive a horizontal placement
-correction with a final 1dp nudge right of vinyl-center alignment as an optical
-compromise between circular and square masks. Default's exports
-only translate the original pixels; immutable originals are saved under
-`source/default` so re-exporting cannot accumulate the correction. Corus Blue's
-vector receives a net 1.5dp leftward translation on its 108dp adaptive canvas.
-The mark's paths and scale are unchanged; vertical placement is unchanged.
+Re-export with `python3 scripts/export_app_icons.py` (Pillow).
+Corus Blue takes its silhouette directly from the corresponding Default asset
+at each density. Black pixel coverage becomes white coverage on the blue
+background, preserving the exact outline, scale, placement and antialiased
+edges. The picker thumbnail uses the same conversion on Default's thumbnail.
+Themed icons share Default's existing monochrome resource.
+
+Default retains its artwork and size, including the approved final 1dp nudge
+right of vinyl-center alignment. Its exports only translate original pixels;
+immutable originals are saved under `source/default` so re-exporting cannot
+accumulate the correction. No iOS repository or artwork is changed.
+
+Verify matching exported pixels with `python3 scripts/test_app_icon_artwork.py`.
 
 Settings → Appearance → Theme → App Icon opens the same two choices as iOS.
 Club/full-access users can change icons; other users see disabled choices and

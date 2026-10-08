@@ -50,4 +50,10 @@
     <string name="corus_favorites_feed_guide_body">"On the Feed, tap Following, then choose Favorites."</string>
     <string name="corus_favorites_feed_guide_done">"Got it"</string>
     <string name="corus_favorites_feed_guide_title">"Your Favorited Feed"</string>
+    <string name="for_you_unlock_club">"Unlock with Club"</string>
+    <string name="corus_for_you_post_requirement">"Requires at least 5 posts"</string>
+    <string name="corus_for_you_post_unlock_body">"Share 5 songs or films to unlock Balanced and Stay Close."</string>
+    <string name="corus_for_you_post_unlock_title">"Unlock %1$s Mix"</string>
+    <string name="corus_for_you_trial_preview">"You\'re previewing your %1$s mix"</string>
+    <string name="corus_for_you_trial_remaining">"Days left to try %1$s: %2$d"</string>
 </resources>

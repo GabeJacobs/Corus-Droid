@@ -117,6 +117,9 @@ class AuthViewModel @Inject constructor(
 
     // Whether this session created a new sign-in (vs app relaunch)
     private var didSignInThisSession = false
+    // Google resolves its own auth event with Firebase's isNewUser result. The
+    // listener must not start a competing profile lookup before that is known.
+    private var skipListenerForGoogle = false
     /** Last uid handled by [observeAuthState]. A change (or null) resets
      *  account-scoped favorites so the next login cannot inherit the latch. */
     private var lastAuthUid: String? = null
@@ -202,124 +205,181 @@ class AuthViewModel @Inject constructor(
         // warm before/at login. Mirrors iOS app-launch fetch.
         viewModelScope.launch { remoteConfigService.fetchAndActivate() }
         val listener = AuthStateListener { auth ->
-            viewModelScope.launch {
-                // Suppress auth-state changes while account deletion is in progress
-                if (_isDeletingAccount.value) return@launch
-
-                val user = auth.currentUser
-                if (user == null) {
-                    unreadCountsRepository.stop()
-                    if (lastAuthUid != null) {
-                        subscriptionRepository.logoutUser()
-                        lastAuthUid = null
-                    }
-                    _authState.value = AuthState.SignedOut
-                    return@launch
-                }
-                if (lastAuthUid != null && lastAuthUid != user.uid) {
-                    subscriptionRepository.logoutUser()
-                }
-                lastAuthUid = user.uid
-
-                // Fast path: a returning, already-onboarded user (local flag) is
-                // already on the feed (seeded in the initial state). Re-validate in
-                // the background — ban / profile / RevenueCat alias / warmups — and
-                // eject only if something is wrong. New users and pre-backfill first
-                // launches fall through to the blocking slow path below, unchanged.
-                if (shouldFastPathLaunch(
-                        hasUser = true,
-                        hasCompletedOnboardingLocally = onboardingLocalStore.hasCompletedOnboarding(user.uid),
-                    ) && !didSignInThisSession
-                ) {
-                    analyticsService.setUserId(user.uid)
-                    SpotifyFtueExperiment.restoreUserProperties(
-                        preferences = preferencesDataStore,
-                        musicService = musicServicePreference.current.value.value,
-                        analytics = analyticsService,
-                    )
-                    unreadCountsRepository.start(user.uid)
-                    // iOS applies a uid-matched persisted profile before MainTab.
-                    // Restore Favorites here so the tab is present on first frame.
-                    subscriptionRepository.restoreFavoritesForUser(user.uid)
-                    _authState.value = AuthState.SignedIn
-                    launch { revalidateInBackground(user) }
-                    return@launch
-                }
-
-                _authState.value = AuthState.Loading
-                // Returning-user login: apply this uid's cached Favorites
-                // before the feed mounts (iOS waits on the profile read).
-                subscriptionRepository.restoreFavoritesForUser(user.uid)
-                try {
-                    // Check if user is banned before proceeding
-                    val isBanned = authRepository.checkIfUserIsBanned(user.uid)
-                    if (isBanned) {
-                        authRepository.signOut()
-                        _error.value = context.getString(fm.corus.android.localization.CorusStrings.auth_error_account_suspended)
-                        _authState.value = AuthState.SignedOut
-                        return@launch
-                    }
-
-                    val needsOnboarding = authRepository.checkNeedsOnboarding()
-                    if (needsOnboarding && !didSignInThisSession) {
-                        // Stale auth with no profile — sign out silently
-                        authRepository.signOut()
-                        _authState.value = AuthState.SignedOut
-                        return@launch
-                    }
-
-                    // Alias the RevenueCat SDK to the Firebase UID BEFORE the
-                    // user can navigate anywhere (onboarding paywalls, club
-                    // upsells, etc.). Otherwise the SDK stays on its anonymous
-                    // ID and any purchase fires against `$RCAnonymousID:...` —
-                    // the inbound RevenueCat webhook explicitly skips those, so
-                    // Firestore's `isClubMember` would never get set and the
-                    // user would be permanently blocked at the free-tier post
-                    // limit despite having a real Play Store subscription.
-                    // Called inline (not in `launch { }`) so it completes
-                    // before the UI transitions out of Loading.
-                    subscriptionRepository.loginUser(user.uid)
-
-                    if (needsOnboarding) {
-                        _authState.value = AuthState.NeedsOnboarding
-                    } else {
-                        // Set verified status from the profile already fetched
-                        // by checkNeedsOnboarding() — must happen before authState
-                        // becomes SignedIn so canPost is correct immediately.
-                        val profile = authRepository.userProfile.value
-                        if (profile != null) {
-                            subscriptionRepository.updateVerifiedStatus(profile.isVerified)
-                            subscriptionRepository.setTotalPostCount(profile.cymbalCount)
-                        }
-
-                        // Backfill the local onboarding flag so existing users (who
-                        // onboarded before it existed) fast-path on their next
-                        // launch. One slow launch, then fast forever.
-                        onboardingLocalStore.markCompletedOnboarding(user.uid)
-
-                        warmSignedInSession(user.uid)
-                        _authState.value = AuthState.SignedIn
-                    }
-                } catch (e: Exception) {
-                    if (isFatalAuthError(e)) {
-                        // Token revoked, account disabled/deleted, or invalid token — sign out.
-                        authRepository.signOut()
-                        _authState.value = AuthState.SignedOut
-                    } else {
-                        // Transient failure (bad/flaky network, Firestore hiccup, ambiguous error).
-                        // Trust the cached Firebase session and let the user into the app; the
-                        // reconnect observer will retry the profile/ban reads when the network
-                        // recovers.
-                        Log.w("AuthViewModel", "Transient auth-state error; staying signed in", e)
-                        needsRefreshAfterReconnect = true
-                        warmSignedInSession(user.uid)
-                        _authState.value = AuthState.SignedIn
-                    }
-                }
+            val user = auth.currentUser
+            if (user != null && skipListenerForGoogle) {
+                skipListenerForGoogle = false
+                return@AuthStateListener
             }
+            viewModelScope.launch { handleAuthUser(user) }
         }
         authStateListener = listener
         firebaseAuth.addAuthStateListener(listener)
+    }
+
+    private suspend fun handleAuthUser(user: FirebaseUser?, firebaseIsNewUser: Boolean? = null) {
+        // Suppress auth-state changes while account deletion is in progress
+        if (_isDeletingAccount.value) return
+
+        if (user == null) {
+            unreadCountsRepository.stop()
+            if (lastAuthUid != null) {
+                subscriptionRepository.logoutUser()
+                lastAuthUid = null
+            }
+            _authState.value = AuthState.SignedOut
+            return
+        }
+        if (lastAuthUid != null && lastAuthUid != user.uid) {
+            subscriptionRepository.logoutUser()
+        }
+        lastAuthUid = user.uid
+
+        if (firebaseIsNewUser == true) {
+            analyticsService.setUserId(user.uid)
+            _authState.value = AuthState.NeedsOnboarding
+            warmNewSignup(user.uid)
+            return
+        }
+
+        // Fast path: a returning, already-onboarded user (local flag) is
+        // already on the feed (seeded in the initial state). Re-validate in
+        // the background — ban / profile / RevenueCat alias / warmups — and
+        // eject only if something is wrong. New users and pre-backfill first
+        // launches fall through to the profile check below.
+        if (shouldFastPathLaunch(
+                hasUser = true,
+                hasCompletedOnboardingLocally = onboardingLocalStore.hasCompletedOnboarding(user.uid),
+            ) && !didSignInThisSession
+        ) {
+            analyticsService.setUserId(user.uid)
+            SpotifyFtueExperiment.restoreUserProperties(
+                preferences = preferencesDataStore,
+                musicService = musicServicePreference.current.value.value,
+                analytics = analyticsService,
+            )
+            unreadCountsRepository.start(user.uid)
+            // iOS applies a uid-matched persisted profile before MainTab.
+            // Restore Favorites here so the tab is present on first frame.
+            subscriptionRepository.restoreFavoritesForUser(user.uid)
+            _authState.value = AuthState.SignedIn
+            viewModelScope.launch { revalidateInBackground(user) }
+            return
+        }
+
+        // Keep the in-app sign-in screen (and Google button spinner) mounted
+        // until the profile is known. Cold launches still use the launch cover.
+        if (firebaseIsNewUser == null || _authState.value != AuthState.SignedOut) {
+            _authState.value = AuthState.Loading
+        }
+        // Returning-user login: apply this uid's cached Favorites
+        // before the feed mounts (iOS waits on the profile read).
+        subscriptionRepository.restoreFavoritesForUser(user.uid)
+        try {
+            // Check if user is banned before proceeding
+            val isBanned = authRepository.checkIfUserIsBanned(user.uid)
+            if (isBanned) {
+                authRepository.signOut()
+                _error.value = context.getString(fm.corus.android.localization.CorusStrings.auth_error_account_suspended)
+                _authState.value = AuthState.SignedOut
+                return
+            }
+
+            val needsOnboarding = authRepository.checkNeedsOnboarding()
+            if (needsOnboarding && !didSignInThisSession) {
+                // Stale auth with no profile — sign out silently
+                authRepository.signOut()
+                _authState.value = AuthState.SignedOut
+                return
+            }
+
+            if (needsOnboarding && firebaseIsNewUser != null) {
+                // An earlier Google attempt can leave an Auth account without
+                // a profile. Once the profile read confirms that, setup is just
+                // as independent of subscriptions/config as a brand-new signup.
+                analyticsService.setUserId(user.uid)
+                _authState.value = AuthState.NeedsOnboarding
+                warmNewSignup(user.uid, defensiveBanCheck = false)
+                return
+            }
+
+            // Alias the RevenueCat SDK to the Firebase UID BEFORE the
+            // user can navigate anywhere (onboarding paywalls, club
+            // upsells, etc.). Otherwise the SDK stays on its anonymous
+            // ID and any purchase fires against `$RCAnonymousID:...` —
+            // the inbound RevenueCat webhook explicitly skips those, so
+            // Firestore's `isClubMember` would never get set and the
+            // user would be permanently blocked at the free-tier post
+            // limit despite having a real Play Store subscription.
+            // Called inline (not in `launch { }`) so it completes
+            // before the UI transitions out of Loading.
+            subscriptionRepository.loginUser(user.uid)
+
+            if (needsOnboarding) {
+                _authState.value = AuthState.NeedsOnboarding
+            } else {
+                // Set verified status from the profile already fetched
+                // by checkNeedsOnboarding() — must happen before authState
+                // becomes SignedIn so canPost is correct immediately.
+                val profile = authRepository.userProfile.value
+                if (profile != null) {
+                    subscriptionRepository.updateVerifiedStatus(profile.isVerified)
+                    subscriptionRepository.setTotalPostCount(profile.cymbalCount)
+                }
+
+                // Backfill the local onboarding flag so existing users (who
+                // onboarded before it existed) fast-path on their next
+                // launch. One slow launch, then fast forever.
+                onboardingLocalStore.markCompletedOnboarding(user.uid)
+
+                warmSignedInSession(user.uid)
+                _authState.value = AuthState.SignedIn
+            }
+        } catch (e: Exception) {
+            if (isFatalAuthError(e)) {
+                // Token revoked, account disabled/deleted, or invalid token — sign out.
+                authRepository.signOut()
+                _authState.value = AuthState.SignedOut
+            } else {
+                // Transient failure (bad/flaky network, Firestore hiccup, ambiguous error).
+                // Trust the cached Firebase session and let the user into the app; the
+                // reconnect observer will retry the profile/ban reads when the network
+                // recovers.
+                Log.w("AuthViewModel", "Transient auth-state error; staying signed in", e)
+                needsRefreshAfterReconnect = true
+                warmSignedInSession(user.uid)
+                _authState.value = AuthState.SignedIn
+            }
+        }
+    }
+
+    // Profile setup has no dependency on feed flags or subscription readiness.
+    // Purchases still await ensureIdentified() in CymbalClubViewModel.
+    private fun warmNewSignup(uid: String, defensiveBanCheck: Boolean = true) {
+        viewModelScope.launch { remoteConfigService.fetchAndActivate() }
+        viewModelScope.launch { subscriptionRepository.loginUser(uid) }
+        if (!defensiveBanCheck) return
+        viewModelScope.launch {
+            try {
+                val isBanned = authRepository.checkIfUserIsBanned(uid)
+                if (firebaseAuth.currentUser?.uid != uid) return@launch
+                if (isBanned) {
+                    authRepository.signOut()
+                    _error.value = context.getString(fm.corus.android.localization.CorusStrings.auth_error_account_suspended)
+                    _authState.value = AuthState.SignedOut
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (firebaseAuth.currentUser?.uid != uid) return@launch
+                if (isFatalAuthError(e)) {
+                    authRepository.signOut()
+                    _authState.value = AuthState.SignedOut
+                } else {
+                    Log.w("AuthViewModel", "New signup ban check will retry on reconnect", e)
+                    needsRefreshAfterReconnect = true
+                }
+            }
+        }
     }
 
     private fun observeNetworkReconnects() {
@@ -541,6 +601,7 @@ class AuthViewModel @Inject constructor(
             _isLoading.value = true
             _busyProvider.value = "google"
             didSignInThisSession = true
+            skipListenerForGoogle = true
             try {
                 val isNewUser = appCheckTokenSource.withToken {
                     authRepository.signInWithGoogleCredential(idToken)
@@ -550,7 +611,9 @@ class AuthViewModel @Inject constructor(
                 } else {
                     analyticsService.logSignIn("google")
                 }
+                firebaseAuth.currentUser?.let { handleAuthUser(it, firebaseIsNewUser = isNewUser) }
             } catch (e: Exception) {
+                skipListenerForGoogle = false
                 android.util.Log.e("AuthViewModel", "Google sign-in failed", e)
                 _error.value = signupErrorString(
                     classifyProviderSignInError(

@@ -35,11 +35,15 @@ class RemoteConfigServiceDebugOverridesTest {
             service.setDebugOverride(future.key, true)
             assertNull(service.debugOverride(future.key))
             val server = service.debugFeatureFlags.single { it.namespace == "server" && it.key == "for_you_prototype_enabled" }
-            assertFalse(server.allowsLocalOverride)
+            assertTrue(server.allowsLocalOverride)
             assertNull(server.rawValue)
             assertEquals("Your Mix / For You", server.title)
             service.setDebugOverride(server.key, true)
-            assertNull(service.debugOverride(server.key))
+            assertEquals(true, service.debugOverride(server.key))
+            assertTrue(server.effectiveValue())
+            assertNull(server.rawValue) // Local changes never claim server access.
+            assertEquals(server.rowId, service.debugFeatureFlags.first().rowId)
+            service.setDebugOverride(server.key, null)
         }
     }
 
@@ -61,14 +65,16 @@ class RemoteConfigServiceDebugOverridesTest {
         service.setDebugOverride("profile_sharing_v2", true)
         service.setDebugOverride("map_enabled", true)
         service.setDebugOverride("post_success_others_enabled", false)
+        service.setDebugOverride("for_you_prototype_enabled", true)
         if (BuildConfig.DEBUG) {
             assertTrue(service.profileSharingV2)
             assertTrue(service.mapEnabled)
             assertFalse(service.postSuccessOthersEnabled)
-            assertEquals(3, service.debugOverrideCount)
+            assertEquals(4, service.debugOverrideCount)
             assertTrue(service.revision.value > revision)
             val restarted = RemoteConfigService(remote, auth, context)
             assertTrue(restarted.profileSharingV2)
+            assertEquals(true, restarted.debugOverride("for_you_prototype_enabled"))
             assertFalse(restarted.postSuccessOthersEnabled)
             RemoteConfigService::class.java.getDeclaredMethod("cacheFeedFlags").apply {
                 isAccessible = true
@@ -78,20 +84,23 @@ class RemoteConfigServiceDebugOverridesTest {
             assertTrue(service.profileSharingV2)
             service.setDebugOverride("profile_sharing_v2", null)
             assertFalse(service.profileSharingV2)
-            assertEquals(2, service.debugOverrideCount)
+            assertEquals(3, service.debugOverrideCount)
             service.resetDebugOverrides()
             assertEquals(0, service.debugOverrideCount)
+            assertNull(service.debugOverride("for_you_prototype_enabled"))
             assertFalse(service.mapEnabled)
             assertTrue(service.postSuccessOthersEnabled) // Original Debug preset.
         } else {
             // Even a preexisting debug preference cannot affect Release reads.
             context.getSharedPreferences("corus_dev_flags", 0).edit()
-                .putBoolean("profile_sharing_v2", true).putBoolean("map_enabled", true).commit()
+                .putBoolean("profile_sharing_v2", true).putBoolean("map_enabled", true)
+                .putBoolean("for_you_prototype_enabled", true).commit()
             assertFalse(service.profileSharingV2)
             assertFalse(service.mapEnabled)
             assertFalse(service.postSuccessOthersEnabled)
             assertTrue(service.debugFeatureFlags.isEmpty())
             assertNull(service.debugOverride("map_enabled"))
+            assertNull(service.debugOverride("for_you_prototype_enabled"))
             assertEquals(revision, service.revision.value)
         }
     }

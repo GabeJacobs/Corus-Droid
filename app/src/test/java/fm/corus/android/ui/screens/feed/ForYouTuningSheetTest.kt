@@ -44,7 +44,7 @@ class ForYouTuningSheetTest {
     @Test fun `tuning title renders with the standard screen title typography`() {
         showTuningSheet()
         val layouts = mutableListOf<TextLayoutResult>()
-        compose.onNodeWithText("Tune Your Feed").performSemanticsAction(SemanticsActions.GetTextLayoutResult) {
+        compose.onNodeWithText("Tune Your Mix").performSemanticsAction(SemanticsActions.GetTextLayoutResult) {
             it(layouts)
         }
         val renderedStyle = layouts.single().layoutInput.style
@@ -61,27 +61,29 @@ class ForYouTuningSheetTest {
                 }
             }
         }
-        compose.onNodeWithText("Locked").assertIsDisplayed()
+        compose.onAllNodesWithText("Locked").assertCountEquals(2)
         compose.onNodeWithText("Default").assertDoesNotExist()
     }
 
-    @Test fun `tapping locked Stay Close explains the requirement without changing selection`() {
+    @Test fun `both posting locked modes explain the requirement and leave Eclectic selected`() {
         var applied: ForYouTuningMode? = null
         compose.setContent {
             CorusTheme(darkTheme = false) {
                 CompositionLocalProvider(LocalHapticManager provides mock()) {
-                    ForYouTuningSheet(ForYouTuningMode.BALANCED, ForYouTuningMode.BALANCED,
+                    ForYouTuningSheet(ForYouTuningMode.ECLECTIC, ForYouTuningMode.BALANCED,
                         onApply = { applied = it }, onDismiss = {}, progress = ForYouStayCloseProgress(4))
                 }
             }
         }
-        compose.onNodeWithText("4/5 posts shared").assertIsDisplayed()
-        compose.onNodeWithText("Stay Close").performClick()
-        compose.onNodeWithText("Unlock Stay Close").assertIsDisplayed()
-        compose.onNodeWithText("Got it").performClick()
-        compose.onNodeWithText("Share a song or film").assertDoesNotExist()
+        compose.onNodeWithText("4/5 posts shared").assertDoesNotExist()
+        compose.onAllNodesWithText("Requires at least 5 posts").assertCountEquals(2)
+        for (mode in listOf("Balanced", "Stay Close")) {
+            compose.onNodeWithText(mode).performClick()
+            compose.onNodeWithText("Unlock $mode Mix").assertIsDisplayed()
+            compose.onNodeWithText("Got it").performClick()
+        }
         compose.onNodeWithText("Apply").performClick()
-        compose.runOnIdle { assertEquals(ForYouTuningMode.BALANCED, applied) }
+        compose.runOnIdle { assertEquals(ForYouTuningMode.ECLECTIC, applied) }
     }
 
     @Test fun `selection is a draft until Apply and all iOS choices are reachable`() {
@@ -95,10 +97,10 @@ class ForYouTuningSheetTest {
                 }
             }
         }
-        compose.onNodeWithText("Tune Your Feed").assertIsDisplayed()
+        compose.onNodeWithText("Tune Your Mix").assertIsDisplayed()
         compose.onNodeWithText("Eclectic").assertIsDisplayed()
         compose.onNodeWithText("Balanced").assertIsDisplayed()
-        compose.onNodeWithText("Default").assertIsDisplayed()
+        compose.onNodeWithText("Default").assertDoesNotExist()
         compose.onNodeWithText("Stay Close").performClick()
         compose.runOnIdle { assertNull(applied); assertFalse(dismissed) }
         compose.onNodeWithText("Apply").performClick()
@@ -117,7 +119,8 @@ class ForYouTuningSheetTest {
             }
         }
         compose.onNodeWithText("Eclectic").performClick()
-        compose.onNodeWithContentDescription("Close").performClick()
+        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.Dismiss))
+            .onFirst().performSemanticsAction(SemanticsActions.Dismiss) { it() }
         compose.runOnIdle { assertFalse(applied); assertTrue(dismissed) }
     }
 
@@ -131,10 +134,10 @@ class ForYouTuningSheetTest {
         }
         compose.onNodeWithText("Your Mix").assertIsDisplayed()
         compose.onNodeWithText("Matches").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Tune Your Feed: Balanced").performClick()
+        compose.onNodeWithContentDescription("Tune Your Mix: Balanced").performClick()
         compose.runOnIdle { assertTrue(tuned) }
     }
-    @Test fun `expired trial shows a Club lock and opens paywall without applying Stay Close`() {
+    @Test fun `expired trial stays selected and opens Club only from the bottom button`() {
         var club = false
         var applied: ForYouTuningMode? = null
         compose.setContent {
@@ -147,13 +150,15 @@ class ForYouTuningSheetTest {
                 }
             }
         }
-        compose.onNodeWithText("Corus Club").assertIsDisplayed()
-        compose.onNodeWithText("Unlock Stay Close with Corus Club.").assertIsDisplayed()
+        compose.onAllNodesWithText("Corus Club").assertCountEquals(2)
+        compose.onNodeWithText("Requires at least 5 posts").assertDoesNotExist()
         compose.onNodeWithText("Stay Close").performClick()
+        compose.runOnIdle { assertFalse(club); assertNull(applied) }
+        compose.onNodeWithTag("for_you_apply").performClick()
         compose.runOnIdle { assertTrue(club); assertNull(applied) }
     }
 
-    @Test fun `eligible free users see seven day preview disclosure and can apply Stay Close`() {
+    @Test fun `five posts hide the posting requirement and allow applying Stay Close`() {
         var applied: ForYouTuningMode? = null
         compose.setContent {
             CorusTheme(darkTheme = false) {
@@ -163,10 +168,46 @@ class ForYouTuningSheetTest {
                 }
             }
         }
-        compose.onNodeWithText("7-day free preview, then Corus Club.").assertIsDisplayed()
+        compose.onNodeWithText("Requires at least 5 posts").assertDoesNotExist()
+        compose.onNodeWithText("7-day free preview, then Corus Club.").assertDoesNotExist()
         compose.onNodeWithText("Stay Close").performClick()
         compose.onNodeWithText("Apply").performClick()
         compose.runOnIdle { assertEquals(ForYouTuningMode.STAY_CLOSE, applied) }
+    }
+
+    @Test fun `expired Balanced with eligible Club trial selects first then offers Unlock for Free`() {
+        var requested: ForYouTuningMode? = null
+        var applied: ForYouTuningMode? = null
+        compose.setContent {
+            CorusTheme {
+                CompositionLocalProvider(LocalHapticManager provides mock()) {
+                    ForYouTuningSheet(ForYouTuningMode.ECLECTIC, ForYouTuningMode.BALANCED,
+                        onApply = { applied = it }, onDismiss = {},
+                        progress = ForYouStayCloseProgress(5, serverPaywallLocked = true),
+                        hasClubIntroTrial = true, onClub = { requested = it })
+                }
+            }
+        }
+        compose.onNodeWithText("Balanced").performClick()
+        compose.runOnIdle { assertNull(requested); assertNull(applied) }
+        compose.onNodeWithText("Unlock for Free").assertIsDisplayed().performClick()
+        compose.runOnIdle { assertEquals(ForYouTuningMode.BALANCED, requested); assertNull(applied) }
+    }
+    @Test fun `expired shared preview can still apply Eclectic without a paywall`() {
+        var applied: ForYouTuningMode? = null
+        var requested = false
+        compose.setContent {
+            CorusTheme {
+                CompositionLocalProvider(LocalHapticManager provides mock()) {
+                    ForYouTuningSheet(ForYouTuningMode.ECLECTIC, ForYouTuningMode.BALANCED,
+                        onApply = { applied = it }, onDismiss = {},
+                        progress = ForYouStayCloseProgress(5, serverPaywallLocked = true),
+                        onClub = { requested = true })
+                }
+            }
+        }
+        compose.onNodeWithTag("for_you_apply").performClick()
+        compose.runOnIdle { assertEquals(ForYouTuningMode.ECLECTIC, applied); assertFalse(requested) }
     }
 
 }

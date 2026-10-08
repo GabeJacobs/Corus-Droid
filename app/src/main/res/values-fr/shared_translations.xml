@@ -203,4 +203,10 @@
     <string name="corus_favorites_feed_guide_body">"Dans le fil, touchez Abonnements, puis choisissez Favoris."</string>
     <string name="corus_favorites_feed_guide_done">"Compris"</string>
     <string name="corus_favorites_feed_guide_title">"Votre fil de favoris"</string>
+    <string name="for_you_unlock_club">"Débloquer avec Club"</string>
+    <string name="corus_for_you_post_requirement">"Nécessite au moins 5 publications"</string>
+    <string name="corus_for_you_post_unlock_body">"Partage 5 chansons ou films pour débloquer Équilibré et Familier."</string>
+    <string name="corus_for_you_post_unlock_title">"Débloquer le Mix %1$s"</string>
+    <string name="corus_for_you_trial_preview">"Tu essaies ton mix %1$s"</string>
+    <string name="corus_for_you_trial_remaining">"Jours restants pour essayer %1$s : %2$d"</string>
 </resources>

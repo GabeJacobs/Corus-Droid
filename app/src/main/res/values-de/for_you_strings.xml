@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="for_you_title">Dein Mix</string>
-    <string name="for_you_tune">Feed anpassen</string>
+    <string name="for_you_tune">"Passe deinen Mix an"</string>
     <string name="for_you_choose">"Wähle, wie dein Mix zusammengestellt wird:"</string>
     <string name="for_you_eclectic">Eklektisch</string>
     <string name="for_you_balanced">Ausgewogen</string>
@@ -14,11 +14,11 @@
     <string name="for_you_apply">Anwenden</string>
     <string name="for_you_close">Schließen</string>
     <string name="for_you_stay_close_locked">Teile 5 Songs oder Filme, um Vertraut freizuschalten.</string>
-    <string name="for_you_post_progress">%1$d/%2$d Beiträge geteilt</string>
+    <string name="for_you_post_progress">"%1$d/%2$d Beiträge geteilt"</string>
     <string name="for_you_unlock_title">Vertraut freischalten</string>
     <string name="for_you_locked">Gesperrt</string>
     <string name="for_you_stay_close_club_locked">"Schalte Vertraut mit Corus Club frei."</string>
-    <string name="for_you_stay_close_club_subtitle">"Behalte deinen Vertraut-Feed mit Corus Club."</string>
+    <string name="for_you_stay_close_club_subtitle">"Nutze Ausgewogen und Vertraut weiter mit Corus Club."</string>
     <string name="for_you_stay_close_trial_offer">"7 Tage kostenlos ausprobieren, danach mit Corus Club."</string>
-    <string name="for_you_stay_close_trial_remaining">"Verbleibende Tage zum Ausprobieren von Vertraut: %1$d"</string>
+    <string name="for_you_stay_close_trial_remaining">"Verbleibende Tage zum Ausprobieren von dein Mix: %1$d"</string>
 </resources>

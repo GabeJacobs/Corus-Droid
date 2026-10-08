@@ -62,11 +62,15 @@ import kotlinx.coroutines.delay
 
 internal object ClubOnboardingPaywallContract {
     val vinylSize = 112.dp
-    val headerVerticalPadding = 36.dp
     val extraBenefitMinimumContentHeight = 440.dp
     val expandedBenefitMinimumContentHeight = 560.dp
     val subtitleMaxWidth = 280.dp
     val closeTapTargetSize = 48.dp
+
+    // Mid-height phones need less decorative space so the review attribution
+    // stays above the scroll viewport's edge and the pinned purchase controls.
+    fun headerVerticalPadding(contentHeight: Dp): Dp =
+        if (contentHeight < expandedBenefitMinimumContentHeight) 20.dp else 36.dp
 
     data class PlayStoreReview(val quote: Int, val name: Int)
 
@@ -229,7 +233,7 @@ private fun playlistLimitSubtitle(context: PlaylistTrialField?): String {
  */
 @Composable
 internal fun ColumnScope.CenteredScrollRegion(
-    verticalPadding: Dp,
+    verticalPadding: (availableHeight: Dp) -> Dp,
     content: @Composable ColumnScope.(availableHeight: Dp) -> Unit,
 ) {
     BoxWithConstraints(
@@ -243,7 +247,7 @@ internal fun ColumnScope.CenteredScrollRegion(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .heightIn(min = maxHeight)
-                .padding(vertical = verticalPadding),
+                .padding(vertical = verticalPadding(availableHeight)),
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) { content(availableHeight) }
@@ -366,10 +370,12 @@ fun CymbalClubOfferScreen(
         ) {
             // ── Scrollable header + features ──
             CenteredScrollRegion(
-                verticalPadding = if (isOnboarding) {
-                    ClubOnboardingPaywallContract.headerVerticalPadding
-                } else {
-                    CorusSpacing.sm
+                verticalPadding = { availableHeight ->
+                    if (isOnboarding) {
+                        ClubOnboardingPaywallContract.headerVerticalPadding(availableHeight)
+                    } else {
+                        CorusSpacing.sm
+                    }
                 },
             ) { availableHeight ->
                 // Spinning vinyl record

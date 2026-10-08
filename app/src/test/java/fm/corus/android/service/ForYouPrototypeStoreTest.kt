@@ -40,6 +40,7 @@ class ForYouPrototypeStoreTest {
         Dispatchers.setMain(dispatcher)
         prefs.edit().clear().commit()
         whenever(remote.forYouDefaultMode).thenReturn(ForYouTuningMode.BALANCED)
+        whenever(remote.debugOverride(any())).thenReturn(null)
         whenever(remote.revision).thenReturn(revision)
         val gabe = user("gabe")
         whenever(auth.currentUser).thenReturn(gabe)
@@ -55,8 +56,8 @@ class ForYouPrototypeStoreTest {
     @After fun tearDown() { Dispatchers.resetMain() }
 
     private fun user(uid: String): FirebaseUser = mock { on { this.uid } doReturn uid }
-    private fun complete(index: Int, enabled: Boolean) {
-        requests[index].setResult(mock { on { getData() } doReturn mapOf("enabled" to enabled, "stayClose" to mapOf("postCount" to 5, "threshold" to 5)) })
+    private fun complete(index: Int, enabled: Boolean, postCount: Int = 5) {
+        requests[index].setResult(mock { on { getData() } doReturn mapOf("enabled" to enabled, "stayClose" to mapOf("postCount" to postCount, "threshold" to 5)) })
     }
     private fun switch(uid: String?) {
         val next = uid?.let(::user)
@@ -68,8 +69,10 @@ class ForYouPrototypeStoreTest {
     @Test fun `posting progress unlocks at five and stale account progress cannot leak`() = runTest(dispatcher) {
         val store = store(); runCurrent(); complete(0, true); runCurrent()
         store.updateStayCloseProgress(fm.corus.android.domain.ForYouStayCloseProgress(4), "gabe")
+        store.select(ForYouTuningMode.BALANCED)
+        assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
         store.select(ForYouTuningMode.STAY_CLOSE)
-        assertEquals(ForYouTuningMode.BALANCED, store.state.value.mode)
+        assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
         store.updateStayCloseProgress(fm.corus.android.domain.ForYouStayCloseProgress(5), "gabe")
         store.select(ForYouTuningMode.STAY_CLOSE)
         assertEquals(ForYouTuningMode.STAY_CLOSE, store.state.value.mode)
@@ -87,7 +90,9 @@ class ForYouPrototypeStoreTest {
         store.updateStayCloseProgress(preview, "gabe")
         store.select(ForYouTuningMode.STAY_CLOSE); runCurrent()
         advanceTimeBy(1001); runCurrent()
-        assertEquals(ForYouTuningMode.BALANCED, store.state.value.mode)
+        assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
+        store.select(ForYouTuningMode.BALANCED)
+        assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
         assertTrue(store.state.value.stayCloseProgress!!.paywallLocked)
         store.updateStayCloseProgress(preview.copy(hasFullAccess = true), "gabe")
         store.select(ForYouTuningMode.STAY_CLOSE); runCurrent()
@@ -104,7 +109,7 @@ class ForYouPrototypeStoreTest {
         assertTrue(store.state.value.stayCloseProgress!!.serverPaywallLocked)
         assertFalse(store.state.value.stayCloseProgress!!.canAccess)
         advanceTimeBy(2000); runCurrent()
-        assertEquals(ForYouTuningMode.BALANCED, store.state.value.mode)
+        assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
     }
 
     @Test fun `fast access resolves before the first feed presentation`() = runTest(dispatcher) {
@@ -115,6 +120,40 @@ class ForYouPrototypeStoreTest {
         assertTrue(store.state.value.hasPresentation)
         assertEquals(ForYouTuningMode.BALANCED, store.state.value.mode)
         verify(functions).getHttpsCallable("getForYouPrototypeAccess")
+    }
+
+    @Test fun `debug visibility changes immediately and reset restores confirmed server access`() = runTest(dispatcher) {
+        val store = store(); runCurrent(); complete(0, true); runCurrent()
+        whenever(remote.debugOverride("for_you_prototype_enabled")).thenReturn(false)
+        revision.value++; runCurrent()
+        assertFalse(store.isAvailable)
+        assertTrue(prefs.getBoolean("access.v1.gabe", false))
+        assertFalse(store().isAvailable) // Survives a new store without altering server cache.
+        whenever(remote.debugOverride("for_you_prototype_enabled")).thenReturn(null)
+        revision.value++; runCurrent()
+        assertTrue(store.isAvailable)
+    }
+
+    @Test fun `debug ON stays visible after server denial and reset restores OFF`() = runTest(dispatcher) {
+        val store = store(); runCurrent()
+        whenever(remote.debugOverride("for_you_prototype_enabled")).thenReturn(true)
+        revision.value++; runCurrent()
+        assertTrue(store.isAvailable)
+        assertTrue(store.state.value.hasPresentation)
+        complete(0, false); runCurrent()
+        assertTrue(store.isAvailable)
+        assertFalse(prefs.getBoolean("access.v1.gabe", true))
+        whenever(remote.debugOverride("for_you_prototype_enabled")).thenReturn(null)
+        revision.value++; runCurrent()
+        assertFalse(store.isAvailable)
+    }
+
+    @Test fun `debug ON cannot make a signed out session available`() = runTest(dispatcher) {
+        whenever(remote.debugOverride("for_you_prototype_enabled")).thenReturn(true)
+        val store = store(); runCurrent()
+        assertTrue(store.isAvailable)
+        switch(null); runCurrent()
+        assertFalse(store.isAvailable)
     }
 
     @Test fun `late ON is cached for next launch without moving visible tabs`() = runTest(dispatcher) {
@@ -146,9 +185,10 @@ class ForYouPrototypeStoreTest {
         switch("gabe"); runCurrent(); complete(1, true); runCurrent()
         assertFalse(store.isAvailable)
         complete(2, true); runCurrent(); store.select(ForYouTuningMode.STAY_CLOSE)
-        switch("other"); runCurrent(); assertEquals(ForYouTuningMode.BALANCED, store.state.value.mode)
+        switch("other"); runCurrent(); assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
         assertFalse(store.isAvailable)
-        switch("gabe"); runCurrent(); assertEquals(ForYouTuningMode.STAY_CLOSE, store.state.value.mode)
+        switch("gabe"); runCurrent(); assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
+        complete(4, true); runCurrent(); assertEquals(ForYouTuningMode.STAY_CLOSE, store.state.value.mode)
         switch(null); runCurrent(); assertFalse(store.isAvailable)
     }
 
@@ -193,6 +233,22 @@ class ForYouPrototypeStoreTest {
         store.recordViewedPostIds(listOf("stale-account"), "gabe")
         assertFalse(store.viewedPostIds("gabe").contains("stale-account"))
         assertEquals("new-post", store.viewedPostIds("gabe").last())
+    }
+
+    @Test fun `unknown and below five posting progress override saved paid modes and remote defaults`() = runTest(dispatcher) {
+        prefs.edit().putString("mode.gabe", "balanced").commit()
+        val store = store(); runCurrent()
+        assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
+        complete(0, true, 4); runCurrent()
+        assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
+        store.select(ForYouTuningMode.BALANCED)
+        assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
+        store.updateStayCloseProgress(fm.corus.android.domain.ForYouStayCloseProgress(5), "gabe")
+        assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
+        store.select(ForYouTuningMode.BALANCED)
+        assertEquals(ForYouTuningMode.BALANCED, store.state.value.mode)
+        store.updateStayCloseProgress(fm.corus.android.domain.ForYouStayCloseProgress(4, hasFullAccess = true), "gabe")
+        assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
     }
 
 }

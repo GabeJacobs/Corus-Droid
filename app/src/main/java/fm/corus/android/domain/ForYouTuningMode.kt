@@ -32,9 +32,10 @@ enum class ForYouTuningMode(val value: String) {
 data class ForYouStayCloseProgress(val postCount: Int = 0, val threshold: Int = 5,
     val hasFullAccess: Boolean = false, val serverPaywallLocked: Boolean = false,
     val trialEndsAt: Long? = null) {
-    val paywallLocked: Boolean get() = unlocked && !hasFullAccess &&
+    val paywallLocked: Boolean get() = !hasFullAccess &&
         (serverPaywallLocked || trialEndsAt?.let { System.currentTimeMillis() >= it } == true)
     val canAccess: Boolean get() = unlocked && !paywallLocked
+    val canAccessBalanced: Boolean get() = canAccess
     val unlocked: Boolean get() = postCount >= threshold
     val remaining: Int get() = (threshold - postCount.coerceAtLeast(0)).coerceAtLeast(0)
 
@@ -54,7 +55,7 @@ data class ForYouPrototypeState(
     val enabled: Boolean = false,
     val hasPresentation: Boolean = true,
     val generation: Int = 0,
-    val mode: ForYouTuningMode = ForYouTuningMode.BALANCED,
+    val mode: ForYouTuningMode = ForYouTuningMode.ECLECTIC,
     val defaultMode: ForYouTuningMode = ForYouTuningMode.BALANCED,
     val stayCloseProgress: ForYouStayCloseProgress? = null,
 ) {

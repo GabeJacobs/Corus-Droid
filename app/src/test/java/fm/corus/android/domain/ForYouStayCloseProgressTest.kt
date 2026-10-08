@@ -13,9 +13,12 @@ class ForYouStayCloseProgressTest {
         assertEquals(0, ForYouStayCloseProgress.parse(mapOf("postCount" to -5))!!.postCount)
         assertTrue(ForYouStayCloseProgress.parse(mapOf("postCount" to 5L, "threshold" to 5L))!!.unlocked)
     }
-    @Test fun `trial expiry locks only nonmembers who met the posting requirement`() {
+    @Test fun `trial expiry locks both premium modes but keeps the Stay Close posting requirement`() {
         val future = System.currentTimeMillis() + 100000
         val past = System.currentTimeMillis() - 1
+        assertFalse(ForYouStayCloseProgress(0).canAccessBalanced)
+        assertFalse(ForYouStayCloseProgress(0, trialEndsAt = past).canAccessBalanced)
+        assertFalse(ForYouStayCloseProgress(0, hasFullAccess = true, trialEndsAt = past).canAccessBalanced)
         assertTrue(ForYouStayCloseProgress(5, trialEndsAt = future).canAccess)
         assertFalse(ForYouStayCloseProgress(5, trialEndsAt = past).canAccess)
         assertTrue(ForYouStayCloseProgress(5, hasFullAccess = true, trialEndsAt = past).canAccess)

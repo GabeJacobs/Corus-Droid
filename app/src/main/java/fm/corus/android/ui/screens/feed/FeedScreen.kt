@@ -352,7 +352,7 @@ fun FeedScreen(
     // trial (or preview) ends. Only on the served (un-gated) feed, never for
     // a full-access viewer — expiry itself falls back to the existing
     // gated:"paywall" empty state above. Mirrors iOS/web.
-    val isStayCloseTrial = viewModel.forYouPrototype.isAvailable && prototypeState.mode == fm.corus.android.domain.ForYouTuningMode.STAY_CLOSE
+    val isStayCloseTrial = viewModel.forYouPrototype.isAvailable && prototypeState.mode != fm.corus.android.domain.ForYouTuningMode.ECLECTIC
     val showTasteMatchesTrialBanner = feedMode == "tasteMatches" &&
         (!viewModel.forYouPrototype.isAvailable || isStayCloseTrial) &&
         tasteMatchesGate == null &&
@@ -1275,7 +1275,7 @@ fun FeedScreen(
                         item(key = "taste_matches_trial_banner", contentType = "taste_matches_trial_banner") {
                             TasteMatchesTrialBanner(
                                 onClick = { viewModel.onTasteMatchesBannerTapped() },
-                                stayCloseDays = if (isStayCloseTrial) tasteMatchesTrial?.daysRemaining else null,
+                                previewMode = if (isStayCloseTrial) prototypeState.mode else null,
                             )
                         }
                     }
@@ -1712,16 +1712,15 @@ fun FeedScreen(
         LaunchedEffect(prototypeState.uid) {
             viewModel.forYouPrototype.markIntroductionShown()
             viewModel.forYouPrototype.refreshStayCloseProgress()
+            viewModel.awaitClubOfferings()
         }
         ForYouTuningSheet(
             current = prototypeState.mode, defaultMode = prototypeState.defaultMode,
             onApply = { viewModel.applyForYouTuning(it); chromeCollapse.reveal() },
             onDismiss = { showForYouTuning = false },
             progress = prototypeState.stayCloseProgress,
-            onClub = {
-                clubOfferSource = fm.corus.android.ui.screens.subscription.PaywallSource.STAY_CLOSE
-                showClubOffer = true
-            },
+            hasClubIntroTrial = hasClubIntroTrial,
+            onClub = { choice -> viewModel.onStayClosePaywallRequested(choice) },
         )
     }
 
@@ -2423,8 +2422,9 @@ private fun TasteMatchesNoMatchesYet(onPost: () -> Unit) {
  * Tapping opens the Club paywall; the server handles trial expiry.
  */
 @Composable
-private fun TasteMatchesTrialBanner(onClick: () -> Unit, stayCloseDays: Int? = null) {
-    val text = if (stayCloseDays != null) "Corus Club" else stringResource(fm.corus.android.localization.CorusStrings.feed_taste_matches_trial_banner_preview)
+private fun TasteMatchesTrialBanner(onClick: () -> Unit, previewMode: fm.corus.android.domain.ForYouTuningMode? = null) {
+    val modeTitle = previewMode?.let { stringResource(it.titleResource) }
+    val text = if (modeTitle != null) stringResource(fm.corus.android.localization.CorusStrings.for_you_trial_preview, modeTitle) else stringResource(fm.corus.android.localization.CorusStrings.feed_taste_matches_trial_banner_preview)
     // Full-bleed square strip (no rounded corners) — matches iOS/web.
     Column(
         modifier = Modifier
@@ -2446,8 +2446,7 @@ private fun TasteMatchesTrialBanner(onClick: () -> Unit, stayCloseDays: Int? = n
             horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
         ) {
             Text(
-                text = if (stayCloseDays != null) stringResource(R.string.for_you_stay_close_trial_remaining, stayCloseDays)
-                    else stringResource(fm.corus.android.localization.CorusStrings.settings_row_join_club),
+                text = stringResource(fm.corus.android.localization.CorusStrings.settings_row_join_club),
                 style = CorusFont.captionMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = Color.White,
             )

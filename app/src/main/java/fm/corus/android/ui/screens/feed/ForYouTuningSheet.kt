@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -30,7 +31,6 @@ import fm.corus.android.domain.ForYouStayCloseProgress
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.CorusModalBottomSheet
-import fm.corus.android.ui.components.CorusSheetCloseButton
 import fm.corus.android.ui.components.VennDiagramIcon
 import fm.corus.android.ui.components.rememberGuardedSheetState
 import fm.corus.android.ui.theme.CorusColors
@@ -58,10 +58,12 @@ internal fun ForYouTuningSheet(
     onApply: (ForYouTuningMode) -> Unit,
     onDismiss: () -> Unit,
     progress: ForYouStayCloseProgress? = null,
-    onClub: () -> Unit = {},
+    hasClubIntroTrial: Boolean = false,
+    onClub: (ForYouTuningMode) -> Unit = {},
 ) {
     var selection by remember { mutableStateOf(current) }
     var showUnlockExplanation by remember { mutableStateOf(false) }
+    var unlockMode by remember { mutableStateOf(ForYouTuningMode.BALANCED) }
     var edited by remember { mutableStateOf(false) }
     val haptics = LocalHapticManager.current
     LaunchedEffect(current) { if (!edited) selection = current }
@@ -73,22 +75,24 @@ internal fun ForYouTuningSheet(
             Box(Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.for_you_tune), style = CorusFont.screenTitle,
                     color = CorusColors.Text, modifier = Modifier.align(Alignment.Center))
-                CorusSheetCloseButton(onDismiss, stringResource(R.string.for_you_close), Modifier.align(Alignment.CenterEnd))
             }
             Spacer(Modifier.height(12.dp))
             Text(stringResource(R.string.for_you_choose), style = CorusFont.body, color = CorusColors.Secondary)
             Spacer(Modifier.height(20.dp))
             ForYouTuningMode.entries.forEach { mode ->
                 val checked = mode == selection
-                val locked = mode == ForYouTuningMode.STAY_CLOSE && progress?.canAccess != true
-                val clubLocked = mode == ForYouTuningMode.STAY_CLOSE && progress?.paywallLocked == true
+                val postingLocked = mode != ForYouTuningMode.ECLECTIC && progress?.unlocked != true
+                val clubLocked = !postingLocked && mode != ForYouTuningMode.ECLECTIC && progress?.paywallLocked == true
+                val locked = postingLocked || clubLocked
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
                         .background(if (checked) CorusColors.Accent.copy(alpha = .08f) else CorusColors.Secondary.copy(alpha = .06f))
                         .border(if (checked) 1.5.dp else 0.dp, if (checked) CorusColors.Accent else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(16.dp))
                         .clickable(role = if (locked) Role.Button else Role.RadioButton) {
-                            if (clubLocked) { onDismiss(); onClub() }
-                            else if (locked) showUnlockExplanation = true
+                            if (postingLocked) {
+                                unlockMode = mode
+                                showUnlockExplanation = true
+                            }
                             else { edited = true; selection = mode; haptics.impact(HapticManager.ImpactStyle.LIGHT) }
                         }
                         .semantics { selected = checked }.padding(16.dp),
@@ -107,16 +111,13 @@ internal fun ForYouTuningSheet(
                             Text(stringResource(mode.titleResource), style = CorusFont.bodyMedium, color = CorusColors.Text)
                             if (locked) Text(stringResource(R.string.for_you_locked), style = CorusFont.caption, color = CorusColors.Secondary)
                             if (clubLocked) Text("Corus Club", style = CorusFont.caption, color = CorusColors.Accent)
-                            if (!locked && mode == defaultMode) Text(stringResource(R.string.for_you_default), style = CorusFont.caption, color = CorusColors.Secondary)
                         }
-                        Text(stringResource(if (clubLocked) R.string.for_you_stay_close_club_locked else if (locked) R.string.for_you_stay_close_locked else mode.subtitleResource), style = CorusFont.caption, color = CorusColors.Secondary)
-                        if (mode == ForYouTuningMode.STAY_CLOSE && progress?.canAccess == true && !progress.hasFullAccess) {
-                            Text(stringResource(R.string.for_you_stay_close_trial_offer), style = CorusFont.caption, color = CorusColors.Secondary)
+                        Text(stringResource(mode.subtitleResource), style = CorusFont.caption, color = CorusColors.Secondary)
+                        if (postingLocked) {
+                            Text(stringResource(fm.corus.android.localization.CorusStrings.for_you_post_requirement), style = CorusFont.caption, color = CorusColors.Secondary)
                         }
-                        if (locked && !clubLocked && progress != null) Text(stringResource(R.string.for_you_post_progress,
-                            minOf(progress.postCount, progress.threshold), progress.threshold), style = CorusFont.caption, color = CorusColors.Secondary)
                     }
-                    Icon(if (locked) Icons.Outlined.Lock else if (checked) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                    Icon(if (checked) Icons.Outlined.CheckCircle else if (locked) Icons.Outlined.Lock else Icons.Outlined.RadioButtonUnchecked,
                         contentDescription = null, tint = if (checked) CorusColors.Accent else CorusColors.Secondary, modifier = Modifier.size(22.dp))
                 }
                 Spacer(Modifier.height(12.dp))
@@ -124,20 +125,27 @@ internal fun ForYouTuningSheet(
             Spacer(Modifier.height(8.dp))
             Text(stringResource(R.string.for_you_posting_hint), style = CorusFont.caption, color = CorusColors.Secondary)
             Spacer(Modifier.height(20.dp))
-            Button(onClick = { onApply(selection); onDismiss() }, modifier = Modifier.fillMaxWidth(),
-                enabled = selection != ForYouTuningMode.STAY_CLOSE || progress?.canAccess == true,
+            Button(onClick = {
+                if (selection != ForYouTuningMode.ECLECTIC && progress?.paywallLocked == true) onClub(selection)
+                else onApply(selection)
+                onDismiss()
+            }, modifier = Modifier.fillMaxWidth().testTag("for_you_apply"),
+                enabled = selection == ForYouTuningMode.ECLECTIC || progress?.unlocked == true,
                 shape = CircleShape, colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
                 contentPadding = PaddingValues(vertical = 15.dp)) {
-                Text(stringResource(R.string.for_you_apply), style = CorusFont.bodyMedium)
+                Text(stringResource(if (selection != ForYouTuningMode.ECLECTIC && progress?.paywallLocked == true)
+                    if (hasClubIntroTrial) R.string.gift_club_offer_cta_trial else R.string.for_you_unlock_club
+                    else R.string.for_you_apply), style = CorusFont.bodyMedium)
             }
             Spacer(Modifier.height(20.dp))
         }
     }
     if (showUnlockExplanation) {
         AlertDialog(onDismissRequest = { showUnlockExplanation = false },
-            title = { Text(stringResource(R.string.for_you_unlock_title)) },
+            title = { Text(stringResource(fm.corus.android.localization.CorusStrings.for_you_post_unlock_title,
+                stringResource(unlockMode.titleResource))) },
             text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(stringResource(R.string.for_you_stay_close_locked))
+                Text(stringResource(fm.corus.android.localization.CorusStrings.for_you_post_unlock_body))
                 if (progress != null) Text(stringResource(R.string.for_you_post_progress,
                     minOf(progress.postCount, progress.threshold), progress.threshold))
             } },
