@@ -2,6 +2,7 @@ package fm.corus.android.ui.util
 
 import android.content.Context
 import fm.corus.android.R
+import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -62,7 +63,12 @@ object DateUtils {
                 } else {
                     fm.corus.android.localization.CorusStrings.post_time_date_format_other_year
                 }
-                SimpleDateFormat(context.getString(patternRes), locale).format(date)
+                try {
+                    SimpleDateFormat(context.getString(patternRes), locale).format(date)
+                } catch (_: IllegalArgumentException) {
+                    // Translation mistakes must not prevent an older post from rendering.
+                    DateFormat.getDateInstance(DateFormat.MEDIUM, locale).format(date)
+                }
             }
         }
     }

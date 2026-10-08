@@ -585,8 +585,8 @@
         <item quantity="one">há %d dia</item>
         <item quantity="other">há %d dias</item>
     </plurals>
-    <string name="post_time_date_format_same_year">"d ’de’ MMMM"</string>
-    <string name="post_time_date_format_other_year">"d ’de’ MMMM ’de’ yyyy"</string>
+    <string name="post_time_date_format_same_year">"d \'de\' MMMM"</string>
+    <string name="post_time_date_format_other_year">"d \'de\' MMMM \'de\' yyyy"</string>
 
     <!-- Auth -->
     <string name="auth_cd_corus_logo">"Logotipo Corus"</string>
