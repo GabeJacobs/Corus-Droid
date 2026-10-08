@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="for_you_title">For You</string>
+    <string name="for_you_title">"あなたのミックス"</string>
     <string name="for_you_tune">"あなたのミックスを調整"</string>
     <string name="for_you_choose">"あなたのミックスのおすすめを選びましょう："</string>
-    <string name="for_you_eclectic">多彩</string>
-    <string name="for_you_balanced">バランス</string>
-    <string name="for_you_stay_close">好みに近く</string>
-    <string name="for_you_eclectic_description">好みが似ている人から、幅広いスタイルやジャンルをおすすめ</string>
-    <string name="for_you_balanced_description">好みに合わせつつ、幅広いおすすめを表示します。</string>
-    <string name="for_you_stay_close_description">好きなものをもっと、意外な出会いは控えめに。</string>
+    <string name="for_you_eclectic">"多彩"</string>
+    <string name="for_you_balanced">"バランス"</string>
+    <string name="for_you_stay_close">"好みに近く"</string>
+    <string name="for_you_eclectic_description">"好みが似ている人から、幅広いスタイルやジャンルをおすすめ"</string>
+    <string name="for_you_balanced_description">"好みに合わせつつ、幅広いおすすめを表示します。"</string>
+    <string name="for_you_stay_close_description">"好きなものをもっと、意外な出会いは控えめに。"</string>
     <string name="for_you_posting_hint">"投稿するほど、あなたのミックスが好みを理解します。"</string>
     <string name="for_you_default">デフォルト</string>
-    <string name="for_you_apply">適用</string>
+    <string name="for_you_apply">"適用"</string>
     <string name="for_you_close">閉じる</string>
     <string name="for_you_stay_close_locked">曲や映画を5件投稿すると「好みに近く」が使えます。</string>
     <string name="for_you_post_progress">"%1$d/%2$d件投稿済み"</string>
     <string name="for_you_unlock_title">「好みに近く」を使おう</string>
-    <string name="for_you_locked">ロック中</string>
+    <string name="for_you_locked">"ロック中"</string>
     <string name="for_you_stay_close_club_locked">"Corus Clubで「好みに近く」を利用できます。"</string>
     <string name="for_you_stay_close_club_subtitle">"Corus Clubで「バランス」と「好みに近く」を引き続き楽しめます。"</string>
     <string name="for_you_stay_close_trial_offer">"7日間の無料体験後はCorus Clubで利用できます。"</string>

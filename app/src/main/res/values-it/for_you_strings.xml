@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="for_you_title">Il tuo Mix</string>
+    <string name="for_you_title">"Il tuo Mix"</string>
     <string name="for_you_tune">"Personalizza il tuo Mix"</string>
     <string name="for_you_choose">"Scegli come personalizzare il tuo Mix:"</string>
-    <string name="for_you_eclectic">Eclettico</string>
-    <string name="for_you_balanced">Equilibrato</string>
-    <string name="for_you_stay_close">Più familiare</string>
-    <string name="for_you_eclectic_description">Tanti stili e generi da persone con gusti simili ai tuoi</string>
-    <string name="for_you_balanced_description">Consigli su misura per i tuoi gusti, ma sempre eclettici.</string>
-    <string name="for_you_stay_close_description">Più di ciò che ti piace, con meno sorprese.</string>
+    <string name="for_you_eclectic">"Eclettico"</string>
+    <string name="for_you_balanced">"Equilibrato"</string>
+    <string name="for_you_stay_close">"Più familiare"</string>
+    <string name="for_you_eclectic_description">"Tanti stili e generi da persone con gusti simili ai tuoi"</string>
+    <string name="for_you_balanced_description">"Consigli su misura per i tuoi gusti, ma sempre eclettici."</string>
+    <string name="for_you_stay_close_description">"Più di ciò che ti piace, con meno sorprese."</string>
     <string name="for_you_posting_hint">"Più pubblichi, meglio il tuo Mix comprende i tuoi gusti."</string>
     <string name="for_you_default">Predefinita</string>
-    <string name="for_you_apply">Applica</string>
+    <string name="for_you_apply">"Applica"</string>
     <string name="for_you_close">Chiudi</string>
     <string name="for_you_stay_close_locked">Condividi 5 canzoni o film per sbloccare Più familiare.</string>
     <string name="for_you_post_progress">"%1$d/%2$d post condivisi"</string>
     <string name="for_you_unlock_title">Sblocca Più familiare</string>
-    <string name="for_you_locked">Bloccato</string>
+    <string name="for_you_locked">"Bloccato"</string>
     <string name="for_you_stay_close_club_locked">"Sblocca Più familiare con Corus Club."</string>
     <string name="for_you_stay_close_club_subtitle">"Continua a usare Equilibrato e Più familiare con Corus Club."</string>
     <string name="for_you_stay_close_trial_offer">"Prova gratuita di 7 giorni, poi con Corus Club."</string>

@@ -519,6 +519,14 @@ object CorusStrings {
     @StringRes val follow_list_tab_mutual: Int = R.string.follow_list_tab_mutual
     @StringRes val following_status: Int = R.string.parity_90eeb1008380
     @StringRes val for_you_choose: Int = R.string.for_you_choose
+    @StringRes val for_you_controls_apply: Int = R.string.for_you_apply
+    @StringRes val for_you_locked: Int = R.string.for_you_locked
+    @StringRes val for_you_mode_balanced: Int = R.string.for_you_balanced
+    @StringRes val for_you_mode_balanced_subtitle: Int = R.string.for_you_balanced_description
+    @StringRes val for_you_mode_close: Int = R.string.for_you_stay_close
+    @StringRes val for_you_mode_close_subtitle: Int = R.string.for_you_stay_close_description
+    @StringRes val for_you_mode_eclectic: Int = R.string.for_you_eclectic
+    @StringRes val for_you_mode_eclectic_subtitle: Int = R.string.for_you_eclectic_description
     @StringRes val for_you_post_progress: Int = R.string.for_you_post_progress
     @StringRes val for_you_post_requirement: Int = R.string.corus_for_you_post_requirement
     @StringRes val for_you_post_unlock_body: Int = R.string.corus_for_you_post_unlock_body
@@ -528,6 +536,7 @@ object CorusStrings {
     @StringRes val for_you_stay_close_club_subtitle: Int = R.string.for_you_stay_close_club_subtitle
     @StringRes val for_you_stay_close_trial_offer: Int = R.string.for_you_stay_close_trial_offer
     @StringRes val for_you_stay_close_trial_remaining: Int = R.string.for_you_stay_close_trial_remaining
+    @StringRes val for_you_tab_title: Int = R.string.for_you_title
     @StringRes val for_you_trial_preview: Int = R.string.corus_for_you_trial_preview
     @StringRes val for_you_trial_remaining: Int = R.string.corus_for_you_trial_remaining
     @StringRes val for_you_tune: Int = R.string.for_you_tune

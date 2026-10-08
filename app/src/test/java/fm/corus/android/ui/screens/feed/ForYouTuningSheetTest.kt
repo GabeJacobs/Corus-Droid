@@ -210,4 +210,34 @@ class ForYouTuningSheetTest {
         compose.runOnIdle { assertEquals(ForYouTuningMode.ECLECTIC, applied); assertFalse(requested) }
     }
 
+    @Test
+    @Config(qualifiers = "ja-w393dp-h852dp")
+    fun `Japanese sheet uses translated mode names and Apply`() {
+        showTuningSheet()
+        compose.onNodeWithText("あなたのミックスを調整").assertIsDisplayed()
+        compose.onNodeWithText("多彩").assertIsDisplayed()
+        compose.onNodeWithText("バランス").assertIsDisplayed()
+        compose.onNodeWithText("好みに近く").assertIsDisplayed()
+        compose.onNodeWithText("適用").assertIsDisplayed()
+        compose.onNodeWithText("Balanced").assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = "ko-w393dp-h852dp")
+    fun `Korean unlock explanation keeps the translated mode name`() {
+        compose.setContent {
+            CorusTheme(darkTheme = false) {
+                CompositionLocalProvider(LocalHapticManager provides mock()) {
+                    ForYouTuningSheet(ForYouTuningMode.ECLECTIC, ForYouTuningMode.BALANCED,
+                        onApply = {}, onDismiss = {}, progress = ForYouStayCloseProgress(4))
+                }
+            }
+        }
+        compose.onNodeWithText("균형 있게").performClick()
+        compose.onNodeWithText("균형 있게 믹스 잠금 해제").assertIsDisplayed()
+        compose.onNodeWithText("노래나 영화를 5개 공유하면 “균형 있게”와 “취향에 가깝게”를 사용할 수 있어요.").assertIsDisplayed()
+        compose.onNodeWithText("Balanced").assertDoesNotExist()
+    }
+
+
 }

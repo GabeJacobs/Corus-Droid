@@ -205,8 +205,8 @@
     <string name="corus_favorites_feed_guide_title">"あなたのお気に入りフィード"</string>
     <string name="for_you_unlock_club">"Clubでアンロック"</string>
     <string name="corus_for_you_post_requirement">"5件以上の投稿が必要です"</string>
-    <string name="corus_for_you_post_unlock_body">"曲や映画を5件投稿すると、バランスと好みに近くが使えるようになります。"</string>
-    <string name="corus_for_you_post_unlock_title">"%1$sミックスを解放"</string>
-    <string name="corus_for_you_trial_preview">"あなたの%1$sミックスをお試し中"</string>
+    <string name="corus_for_you_post_unlock_body">"曲や映画を5件投稿すると、「バランス」と「好みに近く」が使えるようになります。"</string>
+    <string name="corus_for_you_post_unlock_title">"「%1$s」ミックスを利用する"</string>
+    <string name="corus_for_you_trial_preview">"「%1$s」ミックスをお試し中"</string>
     <string name="corus_for_you_trial_remaining">"%1$sのお試し期間：残り%2$d日"</string>
 </resources>

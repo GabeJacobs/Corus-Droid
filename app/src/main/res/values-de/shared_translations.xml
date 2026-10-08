@@ -207,6 +207,6 @@
     <string name="corus_for_you_post_requirement">"Erfordert mindestens 5 Beiträge"</string>
     <string name="corus_for_you_post_unlock_body">"Teile 5 Songs oder Filme, um Ausgewogen und Vertraut freizuschalten."</string>
     <string name="corus_for_you_post_unlock_title">"Mix „%1$s“ freischalten"</string>
-    <string name="corus_for_you_trial_preview">"Du testest gerade deinen %1$s-Mix"</string>
+    <string name="corus_for_you_trial_preview">"Du testest gerade deinen Mix „%1$s“"</string>
     <string name="corus_for_you_trial_remaining">"Verbleibende Tage zum Testen von %1$s: %2$d"</string>
 </resources>

@@ -207,6 +207,6 @@
     <string name="corus_for_you_post_requirement">"Requiere al menos 5 publicaciones"</string>
     <string name="corus_for_you_post_unlock_body">"Comparte 5 canciones o películas para desbloquear Equilibrado y Más cercano."</string>
     <string name="corus_for_you_post_unlock_title">"Desbloquea el Mix %1$s"</string>
-    <string name="corus_for_you_trial_preview">"Estás probando tu mezcla %1$s"</string>
+    <string name="corus_for_you_trial_preview">"Estás probando tu mix «%1$s»"</string>
     <string name="corus_for_you_trial_remaining">"Días restantes para probar %1$s: %2$d"</string>
 </resources>

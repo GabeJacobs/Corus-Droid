@@ -25,7 +25,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import fm.corus.android.R
+import fm.corus.android.localization.CorusStrings
 import fm.corus.android.domain.ForYouTuningMode
 import fm.corus.android.domain.ForYouStayCloseProgress
 import fm.corus.android.domain.HapticManager
@@ -38,16 +38,16 @@ import fm.corus.android.ui.theme.CorusFont
 
 internal val ForYouTuningMode.titleResource: Int
     get() = when (this) {
-        ForYouTuningMode.ECLECTIC -> R.string.for_you_eclectic
-        ForYouTuningMode.BALANCED -> R.string.for_you_balanced
-        ForYouTuningMode.STAY_CLOSE -> R.string.for_you_stay_close
+        ForYouTuningMode.ECLECTIC -> CorusStrings.for_you_mode_eclectic
+        ForYouTuningMode.BALANCED -> CorusStrings.for_you_mode_balanced
+        ForYouTuningMode.STAY_CLOSE -> CorusStrings.for_you_mode_close
     }
 
 private val ForYouTuningMode.subtitleResource: Int
     get() = when (this) {
-        ForYouTuningMode.ECLECTIC -> R.string.for_you_eclectic_description
-        ForYouTuningMode.BALANCED -> R.string.for_you_balanced_description
-        ForYouTuningMode.STAY_CLOSE -> R.string.for_you_stay_close_description
+        ForYouTuningMode.ECLECTIC -> CorusStrings.for_you_mode_eclectic_subtitle
+        ForYouTuningMode.BALANCED -> CorusStrings.for_you_mode_balanced_subtitle
+        ForYouTuningMode.STAY_CLOSE -> CorusStrings.for_you_mode_close_subtitle
     }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,11 +73,11 @@ internal fun ForYouTuningSheet(
     ) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
             Box(Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.for_you_tune), style = CorusFont.screenTitle,
+                Text(stringResource(CorusStrings.for_you_tune), style = CorusFont.screenTitle,
                     color = CorusColors.Text, modifier = Modifier.align(Alignment.Center))
             }
             Spacer(Modifier.height(12.dp))
-            Text(stringResource(R.string.for_you_choose), style = CorusFont.body, color = CorusColors.Secondary)
+            Text(stringResource(CorusStrings.for_you_choose), style = CorusFont.body, color = CorusColors.Secondary)
             Spacer(Modifier.height(20.dp))
             ForYouTuningMode.entries.forEach { mode ->
                 val checked = mode == selection
@@ -109,12 +109,12 @@ internal fun ForYouTuningSheet(
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(stringResource(mode.titleResource), style = CorusFont.bodyMedium, color = CorusColors.Text)
-                            if (locked) Text(stringResource(R.string.for_you_locked), style = CorusFont.caption, color = CorusColors.Secondary)
-                            if (clubLocked) Text("Corus Club", style = CorusFont.caption, color = CorusColors.Accent)
+                            if (locked) Text(stringResource(CorusStrings.for_you_locked), style = CorusFont.caption, color = CorusColors.Secondary)
+                            if (clubLocked) Text(stringResource(CorusStrings.settings_section_club), style = CorusFont.caption, color = CorusColors.Accent)
                         }
                         Text(stringResource(mode.subtitleResource), style = CorusFont.caption, color = CorusColors.Secondary)
                         if (postingLocked) {
-                            Text(stringResource(fm.corus.android.localization.CorusStrings.for_you_post_requirement), style = CorusFont.caption, color = CorusColors.Secondary)
+                            Text(stringResource(CorusStrings.for_you_post_requirement), style = CorusFont.caption, color = CorusColors.Secondary)
                         }
                     }
                     Icon(if (checked) Icons.Outlined.CheckCircle else if (locked) Icons.Outlined.Lock else Icons.Outlined.RadioButtonUnchecked,
@@ -123,7 +123,7 @@ internal fun ForYouTuningSheet(
                 Spacer(Modifier.height(12.dp))
             }
             Spacer(Modifier.height(8.dp))
-            Text(stringResource(R.string.for_you_posting_hint), style = CorusFont.caption, color = CorusColors.Secondary)
+            Text(stringResource(CorusStrings.for_you_posting_hint), style = CorusFont.caption, color = CorusColors.Secondary)
             Spacer(Modifier.height(20.dp))
             Button(onClick = {
                 if (selection != ForYouTuningMode.ECLECTIC && progress?.paywallLocked == true) onClub(selection)
@@ -134,23 +134,23 @@ internal fun ForYouTuningSheet(
                 shape = CircleShape, colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
                 contentPadding = PaddingValues(vertical = 15.dp)) {
                 Text(stringResource(if (selection != ForYouTuningMode.ECLECTIC && progress?.paywallLocked == true)
-                    if (hasClubIntroTrial) R.string.gift_club_offer_cta_trial else R.string.for_you_unlock_club
-                    else R.string.for_you_apply), style = CorusFont.bodyMedium)
+                    if (hasClubIntroTrial) CorusStrings.gift_club_offer_cta_trial else CorusStrings.native_8e62480111b3
+                    else CorusStrings.for_you_controls_apply), style = CorusFont.bodyMedium)
             }
             Spacer(Modifier.height(20.dp))
         }
     }
     if (showUnlockExplanation) {
         AlertDialog(onDismissRequest = { showUnlockExplanation = false },
-            title = { Text(stringResource(fm.corus.android.localization.CorusStrings.for_you_post_unlock_title,
+            title = { Text(stringResource(CorusStrings.for_you_post_unlock_title,
                 stringResource(unlockMode.titleResource))) },
             text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(stringResource(fm.corus.android.localization.CorusStrings.for_you_post_unlock_body))
-                if (progress != null) Text(stringResource(R.string.for_you_post_progress,
+                Text(stringResource(CorusStrings.for_you_post_unlock_body))
+                if (progress != null) Text(stringResource(CorusStrings.for_you_post_progress,
                     minOf(progress.postCount, progress.threshold), progress.threshold))
             } },
             confirmButton = { TextButton(onClick = { showUnlockExplanation = false }) {
-                Text(stringResource(R.string.feed_energy_got_it))
+                Text(stringResource(CorusStrings.feed_energy_got_it))
             } })
     }
 }
