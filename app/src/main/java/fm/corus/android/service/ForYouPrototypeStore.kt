@@ -186,6 +186,9 @@ class ForYouPrototypeStore @Inject constructor(
         val uid = current.uid ?: return
         prefs.edit().putBoolean("previewEnded.seen.v1.$uid", true)
             .remove("previewEnded.pending.v1.$uid").apply()
+        // The expiry notice replaces the automatic controls introduction, so
+        // Continue leaves this installation on the Eclectic feed.
+        markIntroductionShown()
         _state.value = current.copy(previewEndedNoticeHandled = true)
     }
 

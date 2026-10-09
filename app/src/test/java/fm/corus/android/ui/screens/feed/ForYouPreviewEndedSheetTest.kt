@@ -41,7 +41,7 @@ class ForYouPreviewEndedSheetTest {
         compose.runOnIdle {
             assertEquals(0, club)
             assertEquals(listOf("your_mix_preview_ended_shown", "your_mix_preview_ended_dismissed"), tracking.map { it.name })
-            assertEquals(mapOf("has_club_trial" to true, "reason" to "continue"), tracking.last().params)
+            assertEquals(mapOf("has_club_trial" to 1L, "reason" to "continue"), tracking.last().params)
         }
     }
 
@@ -59,7 +59,7 @@ class ForYouPreviewEndedSheetTest {
         compose.runOnIdle {
             assertEquals(listOf("dismiss", "club"), events)
             assertEquals(listOf("your_mix_preview_ended_shown", "your_mix_preview_ended_club_tapped"), tracking.map { it.name })
-            assertEquals(mapOf("has_club_trial" to false), tracking.last().params)
+            assertEquals(mapOf("has_club_trial" to 0L), tracking.last().params)
         }
     }
 
@@ -77,7 +77,7 @@ class ForYouPreviewEndedSheetTest {
         compose.waitUntil { tracking.size == 2 }
         compose.runOnIdle {
             assertEquals("your_mix_preview_ended_dismissed", tracking.last().name)
-            assertEquals(mapOf("has_club_trial" to true, "reason" to "dismiss"), tracking.last().params)
+            assertEquals(mapOf("has_club_trial" to 1L, "reason" to "dismiss"), tracking.last().params)
         }
     }
 }

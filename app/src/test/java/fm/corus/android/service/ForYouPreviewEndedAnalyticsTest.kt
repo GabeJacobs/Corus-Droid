@@ -9,11 +9,11 @@ class ForYouPreviewEndedAnalyticsTest {
         assertNull(session.clubTapped()); assertNull(session.dismissed(ForYouPreviewEndedDismissReason.DISMISS))
         val shown = session.shown(true)
         assertEquals("The visible notice must emit an impression", "your_mix_preview_ended_shown", shown?.name)
-        assertEquals(mapOf("has_club_trial" to true), shown?.params)
+        assertEquals(mapOf("has_club_trial" to 1L), shown?.params)
         assertNull(session.shown(false))
         val club = session.clubTapped()
         assertEquals("your_mix_preview_ended_club_tapped", club?.name)
-        assertEquals(mapOf("has_club_trial" to true), club?.params)
+        assertEquals(mapOf("has_club_trial" to 1L), club?.params)
         assertNull(session.clubTapped()); assertNull(session.dismissed(ForYouPreviewEndedDismissReason.DISMISS))
     }
     @Test fun `Continue and passive dismissal are distinct single outcomes`() {
@@ -22,7 +22,7 @@ class ForYouPreviewEndedAnalyticsTest {
             session.shown(false)
             val end = session.dismissed(reason)
             assertEquals("your_mix_preview_ended_dismissed", end?.name)
-            assertEquals(mapOf("has_club_trial" to false, "reason" to reason.value), end?.params)
+            assertEquals(mapOf("has_club_trial" to 0L, "reason" to reason.value), end?.params)
             assertNull(session.dismissed(reason)); assertNull(session.clubTapped())
         }
     }

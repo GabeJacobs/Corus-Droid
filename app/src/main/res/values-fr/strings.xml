@@ -1150,7 +1150,7 @@
     <string name="messaging_group_sys_and">"%1$s et %2$s"</string>
     <string name="messaging_group_sys_and_n_other">%1$s, %2$s et %3$d autre</string>
     <string name="messaging_group_sys_and_n_others">"%1$s, %2$s et %3$d autres"</string>
-    <string name="club_feature_taste_matches">"Fil d’affinités de goûts"</string>
+    <string name="club_feature_taste_matches">"Mix personnalisés"</string>
     <string name="feed_taste_matches_coldstart_title">"Quels sont 3 chansons ou films que vous adorez ?"</string>
     <string name="feed_taste_matches_coldstart_body">"Corus vous compose un fil personnalisé et vous met en relation avec des personnes aux goûts similaires."</string>
     <string name="feed_taste_matches_coldstart_progress">"Encore %1$d"</string>

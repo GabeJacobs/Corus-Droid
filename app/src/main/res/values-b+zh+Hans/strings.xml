@@ -1149,7 +1149,7 @@
     <string name="messaging_group_sys_and">"%1$s 和 %2$s"</string>
     <string name="messaging_group_sys_and_n_other">%1$s、%2$s 等 %3$d 人</string>
     <string name="messaging_group_sys_and_n_others">"%1$s、%2$s 等 %3$d 人"</string>
-    <string name="club_feature_taste_matches">"品味匹配动态"</string>
+    <string name="club_feature_taste_matches">"个性化推荐"</string>
     <string name="feed_taste_matches_coldstart_title">"你喜欢哪3首歌曲或电影？"</string>
     <string name="feed_taste_matches_coldstart_body">"Corus 会为你打造个性化动态，并将你与品味相近的人联系起来。"</string>
     <string name="feed_taste_matches_coldstart_progress">"还差 %1$d"</string>
