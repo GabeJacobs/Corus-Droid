@@ -127,7 +127,7 @@ internal fun ForYouTuningSheet(
             Spacer(Modifier.height(20.dp))
             Button(onClick = {
                 if (selection != ForYouTuningMode.ECLECTIC && progress?.paywallLocked == true) onClub(selection)
-                else onApply(selection)
+                else if (selection != current) onApply(selection)
                 onDismiss()
             }, modifier = Modifier.fillMaxWidth().testTag("for_you_apply"),
                 enabled = selection == ForYouTuningMode.ECLECTIC || progress?.unlocked == true,

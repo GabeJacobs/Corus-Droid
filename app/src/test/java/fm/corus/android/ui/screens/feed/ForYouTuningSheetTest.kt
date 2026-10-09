@@ -67,11 +67,12 @@ class ForYouTuningSheetTest {
 
     @Test fun `both posting locked modes explain the requirement and leave Eclectic selected`() {
         var applied: ForYouTuningMode? = null
+        var dismissed = false
         compose.setContent {
             CorusTheme(darkTheme = false) {
                 CompositionLocalProvider(LocalHapticManager provides mock()) {
                     ForYouTuningSheet(ForYouTuningMode.ECLECTIC, ForYouTuningMode.BALANCED,
-                        onApply = { applied = it }, onDismiss = {}, progress = ForYouStayCloseProgress(4))
+                        onApply = { applied = it }, onDismiss = { dismissed = true }, progress = ForYouStayCloseProgress(4))
                 }
             }
         }
@@ -83,7 +84,39 @@ class ForYouTuningSheetTest {
             compose.onNodeWithText("Got it").performClick()
         }
         compose.onNodeWithText("Apply").performClick()
-        compose.runOnIdle { assertEquals(ForYouTuningMode.ECLECTIC, applied) }
+        compose.runOnIdle { assertNull(applied); assertTrue(dismissed) }
+    }
+
+    @Test fun `Apply dismisses an unchanged selection without applying it`() {
+        var applied: ForYouTuningMode? = null
+        var dismissed = false
+        compose.setContent {
+            CorusTheme(darkTheme = false) {
+                CompositionLocalProvider(LocalHapticManager provides mock()) {
+                    ForYouTuningSheet(ForYouTuningMode.BALANCED, ForYouTuningMode.BALANCED,
+                        onApply = { applied = it }, onDismiss = { dismissed = true }, progress = ForYouStayCloseProgress(5))
+                }
+            }
+        }
+        compose.onNodeWithTag("for_you_apply").performClick()
+        compose.runOnIdle { assertNull(applied); assertTrue(dismissed) }
+    }
+
+    @Test fun `Apply dismisses without applying after selecting another mode and returning to the current mode`() {
+        var applied: ForYouTuningMode? = null
+        var dismissed = false
+        compose.setContent {
+            CorusTheme(darkTheme = false) {
+                CompositionLocalProvider(LocalHapticManager provides mock()) {
+                    ForYouTuningSheet(ForYouTuningMode.BALANCED, ForYouTuningMode.BALANCED,
+                        onApply = { applied = it }, onDismiss = { dismissed = true }, progress = ForYouStayCloseProgress(5))
+                }
+            }
+        }
+        compose.onNodeWithText("Stay Close").performClick()
+        compose.onNodeWithText("Balanced").performClick()
+        compose.onNodeWithTag("for_you_apply").performClick()
+        compose.runOnIdle { assertNull(applied); assertTrue(dismissed) }
     }
 
     @Test fun `selection is a draft until Apply and all iOS choices are reachable`() {
@@ -199,13 +232,14 @@ class ForYouTuningSheetTest {
         compose.setContent {
             CorusTheme {
                 CompositionLocalProvider(LocalHapticManager provides mock()) {
-                    ForYouTuningSheet(ForYouTuningMode.ECLECTIC, ForYouTuningMode.BALANCED,
+                    ForYouTuningSheet(ForYouTuningMode.BALANCED, ForYouTuningMode.BALANCED,
                         onApply = { applied = it }, onDismiss = {},
                         progress = ForYouStayCloseProgress(5, serverPaywallLocked = true),
                         onClub = { requested = true })
                 }
             }
         }
+        compose.onNodeWithText("Eclectic").performClick()
         compose.onNodeWithTag("for_you_apply").performClick()
         compose.runOnIdle { assertEquals(ForYouTuningMode.ECLECTIC, applied); assertFalse(requested) }
     }
