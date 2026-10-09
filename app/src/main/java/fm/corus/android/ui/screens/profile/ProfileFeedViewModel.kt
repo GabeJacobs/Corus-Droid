@@ -49,6 +49,7 @@ enum class ProfileFeedSource(val mediaType: MediaType? = null) {
     LIKES,
     SAVES,
     HASHTAG,
+    COLLECTION,
 }
 
 /**
@@ -59,6 +60,7 @@ object ProfileFeedCache {
     var posts: List<CymbalPost> = emptyList()
     var hasMore: Boolean = false
     var profileUser: CymbalUser? = null
+    internal var collection: CollectionFeedSession? = null
 }
 
 @HiltViewModel
@@ -143,6 +145,9 @@ class ProfileFeedViewModel @Inject constructor(
     private var hashtag: String = ""
     private var initialized = false
     private var profileUser: CymbalUser? = null
+    internal var collection: CollectionFeedSession? = null
+        private set
+    private var collectionPlayGeneration = 0
 
     /** Public read of the current hashtag, used by the screen to show `#tag` in the title bar. */
     val currentHashtag: String get() = hashtag
@@ -185,16 +190,19 @@ class ProfileFeedViewModel @Inject constructor(
         }
         viewModelScope.launch {
             postDeletionEvent.events.collect { deletedId ->
+                collection?.remove(deletedId)
                 _posts.value = _posts.value.filter { it.id != deletedId }
             }
         }
         viewModelScope.launch {
             commentEditedEvent.events.collect { payload ->
+                collection?.updatePosts { applyCommentEditToPosts(it, payload) }
                 _posts.value = applyCommentEditToPosts(_posts.value, payload)
             }
         }
         viewModelScope.launch {
             commentDeletedEvent.events.collect { payload ->
+                collection?.updatePosts { applyCommentDeleteToPosts(it, payload) }
                 _posts.value = applyCommentDeleteToPosts(_posts.value, payload)
             }
         }
@@ -206,7 +214,39 @@ class ProfileFeedViewModel @Inject constructor(
      * restored this screen without a populated cache).
      */
     fun initFeed(userId: String, segment: Int, hashtag: String = ""): Boolean {
-        if (initialized) return _posts.value.isNotEmpty()
+        if (!initialized && segment in 5..6) {
+            val session = ProfileFeedCache.collection?.takeIf {
+                it.profileId == userId && it.segment == segment && it.isAllowed()
+            } ?: return false
+            ProfileFeedCache.collection = null
+            initialized = true
+            this.userId = userId
+            source = ProfileFeedSource.COLLECTION
+            collection = session
+            profileUser = ProfileFeedCache.profileUser?.takeIf { it.id == userId }
+            ProfileFeedCache.profileUser = null
+            viewModelScope.launch {
+                val seeded = mutableSetOf<String>()
+                session.items.collect { items ->
+                    _posts.value = items.mapNotNull { it.post }.map(::enrichPost)
+                    val newPosts = _posts.value.filter { seeded.add(it.id) }
+                    newPosts.forEach { post -> engagementManager.initState(
+                        post.id, post.likeCount, post.commentCount, post.repostCount,
+                        isLiked = post.isLiked, isSaved = false, saveCount = post.saveCount,
+                    ) }
+                    if (newPosts.isNotEmpty()) viewModelScope.launch {
+                        authRepository.currentUserId?.let { viewer ->
+                            engagementManager.checkLikeStatuses(newPosts.map { it.id }, viewer)
+                            engagementManager.checkSaveStatuses(newPosts.map { it.id }, viewer)
+                        }
+                    }
+                }
+            }
+            viewModelScope.launch { session.hasMore.collect { _hasMore.value = it } }
+            viewModelScope.launch { session.loadingMore.collect { _isLoadingMore.value = it } }
+            return true
+        }
+        if (initialized) return collection != null || _posts.value.isNotEmpty()
         initialized = true
         this.userId = userId
         this.hashtag = hashtag.lowercase()
@@ -281,11 +321,17 @@ class ProfileFeedViewModel @Inject constructor(
      */
     fun refresh() {
         if (!initialized) return
+        collection?.let { session ->
+            session.failedIds.value.forEach { resolveCollectionPost(it, retry = true) }
+            if (session.pageFailed.value) viewModelScope.launch { session.loadMore(retry = true) }
+            return
+        }
         viewModelScope.launch {
             val viewerId = authRepository.currentUserId ?: return@launch
             _isRefreshing.value = true
             try {
                 val (newPosts, newHasMore) = when (source) {
+                    ProfileFeedSource.COLLECTION -> return@launch
                     ProfileFeedSource.SONGS, ProfileFeedSource.FILMS -> {
                         val page = cloudFunctions.getProfilePosts(
                             userId = userId,
@@ -344,11 +390,13 @@ class ProfileFeedViewModel @Inject constructor(
     }
 
     private suspend fun loadMoreSuspending() {
+        collection?.let { it.loadMore(); return }
         if (!_hasMore.value || _isLoadingMore.value) return
         val viewerId = authRepository.currentUserId ?: return
         _isLoadingMore.value = true
         try {
             when (source) {
+                    ProfileFeedSource.COLLECTION -> Unit
                     ProfileFeedSource.SONGS, ProfileFeedSource.FILMS -> {
                         val lastTimestamp = _posts.value.lastOrNull()?.timestamp?.time ?: run {
                             _hasMore.value = false
@@ -475,6 +523,14 @@ class ProfileFeedViewModel @Inject constructor(
         viewModelScope.launch { routePostPlayTap(post, preferFullSong = false) }
     }
 
+    internal fun resolveCollectionPost(id: String, retry: Boolean = false) {
+        viewModelScope.launch { collection?.resolve(id, retry) }
+    }
+
+    internal fun retryCollectionPage() {
+        viewModelScope.launch { collection?.loadMore(retry = true) }
+    }
+
     fun playFullSong(post: CymbalPost) {
         viewModelScope.launch {
             routePostPlayTap(post, preferFullSong = true, skipPlaybackModePrompt = true)
@@ -487,7 +543,18 @@ class ProfileFeedViewModel @Inject constructor(
         skipPlaybackModePrompt: Boolean = false,
     ) {
         nowPlayingManager.lastUserInitiatedSourcePostId = post.id
-        nowPlayingManager.setPlaybackOrigin(PlaybackOrigin.Profile(userId))
+        val collectionQueue = collection?.playbackQueue
+        val generation = ++collectionPlayGeneration
+        if (collectionQueue != null) {
+            try { collectionQueue.prepare(post) }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) {
+                ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.profile_collection_post_error))
+                return
+            }
+            if (generation != collectionPlayGeneration) return
+            collectionQueue.activate(nowPlayingManager, post)
+        } else nowPlayingManager.setPlaybackOrigin(PlaybackOrigin.Profile(userId))
         val musicService = musicServicePreference.current.value
         if (!preferFullSong &&
             nowPlayingManager.isFullSongSessionActive(musicService, post.track.id, post.id)
@@ -496,7 +563,7 @@ class ProfileFeedViewModel @Inject constructor(
             return
         }
         val trackPosts = _posts.value.filter { it.mediaType == MediaType.TRACK }
-        val queue = trackPosts.map { it.toQueuedTrack() }
+        val queue = collectionQueue?.tracks ?: trackPosts.map { it.toQueuedTrack() }
         val track = post.toQueuedTrack()
         val playFullSongs = preferencesDataStore.effectivePlayFullSongsSync()
         val outcome = FullSongPlayCoordinator.playTapOutcome(
@@ -524,7 +591,8 @@ class ProfileFeedViewModel @Inject constructor(
             onPreview = {
                 if (queue.any { it.trackId == track.trackId }) {
                     nowPlayingManager.play(track = track, queue = queue)
-                    nowPlayingManager.updateFeedQueue(
+                    if (collectionQueue != null) collectionQueue.activate(nowPlayingManager, post)
+                    else nowPlayingManager.updateFeedQueue(
                         newQueue = queue,
                         hasMore = _hasMore.value,
                         loadMore = { loadMoreSuspending() },

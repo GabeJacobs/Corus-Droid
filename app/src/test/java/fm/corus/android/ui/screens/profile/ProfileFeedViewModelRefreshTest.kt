@@ -117,6 +117,7 @@ class ProfileFeedViewModelRefreshTest {
         analyticsService = analyticsService,
         preferencesDataStore = mock {
             on { feedFollowsNowPlaying } doReturn MutableStateFlow(true)
+            on { playFullSongs } doReturn MutableStateFlow(false)
         },
         playbackModePromptManager = mock(),
         musicServicePreference = mock(),
@@ -135,6 +136,37 @@ class ProfileFeedViewModelRefreshTest {
         likeCount = 0,
         commentCount = 0,
     )
+
+    @Test
+    fun `collection route never consumes a stale profile timeline cache`() = runTest {
+        for (segment in listOf(5, 6)) {
+            ProfileFeedCache.posts = listOf(makePost("unrelated-profile-post"))
+            ProfileFeedCache.hasMore = true
+            assertFalse(createViewModel().initFeed("u1", segment))
+        }
+        ProfileFeedCache.posts = emptyList()
+        ProfileFeedCache.hasMore = false
+    }
+
+    @Test
+    fun `collection feed resumes selected gallery source instead of the profile timeline`() = runTest {
+        val cursor = mapOf("rank" to 24)
+        var requested: Map<*, *>? = null
+        fun entry(id: String) = CollectionItem(id, id, "", "", "track", 0, makePost(id))
+        val session = CollectionFeedSession("u1", false, CollectionPage(listOf(entry("ranked-first"), entry("selected")), cursor),
+            fetchPost = { makePost(it) }, fetchPage = { requested = it; CollectionPage(listOf(entry("older-ranked")), null) }, allowed = { true })
+        ProfileFeedCache.collection = session
+        val model = createViewModel()
+        assertTrue(model.initFeed("u1", 5))
+        advanceUntilIdle()
+        assertEquals(listOf("ranked-first", "selected"), model.posts.value.map { it.id })
+        model.loadMore()
+        advanceUntilIdle()
+        assertEquals(cursor, requested)
+        assertEquals(listOf("ranked-first", "selected", "older-ranked"), model.posts.value.map { it.id })
+        assertFalse(model.hasMore.value)
+        verify(cloudFunctions, never()).getProfilePosts(any(), any(), any(), anyOrNull(), anyOrNull())
+    }
 
     private fun trapAuthorTimeline(songs: Int = 20, films: Int = 129): List<CymbalPost> {
         val rows = mutableListOf<CymbalPost>()

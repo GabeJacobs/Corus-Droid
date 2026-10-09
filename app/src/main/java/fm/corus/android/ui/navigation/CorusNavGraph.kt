@@ -127,7 +127,7 @@ private fun rememberUserRepository(): UserRepository {
  * iOS) avoids transitioning into a blank screen while the lookup is in flight.
  */
 @Composable
-private fun rememberNavigateToUserByUsername(navController: NavHostController): (String) -> Unit {
+internal fun rememberNavigateToUserByUsername(navController: NavHostController): (String) -> Unit {
     val scope = rememberCoroutineScope()
     val userRepository = rememberUserRepository()
     val unavailable = stringResource(fm.corus.android.localization.CorusStrings.other_profile_unavailable_title)
@@ -545,7 +545,7 @@ fun MessagesNavGraph(
     }
 }
 
-private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
+internal fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     navController: NavHostController,
     mainTabViewModel: MainTabViewModel,
     navigateToUserByUsername: (String) -> Unit,
@@ -565,6 +565,10 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
      *  off no callback navigates to them, so they're unreachable. */
     artistPagesEnabled: Boolean = false,
     includeThreadList: Boolean = true,
+    postLoadingContent: (@Composable () -> Unit)? = null,
+    postNavigationTitle: String? = null,
+    onPostLoadState: ((Boolean) -> Unit)? = null,
+    collectionPlaybackQueue: fm.corus.android.domain.CollectionPlaybackQueue? = null,
 ) {
     // Nullable-when-flag-off navigation callbacks. Screens receive these and
     // keep their names as plain text whenever they're null.
@@ -578,6 +582,10 @@ private fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         val route = backStackEntry.toRoute<PostDetailRoute>()
         PostDetailScreen(
             postId = route.postId,
+            loadingContent = postLoadingContent,
+            navigationTitle = postNavigationTitle,
+            onLoadStateChange = onPostLoadState,
+            collectionPlaybackQueue = collectionPlaybackQueue?.takeIf { it.contains(route.postId) },
             onBack = { navController.safePopBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToUserByUsername = navigateToUserByUsername,

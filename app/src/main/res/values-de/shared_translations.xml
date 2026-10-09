@@ -209,4 +209,25 @@
     <string name="corus_for_you_post_unlock_title">"Mix „%1$s“ freischalten"</string>
     <string name="corus_for_you_trial_preview">"Du testest gerade deinen Mix „%1$s“"</string>
     <string name="corus_for_you_trial_remaining">"Verbleibende Tage zum Testen von %1$s: %2$d"</string>
+    <string name="corus_profile_collection_books_empty">"Als Erstes geteilte Bücher erscheinen hier."</string>
+    <string name="corus_profile_collection_counts_error">"Die Anzahl konnte nicht geladen werden."</string>
+    <string name="corus_profile_collection_empty_body">"Erhaltene Trophäen und Geschenke erscheinen hier."</string>
+    <string name="corus_profile_collection_empty_title">"Noch keine Trophäen oder Geschenke"</string>
+    <string name="corus_profile_collection_film_empty">"Als Erstes geteilte Filme erscheinen hier."</string>
+    <string name="corus_profile_collection_filter">"Trophäen filtern"</string>
+    <string name="corus_profile_collection_first_to_share">"Als Erstes geteilt"</string>
+    <plurals name="corus_profile_collection_gift_count"><item quantity="one">"%1$d Geschenk"</item><item quantity="other">"%1$d Geschenke"</item></plurals>
+    <string name="corus_profile_collection_gifts_empty">"Beiträge, die Geschenke erhalten, erscheinen hier."</string>
+    <string name="corus_profile_collection_load_error">"Diese Sammlung konnte nicht geladen werden."</string>
+    <string name="corus_profile_collection_music_empty">"Als Erstes geteilte Songs erscheinen hier."</string>
+    <string name="corus_profile_collection_no_books">"Noch keine Buchtrophäen"</string>
+    <string name="corus_profile_collection_no_film">"Noch keine Filmtrophäen"</string>
+    <string name="corus_profile_collection_no_gifts">"Noch keine Geschenke"</string>
+    <string name="corus_profile_collection_no_music">"Noch keine Musiktrophäen"</string>
+    <string name="corus_profile_collection_open">"Trophäensammlung"</string>
+    <string name="corus_profile_collection_received">"Auf Corus erhalten"</string>
+    <string name="corus_profile_collection_trophies">"Trophäen"</string>
+    <string name="corus_profile_collection_accessibility_hint">"Zeigt erhaltene Trophäen und Geschenke"</string>
+    <string name="corus_profile_collection_post_error">"Dieser Beitrag konnte nicht geöffnet werden."</string>
+    <plurals name="corus_profile_collection_trophy_count"><item quantity="one">"%1$d Trophäe"</item><item quantity="other">"%1$d Trophäen"</item></plurals>
 </resources>

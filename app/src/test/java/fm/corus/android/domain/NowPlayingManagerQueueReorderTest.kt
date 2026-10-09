@@ -136,6 +136,26 @@ class NowPlayingManagerQueueReorderTest {
     }
 
     @Test
+    fun `collection seeds pagination before the provider reports the new playing post`() = runTest(testDispatcher) {
+        val manager = newManager()
+        manager.fakeActiveTrack("old-profile-track", "old-profile-post")
+        val origin = PlaybackOrigin.ProfileCollection("owner", "session")
+        manager.setPlaybackOrigin(origin)
+        val selected = track("selected", postId = "selected-post")
+        var fetched = false
+        manager.setQueueFromCoordinator(listOf(selected), selected.trackId, selected.sourcePostId,
+            hasMore = true, loadMore = { fetched = true })
+        assertTrue(manager.state.value.hasNext)
+        assertEquals(origin, manager.activeContext)
+        assertEquals(listOf("selected"), manager.queueIds)
+        @Suppress("UNCHECKED_CAST")
+        val load = NowPlayingManager::class.java.getDeclaredField("loadMoreQueue")
+            .apply { isAccessible = true }.get(manager) as suspend () -> Unit
+        load()
+        assertTrue(fetched)
+    }
+
+    @Test
     fun `feed sync while pinned appends new posts only`() = runTest(testDispatcher) {
         val manager = newManager()
         val firstPage = listOf(

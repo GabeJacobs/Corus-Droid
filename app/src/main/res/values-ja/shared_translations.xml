@@ -209,4 +209,25 @@
     <string name="corus_for_you_post_unlock_title">"「%1$s」ミックスを利用する"</string>
     <string name="corus_for_you_trial_preview">"「%1$s」ミックスをお試し中"</string>
     <string name="corus_for_you_trial_remaining">"%1$sのお試し期間：残り%2$d日"</string>
+    <string name="corus_profile_collection_books_empty">"最初にシェアした本がここに表示されます。"</string>
+    <string name="corus_profile_collection_counts_error">"コレクションの件数を読み込めませんでした。"</string>
+    <string name="corus_profile_collection_empty_body">"受け取ったトロフィーやギフトがここに表示されます。"</string>
+    <string name="corus_profile_collection_empty_title">"トロフィーやギフトはまだありません"</string>
+    <string name="corus_profile_collection_film_empty">"最初にシェアした映画がここに表示されます。"</string>
+    <string name="corus_profile_collection_filter">"トロフィーを絞り込む"</string>
+    <string name="corus_profile_collection_first_to_share">"最初にシェア"</string>
+    <plurals name="corus_profile_collection_gift_count"><item quantity="one">"ギフト%1$d個"</item><item quantity="other">"ギフト%1$d個"</item></plurals>
+    <string name="corus_profile_collection_gifts_empty">"ギフトを受け取った投稿がここに表示されます。"</string>
+    <string name="corus_profile_collection_load_error">"コレクションを読み込めませんでした。"</string>
+    <string name="corus_profile_collection_music_empty">"最初にシェアした曲がここに表示されます。"</string>
+    <string name="corus_profile_collection_no_books">"本のトロフィーはまだありません"</string>
+    <string name="corus_profile_collection_no_film">"映画のトロフィーはまだありません"</string>
+    <string name="corus_profile_collection_no_gifts">"ギフトはまだありません"</string>
+    <string name="corus_profile_collection_no_music">"音楽のトロフィーはまだありません"</string>
+    <string name="corus_profile_collection_open">"トロフィーケース"</string>
+    <string name="corus_profile_collection_received">"Corusで受け取ったギフト"</string>
+    <string name="corus_profile_collection_trophies">"トロフィー"</string>
+    <string name="corus_profile_collection_accessibility_hint">"受け取ったトロフィーとギフトを表示"</string>
+    <string name="corus_profile_collection_post_error">"この投稿を開けませんでした。"</string>
+    <plurals name="corus_profile_collection_trophy_count"><item quantity="one">"トロフィー%1$d個"</item><item quantity="other">"トロフィー%1$d個"</item></plurals>
 </resources>

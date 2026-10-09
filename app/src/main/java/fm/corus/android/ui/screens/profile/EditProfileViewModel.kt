@@ -57,7 +57,8 @@ class EditProfileViewModel @Inject constructor(
 
     private val _showTrophies = MutableStateFlow(true)
     val showTrophies = _showTrophies.asStateFlow()
-    val canEditTrophies get() = trophyViewerAllowed(authRepository.currentUserId, remoteConfigService.trophyCaseDisabled)
+    val canEditTrophies get() = trophyViewerAllowed(authRepository.currentUserId, remoteConfigService.trophyCaseDisabled) &&
+        !fm.corus.android.domain.ProfileCollectionPolicy.visible(remoteConfigService.profileCollectionEnabled, authRepository.currentUserId, authRepository.currentUserId.orEmpty())
     fun updateShowTrophies(value: Boolean) { if (canEditTrophies) _showTrophies.value = value }
 
     val mapEnabled: Boolean get() = remoteConfigService.mapEnabled

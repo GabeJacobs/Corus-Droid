@@ -102,6 +102,10 @@ import fm.corus.android.ui.util.DateUtils
 @Composable
 fun PostDetailScreen(
     postId: String,
+    navigationTitle: String? = null,
+    loadingContent: (@Composable () -> Unit)? = null,
+    onLoadStateChange: ((Boolean) -> Unit)? = null,
+    collectionPlaybackQueue: fm.corus.android.domain.CollectionPlaybackQueue? = null,
     viewModel: PostDetailViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
@@ -145,10 +149,20 @@ fun PostDetailScreen(
     var giftPost by remember { mutableStateOf<CymbalPost?>(null) }
     var editCaptionPost by remember { mutableStateOf<CymbalPost?>(null) }
     var deleteConfirmPost by remember { mutableStateOf<CymbalPost?>(null) }
+    var requestedLoad by remember(postId) { mutableStateOf(false) }
+    var reportedLoad by remember(postId) { mutableStateOf(false) }
     val backCoverFlipState = rememberBackCoverFlipState()
+    SideEffect { viewModel.collectionPlaybackQueue = collectionPlaybackQueue }
 
     LaunchedEffect(postId) {
         viewModel.loadPost(postId)
+        requestedLoad = true
+    }
+    LaunchedEffect(postId, post?.id, isLoading, requestedLoad) {
+        if (requestedLoad && !isLoading && !viewModel.isLoading.value && !reportedLoad) {
+            reportedLoad = true
+            onLoadStateChange?.invoke(post?.id == postId)
+        }
     }
 
     val immersive = viewModel.remoteConfig.immersiveArtistHeaderEnabled
@@ -162,7 +176,7 @@ fun PostDetailScreen(
             if (!immersive) {
                 TopAppBar(
                     title = {
-                        Text(stringResource(fm.corus.android.localization.CorusStrings.app_name), style = CorusFont.screenTitle, color = CorusColors.Text)
+                        Text(navigationTitle ?: stringResource(fm.corus.android.localization.CorusStrings.app_name), style = CorusFont.screenTitle, color = CorusColors.Text)
                     },
                     navigationIcon = {
                         CorusHeaderIconButton(
@@ -180,14 +194,14 @@ fun PostDetailScreen(
         val pullState = rememberPullToRefreshState()
         Box(modifier = Modifier.fillMaxSize()) {
         when {
-            isLoading && post == null -> {
+            (isLoading || (loadingContent != null && !requestedLoad)) && post == null -> {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding),
-                    contentAlignment = Alignment.Center,
+                    contentAlignment = if (loadingContent != null) Alignment.TopStart else Alignment.Center,
                 ) {
-                    CircularProgressIndicator(color = CorusColors.Accent)
+                    if (loadingContent != null) loadingContent() else CircularProgressIndicator(color = CorusColors.Accent)
                 }
             }
             post == null -> {
@@ -515,7 +529,7 @@ fun PostDetailScreen(
         if (immersive) {
             ImmersiveFrostedBar(
                 hazeState = frost.hazeState,
-                title = stringResource(fm.corus.android.localization.CorusStrings.app_name),
+                title = navigationTitle ?: stringResource(fm.corus.android.localization.CorusStrings.app_name),
                 onBack = onBack,
                 topInset = frost.statusBarPadding,
             )

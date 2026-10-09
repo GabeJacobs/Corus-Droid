@@ -167,6 +167,9 @@ fun OtherProfileScreen(
     val isMuted by viewModel.isMuted.collectAsState()
     val isSubscribedToNotifications by viewModel.isSubscribedToNotifications.collectAsState()
     val isFavorite by viewModel.isFavorite.collectAsState()
+    val collectionModel: ProfileCollectionViewModel = hiltViewModel()
+    val collectionRevision by collectionModel.flags.revision.collectAsState()
+    val showCollection = collectionRevision.let { collectionModel.visible(userId) }
     val showFavoritesFeedGuide by viewModel.showFavoritesFeedGuide.collectAsState()
     val matchData by viewModel.matchData.collectAsState()
     val linkedArtist by viewModel.linkedArtist.collectAsState()
@@ -353,7 +356,13 @@ fun OtherProfileScreen(
                     }
 
                     // Favorites star button (matching iOS), gated by remote config
-                    if (viewModel.favoritesEnabled) {
+                    if (showCollection) {
+                        ProfileCollectionButton(userId, size = 22.dp, tint = CorusColors.Text, model = collectionModel,
+                            onFeed = { postId, segment ->
+                                ProfileFeedCache.profileUser = profile
+                                onNavigateToProfileFeed(userId, profile?.username.orEmpty(), postId, segment)
+                            })
+                    } else if (viewModel.favoritesEnabled) {
                         IconButton(onClick = {
                             val username = profile?.username ?: ""
                             val nowFavorite = viewModel.toggleFavorite(userId)
@@ -389,6 +398,17 @@ fun OtherProfileScreen(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false },
                         ) {
+                            if (showCollection && viewModel.favoritesEnabled) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(if (isFavorite) fm.corus.android.localization.CorusStrings.profile_remove_from_favorites else fm.corus.android.localization.CorusStrings.profile_add_to_favorites), style = CorusFont.body) },
+                                    leadingIcon = { Icon(if (isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder, null, modifier = Modifier.size(20.dp), tint = if (isFavorite) CorusColors.Accent else CorusColors.Text) },
+                                    onClick = {
+                                        showMenu = false
+                                        val nowFavorite = viewModel.toggleFavorite(userId)
+                                        ToastManager.show(menuContext.getString(if (nowFavorite) fm.corus.android.R.string.other_profile_toast_favorite_added_format else fm.corus.android.R.string.other_profile_toast_favorite_removed_format, profile?.username.orEmpty()))
+                                    },
+                                )
+                            }
                             // View Spotify Playlist (only for non-film-bot profiles)
                             if (profile?.isFilmBot != true) {
                                 DropdownMenuItem(
@@ -976,7 +996,11 @@ fun OtherProfileScreen(
                         }
                     }
 
-                    TrophyCase(currentProfile, onPost = onNavigateToPost)
+                    TrophyCase(currentProfile, onPost = onNavigateToPost,
+                        onFeed = { postId, segment ->
+                            ProfileFeedCache.profileUser = currentProfile
+                            onNavigateToProfileFeed(userId, currentProfile.username, postId, segment)
+                        })
                     val hasUserInfo = currentProfile.bio.isNotBlank() ||
                         !currentProfile.website.isNullOrBlank()
 

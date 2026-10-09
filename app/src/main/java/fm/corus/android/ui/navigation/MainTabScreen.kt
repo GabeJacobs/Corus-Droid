@@ -482,6 +482,7 @@ fun MainTabScreen(
                   (if (FrostedBottomBar) bottomChromeHeight else 0.dp),
               LocalMapCitySheetPresented provides mapCitySheetPresented,
               LocalContentHaze provides (if (FrostedBottomBar) bottomHaze else null),
+              LocalCollectionMainTabViewModel provides viewModel,
           ) {
             // Keep all tab NavHosts alive but only show the selected one.
             // This preserves scroll position and back stack per tab.

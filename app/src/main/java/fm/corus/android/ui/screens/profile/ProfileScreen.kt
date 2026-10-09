@@ -176,6 +176,9 @@ fun ProfileScreen(
     val usernameEndPad = avatarHPad
 
     val profile by viewModel.profile.collectAsState()
+    val collectionModel: ProfileCollectionViewModel = hiltViewModel()
+    val collectionRevision by collectionModel.flags.revision.collectAsState()
+    val showCollection = collectionRevision.let { collectionModel.visible(profile?.id.orEmpty()) }
     val linkedArtist by viewModel.linkedArtist.collectAsState()
     val mapCity by viewModel.mapCity.collectAsState()
     val mapCityResolved by viewModel.mapCityResolved.collectAsState()
@@ -556,7 +559,13 @@ fun ProfileScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md, Alignment.End),
                     ) {
-                        if (currentProfile.cymbalCount > 0) {
+                        if (showCollection) {
+                            ProfileCollectionButton(currentProfile.id, size = CorusSpacing.profileSettingsIcon, buttonSide = CorusSpacing.profileStyleIcon, model = collectionModel,
+                                onFeed = { postId, segment ->
+                                    ProfileFeedCache.profileUser = currentProfile
+                                    onNavigateToProfileFeed(currentProfile.id, currentProfile.username, postId, segment)
+                                })
+                        } else if (currentProfile.cymbalCount > 0) {
                             Icon(
                                 painter = painterResource(fm.corus.android.R.drawable.corus_club_vector),
                                 contentDescription = stringResource(fm.corus.android.localization.CorusStrings.profile_cd_customize),
@@ -703,7 +712,11 @@ fun ProfileScreen(
         }
 
         item(span = { GridItemSpan(3) }, key = "trophies") {
-            TrophyCase(currentProfile, onPost = onNavigateToPost)
+            TrophyCase(currentProfile, onPost = onNavigateToPost,
+                onFeed = { postId, segment ->
+                    ProfileFeedCache.profileUser = currentProfile
+                    onNavigateToProfileFeed(currentProfile.id, currentProfile.username, postId, segment)
+                })
         }
 
         item(span = { GridItemSpan(3) }, key = "bio") {

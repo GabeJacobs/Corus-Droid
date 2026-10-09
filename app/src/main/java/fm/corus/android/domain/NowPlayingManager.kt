@@ -83,6 +83,7 @@ sealed interface PlaybackOrigin {
     data class Profile(val userId: String) : PlaybackOrigin
     /** Notification / deep-link play continuing through that poster's songs. */
     data class PosterCorus(val userId: String) : PlaybackOrigin
+    data class ProfileCollection(val userId: String, val sessionId: String) : PlaybackOrigin
 }
 
 sealed interface CatalogPlaybackOrigin {
@@ -838,11 +839,15 @@ class NowPlayingManager @Inject constructor(
         queue: List<QueuedTrack>,
         playingTrackId: String,
         playingSourcePostId: String?,
+        hasMore: Boolean? = null,
+        loadMore: (suspend () -> Unit)? = null,
     ) {
         // Explicit play seed — take the caller's order (same as iOS `playingTrackId`).
         queueOrderPinnedByUser = false
         val preserved = snapshotUserQueuedUpNext()
         this.queue = queue
+        if (hasMore != null) queueHasMore = hasMore
+        if (loadMore != null) loadMoreQueue = loadMore
         currentQueueIndex = queue.indexOfActive(playingTrackId, playingSourcePostId)
         restoreUserQueuedUpNext(preserved)
         publishHasNextIfChanged()

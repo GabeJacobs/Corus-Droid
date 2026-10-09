@@ -262,6 +262,7 @@ class RemoteConfigService @Inject constructor(
     val mapEnabled: Boolean get() = flagWithDefault("map_enabled", false)
     val artistMerchEnabled: Boolean get() = flagWithDefault("artist_merch_enabled", false)
     val trophyCaseDisabled: Boolean get() = flagWithDefault("trophy_case_disabled", false)
+    val profileCollectionEnabled: Boolean get() = flagWithDefault("profile_collection_enabled", false)
 
     val youtubeMusicIntegrationEnabled: Boolean
         get() = flagWithDefault("youtube_music_integration_enabled", false)
@@ -732,6 +733,7 @@ class RemoteConfigService @Inject constructor(
             DebugFeatureFlag("profile_sharing_v2") { profileSharingV2 },
             DebugFeatureFlag("reposters_list_enabled") { repostersListEnabled },
             DebugFeatureFlag("review_prompt_enabled") { reviewPromptEnabled },
+            DebugFeatureFlag("profile_collection_enabled") { profileCollectionEnabled },
             DebugFeatureFlag("save_cap_enforced") { saveCapEnforced },
             DebugFeatureFlag("save_count_enabled") { saveCountEnabled },
             DebugFeatureFlag("segmented_search_enabled") { segmentedSearchEnabled },
@@ -1113,6 +1115,7 @@ class RemoteConfigService @Inject constructor(
             "mapkit_js_token" to "",
             "artist_merch_enabled" to false,
             "trophy_case_disabled" to false,
+            "profile_collection_enabled" to false,
             "movie_mode" to true,
             "maintenance_mode" to false,
             "instagram_share_enabled" to true,

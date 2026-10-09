@@ -22,6 +22,7 @@ import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.domain.PlaybackOrigin
 import fm.corus.android.domain.PosterCorusQueue
 import fm.corus.android.domain.asPlayableQueuedTracks
+import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
 import fm.corus.android.service.AnalyticsService
@@ -247,6 +248,8 @@ class PostDetailViewModel @Inject constructor(
     fun playPreview(post: CymbalPost) {
         viewModelScope.launch { routePostPlayTap(post, preferFullSong = false) }
     }
+    var collectionPlaybackQueue: fm.corus.android.domain.CollectionPlaybackQueue? = null
+    private var collectionPlayGeneration = 0
 
     fun playFullSong(post: CymbalPost) {
         viewModelScope.launch {
@@ -259,11 +262,23 @@ class PostDetailViewModel @Inject constructor(
         preferFullSong: Boolean,
         skipPlaybackModePrompt: Boolean = false,
     ) {
+        val source = collectionPlaybackQueue
+        val generation = ++collectionPlayGeneration
+        if (source != null) {
+            try { source.prepare(post) }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) {
+                ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.profile_collection_post_error))
+                return
+            }
+            if (generation != collectionPlayGeneration || collectionPlaybackQueue !== source) return
+            source.activate(nowPlayingManager, post)
+        }
         nowPlayingManager.lastUserInitiatedSourcePostId = post.id
         // Opened from a surface whose queue already holds this post (feed,
         // profile) — that queue stays Next. Only a truly isolated detail
         // (notification / deep link) hands Next to the poster's corus.
-        val isIsolatedPlay = nowPlayingManager.queueSnapshot().none { it.sourcePostId == post.id }
+        val isIsolatedPlay = source == null && nowPlayingManager.queueSnapshot().none { it.sourcePostId == post.id }
         if (isIsolatedPlay) nowPlayingManager.adoptIsolatedPlayContextIfNeeded()
         val musicService = musicServicePreference.current.value
         if (!preferFullSong &&
@@ -275,6 +290,7 @@ class PostDetailViewModel @Inject constructor(
         val outcome = FullSongPlayCoordinator.playTapOutcome(
             track = post.track,
             sourcePostId = post.id,
+            queue = source?.tracks.orEmpty(),
             nowPlaying = nowPlayingManager,
             remoteConfig = remoteConfig,
             musicService = musicService,
@@ -287,12 +303,17 @@ class PostDetailViewModel @Inject constructor(
             outcome = outcome,
             track = post.track,
             sourcePostId = post.id,
+            queue = source?.tracks.orEmpty(),
             nowPlaying = nowPlayingManager,
             remoteConfig = remoteConfig,
             musicService = musicService,
             playFullSongs = preferencesDataStore.effectivePlayFullSongsSync(),
             playbackModePromptManager = playbackModePromptManager,
             onPreview = {
+                if (source != null) {
+                    nowPlayingManager.play(post.toQueuedTrack(), source.tracks)
+                    source.activate(nowPlayingManager, post)
+                } else {
                 nowPlayingManager.play(
                     trackId = post.track.id,
                     trackName = post.track.name,
@@ -310,6 +331,7 @@ class PostDetailViewModel @Inject constructor(
                     audiomackUrl = post.track.audiomackUrl,
                     notOnSpotify = post.track.notOnSpotify,
                 )
+                }
             },
             scope = viewModelScope,
         )

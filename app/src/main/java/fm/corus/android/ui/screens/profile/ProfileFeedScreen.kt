@@ -3,6 +3,8 @@ package fm.corus.android.ui.screens.profile
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.*
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -18,6 +20,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -34,6 +37,8 @@ import fm.corus.android.ui.components.PostCard
 import fm.corus.android.ui.components.PostMenuSheets
 import fm.corus.android.ui.components.rememberImmersiveHeaderState
 import fm.corus.android.ui.components.ToastManager
+import fm.corus.android.ui.components.rememberReducedMotion
+import fm.corus.android.ui.components.parityCopy
 import fm.corus.android.ui.screens.feed.FilmInfoSheet
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -76,7 +81,14 @@ fun ProfileFeedScreen(
      *  hides the "…" menu's "Go to Album" row. */
     onNavigateToAlbum: ((fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit)? = null,
 ) {
+    val initialized = remember(viewModel, userId, segment, hashtag) { viewModel.initFeed(userId, segment, hashtag) }
+    val collection = viewModel.collection
+    val collectionItems by (collection?.items ?: remember { kotlinx.coroutines.flow.MutableStateFlow(emptyList<CollectionItem>()) }).collectAsState()
+    val failedIds by (collection?.failedIds ?: remember { kotlinx.coroutines.flow.MutableStateFlow(emptySet<String>()) }).collectAsState()
+    val pageFailed by (collection?.pageFailed ?: remember { kotlinx.coroutines.flow.MutableStateFlow(false) }).collectAsState()
     val posts by viewModel.posts.collectAsState()
+    val feedIds = if (collection != null) collectionItems.map { it.id } else posts.map { it.id }
+    val postsById = posts.associateBy { it.id }
     val hasMore by viewModel.hasMore.collectAsState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
@@ -107,7 +119,7 @@ fun ProfileFeedScreen(
     fun backCoverStateFor(postId: String) =
         backCoverStates.getOrPut(postId) { fm.corus.android.ui.components.BackCoverFlipState() }
 
-    val listState = rememberLazyListState()
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = feedIds.indexOf(initialPostId).coerceAtLeast(0))
     val immersive = viewModel.remoteConfig.immersiveArtistHeaderEnabled
     val frost = rememberImmersiveHeaderState(immersive)
     val followScrollTopInsetPx = with(LocalDensity.current) {
@@ -119,17 +131,19 @@ fun ProfileFeedScreen(
     // Initialize feed from cache. If the cache was empty (e.g. process death
     // restored this route without the upstream grid populating it), pop back
     // to the profile so the user isn't stranded on a blank screen.
-    LaunchedEffect(Unit) {
-        if (!viewModel.initFeed(userId, segment, hashtag)) {
+    LaunchedEffect(initialized) {
+        if (!initialized) {
             onBack()
         }
     }
+    val flagRevision by viewModel.remoteConfig.revision.collectAsState()
+    LaunchedEffect(flagRevision) { if (collection != null && !collection.isAllowed()) onBack() }
 
     // Scroll to the tapped post once posts are loaded
     var hasScrolledToInitial by remember { mutableStateOf(false) }
-    LaunchedEffect(posts) {
-        if (!hasScrolledToInitial && posts.isNotEmpty()) {
-            val index = posts.indexOfFirst { it.id == initialPostId }
+    LaunchedEffect(feedIds) {
+        if (!hasScrolledToInitial && feedIds.isNotEmpty()) {
+            val index = feedIds.indexOf(initialPostId)
             if (index >= 0) {
                 listState.scrollToItem(index)
             }
@@ -143,11 +157,11 @@ fun ProfileFeedScreen(
     // .profileFeedScrollToPost / ActiveProfileFeedHandle. Only registers
     // while the containing tab is selected — a background tab's
     // ProfileFeedScreen must not claim a tap meant for the visible feed.
-    val currentPostsForRouter by rememberUpdatedState(posts)
+    val currentPostsForRouter by rememberUpdatedState(feedIds)
     val routerScope = scope
     val profileFeedScrollHandler = remember<(String) -> Boolean>(listState) {
         handler@ { postId ->
-            val idx = currentPostsForRouter.indexOfFirst { it.id == postId }
+            val idx = currentPostsForRouter.indexOf(postId)
             if (idx < 0) return@handler false
             routerScope.launch { listState.animateScrollItemToTop(idx, currentTopInsetPx) }
             true
@@ -187,7 +201,7 @@ fun ProfileFeedScreen(
             viewModel.nowPlayingManager.lastUserInitiatedSourcePostId = null
             return@LaunchedEffect
         }
-        val index = posts.indexOfFirst { it.id == newPostId }
+        val index = feedIds.indexOf(newPostId)
         if (index < 0) return@LaunchedEffect
         listState.animateScrollItemToTop(index, currentTopInsetPx)
     }
@@ -200,8 +214,8 @@ fun ProfileFeedScreen(
             total > 0 && lastVisible >= total - 3
         }
     }
-    LaunchedEffect(shouldLoadMore, hasMore, isLoadingMore) {
-        if (shouldLoadMore && hasMore && !isLoadingMore) {
+    LaunchedEffect(shouldLoadMore, hasMore, isLoadingMore, feedIds.size, pageFailed) {
+        if (shouldLoadMore && hasMore && !isLoadingMore && !pageFailed) {
             viewModel.loadMore()
         }
     }
@@ -210,7 +224,12 @@ fun ProfileFeedScreen(
     // pages): there's no hero here, so the bar is frosted from the first frame —
     // it blurs the feed scrolling beneath it (Haze) and blends up under the status
     // bar. Gated by the same immersive_artist_header_enabled flag (debug-on).
-    val barTitle = if (segment == 4 && hashtag.isNotEmpty()) "#$hashtag" else "@$username"
+    val barTitle = when (segment) {
+        5 -> androidx.compose.ui.res.stringResource(fm.corus.android.localization.CorusStrings.profile_collection_trophies)
+        6 -> androidx.compose.ui.res.stringResource(fm.corus.android.localization.CorusStrings.activity_filter_gifts)
+        4 -> if (hashtag.isNotEmpty()) "#$hashtag" else "@$username"
+        else -> "@$username"
+    }
 
     Scaffold(
         modifier = frost.scaffoldModifier,
@@ -270,11 +289,23 @@ fun ProfileFeedScreen(
             ),
         ) {
             itemsIndexed(
-                posts,
-                key = { _, post -> post.id },
+                feedIds,
+                key = { _, id -> id },
                 contentType = { _, _ -> "post_card" },
-            ) { _, post ->
+            ) { _, id ->
+                val post = postsById[id]
+                if (post == null) {
+                    val item = collectionItems.firstOrNull { it.id == id }
+                    LaunchedEffect(id) { viewModel.resolveCollectionPost(id) }
+                    CollectionPostSkeleton(item?.media ?: "track")
+                    if (id in failedIds) Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(androidx.compose.ui.res.stringResource(fm.corus.android.localization.CorusStrings.profile_collection_post_error), color = CorusColors.Secondary)
+                        TextButton(onClick = { viewModel.resolveCollectionPost(id, retry = true) }) { Text(parityCopy("Retry")) }
+                    }
+                    return@itemsIndexed
+                }
                 val engagement = engagementStates[post.id]
+                CollectionFeedPostReveal(enabled = collection != null) {
                 PostCard(
                     post = post,
                     likeCount = engagement?.likeCount ?: post.likeCount,
@@ -431,10 +462,13 @@ fun ProfileFeedScreen(
                     ),
                 )
                 HorizontalDivider(color = CorusColors.Divider)
+                }
             }
 
             if (isLoadingMore) {
                 item {
+                    if (collection != null) CollectionPostSkeleton("track")
+                    else
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -448,6 +482,9 @@ fun ProfileFeedScreen(
                         )
                     }
                 }
+            }
+            if (pageFailed) item {
+                TextButton(onClick = viewModel::retryCollectionPage, modifier = Modifier.fillMaxWidth()) { Text(parityCopy("Retry")) }
             }
         }
         PullToRefreshDefaults.Indicator(
@@ -508,4 +545,17 @@ fun ProfileFeedScreen(
             fetchMovieDetails = { movieId -> viewModel.fetchMovieDetails(movieId) },
         )
     }
+}
+
+@Composable
+private fun CollectionFeedPostReveal(enabled: Boolean, content: @Composable () -> Unit) {
+    if (!enabled) { content(); return }
+    val reducedMotion = rememberReducedMotion()
+    var revealed by remember { mutableStateOf(false) }
+    val alpha by animateFloatAsState(
+        if (!enabled || reducedMotion || revealed) 1f else 0f,
+        tween(if (reducedMotion) 0 else 220), label = "Collection post reveal",
+    )
+    LaunchedEffect(Unit) { revealed = true }
+    Column(Modifier.fillMaxWidth().graphicsLayer { this.alpha = alpha }) { content() }
 }

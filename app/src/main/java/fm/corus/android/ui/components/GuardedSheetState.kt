@@ -32,9 +32,13 @@ import kotlinx.coroutines.flow.filterNotNull
 @Composable
 fun rememberGuardedSheetState(
     skipPartiallyExpanded: Boolean = true,
+    // An explicit action may dismiss immediately after a detent change, before
+    // the resting offset settles. Its hide animation should bypass drag guards.
+    allowProgrammaticDismiss: () -> Boolean = { false },
     confirmValueChange: (SheetValue) -> Boolean = { true },
 ): SheetState {
     val callerConfirm by rememberUpdatedState(confirmValueChange)
+    val programmaticDismiss by rememberUpdatedState(allowProgrammaticDismiss)
     val imeVisible by rememberUpdatedState(WindowInsets.isImeVisible)
     val keyboard = LocalSoftwareKeyboardController.current
     val density = LocalDensity.current
@@ -47,7 +51,7 @@ fun rememberGuardedSheetState(
         { target: SheetValue ->
             if (!callerConfirm(target)) {
                 false
-            } else if (target != SheetValue.Hidden) {
+            } else if (target != SheetValue.Hidden || programmaticDismiss()) {
                 true
             } else {
                 val top = runCatching { holder[0]?.requireOffset() }.getOrNull()

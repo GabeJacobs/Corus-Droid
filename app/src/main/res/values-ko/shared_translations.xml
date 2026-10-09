@@ -209,4 +209,25 @@
     <string name="corus_for_you_post_unlock_title">"%1$s 믹스 잠금 해제"</string>
     <string name="corus_for_you_trial_preview">"“%1$s” 믹스를 체험하고 있어요"</string>
     <string name="corus_for_you_trial_remaining">"%1$s 체험 남은 기간: %2$d일"</string>
+    <string name="corus_profile_collection_books_empty">"최초로 공유한 책이 여기에 표시돼요."</string>
+    <string name="corus_profile_collection_counts_error">"컬렉션 개수를 불러오지 못했어요."</string>
+    <string name="corus_profile_collection_empty_body">"받은 트로피와 선물이 여기에 표시돼요."</string>
+    <string name="corus_profile_collection_empty_title">"아직 트로피나 선물이 없어요"</string>
+    <string name="corus_profile_collection_film_empty">"최초로 공유한 영화가 여기에 표시돼요."</string>
+    <string name="corus_profile_collection_filter">"트로피 필터"</string>
+    <string name="corus_profile_collection_first_to_share">"최초 공유"</string>
+    <plurals name="corus_profile_collection_gift_count"><item quantity="one">"선물 %1$d개"</item><item quantity="other">"선물 %1$d개"</item></plurals>
+    <string name="corus_profile_collection_gifts_empty">"선물을 받은 게시물이 여기에 표시돼요."</string>
+    <string name="corus_profile_collection_load_error">"이 컬렉션을 불러오지 못했어요."</string>
+    <string name="corus_profile_collection_music_empty">"최초로 공유한 노래가 여기에 표시돼요."</string>
+    <string name="corus_profile_collection_no_books">"아직 책 트로피가 없어요"</string>
+    <string name="corus_profile_collection_no_film">"아직 영화 트로피가 없어요"</string>
+    <string name="corus_profile_collection_no_gifts">"아직 선물이 없어요"</string>
+    <string name="corus_profile_collection_no_music">"아직 음악 트로피가 없어요"</string>
+    <string name="corus_profile_collection_open">"트로피 보관함"</string>
+    <string name="corus_profile_collection_received">"Corus에서 받은 선물"</string>
+    <string name="corus_profile_collection_trophies">"트로피"</string>
+    <string name="corus_profile_collection_accessibility_hint">"받은 트로피와 선물을 표시합니다"</string>
+    <string name="corus_profile_collection_post_error">"이 게시물을 열 수 없어요."</string>
+    <plurals name="corus_profile_collection_trophy_count"><item quantity="one">"트로피 %1$d개"</item><item quantity="other">"트로피 %1$d개"</item></plurals>
 </resources>

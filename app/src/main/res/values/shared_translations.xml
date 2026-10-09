@@ -56,4 +56,25 @@
     <string name="corus_for_you_post_unlock_title">"Unlock %1$s Mix"</string>
     <string name="corus_for_you_trial_preview">"You\'re previewing your %1$s mix"</string>
     <string name="corus_for_you_trial_remaining">"Days left to try %1$s: %2$d"</string>
+    <string name="corus_profile_collection_books_empty">"First-to-share books will appear here."</string>
+    <string name="corus_profile_collection_counts_error">"Couldn\'t load collection counts."</string>
+    <string name="corus_profile_collection_empty_body">"Received trophies and gifts will appear here."</string>
+    <string name="corus_profile_collection_empty_title">"No trophies or gifts yet"</string>
+    <string name="corus_profile_collection_film_empty">"First-to-share films will appear here."</string>
+    <string name="corus_profile_collection_filter">"Filter trophies"</string>
+    <string name="corus_profile_collection_first_to_share">"First to share"</string>
+    <plurals name="corus_profile_collection_gift_count"><item quantity="one">"%1$d gift"</item><item quantity="other">"%1$d gifts"</item></plurals>
+    <string name="corus_profile_collection_gifts_empty">"Posts that receive gifts will appear here."</string>
+    <string name="corus_profile_collection_load_error">"Couldn\'t load this collection."</string>
+    <string name="corus_profile_collection_music_empty">"First-to-share songs will appear here."</string>
+    <string name="corus_profile_collection_no_books">"No book trophies yet"</string>
+    <string name="corus_profile_collection_no_film">"No film trophies yet"</string>
+    <string name="corus_profile_collection_no_gifts">"No gifts yet"</string>
+    <string name="corus_profile_collection_no_music">"No music trophies yet"</string>
+    <string name="corus_profile_collection_open">"Trophy Case"</string>
+    <string name="corus_profile_collection_received">"Received on Corus"</string>
+    <string name="corus_profile_collection_trophies">"Trophies"</string>
+    <string name="corus_profile_collection_accessibility_hint">"Shows received trophies and gifts"</string>
+    <string name="corus_profile_collection_post_error">"Couldn’t open this post."</string>
+    <plurals name="corus_profile_collection_trophy_count"><item quantity="one">"%1$d Trophy"</item><item quantity="other">"%1$d Trophies"</item></plurals>
 </resources>

@@ -209,4 +209,25 @@
     <string name="corus_for_you_post_unlock_title">"解锁「%1$s」推荐"</string>
     <string name="corus_for_you_trial_preview">"你正在体验「%1$s」推荐"</string>
     <string name="corus_for_you_trial_remaining">"「%1$s」体验剩余天数：%2$d"</string>
+    <string name="corus_profile_collection_books_empty">"最先分享的图书将显示在这里。"</string>
+    <string name="corus_profile_collection_counts_error">"无法加载收藏数量。"</string>
+    <string name="corus_profile_collection_empty_body">"收到的奖杯和礼物将显示在这里。"</string>
+    <string name="corus_profile_collection_empty_title">"还没有奖杯或礼物"</string>
+    <string name="corus_profile_collection_film_empty">"最先分享的电影将显示在这里。"</string>
+    <string name="corus_profile_collection_filter">"筛选奖杯"</string>
+    <string name="corus_profile_collection_first_to_share">"最先分享"</string>
+    <plurals name="corus_profile_collection_gift_count"><item quantity="one">"%1$d 份礼物"</item><item quantity="other">"%1$d 份礼物"</item></plurals>
+    <string name="corus_profile_collection_gifts_empty">"收到礼物的帖子将显示在这里。"</string>
+    <string name="corus_profile_collection_load_error">"无法加载此收藏。"</string>
+    <string name="corus_profile_collection_music_empty">"最先分享的歌曲将显示在这里。"</string>
+    <string name="corus_profile_collection_no_books">"还没有图书奖杯"</string>
+    <string name="corus_profile_collection_no_film">"还没有电影奖杯"</string>
+    <string name="corus_profile_collection_no_gifts">"还没有礼物"</string>
+    <string name="corus_profile_collection_no_music">"还没有音乐奖杯"</string>
+    <string name="corus_profile_collection_open">"奖杯柜"</string>
+    <string name="corus_profile_collection_received">"在 Corus 收到的礼物"</string>
+    <string name="corus_profile_collection_trophies">"奖杯"</string>
+    <string name="corus_profile_collection_accessibility_hint">"显示收到的奖杯和礼物"</string>
+    <string name="corus_profile_collection_post_error">"无法打开这条帖子。"</string>
+    <plurals name="corus_profile_collection_trophy_count"><item quantity="one">"%1$d 个奖杯"</item><item quantity="other">"%1$d 个奖杯"</item></plurals>
 </resources>
