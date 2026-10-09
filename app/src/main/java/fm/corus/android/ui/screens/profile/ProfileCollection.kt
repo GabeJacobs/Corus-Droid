@@ -169,7 +169,7 @@ class ProfileCollectionViewModel @Inject constructor(
 }
 
 @Composable
-internal fun ProfileCollectionButton(profileId: String, size: Dp = 23.dp, buttonSide: Dp = 48.dp, tint: Color = CorusColors.Secondary, model: ProfileCollectionViewModel = hiltViewModel(), onFeed: (String, Int) -> Unit) {
+internal fun ProfileCollectionButton(profileId: String, size: Dp = 23.dp, buttonSide: Dp = 48.dp, tint: Color = CorusColors.Secondary, model: ProfileCollectionViewModel = hiltViewModel(), knownEmptyProfile: Boolean = false, onFeed: (String, Int) -> Unit) {
     val revision by model.flags.revision.collectAsState()
     var open by remember(profileId, model.viewer) { mutableStateOf(false) }
     if (!model.visible(profileId)) return
@@ -177,14 +177,16 @@ internal fun ProfileCollectionButton(profileId: String, size: Dp = 23.dp, button
         ProfileHeaderTrophyIcon(contentDescription = stringResource(CorusStrings.profile_collection_open), tint = tint, modifier = Modifier.size(size))
     }
     if (open) key(profileId, model.viewer) {
-        ProfileCollectionSheet(profileId, model, onDismiss = { open = false }, onFeed = onFeed)
+        ProfileCollectionSheet(profileId, model, knownEmptyProfile, onDismiss = { open = false }, onFeed = onFeed)
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProfileCollectionSheet(profileId: String, model: ProfileCollectionViewModel, onDismiss: () -> Unit, onFeed: (String, Int) -> Unit) {
-    var counts by remember { mutableStateOf(model.cachedSummary(profileId)) }
+private fun ProfileCollectionSheet(profileId: String, model: ProfileCollectionViewModel, knownEmptyProfile: Boolean, onDismiss: () -> Unit, onFeed: (String, Int) -> Unit) {
+    // A loaded profile with no posts cannot have trophies or received gifts.
+    // Seed only this sheet; the fresh summary can still reveal posts from another device.
+    var counts by remember { mutableStateOf(if (knownEmptyProfile) CollectionCounts(0, 0) else model.cachedSummary(profileId)) }
     var countsFailed by remember { mutableStateOf(false) }
     var countsLoading by remember { mutableStateOf(true) }
     var summaryRetry by remember { mutableIntStateOf(0) }
@@ -319,58 +321,58 @@ private fun ProfileCollectionSheet(profileId: String, model: ProfileCollectionVi
                     Text(stringResource(CorusStrings.profile_collection_counts_error), style = CorusFont.artistName, color = CorusColors.Secondary)
                     TextButton(onClick = { track("retry_tapped", mapOf("phase" to "summary")); summaryRetry++ }) { Text(parityCopy("Retry")) }
                 }
-                // Keep the tab row's space while counts resolve. With no gifts,
-                // the single Trophies tab keeps the grid at the same position.
-                val hasGifts = ProfileCollectionPolicy.hasGifts(counts?.gifts)
-                run {
-                    CollectionSectionTabs(
-                        giftsSelected = giftsSelected,
-                        showGifts = countsLoading || hasGifts,
-                        giftsEnabled = hasGifts,
-                        onSelectTrophies = { if (giftsSelected) track("section_changed", section = "trophies", media = category); giftsSelected = false },
-                        onSelectGifts = { if (!giftsSelected) track("section_changed", section = "gifts", media = "all"); giftsSelected = true },
-                    )
-                    Spacer(Modifier.height(16.dp))
-                }
-                if (!giftsSelected) {
-                    Box {
-                        val mediaIcon = if (category == "movie") Icons.Filled.Movie else if (category == "book") Icons.Filled.MenuBook else Icons.Filled.MusicNote
-                        Row(Modifier.clip(CircleShape).background(CorusColors.Secondary.copy(alpha = 0.08f)).clickable { menuOpen = true }.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(mediaIcon, stringResource(CorusStrings.profile_collection_filter), Modifier.size(16.dp))
-                            Text(parityCopy(if (category == "movie") "Film" else if (category == "book") "Books" else "Music"), style = CorusFont.artistName)
-                            Icon(Icons.Filled.ExpandMore, null, Modifier.size(16.dp))
-                        }
-                        DropdownMenu(menuOpen, onDismissRequest = { menuOpen = false }) {
-                            categories.forEach { value -> DropdownMenuItem(text = { Text(parityCopy(if (value == "movie") "Film" else if (value == "book") "Books" else "Music")) }, onClick = { if (category != value) track("filter_changed", media = value); category = value; menuOpen = false }) }
-                        }
+                // Resolve the section layout before revealing controls or artwork.
+                // Cached counts can render immediately while the summary refreshes.
+                if (!countsLoading || counts?.gifts != null) {
+                    val hasGifts = ProfileCollectionPolicy.hasGifts(counts?.gifts)
+                    if (hasGifts) {
+                        CollectionSectionTabs(
+                            giftsSelected = giftsSelected,
+                            onSelectTrophies = { if (giftsSelected) track("section_changed", section = "trophies", media = category); giftsSelected = false },
+                            onSelectGifts = { if (!giftsSelected) track("section_changed", section = "gifts", media = "all"); giftsSelected = true },
+                        )
+                        Spacer(Modifier.height(16.dp))
                     }
-                    Spacer(Modifier.height(16.dp))
-                }
-                when {
-                    failed && entries.isEmpty() -> Column(Modifier.fillMaxWidth().padding(vertical = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(stringResource(CorusStrings.profile_collection_load_error), color = CorusColors.Secondary, style = CorusFont.artistName)
-                        TextButton(onClick = { track("retry_tapped", mapOf("phase" to "collection")); retry++ }) { Text(parityCopy("Retry")) }
-                    }
-                    !loading && !countsLoading && entries.isEmpty() && cursor == null -> {
-                        val icon = if (giftsSelected) Icons.Filled.CardGiftcard else if (category == "movie") Icons.Filled.Movie else if (category == "book") Icons.Filled.MenuBook else Icons.Filled.MusicNote
-                        CollectionEmpty(icon,
-                            stringResource(if (giftsSelected) CorusStrings.profile_collection_no_gifts else if (category == "movie") CorusStrings.profile_collection_no_film else if (category == "book") CorusStrings.profile_collection_no_books else CorusStrings.profile_collection_no_music),
-                            stringResource(if (giftsSelected) CorusStrings.profile_collection_gifts_empty else if (category == "movie") CorusStrings.profile_collection_film_empty else if (category == "book") CorusStrings.profile_collection_books_empty else CorusStrings.profile_collection_music_empty))
-                    }
-                    else -> LazyVerticalGrid(GridCells.Fixed(3), Modifier.fillMaxWidth().weight(1f), state = gridState, horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(24.dp), contentPadding = PaddingValues(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())) {
-                        if ((loading || countsLoading) && entries.isEmpty()) {
-                            items(18) { CollectionTileSkeleton(category) }
-                        } else {
-                            items(entries, key = { it.id }) { item -> CollectionTile(item, giftsSelected, profileId, model, { action, details -> track(action, details) }) { id -> track("post_tapped", mapOf("phase" to "post"), media = item.media); onPost(id) } }
-                            // Pagination status scrolls with the grid; it must not resize it.
-                            if (loading) item(span = { GridItemSpan(maxLineSpan) }) {
-                                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { CollectionSkeletonBar(Modifier.width(80.dp).height(16.dp)) }
+                    if (!giftsSelected) {
+                        Box {
+                            val mediaIcon = if (category == "movie") Icons.Filled.Movie else if (category == "book") Icons.Filled.MenuBook else Icons.Filled.MusicNote
+                            Row(Modifier.clip(CircleShape).background(CorusColors.Secondary.copy(alpha = 0.08f)).clickable { menuOpen = true }.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Icon(mediaIcon, stringResource(CorusStrings.profile_collection_filter), Modifier.size(16.dp))
+                                Text(parityCopy(if (category == "movie") "Film" else if (category == "book") "Books" else "Music"), style = CorusFont.artistName)
+                                Icon(Icons.Filled.ExpandMore, null, Modifier.size(16.dp))
                             }
-                            if (failed) item(span = { GridItemSpan(maxLineSpan) }) {
-                                TextButton(onClick = {
-                                    if (restartRequired) { track("retry_tapped", mapOf("phase" to "collection")); retry++ }
-                                    else loadNextPage(manualRetry = true)
-                                }, modifier = Modifier.fillMaxWidth()) { Text(parityCopy("Retry")) }
+                            DropdownMenu(menuOpen, onDismissRequest = { menuOpen = false }) {
+                                categories.forEach { value -> DropdownMenuItem(text = { Text(parityCopy(if (value == "movie") "Film" else if (value == "book") "Books" else "Music")) }, onClick = { if (category != value) track("filter_changed", media = value); category = value; menuOpen = false }) }
+                            }
+                        }
+                        Spacer(Modifier.height(16.dp))
+                    }
+                    when {
+                        failed && entries.isEmpty() -> Column(Modifier.fillMaxWidth().padding(vertical = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(stringResource(CorusStrings.profile_collection_load_error), color = CorusColors.Secondary, style = CorusFont.artistName)
+                            TextButton(onClick = { track("retry_tapped", mapOf("phase" to "collection")); retry++ }) { Text(parityCopy("Retry")) }
+                        }
+                        !loading && !countsLoading && entries.isEmpty() && cursor == null -> {
+                            val icon = if (giftsSelected) Icons.Filled.CardGiftcard else if (category == "movie") Icons.Filled.Movie else if (category == "book") Icons.Filled.MenuBook else Icons.Filled.MusicNote
+                            CollectionEmpty(icon,
+                                stringResource(if (giftsSelected) CorusStrings.profile_collection_no_gifts else if (category == "movie") CorusStrings.profile_collection_no_film else if (category == "book") CorusStrings.profile_collection_no_books else CorusStrings.profile_collection_no_music),
+                                stringResource(if (giftsSelected) CorusStrings.profile_collection_gifts_empty else if (category == "movie") CorusStrings.profile_collection_film_empty else if (category == "book") CorusStrings.profile_collection_books_empty else CorusStrings.profile_collection_music_empty))
+                        }
+                        else -> LazyVerticalGrid(GridCells.Fixed(3), Modifier.fillMaxWidth().weight(1f), state = gridState, horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(24.dp), contentPadding = PaddingValues(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())) {
+                            if ((loading || countsLoading) && entries.isEmpty()) {
+                                items(18) { CollectionTileSkeleton(category) }
+                            } else {
+                                items(entries, key = { it.id }) { item -> CollectionTile(item, giftsSelected, profileId, model, { action, details -> track(action, details) }) { id -> track("post_tapped", mapOf("phase" to "post"), media = item.media); onPost(id) } }
+                                // Pagination status scrolls with the grid; it must not resize it.
+                                if (loading) item(span = { GridItemSpan(maxLineSpan) }) {
+                                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { CollectionSkeletonBar(Modifier.width(80.dp).height(16.dp)) }
+                                }
+                                if (failed) item(span = { GridItemSpan(maxLineSpan) }) {
+                                    TextButton(onClick = {
+                                        if (restartRequired) { track("retry_tapped", mapOf("phase" to "collection")); retry++ }
+                                        else loadNextPage(manualRetry = true)
+                                    }, modifier = Modifier.fillMaxWidth()) { Text(parityCopy("Retry")) }
+                                }
                             }
                         }
                     }
@@ -385,20 +387,16 @@ private fun ProfileCollectionSheet(profileId: String, model: ProfileCollectionVi
 @Composable
 private fun CollectionSectionTabs(
     giftsSelected: Boolean,
-    showGifts: Boolean,
-    giftsEnabled: Boolean,
     onSelectTrophies: () -> Unit,
     onSelectGifts: () -> Unit,
 ) {
     Row(Modifier.fillMaxWidth().selectableGroup()) {
-        val labels = listOf(stringResource(CorusStrings.profile_collection_trophies)) +
-            if (showGifts) listOf(stringResource(CorusStrings.activity_filter_gifts)) else emptyList()
+        val labels = listOf(stringResource(CorusStrings.profile_collection_trophies), stringResource(CorusStrings.activity_filter_gifts))
         labels.forEachIndexed { index, label ->
             val selected = if (index == 0) !giftsSelected else giftsSelected
             Column(
                 Modifier.weight(1f).selectable(
                     selected = selected,
-                    enabled = index == 0 || giftsEnabled,
                     role = Role.Tab,
                     onClick = if (index == 0) onSelectTrophies else onSelectGifts,
                 ),

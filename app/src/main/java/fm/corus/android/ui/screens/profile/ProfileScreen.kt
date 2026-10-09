@@ -575,6 +575,7 @@ fun ProfileScreen(
                     ) {
                         if (showCollection) {
                             ProfileCollectionButton(currentProfile.id, size = CorusSpacing.profileSettingsIcon, buttonSide = CorusSpacing.profileStyleIcon, model = collectionModel,
+                                knownEmptyProfile = !isLoading && !isRefreshing && !hasLoadError && !hasMoreMixedPosts && currentProfile.cymbalCount == 0 && posts.isEmpty(),
                                 onFeed = { postId, segment ->
                                     ProfileFeedCache.profileUser = currentProfile
                                     onNavigateToProfileFeed(currentProfile.id, currentProfile.username, postId, segment)

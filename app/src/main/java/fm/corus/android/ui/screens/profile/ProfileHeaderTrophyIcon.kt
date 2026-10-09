@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
-/** A toolbar trophy with the visual weight and footprint of the Settings cog. */
+/** A toolbar trophy with the stroke weight of the neighboring navigation icons. */
 @Composable
 internal fun ProfileHeaderTrophyIcon(
     contentDescription: String,
@@ -39,12 +39,11 @@ private val profileHeaderTrophy: ImageVector by lazy {
         path(
             fill = null,
             stroke = SolidColor(Color.Black),
-            strokeLineWidth = 2.5f,
+            strokeLineWidth = 2f,
             strokeLineCap = StrokeCap.Round,
             strokeLineJoin = StrokeJoin.Round,
         ) {
-            // The stock Material outline is narrower/lighter than the adjacent cog.
-            // Wider handles and a slightly heavier stroke keep this outline balanced.
+            // Keep the wider cup silhouette with a standard toolbar stroke weight.
             moveTo(6.5f, 3.5f)
             lineTo(17.5f, 3.5f)
             lineTo(17.5f, 8f)

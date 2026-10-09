@@ -7,6 +7,7 @@ import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.theme.CorusTheme
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -20,6 +21,47 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ProfileCollectionLoadingTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test fun `cached zero gifts keeps the filter and artwork in place through refresh`() {
+        val pendingCounts = CompletableDeferred<CollectionCounts>()
+        openCollection(model(pendingCounts, CollectionCounts(1, 0), songPage()))
+        compose.onNodeWithText("Trophies").assertDoesNotExist()
+        compose.onNodeWithText("Gifts").assertDoesNotExist()
+        val filterBefore = compose.onNodeWithText("Music").getUnclippedBoundsInRoot()
+        val songBefore = compose.onNodeWithText("A song").getUnclippedBoundsInRoot()
+        compose.runOnIdle { pendingCounts.complete(CollectionCounts(1, 0)) }
+        assertEquals(filterBefore, compose.onNodeWithText("Music").getUnclippedBoundsInRoot())
+        assertEquals(songBefore, compose.onNodeWithText("A song").getUnclippedBoundsInRoot())
+    }
+
+    @Test fun `unknown gifts waits before revealing a collection without tabs`() {
+        val pendingCounts = CompletableDeferred<CollectionCounts>()
+        openCollection(model(pendingCounts, page = songPage()))
+        compose.onNodeWithTag("collection_header_skeleton").assertIsDisplayed()
+        compose.onNodeWithText("Trophies").assertDoesNotExist()
+        compose.onNodeWithText("Gifts").assertDoesNotExist()
+        compose.onNodeWithText("Music").assertDoesNotExist()
+        compose.onNodeWithText("A song").assertDoesNotExist()
+        compose.runOnIdle { pendingCounts.complete(CollectionCounts(1, 0)) }
+        compose.onNodeWithText("Trophies").assertDoesNotExist()
+        compose.onNodeWithText("Gifts").assertDoesNotExist()
+        compose.onNodeWithText("Music").assertIsDisplayed()
+        compose.onNodeWithText("A song").assertIsDisplayed()
+    }
+
+    @Test fun `unknown gifts reveals both tabs together with collection content`() {
+        val pendingCounts = CompletableDeferred<CollectionCounts>()
+        openCollection(model(pendingCounts, page = songPage()))
+        compose.onNodeWithText("Gifts").assertDoesNotExist()
+        compose.onNodeWithText("A song").assertDoesNotExist()
+        compose.runOnIdle { pendingCounts.complete(CollectionCounts(1, 1)) }
+        compose.onNodeWithText("Trophies").assertIsDisplayed()
+        compose.onNodeWithText("Gifts").assertIsDisplayed()
+        compose.onNodeWithText("Music").assertIsDisplayed()
+        compose.onNodeWithText("A song").assertIsDisplayed()
+    }
+
+    private fun songPage() = CollectionPage(listOf(CollectionItem("post", "A song", "An artist", "", "track", 0)), null)
 
     @Test fun `an empty first page waits for fresh summary before showing an empty message`() {
         val pendingCounts = CompletableDeferred<CollectionCounts>()
@@ -54,6 +96,29 @@ class ProfileCollectionLoadingTest {
         compose.onNodeWithText("No trophies or gifts yet").assertIsDisplayed()
     }
 
+    @Test fun `a loaded zero post profile opens empty without cached collection counts`() {
+        val pendingCounts = CompletableDeferred<CollectionCounts>()
+        val model = model(pendingCounts)
+        openCollection(model, knownEmptyProfile = true)
+        compose.onNodeWithText("No trophies or gifts yet").assertIsDisplayed()
+        compose.onNodeWithTag("collection_header_skeleton").assertDoesNotExist()
+        compose.onNodeWithText("First to share").assertDoesNotExist()
+        verifyBlocking(model) { summary("owner") }
+        verifyBlocking(model, never()) { trophies(any(), any(), anyOrNull()) }
+    }
+
+    @Test fun `fresh counts can replace a zero post profile empty state`() {
+        val pendingCounts = CompletableDeferred<CollectionCounts>()
+        val model = model(pendingCounts, page = CollectionPage(
+            listOf(CollectionItem("post", "A song", "An artist", "", "track", 0)), null,
+        ))
+        openCollection(model, knownEmptyProfile = true)
+        compose.onNodeWithText("No trophies or gifts yet").assertIsDisplayed()
+        compose.runOnIdle { pendingCounts.complete(CollectionCounts(1, 0)) }
+        compose.onNodeWithText("No trophies or gifts yet").assertDoesNotExist()
+        compose.onNodeWithText("A song").assertIsDisplayed()
+    }
+
     @Test fun `a previously empty profile displays newly earned trophies after refreshing`() {
         val pendingCounts = CompletableDeferred<CollectionCounts>()
         val model = model(pendingCounts, CollectionCounts(0, 0), CollectionPage(
@@ -81,8 +146,8 @@ class ProfileCollectionLoadingTest {
         }
     }
 
-    private fun openCollection(model: ProfileCollectionViewModel) {
-        compose.setContent { CorusTheme(darkTheme = false) { ProfileCollectionButton("owner", model = model, onFeed = { _, _ -> }) } }
+    private fun openCollection(model: ProfileCollectionViewModel, knownEmptyProfile: Boolean = false) {
+        compose.setContent { CorusTheme(darkTheme = false) { ProfileCollectionButton("owner", model = model, knownEmptyProfile = knownEmptyProfile, onFeed = { _, _ -> }) } }
         compose.onNodeWithContentDescription("Trophy Case").performClick()
         compose.waitForIdle()
     }
