@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -47,6 +48,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.domain.ProfileCollectionPolicy
+import fm.corus.android.domain.ProfileTrophySummary
 import fm.corus.android.domain.CollectionPlaybackQueue
 import fm.corus.android.domain.CollectionPlaybackPage
 import fm.corus.android.domain.PlaybackOrigin
@@ -97,9 +99,14 @@ class ProfileCollectionViewModel @Inject constructor(
         return result
     }
     internal suspend fun summary(profile: String): CollectionCounts {
+        val viewerId = viewer
         val raw = call("getProfileData", profile, mapOf("userId" to profile, "pageSize" to 1))
-        return CollectionCounts(ProfileCollectionPolicy.count(raw["trophyCount"]), ProfileCollectionPolicy.count(raw["profileGiftCount"]))
+        val counts = CollectionCounts(ProfileCollectionPolicy.count(raw["trophyCount"]), ProfileCollectionPolicy.count(raw["profileGiftCount"]))
+        ProfileTrophySummary.remember(viewerId, profile, counts.trophies, counts.gifts)
+        return counts
     }
+    internal fun cachedSummary(profile: String): CollectionCounts? = ProfileTrophySummary.counts(viewer, profile)
+        ?.let { CollectionCounts(it.trophies, it.gifts) }
     internal suspend fun trophies(profile: String, media: String, cursor: Map<*, *>?): CollectionPage {
         val args = mutableMapOf<String, Any>("userId" to profile, "sort" to "popular", "mediaType" to media)
         cursor?.let { args["cursor"] = it }
@@ -177,7 +184,7 @@ internal fun ProfileCollectionButton(profileId: String, size: Dp = 23.dp, button
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProfileCollectionSheet(profileId: String, model: ProfileCollectionViewModel, onDismiss: () -> Unit, onFeed: (String, Int) -> Unit) {
-    var counts by remember { mutableStateOf<CollectionCounts?>(null) }
+    var counts by remember { mutableStateOf(model.cachedSummary(profileId)) }
     var countsFailed by remember { mutableStateOf(false) }
     var countsLoading by remember { mutableStateOf(true) }
     var summaryRetry by remember { mutableIntStateOf(0) }
@@ -201,7 +208,8 @@ private fun ProfileCollectionSheet(profileId: String, model: ProfileCollectionVi
     val currentContext by rememberUpdatedState((if (giftsSelected) "gifts" else "trophies") to (if (giftsSelected) "all" else category))
     fun track(action: String, details: Map<String, Any> = emptyMap(), section: String = currentContext.first, media: String = currentContext.second) { model.track(profileId, session, action, section, media, details) }
     val scope = rememberCoroutineScope()
-    val combinedEmpty = !countsLoading && !countsFailed && ProfileCollectionPolicy.empty(counts?.trophies, counts?.gifts)
+    // A known empty profile can open directly to its empty state while refreshing.
+    val combinedEmpty = !countsFailed && ProfileCollectionPolicy.empty(counts?.trophies, counts?.gifts)
     val categories = listOf("track", "movie") + if (model.flags.booksEnabled && "book" in mediaTypes) listOf("book") else emptyList()
     fun loadNextPage(manualRetry: Boolean = false) {
         if (loading || combinedEmpty || !model.visible(profileId) || (failed && !manualRetry)) return
@@ -288,6 +296,14 @@ private fun ProfileCollectionSheet(profileId: String, model: ProfileCollectionVi
                 CollectionEmpty(Icons.Outlined.EmojiEvents, stringResource(CorusStrings.profile_collection_empty_title), stringResource(CorusStrings.profile_collection_empty_body))
             } else {
                 Row(Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                  if (countsLoading && (counts?.trophies == null || counts?.gifts == null)) {
+                    CollectionSkeletonBar(Modifier.size(36.dp).testTag("collection_header_skeleton"))
+                    Column {
+                        CollectionSkeletonText(CorusFont.displayName, 1f, Modifier.width(132.dp))
+                        Spacer(Modifier.height(4.dp))
+                        CollectionSkeletonText(CorusFont.artistName, 1f, Modifier.width(96.dp))
+                    }
+                  } else {
                     Icon(if (giftsSelected) Icons.Filled.CardGiftcard else Icons.Filled.EmojiEvents, null, tint = if (giftsSelected) CorusColors.Accent else Color(0xFFFFC107), modifier = Modifier.size(36.dp))
                     Column {
                         val count = if (giftsSelected) counts?.gifts else counts?.trophies
@@ -297,6 +313,7 @@ private fun ProfileCollectionSheet(profileId: String, model: ProfileCollectionVi
                         Spacer(Modifier.height(4.dp))
                         Text(stringResource(if (giftsSelected) CorusStrings.profile_collection_received else CorusStrings.profile_collection_first_to_share), style = CorusFont.artistName, color = CorusColors.Secondary)
                     }
+                  }
                 }
                 if (countsFailed && !countsLoading) Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(stringResource(CorusStrings.profile_collection_counts_error), style = CorusFont.artistName, color = CorusColors.Secondary)

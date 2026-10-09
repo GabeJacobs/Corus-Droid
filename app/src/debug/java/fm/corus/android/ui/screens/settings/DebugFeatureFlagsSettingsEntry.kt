@@ -66,6 +66,10 @@ private fun DebugFeatureFlagsPage(config: RemoteConfigService, onBack: () -> Uni
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp)) {
             item {
+                DebugForYouPreviewEndedSection()
+                HorizontalDivider(Modifier.padding(vertical = 16.dp))
+            }
+            item {
                 Text("Changes apply on this installation and survive relaunch. Server permissions and rollout checks still apply. Reopen a screen if it loads flags only on entry.", style = MaterialTheme.typography.bodySmall)
                 Text("New Remote Config keys appear after refresh. Your Mix supports a local visibility override. Other backend flags and keys this build cannot override are read-only.", style = MaterialTheme.typography.bodySmall)
                 config.debugServerCatalogMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }

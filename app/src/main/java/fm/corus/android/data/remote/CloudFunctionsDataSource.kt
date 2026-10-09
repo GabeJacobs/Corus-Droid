@@ -657,7 +657,11 @@ class CloudFunctionsDataSource @Inject constructor(
         val result = functions.getHttpsCallable("getProfileData").call(params).await()
         val data = result.getData() as? Map<String, Any?> ?: return ProfileData(null, emptyList())
 
-        if(viewer == auth.currentUser?.uid)fm.corus.android.domain.ProfileTrophySummary.remember(viewer,userId,(data["trophyCount"] as? Number)?.toInt())
+        if (viewer == auth.currentUser?.uid) fm.corus.android.domain.ProfileTrophySummary.remember(
+            viewer, userId,
+            fm.corus.android.domain.ProfileCollectionPolicy.count(data["trophyCount"]),
+            fm.corus.android.domain.ProfileCollectionPolicy.count(data["profileGiftCount"]),
+        )
         val userMap = data["user"] as? Map<String, Any?>
         val user = userMap?.let { CymbalUser.fromMap(it["id"] as? String ?: "", it) }
         val postDicts = data["posts"] as? List<Map<String, Any?>> ?: emptyList()
