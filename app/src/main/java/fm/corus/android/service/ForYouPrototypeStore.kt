@@ -51,14 +51,22 @@ class ForYouPrototypeStore @Inject constructor(
     private fun initialState(uid: String?, generation: Int): ForYouPrototypeState {
         val default = remoteConfig.forYouDefaultMode
         val override = remoteConfig.debugOverride("for_you_prototype_enabled")
+        val enabled = uid != null && (override ?: prefs.getBoolean("access.v1.$uid", false))
         return ForYouPrototypeState(
             uid = uid, generation = generation,
-            enabled = uid != null && (override ?: prefs.getBoolean("access.v1.$uid", false)),
+            enabled = enabled,
             hasPresentation = uid == null || override != null,
             defaultMode = default,
-            mode = ForYouTuningMode.ECLECTIC,
+            mode = startupMode(uid, enabled),
         )
     }
+
+    // This restores the request destination, never permission or cached posts.
+    private fun startupMode(uid: String?, enabled: Boolean): ForYouTuningMode =
+        if (uid != null && enabled) ForYouTuningMode.initial(
+            prefs.getString("confirmedMode.v1.$uid", null) ?: prefs.getString("mode.$uid", null),
+            ForYouTuningMode.ECLECTIC)
+        else ForYouTuningMode.ECLECTIC
 
     init {
         auth.addAuthStateListener { scope.launch { beginSession(it.currentUser?.uid) } }
@@ -77,7 +85,7 @@ class ForYouPrototypeStore @Inject constructor(
                 if (!current.hasPresentation) {
                     val default = remoteConfig.forYouDefaultMode
                     _state.value = current.copy(defaultMode = default,
-                        mode = if (current.stayCloseProgress == null) ForYouTuningMode.ECLECTIC else current.mode)
+                        mode = if (current.stayCloseProgress == null) startupMode(current.uid, current.enabled) else current.mode)
                 }
             }
         }
@@ -136,7 +144,8 @@ class ForYouPrototypeStore @Inject constructor(
         val current = _state.value
         if (mode != ForYouTuningMode.ECLECTIC && current.stayCloseProgress?.canAccessBalanced != true) return
         if (mode == ForYouTuningMode.STAY_CLOSE && current.stayCloseProgress?.unlocked != true) return
-        prefs.edit().putString("mode.${current.uid}", mode.value).apply()
+        prefs.edit().putString("mode.${current.uid}", mode.value)
+            .putString("confirmedMode.v1.${current.uid}", mode.value).apply()
         _state.value = current.copy(mode = mode)
     }
 
@@ -152,6 +161,7 @@ class ForYouPrototypeStore @Inject constructor(
         val mode = if (preferredMode != ForYouTuningMode.ECLECTIC && !progress.canAccess)
             ForYouTuningMode.ECLECTIC else preferredMode
         _state.value = current.copy(stayCloseProgress = progress, mode = mode)
+        prefs.edit().putString("confirmedMode.v1.$uid", mode.value).apply()
         trialExpiry?.cancel()
         val endsAt = progress.trialEndsAt
         if (!progress.hasFullAccess && !progress.serverPaywallLocked && !progress.paywallLocked &&

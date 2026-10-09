@@ -66,6 +66,44 @@ class ForYouPrototypeStoreTest {
     }
     private fun store() = ForYouPrototypeStore(auth, functions, remote, context)
 
+    @Test fun `existing saved selections migrate without assuming a new users default access`() = runTest(dispatcher) {
+        prefs.edit().putBoolean("access.v1.gabe", true).putString("mode.gabe", "balanced").commit()
+        val returning = store(); runCurrent()
+        assertEquals(ForYouTuningMode.BALANCED, returning.state.value.mode)
+        assertNull(returning.state.value.stayCloseProgress)
+        switch("other"); runCurrent()
+        assertEquals(ForYouTuningMode.ECLECTIC, returning.state.value.mode)
+    }
+
+    @Test fun `returning users request their confirmed mix before slow access resolves`() = runTest(dispatcher) {
+        prefs.edit().putBoolean("access.v1.gabe", true).putString("confirmedMode.v1.gabe", "balanced").commit()
+        val store = store(); runCurrent()
+        assertEquals(ForYouTuningMode.BALANCED, store.state.value.mode)
+        assertNull(store.state.value.stayCloseProgress)
+        store.select(ForYouTuningMode.STAY_CLOSE)
+        assertEquals(ForYouTuningMode.BALANCED, store.state.value.mode)
+        advanceTimeBy(1000); runCurrent()
+        assertEquals(ForYouTuningMode.BALANCED, store.state.value.mode)
+        assertFalse(store.isResolvingAccess)
+        complete(0, true, postCount = 4); runCurrent()
+        assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
+        assertEquals("tasteMatches", prefs.getString("confirmedMode.v1.gabe", null))
+    }
+
+    @Test fun `confirmed routing follows selections and never leaks across accounts`() = runTest(dispatcher) {
+        val store = store(); runCurrent(); complete(0, true); runCurrent()
+        store.select(ForYouTuningMode.STAY_CLOSE)
+        assertEquals("close", prefs.getString("confirmedMode.v1.gabe", null))
+        prefs.edit().putString("confirmedMode.v1.other", "balanced").commit()
+        switch("other"); runCurrent()
+        assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
+        store.updateStayCloseProgress(fm.corus.android.domain.ForYouStayCloseProgress(50), "gabe")
+        assertNull(store.state.value.stayCloseProgress)
+        switch("gabe"); runCurrent()
+        assertEquals(ForYouTuningMode.STAY_CLOSE, store.state.value.mode)
+        assertNull(store.state.value.stayCloseProgress)
+    }
+
     @Test fun `posting progress unlocks at five and stale account progress cannot leak`() = runTest(dispatcher) {
         val store = store(); runCurrent(); complete(0, true); runCurrent()
         store.updateStayCloseProgress(fm.corus.android.domain.ForYouStayCloseProgress(4), "gabe")
@@ -187,7 +225,8 @@ class ForYouPrototypeStoreTest {
         complete(2, true); runCurrent(); store.select(ForYouTuningMode.STAY_CLOSE)
         switch("other"); runCurrent(); assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
         assertFalse(store.isAvailable)
-        switch("gabe"); runCurrent(); assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
+        switch("gabe"); runCurrent(); assertEquals(ForYouTuningMode.STAY_CLOSE, store.state.value.mode)
+        assertNull(store.state.value.stayCloseProgress) // Routing does not restore access evidence.
         complete(4, true); runCurrent(); assertEquals(ForYouTuningMode.STAY_CLOSE, store.state.value.mode)
         switch(null); runCurrent(); assertFalse(store.isAvailable)
     }
