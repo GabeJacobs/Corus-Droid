@@ -230,4 +230,10 @@
     <string name="corus_profile_collection_accessibility_hint">"받은 트로피와 선물을 표시합니다"</string>
     <string name="corus_profile_collection_post_error">"이 게시물을 열 수 없어요."</string>
     <plurals name="corus_profile_collection_trophy_count"><item quantity="one">"트로피 %1$d개"</item><item quantity="other">"트로피 %1$d개"</item></plurals>
+    <string name="corus_for_you_preview_ended_body">"이제 “다채롭게”를 이용 중이에요."</string>
+    <string name="corus_for_you_preview_ended_club_body">"Corus Club에서 두 맞춤 믹스를 계속 즐겨 보세요."</string>
+    <string name="corus_for_you_preview_ended_continue">"“다채롭게”로 계속하기"</string>
+    <string name="corus_for_you_preview_ended_join_cta">"Corus Club 가입"</string>
+    <string name="corus_for_you_preview_ended_title">"“균형 있게”와 “취향에 가깝게” 미리보기가 종료되었어요."</string>
+    <string name="corus_for_you_preview_ended_trial_cta">"Corus Club 무료 체험"</string>
 </resources>

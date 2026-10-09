@@ -15,6 +15,30 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28], manifest = Config.NONE, application = android.app.Application::class)
 class RemoteConfigServiceDebugOverridesTest {
+    @Test fun `header style is locally overridable and reset restores remote value`() {
+        val context = RuntimeEnvironment.getApplication()
+        context.getSharedPreferences("corus_dev_flags", 0).edit().clear().commit()
+        val remoteValue = mock<FirebaseRemoteConfigValue> {
+            on { source } doReturn FirebaseRemoteConfig.VALUE_SOURCE_REMOTE
+            on { asBoolean() } doReturn false
+        }
+        val remote = mock<FirebaseRemoteConfig> {
+            on { getValue(any()) } doReturn remoteValue
+        }
+        val service = RemoteConfigService(remote, mock(), context)
+        assertFalse(service.profileHeaderStyleEnabled)
+        service.setDebugOverride("profile_header_style_enabled", true)
+        if (BuildConfig.DEBUG) {
+            assertTrue(service.debugFeatureFlags.single { it.key == "profile_header_style_enabled" }.allowsLocalOverride)
+            assertTrue(service.profileHeaderStyleEnabled)
+            assertTrue(RemoteConfigService(remote, mock(), context).profileHeaderStyleEnabled)
+        } else {
+            assertFalse(service.profileHeaderStyleEnabled)
+        }
+        service.setDebugOverride("profile_header_style_enabled", null)
+        assertFalse(service.profileHeaderStyleEnabled)
+    }
+
     @Test fun `future flags and variants are discovered without registration`() {
         val value = mock<FirebaseRemoteConfigValue> {
             on { asString() } doReturn "false"

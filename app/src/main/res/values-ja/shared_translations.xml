@@ -230,4 +230,10 @@
     <string name="corus_profile_collection_accessibility_hint">"受け取ったトロフィーとギフトを表示"</string>
     <string name="corus_profile_collection_post_error">"この投稿を開けませんでした。"</string>
     <plurals name="corus_profile_collection_trophy_count"><item quantity="one">"トロフィー%1$d個"</item><item quantity="other">"トロフィー%1$d個"</item></plurals>
+    <string name="corus_for_you_preview_ended_body">"現在は「多彩」をご利用中です。"</string>
+    <string name="corus_for_you_preview_ended_club_body">"Corus Clubで、両方のパーソナライズされたミックスを引き続き楽しめます。"</string>
+    <string name="corus_for_you_preview_ended_continue">"「多彩」で続ける"</string>
+    <string name="corus_for_you_preview_ended_join_cta">"Corus Clubに参加"</string>
+    <string name="corus_for_you_preview_ended_title">"「バランス」と「好みに近く」のお試し期間が終了しました。"</string>
+    <string name="corus_for_you_preview_ended_trial_cta">"Corus Clubを無料で試す"</string>
 </resources>

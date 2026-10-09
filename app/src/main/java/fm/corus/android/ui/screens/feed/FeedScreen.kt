@@ -68,6 +68,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import androidx.compose.ui.Alignment
@@ -224,6 +225,7 @@ fun FeedScreen(
     val prototypeEnabled = viewModel.forYouPrototype.isAvailable
     val usesForYouPrototype = prototypeEnabled && feedMode == "tasteMatches"
     var showForYouTuning by remember(prototypeState.uid) { mutableStateOf(false) }
+    var showForYouPreviewEnded by remember(prototypeState.uid) { mutableStateOf(false) }
     val feedDecade: Int? = viewModel.appliedFeedDecade.collectAsState().value
     val showDecadeFilter = viewModel.isDecadeFilterVisible(feedMode)
     val energyConfigRevision by viewModel.remoteConfig.revision.collectAsState()
@@ -379,6 +381,7 @@ fun FeedScreen(
     // feed is actually visible so a failed background load holds the
     // skeleton and resumes here, instead of flashing "Something's off."
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val lifecycleState by lifecycleOwner.lifecycle.currentStateFlow.collectAsState()
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             when (event) {
@@ -1701,8 +1704,36 @@ fun FeedScreen(
         )
     }
 
-    LaunchedEffect(prototypeState.uid, usesForYouPrototype, isAtRoot, showClubOffer, showEnergyIntroduction, sharePost, giftPost, menuPost) {
+    val canPresentPreviewEnded = usesForYouPrototype && isAtRoot &&
+        lifecycleState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) &&
+        prototypeState.needsPreviewEndedNotice && !hasFullAccess && !showForYouPreviewEnded &&
+        !showForYouTuning && !showClubOffer && !showEnergyIntroduction &&
+        sharePost == null && giftPost == null && menuPost == null
+    LaunchedEffect(prototypeState.uid, canPresentPreviewEnded) {
+        val uid = prototypeState.uid
+        if (canPresentPreviewEnded && uid != null) {
+            viewModel.awaitClubOfferings()
+            try {
+                val claimed = viewModel.forYouPrototype.claimPreviewEndedNotice(uid)
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                if (viewModel.forYouPrototype.state.value.uid == uid) {
+                    viewModel.forYouPrototype.markPreviewEndedNoticeHandled()
+                    if (claimed && !viewModel.hasFullAccess.value) showForYouPreviewEnded = true
+                }
+            } catch (error: kotlinx.coroutines.CancellationException) { throw error }
+            catch (_: Exception) { /* Retry on next foreground or Your Mix visit. */ }
+        }
+    }
+    if (showForYouPreviewEnded && prototypeEnabled) {
+        ForYouPreviewEndedSheet(hasClubIntroTrial = hasClubIntroTrial,
+            onDismiss = { showForYouPreviewEnded = false },
+            onClub = { viewModel.onStayClosePaywallRequested(viewModel.forYouPrototype.previewEndedReturnMode()) },
+            onTrack = { viewModel.analyticsService.logEvent(it.name, it.params) })
+    }
+
+    LaunchedEffect(prototypeState.uid, usesForYouPrototype, isAtRoot, showClubOffer, showEnergyIntroduction, sharePost, giftPost, menuPost, showForYouPreviewEnded, prototypeState.needsPreviewEndedNotice) {
         if (usesForYouPrototype && isAtRoot && !showClubOffer && !showEnergyIntroduction &&
+            !showForYouPreviewEnded && !prototypeState.needsPreviewEndedNotice &&
             sharePost == null && giftPost == null && menuPost == null &&
             viewModel.forYouPrototype.needsIntroduction) {
             showForYouTuning = true

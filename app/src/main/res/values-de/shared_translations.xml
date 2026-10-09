@@ -230,4 +230,10 @@
     <string name="corus_profile_collection_accessibility_hint">"Zeigt erhaltene Trophäen und Geschenke"</string>
     <string name="corus_profile_collection_post_error">"Dieser Beitrag konnte nicht geöffnet werden."</string>
     <plurals name="corus_profile_collection_trophy_count"><item quantity="one">"%1$d Trophäe"</item><item quantity="other">"%1$d Trophäen"</item></plurals>
+    <string name="corus_for_you_preview_ended_body">"Du nutzt jetzt Eklektisch."</string>
+    <string name="corus_for_you_preview_ended_club_body">"Behalte beide personalisierten Mixe mit Corus Club."</string>
+    <string name="corus_for_you_preview_ended_continue">"Mit Eklektisch fortfahren"</string>
+    <string name="corus_for_you_preview_ended_join_cta">"Corus Club beitreten"</string>
+    <string name="corus_for_you_preview_ended_title">"Deine Vorschau für Ausgewogen und Vertraut ist beendet."</string>
+    <string name="corus_for_you_preview_ended_trial_cta">"Corus Club kostenlos testen"</string>
 </resources>

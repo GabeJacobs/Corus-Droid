@@ -55,4 +55,21 @@ class RemoteConfigServiceProfileCollectionTest {
         doReturn(value(false)).whenever(remoteConfig).getValue(eq("profile_collection_enabled"))
         assertFalse(flags.profileCollectionEnabled)
     }
+
+    @Test fun `header style defaults off and follows its own activated flag`() {
+        val remoteConfig = mock<FirebaseRemoteConfig>()
+        val flags = service(remoteConfig)
+        val defaults = argumentCaptor<Map<String, Any>>()
+        verify(remoteConfig).setDefaultsAsync(defaults.capture())
+        assertEquals(false, defaults.firstValue["profile_header_style_enabled"])
+        val missing = mock<FirebaseRemoteConfigValue> {
+            on { source } doReturn FirebaseRemoteConfig.VALUE_SOURCE_STATIC
+        }
+        doReturn(missing).whenever(remoteConfig).getValue(eq("profile_header_style_enabled"))
+        assertFalse(flags.profileHeaderStyleEnabled)
+        doReturn(value(true)).whenever(remoteConfig).getValue(eq("profile_header_style_enabled"))
+        assertTrue(flags.profileHeaderStyleEnabled)
+        doReturn(value(false)).whenever(remoteConfig).getValue(eq("profile_header_style_enabled"))
+        assertFalse(flags.profileHeaderStyleEnabled)
+    }
 }

@@ -230,4 +230,10 @@
     <string name="corus_profile_collection_accessibility_hint">"显示收到的奖杯和礼物"</string>
     <string name="corus_profile_collection_post_error">"无法打开这条帖子。"</string>
     <plurals name="corus_profile_collection_trophy_count"><item quantity="one">"%1$d 个奖杯"</item><item quantity="other">"%1$d 个奖杯"</item></plurals>
+    <string name="corus_for_you_preview_ended_body">"你现在正在使用「多元」。"</string>
+    <string name="corus_for_you_preview_ended_club_body">"加入 Corus Club，继续享用这两种个性化推荐。"</string>
+    <string name="corus_for_you_preview_ended_continue">"继续使用「多元」"</string>
+    <string name="corus_for_you_preview_ended_join_cta">"加入 Corus Club"</string>
+    <string name="corus_for_you_preview_ended_title">"你的「均衡」和「贴近喜好」体验已结束。"</string>
+    <string name="corus_for_you_preview_ended_trial_cta">"免费试用 Corus Club"</string>
 </resources>

@@ -2,9 +2,13 @@ package fm.corus.android.ui.screens.profile
 
 import android.content.Intent
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.activity.findViewTreeOnBackPressedDispatcherOwner
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,12 +17,12 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -27,8 +31,10 @@ import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -39,6 +45,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -52,7 +59,12 @@ import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
 import fm.corus.android.data.model.ProfileMediaTab
+import fm.corus.android.ui.components.CorusModalBottomSheet
+import fm.corus.android.ui.components.rememberGuardedSheetState
+import fm.corus.android.ui.screens.subscription.CymbalClubOfferScreen
+import fm.corus.android.ui.screens.subscription.PaywallSource
 import fm.corus.android.ui.theme.CorusColors
+import fm.corus.android.ui.theme.CorusSystemBars
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
 import kotlin.math.roundToInt
@@ -62,7 +74,177 @@ import kotlin.math.roundToInt
 fun EditProfileScreen(
     viewModel: EditProfileViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
+) {
+    val profile by viewModel.profile.collectAsState()
+    val selections by viewModel.styleSelections.collectAsState()
+    val latestTrack by viewModel.latestTrackPost.collectAsState()
+    val latestMovie by viewModel.latestMoviePost.collectAsState()
+    val hasTracks by viewModel.hasTrackPosts.collectAsState()
+    val hasMovies by viewModel.hasMoviePosts.collectAsState()
+    val isStyleSaving by viewModel.isStyleSaving.collectAsState()
+    val isSaving by viewModel.isSaving.collectAsState()
+    val saveError by viewModel.saveError.collectAsState()
+    val hasFullAccess by viewModel.subscriptionRepository.hasFullAccessFlow.collectAsState()
+    var showStylePicker by rememberSaveable { mutableStateOf(false) }
+    var lastStylePage by rememberSaveable { mutableIntStateOf(0) }
+    var styleSavedThisSession by rememberSaveable { mutableStateOf(false) }
+    var showDiscardDialog by remember { mutableStateOf(false) }
+    var showClubOffer by remember { mutableStateOf(false) }
+    val editorScrollState = rememberScrollState()
+    val keyboard = LocalSoftwareKeyboardController.current
+
+    // Loading belongs to the sheet lifetime, so returning from customization
+    // never reloads the profile over the user's unsaved form fields.
+    LaunchedEffect(Unit) { viewModel.loadProfile() }
+    DisposableEffect(viewModel) {
+        onDispose { viewModel.endEditing() }
+    }
+
+    fun requestDismiss() {
+        if (isSaving || isStyleSaving) return
+        when {
+            showStylePicker -> showStylePicker = false
+            viewModel.hasUnsavedChanges -> showDiscardDialog = true
+            else -> onBack()
+        }
+    }
+
+    val sheetState = rememberGuardedSheetState(
+        confirmValueChange = { target ->
+            if (target == SheetValue.Hidden &&
+                (showStylePicker || viewModel.hasUnsavedChanges || isSaving || isStyleSaving)) {
+                requestDismiss()
+                false
+            } else true
+        },
+    )
+    CorusModalBottomSheet(
+        // Back navigates inside this sheet instead of running Material's hide
+        // animation before its dismissal callback.
+        onDismissRequest = { if (!sheetState.isVisible) onBack() },
+        sheetState = sheetState,
+        properties = ModalBottomSheetProperties(shouldDismissOnBackPress = false),
+    ) {
+        CompositionLocalProvider(
+            LocalOnBackPressedDispatcherOwner provides checkNotNull(LocalView.current.findViewTreeOnBackPressedDispatcherOwner()),
+        ) {
+            BackHandler { requestDismiss() }
+        }
+        CorusSystemBars()
+        // Only the pages move; the sheet surface and drag handle stay in place.
+        AnimatedContent(
+            targetState = showStylePicker,
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.92f).clipToBounds(),
+            transitionSpec = {
+                if (targetState) {
+                    (slideInHorizontally(tween(280)) { it } togetherWith
+                        slideOutHorizontally(tween(280)) { -it / 3 })
+                        .apply { targetContentZIndex = 1f }
+                        .using(null)
+                } else {
+                    (slideInHorizontally(tween(280)) { -it / 3 } togetherWith
+                        slideOutHorizontally(tween(280)) { it })
+                        .apply { targetContentZIndex = 0f }
+                        .using(null)
+                }
+            },
+            label = "editProfileCustomizationSlide",
+        ) { customizing ->
+            Box(Modifier.fillMaxSize().background(CorusColors.Background)) {
+                if (customizing) {
+                    StylePickerSheet(
+                        currentSelections = selections,
+                        username = profile?.username.orEmpty(),
+                        latestTrackPost = latestTrack,
+                        latestMoviePost = latestMovie,
+                        hasTrackPosts = hasTracks,
+                        hasMoviePosts = hasMovies,
+                        isClubMember = hasFullAccess || profile?.hasClubAccess == true,
+                        stylePack1Enabled = viewModel.stylePack1Enabled,
+                        isStaff = profile?.isStaff == true,
+                        corusFlairOpen = viewModel.corusFlairOpen,
+                        isSaving = isStyleSaving,
+                        initialPage = lastStylePage,
+                        onPageChange = { lastStylePage = it },
+                        onSave = { draft ->
+                            val changed = draft.hasChanges(selections)
+                            viewModel.saveStyleSelections(draft) {
+                                if (changed) styleSavedThisSession = true
+                                showStylePicker = false
+                            }
+                        },
+                        onNavigateToClub = { showClubOffer = true },
+                        onDismiss = { showStylePicker = false },
+                        embeddedInNavigationStack = true,
+                    )
+                } else {
+                    EditProfileForm(
+                        viewModel = viewModel,
+                        onBack = ::requestDismiss,
+                        onSaved = onBack,
+                        showDone = styleSavedThisSession,
+                        onCustomizeProfile = {
+                            keyboard?.hide()
+                            showStylePicker = true
+                        },
+                        scrollState = editorScrollState,
+                    )
+                }
+            }
+        }
+    }
+
+    if (showDiscardDialog) {
+        AlertDialog(
+            onDismissRequest = { showDiscardDialog = false },
+            title = { Text(stringResource(fm.corus.android.localization.CorusStrings.edit_profile_dialog_unsaved_title), style = CorusFont.songTitle, color = CorusColors.Text) },
+            text = { Text(stringResource(fm.corus.android.localization.CorusStrings.edit_profile_dialog_unsaved_message), style = CorusFont.body, color = CorusColors.Text) },
+            confirmButton = {
+                TextButton(onClick = { showDiscardDialog = false; onBack() }) {
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.compose_draft_discard), style = CorusFont.button, color = CorusColors.Error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiscardDialog = false }) {
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.edit_profile_dialog_keep_editing), style = CorusFont.button, color = CorusColors.Accent)
+                }
+            },
+            containerColor = CorusColors.Background,
+        )
+    }
+    if (saveError != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.clearSaveError() },
+            title = { Text(stringResource(fm.corus.android.localization.CorusStrings.common_error_7104f711), style = CorusFont.songTitle, color = CorusColors.Text) },
+            text = { Text(saveError!!, style = CorusFont.body, color = CorusColors.Text) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.clearSaveError() }) {
+                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_ok), style = CorusFont.button, color = CorusColors.Accent)
+                }
+            },
+            containerColor = CorusColors.Background,
+        )
+    }
+    if (showClubOffer) {
+        CorusModalBottomSheet(onDismissRequest = { showClubOffer = false }) {
+            CorusSystemBars()
+            CymbalClubOfferScreen(
+                sourceOverride = PaywallSource.STYLE_PICKER,
+                onBack = { showClubOffer = false },
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditProfileForm(
+    viewModel: EditProfileViewModel,
+    onBack: () -> Unit,
+    onSaved: () -> Unit,
+    showDone: Boolean,
     onCustomizeProfile: () -> Unit = {},
+    scrollState: ScrollState,
 ) {
     val context = LocalContext.current
 
@@ -76,7 +258,6 @@ fun EditProfileScreen(
     val usernameState by viewModel.usernameState.collectAsState()
     val usernameInvalidReason by viewModel.usernameInvalidReason.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
-    val saveError by viewModel.saveError.collectAsState()
 
     val profile by viewModel.profile.collectAsState()
 
@@ -103,7 +284,7 @@ fun EditProfileScreen(
         if (isSaving) return@remember false
         true
     }
-    val showSave = remember(displayName, username, bio, showTrophies, showCityOnProfile, website, tabPreferences, profile, isSaving) {
+    val hasPendingSave = remember(displayName, username, bio, showTrophies, showCityOnProfile, website, tabPreferences, profile, isSaving) {
         val p = profile ?: return@remember false
         val booksEnabled = viewModel.booksEnabled
         val original = p.tabPreferences(booksEnabled)
@@ -122,76 +303,6 @@ fun EditProfileScreen(
             tabsChanged
     }
 
-    var showDiscardDialog by remember { mutableStateOf(false) }
-    // Track pending action when user has unsaved changes and taps Customize or Share
-    var pendingAction by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(Unit) {
-        viewModel.loadProfile()
-    }
-
-    // Unsaved changes warning
-    BackHandler(enabled = viewModel.hasUnsavedChanges) {
-        showDiscardDialog = true
-    }
-
-    // Save error dialog
-    if (saveError != null) {
-        AlertDialog(
-            onDismissRequest = { viewModel.clearSaveError() },
-            title = { Text(stringResource(fm.corus.android.localization.CorusStrings.common_error_7104f711), style = CorusFont.songTitle, color = CorusColors.Text) },
-            text = { Text(saveError!!, style = CorusFont.body, color = CorusColors.Text) },
-            confirmButton = {
-                TextButton(onClick = { viewModel.clearSaveError() }) {
-                    Text(stringResource(fm.corus.android.localization.CorusStrings.common_ok), style = CorusFont.button, color = CorusColors.Accent)
-                }
-            },
-            containerColor = CorusColors.Background,
-        )
-    }
-
-    // Unsaved changes dialog (for back, customize, or share actions)
-    if (showDiscardDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showDiscardDialog = false
-                pendingAction = null
-            },
-            title = { Text(stringResource(fm.corus.android.localization.CorusStrings.edit_profile_dialog_unsaved_title), style = CorusFont.songTitle, color = CorusColors.Text) },
-            text = { Text(stringResource(fm.corus.android.localization.CorusStrings.edit_profile_dialog_unsaved_message), style = CorusFont.body, color = CorusColors.Text) },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDiscardDialog = false
-                    val action = pendingAction
-                    pendingAction = null
-                    when (action) {
-                        "customize" -> onCustomizeProfile()
-                        "share" -> {
-                            val shareText = context.getString(R.string.edit_profile_share_text_format, username)
-                            val intent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, shareText)
-                            }
-                            context.startActivity(Intent.createChooser(intent, context.getString(fm.corus.android.localization.CorusStrings.edit_profile_share_chooser)))
-                        }
-                        else -> onBack()
-                    }
-                }) {
-                    Text(stringResource(fm.corus.android.localization.CorusStrings.compose_draft_discard), style = CorusFont.button, color = CorusColors.Error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showDiscardDialog = false
-                    pendingAction = null
-                }) {
-                    Text(stringResource(fm.corus.android.localization.CorusStrings.edit_profile_dialog_keep_editing), style = CorusFont.button, color = CorusColors.Accent)
-                }
-            },
-            containerColor = CorusColors.Background,
-        )
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -199,29 +310,30 @@ fun EditProfileScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
+                            Icons.Filled.Close,
+                            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.concert_close),
                             tint = CorusColors.Text,
                         )
                     }
                 },
                 actions = {
-                    AnimatedVisibility(
-                        visible = showSave,
-                        enter = fadeIn(),
-                        exit = fadeOut(),
-                    ) {
+                    if (hasPendingSave || showDone) {
                         TextButton(
-                            onClick = { viewModel.save(onSuccess = onBack) },
-                            enabled = canSave,
+                            onClick = {
+                                if (hasPendingSave) viewModel.save(onSuccess = onSaved) else onBack()
+                            },
+                            enabled = !hasPendingSave || canSave,
                         ) {
                             if (isSaving) {
                                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = CorusColors.Accent)
                             } else {
                                 Text(
-                                    stringResource(fm.corus.android.localization.CorusStrings.common_save),
+                                    stringResource(
+                                        if (hasPendingSave) fm.corus.android.localization.CorusStrings.common_save
+                                        else fm.corus.android.localization.CorusStrings.common_done,
+                                    ),
                                     style = CorusFont.button,
-                                    color = if (canSave) CorusColors.Accent else CorusColors.Tertiary,
+                                    color = if (!hasPendingSave || canSave) CorusColors.Accent else CorusColors.Tertiary,
                                 )
                             }
                         }
@@ -250,7 +362,7 @@ fun EditProfileScreen(
                 .padding(padding)
                 .nestedScroll(dismissKeyboardOnScroll)
                 .imePadding()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(horizontal = CorusSpacing.xxl, vertical = CorusSpacing.md),
             verticalArrangement = Arrangement.spacedBy(CorusSpacing.xxl),
         ) {
@@ -258,14 +370,7 @@ fun EditProfileScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable {
-                        if (viewModel.hasUnsavedChanges) {
-                            pendingAction = "customize"
-                            showDiscardDialog = true
-                        } else {
-                            onCustomizeProfile()
-                        }
-                    }
+                    .clickable(onClick = onCustomizeProfile)
                     .padding(vertical = CorusSpacing.md),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),

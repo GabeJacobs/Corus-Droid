@@ -532,6 +532,12 @@ object CorusStrings {
     @StringRes val for_you_post_unlock_body: Int = R.string.corus_for_you_post_unlock_body
     @StringRes val for_you_post_unlock_title: Int = R.string.corus_for_you_post_unlock_title
     @StringRes val for_you_posting_hint: Int = R.string.for_you_posting_hint
+    @StringRes val for_you_preview_ended_body: Int = R.string.corus_for_you_preview_ended_body
+    @StringRes val for_you_preview_ended_club_body: Int = R.string.corus_for_you_preview_ended_club_body
+    @StringRes val for_you_preview_ended_continue: Int = R.string.corus_for_you_preview_ended_continue
+    @StringRes val for_you_preview_ended_join_cta: Int = R.string.corus_for_you_preview_ended_join_cta
+    @StringRes val for_you_preview_ended_title: Int = R.string.corus_for_you_preview_ended_title
+    @StringRes val for_you_preview_ended_trial_cta: Int = R.string.corus_for_you_preview_ended_trial_cta
     @StringRes val for_you_stay_close_club_locked: Int = R.string.for_you_stay_close_club_locked
     @StringRes val for_you_stay_close_club_subtitle: Int = R.string.for_you_stay_close_club_subtitle
     @StringRes val for_you_stay_close_trial_offer: Int = R.string.for_you_stay_close_trial_offer

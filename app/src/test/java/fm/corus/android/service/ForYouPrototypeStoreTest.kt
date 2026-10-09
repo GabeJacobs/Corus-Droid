@@ -7,8 +7,14 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.HttpsCallableReference
 import com.google.firebase.functions.HttpsCallableResult
+import com.google.firebase.firestore.CollectionReference
+import com.google.firebase.firestore.DocumentReference
+import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Transaction
 import fm.corus.android.domain.ForYouTuningMode
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.*
@@ -18,6 +24,7 @@ import org.junit.Test
 import org.junit.Assert.*
 import org.junit.runner.RunWith
 import org.mockito.kotlin.*
+import org.mockito.Mockito.mockStatic
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
@@ -26,6 +33,66 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = android.app.Application::class)
 class ForYouPrototypeStoreTest {
+    @Test fun `concurrent visits keep a pending notice and fresh devices respect the account claim`() = runTest(dispatcher) {
+        val firestore = mock<FirebaseFirestore>()
+        val collection = mock<CollectionReference>()
+        val ref = mock<DocumentReference>()
+        val transaction = mock<Transaction>()
+        val snapshot = mock<DocumentSnapshot>()
+        var serverSeen = false
+        whenever(firestore.collection("users_v2")).thenReturn(collection)
+        whenever(collection.document("gabe")).thenReturn(ref)
+        whenever(transaction.get(ref)).thenReturn(snapshot)
+        whenever(snapshot.exists()).thenReturn(true)
+        whenever(snapshot.getBoolean("settings.yourMixPreviewEndedSeen")).thenAnswer { serverSeen }
+        whenever(transaction.update(ref, "settings.yourMixPreviewEndedSeen", true)).thenAnswer { serverSeen = true; transaction }
+        val transactions = mutableListOf<Pair<Transaction.Function<Boolean>, TaskCompletionSource<Boolean>>>()
+        whenever(firestore.runTransaction(any<Transaction.Function<Boolean>>())).thenAnswer {
+            val completion = TaskCompletionSource<Boolean>()
+            transactions.add(it.getArgument<Transaction.Function<Boolean>>(0) to completion)
+            completion.task
+        }
+        mockStatic(FirebaseFirestore::class.java).use { factory ->
+            factory.`when`<FirebaseFirestore> { FirebaseFirestore.getInstance() }.thenReturn(firestore)
+            val store = store(); runCurrent(); complete(0, true); runCurrent()
+            val first = async { store.claimPreviewEndedNotice("gabe") }
+            val second = async { store.claimPreviewEndedNotice("gabe") }
+            runCurrent()
+            assertEquals("Concurrent visits must share the claim still waiting to display", 1, transactions.size)
+            transactions[0].let { (body, completion) -> completion.setResult(body.apply(transaction)) }
+            runCurrent()
+            assertTrue(first.await()); assertTrue(second.await())
+            assertTrue(store.claimPreviewEndedNotice("gabe"))
+            store.markPreviewEndedNoticeHandled()
+            assertFalse(store.claimPreviewEndedNotice("gabe"))
+            prefs.edit().clear().commit() // Fresh device retains only the server account state.
+            val fresh = store(); runCurrent(); complete(1, true); runCurrent()
+            val next = async { fresh.claimPreviewEndedNotice("gabe") }
+            runCurrent()
+            transactions[1].let { (body, completion) -> completion.setResult(body.apply(transaction)) }
+            runCurrent()
+            assertFalse(next.await())
+        }
+    }
+
+    @Test fun `expired preview queues notice once while preserving Eclectic and account isolation`() = runTest(dispatcher) {
+        val store = store(); runCurrent(); complete(0, true); runCurrent()
+        assertFalse(store.state.value.needsPreviewEndedNotice)
+        val expired = fm.corus.android.domain.ForYouStayCloseProgress(5, trialEndsAt = 1)
+        store.updateStayCloseProgress(expired, "gabe")
+        assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
+        assertTrue("Expiry must explain the switch to Eclectic", store.state.value.needsPreviewEndedNotice)
+        store.markPreviewEndedNoticeHandled()
+        store.updateStayCloseProgress(expired, "gabe")
+        assertFalse(store.state.value.needsPreviewEndedNotice)
+        switch("other"); runCurrent(); complete(1, true); runCurrent()
+        store.updateStayCloseProgress(expired.copy(hasFullAccess = true), "other")
+        assertFalse(store.state.value.needsPreviewEndedNotice)
+        store.updateStayCloseProgress(expired, "gabe")
+        assertFalse(store.state.value.needsPreviewEndedNotice)
+        store.updateStayCloseProgress(expired, "other")
+        assertTrue(store.state.value.needsPreviewEndedNotice)
+    }
     private val dispatcher = StandardTestDispatcher()
     private val auth = mock<FirebaseAuth>()
     private val functions = mock<FirebaseFunctions>()

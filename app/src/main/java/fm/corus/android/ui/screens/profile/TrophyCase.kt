@@ -41,16 +41,13 @@ class TrophyCaseViewModel @Inject constructor(private val auth: FirebaseAuth, va
         analytics.logEvent(ProfileCollectionAnalytics.EVENT, ProfileCollectionAnalytics.params(action,
             ProfileCollectionAnalytics.Context(session, if (profile == viewer) "self" else "other", "trophies", media), details))
     }
-    private val cache = mutableMapOf<String, Pair<Long, Map<*, *>>>()
     suspend fun page(profile: String, media: String, cursor: Map<*, *>? = null): Map<*, *> {
         check(allowed)
-        val uid = viewer; val key = "$uid:$profile:$media"
-        if (cursor == null) cache[key]?.takeIf { System.currentTimeMillis() - it.first < 300_000 }?.let { return it.second }
+        val uid = viewer
         val args = mutableMapOf<String, Any>("userId" to profile, "sort" to "popular", "mediaType" to media)
         cursor?.let { args["cursor"] = it }
         val result = functions.getHttpsCallable("getProfileTrophies").call(args).await().getData() as? Map<*, *> ?: error("Please try again.")
         check(viewer == uid && allowed)
-        if (cursor == null) cache[key] = System.currentTimeMillis() to result
         return result
     }
     private fun collectionPage(raw: Map<*, *>): CollectionPage = CollectionPage(
@@ -102,6 +99,7 @@ fun TrophyCase(profile: CymbalUser, onPost: (String) -> Unit, model: TrophyCaseV
 }
 @Composable
 private fun TrophyGrid(profileId: String, count: Int, summary: Map<*, *>?, model: TrophyCaseViewModel, onPost: (String, CollectionFeedSession) -> Unit) {
+    var displayedCount by remember { mutableIntStateOf(count) }
     var category by remember { mutableStateOf("track") }
     var entries by remember { mutableStateOf<List<Map<*, *>>>(emptyList()) }
     var cursor by remember { mutableStateOf<Map<*, *>?>(null) }
@@ -125,6 +123,7 @@ private fun TrophyGrid(profileId: String, count: Int, summary: Map<*, *>?, model
         loading = true; error = false; entries = emptyList(); cursor = null
         try {
             val page = model.page(profileId, category)
+            (page["total"] as? Number)?.toInt()?.let { displayedCount = it }
             entries = (page["items"] as? List<*>)?.filterIsInstance<Map<*, *>>().orEmpty()
             cursor = page["nextCursor"] as? Map<*, *>
             track("load_succeeded", mapOf("phase" to "collection", "item_count" to entries.size))
@@ -133,12 +132,20 @@ private fun TrophyGrid(profileId: String, count: Int, summary: Map<*, *>?, model
         finally { loading = false }
     }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
-        Text(pluralStringResource(CorusStrings.profile_collection_trophy_count, count, count), style = MaterialTheme.typography.titleLarge)
+        Text(pluralStringResource(CorusStrings.profile_collection_trophy_count, displayedCount, displayedCount), style = MaterialTheme.typography.titleLarge)
         Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val categories = listOf("track" to "Music", "movie" to "Film") + if (model.flags.booksEnabled && (summary?.get("availableMediaTypes") as? List<*>)?.contains("book") == true) listOf("book" to "Books") else emptyList()
-            categories.forEach { (value, label) -> FilterChip(category == value, onClick = { if (category != value) track("filter_changed", media = value); category = value }, label = { Text(parityCopy(label)) }, enabled = !loading, modifier = Modifier.weight(1f)) }
+            categories.forEach { (value, label) -> FilterChip(category == value, onClick = {
+                if (category != value) {
+                    track("filter_changed", media = value)
+                    loading = true; error = false; entries = emptyList(); cursor = null
+                    category = value
+                }
+            }, label = { Text(parityCopy(label)) }, enabled = !loading, modifier = Modifier.weight(1f)) }
         }
-        if (loading && entries.isEmpty()) Box(Modifier.fillMaxWidth().height(220.dp), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator() }
+        if (loading && entries.isEmpty()) LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier.fillMaxWidth().heightIn(max = 520.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(9) { CollectionTileSkeleton(category) }
+        }
         else if (error && entries.isEmpty()) TextButton(onClick = { track("retry_tapped", mapOf("phase" to "collection")); retry++ }) { Text(stringResource(CorusStrings.common_retry)) }
         else if (entries.isEmpty()) Text(parityCopy("No trophies yet"), modifier = Modifier.padding(vertical = 40.dp))
         else LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier.fillMaxWidth().heightIn(max = 520.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

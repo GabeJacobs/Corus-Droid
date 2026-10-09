@@ -22,6 +22,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
@@ -129,6 +130,20 @@ data class StyleSelections(
 
 private enum class StylePage { VINYL, FRAME, FLAIR, RAIN, SNOW, DISCO }
 
+/** Keeps the modal handle and close control in one row above the page navigation. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun StylePickerDragHandle(onDismiss: () -> Unit) {
+    Box(modifier = Modifier.fillMaxWidth().height(64.dp)) {
+        BottomSheetDefaults.DragHandle(modifier = Modifier.align(Alignment.Center))
+        CorusSheetCloseButton(
+            onClick = onDismiss,
+            contentDescription = stringResource(fm.corus.android.localization.CorusStrings.concert_close),
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = CorusSpacing.md),
+        )
+    }
+}
+
 /**
  * Whether the staff-only "Corus" flair (`FlairStyle.CORUS_LOGO`) should appear
  * in the picker. Shown when the viewer is staff, when the open flag is on
@@ -161,6 +176,7 @@ fun StylePickerSheet(
     onNavigateToClub: () -> Unit,
     onDismiss: () -> Unit,
     onPageChange: (Int) -> Unit = {},
+    embeddedInNavigationStack: Boolean = false,
 ) {
     var draft by remember { mutableStateOf(currentSelections) }
 
@@ -207,27 +223,32 @@ fun StylePickerSheet(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight(0.92f)
+            .fillMaxHeight(if (embeddedInNavigationStack) 1f else 0.92f)
             // ModalBottomSheet treats leftover vertical nested-scroll as
             // "drag the sheet." Eat that leftover so page-swipes and list
-            // flings do not slide the picker. Dismiss stays on X / scrim.
+            // flings do not slide the picker. Dismiss via the handle, X, or scrim.
             .nestedScroll(ConsumeSheetDragAfterChildScroll),
     ) {
-        // Shared sheet close placement leaves consistent breathing room above the content.
-        Box(modifier = Modifier.fillMaxWidth().height(64.dp)) {
-            CorusSheetCloseButton(
-                onClick = onDismiss,
-                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.concert_close),
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = CorusSpacing.md),
-            )
+        // Embedded customization returns to Edit Profile within the same sheet.
+        if (embeddedInNavigationStack) {
+            Box(modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.CenterStart).padding(start = CorusSpacing.md),
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
+                        tint = CorusColors.Text,
+                    )
+                }
+            }
         }
 
         // Fixed navigation; only the pager content slides.
         if (pages.size > 1) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -528,7 +549,7 @@ private fun VinylColorPickerPage(
             text = stringResource(fm.corus.android.localization.CorusStrings.style_picker_choose_vinyl),
             style = CorusFont.appTitle,
             color = CorusColors.Text,
-            modifier = Modifier.padding(top = CorusSpacing.xl, bottom = CorusSpacing.md),
+            modifier = Modifier.padding(top = CorusSpacing.sm, bottom = CorusSpacing.md),
         )
 
         VinylPreview(
@@ -660,7 +681,7 @@ private fun FrameColorPickerPage(
             text = stringResource(fm.corus.android.localization.CorusStrings.style_picker_choose_frame),
             style = CorusFont.appTitle,
             color = CorusColors.Text,
-            modifier = Modifier.padding(top = CorusSpacing.xl),
+            modifier = Modifier.padding(top = CorusSpacing.sm),
         )
 
         Spacer(modifier = Modifier.height(CorusSpacing.lg))
@@ -817,7 +838,7 @@ private fun FlairPickerPage(
             text = stringResource(fm.corus.android.localization.CorusStrings.style_picker_choose_flair),
             style = CorusFont.appTitle,
             color = CorusColors.Text,
-            modifier = Modifier.padding(top = CorusSpacing.xl),
+            modifier = Modifier.padding(top = CorusSpacing.sm),
         )
 
         Spacer(modifier = Modifier.height(CorusSpacing.lg))
@@ -1149,7 +1170,7 @@ private fun <T : Enum<T>> EffectTogglePage(
             text = title,
             style = CorusFont.appTitle,
             color = CorusColors.Text,
-            modifier = Modifier.padding(top = CorusSpacing.xl),
+            modifier = Modifier.padding(top = CorusSpacing.sm),
         )
 
         Spacer(modifier = Modifier.height(CorusSpacing.lg))

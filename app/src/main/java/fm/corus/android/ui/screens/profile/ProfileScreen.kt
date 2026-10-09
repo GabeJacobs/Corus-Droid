@@ -82,6 +82,7 @@ import fm.corus.android.data.model.MediaType
 import fm.corus.android.data.model.ProfileTabPreferences
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.domain.HapticManager
+import fm.corus.android.domain.ProfileHeaderStylePolicy
 import fm.corus.android.ui.LocalHapticManager
 import android.graphics.Bitmap
 import fm.corus.android.ui.components.ComposePlusButton
@@ -153,10 +154,7 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
     scrollToTopTrigger: Int = 0,
     tabActivationTrigger: Int = 0,
-    openStylePicker: Boolean = false,
-    onStylePickerConsumed: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
-    onNavigateToEditProfile: (String) -> Unit = {},
     onNavigateToMap: (String) -> Unit = {},
     onNavigateToFollowList: (String, Boolean, String, Int, Int) -> Unit = { _, _, _, _, _ -> },
     onNavigateToProfileFeed: (userId: String, username: String, postId: String, segment: Int) -> Unit = { _, _, _, _ -> },
@@ -179,6 +177,11 @@ fun ProfileScreen(
     val collectionModel: ProfileCollectionViewModel = hiltViewModel()
     val collectionRevision by collectionModel.flags.revision.collectAsState()
     val showCollection = collectionRevision.let { collectionModel.visible(profile?.id.orEmpty()) }
+    val showHeaderStyle = ProfileHeaderStylePolicy.visible(
+        styleEnabled = collectionModel.flags.profileHeaderStyleEnabled,
+        collectionVisible = showCollection,
+        isOwnProfile = profile?.id == collectionModel.viewer && (profile?.cymbalCount ?: 0) > 0,
+    )
     val linkedArtist by viewModel.linkedArtist.collectAsState()
     val mapCity by viewModel.mapCity.collectAsState()
     val mapCityResolved by viewModel.mapCityResolved.collectAsState()
@@ -229,6 +232,7 @@ fun ProfileScreen(
     var isFeaturedArtReady by rememberSaveable { mutableStateOf(false) }
     var didRevealFromSkeleton by remember { mutableStateOf(false) }
     var showStylePicker by remember { mutableStateOf(false) }
+    var showEditProfile by rememberSaveable { mutableStateOf(false) }
     // Mirrors iOS ProfileView.lastStylePage — reopen on the page they left.
     var lastStylePage by rememberSaveable { mutableStateOf<Int?>(null) }
     var showClubOffer by remember { mutableStateOf(false) }
@@ -260,13 +264,6 @@ fun ProfileScreen(
         }
     }
 
-    // Open style picker when navigating back from EditProfile with the action
-    LaunchedEffect(openStylePicker) {
-        if (openStylePicker) {
-            showStylePicker = true
-            onStylePickerConsumed()
-        }
-    }
     val sheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
     val clubSheetState = fm.corus.android.ui.components.rememberGuardedSheetState()
 
@@ -512,9 +509,10 @@ fun ProfileScreen(
             Column {
                 // Clear the frosted status strip so the header row sits below it.
                 if (immersive) Spacer(Modifier.height(frost.statusBarPadding))
-                // ── Header Row: compose + / @username + flair / style + settings ──
+                // Reserve equal sides so the collection-era style shortcut keeps the title centered.
                 val titleSideWidth = maxOf(
-                    CorusSpacing.composePlusLeading + CorusSpacing.composePlusSide,
+                    CorusSpacing.composePlusLeading + CorusSpacing.composePlusSide +
+                        if (showHeaderStyle) CorusSpacing.md + CorusSpacing.composePlusSide else 0.dp,
                     CorusSpacing.profileStyleIcon + CorusSpacing.md +
                         CorusSpacing.profileSettingsIcon + CorusSpacing.composePlusLeading,
                 )
@@ -525,11 +523,27 @@ fun ProfileScreen(
                         .height(CorusSpacing.headerTitleRowHeight),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box(
+                    Row(
                         modifier = Modifier.width(titleSideWidth),
-                        contentAlignment = Alignment.CenterStart,
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                     ) {
                         ComposePlusButton(onClick = { onOpenCompose("track") })
+                        if (showHeaderStyle) {
+                            Box(
+                                modifier = Modifier
+                                    .size(CorusSpacing.composePlusSide)
+                                    .clickable(role = androidx.compose.ui.semantics.Role.Button) { showStylePicker = true },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    painter = painterResource(fm.corus.android.R.drawable.ic_profile_style_disc),
+                                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.profile_cd_customize),
+                                    tint = CorusColors.Club,
+                                    modifier = Modifier.size(CorusSpacing.profileSettingsIcon),
+                                )
+                            }
+                        }
                     }
 
                     Box(
@@ -566,15 +580,20 @@ fun ProfileScreen(
                                     onNavigateToProfileFeed(currentProfile.id, currentProfile.username, postId, segment)
                                 })
                         } else if (currentProfile.cymbalCount > 0) {
-                            Icon(
-                                painter = painterResource(fm.corus.android.R.drawable.corus_club_vector),
-                                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.profile_cd_customize),
-                                tint = CorusColors.Accent,
+                            Box(
                                 modifier = Modifier
                                     .size(CorusSpacing.profileStyleIcon)
                                     .offset(y = 1.dp)
-                                    .clickable { showStylePicker = true },
-                            )
+                                    .clickable(role = androidx.compose.ui.semantics.Role.Button) { showStylePicker = true },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    painter = painterResource(fm.corus.android.R.drawable.ic_profile_style_disc),
+                                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.profile_cd_customize),
+                                    tint = CorusColors.Club,
+                                    modifier = Modifier.size(CorusSpacing.profileSettingsIcon),
+                                )
+                            }
                         }
                         Icon(
                             Icons.Filled.Settings,
@@ -812,7 +831,7 @@ fun ProfileScreen(
                                 .weight(1f)
                                 .clip(RoundedCornerShape(50))
                                 .border(1.dp, CorusColors.Divider, RoundedCornerShape(50))
-                                .clickable { onNavigateToEditProfile(currentProfile.id) }
+                                .clickable { showEditProfile = true }
                                 .height(CorusSpacing.profileActionHeight)
                                 .padding(horizontal = CorusSpacing.sm),
                             contentAlignment = Alignment.Center,
@@ -1302,6 +1321,10 @@ fun ProfileScreen(
     }
     }
 
+    if (showEditProfile) {
+        EditProfileScreen(onBack = { showEditProfile = false })
+    }
+
     // ── Style Picker Bottom Sheet ──
     if (showStylePicker) {
         val trackPosts = posts.filter { it.mediaType == fm.corus.android.data.model.MediaType.TRACK }
@@ -1310,7 +1333,7 @@ fun ProfileScreen(
         CorusModalBottomSheet(
             onDismissRequest = { showStylePicker = false },
             sheetState = sheetState,
-            dragHandle = null,
+            dragHandle = { StylePickerDragHandle(onDismiss = { showStylePicker = false }) },
         ) {
             CorusSystemBars()
             // Remember the last page (iOS lastStylePage). First open from the
@@ -1359,7 +1382,6 @@ fun ProfileScreen(
                     }
                     viewModel.saveStyleSelections(fields) { ok ->
                         if (ok) {
-                            ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.profile_toast_style_updated))
                             showStylePicker = false
                         } else {
                             ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.edit_profile_save_style_error))

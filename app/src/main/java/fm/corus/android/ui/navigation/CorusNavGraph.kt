@@ -31,7 +31,6 @@ import fm.corus.android.ui.screens.feed.SongDetailScreen
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.ui.screens.subscription.CymbalClubOfferScreen
 import fm.corus.android.ui.screens.notifications.NotificationsScreen
-import fm.corus.android.ui.screens.profile.EditProfileScreen
 import fm.corus.android.ui.screens.profile.FollowListScreen
 import fm.corus.android.ui.screens.profile.OtherProfileScreen
 import fm.corus.android.ui.screens.profile.ProfileFeedScreen
@@ -412,18 +411,11 @@ fun ProfileNavGraph(
         popEnterTransition = { slideInHorizontally(tween(400), initialOffsetX = { -it / 3 }) },
         popExitTransition = { slideOutHorizontally(tween(400), targetOffsetX = { it }) },
     ) {
-        composable<ProfileTabRoute> { backStackEntry ->
-            val openStylePicker = backStackEntry.savedStateHandle
-                .get<Boolean>("open_style_picker") == true
+        composable<ProfileTabRoute> {
             ProfileScreen(
                 scrollToTopTrigger = scrollToTopTrigger,
                 tabActivationTrigger = tabActivationTrigger,
-                openStylePicker = openStylePicker,
-                onStylePickerConsumed = {
-                    backStackEntry.savedStateHandle.remove<Boolean>("open_style_picker")
-                },
                 onNavigateToSettings = { navController.navigate(SettingsRoute) },
-                onNavigateToEditProfile = { navController.navigate(EditProfileRoute(it)) },
                 onNavigateToMap = { cityId -> navController.navigate(MapExploreRoute(cityId = cityId, fromProfile = true)) },
                 onNavigateToFollowList = { userId, isFollowers, username, followerCount, followingCount ->
                     navController.navigate(FollowListRoute(userId, isFollowers, username, followerCount, followingCount))
@@ -966,19 +958,6 @@ internal fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             initialShowFollowers = route.isFollowers,
             onBack = { navController.safePopBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
-        )
-    }
-
-    composable<EditProfileRoute> { backStackEntry ->
-        val route = backStackEntry.toRoute<EditProfileRoute>()
-        EditProfileScreen(
-            onBack = { navController.safePopBackStack() },
-            onCustomizeProfile = {
-                navController.previousBackStackEntry
-                    ?.savedStateHandle
-                    ?.set("open_style_picker", true)
-                navController.safePopBackStack()
-            },
         )
     }
 

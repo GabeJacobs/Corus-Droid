@@ -77,4 +77,10 @@
     <string name="corus_profile_collection_accessibility_hint">"Shows received trophies and gifts"</string>
     <string name="corus_profile_collection_post_error">"Couldn’t open this post."</string>
     <plurals name="corus_profile_collection_trophy_count"><item quantity="one">"%1$d Trophy"</item><item quantity="other">"%1$d Trophies"</item></plurals>
+    <string name="corus_for_you_preview_ended_body">"You’re now using Eclectic."</string>
+    <string name="corus_for_you_preview_ended_club_body">"Keep both personalized mixes with Corus Club."</string>
+    <string name="corus_for_you_preview_ended_continue">"Continue with Eclectic"</string>
+    <string name="corus_for_you_preview_ended_join_cta">"Join Corus Club"</string>
+    <string name="corus_for_you_preview_ended_title">"Your Balanced and Stay Close preview has ended."</string>
+    <string name="corus_for_you_preview_ended_trial_cta">"Try Corus Club for Free"</string>
 </resources>

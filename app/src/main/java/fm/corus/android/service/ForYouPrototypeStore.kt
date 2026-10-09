@@ -3,6 +3,7 @@ package fm.corus.android.service
 import android.content.Context
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
+import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.domain.ForYouPrototypeState
 import fm.corus.android.domain.ForYouTuningMode
@@ -11,6 +12,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +34,8 @@ class ForYouPrototypeStore @Inject constructor(
     @ApplicationContext context: Context,
 ) {
     private val prefs = context.getSharedPreferences("corus_for_you_prototype", Context.MODE_PRIVATE)
+    private val firestore by lazy { FirebaseFirestore.getInstance() }
+    private val previewEndedClaimMutex = Mutex()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = MutableStateFlow(initialState(auth.currentUser?.uid, 0))
     val state = _state.asStateFlow()
@@ -58,6 +65,7 @@ class ForYouPrototypeStore @Inject constructor(
             hasPresentation = uid == null || override != null,
             defaultMode = default,
             mode = startupMode(uid, enabled),
+            previewEndedNoticeHandled = uid != null && prefs.getBoolean("previewEnded.seen.v1.$uid", false),
         )
     }
 
@@ -152,6 +160,38 @@ class ForYouPrototypeStore @Inject constructor(
     fun markIntroductionShown() {
         if (isAvailable) prefs.edit().putBoolean("introduction.v1.${_state.value.uid}", true).apply()
     }
+
+    /** Shared account claim; a pending local claim survives a cancelled screen effect. */
+    suspend fun claimPreviewEndedNotice(uid: String): Boolean = withContext(NonCancellable) {
+        previewEndedClaimMutex.withLock {
+            if (_state.value.uid != uid || auth.currentUser?.uid != uid) return@withLock false
+            if (prefs.getBoolean("previewEnded.seen.v1.$uid", false)) return@withLock false
+            if (prefs.getBoolean("previewEnded.pending.v1.$uid", false)) return@withLock true
+            val ref = firestore.collection("users_v2").document(uid)
+            val claimed = firestore.runTransaction { transaction ->
+                val snapshot = transaction.get(ref)
+                if (!snapshot.exists() || snapshot.getBoolean("settings.yourMixPreviewEndedSeen") == true) false
+                else {
+                    transaction.update(ref, "settings.yourMixPreviewEndedSeen", true)
+                    true
+                }
+            }.await()
+            prefs.edit().putBoolean(if (claimed) "previewEnded.pending.v1.$uid" else "previewEnded.seen.v1.$uid", true).apply()
+            claimed
+        }
+    }
+
+    fun markPreviewEndedNoticeHandled() {
+        val current = _state.value
+        val uid = current.uid ?: return
+        prefs.edit().putBoolean("previewEnded.seen.v1.$uid", true)
+            .remove("previewEnded.pending.v1.$uid").apply()
+        _state.value = current.copy(previewEndedNoticeHandled = true)
+    }
+
+    fun previewEndedReturnMode(): ForYouTuningMode =
+        ForYouTuningMode.initial(prefs.getString("mode.${_state.value.uid}", null), ForYouTuningMode.BALANCED)
+            .takeUnless { it == ForYouTuningMode.ECLECTIC } ?: ForYouTuningMode.BALANCED
 
     fun updateStayCloseProgress(progress: ForYouStayCloseProgress?, uid: String) {
         val current = _state.value

@@ -230,4 +230,10 @@
     <string name="corus_profile_collection_accessibility_hint">"Affiche les trophées et cadeaux reçus"</string>
     <string name="corus_profile_collection_post_error">"Impossible d’ouvrir cette publication."</string>
     <plurals name="corus_profile_collection_trophy_count"><item quantity="one">"%1$d trophée"</item><item quantity="other">"%1$d trophées"</item></plurals>
+    <string name="corus_for_you_preview_ended_body">"Tu utilises maintenant Éclectique."</string>
+    <string name="corus_for_you_preview_ended_club_body">"Garde tes deux mixes personnalisés avec Corus Club."</string>
+    <string name="corus_for_you_preview_ended_continue">"Continuer avec Éclectique"</string>
+    <string name="corus_for_you_preview_ended_join_cta">"Rejoindre Corus Club"</string>
+    <string name="corus_for_you_preview_ended_title">"Ton essai des mixes Équilibré et Familier est terminé."</string>
+    <string name="corus_for_you_preview_ended_trial_cta">"Essaie Corus Club gratuitement"</string>
 </resources>

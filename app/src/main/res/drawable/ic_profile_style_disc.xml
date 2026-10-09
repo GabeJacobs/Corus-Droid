@@ -1,0 +1,27 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Outline disc with the concentric label and reflections used by the iOS shortcut. -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.8"
+        android:pathData="M12,1.75A10.25,10.25 0,1 1,12 22.25A10.25,10.25 0,1 1,12 1.75" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="0.95"
+        android:pathData="M12,7.6A4.4,4.4 0,1 1,12 16.4A4.4,4.4 0,1 1,12 7.6" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.1"
+        android:pathData="M12,9.85A2.15,2.15 0,1 1,12 14.15A2.15,2.15 0,1 1,12 9.85" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="0.95"
+        android:pathData="M13.36,7.82L15.17,2.25M15.65,9.54L20.5,6.27M16.18,10.64L21.75,8.83M10.64,16.18L8.83,21.75M8.35,14.46L3.5,17.73M7.82,13.36L2.25,15.17" />
+</vector>

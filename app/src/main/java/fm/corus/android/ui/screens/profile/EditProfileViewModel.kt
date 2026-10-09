@@ -44,6 +44,9 @@ class EditProfileViewModel @Inject constructor(
     val booksEnabled: Boolean
         get() = remoteConfigService.booksEnabled
 
+    val stylePack1Enabled: Boolean get() = remoteConfigService.stylePack1Enabled
+    val corusFlairOpen: Boolean get() = remoteConfigService.corusFlairOpen
+
     val currentUserId: String? get() = authRepository.currentUserId
 
     private val _profile = MutableStateFlow<CymbalUser?>(null)
@@ -130,6 +133,9 @@ class EditProfileViewModel @Inject constructor(
     private var originalBio = ""
     private var originalWebsite = ""
     private var usernameCheckJob: Job? = null
+    private var mapPresenceJob: Job? = null
+    private var profileLoadJob: Job? = null
+    private var postsLoadJob: Job? = null
 
     enum class UsernameState {
         IDLE, CHECKING, AVAILABLE, TAKEN, INVALID
@@ -154,7 +160,11 @@ class EditProfileViewModel @Inject constructor(
 
     fun loadProfile() {
         val userId = authRepository.currentUserId ?: return
-        viewModelScope.launch {
+        endEditing()
+        _usernameState.value = UsernameState.IDLE
+        _usernameInvalidReason.value = null
+        _saveError.value = null
+        profileLoadJob = viewModelScope.launch {
             try {
                 val user = userRepository.fetchUserProfile(userId)
                 _profile.value = user
@@ -186,7 +196,8 @@ class EditProfileViewModel @Inject constructor(
         }
 
         if (mapEnabled) {
-            viewModelScope.launch {
+            mapPresenceJob?.cancel()
+            mapPresenceJob = viewModelScope.launch {
                 mapRepository.ownPresence(userId, serverOnly = true).collect { data ->
                     _ownCity.value = data?.let(MapCity::decode)?.takeIf { it.cityId.isNotEmpty() }
                     _ownAudience.value = data?.get("audience") as? String ?: "off"
@@ -195,7 +206,7 @@ class EditProfileViewModel @Inject constructor(
         }
 
         // Load user's posts to determine hasTrackPosts / hasMoviePosts and latest posts
-        viewModelScope.launch {
+        postsLoadJob = viewModelScope.launch {
             try {
                 val posts = postRepository.getProfilePosts(userId, userId, limit = 30)
                 val trackPosts = posts.filter { it.isTrack }
@@ -206,6 +217,13 @@ class EditProfileViewModel @Inject constructor(
                 _latestMoviePost.value = moviePosts.firstOrNull()
             } catch (_: Exception) { }
         }
+    }
+
+    fun endEditing() {
+        profileLoadJob?.cancel()
+        postsLoadJob?.cancel()
+        mapPresenceJob?.cancel()
+        usernameCheckJob?.cancel()
     }
 
     fun updateDisplayName(value: String) {
@@ -311,6 +329,7 @@ class EditProfileViewModel @Inject constructor(
             val user = _profile.value ?: return false
             return _displayName.value != originalDisplayName ||
                     _username.value != originalUsername ||
+                    _showTrophies.value != user.showTrophies ||
                     _bio.value != originalBio ||
                     _website.value != originalWebsite ||
                     (mapEnabled && _showCityOnProfile.value != user.showCityOnProfile) ||
@@ -400,6 +419,7 @@ class EditProfileViewModel @Inject constructor(
             try {
                 userRepository.updateUserProfile(userId, changedFields)
                 _styleSelections.value = selections
+                authRepository.refreshUserProfile()
                 onSuccess()
             } catch (e: Exception) {
                 _saveError.value = context.getString(fm.corus.android.localization.CorusStrings.edit_profile_save_style_error)

@@ -201,7 +201,7 @@ private fun ProfileCollectionSheet(profileId: String, model: ProfileCollectionVi
     val currentContext by rememberUpdatedState((if (giftsSelected) "gifts" else "trophies") to (if (giftsSelected) "all" else category))
     fun track(action: String, details: Map<String, Any> = emptyMap(), section: String = currentContext.first, media: String = currentContext.second) { model.track(profileId, session, action, section, media, details) }
     val scope = rememberCoroutineScope()
-    val combinedEmpty = ProfileCollectionPolicy.empty(counts?.trophies, counts?.gifts)
+    val combinedEmpty = !countsLoading && !countsFailed && ProfileCollectionPolicy.empty(counts?.trophies, counts?.gifts)
     val categories = listOf("track", "movie") + if (model.flags.booksEnabled && "book" in mediaTypes) listOf("book") else emptyList()
     fun loadNextPage(manualRetry: Boolean = false) {
         if (loading || combinedEmpty || !model.visible(profileId) || (failed && !manualRetry)) return
@@ -334,14 +334,14 @@ private fun ProfileCollectionSheet(profileId: String, model: ProfileCollectionVi
                         Text(stringResource(CorusStrings.profile_collection_load_error), color = CorusColors.Secondary, style = CorusFont.artistName)
                         TextButton(onClick = { track("retry_tapped", mapOf("phase" to "collection")); retry++ }) { Text(parityCopy("Retry")) }
                     }
-                    !loading && entries.isEmpty() && cursor == null -> {
+                    !loading && !countsLoading && entries.isEmpty() && cursor == null -> {
                         val icon = if (giftsSelected) Icons.Filled.CardGiftcard else if (category == "movie") Icons.Filled.Movie else if (category == "book") Icons.Filled.MenuBook else Icons.Filled.MusicNote
                         CollectionEmpty(icon,
                             stringResource(if (giftsSelected) CorusStrings.profile_collection_no_gifts else if (category == "movie") CorusStrings.profile_collection_no_film else if (category == "book") CorusStrings.profile_collection_no_books else CorusStrings.profile_collection_no_music),
                             stringResource(if (giftsSelected) CorusStrings.profile_collection_gifts_empty else if (category == "movie") CorusStrings.profile_collection_film_empty else if (category == "book") CorusStrings.profile_collection_books_empty else CorusStrings.profile_collection_music_empty))
                     }
                     else -> LazyVerticalGrid(GridCells.Fixed(3), Modifier.fillMaxWidth().weight(1f), state = gridState, horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(24.dp), contentPadding = PaddingValues(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())) {
-                        if (loading && entries.isEmpty()) {
+                        if ((loading || countsLoading) && entries.isEmpty()) {
                             items(18) { CollectionTileSkeleton(category) }
                         } else {
                             items(entries, key = { it.id }) { item -> CollectionTile(item, giftsSelected, profileId, model, { action, details -> track(action, details) }) { id -> track("post_tapped", mapOf("phase" to "post"), media = item.media); onPost(id) } }

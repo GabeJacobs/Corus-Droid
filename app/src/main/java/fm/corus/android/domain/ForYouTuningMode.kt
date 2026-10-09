@@ -58,7 +58,13 @@ data class ForYouPrototypeState(
     val mode: ForYouTuningMode = ForYouTuningMode.ECLECTIC,
     val defaultMode: ForYouTuningMode = ForYouTuningMode.BALANCED,
     val stayCloseProgress: ForYouStayCloseProgress? = null,
+    val previewEndedNoticeHandled: Boolean = false,
 ) {
+    val needsPreviewEndedNotice: Boolean
+        get() = !previewEndedNoticeHandled && stayCloseProgress?.let {
+            !it.hasFullAccess && it.trialEndsAt != null && it.paywallLocked
+        } == true
+
     fun resolve(enabled: Boolean, generation: Int): ForYouPrototypeState =
         if (this.generation != generation || hasPresentation) this
         else copy(enabled = enabled, hasPresentation = true)
