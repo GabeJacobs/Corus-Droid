@@ -105,6 +105,7 @@
     <string name="notifications_row_new_followers">"新しいフォロワー"</string>
     <string name="notifications_row_follow_requests">"フォローリクエスト"</string>
     <string name="notifications_row_contact_joined">"連絡先が参加"</string>
+    <string name="notifications_row_following_activity">"フォロー中のアクティビティ"</string>
     <string name="notifications_row_plays">"再生"</string>
     <string name="notifications_row_messages">"メッセージ"</string>
     <string name="notifications_row_reactions">"リアクション"</string>

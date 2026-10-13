@@ -8,7 +8,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddReaction
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.HowToReg
@@ -19,6 +18,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.PersonAdd
+import androidx.compose.material.icons.outlined.People
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.R
 import fm.corus.android.ui.components.CorusHeaderIconButton
+import fm.corus.android.ui.components.VennDiagramIcon
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -100,6 +101,14 @@ fun NotificationSettingsScreen(
             )
 
             NotifToggleRow(
+                icon = Icons.Outlined.People,
+                title = stringResource(fm.corus.android.localization.CorusStrings.notifications_row_following_activity),
+                checked = settings.followingActivity,
+                onCheckedChange = viewModel::setFollowingActivity,
+                enabled = settings.isLoaded,
+            )
+
+            NotifToggleRow(
                 icon = Icons.Filled.Map,
                 title = stringResource(fm.corus.android.localization.CorusStrings.notifications_row_map_updates),
                 checked = settings.mapUpdates,
@@ -116,7 +125,9 @@ fun NotificationSettingsScreen(
             }
 
             NotifToggleRow(
-                icon = Icons.Filled.AutoAwesome,
+                iconContent = {
+                    VennDiagramIcon(size = 20.dp, color = CorusColors.Secondary, shadedIntersection = true)
+                },
                 title = "Taste Matches",
                 checked = settings.tasteMatches,
                 onCheckedChange = viewModel::setTasteMatches,
@@ -167,25 +178,31 @@ fun NotificationSettingsScreen(
 
 @Composable
 private fun NotifToggleRow(
-    icon: ImageVector,
+    icon: ImageVector? = null,
     title: String,
     subtitle: String? = null,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    iconContent: (@Composable () -> Unit)? = null,
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
+            .clickable(enabled = enabled) { onCheckedChange(!checked) }
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = CorusColors.Secondary,
-            modifier = Modifier.size(20.dp),
-        )
+        if (iconContent != null) {
+            iconContent()
+        } else if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = CorusColors.Secondary,
+                modifier = Modifier.size(20.dp),
+            )
+        }
 
         Spacer(modifier = Modifier.width(CorusSpacing.md))
 
@@ -200,6 +217,7 @@ private fun NotifToggleRow(
 
         Switch(
             checked = checked,
+            enabled = enabled,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = CorusColors.Background,

@@ -113,6 +113,7 @@
     <string name="notifications_row_new_followers">"새 팔로워"</string>
     <string name="notifications_row_follow_requests">"팔로우 요청"</string>
     <string name="notifications_row_contact_joined">"연락처 가입"</string>
+    <string name="notifications_row_following_activity">"팔로우한 사람들의 활동"</string>
     <string name="notifications_row_plays">"재생"</string>
     <string name="notifications_row_messages">"메시지"</string>
     <string name="notifications_row_reactions">"반응"</string>

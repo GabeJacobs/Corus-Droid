@@ -113,6 +113,7 @@
     <string name="notifications_row_new_followers">"Neue Follower"</string>
     <string name="notifications_row_follow_requests">"Folge-Anfragen"</string>
     <string name="notifications_row_contact_joined">"Kontakt ist beigetreten"</string>
+    <string name="notifications_row_following_activity">"Aktivität gefolgter Konten"</string>
     <string name="notifications_row_plays">"Wiedergaben"</string>
     <string name="notifications_row_messages">"Nachrichten"</string>
     <string name="notifications_row_reactions">"Reaktionen"</string>

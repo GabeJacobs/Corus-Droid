@@ -26,6 +26,7 @@ data class NotificationSettings(
     val newFollowers: Boolean = true,
     val followRequests: Boolean = true,
     val contactJoined: Boolean = true,
+    val followingActivity: Boolean = false,
     val tasteMatches: Boolean = true,
     val plays: Boolean = true,
     val trending: Boolean = true,
@@ -77,6 +78,7 @@ class NotificationSettingsViewModel @Inject constructor(
                     newFollowers = notif["newFollowers"] as? Boolean ?: true,
                     followRequests = notif["followRequests"] as? Boolean ?: true,
                     contactJoined = notif["contactJoined"] as? Boolean ?: true,
+                    followingActivity = notif["followingActivity"] as? Boolean ?: false,
                     tasteMatches = notif["tasteMatches"] as? Boolean ?: true,
                     plays = notif["plays"] as? Boolean ?: true,
                     trending = notif["trending"] as? Boolean ?: true,
@@ -114,6 +116,9 @@ class NotificationSettingsViewModel @Inject constructor(
         updateNotif("tasteMatches", enabled) {
             _settings.value = _settings.value.copy(tasteMatches = enabled)
         }
+    }
+    fun setFollowingActivity(enabled: Boolean) = updateNotif("followingActivity", enabled) {
+        _settings.value = _settings.value.copy(followingActivity = enabled)
     }
     fun setPlays(enabled: Boolean) = updateNotif("plays", enabled) {
         _settings.value = _settings.value.copy(plays = enabled)

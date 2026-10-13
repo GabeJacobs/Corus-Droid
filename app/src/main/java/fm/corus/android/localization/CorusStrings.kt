@@ -819,6 +819,7 @@ object CorusStrings {
     @StringRes val notifications_replying_to_format: Int = R.string.messaging_thread_replying_to_format
     @StringRes val notifications_row_comments_replies: Int = R.string.notifications_row_comments_replies
     @StringRes val notifications_row_contact_joined: Int = R.string.notifications_row_contact_joined
+    @StringRes val notifications_row_following_activity: Int = R.string.notifications_row_following_activity
     @StringRes val notifications_row_follow_requests: Int = R.string.notifications_row_follow_requests
     @StringRes val notifications_row_map_updates: Int = R.string.notifications_row_map_updates
     @StringRes val notifications_row_new_followers: Int = R.string.notifications_row_new_followers

@@ -113,6 +113,7 @@
     <string name="notifications_row_new_followers">"新粉丝"</string>
     <string name="notifications_row_follow_requests">"关注请求"</string>
     <string name="notifications_row_contact_joined">"联系人加入"</string>
+    <string name="notifications_row_following_activity">"关注动态"</string>
     <string name="notifications_row_plays">"播放"</string>
     <string name="notifications_row_messages">"消息"</string>
     <string name="notifications_row_reactions">"回应"</string>

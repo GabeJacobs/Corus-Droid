@@ -113,6 +113,7 @@
     <string name="notifications_row_new_followers">"Nouveaux abonnés"</string>
     <string name="notifications_row_follow_requests">"Demandes d’abonnement"</string>
     <string name="notifications_row_contact_joined">"Contact inscrit"</string>
+    <string name="notifications_row_following_activity">"Activité des comptes suivis"</string>
     <string name="notifications_row_plays">"Écoutes"</string>
     <string name="notifications_row_messages">"Messages"</string>
     <string name="notifications_row_reactions">"Réactions"</string>
