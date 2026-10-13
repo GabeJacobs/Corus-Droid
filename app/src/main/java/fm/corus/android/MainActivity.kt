@@ -15,6 +15,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.domain.SpotifyConnectContext
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import androidx.lifecycle.repeatOnLifecycle
 import fm.corus.android.domain.SpotifyLibraryAuthService
 import fm.corus.android.domain.SpotifyPlaybackService
 import fm.corus.android.domain.NowPlayingManager
@@ -34,6 +36,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var mapDeviceCityRefresh: fm.corus.android.ui.screens.map.MapDeviceCityRefresh
     @Inject lateinit var subscriptionRepository: SubscriptionRepository
     @Inject lateinit var analyticsService: AnalyticsService
+    @Inject lateinit var followingActivityDataSource: fm.corus.android.data.remote.FirestoreDataSource
     @Inject lateinit var spotifyPlaybackService: SpotifyPlaybackService
     @Inject lateinit var nowPlayingManager: NowPlayingManager
     @Inject lateinit var audiomackAuthService: fm.corus.android.domain.AudiomackAuthService
@@ -69,6 +72,15 @@ class MainActivity : ComponentActivity() {
                 }
             }
         })
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                while (true) {
+                    followingActivityDataSource.recordFollowingActivitySession()
+                    delay(300_000)
+                }
+            }
+        }
 
         setContent {
             CorusApp(
@@ -191,7 +203,7 @@ class MainActivity : ComponentActivity() {
         val destination = DeepLinkHandler.parseNotificationData(data)
         if (destination != null) {
             analyticsService.logDeepLinkOpened(destination.analyticsType())
-            if (data["type"] == "updates_and_reminders") {
+            if (data["type"] == "updates_and_reminders" || data["type"] == "following_activity") {
                 analyticsService.logCampaignOpened(
                     campaignId = data["campaignId"] ?: "unknown",
                     runId = data["campaignRunId"] ?: "one_time",

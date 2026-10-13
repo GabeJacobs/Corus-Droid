@@ -1099,6 +1099,30 @@ class FirestoreDataSource @Inject constructor(
 
     // ── FCM Token ──
 
+    private var followingActivitySessionKey = ""
+    private var followingActivitySessionAt = 0L
+
+    suspend fun recordFollowingActivitySession() {
+        val uid = firebaseAuth.currentUser?.uid ?: return
+        try {
+            val token = com.google.firebase.messaging.FirebaseMessaging.getInstance().token.await()
+            val key = "$uid:$token"
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (key == followingActivitySessionKey && now - followingActivitySessionAt < 300_000) return
+            followingActivitySessionKey = key
+            followingActivitySessionAt = now
+            com.google.firebase.functions.FirebaseFunctions.getInstance("us-central1")
+                .getHttpsCallable("recordFollowingActivitySession").call(mapOf(
+                    "settingsVersion" to 1, "token" to token,
+                    "timeZone" to java.util.TimeZone.getDefault().id,
+                    "locale" to java.util.Locale.getDefault().toLanguageTag(),
+                )).await()
+        } catch (error: Exception) {
+            if (error is kotlinx.coroutines.CancellationException) throw error
+            followingActivitySessionAt = 0L
+        }
+    }
+
     suspend fun updateFCMToken(uid: String, token: String) {
         firestore.collection("users_v2").document(uid)
             .update(mapOf("fcmToken" to token, "fcmTokenUpdatedAt" to FieldValue.serverTimestamp()))

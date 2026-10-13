@@ -8,6 +8,13 @@ import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 
 class DeepLinkHandlerTest {
+    @Test
+    fun `following activity opens the exact post without using the author profile`() {
+        assertEquals(DeepLinkDestination.Post("post-42"), DeepLinkHandler.parseNotificationData(mapOf(
+            "type" to "following_activity", "postId" to "post-42", "fromUserId" to "author-1",
+        )))
+        assertNull(DeepLinkHandler.parseNotificationData(mapOf("type" to "following_activity", "postId" to "")))
+    }
 
     @Test
     fun `campaign notification opens following feed`() {

@@ -12,6 +12,10 @@ import org.junit.Test
  * push is hidden only when it targets the exact thread the user is viewing.
  */
 class CorusFirebaseMessagingServiceTest {
+    @Test
+    fun `following activity uses its own notification channel`() {
+        assertEquals("corus_following_activity", CorusFirebaseMessagingService.notificationChannel("following_activity").first)
+    }
 
     @After
     fun tearDown() {

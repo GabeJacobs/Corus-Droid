@@ -58,6 +58,7 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
             type == MESSAGE_TYPE && !threadId.isNullOrEmpty() && threadId == activeThreadId
 
         fun notificationChannel(type: String?): Pair<String, String> = when (type) {
+            "following_activity" -> "corus_following_activity" to "Following Activity"
             "play_milestone" -> CHANNEL_ID_PLAYS to CHANNEL_NAME_PLAYS
             "updates_and_reminders" -> CHANNEL_ID_UPDATES_AND_REMINDERS to CHANNEL_NAME_UPDATES_AND_REMINDERS
             else -> CHANNEL_ID to CHANNEL_NAME
@@ -77,6 +78,10 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
 
         val notification = message.notification
         val data = message.data
+
+        // Notification+data messages arrive here while the app is foregrounded.
+        // Following Activity should never interrupt an already active session.
+        if (data["type"] == "following_activity") return
 
         refreshPostCountsIfNeeded(data)
 

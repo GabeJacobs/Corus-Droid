@@ -135,6 +135,11 @@ class CorusApplication : Application(), SingletonImageLoader.Factory {
             setShowBadge(false)
         }
 
-        manager.createNotificationChannels(listOf(general, social, messages, updatesAndReminders, playback))
+        val followingActivity = NotificationChannel(
+            "corus_following_activity",
+            getString(fm.corus.android.R.string.notifications_row_following_activity),
+            NotificationManager.IMPORTANCE_LOW,
+        )
+        manager.createNotificationChannels(listOf(general, social, messages, updatesAndReminders, followingActivity, playback))
     }
 }
