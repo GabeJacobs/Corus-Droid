@@ -26,7 +26,7 @@ data class NotificationSettings(
     val newFollowers: Boolean = true,
     val followRequests: Boolean = true,
     val contactJoined: Boolean = true,
-    val followingActivity: Boolean = false,
+    val followingActivity: Boolean = true,
     val tasteMatches: Boolean = true,
     val plays: Boolean = true,
     val trending: Boolean = true,
@@ -78,7 +78,7 @@ class NotificationSettingsViewModel @Inject constructor(
                     newFollowers = notif["newFollowers"] as? Boolean ?: true,
                     followRequests = notif["followRequests"] as? Boolean ?: true,
                     contactJoined = notif["contactJoined"] as? Boolean ?: true,
-                    followingActivity = notif["followingActivity"] as? Boolean ?: false,
+                    followingActivity = (notif["followingActivity"] as? Boolean) ?: !notif.containsKey("followingActivity"),
                     tasteMatches = notif["tasteMatches"] as? Boolean ?: true,
                     plays = notif["plays"] as? Boolean ?: true,
                     trending = notif["trending"] as? Boolean ?: true,
@@ -180,7 +180,11 @@ class NotificationSettingsViewModel @Inject constructor(
         optimistic()
         viewModelScope.launch {
             try {
-                userRepository.updateUserProfile(uid, mapOf("settings.notifications.$key" to enabled))
+                val updates = mutableMapOf<String, Any>("settings.notifications.$key" to enabled)
+                if (key == "followingActivity") {
+                    updates["settings.notifications.followingActivityPreferenceSetAt"] = com.google.firebase.firestore.FieldValue.serverTimestamp()
+                }
+                userRepository.updateUserProfile(uid, updates)
                 analyticsService.logSettingToggled("${key}_notifications", enabled)
             } catch (_: Exception) { }
         }

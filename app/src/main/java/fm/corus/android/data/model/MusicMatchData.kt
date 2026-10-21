@@ -179,6 +179,6 @@ data class CymbalNotificationSettings(
     val newFollowers: Boolean = true,
     val followRequests: Boolean = true,
     val contactJoined: Boolean = true,
-    val followingActivity: Boolean = false,
+    val followingActivity: Boolean = true,
     val updatesAndReminders: Boolean = true,
 )
