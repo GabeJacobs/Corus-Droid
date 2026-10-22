@@ -8,6 +8,17 @@ import org.junit.Test
 import java.io.File
 
 class MapParityTest {
+    @Test fun cachedSdkCannotRunBeforeItsCallbackAndPayloadBridgeExist() {
+        for (compact in listOf(false, true)) {
+            val html = appleMapHtml("token", compact, "font")
+            val sdk = html.indexOf("<script async crossorigin src=")
+            assertTrue(sdk > html.indexOf("function initMapKitLoaderV2()"))
+            assertTrue(sdk > html.indexOf("window.CorusAppleMap={"))
+            assertTrue(sdk > html.indexOf("</script>"))
+            assertTrue(html.contains("onerror=\"reportMapLoadState('script_error')\""))
+        }
+    }
+
     @Test fun previewKeepsBaseMapMountedUnderDirectoryProgress() {
         val source = File("src/main/java/fm/corus/android/ui/screens/map/MapPreviewEntry.kt").readText()
         assertTrue(source.indexOf("CityMapView(") < source.indexOf("!state.directoryReady"))

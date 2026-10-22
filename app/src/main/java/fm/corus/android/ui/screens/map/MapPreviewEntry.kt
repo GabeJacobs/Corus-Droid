@@ -36,7 +36,7 @@ fun MapPreviewEntry(onOpen: () -> Unit, model: MapPreviewViewModel = hiltViewMod
             Text(parityCopy("View Map"), color = CorusColors.Accent, style = CorusFont.caption)
         }
         Box(Modifier.fillMaxWidth().height(148.dp).clip(RoundedCornerShape(16.dp))) {
-            CityMapView(state.cities, "all", null, null, anchor = if (state.ownPresenceReady) focus?.city else null, modifier = Modifier.fillMaxSize(), compact = true, mapKitToken = mapKitToken, onCity = {})
+            CityMapView(state.cities, "all", null, null, anchor = if (state.ownPresenceReady) focus?.city else null, modifier = Modifier.fillMaxSize(), compact = true, mapKitToken = mapKitToken, onLoadEvent = model::reportMapLoad, onCity = {})
             if (!state.directoryReady) CircularProgressIndicator(Modifier.align(Alignment.Center))
             Box(Modifier.matchParentSize().clickable(onClick = onOpen))
         }

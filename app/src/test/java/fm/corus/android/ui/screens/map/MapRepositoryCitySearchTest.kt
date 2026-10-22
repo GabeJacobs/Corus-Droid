@@ -1,6 +1,7 @@
 package fm.corus.android.ui.screens.map
 
 import com.google.android.gms.tasks.Tasks
+import com.google.android.gms.tasks.TaskCompletionSource
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
@@ -9,6 +10,8 @@ import com.google.firebase.functions.HttpsCallableReference
 import com.google.firebase.functions.HttpsCallableResult
 import fm.corus.android.service.AnalyticsService
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.async
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,6 +24,32 @@ import java.time.Duration
 @org.robolectric.annotation.Config(application = android.app.Application::class)
 @RunWith(RobolectricTestRunner::class)
 class MapRepositoryCitySearchTest {
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun overlappingTasteLoadsReuseOneAccountScopedNetworkResult() = runTest {
+        val auth = mock<FirebaseAuth>()
+        val user = mock<FirebaseUser>()
+        whenever(user.uid).thenReturn("taste-single-flight")
+        whenever(auth.currentUser).thenReturn(user)
+        val functions = mock<FirebaseFunctions>()
+        val callable = mock<HttpsCallableReference>()
+        val result = mock<HttpsCallableResult>()
+        val pending = TaskCompletionSource<HttpsCallableResult>()
+        whenever(functions.getHttpsCallable("getMapTasteMatchIds")).thenReturn(callable)
+        whenever(callable.call(any<Any>())).thenReturn(pending.task)
+        whenever(result.getData()).thenReturn(mapOf("ids" to listOf("matched-user")))
+        val repository = MapRepository(RuntimeEnvironment.getApplication(), auth, mock<FirebaseFirestore>(), functions, mock<AnalyticsService>())
+        val first = async { repository.fetchTasteMatchIds("taste-single-flight") }
+        val second = async { repository.fetchTasteMatchIds("taste-single-flight") }
+        runCurrent()
+        verify(callable, times(1)).call(any<Any>())
+        pending.setResult(result)
+        assertEquals(listOf("matched-user"), first.await())
+        assertEquals(first.await(), second.await())
+        verify(callable, times(1)).call(any<Any>())
+        whenever(user.uid).thenReturn("another-account")
+        assertNull(repository.cachedTasteMatchIds("another-account"))
+    }
+
     @Test fun successfulQueriesNormalizeExpireAndStayAccountScoped() = runTest {
         val auth = mock<FirebaseAuth>()
         val user = mock<FirebaseUser>()

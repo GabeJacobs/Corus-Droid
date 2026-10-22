@@ -55,6 +55,7 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
     fun saveOtherProfileHasCity(uid: String, hasCity: Boolean) {
         cityHintPreferences.edit().putBoolean(uid, hasCity).apply()
     }
+    private val tasteMutex = Mutex()
     private val latestMutex = Mutex()
     private var latestOwner: String? = null
     private var latestRevision = -1L
@@ -76,15 +77,18 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
         return TasteMatchIdsCache(tasteMatchPreferences.getStringSet("$uid.ids", emptySet()).orEmpty().toList(), fetchedAt)
     }
     @Suppress("UNCHECKED_CAST")
-    suspend fun fetchTasteMatchIds(uid: String): List<String> {
+    suspend fun fetchTasteMatchIds(uid: String): List<String> = tasteMutex.withLock {
         check(auth.currentUser?.uid == uid)
+        // Presence and Remote Config can both refresh the map on entry. A
+        // queued caller reuses the result instead of repeating a costly scan.
+        cachedTasteMatchIds(uid)?.takeIf { it.isFresh }?.let { return@withLock it.ids }
         val ids = (call("getMapTasteMatchIds")["ids"] as? List<*>)
             .orEmpty().filterIsInstance<String>().distinct()
         if (auth.currentUser?.uid == uid) tasteMatchPreferences.edit()
             .putStringSet("$uid.ids", ids.toSet())
             .putLong("$uid.fetchedAt", System.currentTimeMillis())
             .apply()
-        return ids
+        ids
     }
     /**
      * One-shot server read of the viewer's `map_presence` doc. Matches iOS
@@ -131,11 +135,11 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
         try {
             val result = functions.getHttpsCallable(name).call(payload).await().getData() as? Map<String, Any?> ?: error("Invalid response")
             check(auth.currentUser?.uid == uid) { "Account changed." }
-            if (name.startsWith("getMap") || name == "searchMapPeople") event("request_finished", if (name == "getMapCityPeople" || name == "searchMapPeople") "people" else "directory", "success", count = (result["people"] as? List<*>)?.size ?: (result["cities"] as? List<*>)?.size, durationMs = android.os.SystemClock.elapsedRealtime()-started)
+            if (name.startsWith("getMap") || name == "searchMapPeople") event("request_finished", if (name == "getMapTasteMatchIds") "taste" else if (name == "getMapCityPeople" || name == "searchMapPeople") "people" else "directory", "success", count = (result["people"] as? List<*>)?.size ?: (result["cities"] as? List<*>)?.size, durationMs = android.os.SystemClock.elapsedRealtime()-started)
             if (name in listOf("resolveMapCity", "searchMapCities", "getMapCitySummaries", "getMapCityPeople", "searchMapPeople")) requireMapCommunityVersion(result)
             return result
         } catch (error: Exception) {
-            if (name.startsWith("getMap") || name == "searchMapPeople") event("request_finished", if (name == "getMapCityPeople" || name == "searchMapPeople") "people" else "directory", "error", durationMs = android.os.SystemClock.elapsedRealtime()-started)
+            if (name.startsWith("getMap") || name == "searchMapPeople") event("request_finished", if (name == "getMapTasteMatchIds") "taste" else if (name == "getMapCityPeople" || name == "searchMapPeople") "people" else "directory", "error", durationMs = android.os.SystemClock.elapsedRealtime()-started)
             throw error
         }
     }

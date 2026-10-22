@@ -23,8 +23,14 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.Image
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
@@ -68,6 +74,12 @@ private class AppleMapJsBridge(private val host: WebView) {
     @Volatile var onSelectCity: (String) -> Unit = {}
     @Volatile var onCameraSettled: (Double, Double, Double) -> Unit = { _, _, _ -> }
     @Volatile var onMarkersRendered: (String) -> Unit = {}
+    @Volatile var onLoadState: (String) -> Unit = {}
+
+    @JavascriptInterface
+    fun loadState(state: String) {
+        host.post { onLoadState(state) }
+    }
 
     @JavascriptInterface
     fun selectCity(cityId: String) {
@@ -115,6 +127,7 @@ internal fun AppleCityMapView(
     playingPerson: MapPerson? = null,
     loadLatest: (suspend (List<String>) -> Map<String, fm.corus.android.data.model.CymbalPost?>)? = null,
     onVisualReady: () -> Unit = {},
+    onLoadEvent: (String, Long) -> Unit = { _, _ -> },
 ) {
     val context = LocalContext.current
     val fontData = remember(context) {
@@ -132,11 +145,34 @@ internal fun AppleCityMapView(
     val currentOnCameraSettled by rememberUpdatedState(onCameraSettled)
     val currentLoadLatest by rememberUpdatedState(loadLatest)
     val currentOnVisualReady by rememberUpdatedState(onVisualReady)
+    val currentOnLoadEvent by rememberUpdatedState(onLoadEvent)
     val currentFocusID by rememberUpdatedState(focus?.cityId.orEmpty())
     var artwork by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var hasRenderedMarkers by remember(token) { mutableStateOf(retainedPreviewWebView != null) }
+    var mapReady by remember(token) { mutableStateOf(retainedPreviewWebView != null) }
+    var loadError by remember(token) { mutableStateOf<String?>(null) }
+    var retryAttempt by remember(token) { mutableStateOf(0) }
+    var loadStartedAt by remember(token) { mutableStateOf(android.os.SystemClock.elapsedRealtime()) }
+    val documentKey = "$token:$retryAttempt"
     var transitionSnapshot by remember(previewCacheKey) { mutableStateOf<Bitmap?>(null) }
     var snapshotVisible by remember(previewCacheKey) { mutableStateOf(false) }
+    fun reportLoadState(state: String) {
+        if (state == "ready") {
+            if (!mapReady) currentOnLoadEvent("ready", android.os.SystemClock.elapsedRealtime() - loadStartedAt)
+            mapReady = true
+            loadError = null
+        } else if (loadError == null) {
+            loadError = state
+            snapshotVisible = false
+            currentOnLoadEvent(state, android.os.SystemClock.elapsedRealtime() - loadStartedAt)
+        }
+    }
+    LaunchedEffect(documentKey, mapReady) {
+        if (!mapReady) {
+            kotlinx.coroutines.delay(25_000)
+            reportLoadState("timeout")
+        }
+    }
     var lastAppliedFocusID by remember(token) { mutableStateOf<String?>(null) }
     val snapshotAlpha by androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (snapshotVisible) 1f else 0f,
@@ -190,6 +226,7 @@ internal fun AppleCityMapView(
             if (focusID == currentFocusID) snapshotVisible = false
             currentOnVisualReady()
         }
+        bridge.onLoadState = ::reportLoadState
     }
 
     Box(modifier) {
@@ -228,7 +265,7 @@ internal fun AppleCityMapView(
                     }
                 }
                 bindAppleMapHandlers(this)
-                tag = token
+                tag = documentKey
                 if (retainedPreviewWebView == null) {
                     loadDataWithBaseURL(
                         "https://app.corus.fm",
@@ -244,11 +281,10 @@ internal fun AppleCityMapView(
         },
         update = { webView ->
             bindAppleMapHandlers(webView)
-            // A Remote Config token rotation is the only reason to reload the
-            // document. Normal filter, avatar, count, and theme updates stay
-            // within the already-warm MapKit surface.
-            if (webView.tag != token) {
-                webView.tag = token
+            // Reload only for a token rotation or an explicit retry. Normal
+            // filter, avatar, count, and theme updates use the warm surface.
+            if (webView.tag != documentKey) {
+                webView.tag = documentKey
                 webView.loadDataWithBaseURL(
                     "https://app.corus.fm",
                     appleMapHtml(token, compact, fontData),
@@ -273,9 +309,11 @@ internal fun AppleCityMapView(
                 bridge.onSelectCity = {}
                 bridge.onCameraSettled = { _, _, _ -> }
                 bridge.onMarkersRendered = {}
+                bridge.onLoadState = {}
             }
             webView.onPause()
-            MapPreviewWebViewCache.put(previewCacheKey, webView)
+            if (mapReady && loadError == null) MapPreviewWebViewCache.put(previewCacheKey, webView)
+            else webView.destroy()
         },
     )
     transitionSnapshot?.let { snapshot ->
@@ -286,7 +324,23 @@ internal fun AppleCityMapView(
             modifier = Modifier.fillMaxSize().graphicsLayer { alpha = snapshotAlpha },
         )
     }
-    if (expectsMarkers && !hasRenderedMarkers) {
+    if (loadError != null) {
+        Surface(Modifier.align(Alignment.Center).padding(16.dp)) {
+            Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(stringResource(fm.corus.android.localization.CorusStrings.map_unavailable))
+                // Search's preview is covered by its card tap target; opening
+                // it leads to the full map, where recovery is interactive.
+                if (!compact) TextButton(onClick = {
+                    mapReady = false
+                    hasRenderedMarkers = false
+                    loadError = null
+                    snapshotVisible = false
+                    loadStartedAt = android.os.SystemClock.elapsedRealtime()
+                    retryAttempt++
+                }) { Text(stringResource(R.string.feed_offline_retry)) }
+            }
+        }
+    } else if (!mapReady || (expectsMarkers && !hasRenderedMarkers)) {
         CircularProgressIndicator(
             modifier = Modifier.align(Alignment.Center).size(22.dp),
             color = CorusColors.Accent,
@@ -407,9 +461,9 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
           .compact .city:not(.active){--cluster-opacity:.65}.compact .city.overlap-dim{--cluster-opacity:.45}.compact .city:not(.active) .faces{transform:scale(.84);transform-origin:center}
           @media (prefers-reduced-motion:reduce){.city,.pin-content,.faces,.label{transition:none;animation:none}.city.is-pressing{transform:none;opacity:var(--cluster-opacity)}}
         </style>
-        <script async crossorigin src="https://cdn.apple-mapkit.com/mk/6.x.x/mapkit.core.js" data-callback="initMapKitLoaderV2" data-token="$escapedToken" data-libraries="map,annotations"></script>
         </head><body class="${if (compact) "compact" else ""}"><div id="map"></div><script>
         let map, kit, annotations=[];
+        function reportMapLoadState(state){if(window.CorusAndroidMap)window.CorusAndroidMap.loadState(state)}
         const interactive=$gestures;
         const compact=${if (compact) "true" else "false"};
         function mapCssSize(){const el=document.getElementById('map');return{width:Math.max(1,Math.round((el&&el.clientWidth)||window.innerWidth||1)),height:Math.max(1,Math.round((el&&el.clientHeight)||window.innerHeight||1))}}
@@ -420,7 +474,13 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
         function sizeMap(){for(const el of [document.documentElement,document.body,document.getElementById('map')])if(el){el.style.height='100%';el.style.width='100%'}}
         function onMapViewportChange(){sizeMap();if(window.CorusAppleMap&&window.CorusAppleMap.ready)window.CorusAppleMap.apply();else if(map&&map.region)map.region=map.region}
         window.addEventListener('resize',onMapViewportChange);if(window.visualViewport)window.visualViewport.addEventListener('resize',onMapViewportChange);
-        function initMapKitLoaderV2(){ sizeMap(); mapkit.load(['map','annotations']).then(function(k){ kit=k; map=new kit.Map('map',{mapType:kit.MapType.Standard,colorScheme:kit.ColorScheme.Light,showsPointsOfInterest:false,showsUserLocation:false,isScrollEnabled:interactive,isZoomEnabled:interactive,isRotationEnabled:false,showsZoomControl:false,showsMapTypeControl:false,region:{center:{latitude:38,longitude:-84},span:{latitudeDelta:45,longitudeDelta:70}}}); sizeMap(); map.addEventListener('region-change-end',function(){refreshOverlapDimming();if(compact){window.CorusAppleMap.apply();return}if(!interactive||!map.region)return;const region=map.region;window.CorusAndroidMap.cameraSettled(region.center.latitude,region.center.longitude,region.span.latitudeDelta)}); bindAnnotationGestures(map); window.CorusAppleMap.ready=true; window.CorusAppleMap.apply(); }).catch(function(){ document.body.dataset.error='true'; }); }
+        function initMapKitLoaderV2(){
+          // The SDK is appended after this bridge and the map container exist,
+          // including when the CDN script is already in WebView's disk cache.
+          mapkit.addEventListener('error',function(){reportMapLoadState('configuration_error')});
+          mapkit.addEventListener('load-error',function(){reportMapLoadState('library_error')});
+          sizeMap(); mapkit.load(['map','annotations']).then(function(k){ kit=k; map=new kit.Map('map',{mapType:kit.MapType.Standard,colorScheme:kit.ColorScheme.Light,showsPointsOfInterest:false,showsUserLocation:false,isScrollEnabled:interactive,isZoomEnabled:interactive,isRotationEnabled:false,showsZoomControl:false,showsMapTypeControl:false,region:{center:{latitude:38,longitude:-84},span:{latitudeDelta:45,longitudeDelta:70}}}); sizeMap(); map.addEventListener('region-change-end',function(){refreshOverlapDimming();if(compact){window.CorusAppleMap.apply();return}if(!interactive||!map.region)return;const region=map.region;window.CorusAndroidMap.cameraSettled(region.center.latitude,region.center.longitude,region.span.latitudeDelta)}); bindAnnotationGestures(map); window.CorusAppleMap.ready=true; window.CorusAppleMap.apply(); reportMapLoadState('ready'); }).catch(function(){ reportMapLoadState('initialization_error'); });
+        }
         // Keep the marker's geographic anchor fixed. Artwork rises in an
         // absolute overlay just like iOS and must never move the city itself.
         function pulseCity(b){if(!b||(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches))return;b.classList.add('is-pressing');setTimeout(function(){b.classList.remove('is-pressing')},120)}
@@ -578,6 +638,8 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
           if(focus&&this.lastFocus!==focusKey){const geometryChanged=this.lastFocusGeometry!==geometryKey;const animate=interactive&&this.lastFocus!==null&&!geometryChanged&&this.data.playbackMode!=='listen';this.lastFocus=focusKey;this.lastFocusGeometry=geometryKey;if(!preserveCamera){const latitudeDelta=visibleFocus?.6:(interactive?14:125);const longitudeDelta=visibleFocus?latitudeDelta*size.width/size.height/Math.max(.15,Math.cos(focus.latitude*Math.PI/180)):(interactive?14:300);const visibleGap=Math.max(0,1-top-bottom);const listenBias=this.data.playbackMode==='listen' ? .06*visibleGap : 0;const offset=(bottom-top)/2-listenBias;map.setRegionAnimated({center:{latitude:focus.latitude-(visibleFocus?latitudeDelta*offset:0),longitude:focus.longitude},span:{latitudeDelta:latitudeDelta,longitudeDelta:longitudeDelta}},animate)}}
           }finally{this.applying=false}
         }};
-        </script></body></html>
+        </script>
+        <script async crossorigin src="https://cdn.apple-mapkit.com/mk/6.x.x/mapkit.core.js" data-callback="initMapKitLoaderV2" data-token="$escapedToken" data-libraries="map,annotations" onerror="reportMapLoadState('script_error')"></script>
+        </body></html>
     """.trimIndent()
 }

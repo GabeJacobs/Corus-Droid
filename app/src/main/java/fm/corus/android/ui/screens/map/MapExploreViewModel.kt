@@ -33,6 +33,7 @@ data class MapScreenState(
     val selectedCommunityId: String? = null, val cities: List<MapCitySummary> = emptyList(), val selected: MapCity? = null,
     val people: List<MapPerson> = emptyList(), val posts: Map<String, CymbalPost?> = emptyMap(),
     val filter: String = "all", val loading: Boolean = true, val peopleLoading: Boolean = false,
+    val directoryReady: Boolean = false, val tasteMatchesReady: Boolean = false,
     val more: String? = null, val peopleReachedEnd: Boolean = false, val chat: MapChatStatus? = null, val chatLoading: Boolean = false,
     val user: CymbalUser? = null, val error: String? = null,
     val searchResults: List<MapCity> = emptyList(), val busy: Boolean = false,
@@ -65,7 +66,7 @@ class MapExploreViewModel @Inject constructor(
     }
     fun community(id: String?) {
         generation++; refreshGeneration++
-        updateState { it.copy(selectedCommunityId = id, selected = null, people = emptyList(), cities = emptyList(), listPages = emptyMap(), listLoading = emptySet(), listErrors = emptySet(), listPreparing = false, loading = true, directorySearchPeople = emptyList(), directorySearchLoading = false) }
+        updateState { it.copy(selectedCommunityId = id, selected = null, people = emptyList(), cities = emptyList(), listPages = emptyMap(), listLoading = emptySet(), listErrors = emptySet(), listPreparing = false, loading = true, directoryReady = false, directorySearchPeople = emptyList(), directorySearchLoading = false) }
         refresh()
     }
     private var deviceCityCheckedAt = 0L
@@ -174,37 +175,45 @@ class MapExploreViewModel @Inject constructor(
         if (!enabled) { updateState { it.copy(loading = false) }; return@launch }
         val current = uid ?: return@launch
         val request = ++refreshGeneration
-        val user = users.fetchUserProfile(current)
-        users.prefetchFollowingSet(current)
-        following = users.followingIds.value.toList()
-        if (fullAccess) {
-            val cachedTaste = repository.cachedTasteMatchIds(current)
-            if (cachedTaste != null) taste = cachedTaste.ids
-            if (cachedTaste == null || !cachedTaste.isFresh) {
-                if (cachedTaste == null) {
-                    taste = repository.fetchTasteMatchIds(current)
-                } else {
-                    viewModelScope.launch {
-                        try {
-                            val refreshed = repository.fetchTasteMatchIds(current)
-                            if (auth.currentUser?.uid != current || request != refreshGeneration || refreshed == taste) return@launch
-                            taste = refreshed
-                            val refreshedCities = repository.cities(following, taste, mutable.value.selectedCommunityId)
-                            if (auth.currentUser?.uid == current && request == refreshGeneration) {
-                                updateState { it.copy(cities = preservingPaintedCityFaces(it.cities, refreshedCities), error = null) }
-                            }
-                        } catch (_: Exception) {
-                            // Keep the usable stale result; Retry performs another refresh.
-                        }
+        val needsTaste = fullAccess && mutable.value.filter == "tasteMatches"
+        val cachedTaste = if (fullAccess) repository.cachedTasteMatchIds(current) else null
+        // All and Following can render without computing pairwise taste
+        // matches for every Map member. Only the Taste matches facet waits.
+        val (user, refreshedFollowing, loadedTaste) = coroutineScope {
+            val profile = async { users.fetchUserProfile(current) }
+            val relationships = async {
+                users.prefetchFollowingSet(current)
+                users.followingIds.value.toList()
+            }
+            val matches = async {
+                if (needsTaste) cachedTaste?.ids ?: repository.fetchTasteMatchIds(current) else cachedTaste?.ids.orEmpty()
+            }
+            Triple(profile.await(), relationships.await(), matches.await())
+        }
+        if (request != refreshGeneration || auth.currentUser?.uid != current) return@launch
+        following = refreshedFollowing
+        taste = loadedTaste
+        if (needsTaste && cachedTaste != null && !cachedTaste.isFresh) {
+            viewModelScope.launch {
+                try {
+                    val refreshed = repository.fetchTasteMatchIds(current)
+                    if (auth.currentUser?.uid != current || request != refreshGeneration || refreshed == taste) return@launch
+                    taste = refreshed
+                    val refreshedCities = repository.cities(following, taste, mutable.value.selectedCommunityId)
+                    if (auth.currentUser?.uid == current && request == refreshGeneration) {
+                        updateState { it.copy(cities = preservingPaintedCityFaces(it.cities, refreshedCities), error = null) }
                     }
+                } catch (error: CancellationException) { throw error }
+                catch (_: Exception) {
+                    // Keep the usable stale result; Retry performs another refresh.
                 }
             }
-        } else taste = emptyList()
+        }
         val cities = repository.cities(following, taste, mutable.value.selectedCommunityId)
         if (request != refreshGeneration) return@launch
         if (auth.currentUser?.uid == current) updateState { state ->
             val named = cities.map { value -> canonicalCities[value.city.cityId]?.let { city -> value.copy(city=value.city.copy(cityName=city.cityName)) } ?: value }
-            state.copy(cities = preservingPaintedCityFaces(state.cities, named), loading = false, user = user, error = null)
+            state.copy(cities = preservingPaintedCityFaces(state.cities, named), loading = false, directoryReady = true, tasteMatchesReady = cachedTaste != null || needsTaste, user = user, error = null)
         }
         if(auth.currentUser?.uid != current) return@launch
         canonicalJob?.cancel()
@@ -220,7 +229,14 @@ class MapExploreViewModel @Inject constructor(
         repository.event("filter_changed", value = value)
         if (value == "tasteMatches" && !fullAccess) { pendingAction = { filter(value) }; updateState { it.copy(paywall = "MAP") }; return }
         if (mutable.value.mode != null) stop()
-        generation++; updateState { it.copy(filter = value, selected = null, people = emptyList(), listPages = emptyMap(), listLoading = emptySet(), listErrors = emptySet(), listPreparing = false, directorySearchPeople = emptyList(), directorySearchLoading = false) }
+        val cachedTaste = if (value == "tasteMatches") uid?.let(repository::cachedTasteMatchIds) else null
+        val refreshTaste = value == "tasteMatches" &&
+            (!mutable.value.tasteMatchesReady || cachedTaste == null || !cachedTaste.isFresh)
+        generation++; updateState { it.copy(filter = value, selected = null, people = emptyList(),
+            loading = !it.directoryReady || (refreshTaste && !it.tasteMatchesReady),
+            listPages = emptyMap(), listLoading = emptySet(), listErrors = emptySet(), listPreparing = false,
+            directorySearchPeople = emptyList(), directorySearchLoading = false) }
+        if (refreshTaste) refresh()
     }
     fun select(city: MapCity) {
         // iOS `openCityDirectory` no-ops when the tapped cluster is already

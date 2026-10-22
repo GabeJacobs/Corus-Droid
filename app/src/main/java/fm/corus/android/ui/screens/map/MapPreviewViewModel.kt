@@ -46,6 +46,9 @@ class MapPreviewViewModel @Inject constructor(
         }
     }
 
+    fun reportMapLoad(status: String, durationMs: Long) =
+        repository.event("map_init", mode = "preview", value = status, durationMs = durationMs)
+
     fun refresh() {
         val viewer = uid ?: return
         if (directoryJob?.isActive == true) return

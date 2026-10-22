@@ -449,6 +449,7 @@ fun MapExploreScreen(
             playingPerson = state.playing?.let { MapPerson(it.city, it.post.user) },
             loadLatest = model.repository::latest,
             mapKitToken = mapKitToken,
+            onLoadEvent = { status, duration -> model.repository.event("map_init", value = status, durationMs = duration) },
             focusOverride = sharedCityFocus ?: listeningExitFocus.takeIf { state.mode == null },
             focusRevision = shareFocusRevision + citySheetFocusRevision + playbackFocusRevision,
             focusInVisibleMap = state.playing != null || (citySheetVisible && state.selected != null) || (fromProfile && initialCityId != null),
@@ -602,7 +603,7 @@ fun MapExploreScreen(
             }
         }
         if (state.loading && !resolvingCity) CircularProgressIndicator(Modifier.align(Alignment.Center))
-        if (!state.loading && cities.isEmpty()) Surface(Modifier.align(Alignment.Center).padding(24.dp), shape = RoundedCornerShape(20.dp)) { Column(Modifier.padding(20.dp)) { Text(parityCopy("No people to show for this filter.")); TextButton(onClick = { model.refresh() }) { Text(parityCopy("Retry")) } } }
+        if (!state.loading && cities.isEmpty()) Surface(Modifier.align(Alignment.Center).padding(24.dp), shape = RoundedCornerShape(20.dp)) { Column(Modifier.padding(20.dp)) { Text(if (state.filter == "tasteMatches" && !state.tasteMatchesReady) stringResource(fm.corus.android.localization.CorusStrings.map_please_try_again) else parityCopy("No people to show for this filter.")); TextButton(onClick = { model.refresh() }) { Text(parityCopy("Retry")) } } }
         if (view == "list" && state.selected == null && state.playing == null) {
             // MainTabScreen already reserves its measured bottom chrome and
             // only adds mini-player height while it is actually visible. A
