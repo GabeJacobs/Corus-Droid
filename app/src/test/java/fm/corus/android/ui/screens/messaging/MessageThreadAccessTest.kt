@@ -86,6 +86,22 @@ class MessageThreadAccessTest {
     )
 
     @Test
+    fun `freshly joined city opens before the mirror arrives but a server removal still closes it`() = runTest {
+        val joined = CymbalThread(id = "grp_city_london", isGroup = true, cityChatId = "london", cityName = "London", memberIds = listOf("me"))
+        whenever(messageRepository.takeJoinedCityThread(eq("me"), eq(joined.id), any())).doReturn(joined)
+        val vm = viewModel()
+        vm.loadMessages(joined.id, "")
+        advanceUntilIdle()
+        assertEquals(ThreadAccess.OPEN, vm.threadAccess.value)
+        rows.emit(row(null, fromCache = true))
+        advanceUntilIdle()
+        assertEquals(ThreadAccess.OPEN, vm.threadAccess.value)
+        rows.emit(row(null, fromCache = false))
+        advanceUntilIdle()
+        assertEquals(ThreadAccess.UNAVAILABLE, vm.threadAccess.value)
+    }
+
+    @Test
     fun `an ordinary conversation opens`() = runTest {
         val vm = viewModel()
         vm.loadMessages("thread1", "other")

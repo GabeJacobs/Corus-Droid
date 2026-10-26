@@ -148,6 +148,7 @@ fun MapExploreScreen(
     var chosenCity by remember { mutableStateOf<MapCity?>(null) }
     var locationAction by remember { mutableStateOf<((Location) -> Unit)?>(null) }
     var locationAttempt by remember { mutableIntStateOf(0) }
+    var joiningChatLocation by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val cities = sortedMapCitiesNear(
         state.cities.filter { (it.facets[state.filter]?.count ?: 0) > 0 },
@@ -257,7 +258,8 @@ fun MapExploreScreen(
             val recent = providers.mapNotNull { provider ->
                 runCatching { locationManager.getLastKnownLocation(provider) }.getOrNull()
             }.maxByOrNull { it.time }
-            if (recent != null && System.currentTimeMillis() - recent.time <= 10 * 60_000L) {
+            if (recent != null && System.currentTimeMillis() - recent.time <= 10 * 60_000L &&
+                (!joiningChatLocation || cityChatLocationIsFresh(recent.time, recent.accuracy, recent.latitude, recent.longitude))) {
                 Log.i("MapLocation", "Using recent ${recent.provider} fix for city sharing")
                 locationAction?.invoke(recent)
                 locationAction = null
@@ -267,6 +269,7 @@ fun MapExploreScreen(
             Log.i("MapLocation", "Requesting city location from ${providers.joinToString()} (attempt=$locationAttempt, fine=$hasFine, coarse=$hasCoarse)")
             val next = object : LocationListener {
                 override fun onLocationChanged(location: Location) {
+                    if (joiningChatLocation && !cityChatLocationIsFresh(location.time, location.accuracy, location.latitude, location.longitude)) return
                     locationManager.removeUpdates(this)
                     listener = null
                     locationAction?.invoke(location)
@@ -285,7 +288,7 @@ fun MapExploreScreen(
         catch (error: Exception) { fail("City location request failed", error) }
     }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result -> if (result.values.any { it }) locate() else { locationAction = null; applyLocationPresentation(cityLocationFailed()) } }
-    fun requestLocation(sharing: Boolean = false, action: (Location) -> Unit) {
+    fun requestLocation(sharing: Boolean = false, forChat: Boolean = false, action: (Location) -> Unit) {
         if (resolvingCity) return
         model.error(null)
         if (sharing) {
@@ -294,10 +297,20 @@ fun MapExploreScreen(
             applyLocationPresentation(cityLocationStarted())
         }
         locationAttempt = 0
+        joiningChatLocation = forChat
         locationAction = action
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) locate()
         else permission.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION))
+    }
+    fun joinChat(city: MapCity, chat: MapChatStatus) {
+        if (chat.member) openChat(chat.threadId)
+        else if (chat.clusterMember) model.join(city, null, ::openChat)
+        else {
+            val cached = model.repository.cachedJoinLocation()
+            if (cached != null) model.join(city, cached, ::openChat)
+            else requestLocation(forChat = true) { model.join(city, it, ::openChat) }
+        }
     }
     LaunchedEffect(listener) {
         val request = listener ?: return@LaunchedEffect
@@ -610,7 +623,7 @@ fun MapExploreScreen(
             // fixed extra inset here made the directory end above a phantom
             // player and clipped its footer action.
             Surface(Modifier.fillMaxSize().padding(top = if (resolvingCity) 200.dp else 166.dp), color = CorusColors.Background) {
-                MapPeopleDirectory(cities, state, model, ::openUser) { city, chat -> if(chat.member) openChat(chat.threadId) else if (chat.clusterMember) model.join(city,null,::openChat) else requestLocation { model.join(city,it,::openChat) } }
+                MapPeopleDirectory(cities, state, model, ::openUser, ::joinChat)
             }
         }
         if (state.selected == null && state.playing == null && view == "map" && browsingCity != null) Surface(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 76.dp), shape = CircleShape, color = CorusColors.CardBackground.copy(alpha = .88f), shadowElevation = 4.dp) {
@@ -682,7 +695,7 @@ fun MapExploreScreen(
                         // eligibility refresh is in flight. The city did not change,
                         // so dropping it causes a distracting Open chat flicker.
                         FilledTonalButton(onClick = { model.start("listen", emptySet(), city.cityId) }, enabled = !state.busy, modifier = Modifier.weight(1f).height(44.dp), colors = ButtonDefaults.filledTonalButtonColors(containerColor = CorusColors.Accent.copy(alpha = .12f), contentColor = CorusColors.Accent)) { Icon(Icons.Default.Headphones, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(parityCopy("Listen"), style = CorusFont.bodyMedium) }
-                        state.chat?.takeIf { showMapChat(city.cityId, state.currentDeviceCityId, it) }?.let { chat -> Button(onClick = { if (chat.member) openChat(chat.threadId) else if (chat.clusterMember) model.join(city,null,::openChat) else requestLocation { model.join(city, it, ::openChat) } }, modifier = Modifier.weight(1f).height(44.dp), enabled = !state.busy) { Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(parityCopy(if (chat.member) "Open chat" else "Join chat"), style = CorusFont.bodyMedium) } }
+                        state.chat?.takeIf { showMapChat(city.cityId, state.currentDeviceCityId, it) }?.let { chat -> Button(onClick = { joinChat(city, chat) }, modifier = Modifier.weight(1f).height(44.dp), enabled = !state.busy) { Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(parityCopy(if (chat.member) "Open chat" else "Join chat"), style = CorusFont.bodyMedium) } }
                     }
                     LazyColumn(state = listState, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
                         if (state.peopleLoading && state.people.isEmpty()) {

@@ -318,6 +318,11 @@ class MessageThreadViewModel @Inject constructor(
         // Arm active-thread tracking right away when the id is already known, so
         // suppression is in effect before the (async) profile fetch completes.
         if (threadId.isNotBlank()) _resolvedThreadId.value = threadId
+        authRepository.currentUserId?.let { userId ->
+            messageRepository.takeJoinedCityThread(userId, threadId)?.let {
+                _threadRow.value = MessageRepository.ThreadRowSnapshot(thread = it, fromCache = false)
+            }
+        }
         // iOS parity: seed the header (name/avatar, or group title/avatars) from the
         // inbox's already-loaded thread so it renders instantly instead of showing a
         // blank header during the profile/group fetch. Reconciled by the async load
@@ -499,6 +504,7 @@ class MessageThreadViewModel @Inject constructor(
     private fun seedHeaderFromCachedInbox(threadId: String) {
         if (threadId.isBlank()) return
         val cached = messageRepository.cachedInbox
+            ?.takeIf { it.userId == authRepository.currentUserId }
             ?.threads?.firstOrNull { it.id == threadId } ?: return
         if (cached.isGroup) {
             if (_groupInfo.value == null) {
@@ -522,7 +528,12 @@ class MessageThreadViewModel @Inject constructor(
     private fun startThreadRowListener(userId: String, threadId: String) {
         threadRowJob?.cancel()
         threadRowJob = viewModelScope.launch {
-            messageRepository.listenToThreadRow(userId, threadId).collect { _threadRow.value = it }
+            messageRepository.listenToThreadRow(userId, threadId).collect { row ->
+                // An offline cache miss cannot undo a join just confirmed by
+                // the server. The first server snapshot remains authoritative.
+                if (row.fromCache && row.thread == null && _threadRow.value?.thread?.id == threadId) return@collect
+                _threadRow.value = row
+            }
         }
     }
 

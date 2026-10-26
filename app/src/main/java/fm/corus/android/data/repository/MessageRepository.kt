@@ -105,6 +105,28 @@ class MessageRepository @Inject constructor(
 
     fun cacheInbox(snapshot: CachedInbox) { cachedInbox = snapshot }
 
+    private data class JoinedCityThread(val userId: String, val thread: CymbalThread, val joinedAt: Long)
+    private var joinedCityThread: JoinedCityThread? = null
+
+    /** Only a freshly server-authorized join may skip waiting for the mirror listener. */
+    @Synchronized
+    fun recordJoinedCityThread(userId: String, thread: CymbalThread, nowMs: Long = System.currentTimeMillis()) {
+        if (userId.isBlank() || !thread.isGroup || thread.cityChatId.isNullOrBlank() ||
+            !thread.id.startsWith("grp_city_") || userId !in thread.memberIds) return
+        joinedCityThread = JoinedCityThread(userId, thread, nowMs)
+        leftThreadExpiry.remove(thread.id)
+        val previous = cachedInbox?.takeIf { it.userId == userId }
+        cachedInbox = CachedInbox(userId, (listOf(thread) + previous?.threads.orEmpty().filterNot { it.id == thread.id })
+            .sortedByDescending { it.lastMessageAt }, previous?.nextCursor, previous?.hasMore ?: true)
+    }
+
+    @Synchronized
+    fun takeJoinedCityThread(userId: String, threadId: String, nowMs: Long = System.currentTimeMillis()): CymbalThread? {
+        val joined = joinedCityThread
+        joinedCityThread = null
+        return joined?.takeIf { it.userId == userId && it.thread.id == threadId && nowMs - it.joinedAt in 0L..30_000L }?.thread
+    }
+
     /** Local 1:1 row for a peer if this process has them in the inbox cache. */
     fun directThread(otherUserId: String): CymbalThread? {
         if (otherUserId.isBlank()) return null

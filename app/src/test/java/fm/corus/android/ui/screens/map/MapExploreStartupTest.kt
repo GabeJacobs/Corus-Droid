@@ -61,7 +61,7 @@ class MapExploreStartupTest {
             on { revision } doReturn MutableStateFlow(0)
             on { mapEnabled } doReturn false
         }
-        val model = MapExploreViewModel(repository, users, auth, subscription, remote, mock())
+        val model = MapExploreViewModel(repository, users, auth, subscription, remote, mock(), mock())
         init { store.put("map", model) }
     }
 

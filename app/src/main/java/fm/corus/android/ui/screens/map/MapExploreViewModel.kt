@@ -47,6 +47,7 @@ class MapExploreViewModel @Inject constructor(
     val repository: MapRepository, private val users: UserRepository,
     private val auth: FirebaseAuth, val subscription: SubscriptionRepository,
     val remote: RemoteConfigService, val player: NowPlayingManager,
+    private val messages: fm.corus.android.data.repository.MessageRepository,
 ) : ViewModel() {
     private val mutable = MutableStateFlow(MapScreenState())
     private fun updateState(transform: (MapScreenState) -> MapScreenState) {
@@ -495,7 +496,10 @@ class MapExploreViewModel @Inject constructor(
     }
     fun resolve(location: Location, done: (MapCity) -> Unit) = launch { done(repository.resolve(location)) }
     fun join(city: MapCity, location: Location?, done: (String) -> Unit) = launch {
-        val threadId = repository.join(city, location)
+        val joined = repository.join(city, location)
+        if (uid != auth.currentUser?.uid) return@launch
+        val threadId = joined.threadId
+        joined.thread?.let { thread -> uid?.let { messages.recordJoinedCityThread(it, thread) } }
         updateState { it.copy(directoryChats = it.directoryChats + (city.cityId to MapChatStatus(threadId, member = true, canJoin = true))) }
         done(threadId)
     }

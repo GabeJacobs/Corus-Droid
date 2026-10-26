@@ -28,6 +28,7 @@ data class MapPeoplePage(val people: List<MapPerson>, val cursor: String?, val r
 data class MapChatStatus(val threadId: String, val member: Boolean, val canJoin: Boolean, val clusterMember: Boolean = false) {
     val available: Boolean get() = member || canJoin || clusterMember
 }
+data class MapChatJoinResult(val threadId: String, val thread: fm.corus.android.data.model.CymbalThread?)
 internal fun shouldLoadDirectoryChat(hasStatus: Boolean, isLoading: Boolean): Boolean = !hasStatus && !isLoading
 data class MapPlaybackItem(val city: MapCity, val post: CymbalPost)
 internal enum class MapPersonRowLayout { USERNAME_ONLY, LATEST_POST }

@@ -24,6 +24,30 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
         val isFresh: Boolean get() = System.currentTimeMillis() - fetchedAt <= 15L * 60 * 1000
     }
     private val appContext = context.applicationContext
+    private data class ResolvedCityLocation(val userId: String, val location: Location, val city: MapCity)
+    private var resolvedCityLocation: ResolvedCityLocation? = null
+    init {
+        auth.addAuthStateListener { resolvedCityLocation = null }
+    }
+
+    // Keep the actual fix in memory, with a transit margin before the server's
+    // two-minute expiry. A city label alone is never location evidence.
+    private fun freshCityLocation(nowMs: Long = System.currentTimeMillis()): ResolvedCityLocation? {
+        val cached = resolvedCityLocation ?: return null
+        val fix = cached.location
+        if (cached.userId != currentUserId || !cityChatLocationIsFresh(fix.time, fix.accuracy, fix.latitude, fix.longitude, nowMs)) {
+            resolvedCityLocation = null
+            return null
+        }
+        return cached
+    }
+
+    fun cachedJoinLocation(nowMs: Long = System.currentTimeMillis()): Location? {
+        val granted = androidx.core.content.ContextCompat.checkSelfPermission(appContext, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
+            androidx.core.content.ContextCompat.checkSelfPermission(appContext, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (!granted) { resolvedCityLocation = null; return null }
+        return freshCityLocation(nowMs)?.location?.let(::Location)
+    }
     fun text(@androidx.annotation.StringRes id: Int): String = appContext.getString(id)
     fun event(action: String, mode: String = "map", value: String? = null, count: Int? = null, durationMs: Long? = null) {
         analytics.logEvent("map_event", buildMap {
@@ -223,8 +247,15 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
 
     @Suppress("UNCHECKED_CAST")
     suspend fun resolve(location: Location): MapCity {
+        val cached = freshCityLocation()
+        if (cached != null && cached.location.time == location.time &&
+            cached.location.latitude == location.latitude && cached.location.longitude == location.longitude &&
+            cached.location.accuracy == location.accuracy) return cached.city
+        val uid = currentUserId ?: error("Please sign in.")
         val result = call("resolveMapCity", mapOf("latitude" to location.latitude, "longitude" to location.longitude))
-        return MapCity.decode(result["city"] as? Map<String, Any?> ?: error("Couldn’t find your city. Choose another city."))
+        val city = MapCity.decode(result["city"] as? Map<String, Any?> ?: error("Couldn’t find your city. Choose another city."))
+        resolvedCityLocation = ResolvedCityLocation(uid, Location(location), city)
+        return city
     }
     @Suppress("UNCHECKED_CAST")
     suspend fun resolveCityId(cityId: String): MapCity? {
@@ -238,12 +269,20 @@ class MapRepository @Inject constructor(@ApplicationContext context: Context, pr
     }
     suspend fun stopSharing() { val uid = auth.currentUser?.uid ?: return; db.collection("map_presence").document(uid).delete().await() }
     suspend fun chat(cityId: String, currentCityId: String? = null): MapChatStatus { val d = call("getCityChat", mapOf("cityId" to cityId, "currentCityId" to currentCityId)); return MapChatStatus(d["threadId"] as? String ?: "", d["isMember"] == true, d["canJoin"] == true, d["isClusterMember"] == true) }
-    suspend fun join(city: MapCity, location: Location?): String {
+    @Suppress("UNCHECKED_CAST")
+    suspend fun join(city: MapCity, location: Location?): MapChatJoinResult {
+        val uid = currentUserId ?: error("Please sign in.")
         val payload = if (location == null) mapOf("cityId" to city.cityId) else {
             val resolved = resolve(location)
             mapOf("cityId" to city.cityId, "location" to mapOf("cityId" to resolved.cityId, "latitude" to location.latitude, "longitude" to location.longitude, "accuracy" to location.accuracy, "timestamp" to location.time))
         }
-        return call("joinCityChat", payload)["threadId"] as? String ?: error("Couldn’t join city chat.")
+        val response = call("joinCityChat", payload + ("includeThread" to true))
+        val id = response["threadId"] as? String ?: error("Couldn’t join city chat.")
+        val thread = (response["thread"] as? Map<String, Any?>)?.takeIf {
+            it["id"] == id && it["type"] == "group" && it["cityChatId"] == city.cityId &&
+                (it["memberIds"] as? List<*>)?.contains(uid) == true
+        }?.let { fm.corus.android.data.model.CymbalThread.fromMap(id, it) }
+        return MapChatJoinResult(id, thread)
     }
     @Suppress("UNCHECKED_CAST")
     suspend fun posts(userId: String, mode: String, beforeMs: Long? = null): List<CymbalPost> = (call("getProfilePosts", mapOf("userId" to userId, "pageSize" to 15, "beforeMs" to beforeMs, "mediaType" to if (mode == "listen") "track" else "movie"))["posts"] as? List<Map<String, Any?>>).orEmpty().map(CymbalPost::fromCloudData)
