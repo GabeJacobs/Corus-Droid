@@ -1302,6 +1302,7 @@ private fun serviceColor(service: MusicService): Color = when (service) {
     MusicService.APPLE_MUSIC -> CorusColors.AppleMusicPink
     MusicService.TIDAL -> CorusColors.Tidal
     MusicService.YOUTUBE_MUSIC -> CorusColors.YouTubeMusicRed
+    MusicService.QOBUZ -> CorusColors.Text
     MusicService.DEEZER -> CorusColors.DeezerPurple
     MusicService.AUDIOMACK -> Color(0xFFFFA000)
 }

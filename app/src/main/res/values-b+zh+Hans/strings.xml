@@ -571,7 +571,7 @@
     <string name="search_see_all">"查看全部"</string>
     <string name="search_taste_matches_title">"品味匹配"</string>
     <string name="search_taste_matches_feed_cta_body">"查看品味相近的人发布的内容。"</string>
-    <string name="search_taste_matches_feed_cta_button">"前往品味匹配动态"</string>
+    <string name="search_taste_matches_feed_cta_button">"前往你的专属推荐"</string>
     <string name="search_mutual_connections_title">"共同关注"</string>
     <string name="search_popular_title">"Corus 上的热门"</string>
     <string name="search_new_title">"Corus 上的新人"</string>
@@ -1508,6 +1508,7 @@
     <string name="share_post_author_preview">"%1$s的帖子"</string>
     <string name="share_profile_invitation">"来 Corus 找我"</string>
     <string name="share_profile_link_preview">"链接预览"</string>
+    <string name="referral_reward_active_title">@string/corus_referral_claim_applied_title</string>
     <string name="profile_shuffle">随机播放主页</string>
     <string name="profile_shuffle_no_songs">暂无可播放的歌曲</string>
     <string name="profile_shuffle_failed">无法加载此主页的歌曲。请重试。</string>

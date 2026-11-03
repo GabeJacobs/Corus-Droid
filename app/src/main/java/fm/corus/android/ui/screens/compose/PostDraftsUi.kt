@@ -51,7 +51,7 @@ import java.util.Date
  * Body of the "Drafts" bottom sheet opened from the pick-a-song/film step.
  * Tap a row to resume it; left-swipe (Material [SwipeToDismissBox]) deletes it.
  * Rows rely on spacing rather than dividers, mirroring the finalized iOS
- * DraftsSheetView. Keeps the 30-cap enforced by the repository.
+ * DraftsSheetView. Drafts are retained until posted or explicitly deleted.
  */
 @Composable
 fun DraftsSheetContent(

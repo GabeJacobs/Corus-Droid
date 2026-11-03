@@ -13,9 +13,9 @@ import javax.inject.Singleton
 /**
  * Reads/writes post drafts under `users_v2/{uid}/postDrafts/{draftId}`.
  *
- * Mirrors Corus-Web/app/lib/firestore/post-drafts.ts: 30-draft cap trimmed
- * oldest-first on a fresh save, `merge` on edit (preserving the original
- * `createdAt`), numeric millisecond timestamps, and the canonical cross-
+ * Mirrors Corus-Web/app/lib/firestore/post-drafts.ts: unlimited draft retention,
+ * `merge` on edit (preserving the original `createdAt`), numeric millisecond
+ * timestamps, and the canonical cross-
  * platform doc shape (see [PostDraft]). Client-written on a rules-guarded
  * owner path — no Cloud Function.
  */
@@ -27,12 +27,11 @@ class PostDraftRepository @Inject constructor(
     private fun draftsCollection(uid: String) =
         firestore.collection("users_v2").document(uid).collection("postDrafts")
 
-    /** Newest-first list, capped at [PostDraft.MAX_POST_DRAFTS]. */
+    /** All saved drafts, most-recently-updated first. */
     suspend fun listDrafts(uid: String): List<PostDraft> {
         if (uid.isEmpty()) return emptyList()
         val snap = draftsCollection(uid)
             .orderBy("updatedAt", Query.Direction.DESCENDING)
-            .limit(PostDraft.MAX_POST_DRAFTS.toLong())
             .get()
             .await()
         return snap.documents.mapNotNull { doc ->
@@ -77,8 +76,6 @@ class PostDraftRepository @Inject constructor(
             docRef.set(record).await()
         }
 
-        if (existingId == null) trimToCapacity(uid)
-
         return input.copy(id = id, createdAt = createdAt, updatedAt = now)
     }
 
@@ -91,17 +88,5 @@ class PostDraftRepository @Inject constructor(
     suspend fun uploadVoiceNote(uid: String, audioData: ByteArray): String {
         val voiceId = UUID.randomUUID().toString()
         return storageDataSource.uploadVoiceNote(uid, voiceId, audioData)
-    }
-
-    /** Delete drafts beyond the cap, oldest first. */
-    private suspend fun trimToCapacity(uid: String) {
-        val snap = draftsCollection(uid)
-            .orderBy("updatedAt", Query.Direction.DESCENDING)
-            .get()
-            .await()
-        val overflow = snap.documents.drop(PostDraft.MAX_POST_DRAFTS)
-        for (doc in overflow) {
-            runCatching { doc.reference.delete().await() }
-        }
     }
 }

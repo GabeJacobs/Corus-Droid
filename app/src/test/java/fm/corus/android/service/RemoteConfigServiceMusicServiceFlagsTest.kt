@@ -29,6 +29,20 @@ import org.mockito.kotlin.whenever
  *     window instead of returning false.
  */
 class RemoteConfigServiceMusicServiceFlagsTest {
+    @Test fun `qobuz defaults off before any Remote Config value arrives`() {
+        val remoteConfig = mock<FirebaseRemoteConfig>()
+        val staticValue = configValue(FirebaseRemoteConfig.VALUE_SOURCE_STATIC, false)
+        whenever(remoteConfig.getValue(eq("qobuz_enabled"))).thenReturn(staticValue)
+        assertFalse(service(remoteConfig).qobuzEnabled)
+    }
+
+    @Test fun `qobuz can be enabled only by a fetched value`() {
+        val remoteConfig = mock<FirebaseRemoteConfig>()
+        val remoteValue = configValue(FirebaseRemoteConfig.VALUE_SOURCE_REMOTE, true)
+        whenever(remoteConfig.getValue(eq("qobuz_enabled"))).thenReturn(remoteValue)
+        assertTrue(service(remoteConfig).qobuzEnabled)
+    }
+
 
     private fun service(remoteConfig: FirebaseRemoteConfig): RemoteConfigService {
         val prefs = mock<SharedPreferences>()

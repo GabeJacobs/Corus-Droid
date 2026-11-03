@@ -473,7 +473,7 @@
     <string name="search_see_all">"Ver todos"</string>
     <string name="search_taste_matches_title">"Gostos parecidos"</string>
     <string name="search_taste_matches_feed_cta_body">"Veja posts de pessoas que compartilham o seu gosto."</string>
-    <string name="search_taste_matches_feed_cta_button">"Ir para o feed de Gostos parecidos"</string>
+    <string name="search_taste_matches_feed_cta_button">"Ir para o Seu Mix"</string>
     <string name="search_mutual_connections_title">"Conexões em comum"</string>
     <string name="search_popular_title">"Populares no Corus"</string>
     <string name="search_new_title">"Novos no Corus"</string>
@@ -1529,6 +1529,7 @@
     <string name="share_post_author_preview">"Post de %1$s"</string>
     <string name="share_profile_invitation">"Me encontre no Corus"</string>
     <string name="share_profile_link_preview">"Prévia do link"</string>
+    <string name="referral_reward_active_title">Seus 3 meses estão ativos</string>
     <string name="profile_shuffle">Reproduzir perfil aleatoriamente</string>
     <string name="profile_shuffle_no_songs">Ainda não há músicas para reproduzir</string>
     <string name="profile_shuffle_failed">Não foi possível carregar as músicas deste perfil. Tente novamente.</string>

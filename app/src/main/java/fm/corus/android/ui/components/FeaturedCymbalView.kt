@@ -328,7 +328,9 @@ fun FeaturedCymbalView(
                 // aren't on Spotify, so a Spotify viewer is routed to Apple
                 // Music — show that. TIDAL/Deezer viewers keep their own glyph.
                 // Mirrors iOS.
-                val displayedService = if (isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
+                val displayedService = if (musicService == fm.corus.android.data.model.MusicService.QOBUZ) {
+                    if (isAppleMusic) fm.corus.android.data.model.MusicService.APPLE_MUSIC else fm.corus.android.data.model.MusicService.SPOTIFY
+                } else if (isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY) {
                     fm.corus.android.domain.SongPlayRouting.displayedLinkOutService(
                         post.track.source,
                         musicService,

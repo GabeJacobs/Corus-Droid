@@ -65,9 +65,6 @@ data class PostDraft(
     }
 
     companion object {
-        /** Max drafts kept per user; oldest are trimmed on a fresh save. */
-        const val MAX_POST_DRAFTS = 30
-
         /**
          * Native [CymbalTrack] → canonical `track` map (web `SongSearchResult`).
          * Field-name correspondences that DIFFER from Android's post-doc shape:

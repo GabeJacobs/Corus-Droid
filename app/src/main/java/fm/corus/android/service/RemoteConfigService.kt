@@ -47,7 +47,7 @@ class RemoteConfigService @Inject constructor(
                 remoteConfig.activate().addOnSuccessListener {
                     cacheFeedFlags()
                     auth.currentUser?.uid?.takeIf { it == newTabResolvedUid }?.let { cacheFeedTabPresentation(it) }
-                    _revision.value += 1
+                    _revision.value += 1; ReferralService.setEnabled(referralsEnabled, auth.currentUser?.uid); ReferralAttribution.updateEnabled(referralAttributionEnabled)
                 }
             }
             override fun onError(error: com.google.firebase.remoteconfig.FirebaseRemoteConfigException) {
@@ -274,6 +274,13 @@ class RemoteConfigService @Inject constructor(
     /// Master gate for the Deezer link-out integration (onboarding + settings
     /// service picker + post link-out). Mirrors `tidalEnabled` / iOS+web
     /// `deezer_enabled`. Keep OFF until web + iOS + Android all ship.
+    val qobuzEnabled: Boolean
+        get() = flagWithDefault("qobuz_enabled", false)
+    val referralAttributionEnabled: Boolean
+        get() = debugOverride("referrals_enabled") ?: if (BuildConfig.DEBUG) true else flagWithDefault("referrals_enabled", false)
+    val referralsEnabled: Boolean
+        get() = auth.currentUser?.uid?.let { uid -> newTabResolvedUid == uid && referralAttributionEnabled } ?: false
+
     val deezerEnabled: Boolean
         get() = flagWithDefault("deezer_enabled", true)
 
@@ -306,9 +313,7 @@ class RemoteConfigService @Inject constructor(
     /// Shares the `trending_feed_enabled` RC key with iOS.
     private var newTabResolvedUid: String? = null
     val feedNewTabEnabled: Boolean
-        get() = debugOverride("feed_new_tab_enabled") ?: (auth.currentUser?.uid != null &&
-            (presentedFeedValue("feed_new_tab_enabled")?.toBoolean()
-                ?: (newTabResolvedUid == auth.currentUser?.uid && remoteConfig.getBoolean("feed_new_tab_enabled"))))
+        get() = auth.currentUser?.uid != null
 
     val trendingFeedEnabled: Boolean
         get() = feedFlag("trending_feed_enabled")
@@ -659,6 +664,7 @@ class RemoteConfigService @Inject constructor(
         debugOverride(key) ?: remoteConfig.getBoolean(key)
 
     fun debugOverride(key: String): Boolean? {
+        if (key in setOf("feed_new_tab_enabled", "for_you_prototype_enabled")) return null
         if (!BuildConfig.DEBUG || !devPrefs.contains(key)) return null
         return devPrefs.getBoolean(key, false)
     }
@@ -666,7 +672,7 @@ class RemoteConfigService @Inject constructor(
     private var debugServerValues = emptyMap<String, String>()
     private val debugForYouKey = "for_you_prototype_enabled"
     private val debugOverrideKeys: Set<String>
-        get() = registeredDebugFeatureFlags.map { it.key }.toSet() + debugForYouKey
+        get() = registeredDebugFeatureFlags.map { it.key }.toSet()
     private var debugServerUid: String? = null
     var debugServerCatalogMessage: String? = null
         private set
@@ -698,6 +704,8 @@ class RemoteConfigService @Inject constructor(
             DebugFeatureFlag("corus_club_enabled") { corusClubEnabled },
             DebugFeatureFlag("corus_flair_open") { corusFlairOpen },
             DebugFeatureFlag("daily_post_limit_enabled") { dailyPostLimitEnabled },
+            DebugFeatureFlag("qobuz_enabled") { qobuzEnabled },
+            DebugFeatureFlag("referrals_enabled") { referralsEnabled },
             DebugFeatureFlag("deezer_enabled") { deezerEnabled },
             DebugFeatureFlag("dm_video_enabled") { dmVideoEnabled },
             DebugFeatureFlag("email_otp_auth_enabled") { emailOtpAuthEnabled },
@@ -708,7 +716,6 @@ class RemoteConfigService @Inject constructor(
             DebugFeatureFlag("feed_decade_filter_enabled") { feedDecadeFilterEnabled },
             DebugFeatureFlag("feed_energy_filter_enabled") { feedEnergyFilterEnabled },
             DebugFeatureFlag("feed_mode_tabs_enabled") { feedModeTabsEnabled },
-            DebugFeatureFlag("feed_new_tab_enabled") { feedNewTabEnabled },
             DebugFeatureFlag("feed_switch_hint_enabled") { feedSwitchHintEnabled },
             DebugFeatureFlag("following_denorm_reads_enabled") { followingDenormReadsEnabled },
             DebugFeatureFlag("full_player_save_button_enabled") { fullPlayerSaveButtonEnabled },
@@ -770,8 +777,8 @@ class RemoteConfigService @Inject constructor(
             val server = if (debugServerUid == auth.currentUser?.uid) debugServerValues else emptyMap()
             val serverKeys = server.keys + "for_you_prototype_enabled"
             return (flags + serverKeys.map { key ->
-                DebugFeatureFlag(key, rawValue = server[key], namespace = "server", allowsLocalOverride = key == debugForYouKey) {
-                    (if (key == debugForYouKey) debugOverride(key) else null) ?: (server[key] == "true")
+                DebugFeatureFlag(key, rawValue = server[key], namespace = "server", allowsLocalOverride = false) {
+                    server[key] == "true"
                 }
             }).sortedWith(compareBy<DebugFeatureFlag> { it.key != debugForYouKey }.thenBy { it.rowId.lowercase() })
         }
@@ -792,7 +799,7 @@ class RemoteConfigService @Inject constructor(
         val edit = devPrefs.edit()
         if (value == null) edit.remove(key) else edit.putBoolean(key, value)
         edit.apply()
-        _revision.value += 1
+        _revision.value += 1; ReferralService.setEnabled(referralsEnabled, auth.currentUser?.uid); ReferralAttribution.updateEnabled(referralAttributionEnabled)
     }
 
     fun resetDebugOverrides() {
@@ -800,7 +807,7 @@ class RemoteConfigService @Inject constructor(
         val edit = devPrefs.edit()
         debugOverrideKeys.forEach { edit.remove(it) }
         edit.apply()
-        _revision.value += 1
+        _revision.value += 1; ReferralService.setEnabled(referralsEnabled, auth.currentUser?.uid); ReferralAttribution.updateEnabled(referralAttributionEnabled)
     }
 
     suspend fun refreshDebugFeatureFlags() {
@@ -811,7 +818,7 @@ class RemoteConfigService @Inject constructor(
             debugServerValues = emptyMap()
             debugServerUid = null
             debugServerCatalogMessage = "Sign in to check backend flags."
-            _revision.value += 1
+            _revision.value += 1; ReferralService.setEnabled(referralsEnabled, auth.currentUser?.uid); ReferralAttribution.updateEnabled(referralAttributionEnabled)
             return
         }
         var values = emptyMap<String, String>()
@@ -843,7 +850,7 @@ class RemoteConfigService @Inject constructor(
         debugServerValues = values
         debugServerUid = uid
         debugServerCatalogMessage = message
-        _revision.value += 1
+        _revision.value += 1; ReferralService.setEnabled(referralsEnabled, auth.currentUser?.uid); ReferralAttribution.updateEnabled(referralAttributionEnabled)
     }
 
     data class FeedTabPresentation(
@@ -853,7 +860,7 @@ class RemoteConfigService @Inject constructor(
         val generation: Int = 0,
     )
 
-    private val tabBooleanKeys = listOf("feed_new_tab_enabled", "feed_mode_tabs_enabled",
+    private val tabBooleanKeys = listOf("feed_mode_tabs_enabled",
         "trending_feed_enabled", "favorites_enabled", "taste_matches_enabled", "taste_matches_tester")
     private val tabStringKeys = listOf("feed_mode_order", "for_you_default_mode")
     private val legacyTabBooleanKeys = setOf("feed_mode_tabs_enabled", "trending_feed_enabled",
@@ -910,7 +917,7 @@ class RemoteConfigService @Inject constructor(
         val current = _feedTabPresentation.value
         if (current.uid == uid && current.generation == generation && auth.currentUser?.uid == uid && !current.hasPresentation) {
             _feedTabPresentation.value = current.copy(hasPresentation = true, values = values ?: current.values)
-            _revision.value += 1
+            _revision.value += 1; ReferralService.setEnabled(referralsEnabled, auth.currentUser?.uid); ReferralAttribution.updateEnabled(referralAttributionEnabled)
         }
     }
 
@@ -938,12 +945,12 @@ class RemoteConfigService @Inject constructor(
     /// applied UID differs from the previously applied one (login / switch),
     /// meaning any cached config was evaluated for a different user.
     suspend fun setCurrentUserSignal(uid: String?): Boolean {
-        if (newTabResolvedUid != uid) { newTabResolvedUid = null; _revision.value += 1 }
+        if (newTabResolvedUid != uid) { newTabResolvedUid = null; _revision.value += 1; ReferralService.setEnabled(referralsEnabled, auth.currentUser?.uid); ReferralAttribution.updateEnabled(referralAttributionEnabled) }
         if (BuildConfig.DEBUG && debugServerUid != uid) {
             debugServerValues = emptyMap()
             debugServerUid = null
             debugServerCatalogMessage = null
-            _revision.value += 1
+            _revision.value += 1; ReferralService.setEnabled(referralsEnabled, auth.currentUser?.uid); ReferralAttribution.updateEnabled(referralAttributionEnabled)
         }
         return try {
             val signals = CustomSignals.Builder()
@@ -997,7 +1004,7 @@ class RemoteConfigService @Inject constructor(
                 cacheFeedFlags()
                 val presentation = requestedUid?.let { cacheFeedTabPresentation(it) }
                 finishFeedTabPresentation(requestedUid, generation, presentation)
-                _revision.value += 1
+                _revision.value += 1; ReferralService.setEnabled(referralsEnabled, auth.currentUser?.uid); ReferralAttribution.updateEnabled(referralAttributionEnabled)
                 logValues(activated)
             } catch (e: Exception) {
                 Log.w("RemoteConfig", "fetchAndActivate failed", e)
@@ -1146,6 +1153,8 @@ class RemoteConfigService @Inject constructor(
             "tidal_enabled" to true,
             "tidal_full_playback_enabled" to false,
             "youtube_music_enabled" to false,
+            "qobuz_enabled" to false,
+            "referrals_enabled" to false,
             "deezer_enabled" to true,
             "following_denorm_reads_enabled" to true,
             "comment_controls_on_posts" to true,
@@ -1198,7 +1207,6 @@ class RemoteConfigService @Inject constructor(
             "spotify_ftue_variant" to "b",
             "feed_mode_order" to FeedModeOrder.DEFAULT_RAW,
             "feed_mode_tabs_enabled" to true,
-            "feed_new_tab_enabled" to false,
         )
     }
 }

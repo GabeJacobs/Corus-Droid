@@ -91,7 +91,7 @@ fun ContactFriendsListScreen(
                             putExtra(Intent.EXTRA_TEXT, shareText)
                             type = "text/plain"
                         }
-                        context.startActivity(Intent.createChooser(sendIntent, shareChooser))
+                        if (fm.corus.android.service.ReferralService.enabled.value) fm.corus.android.service.ReferralService.openInvite("contacts") else context.startActivity(Intent.createChooser(sendIntent, shareChooser))
                     },
                     shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
                     colors = ButtonDefaults.buttonColors(

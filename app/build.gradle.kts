@@ -14,6 +14,9 @@ if (localPropertiesFile.exists()) {
 val mapKitJsToken = providers.gradleProperty("mapKitJsToken").orNull
     ?: localProperties.getProperty("mapkit.js.token", "")
 
+val appsFlyerDevKey = localProperties.getProperty("appsflyer.dev.key", System.getenv("CORUS_APPSFLYER_DEV_KEY") ?: "")
+require(appsFlyerDevKey.all { it.isLetterOrDigit() || it in "_-" }) { "Invalid AppsFlyer developer key format" }
+
 val versionPropsFile = rootProject.file("version.properties")
 val versionProps = Properties()
 if (versionPropsFile.exists()) {
@@ -57,6 +60,7 @@ android {
         targetSdk = 36
         versionCode = resolvedVersionCode
         versionName = resolvedVersionName
+        buildConfigField("String", "APPSFLYER_DEV_KEY", "\"${appsFlyerDevKey}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -118,6 +122,8 @@ android {
 }
 
 dependencies {
+    implementation("com.appsflyer:af-android-sdk:7.0.4")
+    implementation("com.android.installreferrer:installreferrer:2.2")
     // Classic View runtime; avoids upgrading the app's Compose BOM for gifts.
     implementation("app.rive:rive-android:10.5.3") {
         // We embed RiveAnimationView, not Rive's experimental Compose wrapper.
@@ -234,4 +240,9 @@ dependencies {
     implementation(libs.camerax.camera2)
     implementation(libs.camerax.lifecycle)
     implementation(libs.camerax.view)
+}
+
+// A release without attribution configuration must not silently ship a disabled SDK.
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    doFirst { check(appsFlyerDevKey.isNotBlank()) { "Set CORUS_APPSFLYER_DEV_KEY or appsflyer.dev.key before building a release" } }
 }

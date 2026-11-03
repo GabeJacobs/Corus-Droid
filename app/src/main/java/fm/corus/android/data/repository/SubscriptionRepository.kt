@@ -2,11 +2,14 @@ package fm.corus.android.data.repository
 
 import com.revenuecat.purchases.CustomerInfo
 import com.revenuecat.purchases.Package
+import com.revenuecat.purchases.Offering
 import com.revenuecat.purchases.Purchases
 import com.revenuecat.purchases.PurchasesError
 import com.revenuecat.purchases.getOfferingsWith
 import com.revenuecat.purchases.interfaces.UpdatedCustomerInfoListener
 import com.revenuecat.purchases.models.StoreTransaction
+import com.revenuecat.purchases.models.Period
+import com.revenuecat.purchases.paywalls.events.CustomPaywallImpressionParams
 import com.revenuecat.purchases.purchaseWith
 import com.revenuecat.purchases.restorePurchasesWith
 import android.content.SharedPreferences
@@ -30,6 +33,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.Date
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
@@ -89,17 +93,33 @@ class SubscriptionRepository @Inject constructor(
 
     private val _isClubMember = MutableStateFlow(prefs.getBoolean(PREF_IS_CLUB_MEMBER, false))
     val isClubMember: StateFlow<Boolean> = _isClubMember.asStateFlow()
+    private val _hasStoreSubscription = MutableStateFlow<Boolean?>(null)
+    val hasStoreSubscription: StateFlow<Boolean?> = _hasStoreSubscription.asStateFlow()
 
     private val _isVerified = MutableStateFlow(prefs.getBoolean(PREF_IS_VERIFIED, false))
     val isVerified: StateFlow<Boolean> = _isVerified.asStateFlow()
 
     private val _packages = MutableStateFlow<List<Package>>(emptyList())
     val packages: StateFlow<List<Package>> = _packages.asStateFlow()
+    private val _currentOffering = MutableStateFlow<Offering?>(null)
+    val currentOffering: StateFlow<Offering?> = _currentOffering.asStateFlow()
+    private val offeringGeneration = AtomicLong()
+
+    private fun clearOfferingContext() {
+        offeringGeneration.incrementAndGet()
+        _currentOffering.value = null
+        _packages.value = emptyList()
+        analyticsService.setClubOffering(null)
+    }
 
     /** Whether the default Club package still has a Play intro trial.
      *  False until offerings load — never promise a trial we cannot give. */
-    val hasClubIntroTrial: StateFlow<Boolean> = _packages
-        .map { pkgs -> clubPackageHasIntroTrial(pkgs, remoteConfig.paywallDefaultYearly) }
+    val clubIntroTrialPeriod: StateFlow<Period?> = _packages
+        .map { pkgs -> clubPackageIntroTrialPeriod(pkgs, remoteConfig.paywallDefaultYearly) }
+        .stateIn(scope, SharingStarted.Eagerly, null)
+
+    val hasClubIntroTrial: StateFlow<Boolean> = clubIntroTrialPeriod
+        .map { it != null }
         .stateIn(scope, SharingStarted.Eagerly, false)
 
     // Posts created in the rolling 24h window (mirrors iOS SubscriptionService).
@@ -369,6 +389,10 @@ class SubscriptionRepository @Inject constructor(
     }
 
     suspend fun loginUser(uid: String) {
+        if (runCatching { Purchases.sharedInstance.appUserID }.getOrNull() != uid) {
+            clearOfferingContext()
+            _hasStoreSubscription.value = null
+        }
         Purchases.sharedInstance.updatedCustomerInfoListener = this
         try {
             val customerInfo = awaitLogIn(uid)
@@ -379,6 +403,7 @@ class SubscriptionRepository @Inject constructor(
         } catch (e: Exception) {
             android.util.Log.e("SubscriptionRepo", "loginUser failed", e)
         }
+        awaitOfferings()
     }
 
     /** Suspend wrapper around `Purchases.logIn`. Resolves null on error. */
@@ -432,6 +457,8 @@ class SubscriptionRepository @Inject constructor(
     }
 
     fun logoutUser() {
+        _hasStoreSubscription.value = null
+        clearOfferingContext()
         _isClubMember.value = false
         _isVerified.value = false
         _recentPostCount.value = 0
@@ -458,17 +485,41 @@ class SubscriptionRepository @Inject constructor(
 
     /** Resolves after the Club packages (and therefore [hasClubIntroTrial]) are current. */
     suspend fun awaitOfferings() = suspendCancellableCoroutine<Unit> { cont ->
+        val generation = offeringGeneration.get()
         try {
+            val owner = Purchases.sharedInstance.appUserID
             Purchases.sharedInstance.getOfferingsWith(
                 onError = { if (cont.isActive) cont.resume(Unit) },
                 onSuccess = { offerings ->
+                    val firebaseUid = runCatching { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid }.getOrNull()
+                    if (generation != offeringGeneration.get() || owner != Purchases.sharedInstance.appUserID ||
+                        (firebaseUid != null && firebaseUid != owner)) {
+                        if (cont.isActive) cont.resume(Unit)
+                        return@getOfferingsWith
+                    }
+                    _currentOffering.value = offerings.current
                     _packages.value = offerings.current?.availablePackages ?: emptyList()
+                    analyticsService.setClubOffering(offerings.current?.identifier)
                     if (cont.isActive) cont.resume(Unit)
                 },
             )
         } catch (_: Exception) {
             if (cont.isActive) cont.resume(Unit)
         }
+    }
+
+    fun trackClubPaywallImpression(source: String, pkg: Package): Boolean {
+        val offering = _currentOffering.value ?: return false
+        if (offering.availablePackages.none { it.product.id == pkg.product.id } ||
+            pkg.presentedOfferingContext.offeringIdentifier != offering.identifier) return false
+        return runCatching {
+            val firebaseUid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+            if (firebaseUid != null && Purchases.sharedInstance.appUserID != firebaseUid) return false
+            Purchases.sharedInstance.trackCustomPaywallImpression(CustomPaywallImpressionParams(
+                paywallId = "corus_club_$source", offeringId = offering.identifier,
+            ))
+            true
+        }.getOrDefault(false)
     }
 
     fun purchase(
@@ -562,6 +613,12 @@ class SubscriptionRepository @Inject constructor(
     }
 
     private fun updateClubStatus(customerInfo: CustomerInfo) {
+        // Gifts can outlast a paid plan, so inspect every active subscription.
+        _hasStoreSubscription.value = customerInfo.activeSubscriptions.any { !it.startsWith("rc_promo_") }
+            || customerInfo.subscriptionsByProductIdentifier.any { (id, sub) ->
+                !id.startsWith("rc_promo_") && (sub.gracePeriodExpiresDate?.time ?: 0L) > System.currentTimeMillis()
+            }
+        fm.corus.android.service.ReferralService.storeSubscribed.value = _hasStoreSubscription.value
         val isActive = customerInfo.entitlements[CLUB_ENTITLEMENT_ID]?.isActive == true
         _isClubMember.value = isActive
         prefs.edit().putBoolean(PREF_IS_CLUB_MEMBER, isActive).apply()
@@ -578,9 +635,9 @@ class SubscriptionRepository @Inject constructor(
 }
 
 /** Default Club package (yearly vs monthly from RC) still has a Play intro trial. */
-private fun clubPackageHasIntroTrial(packages: List<Package>, defaultYearly: Boolean): Boolean {
+private fun clubPackageIntroTrialPeriod(packages: List<Package>, defaultYearly: Boolean): Period? {
     val yearly = packages.firstOrNull { it.identifier == "\$rc_annual" }
     val monthly = packages.firstOrNull { it.identifier == "\$rc_monthly" }
     val preferred = if (defaultYearly) yearly ?: monthly else monthly ?: yearly
-    return preferred?.product?.subscriptionOptions?.freeTrial != null
+    return preferred?.product?.defaultOption?.freePhase?.billingPeriod
 }

@@ -34,6 +34,7 @@ class CorusApplication : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         FirebaseApp.initializeApp(this)
+        fm.corus.android.service.ReferralAttribution.install(this)
         // Freeze the theme default (Light for existing installs, System for fresh
         // ones) at process start, before onboarding can run, so a brand-new user is
         // never mistaken for an existing one.

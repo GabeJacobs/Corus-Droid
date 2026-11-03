@@ -49,7 +49,7 @@ data class ForYouStayCloseProgress(val postCount: Int = 0, val threshold: Int = 
     }
 }
 
-/** Presentation is settled once per account session. Late replies only warm the cache. */
+/** Permanent feed presentation; product progress remains account-scoped. */
 data class ForYouPrototypeState(
     val uid: String? = null,
     val enabled: Boolean = false,
@@ -65,10 +65,4 @@ data class ForYouPrototypeState(
             !it.hasFullAccess && it.trialEndsAt != null && it.paywallLocked
         } == true
 
-    fun resolve(enabled: Boolean, generation: Int): ForYouPrototypeState =
-        if (this.generation != generation || hasPresentation) this
-        else copy(enabled = enabled, hasPresentation = true)
-
-    fun finish(generation: Int): ForYouPrototypeState =
-        if (this.generation != generation) this else copy(hasPresentation = true)
 }

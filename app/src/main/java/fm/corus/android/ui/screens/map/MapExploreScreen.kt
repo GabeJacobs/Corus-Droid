@@ -150,10 +150,12 @@ fun MapExploreScreen(
     var locationAttempt by remember { mutableIntStateOf(0) }
     var joiningChatLocation by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
-    val cities = sortedMapCitiesNear(
-        state.cities.filter { (it.facets[state.filter]?.count ?: 0) > 0 },
-        state.ownCity,
-    )
+    val cities = remember(state.cities, state.filter, state.ownCity) {
+        sortedMapCitiesNear(
+            state.cities.filter { (it.facets[state.filter]?.count ?: 0) > 0 },
+            state.ownCity,
+        )
+    }
     var sharedCityFocus by remember { mutableStateOf<MapCity?>(null) }
     var shareFocusRevision by rememberSaveable { mutableIntStateOf(0) }
     // Stopping Listen Mode clears [state.playing], but the map should remain

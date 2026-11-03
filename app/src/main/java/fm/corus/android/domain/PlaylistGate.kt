@@ -79,7 +79,7 @@ fun playlistExportChooserMessage(
  */
 fun usesSpotifyFallback(service: MusicService, youtubeEnabled: Boolean = false): Boolean =
     service == MusicService.APPLE_MUSIC ||
-        service == MusicService.DEEZER ||
+        service == MusicService.DEEZER || service == MusicService.QOBUZ ||
         (service == MusicService.YOUTUBE_MUSIC && !youtubeEnabled)
 
 /**

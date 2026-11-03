@@ -4,12 +4,15 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -23,7 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import fm.corus.android.R
+import fm.corus.android.ui.theme.CorusFont
 import kotlinx.coroutines.delay
 
 /**
@@ -48,28 +51,33 @@ private const val CHROME_HUD_FADE_IN_MS = 150
  * instant — the destination push is about to cover this chrome.
  */
 @Composable
-fun ChromeLoadingHud(visible: Boolean) {
+fun ChromeLoadingHud(
+    visible: Boolean,
+    message: String? = null,
+    spinnerTint: Color = Color.White,
+    showDelayMs: Long = CHROME_HUD_SHOW_DELAY_MS,
+) {
     var shown by remember { mutableStateOf(false) }
-    LaunchedEffect(visible) {
+    LaunchedEffect(visible, showDelayMs) {
         if (visible) {
-            delay(CHROME_HUD_SHOW_DELAY_MS)
+            delay(showDelayMs)
             shown = true
         } else {
             shown = false
         }
     }
     AnimatedVisibility(
-        visible = shown,
+        visible = visible && (showDelayMs == 0L || shown),
         enter = fadeIn(animationSpec = tween(CHROME_HUD_FADE_IN_MS)),
         exit = ExitTransition.None,
     ) {
-        ChromeLoadingHudCard()
+        ChromeLoadingHudCard(message, spinnerTint)
     }
 }
 
 @Composable
-private fun ChromeLoadingHudCard() {
-    val loading = stringResource(fm.corus.android.localization.CorusStrings.common_loading)
+private fun ChromeLoadingHudCard(message: String?, spinnerTint: Color) {
+    val loading = message ?: stringResource(fm.corus.android.localization.CorusStrings.common_loading)
     Surface(
         modifier = Modifier
             .fillMaxSize()
@@ -81,10 +89,19 @@ private fun ChromeLoadingHudCard() {
                 shape = RoundedCornerShape(18.dp),
                 color = Color.Black.copy(alpha = 0.85f),
             ) {
-                CircularProgressIndicator(
-                    color = Color.White,
+                Column(
                     modifier = Modifier.padding(28.dp),
-                )
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    CircularProgressIndicator(color = spinnerTint)
+                    if (message != null) Text(
+                        message,
+                        style = CorusFont.bodyMedium,
+                        color = Color.White,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
+                }
             }
         }
     }

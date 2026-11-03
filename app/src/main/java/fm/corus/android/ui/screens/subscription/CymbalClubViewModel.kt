@@ -65,7 +65,9 @@ class CymbalClubViewModel @Inject constructor(
 ) : ViewModel() {
 
     val isClubMember = subscriptionRepository.isClubMember
+    val hasStoreSubscription = subscriptionRepository.hasStoreSubscription
     val packages = subscriptionRepository.packages
+    val currentOffering = subscriptionRepository.currentOffering
 
     private val _isPurchasing = MutableStateFlow(false)
     val isPurchasing: StateFlow<Boolean> = _isPurchasing.asStateFlow()
@@ -91,11 +93,14 @@ class CymbalClubViewModel @Inject constructor(
     // `source` defaults to the nav-arg source (the full-screen route), but the
     // bottom-sheet paywalls pass their own `source` param explicitly — otherwise
     // every sheet presentation would log/attribute as `default`.
-    fun logPaywallShown(source: PaywallSource = this.source) {
-        analyticsService.logPaywallShown(source.analyticsName, defaultPlan)
+    fun logPaywallShown(source: PaywallSource = this.source, pkg: Package): Boolean {
+        if (!subscriptionRepository.trackClubPaywallImpression(source.analyticsName, pkg)) return false
+        analyticsService.logPaywallShown(source.analyticsName, defaultPlan,
+            pkg.presentedOfferingContext.offeringIdentifier, pkg.product.id)
         if (source == PaywallSource.ONBOARDING) {
             analyticsService.logOnboardingClubOfferShown()
         }
+        return true
     }
 
     fun logPaywallDismissed(source: PaywallSource = this.source, method: String? = null) {
@@ -108,7 +113,9 @@ class CymbalClubViewModel @Inject constructor(
     fun purchase(activity: Activity, pkg: Package, planName: String, source: PaywallSource = this.source) {
         _isPurchasing.value = true
         _errorMessage.value = null
-        analyticsService.logPurchaseStarted(planName, source.analyticsName)
+        val offeringID = pkg.presentedOfferingContext.offeringIdentifier
+        val productID = pkg.product.id
+        analyticsService.logPurchaseStarted(planName, source.analyticsName, offeringID, productID)
         viewModelScope.launch {
             // Never let the purchase fire against RevenueCat's anonymous id: make
             // sure the SDK is aliased to the Firebase UID first. Otherwise the
@@ -119,7 +126,7 @@ class CymbalClubViewModel @Inject constructor(
                 _isPurchasing.value = false
                 when (outcome) {
                     is PurchaseOutcome.Success -> {
-                        analyticsService.logPurchaseCompleted(planName, source.analyticsName)
+                        analyticsService.logPurchaseCompleted(planName, source.analyticsName, offeringID, productID)
                         if (source == PaywallSource.ONBOARDING) {
                             analyticsService.logOnboardingClubOfferSubscribed(planName)
                         }
@@ -129,7 +136,7 @@ class CymbalClubViewModel @Inject constructor(
                         _purchaseResult.value = PurchaseResult.Cancelled
                     }
                     is PurchaseOutcome.Failed -> {
-                        analyticsService.logPurchaseFailed(planName, outcome.error)
+                        analyticsService.logPurchaseFailed(planName, outcome.error, offeringID, productID)
                         _errorMessage.value = "Something went wrong. Please try again."
                         _purchaseResult.value = PurchaseResult.Failed
                     }

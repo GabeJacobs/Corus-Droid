@@ -5,6 +5,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MusicServiceTest {
+    @Test fun `qobuz preference round trips across clients`() {
+        assertEquals(MusicService.QOBUZ, MusicService.fromValue("qobuz"))
+        assertEquals("Qobuz", MusicService.QOBUZ.displayLabel)
+    }
+
 
     @Test fun `tidal has expected value and label`() {
         assertEquals("tidal", MusicService.TIDAL.value)

@@ -1,0 +1,18 @@
+{
+  "publishedTemplateVersion": 376,
+  "key": "referrals_enabled",
+  "default": "false",
+  "mobileReleaseConditions": [
+    {
+      "name": "Referrals - iOS 1.8.3 and newer",
+      "expression": "app.id == '1:70104097279:ios:1d1bfb5b469c268ec2c7ca' && app.version.>=(['1.8.3'])",
+      "value": "true"
+    },
+    {
+      "name": "Referrals - Android 1.6.5 and newer",
+      "expression": "app.id == '1:70104097279:android:a12ee9a64fc2d6b7c2c7ca' && app.version.>=(['1.6.5'])",
+      "value": "true"
+    }
+  ],
+  "notes": "Readback record only, not a full template. Existing pilot conditions and unrelated parameters are preserved. Web and current store versions are not newly enabled. Use Corus-Web/backend/functions/scripts/prepare-mobile-referral-launch.cjs for a fresh validated merge, never upload this file as a template."
+}

@@ -36,6 +36,18 @@ enum class SearchSection(val value: String) {
 class AnalyticsService @Inject constructor(
     private val analytics: FirebaseAnalytics,
 ) {
+    @Volatile private var clubOfferingIdentifier: String? = null
+    private var analyticsUserId: String? = null
+
+    fun setClubOffering(identifier: String?) {
+        val changed = clubOfferingIdentifier != identifier
+        clubOfferingIdentifier = identifier
+        val params = ClubTrialAnalytics.parameters(identifier)
+        listOf("club_offering_id", "club_trial_variant").forEach {
+            analytics.setUserProperty(it, params[it])
+        }
+        if (changed && identifier != null) logEvent("club_offering_loaded")
+    }
     init {
         // Mirrors iOS (`app_platform=ios`) and the web app so GA4 reports
         // can split web vs. iOS vs. Android cleanly.
@@ -45,6 +57,8 @@ class AnalyticsService @Inject constructor(
     // MARK: - User Identity
 
     fun setUserId(userId: String?) {
+        if (analyticsUserId != userId) setClubOffering(null)
+        analyticsUserId = userId
         analytics.setUserId(userId)
     }
 
@@ -68,6 +82,7 @@ class AnalyticsService @Inject constructor(
     }
 
     fun clearUserProperties() {
+        setClubOffering(null)
         listOf(
             "username",
             "is_club_member",
@@ -84,9 +99,9 @@ class AnalyticsService @Inject constructor(
 
     // MARK: - Core Logging
 
-    fun logEvent(name: String, params: Map<String, Any> = emptyMap()) {
+    fun logEvent(name: String, params: Map<String, Any> = emptyMap(), offeringIdentifier: String? = null) {
         val bundle = Bundle().apply {
-            params.forEach { (key, value) ->
+            (ClubTrialAnalytics.parameters(offeringIdentifier ?: clubOfferingIdentifier) + params).forEach { (key, value) ->
                 when (value) {
                     is String -> putString(key, value)
                     is Int -> putInt(key, value)
@@ -636,11 +651,18 @@ class AnalyticsService @Inject constructor(
 
     // MARK: - Subscription / Paywall Events
 
-    fun logPaywallShown(source: String, defaultPlan: String = "monthly") = logEvent("paywall_shown", mapOf("source" to source, "default_plan" to defaultPlan))
+    fun logPaywallShown(source: String, defaultPlan: String = "monthly", offeringIdentifier: String? = null, productIdentifier: String? = null) =
+        logEvent("paywall_shown", mapOf("source" to source, "default_plan" to defaultPlan) + productParameters(productIdentifier), offeringIdentifier)
+    fun logPaywallRequested(source: String, defaultPlan: String = "monthly") =
+        logEvent("paywall_requested", mapOf("source" to source, "default_plan" to defaultPlan))
     fun logPaywallDismissed() = logEvent("paywall_dismissed")
-    fun logPurchaseStarted(plan: String, source: String) = logEvent("purchase_started", mapOf("plan" to plan, "source" to source))
-    fun logPurchaseCompleted(plan: String, source: String) = logEvent("purchase_completed", mapOf("plan" to plan, "source" to source))
-    fun logPurchaseFailed(plan: String, error: String) = logEvent("purchase_failed", mapOf("plan" to plan, "error" to error.take(100)))
+    fun logPurchaseStarted(plan: String, source: String, offeringIdentifier: String? = null, productIdentifier: String? = null) =
+        logEvent("purchase_started", mapOf("plan" to plan, "source" to source) + productParameters(productIdentifier), offeringIdentifier)
+    fun logPurchaseCompleted(plan: String, source: String, offeringIdentifier: String? = null, productIdentifier: String? = null) =
+        logEvent("purchase_completed", mapOf("plan" to plan, "source" to source) + productParameters(productIdentifier), offeringIdentifier)
+    fun logPurchaseFailed(plan: String, error: String, offeringIdentifier: String? = null, productIdentifier: String? = null) =
+        logEvent("purchase_failed", mapOf("plan" to plan, "error" to error.take(100)) + productParameters(productIdentifier), offeringIdentifier)
+    private fun productParameters(id: String?): Map<String, String> = id?.let { mapOf("club_product_id" to it) } ?: emptyMap()
     fun logPurchaseRestored() = logEvent("purchase_restored")
     fun logPurchaseRestoreFailed(error: String) = logEvent("purchase_restore_failed", mapOf("error" to error.take(100)))
     fun logSubscriptionExpired() = logEvent("subscription_expired")

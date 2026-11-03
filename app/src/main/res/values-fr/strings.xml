@@ -572,7 +572,7 @@
     <string name="search_see_all">"Voir tout"</string>
     <string name="search_taste_matches_title">"Affinités de goûts"</string>
     <string name="search_taste_matches_feed_cta_body">"Vois les posts des personnes qui partagent tes goûts."</string>
-    <string name="search_taste_matches_feed_cta_button">"Aller au fil d’affinités de goûts"</string>
+    <string name="search_taste_matches_feed_cta_button">"Aller à Ton Mix"</string>
     <string name="search_mutual_connections_title">"Relations en commun"</string>
     <string name="search_popular_title">"Populaires sur Corus"</string>
     <string name="search_new_title">"Nouveau sur Corus"</string>
@@ -1518,6 +1518,7 @@
     <string name="share_post_author_preview">"Publication de %1$s"</string>
     <string name="share_profile_invitation">"Retrouve-moi sur Corus"</string>
     <string name="share_profile_link_preview">"Aperçu du lien"</string>
+    <string name="referral_reward_active_title">@string/corus_referral_claim_applied_title</string>
     <string name="profile_shuffle">Lire le profil en aléatoire</string>
     <string name="profile_shuffle_no_songs">Aucune chanson à lire pour l’instant</string>
     <string name="profile_shuffle_failed">Impossible de charger les morceaux de ce profil. Réessayez.</string>

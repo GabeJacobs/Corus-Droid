@@ -71,6 +71,7 @@ private object MapPreviewWebViewCache {
 private const val APPLE_MAP_JS_BRIDGE_TAG = 0x41504D4A
 
 private class AppleMapJsBridge(private val host: WebView) {
+    val payloadGate = MapPayloadGate()
     @Volatile var onSelectCity: (String) -> Unit = {}
     @Volatile var onCameraSettled: (Double, Double, Double) -> Unit = { _, _, _ -> }
     @Volatile var onMarkersRendered: (String) -> Unit = {}
@@ -185,8 +186,10 @@ internal fun AppleCityMapView(
         label = "mapPreviewSnapshot",
     )
     val expectsMarkers = cities.any { (it.facets[filter]?.count ?: 0) > 0 }
-    val previewFaces = cities.firstOrNull { it.city.cityId == focus?.cityId }?.facets?.get(filter)?.previews.orEmpty()
-    val focusedFaces = mapFocusedFaces(previewFaces, selectedPeople + listOfNotNull(playingPerson), focus?.cityId, playingUserId)
+    val focusedFaces = remember(cities, filter, focus?.cityId, selectedPeople, playingPerson, playingUserId) {
+        val previewFaces = cities.firstOrNull { it.city.cityId == focus?.cityId }?.facets?.get(filter)?.previews.orEmpty()
+        mapFocusedFaces(previewFaces, selectedPeople + listOfNotNull(playingPerson), focus?.cityId, playingUserId)
+    }
     val artworkKey = "${focus?.cityId}:${focusedFaces.joinToString { it.user.id }}"
     LaunchedEffect(artworkKey, showArtwork) {
         artwork = emptyMap()
@@ -198,15 +201,26 @@ internal fun AppleCityMapView(
         artwork = mapClusterArtwork(focusedFaces.map { it.user.id }, posts.mapValues { it.value?.displayImageURL })
     }
     val viewerId = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
-    val payload = JSONObject(appleMapPayload(cities, filter, dark, focus, artwork, playbackMode, playingUserId, viewerId, focusedFaces))
-        .put("focusRevision", focusRevision)
-        .put("focusInVisibleMap", focusInVisibleMap)
-        .put("preserveCameraOnFocus", preserveCameraOnFocus)
-        .put("citySheetOpen", citySheetOpen)
-        .put("mapTopInsetFraction", mapTopInsetFraction)
-        .put("mapBottomOcclusionFraction", mapBottomOcclusionFraction)
-        .toString()
+    val payload = remember(cities, filter, dark, focus, artwork, playbackMode, playingUserId, viewerId,
+                           focusedFaces, focusRevision, focusInVisibleMap, preserveCameraOnFocus,
+                           citySheetOpen, mapTopInsetFraction, mapBottomOcclusionFraction) {
+        appleMapPayload(cities, filter, dark, focus, artwork, playbackMode, playingUserId, viewerId, focusedFaces)
+            .put("focusRevision", focusRevision)
+            .put("focusInVisibleMap", focusInVisibleMap)
+            .put("preserveCameraOnFocus", preserveCameraOnFocus)
+            .put("citySheetOpen", citySheetOpen)
+            .put("mapTopInsetFraction", mapTopInsetFraction)
+            .put("mapBottomOcclusionFraction", mapBottomOcclusionFraction)
+            .toString()
+    }
     val currentPayload by rememberUpdatedState(payload)
+    val currentDocumentKey by rememberUpdatedState(documentKey)
+    fun sendPayload(webView: WebView, data: String, force: Boolean = false) {
+        val bridge = webView.getTag(APPLE_MAP_JS_BRIDGE_TAG) as? AppleMapJsBridge ?: return
+        if (bridge.payloadGate.shouldSend(currentDocumentKey, data, force)) {
+            webView.evaluateJavascript("window.CorusAppleMap&&window.CorusAppleMap.update($data)", null)
+        }
+    }
     fun bindAppleMapHandlers(webView: WebView) {
         val bridge = webView.getTag(APPLE_MAP_JS_BRIDGE_TAG) as? AppleMapJsBridge
             ?: AppleMapJsBridge(webView).also {
@@ -258,10 +272,7 @@ internal fun AppleCityMapView(
                         // AndroidView can receive a Compose update before the
                         // inline bridge exists. Replay the first payload after
                         // parsing so the first painted frame has its markers.
-                        view.evaluateJavascript(
-                            "window.CorusAppleMap&&window.CorusAppleMap.update($currentPayload)",
-                            null,
-                        )
+                        sendPayload(view, currentPayload, force = true)
                     }
                 }
                 bindAppleMapHandlers(this)
@@ -275,7 +286,7 @@ internal fun AppleCityMapView(
                         null,
                     )
                 } else {
-                    post { evaluateJavascript("window.CorusAppleMap&&window.CorusAppleMap.update($currentPayload)", null) }
+                    post { sendPayload(this, currentPayload, force = true) }
                 }
             }
         },
@@ -302,7 +313,7 @@ internal fun AppleCityMapView(
                 snapshotVisible = true
             }
             lastAppliedFocusID = nextFocusID
-            webView.evaluateJavascript("window.CorusAppleMap&&window.CorusAppleMap.update($payload)", null)
+            sendPayload(webView, payload)
         },
         onRelease = { webView ->
             (webView.getTag(APPLE_MAP_JS_BRIDGE_TAG) as? AppleMapJsBridge)?.let { bridge ->
@@ -311,6 +322,7 @@ internal fun AppleCityMapView(
                 bridge.onMarkersRendered = {}
                 bridge.onLoadState = {}
             }
+            webView.evaluateJavascript("window.CorusAppleMap&&window.CorusAppleMap.suspend()", null)
             webView.onPause()
             if (mapReady && loadError == null) MapPreviewWebViewCache.put(previewCacheKey, webView)
             else webView.destroy()
@@ -370,7 +382,7 @@ internal val MAP_CLUSTER_ARTWORK_LEFT_PX = (MAP_CLUSTER_ART_FAN_WIDTH_PX - MAP_C
 
 private fun appleMapPayload(
     cities: List<MapCitySummary>, filter: String, dark: Boolean, focus: MapCity?, artwork: Map<String, String>, playbackMode: String?, playingUserId: String?, viewerId: String, focusedFaces: List<MapPerson>,
-): String {
+): JSONObject {
     val visible = cities.filter { (it.facets[filter]?.count ?: 0) > 0 }
     return JSONObject().apply {
         put("dark", dark)
@@ -403,7 +415,7 @@ private fun appleMapPayload(
                 })
             }
         })
-    }.toString()
+    }
 }
 
 internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): String {
@@ -462,7 +474,7 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
           @media (prefers-reduced-motion:reduce){.city,.pin-content,.faces,.label{transition:none;animation:none}.city.is-pressing{transform:none;opacity:var(--cluster-opacity)}}
         </style>
         </head><body class="${if (compact) "compact" else ""}"><div id="map"></div><script>
-        let map, kit, annotations=[];
+        let map, kit, annotations=[], retainedAnnotationRegion=null, viewportFrame=null, viewportMoving=false, lastViewportCheck=0;
         function reportMapLoadState(state){if(window.CorusAndroidMap)window.CorusAndroidMap.loadState(state)}
         const interactive=$gestures;
         const compact=${if (compact) "true" else "false"};
@@ -479,7 +491,7 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
           // including when the CDN script is already in WebView's disk cache.
           mapkit.addEventListener('error',function(){reportMapLoadState('configuration_error')});
           mapkit.addEventListener('load-error',function(){reportMapLoadState('library_error')});
-          sizeMap(); mapkit.load(['map','annotations']).then(function(k){ kit=k; map=new kit.Map('map',{mapType:kit.MapType.Standard,colorScheme:kit.ColorScheme.Light,showsPointsOfInterest:false,showsUserLocation:false,isScrollEnabled:interactive,isZoomEnabled:interactive,isRotationEnabled:false,showsZoomControl:false,showsMapTypeControl:false,region:{center:{latitude:38,longitude:-84},span:{latitudeDelta:45,longitudeDelta:70}}}); sizeMap(); map.addEventListener('region-change-end',function(){refreshOverlapDimming();if(compact){window.CorusAppleMap.apply();return}if(!interactive||!map.region)return;const region=map.region;window.CorusAndroidMap.cameraSettled(region.center.latitude,region.center.longitude,region.span.latitudeDelta)}); bindAnnotationGestures(map); window.CorusAppleMap.ready=true; window.CorusAppleMap.apply(); reportMapLoadState('ready'); }).catch(function(){ reportMapLoadState('initialization_error'); });
+          sizeMap(); mapkit.load(['map','annotations']).then(function(k){ kit=k; map=new kit.Map('map',{mapType:kit.MapType.Standard,colorScheme:kit.ColorScheme.Light,showsPointsOfInterest:false,showsUserLocation:false,isScrollEnabled:interactive,isZoomEnabled:interactive,isRotationEnabled:false,showsZoomControl:false,showsMapTypeControl:false,region:{center:{latitude:38,longitude:-84},span:{latitudeDelta:45,longitudeDelta:70}}}); sizeMap(); map.addEventListener('region-change-start',startViewportTracking); map.addEventListener('region-change-end',function(){stopViewportTracking();refreshMapAnnotations(true);refreshOverlapDimming();if(compact){window.CorusAppleMap.apply();return}if(!interactive||!map.region)return;const region=map.region;window.CorusAndroidMap.cameraSettled(region.center.latitude,region.center.longitude,region.span.latitudeDelta)}); bindAnnotationGestures(map); window.CorusAppleMap.ready=true; window.CorusAppleMap.apply(); reportMapLoadState('ready'); }).catch(function(){ reportMapLoadState('initialization_error'); });
         }
         // Keep the marker's geographic anchor fixed. Artwork rises in an
         // absolute overlay just like iOS and must never move the city itself.
@@ -538,6 +550,19 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
             if(id)emitCity(id,button);
           },true);
         }
+        function markerArtworkSignature(city){
+          const active=city.id===window.CorusAppleMap.data.focus?.id;const listening=active&&window.CorusAppleMap.data.playbackMode==='listen';
+          const arts=interactive&&active?city.faces.filter(function(p){return p.artwork&&(!listening||p.id===window.CorusAppleMap.data.playingUserId)}).slice(0,listening?1:3):[];
+          return JSON.stringify([interactive&&active,listening,arts.map(function(p){return[p.id,p.artwork]})]);
+        }
+        function markerFacesSignature(city){return JSON.stringify([city.count,city.faces.map(function(p){return[p.id,p.name,p.avatar]})])}
+        function makeArtworkFan(city,b,focused,listening){
+          const arts=city.faces.filter(function(p){return p.artwork&&(!listening||p.id===window.CorusAppleMap.data.playingUserId)});
+          if(!focused||!arts.length)return null;const fan=document.createElement('span');fan.className='art-fan'+(listening?' listening':'');arts.slice(0,listening?1:3).forEach(function(person,index){const spread=index-(arts.length-1)/2;const art=document.createElement('img');art.className='art art-'+index;art.alt='';art.src=person.artwork;art.style.setProperty('--fan-x',(spread*36)+'px');art.style.setProperty('--fan-y',(Math.abs(spread)*10-4)+'px');art.style.setProperty('--fan-r',(spread*19)+'deg');fan.appendChild(art)});fan.onclick=function(event){event.stopPropagation();emitCity(city.id,b)};requestAnimationFrame(function(){void fan.offsetWidth;requestAnimationFrame(function(){setTimeout(function(){if(fan.isConnected)fan.classList.add('raised')},35)})});return fan;
+        }
+        function setMarkerLabel(label,city,listening){
+          if(listening){label.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v-3a8 8 0 0 1 16 0v3M4 14h3v5H4zM20 14h-3v5h3z"/></svg>';const name=document.createElement('span');name.textContent=city.name;label.appendChild(name)}else{label.textContent=city.name}
+        }
         function markerView(city){
           const densityTier=city.count>=15?2:(city.count>=5?1:0);const b=document.createElement('button');b.className='city density-'+densityTier;b.type='button';b.dataset.cityId=city.id;b.onclick=function(){emitCity(city.id,b)};
           const faces=document.createElement('span');faces.className='faces';
@@ -545,10 +570,9 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
           const count=document.createElement('span');count.className='count';count.textContent=city.count.toLocaleString();const compactBadgeSize=20+densityTier;const badgeSize=Math.max(compact?compactBadgeSize:23+densityTier,count.textContent.length*8+(compact?6+densityTier:7+densityTier));count.style.width=badgeSize+'px';count.style.height=(compact?compactBadgeSize:badgeSize)+'px';count.style.lineHeight=(compact?compactBadgeSize:badgeSize)+'px';faces.appendChild(count);
           const active=city.id===window.CorusAppleMap.data.focus?.id;b.classList.toggle('active',active);
           const focused=interactive&&active;const listening=focused&&window.CorusAppleMap.data.playbackMode==='listen';
-          const label=document.createElement('span');label.className='label'+(listening?' listening':'')+(active?' visible':'');if(listening){label.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v-3a8 8 0 0 1 16 0v3M4 14h3v5H4zM20 14h-3v5h3z"/></svg><span>'+city.name+'</span>'}else{label.textContent=city.name}
-          const arts=city.faces.filter(function(p){return p.artwork&&(!listening||p.id===window.CorusAppleMap.data.playingUserId)});
+          const label=document.createElement('span');label.className='label'+(listening?' listening':'')+(active?' visible':'');setMarkerLabel(label,city,listening);
           const content=document.createElement('span');content.className='pin-content';
-          if(focused&&arts.length){const fan=document.createElement('span');fan.className='art-fan'+(listening?' listening':'');arts.slice(0,listening?1:3).forEach(function(person,index){const spread=index-(arts.length-1)/2;const art=document.createElement('img');art.className='art art-'+index;art.alt='';art.src=person.artwork;art.style.setProperty('--fan-x',(spread*36)+'px');art.style.setProperty('--fan-y',(Math.abs(spread)*10-4)+'px');art.style.setProperty('--fan-r',(spread*19)+'deg');fan.appendChild(art)});fan.onclick=function(event){event.stopPropagation();emitCity(city.id,b)};content.appendChild(fan);requestAnimationFrame(function(){void fan.offsetWidth;requestAnimationFrame(function(){setTimeout(function(){if(fan.isConnected)fan.classList.add('raised')},35)})})}
+          const fan=makeArtworkFan(city,b,focused,listening);if(fan)content.appendChild(fan);
           content.append(faces,label);b.appendChild(content);
           /* Compact annotations are bottom-anchored by MapKit. Unfocused pins
              use half the face height; the focused pin uses a smaller offset
@@ -562,20 +586,35 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
         function updateMarker(annotation,city){
           const signature=markerSignature(city);const active=city.id===window.CorusAppleMap.data.focus?.id;
           if(annotation.corusSignature!==signature){
-            const fresh=markerView(city);const wasActive=annotation.corusButton.classList.contains('active');const currentLabel=annotation.corusButton.querySelector('.label');const freshLabel=fresh.querySelector('.label');
-            if(freshLabel)freshLabel.remove();
-            annotation.corusButton.className=fresh.className;annotation.corusButton.dataset.cityId=city.id;annotation.corusButton.classList.toggle('active',wasActive);annotation.corusButton.replaceChildren(...fresh.childNodes);
-            const labelHost=annotation.corusButton.querySelector('.pin-content')||annotation.corusButton;
-            if(currentLabel&&freshLabel){const wasVisible=currentLabel.classList.contains('visible');currentLabel.innerHTML=freshLabel.innerHTML;currentLabel.className=freshLabel.className;currentLabel.classList.toggle('visible',wasVisible);labelHost.appendChild(currentLabel);requestAnimationFrame(function(){currentLabel.className=freshLabel.className})}
-            else if(freshLabel)labelHost.appendChild(freshLabel);
-            requestAnimationFrame(function(){annotation.corusButton.classList.toggle('active',active)});
-            annotation.anchorOffset=new DOMPoint(0,Number(fresh.dataset.anchorOffset));annotation.corusSignature=signature
+            const b=annotation.corusButton;const facesSignature=markerFacesSignature(city);const artworkSignature=markerArtworkSignature(city);
+            if(annotation.corusFacesSignature!==facesSignature){
+              const fresh=markerView(city);const wasActive=b.classList.contains('active');const currentLabel=b.querySelector('.label');const freshLabel=fresh.querySelector('.label');
+              if(freshLabel)freshLabel.remove();
+              b.className=fresh.className;b.dataset.cityId=city.id;b.classList.toggle('active',wasActive);b.replaceChildren(...fresh.childNodes);
+              const labelHost=b.querySelector('.pin-content')||b;
+              if(currentLabel&&freshLabel){const wasVisible=currentLabel.classList.contains('visible');currentLabel.innerHTML=freshLabel.innerHTML;currentLabel.className=freshLabel.className;currentLabel.classList.toggle('visible',wasVisible);labelHost.appendChild(currentLabel);requestAnimationFrame(function(){currentLabel.className=freshLabel.className})}
+              else if(freshLabel)labelHost.appendChild(freshLabel);
+            }else{
+              const content=b.querySelector('.pin-content');const label=content.querySelector('.label');const listening=interactive&&active&&window.CorusAppleMap.data.playbackMode==='listen';
+              const labelSignature=JSON.stringify([city.name,listening]);
+              if(annotation.corusLabelSignature!==labelSignature)setMarkerLabel(label,city,listening);
+              label.classList.toggle('listening',listening);
+              requestAnimationFrame(function(){label.classList.toggle('visible',active)});
+              if(annotation.corusArtworkSignature!==artworkSignature){
+                content.querySelector('.art-fan')?.remove();
+                const fan=makeArtworkFan(city,b,interactive&&active,listening);if(fan)content.appendChild(fan);
+              }
+            }
+            requestAnimationFrame(function(){b.classList.toggle('active',active)});
+            annotation.anchorOffset=new DOMPoint(0,interactive?0:(active?-10:-18));annotation.corusSignature=signature;
+            annotation.corusFacesSignature=facesSignature;annotation.corusArtworkSignature=artworkSignature;
+            annotation.corusLabelSignature=JSON.stringify([city.name,interactive&&active&&window.CorusAppleMap.data.playbackMode==='listen']);
           }
           setAnnotationSelected(annotation,active);
         }
         function marker(city){
           const b=markerView(city);const annotation=new kit.Annotation({latitude:city.latitude,longitude:city.longitude},function(){return b},{calloutEnabled:false,animates:false,anchorOffset:new DOMPoint(0,Number(b.dataset.anchorOffset)),collisionMode:'none',selected:city.id===window.CorusAppleMap.data.focus?.id,displayPriority:1000});
-          annotation.corusId=city.id;annotation.corusButton=b;annotation.corusSignature=markerSignature(city);return annotation;
+          annotation.corusId=city.id;annotation.corusButton=b;annotation.corusSignature=markerSignature(city);annotation.corusFacesSignature=markerFacesSignature(city);annotation.corusArtworkSignature=markerArtworkSignature(city);annotation.corusLabelSignature=JSON.stringify([city.name,interactive&&city.id===window.CorusAppleMap.data.focus?.id&&window.CorusAppleMap.data.playbackMode==='listen']);return annotation;
         }
         function refreshOverlapDimming(){
           annotations.forEach(function(annotation){annotation.corusButton?.classList.remove('unselected','overlap-dim')});
@@ -616,24 +655,48 @@ internal fun appleMapHtml(token: String, compact: Boolean, fontData: String): St
           const byId=new Map(cities.map(function(city){return [city.id,city]}));
           return ids.map(function(id){return byId.get(id)}).filter(Boolean);
         }
-        // Retain annotation objects across focus and artwork updates. Removing
-        // and recreating them while MapKit is settling can detach pins from
-        // the moving basemap until the next gesture.
-        window.CorusAppleMap={ready:false,data:{cities:[],dark:false,focus:null},lastFocus:null,lockedPreviewIds:[],lastPreviewCamera:null,update:function(data){this.data=data;this.apply()},apply:function(){
-          if(!this.ready||!map||this.applying)return;this.applying=true;try{sizeMap();document.body.classList.toggle('dark',this.data.dark);map.colorScheme=this.data.dark?kit.ColorScheme.Dark:kit.ColorScheme.Light;
-          const cameraKey=this.data.focus?String(this.data.focus.latitude)+','+String(this.data.focus.longitude)+','+(this.data.dark?'dark':'light'):'';
-          if(this.lastPreviewCamera!==cameraKey){this.lockedPreviewIds=[];this.lastPreviewCamera=cameraKey;}
-          const visibleCities=compactPreviewCities(this.data.cities);const cityIds=new Set(visibleCities.map(function(city){return city.id}));
+        function longitudeDistance(a,b){const distance=Math.abs(a-b)%360;return Math.min(distance,360-distance)}
+        function viewportNeedsRefresh(region){
+          const old=retainedAnnotationRegion;if(!old)return true;
+          return Math.abs(region.center.latitude-old.center.latitude)+region.span.latitudeDelta*.65>Math.max(old.span.latitudeDelta,.5)
+            ||longitudeDistance(region.center.longitude,old.center.longitude)+region.span.longitudeDelta*.65>Math.max(old.span.longitudeDelta,.5);
+        }
+        function bufferedMapCities(cities,region){
+          const focusId=window.CorusAppleMap.data.focus?.id;
+          const latRadius=Math.max(region.span.latitudeDelta,.5),lonRadius=Math.max(region.span.longitudeDelta,.5);
+          return cities.filter(function(city){return city.id===focusId||(Math.abs(city.latitude-region.center.latitude)<=latRadius&&longitudeDistance(city.longitude,region.center.longitude)<=lonRadius)});
+        }
+        function reportMarkersRendered(){
+          if(annotations.length){const renderedFocus=window.CorusAppleMap.data.focus?.id||'';requestAnimationFrame(function(){requestAnimationFrame(function(){window.CorusAndroidMap.markersRendered(renderedFocus)})})}
+        }
+        // Retain annotation objects and DOM within a padded viewport. Never
+        // thin visible communities; explicit navigation targets stay mounted.
+        function refreshMapAnnotations(force){
+          if(!map||!kit||!window.CorusAppleMap.ready)return;
+          const region=map.region;if(!region)return;
+          if(!force&&!compact&&!viewportNeedsRefresh(region))return;
+          retainedAnnotationRegion={center:{latitude:region.center.latitude,longitude:region.center.longitude},span:{latitudeDelta:region.span.latitudeDelta,longitudeDelta:region.span.longitudeDelta}};
+          const visibleCities=compact?compactPreviewCities(window.CorusAppleMap.data.cities):bufferedMapCities(window.CorusAppleMap.data.cities,region);
+          const cityIds=new Set(visibleCities.map(function(city){return city.id}));
           annotations.filter(function(annotation){return !cityIds.has(annotation.corusId)}).forEach(function(annotation){map.removeAnnotation(annotation)});
           annotations=annotations.filter(function(annotation){return cityIds.has(annotation.corusId)});
           const byId=new Map(annotations.map(function(annotation){return [annotation.corusId,annotation]}));
           visibleCities.forEach(function(city){let annotation=byId.get(city.id);if(!annotation){annotation=marker(city);annotations.push(annotation);byId.set(city.id,annotation);map.addAnnotation(annotation)}else{if(annotation.coordinate.latitude!==city.latitude||annotation.coordinate.longitude!==city.longitude)annotation.coordinate={latitude:city.latitude,longitude:city.longitude};updateMarker(annotation,city)}});
           refreshOverlapDimming();
-          // MapKit may paint a private copy of a custom annotation view, so the
-          // source button's `isConnected` is not a valid render signal. Once a
-          // non-empty annotation set has been accepted, wait through two paint
-          // frames and dismiss the native loading indicator.
-          if(annotations.length){const renderedFocus=this.data.focus?.id||'';requestAnimationFrame(function(){requestAnimationFrame(function(){window.CorusAndroidMap.markersRendered(renderedFocus)})})}
+        }
+        function startViewportTracking(){
+          if(compact||viewportMoving)return;viewportMoving=true;lastViewportCheck=0;
+          function tick(time){if(!viewportMoving)return;if(time-lastViewportCheck>=100){lastViewportCheck=time;refreshMapAnnotations(false)}viewportFrame=requestAnimationFrame(tick)}
+          viewportFrame=requestAnimationFrame(tick);
+        }
+        function stopViewportTracking(){viewportMoving=false;if(viewportFrame!==null)cancelAnimationFrame(viewportFrame);viewportFrame=null}
+        window.CorusAppleMap={ready:false,data:{cities:[],dark:false,focus:null},lastFocus:null,lockedPreviewIds:[],lastPreviewCamera:null,suspend:function(){stopViewportTracking()},update:function(data){const payloadKey=JSON.stringify(data);if(this.lastPayload===payloadKey){if(this.ready)reportMarkersRendered();return}this.lastPayload=payloadKey;this.data=data;this.apply()},apply:function(){
+          if(!this.ready||!map||this.applying)return;this.applying=true;try{sizeMap();document.body.classList.toggle('dark',this.data.dark);map.colorScheme=this.data.dark?kit.ColorScheme.Dark:kit.ColorScheme.Light;
+          const cameraKey=this.data.focus?String(this.data.focus.latitude)+','+String(this.data.focus.longitude)+','+(this.data.dark?'dark':'light'):'';
+          if(this.lastPreviewCamera!==cameraKey){this.lockedPreviewIds=[];this.lastPreviewCamera=cameraKey;}
+          refreshMapAnnotations(true);
+          // Native readiness must also be acknowledged on retained surfaces.
+          reportMarkersRendered();
           const focus=this.data.focus;const top=Math.max(0,Math.min(.8,this.data.mapTopInsetFraction||0));const bottom=Math.max(0,Math.min(.95,this.data.mapBottomOcclusionFraction||0));const size=mapCssSize();const visibleFocus=!!this.data.focusInVisibleMap;const preserveCamera=!!this.data.preserveCameraOnFocus;const geometryKey=top.toFixed(4)+':'+bottom.toFixed(4)+':'+size.width+'x'+size.height;const focusKey=focus&&focus.id+':'+focus.latitude+':'+focus.longitude+':'+this.data.focusRevision+':'+visibleFocus+':'+preserveCamera+':'+(this.data.playbackMode||'')+':'+geometryKey;
           if(focus&&this.lastFocus!==focusKey){const geometryChanged=this.lastFocusGeometry!==geometryKey;const animate=interactive&&this.lastFocus!==null&&!geometryChanged&&this.data.playbackMode!=='listen';this.lastFocus=focusKey;this.lastFocusGeometry=geometryKey;if(!preserveCamera){const latitudeDelta=visibleFocus?.6:(interactive?14:125);const longitudeDelta=visibleFocus?latitudeDelta*size.width/size.height/Math.max(.15,Math.cos(focus.latitude*Math.PI/180)):(interactive?14:300);const visibleGap=Math.max(0,1-top-bottom);const listenBias=this.data.playbackMode==='listen' ? .06*visibleGap : 0;const offset=(bottom-top)/2-listenBias;map.setRegionAnimated({center:{latitude:focus.latitude-(visibleFocus?latitudeDelta*offset:0),longitude:focus.longitude},span:{latitudeDelta:latitudeDelta,longitudeDelta:longitudeDelta}},animate)}}
           }finally{this.applying=false}

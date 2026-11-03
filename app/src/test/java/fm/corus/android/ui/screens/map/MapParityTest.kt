@@ -30,7 +30,7 @@ class MapParityTest {
         assertTrue(mapSource.contains("ValueAnimator.areAnimatorsEnabled()"))
         assertTrue(mapSource.contains("durationMillis = if (android.animation.ValueAnimator.areAnimatorsEnabled()) 320 else 0"))
         assertTrue(mapSource.contains("val currentPayload by rememberUpdatedState(payload)"))
-        assertTrue(mapSource.contains("window.CorusAppleMap&&window.CorusAppleMap.update(\$currentPayload)"))
+        assertTrue(mapSource.contains("sendPayload(view, currentPayload, force = true)"))
     }
     @Test fun returningPreviewPrefersFreshCompleteDirectory() {
         val repository = File("src/main/java/fm/corus/android/ui/screens/map/MapRepository.kt").readText()

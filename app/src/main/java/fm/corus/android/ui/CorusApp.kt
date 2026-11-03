@@ -71,6 +71,9 @@ fun CorusApp(
     CorusTheme(darkTheme = darkTheme) {
         val viewModel: AuthViewModel = hiltViewModel()
         val authState by viewModel.authState.collectAsState()
+        val referralWelcome by fm.corus.android.service.ReferralService.welcome.collectAsState()
+        val referralIssue by fm.corus.android.service.ReferralService.completionIssue.collectAsState()
+        LaunchedEffect(referralWelcome, referralIssue, authState) { if (referralWelcome != null || referralIssue != null) viewModel.showLateReferralOutcome() }
         val prototypeState by viewModel.forYouPrototype.state.collectAsState()
         val tabPresentation by viewModel.feedTabPresentation.collectAsState()
         val waitingForFeedTabs = authState == AuthViewModel.AuthState.SignedIn &&
@@ -105,6 +108,7 @@ fun CorusApp(
                     AuthViewModel.AuthState.NeedsOnboarding -> {
                         OnboardingScreen()
                     }
+                    AuthViewModel.AuthState.ReferralOutcome -> { fm.corus.android.ui.screens.settings.ReferralOutcomeContent { viewModel.finishAfterClubOffer() } }
                     AuthViewModel.AuthState.OnboardingClubOffer -> {
                         fm.corus.android.ui.screens.subscription.CymbalClubOfferScreen(
                             sourceOverride = fm.corus.android.ui.screens.subscription.PaywallSource.ONBOARDING,
@@ -115,6 +119,7 @@ fun CorusApp(
                         SocialSetupFlow(onFinished = { viewModel.finishSocialSetup() })
                     }
                     AuthViewModel.AuthState.SignedIn -> {
+                        fm.corus.android.ui.screens.settings.ReferralWelcomeDialog()
                         if (waitingForFeedTabs) {
                             Box(Modifier.fillMaxSize().background(CorusColors.Background))
                         } else MainTabScreen(
@@ -124,6 +129,8 @@ fun CorusApp(
                     }
                 }
 
+                val globalReferralSheet by fm.corus.android.service.ReferralService.presentingInvite.collectAsState()
+                if (globalReferralSheet) fm.corus.android.ui.screens.settings.ReferralScreen(onClose = { fm.corus.android.service.ReferralService.presentingInvite.value = false })
                 FeedLaunchCover(visible = authState == AuthViewModel.AuthState.Loading || waitingForFeedTabs)
 
                 AnimatedVisibility(

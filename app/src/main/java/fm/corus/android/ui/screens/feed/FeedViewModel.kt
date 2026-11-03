@@ -339,6 +339,7 @@ class FeedViewModel @Inject constructor(
 
     /** Club App Store / Play intro trial still available on the default package. */
     val hasClubIntroTrial: StateFlow<Boolean> = subscriptionRepository.hasClubIntroTrial
+    val clubIntroTrialPeriod = subscriptionRepository.clubIntroTrialPeriod
 
     /** Refresh Club offerings so [hasClubIntroTrial] is current before the lock logs. */
     suspend fun awaitClubOfferings() = subscriptionRepository.awaitOfferings()

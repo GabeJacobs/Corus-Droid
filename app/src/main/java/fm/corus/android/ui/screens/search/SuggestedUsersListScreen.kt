@@ -372,7 +372,7 @@ internal fun shouldShowTasteMatchesFeedCta(
     && didLoadFirstPage
     && matchCount > 3
 
-/** Copy + pill that jumps to the Taste Matches feed. Mirrors iOS tasteMatchesFeedCTA. */
+/** Copy + pill that jumps to Your Mix. Mirrors iOS tasteMatchesFeedCTA. */
 @Composable
 private fun TasteMatchesFeedCta(
     onClick: () -> Unit,

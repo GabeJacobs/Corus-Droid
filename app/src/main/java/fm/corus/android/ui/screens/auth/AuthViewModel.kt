@@ -72,6 +72,7 @@ class AuthViewModel @Inject constructor(
         data object NeedsOnboarding : AuthState()
         data object NeedsSocialSetup : AuthState()
         data object OnboardingClubOffer : AuthState()
+        data object ReferralOutcome : AuthState()
         data object SignedIn : AuthState()
     }
 
@@ -220,6 +221,7 @@ class AuthViewModel @Inject constructor(
         // Suppress auth-state changes while account deletion is in progress
         if (_isDeletingAccount.value) return
 
+        if (lastAuthUid != user?.uid) fm.corus.android.service.ReferralService.reset()
         if (user == null) {
             unreadCountsRepository.stop()
             if (lastAuthUid != null) {
@@ -694,11 +696,26 @@ class AuthViewModel @Inject constructor(
     }
 
     fun finishSocialSetup() {
-        if (remoteConfigService.onboardingClubOfferEnabled && !subscriptionRepository.hasFullAccess) {
-            _authState.value = AuthState.OnboardingClubOffer
-            return
+        if (_isLoading.value) return
+        val finishingUid = authRepository.currentUserId
+        fm.corus.android.service.ReferralService.didFinishOnboarding()
+        _isLoading.value = true
+        viewModelScope.launch {
+            try {
+                val accepted = fm.corus.android.service.ReferralService.completePending(context, afterOnboarding = true)
+                if (authRepository.currentUserId != finishingUid) return@launch
+                if (fm.corus.android.service.ReferralService.completionIssue.value != null || fm.corus.android.service.ReferralService.welcome.value != null) {
+                    _authState.value = AuthState.ReferralOutcome
+                    if (fm.corus.android.service.ReferralService.welcome.value?.isActive == true) viewModelScope.launch { subscriptionRepository.checkStatus() }
+                } else if (!accepted && remoteConfigService.onboardingClubOfferEnabled && !subscriptionRepository.hasFullAccess) {
+                    _authState.value = AuthState.OnboardingClubOffer
+                } else finishAfterClubOffer()
+            } finally { _isLoading.value = false }
         }
-        finishAfterClubOffer()
+    }
+
+    fun showLateReferralOutcome() {
+        if (_authState.value == AuthState.OnboardingClubOffer && fm.corus.android.service.ReferralService.onboardingCompletedUid == authRepository.currentUserId) _authState.value = AuthState.ReferralOutcome
     }
 
     fun finishAfterClubOffer() {

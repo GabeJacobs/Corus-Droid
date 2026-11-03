@@ -122,7 +122,9 @@ object SongPlayRouting {
         viewer: MusicService,
         knownNotOnSpotify: Boolean = false,
     ): MusicService =
-        if (source == TrackSource.APPLEMUSIC && viewer == MusicService.SPOTIFY) {
+        if (viewer == MusicService.QOBUZ) {
+            if (source == TrackSource.APPLEMUSIC) MusicService.APPLE_MUSIC else MusicService.SPOTIFY
+        } else if (source == TrackSource.APPLEMUSIC && viewer == MusicService.SPOTIFY) {
             if (knownNotOnSpotify) MusicService.APPLE_MUSIC else MusicService.SPOTIFY
         } else {
             viewer
@@ -186,7 +188,7 @@ object SongPlayRouting {
             MusicService.SPOTIFY -> SpotifyPlaybackService.isSpotifyAppInstalled(context)
             // TIDAL full streaming is iOS-only until an Android player ships.
             MusicService.AUDIOMACK -> remoteConfig.audiomackStreamingEnabled
-            MusicService.TIDAL, MusicService.APPLE_MUSIC, MusicService.DEEZER, MusicService.YOUTUBE_MUSIC -> false
+            MusicService.QOBUZ, MusicService.TIDAL, MusicService.APPLE_MUSIC, MusicService.DEEZER, MusicService.YOUTUBE_MUSIC -> false
         }
     }
 
@@ -196,7 +198,7 @@ object SongPlayRouting {
     fun nativeAppInstalled(context: Context, service: MusicService): Boolean =
         when (service) {
             MusicService.SPOTIFY -> SpotifyPlaybackService.isSpotifyAppInstalled(context)
-            MusicService.AUDIOMACK, MusicService.TIDAL, MusicService.DEEZER, MusicService.YOUTUBE_MUSIC -> true
+            MusicService.QOBUZ, MusicService.AUDIOMACK, MusicService.TIDAL, MusicService.DEEZER, MusicService.YOUTUBE_MUSIC -> true
             MusicService.APPLE_MUSIC -> false
         }
 }

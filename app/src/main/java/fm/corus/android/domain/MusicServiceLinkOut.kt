@@ -74,6 +74,7 @@ object MusicServiceLinkOut {
         MusicService.APPLE_MUSIC -> R.drawable.apple_music_logo
         MusicService.TIDAL -> R.drawable.tidal_logo
         MusicService.YOUTUBE_MUSIC -> R.drawable.youtube_music_logo
+        MusicService.QOBUZ -> R.drawable.spotify_logo // Per-track Qobuz badges require a confirmed URL.
         MusicService.DEEZER -> R.drawable.deezer_logo
         MusicService.AUDIOMACK -> R.drawable.audiomack_mark
     }
@@ -90,6 +91,9 @@ object MusicServiceLinkOut {
         service: MusicService,
         cloud: CloudFunctionsDataSource,
     ): String? {
+        if (service == MusicService.QOBUZ) {
+            return QobuzLinks.destination(track)
+        }
         if (service == MusicService.SPOTIFY) return null
         if (service == MusicService.APPLE_MUSIC) {
             val amid = track.appleMusicId
@@ -142,6 +146,7 @@ object MusicServiceLinkOut {
         cloud: CloudFunctionsDataSource,
     ): String? = when (service) {
         MusicService.SPOTIFY -> null
+        MusicService.QOBUZ -> null
         MusicService.AUDIOMACK -> cloud.audiomackLinkOutUrl(name, artist, isrc)
         MusicService.APPLE_MUSIC -> cached(appleCache, trackId) { cloud.appleMusicLinkOutUrl(name, artist, isrc, trackId) }
         MusicService.TIDAL -> cached(tidalCache, trackId) { cloud.tidalLinkOutUrl(name, artist, isrc, trackId) }

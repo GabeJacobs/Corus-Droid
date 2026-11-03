@@ -83,6 +83,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
+import fm.corus.android.ui.components.shareCorusInvite
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -1352,8 +1353,9 @@ private fun SuggestedUsersContent(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = CorusSpacing.xxs),
+        contentPadding = PaddingValues(0.dp),
     ) {
+        item(key = "referral_search_banner") { fm.corus.android.ui.components.ReferralInviteBanner("search") }
         item(key = "corus_map_preview") { fm.corus.android.ui.screens.map.MapPreviewEntry(onNavigateToMap) }
         contactsSections(
             contactsSyncStatus = contactsSyncStatus,
@@ -1865,6 +1867,7 @@ private fun LazyListScope.newOnCorusSection(
 private fun LazyListScope.inviteFriendsSection() {
     // ── Invite friends ──
     item {
+            val context = LocalContext.current
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1874,7 +1877,7 @@ private fun LazyListScope.inviteFriendsSection() {
                 Text(stringResource(fm.corus.android.localization.CorusStrings.feed_empty_invite_subtitle), style = CorusFont.songTitleLarge, color = CorusColors.Text)
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
                 Button(
-                    onClick = { /* share intent */ },
+                    onClick = { context.shareCorusInvite() },
                     shape = RoundedCornerShape(24.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent, contentColor = Color.White),
                     contentPadding = PaddingValues(horizontal = CorusSpacing.xl, vertical = CorusSpacing.sm),
@@ -2460,8 +2463,9 @@ private fun UnifiedZeroStateContent(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = CorusSpacing.xxs),
+        contentPadding = PaddingValues(0.dp),
     ) {
+        item(key = "referral_search_banner") { fm.corus.android.ui.components.ReferralInviteBanner("search") }
         item(key = "corus_map_preview") { fm.corus.android.ui.screens.map.MapPreviewEntry(onNavigateToMap) }
         contactsSections(
             contactsSyncStatus = contactsSyncStatus,

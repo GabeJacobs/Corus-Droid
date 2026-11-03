@@ -41,28 +41,25 @@ class ForYouPrototypeStore @Inject constructor(
     val state = _state.asStateFlow()
     private var started = false
     private var request: Job? = null
-    private var deadline: Job? = null
     private var progressGeneration = 0
     private var trialExpiry: Job? = null
-    private var lastDebugOverride = remoteConfig.debugOverride("for_you_prototype_enabled")
 
     val isAvailable: Boolean
         get() = _state.value.let { it.uid != null && it.uid == auth.currentUser?.uid && it.enabled }
 
     val isResolvingAccess: Boolean
-        get() = auth.currentUser?.uid?.let { it != _state.value.uid || !_state.value.hasPresentation } ?: false
+        get() = false
 
     val needsIntroduction: Boolean
         get() = isAvailable && !prefs.getBoolean("introduction.v1.${_state.value.uid}", false)
 
     private fun initialState(uid: String?, generation: Int): ForYouPrototypeState {
         val default = remoteConfig.forYouDefaultMode
-        val override = remoteConfig.debugOverride("for_you_prototype_enabled")
-        val enabled = uid != null && (override ?: prefs.getBoolean("access.v1.$uid", false))
+        val enabled = uid != null
         return ForYouPrototypeState(
             uid = uid, generation = generation,
             enabled = enabled,
-            hasPresentation = uid == null || override != null,
+            hasPresentation = true,
             defaultMode = default,
             mode = startupMode(uid, enabled),
             previewEndedNoticeHandled = uid != null && prefs.getBoolean("previewEnded.seen.v1.$uid", false),
@@ -80,20 +77,9 @@ class ForYouPrototypeStore @Inject constructor(
         auth.addAuthStateListener { scope.launch { beginSession(it.currentUser?.uid) } }
         scope.launch {
             remoteConfig.revision.collect {
-                val override = remoteConfig.debugOverride("for_you_prototype_enabled")
-                if (override != lastDebugOverride) {
-                    lastDebugOverride = override
-                    val current = _state.value
-                    _state.value = current.copy(
-                        enabled = current.uid != null && (override ?: prefs.getBoolean("access.v1.${current.uid}", false)),
-                        hasPresentation = true,
-                    )
-                }
                 val current = _state.value
-                if (!current.hasPresentation) {
-                    val default = remoteConfig.forYouDefaultMode
-                    _state.value = current.copy(defaultMode = default,
-                        mode = if (current.stayCloseProgress == null) startupMode(current.uid, current.enabled) else current.mode)
+                if (current.stayCloseProgress == null) {
+                    _state.value = current.copy(defaultMode = remoteConfig.forYouDefaultMode)
                 }
             }
         }
@@ -103,32 +89,23 @@ class ForYouPrototypeStore @Inject constructor(
         if (started && _state.value.uid == uid) return
         started = true
         request?.cancel()
-        deadline?.cancel()
         trialExpiry?.cancel()
         val generation = _state.value.generation + 1
         progressGeneration++
         _state.value = initialState(uid, generation)
         if (uid == null) return
-        deadline = scope.launch {
-            delay(1_000)
-            _state.value = _state.value.finish(generation)
-        }
         request = scope.launch {
             try {
                 val callable = functions.getHttpsCallable("getForYouPrototypeAccess")
                     .withTimeout(10, TimeUnit.SECONDS)
                 val result = callable.call().await().getData() as? Map<*, *>
-                val enabled = result?.get("enabled") == true
                 if (_state.value.generation != generation) return@launch
-                prefs.edit().putBoolean("access.v1.$uid", enabled).apply()
-                _state.value = _state.value.resolve(enabled, generation)
                 updateStayCloseProgress(ForYouStayCloseProgress.parse(result?.get("stayClose") as? Map<*, *>), uid)
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
-                _state.value = _state.value.finish(generation)
+                // Keep permanent tabs available when progress cannot be loaded.
             }
-            if (_state.value.generation == generation) deadline?.cancel()
         }
     }
 

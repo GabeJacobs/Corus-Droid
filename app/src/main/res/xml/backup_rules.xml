@@ -4,4 +4,10 @@
          files without their keys makes them permanently unreadable. -->
     <exclude domain="sharedpref" path="fm.corus.spotify.auth.xml" />
     <exclude domain="sharedpref" path="fm.corus.spotify.libraryauth.xml" />
+    <!-- Reinstalls must not restore a previous installation's invite or attribution state. -->
+    <exclude domain="sharedpref" path="corus_referrals_v1.xml" />
+    <exclude domain="sharedpref" path="corus_referral_attribution.xml" />
+    <exclude domain="sharedpref" path="appsflyer-data" />
+    <exclude domain="sharedpref" path="appsflyer-purchase-data" />
+    <exclude domain="database" path="afpurchases.db" />
 </full-backup-content>

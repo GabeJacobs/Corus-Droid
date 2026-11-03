@@ -38,7 +38,9 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
 
     val isClubMember: StateFlow<Boolean> = subscriptionRepository.isClubMember
+    val hasStoreSubscription = subscriptionRepository.hasStoreSubscription
     val isVerified: StateFlow<Boolean> = subscriptionRepository.isVerified
+    fun refreshClubStatus() { viewModelScope.launch { subscriptionRepository.checkStatus() } }
 
     /** Whether the TIDAL option should appear in the music-service picker. */
     val audiomackStreamingEnabled get() = remoteConfigService.audiomackStreamingEnabled
@@ -50,6 +52,8 @@ class SettingsViewModel @Inject constructor(
         get() = remoteConfigService.youtubeMusicEnabled
 
     /** Whether the Deezer option should appear in the music-service picker. */
+    val qobuzEnabled: Boolean get() = remoteConfigService.qobuzEnabled
+
     val deezerEnabled: Boolean
         get() = remoteConfigService.deezerEnabled
 

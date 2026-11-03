@@ -14,6 +14,7 @@ import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.NowPlayingState
 import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.NetworkMonitor
@@ -87,7 +88,9 @@ class ComposeViewModelDraftEditingContextTest {
             onBlocking { fetchTrendingSongs(any(), any()) } doReturn emptyList()
             onBlocking { fetchTrendingMovies(any(), any()) } doReturn emptyList()
         }
-        nowPlayingManager = mock()
+        nowPlayingManager = mock {
+            on { state } doReturn MutableStateFlow(NowPlayingState())
+        }
         postCreationEvent = mock()
         hapticManager = mock()
         remoteConfigService = mock()

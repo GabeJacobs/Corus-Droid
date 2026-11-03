@@ -48,3 +48,6 @@
 -dontwarn com.fasterxml.jackson.databind.deser.std.StdDeserializer
 -dontwarn com.fasterxml.jackson.databind.ser.std.StdSerializer
 -dontwarn com.spotify.base.annotations.NotNull
+
+# AppsFlyer SDK 7 requires the separately supplied Play Install Referrer.
+-keep public class com.android.installreferrer.** { *; }

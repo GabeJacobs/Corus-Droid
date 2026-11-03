@@ -264,6 +264,7 @@ fun PostCard(
     var showUnavailableToast by remember(post.id) { mutableStateOf(false) }
     val flipState = backCoverFlipState
     val haptics = LocalHapticManager.current
+    val qobuzURL = rememberQobuzURL(post.track, musicService == fm.corus.android.data.model.MusicService.QOBUZ && post.isTrack)
     val postCardContext = LocalContext.current
     // Audiomack full-song playback is link-out only — the service badge glyph
     // opens the track's Audiomack page externally. (The album-art play tap now
@@ -1022,7 +1023,20 @@ fun PostCard(
                         indication = null,
                         onClick = onSpotifyTap,
                     )
-                if (isAudiomack) {
+                if (qobuzURL != null) {
+                    Image(
+                        painter = painterResource(R.drawable.qobuz_logo),
+                        contentDescription = "Open in Qobuz",
+                        modifier = Modifier.offset(y = PostRowServiceControlYOffset).size(28.dp).clickable {
+                            scope.launch {
+                                fm.corus.android.domain.QobuzLinks.destination(post.track)?.let { destination ->
+                                    runCatching { postCardContext.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(destination))) }
+                                }
+                            }
+                        },
+                        contentScale = ContentScale.Fit,
+                    )
+                } else if (isAudiomack) {
                     // Audiomack mark: full-color, no theme switch, natural aspect.
                     // Its tap links out (never streams) — bypasses onSpotifyTap.
                     AudiomackLogo(
@@ -1068,6 +1082,17 @@ fun PostCard(
                                 indication = null,
                                 onClick = if (isTidal) openTidal else openDeezer,
                             ),
+                        contentScale = ContentScale.Fit,
+                    )
+                } else if (musicService == fm.corus.android.data.model.MusicService.QOBUZ && !isSoundCloud) {
+                    Image(
+                        painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(
+                            if (isAppleMusic) fm.corus.android.data.model.MusicService.APPLE_MUSIC else fm.corus.android.data.model.MusicService.SPOTIFY)),
+                        contentDescription = if (isAppleMusic) "Open in Apple Music" else "Open in Spotify",
+                        modifier = Modifier.offset(y = PostRowServiceControlYOffset).size(28.dp).clickable {
+                            val original = if (isAppleMusic) post.track.appleMusicURL else post.track.spotifyWebURL
+                            original?.let { url -> runCatching { postCardContext.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } }
+                        },
                         contentScale = ContentScale.Fit,
                     )
                 } else if (isSoundCloud) {

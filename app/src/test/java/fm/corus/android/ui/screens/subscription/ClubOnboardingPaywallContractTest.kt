@@ -94,8 +94,8 @@ class ClubOnboardingPaywallContractTest {
             "src/main/java/fm/corus/android/ui/screens/subscription/CymbalClubOfferScreen.kt",
         ).readText()
         assertTrue(source.contains("pkg?.product?.defaultOption"))
-        assertTrue(source.contains("trialDurationText(context, monthlyPackage, true)"))
-        assertTrue(source.contains("trialDurationText(context, yearlyPackage, true)"))
+        assertTrue(source.contains("trialDurationText(context, monthlyPackage)"))
+        assertTrue(source.contains("trialDurationText(context, yearlyPackage)"))
         assertTrue(source.contains("R.string.club_cta_try_free_format"))
         assertTrue(source.contains("trial != null"))
         assertFalse(source.contains("forceDebugTrial"))
@@ -117,7 +117,7 @@ class ClubOnboardingPaywallContractTest {
         assertTrue(viewModelSource.contains("logOnboardingClubOfferShown()"))
         assertTrue(viewModelSource.contains("logOnboardingClubOfferSkipped(method)"))
         assertTrue(viewModelSource.contains("logOnboardingClubOfferSubscribed(planName)"))
-        assertTrue(viewModelSource.contains("logPurchaseStarted(planName, source.analyticsName)"))
-        assertTrue(viewModelSource.contains("logPurchaseCompleted(planName, source.analyticsName)"))
+        assertTrue(viewModelSource.contains("logPurchaseStarted(planName, source.analyticsName, offeringID, productID)"))
+        assertTrue(viewModelSource.contains("logPurchaseCompleted(planName, source.analyticsName, offeringID, productID)"))
     }
 }

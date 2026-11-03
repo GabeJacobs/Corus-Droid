@@ -168,7 +168,6 @@ fun NotificationSettingsScreen(
             NotifToggleRow(
                 icon = Icons.Filled.NotificationsActive,
                 title = stringResource(fm.corus.android.localization.CorusStrings.notifications_row_updates_reminders),
-                subtitle = stringResource(fm.corus.android.localization.CorusStrings.notifications_row_updates_reminders_subtitle),
                 checked = settings.updatesAndReminders,
                 onCheckedChange = viewModel::setUpdatesAndReminders,
             )

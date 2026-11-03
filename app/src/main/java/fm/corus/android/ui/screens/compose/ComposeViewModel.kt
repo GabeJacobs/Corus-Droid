@@ -1361,7 +1361,7 @@ class ComposeViewModel @Inject constructor(
      * Persist the current composer as a draft. If a fresh voice memo was
      * recorded, upload it first; otherwise reuse the resumed URL. Updates the
      * existing doc in place when resuming (preserving createdAt), else creates
-     * a new one (trimming to the 30-cap). Emits a toast and returns success.
+     * a new one without deleting older drafts. Emits a toast and returns success.
      */
     suspend fun saveCurrentDraft(
         mediaType: MediaType,

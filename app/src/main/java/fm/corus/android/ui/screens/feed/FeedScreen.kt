@@ -288,6 +288,7 @@ fun FeedScreen(
     }
     val tasteMatchesGate by viewModel.tasteMatchesGate.collectAsState()
     val hasClubIntroTrial by viewModel.hasClubIntroTrial.collectAsState()
+    val clubIntroTrialPeriod by viewModel.clubIntroTrialPeriod.collectAsState()
     val tasteMatchesTrial by viewModel.tasteMatchesTrial.collectAsState()
     val tasteMatchesSeeding by viewModel.tasteMatchesSeeding.collectAsState()
     val tasteMatchesSeedArt by viewModel.tasteMatchesSeedArt.collectAsState()
@@ -845,7 +846,7 @@ fun FeedScreen(
                         ChromeInset()
                         if (includeHeader) header()
                         TasteMatchesPaywallState(
-                            hasClubIntroTrial = hasClubIntroTrial,
+                            trialDuration = fm.corus.android.ui.components.clubTrialDurationText(context, clubIntroTrialPeriod),
                             overFeedPreview = posts.isNotEmpty(),
                             onAwaitOfferings = { viewModel.awaitClubOfferings() },
                             onShown = {
@@ -1210,14 +1211,17 @@ fun FeedScreen(
                 val inviteShareText = stringResource(fm.corus.android.localization.CorusStrings.settings_share_app_text)
                 val inviteChooser = stringResource(fm.corus.android.localization.CorusStrings.settings_row_invite_friends)
                 Column(modifier = Modifier.fillMaxSize()) {
-                    ChromeInset()
-                    if (includeHeader) header()
                     PopularUsersInfiniteGrid(
                         excludeIds = emptySet(),
                         followedIds = followedBotIds,
                         onUserTap = { user -> onNavigateToUser(user) },
                         onFollowTap = { user -> viewModel.toggleBotFollow(user) },
                         modifier = Modifier.weight(1f),
+                        scrollingHeader = {
+                            ChromeInset()
+                            if (includeHeader) header()
+                            if (feedMode == "following") fm.corus.android.ui.components.ReferralInviteBanner("feed")
+                        },
                         topContent = {
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1245,7 +1249,7 @@ fun FeedScreen(
                                             putExtra(Intent.EXTRA_TEXT, inviteShareText)
                                             type = "text/plain"
                                         }
-                                        context.startActivity(Intent.createChooser(sendIntent, inviteChooser))
+                                        if (fm.corus.android.service.ReferralService.enabled.value) fm.corus.android.service.ReferralService.openInvite("feed_empty") else context.startActivity(Intent.createChooser(sendIntent, inviteChooser))
                                     },
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = CorusColors.Accent,
@@ -1274,6 +1278,7 @@ fun FeedScreen(
                     contentPadding = PaddingValues(top = chromeTop),
                 ) {
                     if (includeHeader) item { header() }
+                    if (isSelected && feedMode == "following") item(key = "referral_feed_banner") { fm.corus.android.ui.components.ReferralInviteBanner("feed") }
                     if (isSelected && showTasteMatchesTrialBanner) {
                         item(key = "taste_matches_trial_banner", contentType = "taste_matches_trial_banner") {
                             TasteMatchesTrialBanner(
@@ -2601,12 +2606,13 @@ private fun TasteMatchesLockedFeedPeek(post: fm.corus.android.data.model.CymbalP
  */
 @Composable
 private fun TasteMatchesPaywallState(
-    hasClubIntroTrial: Boolean,
+    trialDuration: String?,
     overFeedPreview: Boolean = false,
     onAwaitOfferings: suspend () -> Unit,
     onShown: () -> Unit,
     onSubscribe: () -> Unit,
 ) {
+    val hasClubIntroTrial = trialDuration != null
     val appeared = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         onAwaitOfferings()
@@ -2645,10 +2651,11 @@ private fun TasteMatchesPaywallState(
         )
         Spacer(modifier = Modifier.height(CorusSpacing.sm))
         Text(
-            text = stringResource(
-                if (hasClubIntroTrial) fm.corus.android.localization.CorusStrings.feed_taste_matches_paywall_trial_body
-                else fm.corus.android.localization.CorusStrings.feed_taste_matches_paywall_body,
-            ),
+            text = if (trialDuration != null) {
+                stringResource(fm.corus.android.localization.CorusStrings.feed_taste_matches_paywall_trial_body_format, trialDuration)
+            } else {
+                stringResource(fm.corus.android.localization.CorusStrings.feed_taste_matches_paywall_body)
+            },
             style = CorusFont.body.copy(fontSize = 16.sp),
             color = CorusColors.Secondary,
             textAlign = TextAlign.Center,
@@ -2664,10 +2671,7 @@ private fun TasteMatchesPaywallState(
             ),
         ) {
             Text(
-                text = stringResource(
-                    if (hasClubIntroTrial) fm.corus.android.localization.CorusStrings.taste_discovery_cta
-                    else fm.corus.android.localization.CorusStrings.taste_discovery_cta,
-                ),
+                text = stringResource(fm.corus.android.localization.CorusStrings.taste_discovery_cta),
                 style = CorusFont.button.copy(fontSize = 17.sp),
                 color = Color.White,
             )

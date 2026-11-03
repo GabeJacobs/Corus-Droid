@@ -186,7 +186,7 @@ class MainTabViewModel @Inject constructor(
         analyticsService.logFullPlayerComposeTapped(trackId)
     }
 
-    fun logPaywallShown(source: String) = analyticsService.logPaywallShown(source)
+    fun logPaywallShown(source: String) = analyticsService.logPaywallRequested(source)
     fun logSaveWarningTapped(remaining: Int) = analyticsService.logSaveWarningToastTapped(remaining)
 
     /**

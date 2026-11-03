@@ -28,6 +28,7 @@ import fm.corus.android.ui.CorusApp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -52,6 +53,21 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        fm.corus.android.service.ReferralAttribution.collectLauncher(this)
+        intent.data?.let { fm.corus.android.service.ReferralService.capture(this, it.toString()) }
+        fm.corus.android.service.ReferralAttribution.handle(intent)
+        fm.corus.android.service.ReferralService.readInstallReferrer(this)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                fm.corus.android.service.ReferralService.enabled.collectLatest { enabled ->
+                    if (enabled) {
+                        fm.corus.android.service.ReferralService.readInstallReferrer(this@MainActivity)
+                        fm.corus.android.service.ReferralService.session(this@MainActivity)
+                        if (fm.corus.android.service.ReferralService.welcome.value != null) subscriptionRepository.checkStatus()
+                    }
+                }
+            }
+        }
         youtubeMusicService.attach(this)
         handleAudiomackAuthRedirect(intent)
         handleSpotifyAuthRedirect(intent)
@@ -77,6 +93,8 @@ class MainActivity : ComponentActivity() {
             repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 while (true) {
                     followingActivityDataSource.recordFollowingActivitySession()
+                    fm.corus.android.service.ReferralService.session(this@MainActivity)
+                    if (fm.corus.android.service.ReferralService.welcome.value != null) subscriptionRepository.checkStatus()
                     delay(300_000)
                 }
             }
@@ -115,6 +133,8 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        intent.data?.let { fm.corus.android.service.ReferralService.capture(this, it.toString()) }
+        fm.corus.android.service.ReferralAttribution.handle(intent)
         handleAudiomackAuthRedirect(intent)
         handleSpotifyAuthRedirect(intent)
         handleNotificationIntent(intent)

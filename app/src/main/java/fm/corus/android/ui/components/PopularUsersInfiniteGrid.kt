@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocalFireDepartment
@@ -86,6 +88,8 @@ fun PopularUsersInfiniteGrid(
     // clear of the button.
     bottomContentPadding: Dp = CorusSpacing.xxl,
     topContent: (@Composable () -> Unit)? = null,
+    // Full-width feed chrome/banner belongs inside the same scroll as the cards.
+    scrollingHeader: (@Composable () -> Unit)? = null,
     viewModel: PopularUsersInfiniteGridViewModel = hiltViewModel(),
     headerTitle: String = "POPULAR ON CORUS",
     headerIcon: ImageVector = Icons.Filled.LocalFireDepartment,
@@ -113,34 +117,47 @@ fun PopularUsersInfiniteGrid(
             }
     }
 
+    val edgeToEdge = scrollingHeader != null
+    val bodyInset = if (edgeToEdge) CorusSpacing.lg else 0.dp
+    fun cardInsets(index: Int) = if (!edgeToEdge) Modifier else Modifier.padding(
+        start = if (index % 2 == 0) CorusSpacing.lg else 0.dp,
+        end = if (index % 2 == 1) CorusSpacing.lg else 0.dp,
+    )
+
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         state = state,
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(
-            start = CorusSpacing.lg,
-            end = CorusSpacing.lg,
+            start = if (edgeToEdge) 0.dp else CorusSpacing.lg,
+            end = if (edgeToEdge) 0.dp else CorusSpacing.lg,
             bottom = bottomContentPadding,
         ),
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
         verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
     ) {
-        if (topContent != null) {
+        if (topContent != null || scrollingHeader != null) {
             item(span = { GridItemSpan(maxLineSpan) }, key = "top") {
-                topContent()
+                Column {
+                    scrollingHeader?.invoke()
+                    if (topContent != null) Box(Modifier.padding(horizontal = bodyInset)) { topContent() }
+                }
             }
         }
 
         item(span = { GridItemSpan(maxLineSpan) }, key = "header") {
-            SectionHeader(headerTitle, headerIcon, verticalPadding = headerVerticalPadding, usesCompactHeader = usesCompactHeader)
+            Box(Modifier.padding(horizontal = bodyInset)) {
+                SectionHeader(headerTitle, headerIcon, verticalPadding = headerVerticalPadding, usesCompactHeader = usesCompactHeader)
+            }
         }
 
         if (matches.isEmpty() && isLoading) {
-            items(4, key = { "skeleton-initial-$it" }) {
-                SkeletonTasteMatchCard()
+            items(4, key = { "skeleton-initial-$it" }) { index ->
+                Box(cardInsets(index)) { SkeletonTasteMatchCard() }
             }
         } else {
-            items(matches, key = { it.user.id }) { match ->
+            itemsIndexed(matches, key = { _, match -> match.user.id }) { index, match ->
+                Box(cardInsets(index)) {
                 TasteMatchCard(
                     match = match,
                     isFollowing = match.user.id in followedIds,
@@ -152,10 +169,11 @@ fun PopularUsersInfiniteGrid(
                     // until this user's previews have loaded.
                     isArtLoading = match.matchData == null,
                 )
+                }
             }
             if (isLoading && matches.isNotEmpty()) {
-                items(2, key = { "skeleton-more-$it" }) {
-                    SkeletonTasteMatchCard()
+                items(2, key = { "skeleton-more-$it" }) { index ->
+                    Box(cardInsets(matches.size + index)) { SkeletonTasteMatchCard() }
                 }
             }
         }

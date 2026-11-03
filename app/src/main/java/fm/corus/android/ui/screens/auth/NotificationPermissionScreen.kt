@@ -108,6 +108,7 @@ internal fun NotificationPermissionScreen(
     ) { granted ->
         viewModel.analyticsService.logNotificationPermissionResult(granted)
         viewModel.markPushPermissionRequested()
+        isFinishing = true
         onFinished()
     }
 
@@ -124,102 +125,108 @@ internal fun NotificationPermissionScreen(
 
     BackHandler(onBack = finishWithoutSystemPrompt)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(CorusColors.Background)
-            .statusBarsPadding()
-            .navigationBarsPadding(),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    fm.corus.android.ui.components.OnboardingCompletionHost(
+        completing = isFinishing,
+        hasPendingInvitation = fm.corus.android.service.ReferralService.pendingCode(context) != null,
     ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(start = CorusSpacing.xxl, top = 60.dp, end = CorusSpacing.xxl),
-        ) {
-            Text(
-                stringResource(fm.corus.android.localization.CorusStrings.onboarding_notif_title),
-                style = CorusFont.custom(900, 28),
-                color = CorusColors.Text,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(modifier = Modifier.height(CorusSpacing.sm))
-            Text(
-                stringResource(fm.corus.android.localization.CorusStrings.onboarding_notif_subtitle),
-                style = CorusFont.bodyMedium,
-                color = CorusColors.Secondary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.widthIn(max = 340.dp),
-            )
-        }
-
-        BoxWithConstraints(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(top = CorusSpacing.md, start = CorusSpacing.xxxl, end = CorusSpacing.xxxl),
-            contentAlignment = Alignment.TopCenter,
+                .fillMaxSize()
+                .background(CorusColors.Background)
+                .statusBarsPadding()
+                .navigationBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            val scale = notificationPrimerPhoneScale(maxWidth, maxHeight)
-            Box(
-                modifier = Modifier.size(
-                    width = NOTIFICATION_PRIMER_PHONE_WIDTH * scale,
-                    height = NOTIFICATION_PRIMER_PHONE_HEIGHT * scale,
-                ),
-                contentAlignment = Alignment.Center,
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(start = CorusSpacing.xxl, top = 60.dp, end = CorusSpacing.xxl),
             ) {
-                LockScreenNotificationPreview(
-                    modifier = Modifier
-                        .size(
-                            width = NOTIFICATION_PRIMER_PHONE_WIDTH,
-                            height = NOTIFICATION_PRIMER_PHONE_HEIGHT,
-                        )
-                        .graphicsLayer {
-                            scaleX = scale
-                            scaleY = scale
-                        },
+                Text(
+                    stringResource(fm.corus.android.localization.CorusStrings.onboarding_notif_title),
+                    style = CorusFont.custom(900, 28),
+                    color = CorusColors.Text,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(CorusSpacing.sm))
+                Text(
+                    stringResource(fm.corus.android.localization.CorusStrings.onboarding_notif_subtitle),
+                    style = CorusFont.bodyMedium,
+                    color = CorusColors.Secondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.widthIn(max = 340.dp),
                 )
             }
-        }
 
-        Button(
-            onClick = {
-                if (isRequesting) return@Button
-                isRequesting = true
-                viewModel.analyticsService.logNotificationPermissionPrimerTapped("allow")
-                viewModel.markPushPermissionRequested()
-                if (PushNotificationPermission.shouldRequestPushPermission(context)) {
-                    pushPermissionLauncher.launch(PushNotificationPermission.permission)
-                } else {
-                    onFinished()
+            BoxWithConstraints(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(top = CorusSpacing.md, start = CorusSpacing.xxxl, end = CorusSpacing.xxxl),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                val scale = notificationPrimerPhoneScale(maxWidth, maxHeight)
+                Box(
+                    modifier = Modifier.size(
+                        width = NOTIFICATION_PRIMER_PHONE_WIDTH * scale,
+                        height = NOTIFICATION_PRIMER_PHONE_HEIGHT * scale,
+                    ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LockScreenNotificationPreview(
+                        modifier = Modifier
+                            .size(
+                                width = NOTIFICATION_PRIMER_PHONE_WIDTH,
+                                height = NOTIFICATION_PRIMER_PHONE_HEIGHT,
+                            )
+                            .graphicsLayer {
+                                scaleX = scale
+                                scaleY = scale
+                            },
+                    )
                 }
-            },
-            enabled = !isRequesting,
-            shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
-            contentPadding = PaddingValues(vertical = CorusSpacing.lg),
-            elevation = ButtonDefaults.buttonElevation(
-                defaultElevation = 0.dp,
-                pressedElevation = 0.dp,
-                disabledElevation = 0.dp,
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.xxl),
-            colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
-        ) {
+            }
+
+            Button(
+                onClick = {
+                    if (isRequesting || isFinishing) return@Button
+                    isRequesting = true
+                    viewModel.analyticsService.logNotificationPermissionPrimerTapped("allow")
+                    viewModel.markPushPermissionRequested()
+                    if (PushNotificationPermission.shouldRequestPushPermission(context)) {
+                        pushPermissionLauncher.launch(PushNotificationPermission.permission)
+                    } else {
+                        isFinishing = true
+                        onFinished()
+                    }
+                },
+                enabled = !isRequesting && !isFinishing,
+                shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
+                contentPadding = PaddingValues(vertical = CorusSpacing.lg),
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = 0.dp,
+                    pressedElevation = 0.dp,
+                    disabledElevation = 0.dp,
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = CorusSpacing.xxl),
+                colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+            ) {
+                Text(
+                    stringResource(fm.corus.android.localization.CorusStrings.onboarding_notif_allow),
+                    style = CorusFont.button,
+                    color = Color.White,
+                )
+            }
             Text(
-                stringResource(fm.corus.android.localization.CorusStrings.onboarding_notif_allow),
-                style = CorusFont.button,
-                color = Color.White,
+                stringResource(fm.corus.android.localization.CorusStrings.common_skip),
+                style = CorusFont.captionMedium,
+                color = CorusColors.Secondary,
+                modifier = Modifier
+                    .padding(top = CorusSpacing.lg, bottom = CorusSpacing.xxxl)
+                    .clickable(enabled = !isRequesting && !isFinishing, onClick = finishWithoutSystemPrompt),
             )
         }
-        Text(
-            stringResource(fm.corus.android.localization.CorusStrings.common_skip),
-            style = CorusFont.captionMedium,
-            color = CorusColors.Secondary,
-            modifier = Modifier
-                .padding(top = CorusSpacing.lg, bottom = CorusSpacing.xxxl)
-                .clickable(enabled = !isRequesting && !isFinishing, onClick = finishWithoutSystemPrompt),
-        )
     }
 }
 

@@ -148,6 +148,7 @@ internal fun MusicServiceScreen(
     val tidalEnabled = viewModel.tidalEnabled
     val youtubeMusicEnabled = viewModel.youtubeMusicEnabled
     val deezerEnabled = viewModel.deezerEnabled
+    val qobuzEnabled = viewModel.qobuzEnabled
     val fullPlaybackSubtitle = stringResource(fm.corus.android.localization.CorusStrings.music_service_apple_subtitle)
     val context = LocalContext.current
 
@@ -222,6 +223,15 @@ internal fun MusicServiceScreen(
                 )
             }
             // Deezer only appears when its Remote Config gate is on.
+            if (qobuzEnabled) {
+                MusicServiceRow(
+                    logoRes = R.drawable.qobuz_logo,
+                    label = MusicService.QOBUZ.displayLabel,
+                    accent = CorusColors.Text,
+                    selected = selected == MusicService.QOBUZ,
+                    onClick = { selected = MusicService.QOBUZ },
+                )
+            }
             if (deezerEnabled) {
                 MusicServiceRow(
                     logoRes = R.drawable.deezer_logo,

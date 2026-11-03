@@ -55,34 +55,39 @@ class PostDraftRepositoryTest {
     }
 
     @Test
-    fun `listDrafts orders by updatedAt desc, capped at 30, and deserializes`() = runTest {
+    fun `listDrafts returns all drafts beyond 30 in updatedAt order`() = runTest {
         val h = Harness()
         val query = mock<Query>()
         val limited = mock<Query>()
         val snap = mock<QuerySnapshot>()
-        val docSnap = mock<DocumentSnapshot> {
-            on { id } doReturn "d1"
-            on { data } doReturn mapOf(
-                "mediaType" to "track",
-                "caption" to "hi",
-                "captionMode" to "text",
-                "createdAt" to 1000L,
-                "updatedAt" to 2000L,
-                "track" to mapOf("id" to "t1", "name" to "Song", "artist" to "A", "album" to "Al"),
-            )
+        val limitedSnap = mock<QuerySnapshot>()
+        val docs = (75 downTo 1).map { i ->
+            mock<DocumentSnapshot> {
+                on { id } doReturn "d$i"
+                on { data } doReturn mapOf(
+                    "mediaType" to "track",
+                    "caption" to "hi",
+                    "captionMode" to "text",
+                    "createdAt" to i.toLong(),
+                    "updatedAt" to i.toLong(),
+                    "track" to mapOf("id" to "t$i", "name" to "Song $i", "artist" to "A", "album" to "Al"),
+                )
+            }
         }
         whenever(h.drafts.orderBy("updatedAt", Query.Direction.DESCENDING)).thenReturn(query)
-        whenever(query.limit(PostDraft.MAX_POST_DRAFTS.toLong())).thenReturn(limited)
-        whenever(limited.get()).thenReturn(Tasks.forResult(snap))
-        whenever(snap.documents).thenReturn(listOf(docSnap))
+        whenever(query.get()).thenReturn(Tasks.forResult(snap))
+        whenever(snap.documents).thenReturn(docs)
+        // Model the previous capped query, so the regression fails before the change.
+        whenever(query.limit(30L)).thenReturn(limited)
+        whenever(limited.get()).thenReturn(Tasks.forResult(limitedSnap))
+        whenever(limitedSnap.documents).thenReturn(docs.take(30))
 
         val result = h.repo().listDrafts(uid)
 
-        assertEquals(1, result.size)
-        assertEquals("d1", result[0].id)
+        assertEquals((75 downTo 1).map { "d$it" }, result.map { it.id })
         assertEquals(MediaType.TRACK, result[0].mediaType)
-        assertEquals("Song", result[0].track?.name)
-        assertEquals(2000L, result[0].updatedAt)
+        assertEquals("Song 75", result[0].track?.name)
+        assertEquals(75L, result[0].updatedAt)
     }
 
     @Test
@@ -92,7 +97,7 @@ class PostDraftRepositoryTest {
         whenever(h.drafts.document()).thenReturn(newDoc)          // id allocation
         whenever(h.drafts.document("new-id")).thenReturn(newDoc)  // write target
         whenever(newDoc.set(any())).thenReturn(Tasks.forResult(null))
-        // trimToCapacity reads the collection.
+        // Support the old retention query to detect unwanted pruning.
         val query = mock<Query>()
         val snap = mock<QuerySnapshot>()
         whenever(h.drafts.orderBy("updatedAt", Query.Direction.DESCENDING)).thenReturn(query)
@@ -143,7 +148,7 @@ class PostDraftRepositoryTest {
         assertEquals(originalCreatedAt, saved.createdAt)
         assertTrue(saved.updatedAt > originalCreatedAt)
 
-        // A merge write (SetOptions) is used, and trimToCapacity is NOT run on edit.
+        // An edit uses a merge write and does not scan other drafts.
         verify(existingDoc).set(any(), any<SetOptions>())
         verify(h.drafts, never()).orderBy(any<String>(), any())
 
@@ -153,15 +158,15 @@ class PostDraftRepositoryTest {
     }
 
     @Test
-    fun `saveDraft trims oldest drafts beyond the cap on a fresh save`() = runTest {
+    fun `saveDraft preserves all older drafts beyond 30 on a fresh save`() = runTest {
         val h = Harness()
         val newDoc = mock<DocumentReference> { on { id } doReturn "n" }
         whenever(h.drafts.document()).thenReturn(newDoc)
         whenever(h.drafts.document("n")).thenReturn(newDoc)
         whenever(newDoc.set(any())).thenReturn(Tasks.forResult(null))
 
-        // 32 docs on trim read → the 2 oldest (indices 30,31) must be deleted.
-        val docs = (0 until 32).map { i ->
+        // All 75 existing drafts must survive saving another one.
+        val docs = (0 until 75).map {
             val ref = mock<DocumentReference>()
             whenever(ref.delete()).thenReturn(Tasks.forResult(null))
             mock<DocumentSnapshot> { on { reference } doReturn ref }
@@ -178,10 +183,8 @@ class PostDraftRepositoryTest {
                 track = track("t1"), createdAt = 0L, updatedAt = 0L),
         )
 
-        // Kept: 0..29. Deleted: 30, 31.
-        for (i in 0 until 30) verify(docs[i].reference, never()).delete()
-        verify(docs[30].reference).delete()
-        verify(docs[31].reference).delete()
+        for (draft in docs) verify(draft.reference, never()).delete()
+        verify(h.drafts, never()).orderBy(any<String>(), any())
     }
 
     @Test

@@ -59,12 +59,12 @@ class RemoteConfigServiceDebugOverridesTest {
             service.setDebugOverride(future.key, true)
             assertNull(service.debugOverride(future.key))
             val server = service.debugFeatureFlags.single { it.namespace == "server" && it.key == "for_you_prototype_enabled" }
-            assertTrue(server.allowsLocalOverride)
+            assertFalse(server.allowsLocalOverride)
             assertNull(server.rawValue)
             assertEquals("Your Mix / For You", server.title)
             service.setDebugOverride(server.key, true)
-            assertEquals(true, service.debugOverride(server.key))
-            assertTrue(server.effectiveValue())
+            assertNull(service.debugOverride(server.key))
+            assertFalse(server.effectiveValue())
             assertNull(server.rawValue) // Local changes never claim server access.
             assertEquals(server.rowId, service.debugFeatureFlags.first().rowId)
             service.setDebugOverride(server.key, null)
@@ -94,11 +94,11 @@ class RemoteConfigServiceDebugOverridesTest {
             assertTrue(service.profileSharingV2)
             assertTrue(service.mapEnabled)
             assertFalse(service.postSuccessOthersEnabled)
-            assertEquals(4, service.debugOverrideCount)
+            assertEquals(3, service.debugOverrideCount)
             assertTrue(service.revision.value > revision)
             val restarted = RemoteConfigService(remote, auth, context)
             assertTrue(restarted.profileSharingV2)
-            assertEquals(true, restarted.debugOverride("for_you_prototype_enabled"))
+            assertNull(restarted.debugOverride("for_you_prototype_enabled"))
             assertFalse(restarted.postSuccessOthersEnabled)
             RemoteConfigService::class.java.getDeclaredMethod("cacheFeedFlags").apply {
                 isAccessible = true
@@ -108,7 +108,7 @@ class RemoteConfigServiceDebugOverridesTest {
             assertTrue(service.profileSharingV2)
             service.setDebugOverride("profile_sharing_v2", null)
             assertFalse(service.profileSharingV2)
-            assertEquals(3, service.debugOverrideCount)
+            assertEquals(2, service.debugOverrideCount)
             service.resetDebugOverrides()
             assertEquals(0, service.debugOverrideCount)
             assertNull(service.debugOverride("for_you_prototype_enabled"))

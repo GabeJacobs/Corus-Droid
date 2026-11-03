@@ -6,6 +6,7 @@ import fm.corus.android.R
 
 /** The existing Settings invite text and native share surface. */
 fun Context.shareCorusInvite() {
+    if (fm.corus.android.service.ReferralService.enabled.value) { fm.corus.android.service.ReferralService.openInvite("invite_action"); return }
     val sendIntent = Intent(Intent.ACTION_SEND).apply {
         putExtra(Intent.EXTRA_TEXT, getString(fm.corus.android.localization.CorusStrings.settings_share_app_text))
         type = "text/plain"

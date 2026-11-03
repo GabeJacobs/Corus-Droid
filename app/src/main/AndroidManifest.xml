@@ -31,6 +31,7 @@
         <package android:name="com.spotify.music" />
     </queries>
 
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
     <application
         android:name=".CorusApplication"
         android:allowBackup="true"
@@ -42,7 +43,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Corus"
         android:localeConfig="@xml/locales_config"
-        tools:targetApi="35">
+        tools:targetApi="35"
+        tools:replace="android:fullBackupContent,android:dataExtractionRules">
 
         <!-- Share target: post a song to Corus from another app's share sheet
              (Spotify / Apple Music / SoundCloud / Deezer links as text/plain).
@@ -74,6 +76,18 @@
             android:windowSoftInputMode="adjustResize">
 
             <!-- Deep link: corus:// -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="corus.onelink.me" android:pathPrefix="/fgUi" />
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="invite.corus.fm" />
+            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -107,6 +121,7 @@
                 <data android:scheme="https" />
                 <data android:host="corus.fm" />
                 <data android:pathPrefix="/post/" />
+                <data android:pathPrefix="/invite/" />
                 <data android:pathPrefix="/u/" />
                 <data android:pathPrefix="/song/" />
                 <data android:pathPrefix="/album/" />
@@ -220,6 +235,7 @@
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_stat_corus" />
 
+        <receiver android:name=".service.ReferralShareReceiver" android:exported="false" />
     </application>
 
 </manifest>

@@ -33,6 +33,20 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = android.app.Application::class)
 class ForYouPrototypeStoreTest {
+    @Test fun `Your Mix is permanent before progress loads and ignores obsolete rollout state`() = runTest(dispatcher) {
+        prefs.edit().putBoolean("access.v1.gabe", false).commit()
+        whenever(remote.debugOverride("for_you_prototype_enabled")).thenReturn(false)
+        val store = store(); runCurrent()
+        assertTrue(store.isAvailable)
+        assertFalse(store.isResolvingAccess)
+        assertNull(store.state.value.stayCloseProgress)
+        store.select(ForYouTuningMode.BALANCED)
+        assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
+        requests[0].setException(IllegalStateException("offline")); runCurrent()
+        assertTrue(store.isAvailable)
+        switch("other"); runCurrent(); assertTrue(store.isAvailable)
+        switch(null); runCurrent(); assertFalse(store.isAvailable)
+    }
     @Test fun `concurrent visits keep a pending notice and fresh devices respect the account claim`() = runTest(dispatcher) {
         val firestore = mock<FirebaseFirestore>()
         val collection = mock<CollectionReference>()
@@ -165,7 +179,7 @@ class ForYouPrototypeStoreTest {
         assertEquals("close", prefs.getString("confirmedMode.v1.gabe", null))
         prefs.edit().putString("confirmedMode.v1.other", "balanced").commit()
         switch("other"); runCurrent()
-        assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
+        assertEquals(ForYouTuningMode.BALANCED, store.state.value.mode)
         store.updateStayCloseProgress(fm.corus.android.domain.ForYouStayCloseProgress(50), "gabe")
         assertNull(store.state.value.stayCloseProgress)
         switch("gabe"); runCurrent()
@@ -219,63 +233,34 @@ class ForYouPrototypeStoreTest {
         assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
     }
 
-    @Test fun `fast access resolves before the first feed presentation`() = runTest(dispatcher) {
+    @Test fun `product progress resolves without blocking permanent presentation`() = runTest(dispatcher) {
         val store = store(); runCurrent()
-        assertFalse(store.state.value.hasPresentation)
-        complete(0, true); runCurrent()
-        assertTrue(store.isAvailable)
         assertTrue(store.state.value.hasPresentation)
+        assertTrue(store.isAvailable)
+        assertFalse(store.isResolvingAccess)
+        complete(0, false); runCurrent()
+        assertTrue(store.isAvailable)
         assertEquals(ForYouTuningMode.BALANCED, store.state.value.mode)
         verify(functions).getHttpsCallable("getForYouPrototypeAccess")
     }
 
-    @Test fun `debug visibility changes immediately and reset restores confirmed server access`() = runTest(dispatcher) {
-        val store = store(); runCurrent(); complete(0, true); runCurrent()
+    @Test fun `configured default can arrive before progress without gating permanent tabs`() = runTest(dispatcher) {
+        val store = store(); runCurrent()
+        whenever(remote.forYouDefaultMode).thenReturn(ForYouTuningMode.ECLECTIC)
+        revision.value++; runCurrent()
+        assertTrue(store.isAvailable)
+        assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
+        complete(0, false); runCurrent()
+        assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
+    }
+
+    @Test fun `obsolete visibility overrides cannot hide Your Mix`() = runTest(dispatcher) {
+        val store = store(); runCurrent(); complete(0, false); runCurrent()
         whenever(remote.debugOverride("for_you_prototype_enabled")).thenReturn(false)
         revision.value++; runCurrent()
-        assertFalse(store.isAvailable)
-        assertTrue(prefs.getBoolean("access.v1.gabe", false))
-        assertFalse(store().isAvailable) // Survives a new store without altering server cache.
-        whenever(remote.debugOverride("for_you_prototype_enabled")).thenReturn(null)
-        revision.value++; runCurrent()
         assertTrue(store.isAvailable)
-    }
-
-    @Test fun `debug ON stays visible after server denial and reset restores OFF`() = runTest(dispatcher) {
-        val store = store(); runCurrent()
-        whenever(remote.debugOverride("for_you_prototype_enabled")).thenReturn(true)
-        revision.value++; runCurrent()
-        assertTrue(store.isAvailable)
-        assertTrue(store.state.value.hasPresentation)
-        complete(0, false); runCurrent()
-        assertTrue(store.isAvailable)
-        assertFalse(prefs.getBoolean("access.v1.gabe", true))
-        whenever(remote.debugOverride("for_you_prototype_enabled")).thenReturn(null)
-        revision.value++; runCurrent()
-        assertFalse(store.isAvailable)
-    }
-
-    @Test fun `debug ON cannot make a signed out session available`() = runTest(dispatcher) {
-        whenever(remote.debugOverride("for_you_prototype_enabled")).thenReturn(true)
-        val store = store(); runCurrent()
-        assertTrue(store.isAvailable)
-        switch(null); runCurrent()
-        assertFalse(store.isAvailable)
-    }
-
-    @Test fun `late ON is cached for next launch without moving visible tabs`() = runTest(dispatcher) {
-        val store = store(); runCurrent(); advanceTimeBy(1000); runCurrent()
-        assertTrue(store.state.value.hasPresentation); assertFalse(store.isAvailable)
-        complete(0, true); runCurrent(); assertFalse(store.isAvailable)
-        assertTrue(prefs.getBoolean("access.v1.gabe", false))
         assertTrue(store().isAvailable)
-    }
-
-    @Test fun `late OFF preserves current cached layout and disables next launch`() = runTest(dispatcher) {
-        prefs.edit().putBoolean("access.v1.gabe", true).commit()
-        val store = store(); runCurrent(); advanceTimeBy(1000); runCurrent()
-        complete(0, false); runCurrent(); assertTrue(store.isAvailable)
-        assertFalse(store().isAvailable)
+        switch(null); runCurrent(); assertFalse(store.isAvailable)
     }
 
     @Test fun `offline startup retains confirmed access and settles immediately on failure`() = runTest(dispatcher) {
@@ -288,12 +273,12 @@ class ForYouPrototypeStoreTest {
     @Test fun `account switches isolate saved modes and ignore obsolete generations`() = runTest(dispatcher) {
         val store = store(); runCurrent()
         switch("other"); runCurrent()
-        complete(0, true); runCurrent(); assertFalse(store.isAvailable)
+        complete(0, true); runCurrent(); assertTrue(store.isAvailable)
         switch("gabe"); runCurrent(); complete(1, true); runCurrent()
-        assertFalse(store.isAvailable)
+        assertTrue(store.isAvailable)
         complete(2, true); runCurrent(); store.select(ForYouTuningMode.STAY_CLOSE)
         switch("other"); runCurrent(); assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
-        assertFalse(store.isAvailable)
+        assertTrue(store.isAvailable)
         switch("gabe"); runCurrent(); assertEquals(ForYouTuningMode.STAY_CLOSE, store.state.value.mode)
         assertNull(store.state.value.stayCloseProgress) // Routing does not restore access evidence.
         complete(4, true); runCurrent(); assertEquals(ForYouTuningMode.STAY_CLOSE, store.state.value.mode)
@@ -346,7 +331,8 @@ class ForYouPrototypeStoreTest {
     @Test fun `unknown and below five posting progress override saved paid modes and remote defaults`() = runTest(dispatcher) {
         prefs.edit().putString("mode.gabe", "balanced").commit()
         val store = store(); runCurrent()
-        assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
+        assertEquals(ForYouTuningMode.BALANCED, store.state.value.mode)
+        assertNull(store.state.value.stayCloseProgress) // Saved routing is not an entitlement.
         complete(0, true, 4); runCurrent()
         assertEquals(ForYouTuningMode.ECLECTIC, store.state.value.mode)
         store.select(ForYouTuningMode.BALANCED)

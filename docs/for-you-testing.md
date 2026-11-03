@@ -1,5 +1,23 @@
 # Your Mix Android local testing
 
+## Current policy: permanent feeds (October 26, 2026)
+
+Your Mix and New are permanent for signed-in accounts. Startup does not wait for
+rollout visibility, and old cached OFF values or Remote Config failures cannot
+hide either tab. Your Mix still loads account-scoped posting/trial/Club progress
+in the background; unknown progress does not grant premium mode selection.
+Authentication, verified App Check, bans, posting thresholds and product access
+remain enforced by the backend.
+
+Keep the published `for_you_prototype_enabled` and `feed_new_tab_enabled` values
+ON while older installed clients still consume them. Updated clients ignore
+these availability flags. Shipping these source changes requires app updates;
+this source cleanup does not itself publish a store release.
+
+The earlier rollout and testing history below describes prior versions.
+
+---
+
 Build and run the debug app locally, then sign in as @gabe. No version bump,
 Play upload or production promotion is part of this change. The local APK is
 `../output/android-your-mix-fallback-2026-10-05/corus-your-mix-debug.apk` (relative to Corus-Droid).

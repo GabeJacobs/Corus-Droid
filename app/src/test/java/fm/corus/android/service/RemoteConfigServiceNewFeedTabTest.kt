@@ -18,7 +18,7 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
 class RemoteConfigServiceNewFeedTabTest {
-    @Test fun `pilot is default off and stale SDK values cannot cross accounts`() = runTest {
+    @Test fun `New is permanent before fetch and ignores obsolete remote values across accounts`() = runTest {
         val rc = mock<FirebaseRemoteConfig>()
         val value = mock<FirebaseRemoteConfigValue> {
             on { source } doReturn FirebaseRemoteConfig.VALUE_SOURCE_REMOTE
@@ -38,16 +38,15 @@ class RemoteConfigServiceNewFeedTabTest {
         val service = RemoteConfigService(rc, auth, RuntimeEnvironment.getApplication())
         val defaults = argumentCaptor<Map<String, Any>>()
         verify(rc).setDefaultsAsync(defaults.capture())
-        assertEquals(false, defaults.firstValue["feed_new_tab_enabled"])
-        assertFalse(service.feedNewTabEnabled) // stale cached true before first fetch
+        assertTrue(service.feedNewTabEnabled)
         service.fetchAndActivate(forceFresh = true)
         assertTrue(service.feedNewTabEnabled)
         uid = "someone-else"
-        assertFalse(service.feedNewTabEnabled) // no previous viewer's rollout while fetching
+        assertTrue(service.feedNewTabEnabled)
         service.setCurrentUserSignal(uid)
         whenever(rc.getBoolean("feed_new_tab_enabled")).thenReturn(false)
         service.fetchAndActivate(forceFresh = true)
-        assertFalse(service.feedNewTabEnabled)
+        assertTrue(service.feedNewTabEnabled)
         whenever(auth.currentUser).thenReturn(null)
         assertFalse(service.feedNewTabEnabled)
     }

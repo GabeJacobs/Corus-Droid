@@ -109,9 +109,9 @@ class FeedTabPresentationTest {
         assertFalse(presentation.isCompleted)
         advanceTimeBy(1); runCurrent()
         assertTrue(presentation.isCompleted)
-        assertFalse(service.feedNewTabEnabled)
+        assertTrue(service.feedNewTabEnabled)
         fetch.setResult(null); runCurrent()
-        assertFalse("Late response must not move visible tabs", service.feedNewTabEnabled)
+        assertTrue("New is available before and after late responses", service.feedNewTabEnabled)
         request.join()
         val nextLaunch = RemoteConfigService(rc, auth, context)
         launch { nextLaunch.awaitFeedTabPresentation() }
@@ -129,7 +129,7 @@ class FeedTabPresentationTest {
         signIn("other")
         assertTrue(offline.isResolvingFeedTabs)
         offline.fetchAndActivate(forceFresh = true)
-        assertFalse(offline.feedNewTabEnabled)
+        assertTrue(offline.feedNewTabEnabled)
         assertTrue("Uncached accounts retain the ordinary in-app defaults", offline.trendingFeedEnabled)
         assertEquals("other", offline.feedTabPresentation.value.uid)
     }
@@ -145,7 +145,7 @@ class FeedTabPresentationTest {
         assertEquals("other", service.feedTabPresentation.value.uid)
         assertFalse(service.feedTabPresentation.value.hasPresentation)
         advanceUntilIdle()
-        assertFalse(service.feedNewTabEnabled)
+        assertTrue(service.feedNewTabEnabled)
     }
 
     @Test fun `leaving and returning to the same uid rejects the previous session response`() = runTest(dispatcher) {
@@ -159,7 +159,7 @@ class FeedTabPresentationTest {
         fetch.setResult(null); runCurrent()
         assertFalse(service.feedTabPresentation.value.hasPresentation)
         advanceUntilIdle()
-        assertFalse(service.feedNewTabEnabled)
+        assertTrue(service.feedNewTabEnabled)
     }
 
     @Test fun `first launch after upgrade retains ordinary Matches from the legacy cache`() = runTest(dispatcher) {
@@ -174,8 +174,8 @@ class FeedTabPresentationTest {
         advanceUntilIdle()
         assertTrue("A slow fetch must preserve the released Matches tab", service.tasteMatchesEnabled)
         assertFalse("Unscoped tester access must not cross accounts", service.tasteMatchesTester)
-        assertFalse("Unscoped pilot access must not cross accounts", service.feedNewTabEnabled)
-        assertEquals(listOf("following", "trending", "tasteMatches"),
+        assertTrue("New is permanent for each signed-in account", service.feedNewTabEnabled)
+        assertEquals(listOf("following", "trending", "tasteMatches", "newReleases"),
             fm.corus.android.ui.screens.feed.visibleFeedModeTabs(
                 trendingEnabled = service.trendingFeedEnabled,
                 tasteMatchesAvailable = service.tasteMatchesEnabled || service.tasteMatchesTester,

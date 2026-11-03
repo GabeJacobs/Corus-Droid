@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
@@ -55,6 +56,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.hilt.navigation.compose.hiltViewModel
 import fm.corus.android.ui.LocalHapticManager
@@ -102,6 +104,17 @@ fun SettingsScreen(
 ) {
     settingsViewModel.remoteConfigService.revision.collectAsState().value
     val context = LocalContext.current
+    val referralStatus by fm.corus.android.service.ReferralService.status.collectAsState()
+    val referralsEnabled by fm.corus.android.service.ReferralService.enabled.collectAsState()
+    val referralReceipt by fm.corus.android.service.ReferralService.receipt.collectAsState()
+    var showRedeem by remember { mutableStateOf(false) }
+    var showReferrals by remember { mutableStateOf(false) }
+    LaunchedEffect(referralsEnabled) {
+        if (!referralsEnabled) showReferrals = false
+        try { fm.corus.android.service.ReferralService.reload() } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e }
+    }
+    if (showRedeem) ReferralRedemptionSheet { showRedeem = false }
+    if (showReferrals) ReferralScreen(onClose = { showReferrals = false }, onRewardApplied = settingsViewModel::refreshClubStatus)
     val activity = context as? Activity
     var showClubOffer by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -174,8 +187,9 @@ fun SettingsScreen(
 
     // Club status
     val isClubMember by settingsViewModel.isClubMember.collectAsState()
+    val hasStoreSubscription by settingsViewModel.hasStoreSubscription.collectAsState()
     val isVerified by settingsViewModel.isVerified.collectAsState()
-    val showJoinClub = !isClubMember && !isVerified
+    val showJoinClub = (!isClubMember || hasStoreSubscription == false) && !isVerified
     val restoreInProgress by settingsViewModel.restoreInProgress.collectAsState()
     val restoreResult by settingsViewModel.restoreResult.collectAsState()
     val restoreLoadingMessage = stringResource(fm.corus.android.localization.CorusStrings.club_restore_purchases)
@@ -263,9 +277,14 @@ fun SettingsScreen(
                 .weight(1f)
                 .verticalScroll(rememberScrollState()),
         ) {
+            val hasReferralHeader = referralsEnabled && referralStatus.enabled && referralStatus.shortCode.isNotBlank()
+            if (hasReferralHeader) ReferralSettingsHeader(referralStatus.shortCode) { fm.corus.android.service.ReferralService.inviteSource = "settings_header"; showReferrals = true }
             // ── Section: Corus Club ──
             if (showJoinClub) {
-                SectionHeader(stringResource(fm.corus.android.localization.CorusStrings.settings_section_corus_club))
+                SectionHeader(
+                    stringResource(fm.corus.android.localization.CorusStrings.settings_section_corus_club),
+                    topPadding = if (hasReferralHeader) 8.dp else CorusSpacing.xxl,
+                )
 
                 Row(
                     modifier = Modifier
@@ -280,7 +299,7 @@ fun SettingsScreen(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = stringResource(fm.corus.android.localization.CorusStrings.settings_row_join_club),
+                            text = stringResource(if (isClubMember) fm.corus.android.localization.CorusStrings.club_subscribe else fm.corus.android.localization.CorusStrings.settings_row_join_club),
                             style = CorusFont.body,
                             color = CorusColors.Text,
                         )
@@ -315,8 +334,32 @@ fun SettingsScreen(
                 )
             }
 
+            // ── Section: Friends ──
+            if ((referralsEnabled && referralStatus.enabled) || referralStatus.earned || referralReceipt?.redeemed == true) {
+                SectionHeader(
+                    stringResource(fm.corus.android.localization.CorusStrings.settings_section_friends),
+                    topPadding = if (hasReferralHeader && !showJoinClub) 8.dp else CorusSpacing.xxl,
+                )
+                if (referralStatus.enabled) ReferralSettingsCard(referralStatus) { fm.corus.android.service.ReferralService.inviteSource = "settings_row"; showReferrals = true }
+                else SettingsNavRow(
+                    icon = Icons.Filled.PersonAdd,
+                    title = stringResource(fm.corus.android.localization.CorusStrings.settings_row_invite_friends),
+                    subtitle = stringResource(fm.corus.android.localization.CorusStrings.settings_row_invite_friends_desc),
+                    onClick = { context.shareCorusInvite() },
+                )
+                if ((referralsEnabled && referralStatus.canAcceptInvite) || referralReceipt?.redeemed == true) SettingsNavRow(
+                    icon = Icons.Filled.CardGiftcard,
+                    title = stringResource(fm.corus.android.localization.CorusStrings.referral_redeem_code),
+                    onClick = { showRedeem = true },
+                )
+                SettingsNavRow(icon = Icons.Filled.Contacts,
+                    title = stringResource(fm.corus.android.localization.CorusStrings.search_contacts_card_sync),
+                    subtitle = stringResource(fm.corus.android.localization.CorusStrings.settings_row_sync_contacts_subtitle),
+                    onClick = onSyncContacts)
+            }
             // ── Section: Invite ──
-            SectionHeader(stringResource(fm.corus.android.localization.CorusStrings.settings_section_invite))
+            if (!((referralsEnabled && referralStatus.enabled) || referralStatus.earned || referralReceipt?.redeemed == true)) {
+            SectionHeader(stringResource(fm.corus.android.localization.CorusStrings.settings_section_friends))
 
             SettingsNavRow(
                 icon = Icons.Filled.PersonAdd,
@@ -333,6 +376,7 @@ fun SettingsScreen(
             )
 
             // ── Section: Appearance ──
+            }
             SectionHeader(stringResource(fm.corus.android.localization.CorusStrings.settings_section_appearance))
 
             val appearanceMode by appearanceViewModel.appearanceMode.collectAsState()
@@ -365,6 +409,7 @@ fun SettingsScreen(
                 settingsViewModel.tidalEnabled,
                 settingsViewModel.youtubeMusicEnabled,
                 settingsViewModel.deezerEnabled,
+                settingsViewModel.qobuzEnabled,
                 settingsViewModel.audiomackStreamingEnabled,
             ) {
                 buildList {
@@ -373,6 +418,7 @@ fun SettingsScreen(
                     // Config gates are on. YouTube Music sits below TIDAL, above Deezer.
                     if (settingsViewModel.tidalEnabled) add(MusicService.TIDAL)
                     if (settingsViewModel.youtubeMusicEnabled) add(MusicService.YOUTUBE_MUSIC)
+                    if (settingsViewModel.qobuzEnabled) add(MusicService.QOBUZ)
                     if (settingsViewModel.deezerEnabled) add(MusicService.DEEZER)
                     if (settingsViewModel.audiomackStreamingEnabled) add(MusicService.AUDIOMACK)
                     // Apple Music is intentionally last on Android.
@@ -388,7 +434,7 @@ fun SettingsScreen(
             DropdownSettingsRow(
                 icon = Icons.Filled.MusicNote,
                 title = stringResource(fm.corus.android.localization.CorusStrings.settings_row_music_service),
-                selected = musicService,
+                selected = if (musicService == MusicService.QOBUZ && !settingsViewModel.qobuzEnabled) MusicService.SPOTIFY else musicService,
                 options = musicServiceOptions,
                 labelFor = { it.displayLabel },
                 onSelect = { settingsViewModel.setMusicService(it); if(it == MusicService.AUDIOMACK && !audiomackConnected) connectAudiomack() },
@@ -917,7 +963,7 @@ fun SettingsScreen(
 // ── Section Header ──
 
 @Composable
-private fun SectionHeader(title: String) {
+private fun SectionHeader(title: String, topPadding: Dp = CorusSpacing.xxl) {
     Text(
         text = title,
         style = CorusFont.sectionHeader,
@@ -925,7 +971,7 @@ private fun SectionHeader(title: String) {
         modifier = Modifier.padding(
             start = CorusSpacing.lg,
             end = CorusSpacing.lg,
-            top = CorusSpacing.xxl,
+            top = topPadding,
             bottom = CorusSpacing.sm,
         ),
     )
@@ -960,7 +1006,7 @@ private fun SettingsToggleRow(
 
         Column(modifier = Modifier.weight(1f)) {
             Text(text = title, style = CorusFont.body, color = CorusColors.Text)
-            if (subtitle != null) {
+            if (!subtitle.isNullOrBlank()) {
                 Text(text = subtitle, style = CorusFont.caption, color = CorusColors.Secondary)
             }
         }
@@ -1013,7 +1059,7 @@ private fun SettingsNavRow(
 
         Column(modifier = Modifier.weight(1f)) {
             Text(text = title, style = CorusFont.body, color = CorusColors.Text)
-            if (subtitle != null) {
+            if (!subtitle.isNullOrBlank()) {
                 Text(text = subtitle, style = CorusFont.caption, color = CorusColors.Secondary)
             }
         }

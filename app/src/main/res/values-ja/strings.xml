@@ -520,7 +520,7 @@
     <string name="search_see_all">"すべて見る"</string>
     <string name="search_taste_matches_title">"好みの一致"</string>
     <string name="search_taste_matches_feed_cta_body">"同じ好みの人の投稿を見ましょう。"</string>
-    <string name="search_taste_matches_feed_cta_button">"好みの一致フィードを見る"</string>
+    <string name="search_taste_matches_feed_cta_button">"あなたのミックスへ"</string>
     <string name="search_mutual_connections_title">"共通のつながり"</string>
     <string name="search_popular_title">"Corus で人気"</string>
     <string name="search_new_title">"Corus の新着"</string>
@@ -1381,6 +1381,7 @@
     <string name="share_post_author_preview">"%1$sの投稿"</string>
     <string name="share_profile_invitation">"Corusでつながろう"</string>
     <string name="share_profile_link_preview">"リンクプレビュー"</string>
+    <string name="referral_reward_active_title">@string/corus_referral_claim_applied_title</string>
     <string name="profile_shuffle">プロフィールをシャッフル</string>
     <string name="profile_shuffle_no_songs">再生できる曲はまだありません</string>
     <string name="profile_shuffle_failed">このプロフィールの曲を読み込めませんでした。もう一度お試しください。</string>
