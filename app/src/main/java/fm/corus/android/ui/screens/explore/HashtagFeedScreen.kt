@@ -16,6 +16,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Tag
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.*
@@ -94,6 +97,18 @@ fun HashtagFeedScreen(
     val context = LocalContext.current
     val musicService by viewModel.musicServicePreference.current.collectAsState()
     val isGeneratingPlaylist by viewModel.nowPlayingManager.isGeneratingPlaylist.collectAsState()
+    val playbackState by viewModel.nowPlayingManager.state.collectAsState()
+    val isStartingPlayback by viewModel.isStartingPlayback.collectAsState()
+    val playbackFailure by viewModel.playbackFailure.collectAsState()
+    val isPlayingHashtag = viewModel.nowPlayingManager.activeContext == fm.corus.android.domain.PlaybackOrigin.Hashtag(hashtag) && playbackState.isPlaying
+    var exportMenuOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(playbackFailure) {
+        playbackFailure?.let {
+            ToastManager.show(context.getString(if (it) R.string.corus_hashtag_play_failed else R.string.profile_shuffle_no_songs))
+            viewModel.clearPlaybackFailure()
+        }
+    }
+
     val playlistError by viewModel.nowPlayingManager.playlistError.collectAsState()
     var showPlaylistAlert by remember { mutableStateOf(false) }
     var showPlaylistChooser by remember { mutableStateOf(false) }
@@ -139,6 +154,38 @@ fun HashtagFeedScreen(
         if (shouldLoadMore) viewModel.loadHashtagPosts(hashtag)
     }
 
+    val exportPlaylist: () -> Unit = {
+        val hasSongs = totalCount > 0
+
+        if (!hasSongs) {
+            ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.profile_toast_no_songs_for_playlist))
+        } else if (viewModel.shouldPaywallHashtagPlaylist()) {
+            clubPlaylistTrialContext = fm.corus.android.domain.PlaylistTrialField.Hashtag
+            showClubOffer = true
+        } else if (musicService == MusicService.YOUTUBE_MUSIC) {
+            // No YouTube Music playlist export yet — explain, then offer
+            // a Spotify playlist (the explainer keeps quick vs all).
+            // Checked before the full-export chooser so YT Music
+            // never lands on it.
+            if (fm.corus.android.domain.youtubeMusicIntegrationEnabled()) { viewModel.generateHashtagPlaylist(hashtag) } else { showYouTubeMusicPlaylistExplainer = true }
+        } else if (shouldOfferHashtagFullExport(totalCount)) {
+            // >75 eligible songs → quick-vs-all chooser, which also
+            // folds in the Spotify/SoundCloud caveat (no stacked popups).
+            showPlaylistChooser = true
+        } else {
+            // TIDAL builds on the user's own account (generates
+            // directly); Apple Music / Deezer and SoundCloud-on-
+            // Spotify still get the alert.
+            val hasSoundCloud = posts.any { it.isTrack && it.track.source == TrackSource.SOUNDCLOUD }
+            if (shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud, fm.corus.android.domain.youtubeMusicIntegrationEnabled())) {
+                showPlaylistAlert = true
+            } else {
+                viewModel.generateHashtagPlaylist(hashtag)
+            }
+        }
+
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -146,6 +193,20 @@ fun HashtagFeedScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back), tint = CorusColors.Text)
+                    }
+                },
+                actions = {
+                    Box {
+                        IconButton(onClick = { exportMenuOpen = true }) {
+                            Icon(Icons.Default.MoreHoriz, stringResource(R.string.corus_hashtag_more_options), tint = CorusColors.Text)
+                        }
+                        DropdownMenu(expanded = exportMenuOpen, onDismissRequest = { exportMenuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.corus_hashtag_export_playlist)) },
+                                onClick = { exportMenuOpen = false; exportPlaylist() },
+                                enabled = !isGeneratingPlaylist && totalCount > 0,
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
@@ -230,43 +291,19 @@ fun HashtagFeedScreen(
                                 isEnabled = !isTogglingFollow,
                                 onClick = { viewModel.toggleFollow(hashtag) },
                             )
-                            // Whether the tag has anything to build a playlist from.
-                            // totalCount includes film posts, but the server drops
-                            // those when it builds — a films-only tag just errors
-                            // with the backend's "No tracks" message.
-                            val hasSongs = totalCount > 0
-                            HashtagPlaylistButton(
-                                hasSongs = hasSongs,
-                                isGenerating = isGeneratingPlaylist,
-                                onClick = {
-                                    if (!hasSongs) {
-                                        ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.profile_toast_no_songs_for_playlist))
-                                    } else if (viewModel.shouldPaywallHashtagPlaylist()) {
-                                        clubPlaylistTrialContext = fm.corus.android.domain.PlaylistTrialField.Hashtag
-                                        showClubOffer = true
-                                    } else if (musicService == MusicService.YOUTUBE_MUSIC) {
-                                        // No YouTube Music playlist export yet — explain, then offer
-                                        // a Spotify playlist (the explainer keeps quick vs all).
-                                        // Checked before the full-export chooser so YT Music
-                                        // never lands on it.
-                                        if (fm.corus.android.domain.youtubeMusicIntegrationEnabled()) { viewModel.generateHashtagPlaylist(hashtag) } else { showYouTubeMusicPlaylistExplainer = true }
-                                    } else if (shouldOfferHashtagFullExport(totalCount)) {
-                                        // >75 eligible songs → quick-vs-all chooser, which also
-                                        // folds in the Spotify/SoundCloud caveat (no stacked popups).
-                                        showPlaylistChooser = true
-                                    } else {
-                                        // TIDAL builds on the user's own account (generates
-                                        // directly); Apple Music / Deezer and SoundCloud-on-
-                                        // Spotify still get the alert.
-                                        val hasSoundCloud = posts.any { it.isTrack && it.track.source == TrackSource.SOUNDCLOUD }
-                                        if (shouldShowSpotifyPlaylistAlert(musicService, hasSoundCloud, fm.corus.android.domain.youtubeMusicIntegrationEnabled())) {
-                                            showPlaylistAlert = true
-                                        } else {
-                                            viewModel.generateHashtagPlaylist(hashtag)
-                                        }
-                                    }
-                                },
-                            )
+                            Button(
+                                onClick = { viewModel.playHashtag(hashtag) },
+                                enabled = !isLoading && !isStartingPlayback,
+                                shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
+                                colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent, contentColor = Color.White),
+                                contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
+                                modifier = Modifier.heightIn(min = 30.dp),
+                            ) {
+                                if (isStartingPlayback) CircularProgressIndicator(Modifier.size(14.dp), color = Color.White, strokeWidth = 2.dp)
+                                else Icon(if (isPlayingHashtag) Icons.Default.Pause else Icons.Default.PlayArrow, null, Modifier.size(14.dp))
+                                Spacer(Modifier.width(CorusSpacing.xs))
+                                Text(stringResource(if (isPlayingHashtag) R.string.corus_hashtag_pause else R.string.corus_hashtag_play), style = CorusFont.buttonSmall)
+                            }
                         }
                     } else {
                         Box(
@@ -649,75 +686,13 @@ private fun HashtagFollowButton(
         enabled = isEnabled,
         shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (isFollowing) CorusColors.CardBackground else CorusColors.Accent,
-            contentColor = if (isFollowing) CorusColors.Secondary else Color.White,
+            containerColor = CorusColors.CardBackground,
+            contentColor = if (isFollowing) CorusColors.Secondary else CorusColors.Accent,
         ),
-        border = if (isFollowing) BorderStroke(1.dp, CorusColors.Divider) else null,
+        border = BorderStroke(1.dp, if (isFollowing) CorusColors.Divider else CorusColors.Accent.copy(alpha = 0.30f)),
         contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
         modifier = Modifier.height(30.dp),
     ) {
         Text(text = label, style = CorusFont.buttonSmall)
-    }
-}
-
-/**
- * Playlist export button — the secondary half of the Follow/Playlist pair.
- * Deliberately styled like [HashtagFollowButton]'s "Following" state (same
- * Button shape, height, padding, and typography) so the two read as one
- * system rather than a CTA next to a stray pill. Spinner while generating,
- * dimmed when the tag has no songs. Click gating (no-songs toast, chooser,
- * Spotify alert) lives at the call site, mirroring ProfileScreen.
- */
-@Composable
-private fun HashtagPlaylistButton(
-    hasSongs: Boolean,
-    isGenerating: Boolean,
-    onClick: () -> Unit,
-) {
-    Button(
-        onClick = onClick,
-        enabled = !isGenerating,
-        shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = CorusColors.CardBackground,
-            contentColor = CorusColors.Secondary,
-            disabledContainerColor = CorusColors.CardBackground,
-            disabledContentColor = CorusColors.Secondary,
-        ),
-        border = BorderStroke(1.dp, CorusColors.Divider),
-        contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),
-        modifier = Modifier.height(30.dp),
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            // Always render the label to preserve button width; the spinner
-            // sits on top while generating.
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.xs),
-                modifier = Modifier.alpha(
-                    if (!hasSongs) 0.35f
-                    else if (isGenerating) 0f
-                    else 1f
-                ),
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_music_note_list),
-                    contentDescription = stringResource(fm.corus.android.localization.CorusStrings.profile_playlist_button),
-                    modifier = Modifier.size(14.dp),
-                    tint = CorusColors.Secondary,
-                )
-                Text(
-                    text = stringResource(fm.corus.android.localization.CorusStrings.profile_playlist_button),
-                    style = CorusFont.buttonSmall,
-                )
-            }
-            if (isGenerating) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(14.dp),
-                    strokeWidth = 2.dp,
-                    color = CorusColors.Secondary,
-                )
-            }
-        }
     }
 }

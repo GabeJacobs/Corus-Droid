@@ -336,4 +336,12 @@
     <string name="corus_referral_your_code">"Dein Einladungscode"</string>
     <string name="corus_settings_section_friends">"Freunde"</string>
     <string name="corus_common_continue">"Weiter"</string>
+    <string name="corus_trending_hashtag_banner_dismiss">"Trend-Hashtag ausblenden"</string>
+    <string name="corus_trending_hashtag_banner_explore">"Hashtag entdecken"</string>
+    <string name="corus_trending_hashtag_banner_title">"%1$s ist im Trend"</string>
+    <string name="corus_hashtag_export_playlist">"Playlist exportieren"</string>
+    <string name="corus_hashtag_more_options">"Weitere Optionen"</string>
+    <string name="corus_hashtag_pause">"Pausieren"</string>
+    <string name="corus_hashtag_play">"Abspielen"</string>
+    <string name="corus_hashtag_play_failed">"Die Songs dieses Hashtags konnten nicht geladen werden. Bitte versuche es erneut."</string>
 </resources>

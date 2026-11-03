@@ -665,7 +665,7 @@
     <string name="hashtag_velocity_this_week_one">"%1$s corus this week"</string>
     <string name="hashtag_suggestion_trending">"Trending"</string>
     <string name="hashtag_followers_title">"Followers of #%1$s"</string>
-    <string name="hashtag_contributors_title">"Contributors of #%1$s"</string>
+    <string name="hashtag_contributors_title">"Contributors to #%1$s"</string>
     <string name="hashtag_followers_empty">"No followers yet"</string>
     <string name="hashtag_contributors_empty">"No contributors yet"</string>
     <string name="hashtag_back_to_tag">"Back to #%1$s"</string>

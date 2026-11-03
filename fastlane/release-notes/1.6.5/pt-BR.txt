@@ -1,0 +1,3 @@
+- Ouça músicas diretamente nas páginas de hashtags e exporte playlists pelo menu.
+- Descubra hashtags em destaque no feed Em alta.
+- Ouça as músicas de um perfil em ordem aleatória.

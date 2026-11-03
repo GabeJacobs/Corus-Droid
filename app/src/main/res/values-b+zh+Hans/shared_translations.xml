@@ -336,4 +336,12 @@
     <string name="corus_referral_your_code">"你的邀请码"</string>
     <string name="corus_settings_section_friends">"好友"</string>
     <string name="corus_common_continue">"继续"</string>
+    <string name="corus_trending_hashtag_banner_dismiss">"关闭热门话题标签"</string>
+    <string name="corus_trending_hashtag_banner_explore">"探索话题标签"</string>
+    <string name="corus_trending_hashtag_banner_title">"%1$s 正在热门讨论"</string>
+    <string name="corus_hashtag_export_playlist">"导出播放列表"</string>
+    <string name="corus_hashtag_more_options">"更多选项"</string>
+    <string name="corus_hashtag_pause">"暂停"</string>
+    <string name="corus_hashtag_play">"播放"</string>
+    <string name="corus_hashtag_play_failed">"无法加载此话题的歌曲，请重试。"</string>
 </resources>

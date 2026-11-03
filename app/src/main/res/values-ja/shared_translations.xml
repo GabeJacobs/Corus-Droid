@@ -336,4 +336,12 @@
     <string name="corus_referral_your_code">"あなたの招待コード"</string>
     <string name="corus_settings_section_friends">"友だち"</string>
     <string name="corus_common_continue">"続ける"</string>
+    <string name="corus_trending_hashtag_banner_dismiss">"トレンドのハッシュタグを閉じる"</string>
+    <string name="corus_trending_hashtag_banner_explore">"ハッシュタグを見る"</string>
+    <string name="corus_trending_hashtag_banner_title">"%1$s がトレンド入り"</string>
+    <string name="corus_hashtag_export_playlist">"プレイリストを書き出す"</string>
+    <string name="corus_hashtag_more_options">"その他のオプション"</string>
+    <string name="corus_hashtag_pause">"一時停止"</string>
+    <string name="corus_hashtag_play">"再生"</string>
+    <string name="corus_hashtag_play_failed">"このハッシュタグの曲を読み込めませんでした。もう一度お試しください。"</string>
 </resources>

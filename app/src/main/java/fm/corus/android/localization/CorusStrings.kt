@@ -658,11 +658,16 @@ object CorusStrings {
     @StringRes val hashtag_contributors_empty: Int = R.string.hashtag_contributors_empty
     @StringRes val hashtag_contributors_title: Int = R.string.hashtag_contributors_title
     @StringRes val hashtag_count_coruses: Int = R.string.hashtag_followers_count
+    @StringRes val hashtag_export_playlist: Int = R.string.corus_hashtag_export_playlist
     @StringRes val hashtag_feed_count_format: Int = R.string.hashtag_feed_count_format
     @StringRes val hashtag_feed_empty: Int = R.string.hashtag_feed_empty
     @StringRes val hashtag_followers: Int = R.string.parity_09322a111202
     @StringRes val hashtag_followers_empty: Int = R.string.follow_list_no_followers
     @StringRes val hashtag_followers_title: Int = R.string.hashtag_followers_title
+    @StringRes val hashtag_more_options: Int = R.string.corus_hashtag_more_options
+    @StringRes val hashtag_pause: Int = R.string.corus_hashtag_pause
+    @StringRes val hashtag_play: Int = R.string.corus_hashtag_play
+    @StringRes val hashtag_play_failed: Int = R.string.corus_hashtag_play_failed
     @StringRes val hashtag_playlist_only_soundcloud: Int = R.string.hashtag_playlist_only_soundcloud
     @StringRes val hashtag_row_subtitle_with_followers: Int = R.string.hashtag_row_subtitle_with_followers
     @StringRes val hashtag_velocity_this_week_93e71bf5: Int = R.string.hashtag_velocity_this_week
@@ -1663,6 +1668,9 @@ object CorusStrings {
     @StringRes val thread_reply: Int = R.string.comments_reply
     @StringRes val thread_send_aria: Int = R.string.comments_cd_send
     @StringRes val thread_view_profile: Int = R.string.map_cd_view_profile
+    @StringRes val trending_hashtag_banner_dismiss: Int = R.string.corus_trending_hashtag_banner_dismiss
+    @StringRes val trending_hashtag_banner_explore: Int = R.string.corus_trending_hashtag_banner_explore
+    @StringRes val trending_hashtag_banner_title: Int = R.string.corus_trending_hashtag_banner_title
     @StringRes val trophy_cd_trophy: Int = R.string.trophy_cd_trophy
     @StringRes val trophy_first_to_share: Int = R.string.trophy_title
     @StringRes val trophy_nice_button: Int = R.string.trophy_button

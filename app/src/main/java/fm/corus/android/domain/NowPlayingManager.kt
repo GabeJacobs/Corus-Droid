@@ -80,6 +80,7 @@ import javax.inject.Singleton
 sealed interface PlaybackOrigin {
     data object SingleTrack : PlaybackOrigin
     data object Feed : PlaybackOrigin
+    data class Hashtag(val tag: String) : PlaybackOrigin
     data class Profile(val userId: String) : PlaybackOrigin
     /** Notification / deep-link play continuing through that poster's songs. */
     data class PosterCorus(val userId: String) : PlaybackOrigin
@@ -1857,6 +1858,17 @@ class NowPlayingManager @Inject constructor(
         track: QueuedTrack,
         tracks: List<QueuedTrack>,
         origin: PlaybackOrigin.ProfileCollection,
+        hasMore: Boolean,
+        loadMore: suspend () -> Unit,
+    ) {
+        playPaginatedSource(track, tracks, origin, hasMore, loadMore)
+    }
+
+    /** The same routing as a post tap, with a retained paginated source. */
+    suspend fun playPaginatedSource(
+        track: QueuedTrack,
+        tracks: List<QueuedTrack>,
+        origin: PlaybackOrigin,
         hasMore: Boolean,
         loadMore: suspend () -> Unit,
     ) {

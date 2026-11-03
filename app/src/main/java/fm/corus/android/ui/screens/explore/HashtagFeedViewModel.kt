@@ -38,6 +38,36 @@ class HashtagFeedViewModel @Inject constructor(
     private val analyticsService: AnalyticsService,
 ) : ViewModel() {
 
+    private val _isStartingPlayback = MutableStateFlow(false)
+    val isStartingPlayback = _isStartingPlayback.asStateFlow()
+    private val _playbackFailure = MutableStateFlow<Boolean?>(null)
+    /** true = load error, false = no playable songs. */
+    val playbackFailure = _playbackFailure.asStateFlow()
+    fun clearPlaybackFailure() { _playbackFailure.value = null }
+
+    fun playHashtag(tag: String) {
+        if (_isStartingPlayback.value) return
+        if (nowPlayingManager.activeContext == fm.corus.android.domain.PlaybackOrigin.Hashtag(tag)) {
+            nowPlayingManager.togglePlayPause()
+            return
+        }
+        val uid = authRepository.currentUserId ?: return
+        _isStartingPlayback.value = true
+        viewModelScope.launch {
+            try {
+                val session = fm.corus.android.domain.HashtagPlaybackSession(tag, nowPlayingManager) { before ->
+                    check(authRepository.currentUserId == uid)
+                    val page = postRepository.getHashtagPosts(tag, 30, before)
+                    check(authRepository.currentUserId == uid)
+                    page
+                }
+                if (!session.start()) _playbackFailure.value = false
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { _playbackFailure.value = true }
+            finally { _isStartingPlayback.value = false }
+        }
+    }
+
     fun shouldPaywallHashtagPlaylist(): Boolean =
         subscriptionRepository.shouldPaywallPlaylist(PlaylistTrialField.Hashtag)
 

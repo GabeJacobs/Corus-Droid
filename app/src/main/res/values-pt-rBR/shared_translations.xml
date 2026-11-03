@@ -268,4 +268,12 @@
     <string name="corus_referral_your_code">"Seu código de convite"</string>
     <string name="corus_settings_section_friends">"Amigos"</string>
     <string name="corus_common_continue">"Continuar"</string>
+    <string name="corus_trending_hashtag_banner_dismiss">"Dispensar hashtag em alta"</string>
+    <string name="corus_trending_hashtag_banner_explore">"Explorar a hashtag"</string>
+    <string name="corus_trending_hashtag_banner_title">"%1$s está em alta"</string>
+    <string name="corus_hashtag_export_playlist">"Exportar playlist"</string>
+    <string name="corus_hashtag_more_options">"Mais opções"</string>
+    <string name="corus_hashtag_pause">"Pausar"</string>
+    <string name="corus_hashtag_play">"Reproduzir"</string>
+    <string name="corus_hashtag_play_failed">"Não foi possível carregar as músicas desta hashtag. Tente novamente."</string>
 </resources>

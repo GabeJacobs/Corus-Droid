@@ -1,0 +1,41 @@
+{
+  "verifiedDate": "2026-11-03",
+  "internal": [
+    {
+      "name": "1.6.5",
+      "status": "completed",
+      "codes": [
+        "138"
+      ],
+      "notes": [
+        {
+          "language": "pt-BR",
+          "text": "- Ouça músicas diretamente nas páginas de hashtags e exporte playlists pelo menu.\n- Descubra hashtags em destaque no feed Em alta.\n- Ouça as músicas de um perfil em ordem aleatória.\n"
+        },
+        {
+          "language": "en-US",
+          "text": "- Play songs directly from hashtag pages, with playlist export in the menu.\n- Discover active hashtags in Trending.\n- Shuffle the songs on a profile.\n"
+        }
+      ]
+    }
+  ],
+  "production": [
+    {
+      "name": "1.6.4",
+      "status": "completed",
+      "codes": [
+        "132"
+      ],
+      "notes": [
+        {
+          "language": "pt-BR",
+          "text": "O Mapa do Corus carrega mais rápido, e você pode tentar novamente se houver algum problema ao carregar. Dúvidas ou sugestões? Fale com a gente em help@corus.fm. Aproveite!\n"
+        },
+        {
+          "language": "en-US",
+          "text": "The Corus Map loads faster, and you can retry if it has trouble loading. Questions or feedback? Contact us at help@corus.fm. Enjoy!\n"
+        }
+      ]
+    }
+  ]
+}

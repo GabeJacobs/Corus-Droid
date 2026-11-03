@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.feed
 
+import fm.corus.android.ui.components.TrendingHashtagBanner
+import fm.corus.android.ui.components.rememberDailyHashtagBanner
 import fm.corus.android.ui.components.rememberGuardedSheetState
 
 import android.content.Intent
@@ -229,6 +231,7 @@ fun FeedScreen(
     val feedDecade: Int? = viewModel.appliedFeedDecade.collectAsState().value
     val showDecadeFilter = viewModel.isDecadeFilterVisible(feedMode)
     val energyConfigRevision by viewModel.remoteConfig.revision.collectAsState()
+    val dailyHashtagBanner = rememberDailyHashtagBanner(feedMode == "trending" && viewModel.remoteConfig.trendingHashtagBannerEnabled)
     val newTabEnabled = viewModel.remoteConfig.feedNewTabEnabled
     val isNewFeed = FeedNewTabPolicy.isNew(feedMode, newTabEnabled)
     val feedFilter = FeedNewTabPolicy.mediaFilter(storedFeedFilter, isNewFeed)
@@ -448,7 +451,8 @@ fun FeedScreen(
     // screen's handler on cleanup.
     val currentPostsForRouter by rememberUpdatedState(posts)
     val feedPrefixItemCount = (if (feedModeTabsVisible) 0 else 1) +
-        if (showTasteMatchesTrialBanner) 1 else 0
+        (if (showTasteMatchesTrialBanner) 1 else 0) +
+        (if (dailyHashtagBanner.candidate != null) 1 else 0)
     val currentPrefixForRouter by rememberUpdatedState(feedPrefixItemCount)
     val routerScope = scope
     val feedScrollHandler = remember<(String) -> Boolean>(listState) {
@@ -1220,6 +1224,7 @@ fun FeedScreen(
                         scrollingHeader = {
                             ChromeInset()
                             if (includeHeader) header()
+                            TrendingHashtagBanner(dailyHashtagBanner, onNavigateToHashtag)
                             if (feedMode == "following") fm.corus.android.ui.components.ReferralInviteBanner("feed")
                         },
                         topContent = {
@@ -1259,7 +1264,7 @@ fun FeedScreen(
                                     Text(
                                         text = stringResource(fm.corus.android.localization.CorusStrings.feed_empty_invite_button),
                                         style = CorusFont.button,
-                                        color = CorusColors.Background,
+                                        color = Color.White,
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(CorusSpacing.xl))
@@ -1278,6 +1283,9 @@ fun FeedScreen(
                     contentPadding = PaddingValues(top = chromeTop),
                 ) {
                     if (includeHeader) item { header() }
+                    if (isSelected && dailyHashtagBanner.candidate != null) item(key = "daily_hashtag_banner") {
+                        TrendingHashtagBanner(dailyHashtagBanner, onNavigateToHashtag)
+                    }
                     if (isSelected && feedMode == "following") item(key = "referral_feed_banner") { fm.corus.android.ui.components.ReferralInviteBanner("feed") }
                     if (isSelected && showTasteMatchesTrialBanner) {
                         item(key = "taste_matches_trial_banner", contentType = "taste_matches_trial_banner") {

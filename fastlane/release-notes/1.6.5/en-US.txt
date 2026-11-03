@@ -1,0 +1,3 @@
+- Play songs directly from hashtag pages, with playlist export in the menu.
+- Discover active hashtags in Trending.
+- Shuffle the songs on a profile.

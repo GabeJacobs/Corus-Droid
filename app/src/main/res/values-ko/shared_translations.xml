@@ -336,4 +336,12 @@
     <string name="corus_referral_your_code">"내 초대 코드"</string>
     <string name="corus_settings_section_friends">"친구"</string>
     <string name="corus_common_continue">"계속"</string>
+    <string name="corus_trending_hashtag_banner_dismiss">"인기 해시태그 닫기"</string>
+    <string name="corus_trending_hashtag_banner_explore">"해시태그 둘러보기"</string>
+    <string name="corus_trending_hashtag_banner_title">"%1$s 인기 상승 중"</string>
+    <string name="corus_hashtag_export_playlist">"재생목록 내보내기"</string>
+    <string name="corus_hashtag_more_options">"더 많은 옵션"</string>
+    <string name="corus_hashtag_pause">"일시 정지"</string>
+    <string name="corus_hashtag_play">"재생"</string>
+    <string name="corus_hashtag_play_failed">"이 해시태그의 곡을 불러오지 못했어요. 다시 시도해 주세요."</string>
 </resources>

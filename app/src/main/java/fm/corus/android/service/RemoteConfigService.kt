@@ -315,6 +315,9 @@ class RemoteConfigService @Inject constructor(
     val feedNewTabEnabled: Boolean
         get() = auth.currentUser?.uid != null
 
+    val trendingHashtagBannerEnabled: Boolean
+        get() = booleanFlag("trending_hashtag_banner_enabled")
+
     val trendingFeedEnabled: Boolean
         get() = feedFlag("trending_feed_enabled")
 
@@ -756,6 +759,7 @@ class RemoteConfigService @Inject constructor(
             DebugFeatureFlag("tidal_enabled") { tidalEnabled },
             DebugFeatureFlag("tidal_full_playback_enabled") { tidalFullPlaybackEnabled },
             DebugFeatureFlag("trending_artists_section_enabled") { trendingArtistsSectionEnabled },
+            DebugFeatureFlag("trending_hashtag_banner_enabled") { trendingHashtagBannerEnabled },
             DebugFeatureFlag("trending_feed_enabled") { trendingFeedEnabled },
             DebugFeatureFlag("trending_songs_preview_context_enabled") { trendingSongsPreviewContextEnabled },
             DebugFeatureFlag("typing_indicators_enabled") { typingIndicatorsEnabled },
@@ -1161,6 +1165,7 @@ class RemoteConfigService @Inject constructor(
             "new_release_filter_club_only" to false,
             "style_pack_1_enabled" to true,
             "corus_flair_open" to false,
+            "trending_hashtag_banner_enabled" to true,
             "trending_feed_enabled" to true,
             "favorites_enabled" to true,
             "favorites_push_enabled" to true,
