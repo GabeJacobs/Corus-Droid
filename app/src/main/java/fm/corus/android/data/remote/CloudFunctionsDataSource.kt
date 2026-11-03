@@ -721,6 +721,21 @@ class CloudFunctionsDataSource @Inject constructor(
         return posts.map { CymbalPost.fromCloudData(it) }
     }
 
+    suspend fun getProfileShuffleIds(userId: String): List<String> {
+        val result = functions.getHttpsCallable("getProfileShuffleIndex").call(mapOf("userId" to userId)).await()
+        val data = result.getData() as? Map<*, *> ?: error("Invalid shuffle index response")
+        val ids = data["ids"] as? List<*> ?: error("Invalid shuffle index response")
+        return ids.map { it as? String ?: error("Invalid shuffle post ID") }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    suspend fun getProfileShufflePosts(userId: String, ids: List<String>): List<CymbalPost> {
+        val result = functions.getHttpsCallable("getProfileShufflePosts").call(mapOf("userId" to userId, "ids" to ids)).await()
+        val data = result.getData() as? Map<*, *> ?: error("Invalid shuffle posts response")
+        val posts = data["posts"] as? List<*> ?: error("Invalid shuffle posts response")
+        return posts.map { CymbalPost.fromCloudData(it as? Map<String, Any?> ?: error("Invalid shuffle post")) }
+    }
+
     /**
      * A page of liked posts plus the server's authoritative [hasMore] flag.
      * [hasMore] is computed server-side from the *ref* count (it survives pages

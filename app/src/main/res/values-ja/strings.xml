@@ -1381,4 +1381,8 @@
     <string name="share_post_author_preview">"%1$sの投稿"</string>
     <string name="share_profile_invitation">"Corusでつながろう"</string>
     <string name="share_profile_link_preview">"リンクプレビュー"</string>
+    <string name="profile_shuffle">プロフィールをシャッフル</string>
+    <string name="profile_shuffle_no_songs">再生できる曲はまだありません</string>
+    <string name="profile_shuffle_failed">このプロフィールの曲を読み込めませんでした。もう一度お試しください。</string>
+    <string name="profile_shuffle_loading">プロフィールをシャッフル中…</string>
 </resources>

@@ -840,11 +840,12 @@ class NowPlayingManager @Inject constructor(
         playingTrackId: String,
         playingSourcePostId: String?,
         hasMore: Boolean? = null,
+        preserveUserQueue: Boolean = true,
         loadMore: (suspend () -> Unit)? = null,
     ) {
         // Explicit play seed — take the caller's order (same as iOS `playingTrackId`).
         queueOrderPinnedByUser = false
-        val preserved = snapshotUserQueuedUpNext()
+        val preserved = if (preserveUserQueue) snapshotUserQueuedUpNext() else emptyList()
         this.queue = queue
         if (hasMore != null) queueHasMore = hasMore
         if (loadMore != null) loadMoreQueue = loadMore
@@ -1826,10 +1827,12 @@ class NowPlayingManager @Inject constructor(
         queue: List<QueuedTrack>,
         mapOwned: Boolean = false,
         previewOnly: Boolean = false,
+        preserveUserQueue: Boolean = true,
+        forceSwitch: Boolean = false,
     ) {
         if (!mapOwned) MapPlaybackOwner.yield()
         queueOrderPinnedByUser = false
-        val preserved = if (previewOnly) emptyList() else snapshotUserQueuedUpNext()
+        val preserved = if (previewOnly || !preserveUserQueue) emptyList() else snapshotUserQueuedUpNext()
         this.queue = queue
         this.currentQueueIndex = queue.indexOfActive(track.trackId, track.sourcePostId)
         // New playback context — drop any previous paginated-queue hook until caller re-wires it.
@@ -1838,7 +1841,7 @@ class NowPlayingManager @Inject constructor(
         restoreUserQueuedUpNext(preserved)
         playInternal(
             track,
-            forceSwitch = previewOnly && isAudiomackFullPlayback,
+            forceSwitch = forceSwitch || (previewOnly && isAudiomackFullPlayback),
             previewOnly = previewOnly,
         )
         // Map playback owns Next outside the one-item audio queue. playInternal
@@ -1847,6 +1850,32 @@ class NowPlayingManager @Inject constructor(
         // This keeps Mini Player Next enabled for a one-person city’s older
         // posts, just as it is on iOS.
         publishHasNextIfChanged()
+    }
+
+    /** Start a shuffle through the same full-song routing as a post tap. */
+    suspend fun playProfileShuffle(
+        track: QueuedTrack,
+        tracks: List<QueuedTrack>,
+        origin: PlaybackOrigin.ProfileCollection,
+        hasMore: Boolean,
+        loadMore: suspend () -> Unit,
+    ) {
+        setPlaybackOrigin(origin)
+        setQueueFromCoordinator(tracks, track.trackId, track.sourcePostId, hasMore, preserveUserQueue = false, loadMore = loadMore)
+        val outcome = FullSongPlayCoordinator.playTapOutcome(
+            track = track.toCymbalTrack(), sourcePostId = track.sourcePostId,
+            queue = tracks, nowPlaying = this, remoteConfig = remoteConfigService,
+            musicService = musicServicePreference.current.value,
+            playFullSongs = preferencesDataStore.effectivePlayFullSongsSync(),
+            playbackModePromptManager = playbackModePromptManager,
+            skipPlaybackModePrompt = true, forcePlay = true,
+        )
+        if (outcome == FullSongPlayCoordinator.PlayTapOutcome.UsePreview && activeContext == origin) {
+            play(track = track, queue = tracks, preserveUserQueue = false, forceSwitch = true)
+            if (activeContext == origin) {
+                setQueueFromCoordinator(tracks, track.trackId, track.sourcePostId, hasMore, preserveUserQueue = false, loadMore = loadMore)
+            }
+        }
     }
 
     /**
@@ -1995,7 +2024,7 @@ class NowPlayingManager @Inject constructor(
 
         // If the SAME post's track is already loading, cancel the request. A
         // different post of the same song has its own in-flight load — let it through.
-        if (isReTapOfActiveEntry(_loadingTrackId.value, _loadingSourcePostId.value, trackId, track.sourcePostId)) {
+        if (!forceSwitch && isReTapOfActiveEntry(_loadingTrackId.value, _loadingSourcePostId.value, trackId, track.sourcePostId)) {
             cancelLoading()
             return
         }

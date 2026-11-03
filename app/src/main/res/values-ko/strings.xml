@@ -1508,4 +1508,8 @@
     <string name="share_post_author_preview">"%1$s의 게시물"</string>
     <string name="share_profile_invitation">"Corus에서 만나요"</string>
     <string name="share_profile_link_preview">"링크 미리보기"</string>
+    <string name="profile_shuffle">프로필 셔플</string>
+    <string name="profile_shuffle_no_songs">재생할 곡이 아직 없습니다</string>
+    <string name="profile_shuffle_failed">이 프로필의 곡을 불러오지 못했습니다. 다시 시도해 주세요.</string>
+    <string name="profile_shuffle_loading">프로필을 셔플하는 중…</string>
 </resources>

@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -390,6 +391,7 @@ fun OtherProfileScreen(
                         val menuContext = LocalContext.current
                         val hasSongs = posts.any { it.mediaType == MediaType.TRACK }
                         val isGeneratingPlaylist by viewModel.nowPlayingManager.isGeneratingPlaylist.collectAsState()
+                        val isShufflingProfile by viewModel.isShufflingProfile.collectAsState()
 
                         IconButton(onClick = { showMenu = true }) {
                             Icon(Icons.Filled.MoreVert, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.other_profile_cd_menu), tint = CorusColors.Text)
@@ -448,6 +450,14 @@ fun OtherProfileScreen(
                                             }
                                         }
                                     },
+                                )
+                            }
+                            if (profile?.isFilmBot != true) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(fm.corus.android.R.string.profile_shuffle), style = CorusFont.body) },
+                                    leadingIcon = { Icon(Icons.Filled.Shuffle, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                                    enabled = !isShufflingProfile,
+                                    onClick = { showMenu = false; viewModel.shuffleProfile(userId) },
                                 )
                             }
                             // Share Profile

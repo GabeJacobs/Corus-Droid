@@ -1518,4 +1518,8 @@
     <string name="share_post_author_preview">"Publicación de %1$s"</string>
     <string name="share_profile_invitation">"Encuéntrame en Corus"</string>
     <string name="share_profile_link_preview">"Vista previa del enlace"</string>
+    <string name="profile_shuffle">Reproducir perfil aleatoriamente</string>
+    <string name="profile_shuffle_no_songs">Aún no hay canciones para reproducir</string>
+    <string name="profile_shuffle_failed">No se pudieron cargar las canciones de este perfil. Inténtalo de nuevo.</string>
+    <string name="profile_shuffle_loading">Mezclando perfil…</string>
 </resources>

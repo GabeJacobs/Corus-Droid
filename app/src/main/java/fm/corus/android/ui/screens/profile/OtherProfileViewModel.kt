@@ -204,6 +204,39 @@ class OtherProfileViewModel @Inject constructor(
         }
     }
 
+    private val _isShufflingProfile = MutableStateFlow(false)
+    val isShufflingProfile = _isShufflingProfile.asStateFlow()
+
+    fun shuffleProfile(userId: String) {
+        if (_isShufflingProfile.value) return
+        val viewerId = authRepository.currentUserId ?: return
+        _isShufflingProfile.value = true
+        val loadingToast = ToastManager.showLoading(context.getString(fm.corus.android.R.string.profile_shuffle_loading))
+        viewModelScope.launch {
+            try {
+                val ids = cloudFunctions.getProfileShuffleIds(userId).shuffled()
+                check(authRepository.currentUserId == viewerId)
+                val session = fm.corus.android.domain.ProfileShuffleSession(
+                    userId, ids, nowPlayingManager,
+                    fetchPosts = { batch ->
+                        check(authRepository.currentUserId == viewerId)
+                        val result = cloudFunctions.getProfileShufflePosts(userId, batch)
+                        check(authRepository.currentUserId == viewerId)
+                        result
+                    },
+                )
+                if (!session.start()) ToastManager.show(context.getString(fm.corus.android.R.string.profile_shuffle_no_songs))
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                ToastManager.show(context.getString(fm.corus.android.R.string.profile_shuffle_failed))
+            } finally {
+                ToastManager.dismiss(loadingToast)
+                _isShufflingProfile.value = false
+            }
+        }
+    }
+
     private val _profile = MutableStateFlow<CymbalUser?>(null)
     val profile: StateFlow<CymbalUser?> = _profile.asStateFlow()
 

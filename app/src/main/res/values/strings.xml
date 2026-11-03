@@ -1607,4 +1607,8 @@
     <string name="share_post_author_preview">"%1$s’s post"</string>
     <string name="share_profile_invitation">"Find me on Corus"</string>
     <string name="share_profile_link_preview">"Link preview"</string>
+    <string name="profile_shuffle">Shuffle Profile</string>
+    <string name="profile_shuffle_no_songs">No songs to play yet</string>
+    <string name="profile_shuffle_failed">Couldn\'t load this profile\'s songs. Please try again.</string>
+    <string name="profile_shuffle_loading">Shuffling profile…</string>
 </resources>

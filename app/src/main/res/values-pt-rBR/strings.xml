@@ -1529,4 +1529,8 @@
     <string name="share_post_author_preview">"Post de %1$s"</string>
     <string name="share_profile_invitation">"Me encontre no Corus"</string>
     <string name="share_profile_link_preview">"Prévia do link"</string>
+    <string name="profile_shuffle">Reproduzir perfil aleatoriamente</string>
+    <string name="profile_shuffle_no_songs">Ainda não há músicas para reproduzir</string>
+    <string name="profile_shuffle_failed">Não foi possível carregar as músicas deste perfil. Tente novamente.</string>
+    <string name="profile_shuffle_loading">Embaralhando perfil…</string>
 </resources>

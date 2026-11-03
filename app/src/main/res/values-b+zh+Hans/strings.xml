@@ -1508,4 +1508,8 @@
     <string name="share_post_author_preview">"%1$s的帖子"</string>
     <string name="share_profile_invitation">"来 Corus 找我"</string>
     <string name="share_profile_link_preview">"链接预览"</string>
+    <string name="profile_shuffle">随机播放主页</string>
+    <string name="profile_shuffle_no_songs">暂无可播放的歌曲</string>
+    <string name="profile_shuffle_failed">无法加载此主页的歌曲。请重试。</string>
+    <string name="profile_shuffle_loading">正在随机播放主页…</string>
 </resources>

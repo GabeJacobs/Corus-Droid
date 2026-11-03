@@ -1518,4 +1518,8 @@
     <string name="share_post_author_preview">"Beitrag von %1$s"</string>
     <string name="share_profile_invitation">"Finde mich auf Corus"</string>
     <string name="share_profile_link_preview">"Link-Vorschau"</string>
+    <string name="profile_shuffle">Profil zufällig abspielen</string>
+    <string name="profile_shuffle_no_songs">Noch keine Songs zum Abspielen</string>
+    <string name="profile_shuffle_failed">Die Songs dieses Profils konnten nicht geladen werden. Bitte versuche es erneut.</string>
+    <string name="profile_shuffle_loading">Profil wird gemischt…</string>
 </resources>
