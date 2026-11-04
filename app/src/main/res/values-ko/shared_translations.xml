@@ -344,4 +344,8 @@
     <string name="corus_hashtag_pause">"일시 정지"</string>
     <string name="corus_hashtag_play">"재생"</string>
     <string name="corus_hashtag_play_failed">"이 해시태그의 곡을 불러오지 못했어요. 다시 시도해 주세요."</string>
+    <string name="corus_referral_review_pending_body">"가입한 친구들은 진행 상황에 반영되어 있어요. 리워드를 활성화하기 전에 확인하고 있어요."</string>
+    <string name="corus_referral_review_pending_title">"리워드를 검토하고 있어요"</string>
+    <string name="corus_referral_review_rejected_body">"친구들은 초대 목록에 계속 표시돼요. 오류라고 생각하시면 help@corus.fm으로 문의해 주세요."</string>
+    <string name="corus_referral_review_rejected_title">"이 리워드가 승인되지 않았어요"</string>
 </resources>

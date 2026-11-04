@@ -344,4 +344,8 @@
     <string name="corus_hashtag_pause">"一時停止"</string>
     <string name="corus_hashtag_play">"再生"</string>
     <string name="corus_hashtag_play_failed">"このハッシュタグの曲を読み込めませんでした。もう一度お試しください。"</string>
+    <string name="corus_referral_review_pending_body">"参加した友だちは進捗にカウントされています。特典を有効にする前に確認しています。"</string>
+    <string name="corus_referral_review_pending_title">"特典を確認しています"</string>
+    <string name="corus_referral_review_rejected_body">"友だちは引き続き招待一覧に表示されます。間違いと思われる場合は help@corus.fm にお問い合わせください。"</string>
+    <string name="corus_referral_review_rejected_title">"この特典は承認されませんでした"</string>
 </resources>

@@ -68,6 +68,8 @@ enum class ReferralClaimOutcome {
     Applied,
     Saved,
     Pending,
+    Review,
+    Rejected,
     Failed,
 }
 
@@ -142,6 +144,13 @@ object ReferralService {
 
     private fun prefs(context: Context) =
         context.applicationContext.getSharedPreferences("corus_referrals_v1", Context.MODE_PRIVATE)
+
+    private fun referralInstallationId(context: Context): String {
+        val storage = context.applicationContext.getSharedPreferences("corus_referral_installation", Context.MODE_PRIVATE)
+        return storage.getString("id", null) ?: UUID.randomUUID().toString().also {
+            storage.edit().putString("id", it).apply()
+        }
+    }
 
     fun code(raw: String) = ReferralLinks.parse(raw)
 
@@ -314,6 +323,7 @@ object ReferralService {
             "Referrals are disabled"
         }
         val payload = data.toMutableMap()
+        payload["reviewVersion"] = 1
         if (fm.corus.android.BuildConfig.DEBUG) payload["testMode"] = true
         return FirebaseFunctions.getInstance()
             .getHttpsCallable(name)
@@ -493,7 +503,7 @@ object ReferralService {
                 val result =
                     call(
                         "completeReferralOnboarding",
-                        mapOf("code" to value, "platform" to "android"),
+                        mapOf("code" to value, "platform" to "android", "installationId" to referralInstallationId(context)),
                     )
                 if (
                     !isEnabled ||
@@ -593,6 +603,8 @@ object ReferralService {
                 "active" -> ReferralClaimOutcome.Applied
                 "waiting_for_subscription" -> ReferralClaimOutcome.Saved
                 "claiming" -> ReferralClaimOutcome.Pending
+                "review_pending" -> ReferralClaimOutcome.Review
+                "review_rejected" -> ReferralClaimOutcome.Rejected
                 else -> ReferralClaimOutcome.Failed
             }
         } catch (e: Exception) {

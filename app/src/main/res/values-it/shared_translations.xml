@@ -344,4 +344,8 @@
     <string name="corus_hashtag_pause">"Pausa"</string>
     <string name="corus_hashtag_play">"Riproduci"</string>
     <string name="corus_hashtag_play_failed">"Impossibile caricare i brani di questo hashtag. Riprova."</string>
+    <string name="corus_referral_review_pending_body">"I tuoi amici si sono iscritti e contano per i tuoi progressi. Stiamo verificando questa ricompensa prima di attivarla."</string>
+    <string name="corus_referral_review_pending_title">"La tua ricompensa è in verifica"</string>
+    <string name="corus_referral_review_rejected_body">"I tuoi amici compaiono ancora nei tuoi inviti. Contatta help@corus.fm se pensi che si tratti di un errore."</string>
+    <string name="corus_referral_review_rejected_title">"Questa ricompensa non è stata approvata"</string>
 </resources>

@@ -63,6 +63,8 @@ private fun headline(s: ReferralStatus): Int =
         "active" -> S.referral_claim_applied_title
         "waiting_for_subscription" -> S.referral_waiting
         "claiming" -> S.referral_claim_pending_title
+        "review_pending" -> S.referral_review_pending_title
+        "review_rejected" -> S.referral_review_rejected_title
         "completed" -> S.referral_paid_title
         "available" -> S.referral_ready
         else -> if (s.eligible || s.earned) S.referral_reward else S.referral_paid_title
@@ -597,6 +599,8 @@ fun ReferralScreen(
                                         "active" -> S.referral_claim_applied_body
                                         "waiting_for_subscription" -> S.referral_claim_saved_body
                                         "claiming" -> S.referral_claim_pending_body
+                                        "review_pending" -> S.referral_review_pending_body
+                                        "review_rejected" -> S.referral_review_rejected_body
                                         else ->
                                             if (!status.earned)
                                                 if (reward) S.referral_explanation else S.referral_paid_body
@@ -650,7 +654,8 @@ fun ReferralScreen(
                                         ReferralClaimOutcome.Pending -> S.referral_claim_pending_button
                                         else ->
                                             if (status.rewardStatus == "available") S.referral_claim
-                                            else if (status.rewardStatus == "claiming")
+                                            else if (status.rewardStatus == "review_rejected") S.common_done
+                                            else if (status.rewardStatus in listOf("claiming", "review_pending"))
                                                 S.referral_claim_pending_button
                                             else S.referral_share
                                     }
@@ -663,11 +668,11 @@ fun ReferralScreen(
                                 ReferralActionButton(
                                     stringResource(label),
                                     busy,
-                                    !confirmed && (status.rewardStatus == "available" || status.url.isNotBlank()),
+                                    !confirmed && (status.rewardStatus in listOf("available", "review_pending", "review_rejected") || status.url.isNotBlank()),
                                 ) {
-                                    if (confirmed) onClose()
+                                    if (confirmed || status.rewardStatus == "review_rejected") onClose()
                                     else if (
-                                        status.rewardStatus == "available" ||
+                                        status.rewardStatus in listOf("available", "review_pending") ||
                                             outcome == ReferralClaimOutcome.Pending ||
                                             status.rewardStatus == "claiming"
                                     )

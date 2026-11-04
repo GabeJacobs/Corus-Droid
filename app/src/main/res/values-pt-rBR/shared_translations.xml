@@ -276,4 +276,8 @@
     <string name="corus_hashtag_pause">"Pausar"</string>
     <string name="corus_hashtag_play">"Reproduzir"</string>
     <string name="corus_hashtag_play_failed">"Não foi possível carregar as músicas desta hashtag. Tente novamente."</string>
+    <string name="corus_referral_review_pending_body">"Seus amigos entraram e contam para o seu progresso. Estamos verificando esta recompensa antes de ativá-la."</string>
+    <string name="corus_referral_review_pending_title">"Sua recompensa está em análise"</string>
+    <string name="corus_referral_review_rejected_body">"Seus amigos continuam aparecendo nos seus convites. Se achar que houve um engano, fale com help@corus.fm."</string>
+    <string name="corus_referral_review_rejected_title">"Esta recompensa não foi aprovada"</string>
 </resources>

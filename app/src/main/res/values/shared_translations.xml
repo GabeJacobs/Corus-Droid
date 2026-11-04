@@ -191,4 +191,8 @@
     <string name="corus_hashtag_pause">"Pause"</string>
     <string name="corus_hashtag_play">"Play"</string>
     <string name="corus_hashtag_play_failed">"Couldn’t load this hashtag’s songs. Please try again."</string>
+    <string name="corus_referral_review_pending_body">"Your friends have joined and count toward your progress. We’re checking this reward before activating it."</string>
+    <string name="corus_referral_review_pending_title">"Your reward is under review"</string>
+    <string name="corus_referral_review_rejected_body">"Your friends still appear in your invites. Contact help@corus.fm if you think this is a mistake."</string>
+    <string name="corus_referral_review_rejected_title">"This reward wasn’t approved"</string>
 </resources>

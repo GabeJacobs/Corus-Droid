@@ -1344,6 +1344,10 @@ object CorusStrings {
     @StringRes val referral_record_growing: Int = R.string.corus_referral_record_growing
     @StringRes val referral_redeem_code: Int = R.string.corus_referral_redeem_code
     @StringRes val referral_retry: Int = R.string.corus_referral_retry
+    @StringRes val referral_review_pending_body: Int = R.string.corus_referral_review_pending_body
+    @StringRes val referral_review_pending_title: Int = R.string.corus_referral_review_pending_title
+    @StringRes val referral_review_rejected_body: Int = R.string.corus_referral_review_rejected_body
+    @StringRes val referral_review_rejected_title: Int = R.string.corus_referral_review_rejected_title
     @StringRes val referral_reward: Int = R.string.corus_referral_reward
     @StringRes val referral_search_card_subtitle: Int = R.string.corus_referral_search_card_subtitle
     @StringRes val referral_search_card_title: Int = R.string.corus_referral_search_card_title

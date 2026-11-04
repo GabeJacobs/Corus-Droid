@@ -344,4 +344,8 @@
     <string name="corus_hashtag_pause">"暂停"</string>
     <string name="corus_hashtag_play">"播放"</string>
     <string name="corus_hashtag_play_failed">"无法加载此话题的歌曲，请重试。"</string>
+    <string name="corus_referral_review_pending_body">"你的朋友已加入并计入进度。我们正在审核这份奖励，审核通过后即可激活。"</string>
+    <string name="corus_referral_review_pending_title">"你的奖励正在审核中"</string>
+    <string name="corus_referral_review_rejected_body">"你的朋友仍会显示在邀请列表中。如果你认为有误，请联系 help@corus.fm。"</string>
+    <string name="corus_referral_review_rejected_title">"这份奖励未获批准"</string>
 </resources>
