@@ -1431,7 +1431,7 @@ private fun localizedNotificationMessage(
         NotificationType.REPLY -> commentExcerpt
             ?.let { context.getString(R.string.notif_msg_reply_with_text, it) }
             ?: context.getString(fm.corus.android.localization.CorusStrings.notif_reply)
-        NotificationType.CONTACT_JOINED -> context.getString(R.string.notif_msg_contact_joined, appName)
+        NotificationType.CONTACT_JOINED -> if (notification.subtype == "referral") context.getString(R.string.notif_msg_referral_joined) else context.getString(R.string.notif_msg_contact_joined, appName)
         NotificationType.TASTE_MATCH -> notification.bodyText
             ?: context.getString(fm.corus.android.localization.CorusStrings.notif_taste_match_default)
         NotificationType.FAVORITE -> context.getString(fm.corus.android.localization.CorusStrings.notif_favorite)

@@ -639,6 +639,7 @@
     <string name="notif_msg_new_post">"님이 새 %1$s을(를) 올렸습니다."</string>
     <string name="notif_msg_reply_with_text">"님이 회원님의 댓글에 답글을 남겼습니다: %1$s"</string>
     <string name="notif_msg_reply_no_text">"님이 회원님의 댓글에 답글을 남겼습니다."</string>
+    <string name="notif_msg_referral_joined">님이 초대로 Corus에 가입했어요!</string>
     <string name="notif_msg_contact_joined">"님이 %1$s에 가입했어요!"</string>
     <string name="notif_msg_repost">"님이 회원님의 %1$s을(를) 리포스트했습니다."</string>
     <string name="notif_msg_taste_match_default">"님이 새로운 취향 매치예요."</string>

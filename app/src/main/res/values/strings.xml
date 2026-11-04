@@ -745,6 +745,7 @@
     <string name="notif_msg_new_post">"posted a new %1$s."</string>
     <string name="notif_msg_reply_with_text">"replied to your comment: %1$s"</string>
     <string name="notif_msg_reply_no_text">"replied to your comment."</string>
+    <string name="notif_msg_referral_joined">joined Corus with your invite!</string>
     <string name="notif_msg_contact_joined">"joined %1$s!"</string>
     <string name="notif_msg_repost">"reposted your %1$s."</string>
     <string name="notif_msg_taste_match_default">"is a new taste match."</string>

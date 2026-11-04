@@ -57,7 +57,7 @@ data class CymbalNotification(
             NotificationType.NEW_POST -> "posted a new corus."
             NotificationType.REPOST -> "reposted your corus."
             NotificationType.REPLY -> if (commentText != null) "replied to your comment: $commentText" else "replied to your comment."
-            NotificationType.CONTACT_JOINED -> "joined Corus!"
+            NotificationType.CONTACT_JOINED -> if (subtype == "referral") "joined Corus with your invite!" else "joined Corus!"
             NotificationType.TASTE_MATCH -> bodyText ?: "is a new taste match."
             // Anonymous — paired with a "Someone" display name in the row.
             NotificationType.FAVORITE -> "added you to their favorites."

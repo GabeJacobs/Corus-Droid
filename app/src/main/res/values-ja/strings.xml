@@ -579,6 +579,7 @@
     <string name="notif_msg_new_post">"さんが新しい%1$sを投稿しました。"</string>
     <string name="notif_msg_reply_with_text">"さんがあなたのコメントに返信しました：%1$s"</string>
     <string name="notif_msg_reply_no_text">"さんがあなたのコメントに返信しました。"</string>
+    <string name="notif_msg_referral_joined">さんがあなたの招待でCorusに参加しました！</string>
     <string name="notif_msg_contact_joined">"さんが%1$sに参加しました！"</string>
     <string name="notif_msg_repost">"さんがあなたの%1$sをリポストしました。"</string>
     <string name="notif_msg_taste_match_default">"さんは新しい好みの一致です。"</string>

@@ -77,8 +77,11 @@ fun rememberDailyHashtagBanner(enabled: Boolean): DailyHashtagBannerState {
 }
 
 @Composable
-fun TrendingHashtagBanner(state: DailyHashtagBannerState, onHashtagTap: (String) -> Unit) {
+fun TrendingHashtagBanner(state: DailyHashtagBannerState, onHashtagTap: (String) -> Unit, onAnalytics: (String, String, String) -> Unit, isVisible: Boolean) {
     val tag = state.candidate ?: return
+    LaunchedEffect(tag.day, tag.name, isVisible) {
+        if (isVisible) onAnalytics("shown", tag.name, tag.day)
+    }
     val hashtag = "#${tag.name}"
     val title = stringResource(R.string.corus_trending_hashtag_banner_title, hashtag)
     val titleText = buildAnnotatedString {
@@ -88,21 +91,27 @@ fun TrendingHashtagBanner(state: DailyHashtagBannerState, onHashtagTap: (String)
     }
     Row(Modifier.fillMaxWidth().background(CorusColors.Accent), verticalAlignment = Alignment.CenterVertically) {
         Row(
-            Modifier.weight(1f).heightIn(min = 44.dp).clickable { onHashtagTap(tag.name) }
-                .padding(start = 20.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+            Modifier.weight(1f).heightIn(min = 44.dp).clickable {
+                onAnalytics("tapped", tag.name, tag.day)
+                onHashtagTap(tag.name)
+            }
+                .padding(start = 20.dp, end = 8.dp, top = 7.dp, bottom = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Icon(Icons.Default.Tag, null, Modifier.size(20.dp), tint = Color.White)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(titleText, style = CorusFont.body.copy(fontSize = 16.sp), color = Color.White)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(titleText, style = CorusFont.body.copy(fontSize = 15.sp), color = Color.White)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text(stringResource(R.string.corus_trending_hashtag_banner_explore), style = CorusFont.caption, color = Color.White, modifier = Modifier.weight(1f, fill = false))
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.size(12.dp), tint = Color.White)
                 }
             }
         }
-        IconButton(onClick = state.dismiss, modifier = Modifier.padding(end = 6.dp)) {
+        IconButton(onClick = {
+            onAnalytics("dismissed", tag.name, tag.day)
+            state.dismiss()
+        }, modifier = Modifier.padding(end = 6.dp)) {
             Icon(Icons.Default.Close, stringResource(R.string.corus_trending_hashtag_banner_dismiss), Modifier.size(16.dp), tint = Color.White)
         }
     }

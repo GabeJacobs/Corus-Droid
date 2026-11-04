@@ -639,6 +639,7 @@
     <string name="notif_msg_new_post">"hat einen/e neuen/e %1$s gepostet."</string>
     <string name="notif_msg_reply_with_text">"hat auf deinen Kommentar geantwortet: %1$s"</string>
     <string name="notif_msg_reply_no_text">"hat auf deinen Kommentar geantwortet."</string>
+    <string name="notif_msg_referral_joined">ist über deine Einladung Corus beigetreten!</string>
     <string name="notif_msg_contact_joined">"ist jetzt bei %1$s!"</string>
     <string name="notif_msg_repost">"hat dein/e %1$s repostet."</string>
     <string name="notif_msg_taste_match_default">"ist ein neues Geschmacks-Match."</string>

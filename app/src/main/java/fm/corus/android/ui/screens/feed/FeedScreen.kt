@@ -231,6 +231,13 @@ fun FeedScreen(
     val feedDecade: Int? = viewModel.appliedFeedDecade.collectAsState().value
     val showDecadeFilter = viewModel.isDecadeFilterVisible(feedMode)
     val energyConfigRevision by viewModel.remoteConfig.revision.collectAsState()
+    val shownHashtagBanners = remember { mutableSetOf<String>() }
+    val trackHashtagBanner: (String, String, String) -> Unit = { action, hashtag, day ->
+        if (action != "shown" || (isAtRoot && shownHashtagBanners.add("$day|$hashtag"))) {
+            viewModel.analyticsService.logEvent("trending_hashtag_banner_$action",
+                mapOf("hashtag" to hashtag, "day" to day, "source" to "trending_feed"))
+        }
+    }
     val dailyHashtagBanner = rememberDailyHashtagBanner(feedMode == "trending" && viewModel.remoteConfig.trendingHashtagBannerEnabled)
     val newTabEnabled = viewModel.remoteConfig.feedNewTabEnabled
     val isNewFeed = FeedNewTabPolicy.isNew(feedMode, newTabEnabled)
@@ -1224,7 +1231,7 @@ fun FeedScreen(
                         scrollingHeader = {
                             ChromeInset()
                             if (includeHeader) header()
-                            TrendingHashtagBanner(dailyHashtagBanner, onNavigateToHashtag)
+                            TrendingHashtagBanner(dailyHashtagBanner, onNavigateToHashtag, trackHashtagBanner, isAtRoot)
                             if (feedMode == "following") fm.corus.android.ui.components.ReferralInviteBanner("feed")
                         },
                         topContent = {
@@ -1284,7 +1291,7 @@ fun FeedScreen(
                 ) {
                     if (includeHeader) item { header() }
                     if (isSelected && dailyHashtagBanner.candidate != null) item(key = "daily_hashtag_banner") {
-                        TrendingHashtagBanner(dailyHashtagBanner, onNavigateToHashtag)
+                        TrendingHashtagBanner(dailyHashtagBanner, onNavigateToHashtag, trackHashtagBanner, isAtRoot)
                     }
                     if (isSelected && feedMode == "following") item(key = "referral_feed_banner") { fm.corus.android.ui.components.ReferralInviteBanner("feed") }
                     if (isSelected && showTasteMatchesTrialBanner) {

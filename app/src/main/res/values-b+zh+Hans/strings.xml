@@ -638,6 +638,7 @@
     <string name="notif_msg_new_post">"发布了新的%1$s。"</string>
     <string name="notif_msg_reply_with_text">"回复了你的评论：%1$s"</string>
     <string name="notif_msg_reply_no_text">"回复了你的评论。"</string>
+    <string name="notif_msg_referral_joined">通过你的邀请加入了 Corus！</string>
     <string name="notif_msg_contact_joined">"加入了 %1$s！"</string>
     <string name="notif_msg_repost">"转发了你的%1$s。"</string>
     <string name="notif_msg_taste_match_default">"是新的品味匹配。"</string>
