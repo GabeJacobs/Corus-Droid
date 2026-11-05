@@ -18,14 +18,15 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.outlined.ConfirmationNumber
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -723,7 +724,11 @@ private fun NotificationRow(
                     modifier = Modifier.size(20.dp),
                 )
             }
-        } else if (notification.type == NotificationType.PLAY_MILESTONE) {
+        } else if (notification.type == NotificationType.PLAY_MILESTONE ||
+            notification.type == NotificationType.TRENDING ||
+            notification.type == NotificationType.NEW_RELEASE ||
+            notification.type == NotificationType.CONCERT_ANNOUNCEMENT
+        ) {
             Box(
                 modifier = Modifier
                     .size(CorusSpacing.avatarMedium)
@@ -732,33 +737,12 @@ private fun NotificationRow(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Headphones,
-                    contentDescription = null,
-                    tint = CorusColors.Accent,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-        } else if (notification.type == NotificationType.NEW_RELEASE) {
-            UserAvatarView(
-                avatarURL = notification.creatorImageURL,
-                displayName = notification.creatorName.orEmpty(),
-                size = CorusSpacing.avatarMedium,
-            )
-        } else if (notification.type.isDiscovery) {
-            Icon(imageVector = Icons.Filled.ConfirmationNumber, contentDescription = null,
-                tint = CorusColors.Accent, modifier = Modifier.size(CorusSpacing.avatarMedium))
-        } else if (notification.type == NotificationType.TRENDING) {
-            // Same anonymous row as play milestones; chart icon matches
-            // the Trending feed mode.
-            Box(
-                modifier = Modifier
-                    .size(CorusSpacing.avatarMedium)
-                    .clip(CircleShape)
-                    .background(CorusColors.Accent.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.TrendingUp,
+                    imageVector = when (notification.type) {
+                        NotificationType.PLAY_MILESTONE -> Icons.Filled.Headphones
+                        NotificationType.NEW_RELEASE -> Icons.Filled.LocalFireDepartment
+                        NotificationType.CONCERT_ANNOUNCEMENT -> Icons.Outlined.ConfirmationNumber
+                        else -> Icons.Filled.TrendingUp
+                    },
                     contentDescription = null,
                     tint = CorusColors.Accent,
                     modifier = Modifier.size(20.dp),
