@@ -543,6 +543,8 @@ class RemoteConfigService @Inject constructor(
 
     val onboardingTasteMatchEnabled: Boolean
         get() = feedFlag("onboarding_taste_match_enabled")
+    val lagosSignupGateEnabled: Boolean
+        get() = flagWithDefault("lagos_signup_gate_enabled", true)
 
     /// One-time "feed switch hint" discovery coachmark (the bubble under the
     /// Corus logo teaching that the logo switches feed modes). Master gate;
@@ -1206,6 +1208,7 @@ class RemoteConfigService @Inject constructor(
             // in-code default keeps the flow dark even before the first fetch.
             "onboarding_club_offer_enabled" to false,
             "onboarding_taste_match_enabled" to false,
+            "lagos_signup_gate_enabled" to true,
             "Revised_onboarding_taste_matches" to false,
             "email_otp_auth_enabled" to false,
             "feed_switch_hint_min_session" to 1L,

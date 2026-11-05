@@ -96,6 +96,8 @@ class AuthViewModel @Inject constructor(
     )
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
     val feedTabPresentation = remoteConfigService.feedTabPresentation
+    val signupGateConfigRevision = remoteConfigService.revision
+    val lagosSignupGateEnabled get() = remoteConfigService.lagosSignupGateEnabled
     val isResolvingFeedTabs: Boolean get() = remoteConfigService.isResolvingFeedTabs
     suspend fun awaitFeedTabPresentation() = remoteConfigService.awaitFeedTabPresentation()
 
@@ -684,6 +686,15 @@ class AuthViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 authRepository.completeOnboarding(username, displayName, avatarData)
+                if (remoteConfigService.lagosSignupGateEnabled && java.util.TimeZone.getDefault().id == "Africa/Lagos") {
+                    try {
+                        com.google.firebase.functions.FirebaseFunctions.getInstance().getHttpsCallable("getSignupGateStatus")
+                            .call(mapOf("newSignup" to true)).await()
+                    } catch (error: Exception) {
+                        if (error is kotlinx.coroutines.CancellationException) throw error
+                        // The profile trigger independently creates the same review.
+                    }
+                }
                 analyticsService.logOnboardingCompleted(
                     tasteOnboarding = remoteConfigService.onboardingTasteMatchEnabled,
                 )

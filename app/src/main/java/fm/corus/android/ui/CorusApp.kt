@@ -1,6 +1,8 @@
 package fm.corus.android.ui
 
 import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -21,12 +23,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -52,6 +58,10 @@ import fm.corus.android.ui.theme.AppearanceMode
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusTheme
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.tasks.await
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.functions.FirebaseFunctions
+import java.util.TimeZone
 
 @Composable
 fun CorusApp(
@@ -83,12 +93,44 @@ fun CorusApp(
             if (authState == AuthViewModel.AuthState.SignedIn) viewModel.awaitFeedTabPresentation()
         }
         val isConnected by viewModel.networkConnected.collectAsState()
+        val signupGateRevision by viewModel.signupGateConfigRevision.collectAsState()
 
         LaunchedEffect(Unit) {
             viewModel.observeAuthState()
         }
 
         val context = LocalContext.current
+        val gateEnabled = viewModel.lagosSignupGateEnabled
+        val gateUid = FirebaseAuth.getInstance().currentUser?.uid
+        val gatePrefs = remember(context) { context.getSharedPreferences("corus_signup_gate", 0) }
+        var gateState by remember(gateUid) { mutableStateOf("clear") }
+        var gateRetry by remember { mutableStateOf(0) }
+        LaunchedEffect(gateUid, authState, gateEnabled, signupGateRevision, gateRetry) {
+            val eligibleRoute = authState != AuthViewModel.AuthState.Loading &&
+                authState != AuthViewModel.AuthState.SignedOut && authState != AuthViewModel.AuthState.NeedsOnboarding
+            if (!gateEnabled || gateUid == null || !eligibleRoute ||
+                (TimeZone.getDefault().id != "Africa/Lagos" && !gatePrefs.getBoolean(gateUid, false))) {
+                gateState = "clear"
+            } else {
+                gateState = "checking"
+                try {
+                    val response = FirebaseFunctions.getInstance().getHttpsCallable("getSignupGateStatus").call().await()
+                    val blocked = (response.getData() as? Map<*, *>)?.get("blocked") as? Boolean
+                        ?: throw IllegalStateException("Invalid signup review response")
+                    gatePrefs.edit().putBoolean(gateUid, blocked).apply()
+                    gateState = if (blocked) "blocked" else "clear"
+                } catch (error: Exception) {
+                    if (error is kotlinx.coroutines.CancellationException) throw error
+                    gateState = "error"
+                }
+            }
+        }
+        LaunchedEffect(gateState) {
+            if (gateState == "blocked") {
+                kotlinx.coroutines.delay(30_000)
+                gateRetry++
+            }
+        }
         val hapticManager = remember(context) { hapticManagerFromContext(context) }
 
         val promptOverlayHost = rememberPromptOverlayHostState()
@@ -143,6 +185,17 @@ fun CorusApp(
                 }
 
                 PromptOverlayHost(promptOverlayHost)
+                if (gateEnabled && gateState != "clear") {
+                    Column(modifier = Modifier.fillMaxSize().background(CorusColors.Background).clickable { }.padding(32.dp),
+                        verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (gateState == "checking") CircularProgressIndicator() else {
+                            Text(if (gateState == "blocked") "Your account needs a review" else "Couldn’t check your account", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                            Text(if (gateState == "blocked") "Please contact help@corus.fm with your username to request access." else "Please try again. If the problem continues, contact help@corus.fm.", modifier = Modifier.padding(vertical = 20.dp))
+                            Button(onClick = { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:help@corus.fm?subject=Corus%20account%20review"))) }) { Text("Email support") }
+                            Button(onClick = { gateRetry++ }) { Text("Try again") }
+                        }
+                    }
+                }
             }
         }
     }
