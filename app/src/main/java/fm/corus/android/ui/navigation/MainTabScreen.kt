@@ -168,6 +168,8 @@ fun MainTabScreen(
     val playbackModePending by viewModel.playbackModePromptManager.pending.collectAsState()
     val showReviewPrompt by viewModel.reviewPromptManager.shouldShowPrompt.collectAsState()
     val isResolvingLinkOut by fm.corus.android.domain.MusicServiceLinkOut.isResolving.collectAsState()
+    val isResolvingQobuz by fm.corus.android.domain.QobuzLinks.isResolving.collectAsState()
+    val qobuzMessage by fm.corus.android.domain.QobuzLinks.message.collectAsState()
     val isResolvingDestination by fm.corus.android.domain.DestinationResolvingOverlay.isResolving.collectAsState()
     val pushPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -1072,7 +1074,13 @@ fun MainTabScreen(
     // dim covers the whole window. Shared by music-service link-out and
     // Search destination resolve (album / artist). Deferred so a fast
     // resolve never flashes a spinner before the page push.
-    ChromeLoadingHud(visible = isResolvingLinkOut || isResolvingDestination)
+    ChromeLoadingHud(visible = isResolvingLinkOut || isResolvingDestination || isResolvingQobuz,
+        message = if (isResolvingQobuz) "Loading Qobuz..." else null)
+    if (qobuzMessage != null) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { fm.corus.android.domain.QobuzLinks.dismissMessage() },
+        title = { Text("Qobuz") }, text = { Text(qobuzMessage.orEmpty()) },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = { fm.corus.android.domain.QobuzLinks.dismissMessage() }) { Text("OK") } },
+    )
 
     if (showPlayerQueue) {
         FullPlayerQueueSheet(

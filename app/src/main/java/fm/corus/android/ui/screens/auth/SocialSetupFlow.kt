@@ -10,6 +10,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -173,84 +175,88 @@ internal fun MusicServiceScreen(
             color = CorusColors.Secondary,
         )
 
-        Spacer(modifier = Modifier.weight(1f))
-
-        // Featured tier — Spotify + TIDAL as large side-by-side cards
-        // (mirrors the iOS two-tier layout). Spotify shows the full-playback subtitle.
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
+        Column(
+            modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
         ) {
-            MusicServiceCard(
-                modifier = Modifier.weight(1f),
-                logoRes = R.drawable.spotify_logo,
-                label = MusicService.SPOTIFY.displayLabel,
-                subtitle = fullPlaybackSubtitle,
-                accent = CorusColors.SpotifyGreen,
-                selected = selected == MusicService.SPOTIFY,
-                onClick = { selected = MusicService.SPOTIFY },
-            )
-            // TIDAL only appears when its Remote Config gate is on (and the
-            // integration has shipped on all clients).
-            if (tidalEnabled) {
+            Spacer(modifier = Modifier.height(CorusSpacing.lg))
+
+            // Featured tier — Spotify + TIDAL as large side-by-side cards
+            // (mirrors the iOS two-tier layout). Spotify shows the full-playback subtitle.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
+            ) {
                 MusicServiceCard(
                     modifier = Modifier.weight(1f),
-                    logoRes = R.drawable.tidal_logo,
-                    label = MusicService.TIDAL.displayLabel,
-                    accent = CorusColors.Tidal,
-                    selected = selected == MusicService.TIDAL,
-                    onClick = { selected = MusicService.TIDAL },
+                    logoRes = R.drawable.spotify_logo,
+                    label = MusicService.SPOTIFY.displayLabel,
+                    subtitle = fullPlaybackSubtitle,
+                    accent = CorusColors.SpotifyGreen,
+                    selected = selected == MusicService.SPOTIFY,
+                    onClick = { selected = MusicService.SPOTIFY },
                 )
+                // TIDAL only appears when its Remote Config gate is on (and the
+                // integration has shipped on all clients).
+                if (tidalEnabled) {
+                    MusicServiceCard(
+                        modifier = Modifier.weight(1f),
+                        logoRes = R.drawable.tidal_logo,
+                        label = MusicService.TIDAL.displayLabel,
+                        accent = CorusColors.Tidal,
+                        selected = selected == MusicService.TIDAL,
+                        onClick = { selected = MusicService.TIDAL },
+                    )
+                }
             }
-        }
 
-        // Secondary tier — full-width list rows beneath the featured pair:
-        // YouTube Music (below TIDAL, above Deezer), then Deezer, then Apple Music.
-        // These link out to their own app.
-        Spacer(modifier = Modifier.height(CorusSpacing.lg))
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
-        ) {
-            // YouTube Music only appears when its Remote Config gate is on.
-            if (youtubeMusicEnabled) {
+            // Secondary tier — full-width list rows beneath the featured pair:
+            // YouTube Music (below TIDAL, above Deezer), then Deezer, then Apple Music.
+            // These link out to their own app.
+            Spacer(modifier = Modifier.height(CorusSpacing.lg))
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+            ) {
+                // YouTube Music only appears when its Remote Config gate is on.
+                if (youtubeMusicEnabled) {
+                    MusicServiceRow(
+                        logoRes = R.drawable.youtube_music_logo,
+                        label = MusicService.YOUTUBE_MUSIC.displayLabel,
+                        accent = CorusColors.YouTubeMusicRed,
+                        selected = selected == MusicService.YOUTUBE_MUSIC,
+                        onClick = { selected = MusicService.YOUTUBE_MUSIC },
+                    )
+                }
+                // Deezer only appears when its Remote Config gate is on.
+                if (deezerEnabled) {
+                    MusicServiceRow(
+                        logoRes = R.drawable.deezer_logo,
+                        label = MusicService.DEEZER.displayLabel,
+                        accent = CorusColors.DeezerPurple,
+                        selected = selected == MusicService.DEEZER,
+                        onClick = { selected = MusicService.DEEZER },
+                    )
+                }
                 MusicServiceRow(
-                    logoRes = R.drawable.youtube_music_logo,
-                    label = MusicService.YOUTUBE_MUSIC.displayLabel,
-                    accent = CorusColors.YouTubeMusicRed,
-                    selected = selected == MusicService.YOUTUBE_MUSIC,
-                    onClick = { selected = MusicService.YOUTUBE_MUSIC },
+                    logoRes = R.drawable.apple_music_logo,
+                    label = MusicService.APPLE_MUSIC.displayLabel,
+                    accent = CorusColors.AppleMusicPink,
+                    selected = selected == MusicService.APPLE_MUSIC,
+                    onClick = { selected = MusicService.APPLE_MUSIC },
                 )
+                if (qobuzEnabled) {
+                    MusicServiceRow(
+                        logoRes = R.drawable.qobuz_logo,
+                        label = MusicService.QOBUZ.displayLabel,
+                        accent = CorusColors.Text,
+                        selected = selected == MusicService.QOBUZ,
+                        onClick = { selected = MusicService.QOBUZ },
+                    )
+                }
             }
-            // Deezer only appears when its Remote Config gate is on.
-            if (qobuzEnabled) {
-                MusicServiceRow(
-                    logoRes = R.drawable.qobuz_logo,
-                    label = MusicService.QOBUZ.displayLabel,
-                    accent = CorusColors.Text,
-                    selected = selected == MusicService.QOBUZ,
-                    onClick = { selected = MusicService.QOBUZ },
-                )
-            }
-            if (deezerEnabled) {
-                MusicServiceRow(
-                    logoRes = R.drawable.deezer_logo,
-                    label = MusicService.DEEZER.displayLabel,
-                    accent = CorusColors.DeezerPurple,
-                    selected = selected == MusicService.DEEZER,
-                    onClick = { selected = MusicService.DEEZER },
-                )
-            }
-            MusicServiceRow(
-                logoRes = R.drawable.apple_music_logo,
-                label = MusicService.APPLE_MUSIC.displayLabel,
-                accent = CorusColors.AppleMusicPink,
-                selected = selected == MusicService.APPLE_MUSIC,
-                onClick = { selected = MusicService.APPLE_MUSIC },
-            )
-        }
 
-        Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(CorusSpacing.lg))
+        }
 
         Button(
             onClick = {

@@ -121,9 +121,10 @@ object SongPlayRouting {
         source: TrackSource,
         viewer: MusicService,
         knownNotOnSpotify: Boolean = false,
+        qobuzEnabled: Boolean = viewer == MusicService.QOBUZ && QobuzLinks.enabled,
     ): MusicService =
         if (viewer == MusicService.QOBUZ) {
-            if (source == TrackSource.APPLEMUSIC) MusicService.APPLE_MUSIC else MusicService.SPOTIFY
+            if (qobuzEnabled) MusicService.QOBUZ else if (source == TrackSource.APPLEMUSIC) MusicService.APPLE_MUSIC else MusicService.SPOTIFY
         } else if (source == TrackSource.APPLEMUSIC && viewer == MusicService.SPOTIFY) {
             if (knownNotOnSpotify) MusicService.APPLE_MUSIC else MusicService.SPOTIFY
         } else {

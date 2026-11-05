@@ -117,6 +117,7 @@ fun SongDetailScreen(
      *  album line + "Post Song" draft after the pressing the user tapped rather
      *  than the first loaded post's. Null = fall back to the loaded posts. */
     albumName: String? = null,
+    durationMs: Int = 0,
     viewModel: SongDetailViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToUser: (String) -> Unit = {},
@@ -146,7 +147,9 @@ fun SongDetailScreen(
     // Full-song Spotify Connect resolve — miniplayer already spins on this;
     // album-art play must too (mirrors iOS SongDetailView.isPreviewLoading).
     val isResolvingSpotify by viewModel.nowPlayingManager.isResolvingSpotifyFlow.collectAsState()
-    val musicService by viewModel.musicServicePreference.current.collectAsState()
+    val selectedMusicService by viewModel.musicServicePreference.current.collectAsState()
+    val qobuzAvailable = fm.corus.android.ui.components.rememberQobuzEnabled()
+    val musicService = if (selectedMusicService == MusicService.QOBUZ && !qobuzAvailable) MusicService.SPOTIFY else selectedMusicService
     val absentFromSpotify by fm.corus.android.domain.MusicServiceLinkOut.absentFromSpotify.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -210,7 +213,8 @@ fun SongDetailScreen(
         id = trackId,
         name = displayName ?: "",
         artistName = displayArtist ?: "",
-        albumName = "",
+        albumName = albumName.orEmpty(),
+        durationMs = durationMs,
         albumArtURL = artUrl,
         albumArtLargeURL = albumArtLargeURL ?: artUrl,
         spotifyURI = effectiveSpotifyURI,
@@ -243,6 +247,7 @@ fun SongDetailScreen(
         name = displayName ?: "",
         artistName = displayArtist ?: "",
         albumName = resolveSongHeaderText(route = albumName, post = songInfo?.track?.albumName) ?: "",
+        durationMs = durationMs.takeIf { it > 0 } ?: songInfo?.track?.durationMs ?: 0,
         albumArtURL = artUrl,
         albumArtLargeURL = albumArtLargeURL ?: artUrl,
         spotifyURI = spotifyURI ?: "",
@@ -396,17 +401,21 @@ fun SongDetailScreen(
     // resolve the catalog URL via backend (cached; the global MainTabScreen
     // overlay shows the spinner) then open it.
     val openInService: (MusicService) -> Unit = { service ->
-        viewModel.analyticsService.logMusicServiceLinkTapped(service, trackId)
-        if (service == MusicService.SPOTIFY) {
-            val uri = effectiveSpotifyURI.ifBlank { effectiveSpotifyWebURL }
-            if (uri.isNotBlank()) {
-                try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) } catch (_: Exception) { }
-            }
+        if (service == MusicService.QOBUZ) {
+            fm.corus.android.domain.MusicServiceLinkOut.openQobuz(context, scope, resolvedTrack)
         } else {
-            scope.launch {
-                val url = viewModel.resolveLinkUrl(resolvedTrack, service)
-                if (!url.isNullOrBlank()) {
-                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+            viewModel.analyticsService.logMusicServiceLinkTapped(service, trackId)
+            if (service == MusicService.SPOTIFY) {
+                val uri = effectiveSpotifyURI.ifBlank { effectiveSpotifyWebURL }
+                if (uri.isNotBlank()) {
+                    try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) } catch (_: Exception) { }
+                }
+            } else {
+                scope.launch {
+                    val url = viewModel.resolveLinkUrl(resolvedTrack, service)
+                    if (!url.isNullOrBlank()) {
+                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                    }
                 }
             }
         }
@@ -718,7 +727,11 @@ fun SongDetailScreen(
                         Text(stringResource(fm.corus.android.localization.CorusStrings.song_detail_post_song), style = CorusFont.buttonSmall)
                     }
 
-                    if (isSoundCloud) {
+                    if (musicService == MusicService.QOBUZ && qobuzAvailable) {
+                        Button(onClick = { openInService(MusicService.QOBUZ) }, shape = RoundedCornerShape(50)) {
+                            Text("Open in Qobuz", style = CorusFont.buttonSmall)
+                        }
+                    } else if (isSoundCloud) {
                         // Listen on SoundCloud capsule (matches iOS: white logo on black)
                         Button(
                             onClick = {

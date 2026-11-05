@@ -171,6 +171,9 @@ data class CymbalTrack(
      * compile. Drives the compact "E" badge next to the title in search rows.
      */
     val explicit: Boolean = false,
+    val qobuzURL: String? = null,
+    val qobuzMatchInput: QobuzMatchInput? = null,
+    val qobuzMatchStatus: String? = null,
 ) {
     val formattedDuration: String
         get() {
@@ -296,6 +299,7 @@ data class CymbalTrack(
         releaseDate = releaseDate,
         releaseDatePrecision = releaseDatePrecision,
         albumName = albumName,
+        durationMs = durationMs,
     )
 
     companion object {
@@ -340,6 +344,9 @@ data class CymbalTrack(
                 spotifyURI = if (dropSpotifyLinks) "" else rawSpotifyURI,
                 spotifyWebURL = if (dropSpotifyLinks) "" else rawSpotifyWebURL,
                 durationMs = (data["durationMs"] as? Number)?.toInt() ?: 0,
+                qobuzURL = data["qobuzURL"] as? String,
+                qobuzMatchInput = QobuzMatchInput.fromMap(data["qobuzMatchInput"]),
+                qobuzMatchStatus = data["qobuzMatchStatus"] as? String,
                 previewUrl = data["previewUrl"] as? String ?: data["previewURL"] as? String,
                 isrc = data["isrc"] as? String,
                 albumArtBackURL = data["albumArtBackURL"] as? String,

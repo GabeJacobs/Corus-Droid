@@ -3,12 +3,12 @@
     <string name="corus_discovery_untrack_artist">"아티스트 소식 끄기"</string>
     <string name="corus_discovery_track_director">"감독 소식 받기"</string>
     <string name="corus_discovery_untrack_director">"감독 소식 끄기"</string>
-    <string name="corus_discovery_artist_tracked">"아티스트 소식을 받습니다."</string>
-    <string name="corus_discovery_director_tracked">"감독 소식을 받습니다."</string>
-    <string name="corus_discovery_artist_untracked">"아티스트 소식을 껐습니다."</string>
-    <string name="corus_discovery_director_untracked">"감독 소식을 껐습니다."</string>
-    <string name="corus_discovery_artist_tracked_off">"아티스트 소식을 받습니다. 알림을 받으려면 설정에서 새 작품을 켜세요."</string>
-    <string name="corus_discovery_director_tracked_off">"감독 소식을 받습니다. 알림을 받으려면 설정에서 새 작품을 켜세요."</string>
+    <string name="corus_discovery_artist_tracked">"%1$s의 새 음악이 나오거나 근처에서 공연이 열리면 알림을 받습니다."</string>
+    <string name="corus_discovery_director_tracked">"%1$s의 새 영화 알림을 받습니다."</string>
+    <string name="corus_discovery_artist_untracked">"이제 %1$s의 새 음악이나 공연 알림을 받지 않습니다."</string>
+    <string name="corus_discovery_director_untracked">"이제 %1$s의 새 영화 알림을 받지 않습니다."</string>
+    <string name="corus_discovery_artist_tracked_off">"%1$s 소식을 추적합니다. 새 작품 알림을 받으려면 설정에서 새 작품을 켜세요."</string>
+    <string name="corus_discovery_director_tracked_off">"%1$s 소식을 추적합니다. 새 영화 알림을 받으려면 설정에서 새 작품을 켜세요."</string>
     <string name="corus_discovery_new_releases">"새 작품"</string>
     <string name="corus_discovery_concert_announcements">"공연 발표"</string>
     <string name="corus_discovery_concert_activity">"공연 활동"</string>
@@ -18,4 +18,9 @@
     <string name="corus_discovery_concert_dates">"%1$s회 공연 · %2$s"</string>
     <string name="corus_discovery_tracking_error">"업데이트할 수 없습니다. 다시 시도해 주세요."</string>
     <string name="corus_discovery_concert_list">"예정된 공연"</string>
+    <string name="corus_discovery_concert_dates_with_artist">"%1$s · %2$s회 공연 · %3$s"</string>
+    <string name="corus_discovery_concert_short">"새 공연"</string>
+    <string name="corus_discovery_concert_with_artist">"새 공연 · %1$s"</string>
+    <string name="corus_activity_release_quoted_title">"“%1$s”"</string>
+    <string name="corus_activity_filter_releases_concerts">"신작 및 공연"</string>
 </resources>

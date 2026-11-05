@@ -4,11 +4,21 @@ import android.content.Context
 import fm.corus.android.R
 import java.text.DateFormat
 import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Date
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 object DateUtils {
+    fun localizedConcertDate(rawDate: String, locale: Locale): String = runCatching {
+        val date = LocalDate.parse(rawDate)
+        val skeleton = if (date.year == LocalDate.now().year) "EEEMMMd" else "yEEEMMMd"
+        val pattern = android.text.format.DateFormat.getBestDateTimePattern(locale, skeleton)
+        date.format(DateTimeFormatter.ofPattern(pattern, locale))
+    }.getOrDefault(rawDate)
+
     /**
      * Compact form: "now" / "5m" / "2h" / "3d" / "1w" / "2mo" / "5y".
      * Used for comments, notifications, message-thread timestamps.

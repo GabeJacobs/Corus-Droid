@@ -74,9 +74,19 @@ object MusicServiceLinkOut {
         MusicService.APPLE_MUSIC -> R.drawable.apple_music_logo
         MusicService.TIDAL -> R.drawable.tidal_logo
         MusicService.YOUTUBE_MUSIC -> R.drawable.youtube_music_logo
-        MusicService.QOBUZ -> R.drawable.spotify_logo // Per-track Qobuz badges require a confirmed URL.
+        MusicService.QOBUZ -> R.drawable.qobuz_logo
         MusicService.DEEZER -> R.drawable.deezer_logo
         MusicService.AUDIOMACK -> R.drawable.audiomack_mark
+    }
+
+    fun openQobuz(context: Context, scope: CoroutineScope, track: CymbalTrack) {
+        if (!QobuzLinks.enabled) return
+        scope.launch {
+            QobuzLinks.destination(track)?.let { url ->
+                if (runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }.isFailure)
+                    QobuzLinks.reportFailure()
+            }
+        }
     }
 
     /**
@@ -92,6 +102,7 @@ object MusicServiceLinkOut {
         cloud: CloudFunctionsDataSource,
     ): String? {
         if (service == MusicService.QOBUZ) {
+            if (!QobuzLinks.enabled) return if (track.source == TrackSource.APPLEMUSIC) track.appleMusicURL else spotifyFallbackUrl(track)
             return QobuzLinks.destination(track)
         }
         if (service == MusicService.SPOTIFY) return null
@@ -237,12 +248,17 @@ object MusicServiceLinkOut {
     ) {
         fun open(url: String?) {
             url?.takeIf { it.isNotBlank() }?.let {
-                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) }
+                if (runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) }.isFailure && musicService == MusicService.QOBUZ)
+                    QobuzLinks.reportFailure()
             }
         }
         fun resolveAndOpenLinkOut() {
             val resolve = resolveLinkOut ?: return
             scope.launch { open(resolve()) }
+        }
+        if (musicService == MusicService.QOBUZ && QobuzLinks.enabled) {
+            resolveAndOpenLinkOut()
+            return
         }
         when (state.source) {
             TrackSource.SOUNDCLOUD -> open(state.soundcloudPermalinkUrl)

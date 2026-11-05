@@ -517,10 +517,11 @@ class NotificationsViewModel @Inject constructor(
         )
     }
 
-    fun selectFilter(filter: NotificationFilter) {
+    fun selectFilter(filter: NotificationFilter, trackSelection: Boolean = true) {
         if (filter == NotificationFilter.GIFTS && !giftsEnabled) return
+        if (filter == NotificationFilter.RELEASES_AND_CONCERTS && !creatorTrackingEnabled) return
         if (_selectedFilter.value == filter) return
-        analyticsService.logNotificationFilterChanged(filter.value)
+        if (trackSelection) analyticsService.logNotificationFilterChanged(filter.value)
         if (!filter.isServerScoped) {
             _chipReady.value = false
             _hasMoreFiltered.value = false

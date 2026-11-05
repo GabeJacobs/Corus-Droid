@@ -420,6 +420,10 @@ fun openTrackInPreferredService(
     resolveSpotifyFromAppleTrack: suspend (CymbalTrack) -> String? = { null },
 ) {
     val track = post.track
+    if (musicService == MusicService.QOBUZ && fm.corus.android.domain.QobuzLinks.enabled) {
+        fm.corus.android.domain.MusicServiceLinkOut.openQobuz(context, scope, track)
+        return
+    }
     fun open(url: String?) {
         url?.takeIf { it.isNotBlank() }?.let {
             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) }

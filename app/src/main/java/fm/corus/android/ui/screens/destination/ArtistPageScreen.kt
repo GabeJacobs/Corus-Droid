@@ -197,6 +197,7 @@ fun ArtistPageScreen(
     var showShareSheet by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     val tracking = rememberCreatorTracking("artist", detail?.id ?: artistId, detail?.name ?: nameHint.orEmpty(), trackingEnabled)
+    val showTrackingAction = trackingEnabled && tracking.available
 
     // Popular shows 6 by default (keeps the social sections high); Show more
     // reveals the full top-10 the payload already carries.
@@ -332,7 +333,7 @@ fun ArtistPageScreen(
                         )
                     },
                     actions = {
-                        if (viewModel.entityShareEnabled || trackingEnabled) {
+                        if (viewModel.entityShareEnabled || showTrackingAction) {
                             Box {
                                 CorusHeaderIconButton(
                                     onClick = { showMenu = true },
@@ -344,10 +345,10 @@ fun ArtistPageScreen(
                                     onDismissRequest = { showMenu = false },
                                     containerColor = CorusColors.CardBackground,
                                 ) {
-                                if (trackingEnabled) {
+                                if (showTrackingAction) {
                                     DropdownMenuItem(
                                         text = { Text(stringResource(if (tracking.tracked) R.string.corus_discovery_untrack_artist else R.string.corus_discovery_track_artist), style = CorusFont.body) },
-                                        enabled = !tracking.busy && tracking.available,
+                                        enabled = !tracking.busy,
                                         onClick = { showMenu = false; tracking.toggle() },
                                     )
                                 }
@@ -867,7 +868,7 @@ fun ArtistPageScreen(
                 onBack = onBack,
                 topInset = statusBarPadding,
                 actions = { tint ->
-                    if (viewModel.entityShareEnabled || trackingEnabled) {
+                    if (viewModel.entityShareEnabled || showTrackingAction) {
                         Box {
                             CorusHeaderIconButton(
                                 onClick = { showMenu = true },
@@ -880,10 +881,10 @@ fun ArtistPageScreen(
                                 onDismissRequest = { showMenu = false },
                                 containerColor = CorusColors.CardBackground,
                             ) {
-                                if (trackingEnabled) {
+                                if (showTrackingAction) {
                                     DropdownMenuItem(
                                         text = { Text(stringResource(if (tracking.tracked) R.string.corus_discovery_untrack_artist else R.string.corus_discovery_track_artist), style = CorusFont.body) },
-                                        enabled = !tracking.busy && tracking.available,
+                                        enabled = !tracking.busy,
                                         onClick = { showMenu = false; tracking.toggle() },
                                     )
                                 }

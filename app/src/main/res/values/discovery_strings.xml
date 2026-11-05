@@ -3,12 +3,12 @@
     <string name="corus_discovery_untrack_artist">"Untrack Artist"</string>
     <string name="corus_discovery_track_director">"Track Director"</string>
     <string name="corus_discovery_untrack_director">"Untrack Director"</string>
-    <string name="corus_discovery_artist_tracked">"Artist tracked."</string>
-    <string name="corus_discovery_director_tracked">"Director tracked."</string>
-    <string name="corus_discovery_artist_untracked">"Artist untracked."</string>
-    <string name="corus_discovery_director_untracked">"Director untracked."</string>
-    <string name="corus_discovery_artist_tracked_off">"Artist tracked. Turn on New Releases in Settings to receive notifications."</string>
-    <string name="corus_discovery_director_tracked_off">"Director tracked. Turn on New Releases in Settings to receive notifications."</string>
+    <string name="corus_discovery_artist_tracked">"You’ll get notifications when %1$s releases new music or plays near you."</string>
+    <string name="corus_discovery_director_tracked">"You’ll get notifications for new films by %1$s."</string>
+    <string name="corus_discovery_artist_untracked">"You’ll no longer get release or concert alerts for %1$s."</string>
+    <string name="corus_discovery_director_untracked">"You’ll no longer get alerts for new films by %1$s."</string>
+    <string name="corus_discovery_artist_tracked_off">"You’re tracking %1$s. Turn on New Releases in Settings for release alerts."</string>
+    <string name="corus_discovery_director_tracked_off">"You’re tracking %1$s. Turn on New Releases in Settings for new film alerts."</string>
     <string name="corus_discovery_new_releases">"New Releases"</string>
     <string name="corus_discovery_concert_announcements">"Concert Announcements"</string>
     <string name="corus_discovery_concert_activity">"Concert Activity"</string>
@@ -18,4 +18,9 @@
     <string name="corus_discovery_concert_dates">"%1$s dates · %2$s"</string>
     <string name="corus_discovery_tracking_error">"Couldn’t save changes. Please try again."</string>
     <string name="corus_discovery_concert_list">"Upcoming concerts"</string>
+    <string name="corus_discovery_concert_dates_with_artist">"%1$s · %2$s dates · %3$s"</string>
+    <string name="corus_discovery_concert_short">"New concert"</string>
+    <string name="corus_discovery_concert_with_artist">"New concert · %1$s"</string>
+    <string name="corus_activity_release_quoted_title">"“%1$s”"</string>
+    <string name="corus_activity_filter_releases_concerts">"Releases &amp; Concerts"</string>
 </resources>

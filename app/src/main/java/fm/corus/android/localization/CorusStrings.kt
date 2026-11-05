@@ -16,8 +16,10 @@ object CorusStrings {
     @StringRes val activity_filter_follows: Int = R.string.notifications_filter_follows
     @StringRes val activity_filter_gifts: Int = R.string.gift_sheet_title_many
     @StringRes val activity_filter_people_you_follow: Int = R.string.notifications_filter_people_you_follow
+    @StringRes val activity_filter_releases_concerts: Int = R.string.corus_activity_filter_releases_concerts
     @StringRes val activity_filter_tags_mentions: Int = R.string.notifications_filter_tags_mentions
     @StringRes val activity_follow_back: Int = R.string.likes_button_follow_back
+    @StringRes val activity_release_quoted_title: Int = R.string.corus_activity_release_quoted_title
     @StringRes val activity_someone: Int = R.string.gift_someone
     @StringRes val app_icon_club_required: Int = R.string.app_icon_club_required
     @StringRes val app_icon_corus_blue: Int = R.string.app_icon_corus_blue
@@ -373,8 +375,11 @@ object CorusStrings {
     @StringRes val discovery_concert_activity: Int = R.string.corus_discovery_concert_activity
     @StringRes val discovery_concert_announcements: Int = R.string.corus_discovery_concert_announcements
     @StringRes val discovery_concert_dates: Int = R.string.corus_discovery_concert_dates
+    @StringRes val discovery_concert_dates_with_artist: Int = R.string.corus_discovery_concert_dates_with_artist
     @StringRes val discovery_concert_in_city: Int = R.string.corus_discovery_concert_in_city
     @StringRes val discovery_concert_list: Int = R.string.corus_discovery_concert_list
+    @StringRes val discovery_concert_short: Int = R.string.corus_discovery_concert_short
+    @StringRes val discovery_concert_with_artist: Int = R.string.corus_discovery_concert_with_artist
     @StringRes val discovery_director_tracked: Int = R.string.corus_discovery_director_tracked
     @StringRes val discovery_director_tracked_off: Int = R.string.corus_discovery_director_tracked_off
     @StringRes val discovery_director_untracked: Int = R.string.corus_discovery_director_untracked

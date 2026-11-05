@@ -82,6 +82,7 @@ const val CATALOG_SCROLL_TO_TRACK_KEY = "catalogScrollToTrack"
      *  tapped instead of whatever pressing the first loaded post snapshotted.
      *  Null = fall back to the loaded posts. */
     val albumName: String? = null,
+    val durationMs: Int = 0,
 )
 @Serializable data class FilmDetailRoute(
     val movieId: String,

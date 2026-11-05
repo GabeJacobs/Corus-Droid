@@ -68,6 +68,9 @@ fun FeaturedCymbalView(
     staggerVinyl: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    val qobuzSelected = rememberQobuzEnabled(musicService == fm.corus.android.data.model.MusicService.QOBUZ)
+    val qobuzContext = androidx.compose.ui.platform.LocalContext.current
+    val qobuzScope = rememberCoroutineScope()
     // Match iOS: when staggering, album art appears first, then vinyl fades in
     // ~5ms later with a 250ms easeIn. See FeaturedCymbalView.swift:236-247.
     var showVinyl by remember { mutableStateOf(!staggerVinyl) }
@@ -311,7 +314,12 @@ fun FeaturedCymbalView(
             val isSoundCloud = post.track.source == fm.corus.android.data.model.TrackSource.SOUNDCLOUD
             val isBandcamp = post.track.source == fm.corus.android.data.model.TrackSource.BANDCAMP
             val isAppleMusic = post.track.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC
-            if (isSoundCloud) {
+            if (qobuzSelected) {
+                Image(painter = painterResource(R.drawable.qobuz_logo), contentDescription = "Open in Qobuz",
+                    modifier = Modifier.size(28.dp).clickable {
+                        fm.corus.android.domain.MusicServiceLinkOut.openQobuz(qobuzContext, qobuzScope, post.track)
+                    }, contentScale = ContentScale.Fit)
+            } else if (isSoundCloud) {
                 SoundCloudAdaptiveLogo(
                     modifier = Modifier
                         .size(21.dp)

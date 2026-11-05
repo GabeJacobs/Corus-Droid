@@ -717,6 +717,7 @@ internal fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             releaseDate = route.releaseDate,
             releaseDatePrecision = route.releaseDatePrecision,
             albumName = route.albumName,
+            durationMs = route.durationMs,
             onBack = { navController.safePopBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },

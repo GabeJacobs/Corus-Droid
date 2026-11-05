@@ -48,7 +48,7 @@ class MusicServiceLinkOutTest {
     @Test
     fun `qobuz without a confirmed track never opens a guessed destination`() = runTest {
         val cloud = mock<CloudFunctionsDataSource>()
-        assertEquals(fm.corus.android.R.drawable.spotify_logo, MusicServiceLinkOut.logoRes(MusicService.QOBUZ))
+        assertEquals(fm.corus.android.R.drawable.qobuz_logo, MusicServiceLinkOut.logoRes(MusicService.QOBUZ))
         assertEquals(null, MusicServiceLinkOut.resolveLinkOutUrlRaw("spotify-id", "Song", "Artist", null, MusicService.QOBUZ, cloud))
         verifyNoInteractions(cloud)
     }

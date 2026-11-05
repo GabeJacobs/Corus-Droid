@@ -7,16 +7,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.google.firebase.functions.FirebaseFunctions
 import fm.corus.android.R
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
+import fm.corus.android.ui.util.DateUtils
 import kotlinx.coroutines.tasks.await
 
 @Composable
 fun ConcertAnnouncementScreen(notificationId: String, onBack: () -> Unit, onConcert: (String) -> Unit) {
+    val locale = LocalConfiguration.current.locales[0]
     var shows by remember(notificationId) { mutableStateOf<List<Map<*, *>>>(emptyList()) }
     var loading by remember(notificationId) { mutableStateOf(true) }
     var failed by remember(notificationId) { mutableStateOf(false) }
@@ -40,7 +43,7 @@ fun ConcertAnnouncementScreen(notificationId: String, onBack: () -> Unit, onConc
                 items(shows) { show ->
                     Column(Modifier.fillMaxWidth().clickable { (show["id"] as? String)?.let(onConcert) }.padding(vertical = 16.dp)) {
                         Text(show["venue"] as? String ?: "", style = CorusFont.body, color = CorusColors.Text)
-                        Text(show["date"] as? String ?: "", style = CorusFont.caption, color = CorusColors.Secondary)
+                        Text(DateUtils.localizedConcertDate(show["date"] as? String ?: "", locale), style = CorusFont.caption, color = CorusColors.Secondary)
                     }
                 }
             }

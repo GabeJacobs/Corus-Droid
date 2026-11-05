@@ -139,6 +139,7 @@ fun MiniPlayerBar(
     val isBandcamp = state.source == fm.corus.android.data.model.TrackSource.BANDCAMP
     val isTidal = state.source == fm.corus.android.data.model.TrackSource.TIDAL
     val isDeezer = state.source == fm.corus.android.data.model.TrackSource.DEEZER
+    val qobuzSelected = rememberQobuzEnabled(musicService == fm.corus.android.data.model.MusicService.QOBUZ)
     val displayedService = SongPlayRouting.displayedLinkOutService(
         source = state.source,
         viewer = musicService,
@@ -253,6 +254,12 @@ fun MiniPlayerBar(
                         onSelect = onPlaybackModeChange,
                         modifier = Modifier.width(miniPlayerServiceButtonWidth + 40.dp),
                     )
+                } else if (qobuzSelected) {
+                    MiniPlayerIconButton(onClick = { openCurrentInMusicService() },
+                        contentDescription = "Open in Qobuz", width = miniPlayerServiceButtonWidth) {
+                        Image(painter = painterResource(fm.corus.android.R.drawable.qobuz_logo), contentDescription = null,
+                            modifier = Modifier.size(22.dp))
+                    }
                 } else if (isSoundCloud) {
                     MiniPlayerIconButton(
                         onClick = { openCurrentInMusicService() },

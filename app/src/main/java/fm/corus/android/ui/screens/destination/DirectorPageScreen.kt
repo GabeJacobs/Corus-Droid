@@ -126,6 +126,7 @@ fun DirectorPageScreen(
     var showShareSheet by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     val tracking = rememberCreatorTracking("director", detail?.id ?: directorId, detail?.name ?: nameHint.orEmpty(), trackingEnabled)
+    val showTrackingAction = trackingEnabled && tracking.available
 
     val directorName = detail?.name?.takeIf { it.isNotBlank() } ?: nameHint
     val photo = detail?.imageUrl ?: imageUrlHint
@@ -187,7 +188,7 @@ fun DirectorPageScreen(
                     )
                 },
                 actions = {
-                    if (viewModel.entityShareEnabled || trackingEnabled) {
+                    if (viewModel.entityShareEnabled || showTrackingAction) {
                         Box {
                             CorusHeaderIconButton(
                                 onClick = { showMenu = true },
@@ -199,10 +200,10 @@ fun DirectorPageScreen(
                                 onDismissRequest = { showMenu = false },
                                 containerColor = CorusColors.CardBackground,
                             ) {
-                                if (trackingEnabled) {
+                                if (showTrackingAction) {
                                     DropdownMenuItem(
                                         text = { Text(stringResource(if (tracking.tracked) R.string.corus_discovery_untrack_director else R.string.corus_discovery_track_director), style = CorusFont.body) },
-                                        enabled = !tracking.busy && tracking.available,
+                                        enabled = !tracking.busy,
                                         onClick = { showMenu = false; tracking.toggle() },
                                     )
                                 }
@@ -460,7 +461,7 @@ fun DirectorPageScreen(
                 onBack = onBack,
                 topInset = statusBarPadding,
                 actions = { tint ->
-                    if (viewModel.entityShareEnabled || trackingEnabled) {
+                    if (viewModel.entityShareEnabled || showTrackingAction) {
                         Box {
                             CorusHeaderIconButton(
                                 onClick = { showMenu = true },
@@ -473,10 +474,10 @@ fun DirectorPageScreen(
                                 onDismissRequest = { showMenu = false },
                                 containerColor = CorusColors.CardBackground,
                             ) {
-                                if (trackingEnabled) {
+                                if (showTrackingAction) {
                                     DropdownMenuItem(
                                         text = { Text(stringResource(if (tracking.tracked) R.string.corus_discovery_untrack_director else R.string.corus_discovery_track_director), style = CorusFont.body) },
-                                        enabled = !tracking.busy && tracking.available,
+                                        enabled = !tracking.busy,
                                         onClick = { showMenu = false; tracking.toggle() },
                                     )
                                 }

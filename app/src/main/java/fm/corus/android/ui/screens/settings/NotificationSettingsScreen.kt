@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.AddReaction
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.HowToReg
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PersonSearch
@@ -118,7 +119,7 @@ fun NotificationSettingsScreen(
             )
 
             if (trackingEnabled) {
-                NotifToggleRow(icon = Icons.Filled.NotificationsActive,
+                NotifToggleRow(icon = Icons.Filled.LocalFireDepartment,
                     title = stringResource(R.string.corus_discovery_new_releases),
                     checked = settings.newReleases, enabled = settings.isLoaded,
                     onCheckedChange = viewModel::setNewReleases)

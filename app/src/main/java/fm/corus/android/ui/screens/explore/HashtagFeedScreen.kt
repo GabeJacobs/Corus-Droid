@@ -293,7 +293,8 @@ fun HashtagFeedScreen(
                             )
                             Button(
                                 onClick = { viewModel.playHashtag(hashtag) },
-                                enabled = !isLoading && !isStartingPlayback,
+                                // Playback fetches its own queue independently of the grid.
+                                enabled = !isStartingPlayback,
                                 shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
                                 colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent, contentColor = Color.White),
                                 contentPadding = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.xs),

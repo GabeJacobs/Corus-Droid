@@ -18,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Favorite
@@ -66,6 +67,7 @@ import androidx.compose.ui.window.PopupProperties
 import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import java.util.Locale
 import fm.corus.android.ui.components.HashtagSuggestionsList
 import fm.corus.android.ui.components.MentionSuggestionsList
 import fm.corus.android.ui.components.applyHashtag
@@ -130,6 +132,11 @@ fun NotificationsScreen(
     val discoveryEnabled = remember(discoveryRevision) { viewModel.creatorTrackingEnabled }
     val displayedNotifications = allDisplayedNotifications.filter { discoveryEnabled || !it.type.isDiscovery }
     val selectedFilter by viewModel.selectedFilter.collectAsState()
+    LaunchedEffect(discoveryEnabled, selectedFilter) {
+        if (!discoveryEnabled && selectedFilter == NotificationFilter.RELEASES_AND_CONCERTS) {
+            viewModel.selectFilter(NotificationFilter.ALL, trackSelection = false)
+        }
+    }
     val showFilterChips by viewModel.showFilterChips.collectAsState()
     val isFilterLoading by viewModel.isFilterLoading.collectAsState()
     val loadedChips by viewModel.loadedChips.collectAsState()
@@ -300,6 +307,7 @@ fun NotificationsScreen(
                 NotificationFilterChipRow(
                     selected = selectedFilter,
                     showGifts = viewModel.giftsEnabled,
+                    showDiscovery = discoveryEnabled,
                     onSelect = {
                         // Mirrors iOS NotificationsView.selectFilter haptic.
                         haptics.impact(HapticManager.ImpactStyle.LIGHT)
@@ -617,6 +625,7 @@ private fun ActivityStandaloneTitle() {
 private fun NotificationFilterChipRow(
     selected: NotificationFilter,
     showGifts: Boolean,
+    showDiscovery: Boolean,
     onSelect: (NotificationFilter) -> Unit,
 ) {
     LazyRow(
@@ -627,7 +636,10 @@ private fun NotificationFilterChipRow(
         contentPadding = PaddingValues(horizontal = CorusSpacing.lg),
         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
     ) {
-        items(NotificationFilter.entries.filter { showGifts || it != NotificationFilter.GIFTS }, key = { it.value }) { filter ->
+        items(NotificationFilter.entries.filter {
+            (showGifts || it != NotificationFilter.GIFTS) &&
+                (showDiscovery || it != NotificationFilter.RELEASES_AND_CONCERTS)
+        }, key = { it.value }) { filter ->
             val isActive = filter == selected
             val label = stringResource(
                 when (filter) {
@@ -637,6 +649,7 @@ private fun NotificationFilterChipRow(
                     NotificationFilter.FOLLOWS -> fm.corus.android.localization.CorusStrings.activity_filter_follows
                     NotificationFilter.TAGS_AND_MENTIONS -> fm.corus.android.localization.CorusStrings.activity_filter_tags_mentions
                     NotificationFilter.GIFTS -> fm.corus.android.localization.CorusStrings.activity_filter_gifts
+                    NotificationFilter.RELEASES_AND_CONCERTS -> fm.corus.android.localization.CorusStrings.activity_filter_releases_concerts
                 },
             )
             Button(
@@ -725,8 +738,14 @@ private fun NotificationRow(
                     modifier = Modifier.size(20.dp),
                 )
             }
+        } else if (notification.type == NotificationType.NEW_RELEASE) {
+            UserAvatarView(
+                avatarURL = notification.creatorImageURL,
+                displayName = notification.creatorName.orEmpty(),
+                size = CorusSpacing.avatarMedium,
+            )
         } else if (notification.type.isDiscovery) {
-            Icon(imageVector = Icons.Outlined.Notifications, contentDescription = null,
+            Icon(imageVector = Icons.Filled.ConfirmationNumber, contentDescription = null,
                 tint = CorusColors.Accent, modifier = Modifier.size(CorusSpacing.avatarMedium))
         } else if (notification.type == NotificationType.TRENDING) {
             // Same anonymous row as play milestones; chart icon matches
@@ -764,23 +783,45 @@ private fun NotificationRow(
         // 3 lines for the message and ensure the timestamp is always visible even
         // when truncated, matching the iOS .truncationMode(.middle) behavior.
         val hasCommentText = notification.commentText != null
-        val maxLines = if (hasCommentText) 4 else 2
+        val maxLines = when {
+            hasCommentText -> 4
+            notification.type.isDiscovery -> 3
+            else -> 2
+        }
         val context = LocalContext.current
         val timeString = DateUtils.relativeTime(context, notification.timestamp)
         val timeSuffix = " $timeString"
 
         val fullAnnotatedText = if (notification.type.isDiscovery) {
+            val isConcert = notification.type == NotificationType.CONCERT_ANNOUNCEMENT
+            val titleResource = if (isConcert) R.string.corus_discovery_concert_with_artist else R.string.corus_discovery_release_from
+            val details = when {
+                !isConcert -> notification.releaseTitle?.takeIf { it.isNotEmpty() }?.let {
+                    context.getString(R.string.corus_activity_release_quoted_title, it)
+                }.orEmpty()
+                notification.eventIds.size > 1 -> context.getString(
+                    R.string.corus_discovery_concert_dates,
+                    notification.eventIds.size.toString(),
+                    notification.cityName.orEmpty(),
+                )
+                else -> localizedConcertBody(notification.bodyText.orEmpty(), context.resources.configuration.locales[0])
+            }
             buildAnnotatedString {
-                withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = 15.sp)) {
-                    append(if (notification.type == NotificationType.NEW_RELEASE)
-                        context.getString(R.string.corus_discovery_release_from, notification.creatorName.orEmpty())
-                    else context.getString(R.string.corus_discovery_concert_in_city, notification.creatorName.orEmpty(), notification.cityName.orEmpty()))
+                val placeholder = "\uFFFC"
+                val title = context.getString(titleResource, placeholder)
+                append(title.substringBefore(placeholder))
+                withStyle(SpanStyle(fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)) {
+                    append(notification.creatorName.orEmpty())
+                }
+                append(title.substringAfter(placeholder, ""))
+                if (details.isNotEmpty()) {
+                    append("\n")
+                    append(details)
                 }
                 append("\n")
-                append(if (notification.type == NotificationType.NEW_RELEASE) notification.releaseTitle.orEmpty()
-                    else if (notification.eventIds.size > 1) context.getString(R.string.corus_discovery_concert_dates, notification.eventIds.size, notification.cityName.orEmpty())
-                    else notification.bodyText.orEmpty())
-                append(" · $timeString")
+                withStyle(SpanStyle(fontSize = 12.sp, color = CorusColors.Secondary)) {
+                    append(DateUtils.relativeTimeLong(context, notification.timestamp))
+                }
             }
         } else if (notification.type == NotificationType.GIFT) {
             giftReceiptSenderLine(context, notification, sentToYou = true)
@@ -1425,6 +1466,13 @@ private fun InlineReplyBar(
  *
  * Comment-text excerpts are server-supplied user content, so we render them verbatim.
  */
+private fun localizedConcertBody(body: String, locale: Locale): String {
+    val separator = body.lastIndexOf(" · ")
+    if (separator < 0) return body
+    val rawDate = body.substring(separator + " · ".length)
+    return body.substring(0, separator) + " · " + DateUtils.localizedConcertDate(rawDate, locale)
+}
+
 private fun localizedNotificationMessage(
     notification: CymbalNotification,
     context: android.content.Context,

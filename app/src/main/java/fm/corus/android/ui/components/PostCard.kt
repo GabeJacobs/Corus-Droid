@@ -264,6 +264,7 @@ fun PostCard(
     var showUnavailableToast by remember(post.id) { mutableStateOf(false) }
     val flipState = backCoverFlipState
     val haptics = LocalHapticManager.current
+    val qobuzSelected = rememberQobuzEnabled(musicService == fm.corus.android.data.model.MusicService.QOBUZ && post.isTrack)
     val qobuzURL = rememberQobuzURL(post.track, musicService == fm.corus.android.data.model.MusicService.QOBUZ && post.isTrack)
     val postCardContext = LocalContext.current
     // Audiomack full-song playback is link-out only — the service badge glyph
@@ -1023,16 +1024,12 @@ fun PostCard(
                         indication = null,
                         onClick = onSpotifyTap,
                     )
-                if (qobuzURL != null) {
+                if (qobuzSelected) {
                     Image(
                         painter = painterResource(R.drawable.qobuz_logo),
                         contentDescription = "Open in Qobuz",
                         modifier = Modifier.offset(y = PostRowServiceControlYOffset).size(28.dp).clickable {
-                            scope.launch {
-                                fm.corus.android.domain.QobuzLinks.destination(post.track)?.let { destination ->
-                                    runCatching { postCardContext.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(destination))) }
-                                }
-                            }
+                            fm.corus.android.domain.MusicServiceLinkOut.openQobuz(postCardContext, scope, post.track)
                         },
                         contentScale = ContentScale.Fit,
                     )
@@ -1118,6 +1115,8 @@ fun PostCard(
                         )
                     }
                     val displayedService = when {
+                        musicService == fm.corus.android.data.model.MusicService.QOBUZ ->
+                            if (isAppleMusic) fm.corus.android.data.model.MusicService.APPLE_MUSIC else fm.corus.android.data.model.MusicService.SPOTIFY
                         isAppleMusic && musicService == fm.corus.android.data.model.MusicService.SPOTIFY ->
                             fm.corus.android.domain.SongPlayRouting.displayedLinkOutService(
                                 post.track.source,

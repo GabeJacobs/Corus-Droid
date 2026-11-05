@@ -346,9 +346,11 @@ class NotificationFilterTest {
 
     @Test
     fun analyticsValuesMatchIOSAndWeb() {
-        assertEquals(NotificationFilter.GIFTS, NotificationFilter.entries.last())
+        assertEquals(listOf(NotificationFilter.GIFTS, NotificationFilter.RELEASES_AND_CONCERTS), NotificationFilter.entries.takeLast(2))
         assertEquals(listOf(NotificationType.GIFT, NotificationType.GIFT_THANKS), NotificationFilter.GIFTS.queryTypes)
         assertEquals("gifts", NotificationFilter.GIFTS.value)
+        assertEquals(listOf(NotificationType.NEW_RELEASE, NotificationType.CONCERT_ANNOUNCEMENT), NotificationFilter.RELEASES_AND_CONCERTS.queryTypes)
+        assertEquals("releases_and_concerts", NotificationFilter.RELEASES_AND_CONCERTS.value)
         assertEquals("all", NotificationFilter.ALL.value)
         assertEquals("people_you_follow", NotificationFilter.PEOPLE_YOU_FOLLOW.value)
         assertEquals("comments", NotificationFilter.COMMENTS.value)

@@ -3,12 +3,12 @@
     <string name="corus_discovery_untrack_artist">"Non seguire più le uscite dell’artista"</string>
     <string name="corus_discovery_track_director">"Segui le uscite del regista"</string>
     <string name="corus_discovery_untrack_director">"Non seguire più le uscite del regista"</string>
-    <string name="corus_discovery_artist_tracked">"Ora segui le uscite dell’artista."</string>
-    <string name="corus_discovery_director_tracked">"Ora segui le uscite del regista."</string>
-    <string name="corus_discovery_artist_untracked">"Non segui più le uscite dell’artista."</string>
-    <string name="corus_discovery_director_untracked">"Non segui più le uscite del regista."</string>
-    <string name="corus_discovery_artist_tracked_off">"Ora segui le uscite dell’artista. Attiva Nuove uscite nelle Impostazioni per ricevere notifiche."</string>
-    <string name="corus_discovery_director_tracked_off">"Ora segui le uscite del regista. Attiva Nuove uscite nelle Impostazioni per ricevere notifiche."</string>
+    <string name="corus_discovery_artist_tracked">"Riceverai una notifica quando %1$s pubblicherà nuova musica o suonerà vicino a te."</string>
+    <string name="corus_discovery_director_tracked">"Riceverai notifiche sui nuovi film di %1$s."</string>
+    <string name="corus_discovery_artist_untracked">"Non riceverai più avvisi su nuove uscite o concerti di %1$s."</string>
+    <string name="corus_discovery_director_untracked">"Non riceverai più notifiche sui nuovi film di %1$s."</string>
+    <string name="corus_discovery_artist_tracked_off">"Segui %1$s. Attiva Nuove uscite nelle Impostazioni per ricevere gli avvisi sulle uscite."</string>
+    <string name="corus_discovery_director_tracked_off">"Segui %1$s. Attiva Nuove uscite nelle Impostazioni per ricevere gli avvisi sui nuovi film."</string>
     <string name="corus_discovery_new_releases">"Nuove uscite"</string>
     <string name="corus_discovery_concert_announcements">"Annunci dei concerti"</string>
     <string name="corus_discovery_concert_activity">"Attività dei concerti"</string>
@@ -18,4 +18,9 @@
     <string name="corus_discovery_concert_dates">"%1$s date · %2$s"</string>
     <string name="corus_discovery_tracking_error">"Impossibile aggiornare. Riprova."</string>
     <string name="corus_discovery_concert_list">"Prossimi concerti"</string>
+    <string name="corus_discovery_concert_dates_with_artist">"%1$s · %2$s date · %3$s"</string>
+    <string name="corus_discovery_concert_short">"Nuovo concerto"</string>
+    <string name="corus_discovery_concert_with_artist">"Nuovo concerto · %1$s"</string>
+    <string name="corus_activity_release_quoted_title">"«%1$s»"</string>
+    <string name="corus_activity_filter_releases_concerts">"Uscite e concerti"</string>
 </resources>

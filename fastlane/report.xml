@@ -5,37 +5,17 @@
     
     
       
-      <testcase classname="fastlane.lanes" name="0: default_platform" time="0.00025">
+      <testcase classname="fastlane.lanes" name="0: default_platform" time="0.000218">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="1: google_play_track_version_codes" time="1.465282">
+      <testcase classname="fastlane.lanes" name="1: google_play_track_version_codes" time="1.391871">
         
       </testcase>
     
       
-      <testcase classname="fastlane.lanes" name="2: google_play_track_version_codes" time="1.453349">
-        
-      </testcase>
-    
-      
-      <testcase classname="fastlane.lanes" name="3: google_play_track_version_codes" time="1.459297">
-        
-      </testcase>
-    
-      
-      <testcase classname="fastlane.lanes" name="4: google_play_track_version_codes" time="1.568762">
-        
-      </testcase>
-    
-      
-      <testcase classname="fastlane.lanes" name="5: bundleRelease" time="320.20465">
-        
-      </testcase>
-    
-      
-      <testcase classname="fastlane.lanes" name="6: upload_to_play_store" time="69.847107">
+      <testcase classname="fastlane.lanes" name="2: upload_to_play_store" time="3.518482">
         
       </testcase>
     

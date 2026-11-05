@@ -212,6 +212,9 @@ data class QueuedTrack(
     val albumName: String? = null,
     val appleMusicStorefront: String? = null,
     val notOnSpotify: Boolean = false,
+    val qobuzURL: String? = null,
+    val qobuzMatchInput: fm.corus.android.data.model.QobuzMatchInput? = null,
+    val qobuzMatchStatus: String? = null,
 )
 
 /**
@@ -220,6 +223,7 @@ data class QueuedTrack(
  * artist rows, trending, and [SongPreviewArtwork].
  */
 fun CymbalTrack.toQueuedTrack(origin: CatalogPlaybackOrigin? = null) = QueuedTrack(
+    qobuzURL = qobuzURL, qobuzMatchInput = qobuzMatchInput, qobuzMatchStatus = qobuzMatchStatus,
     trackId = id,
     trackName = name,
     artistName = artistName,
@@ -248,6 +252,7 @@ fun CymbalTrack.toQueuedTrack(origin: CatalogPlaybackOrigin? = null) = QueuedTra
  * so the full player can render sharp cover art (not the mini/thumbnail URL).
  */
 fun CymbalPost.toQueuedTrack() = QueuedTrack(
+    qobuzURL = track.qobuzURL, qobuzMatchInput = track.qobuzMatchInput, qobuzMatchStatus = track.qobuzMatchStatus,
     trackId = track.id,
     trackName = track.name,
     artistName = track.artistName,
@@ -299,6 +304,27 @@ data class NowPlayingState(
 ) {
     val hasActiveTrack: Boolean get() = trackId != null
 }
+
+internal fun QueuedTrack.toServiceLinkOutTrack() = CymbalTrack(
+    id = trackId,
+    name = trackName,
+    artistName = artistName,
+    albumName = albumName.orEmpty(),
+    durationMs = durationMs ?: 0,
+    qobuzURL = qobuzURL, qobuzMatchInput = qobuzMatchInput, qobuzMatchStatus = qobuzMatchStatus,
+    albumArtURL = albumArtURL,
+    albumArtLargeURL = albumArtLargeURL,
+    spotifyURI = spotifyURI.orEmpty(),
+    spotifyWebURL = spotifyWebURL.orEmpty(),
+    previewUrl = previewUrl,
+    isrc = isrc,
+    source = source,
+    soundcloudId = soundcloudId,
+    soundcloudPermalinkUrl = soundcloudPermalinkUrl,
+    audiomackUrl = audiomackUrl,
+    bandcampUrl = bandcampUrl,
+    notOnSpotify = notOnSpotify,
+)
 
 @Singleton
 class NowPlayingManager @Inject constructor(
@@ -680,24 +706,7 @@ class NowPlayingManager @Inject constructor(
         )
     }
 
-    private fun QueuedTrack.toCymbalTrack() = CymbalTrack(
-        id = trackId,
-        name = trackName,
-        artistName = artistName,
-        albumName = "",
-        albumArtURL = albumArtURL,
-        albumArtLargeURL = albumArtLargeURL,
-        spotifyURI = spotifyURI.orEmpty(),
-        spotifyWebURL = spotifyWebURL.orEmpty(),
-        previewUrl = previewUrl,
-        isrc = isrc,
-        source = source,
-        soundcloudId = soundcloudId,
-        soundcloudPermalinkUrl = soundcloudPermalinkUrl,
-        audiomackUrl = audiomackUrl,
-        bandcampUrl = bandcampUrl,
-        notOnSpotify = notOnSpotify,
-    )
+    private fun QueuedTrack.toCymbalTrack() = toServiceLinkOutTrack()
 
     private val _isResolvingSpotify = MutableStateFlow(false)
     val isResolvingSpotifyFlow: StateFlow<Boolean> = _isResolvingSpotify.asStateFlow()
@@ -1033,6 +1042,15 @@ class NowPlayingManager @Inject constructor(
     fun queueSnapshot(): List<QueuedTrack> = queue
 
     fun currentQueueIndexSnapshot(): Int? = currentQueueIndex
+
+    fun currentServiceLinkOutTrack(): CymbalTrack? {
+        val state = _state.value
+        val index = currentQueueIndex
+        if (index != null && index in queue.indices && queue[index].trackId == state.trackId)
+            return queue[index].toCymbalTrack()
+        return externalSpotifyCachedTrack?.takeIf { it.id == state.trackId }
+    }
+
 
     fun testingHandleSpotifyNaturalFeedTrackEnd(uri: String) {
         handleSpotifyNaturalFeedTrackEnd(uri)

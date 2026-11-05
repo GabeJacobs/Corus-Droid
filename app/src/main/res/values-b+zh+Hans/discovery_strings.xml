@@ -3,12 +3,12 @@
     <string name="corus_discovery_untrack_artist">"取消追踪艺人"</string>
     <string name="corus_discovery_track_director">"追踪导演"</string>
     <string name="corus_discovery_untrack_director">"取消追踪导演"</string>
-    <string name="corus_discovery_artist_tracked">"已追踪艺人。"</string>
-    <string name="corus_discovery_director_tracked">"已追踪导演。"</string>
-    <string name="corus_discovery_artist_untracked">"已取消追踪艺人。"</string>
-    <string name="corus_discovery_director_untracked">"已取消追踪导演。"</string>
-    <string name="corus_discovery_artist_tracked_off">"已追踪艺人。请在设置中开启“新作发布”以接收通知。"</string>
-    <string name="corus_discovery_director_tracked_off">"已追踪导演。请在设置中开启“新作发布”以接收通知。"</string>
+    <string name="corus_discovery_artist_tracked">"当%1$s发布新音乐或在你附近演出时，你会收到通知。"</string>
+    <string name="corus_discovery_director_tracked">"你会收到%1$s的新片通知。"</string>
+    <string name="corus_discovery_artist_untracked">"你将不再收到%1$s的新作或演出通知。"</string>
+    <string name="corus_discovery_director_untracked">"你将不再收到%1$s的新片通知。"</string>
+    <string name="corus_discovery_artist_tracked_off">"你已追踪%1$s。请在设置中开启“新作发布”以接收新作通知。"</string>
+    <string name="corus_discovery_director_tracked_off">"你已追踪%1$s。请在设置中开启“新作发布”以接收新片通知。"</string>
     <string name="corus_discovery_new_releases">"新作发布"</string>
     <string name="corus_discovery_concert_announcements">"演唱会公告"</string>
     <string name="corus_discovery_concert_activity">"演唱会动态"</string>
@@ -18,4 +18,9 @@
     <string name="corus_discovery_concert_dates">"%1$s场演出 · %2$s"</string>
     <string name="corus_discovery_tracking_error">"无法更新，请重试。"</string>
     <string name="corus_discovery_concert_list">"即将举行的演唱会"</string>
+    <string name="corus_discovery_concert_dates_with_artist">"%1$s · %2$s场演出 · %3$s"</string>
+    <string name="corus_discovery_concert_short">"新演出"</string>
+    <string name="corus_discovery_concert_with_artist">"新演出 · %1$s"</string>
+    <string name="corus_activity_release_quoted_title">"“%1$s”"</string>
+    <string name="corus_activity_filter_releases_concerts">"新发行与演出"</string>
 </resources>

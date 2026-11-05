@@ -137,6 +137,13 @@ class MainTabViewModel @Inject constructor(
      * mini-player service-logo tap. Returns null for Spotify / no current track.
      */
     suspend fun resolveCurrentServiceLinkUrl(): String? {
+        if (musicServicePreference.current.value == fm.corus.android.data.model.MusicService.QOBUZ) {
+            val track = nowPlayingManager.currentServiceLinkOutTrack() ?: run {
+                if (fm.corus.android.domain.QobuzLinks.enabled) fm.corus.android.domain.QobuzLinks.reportFailure()
+                return null
+            }
+            return fm.corus.android.domain.QobuzLinks.destination(track)
+        }
         val s = nowPlayingManager.state.value
         val trackId = s.trackId ?: return null
         return fm.corus.android.domain.MusicServiceLinkOut.resolveLinkOutUrlRaw(
