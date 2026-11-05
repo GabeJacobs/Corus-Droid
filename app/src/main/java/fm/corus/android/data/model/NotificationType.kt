@@ -18,7 +18,11 @@ enum class NotificationType(val value: String) {
     FAVORITE("favorite"),
     PLAY_MILESTONE("play_milestone"),
     TRENDING("trending"),
+    NEW_RELEASE("new_release"),
+    CONCERT_ANNOUNCEMENT("concert_announcement"),
     CONCERT_GOING("concert_going");
+
+    val isDiscovery: Boolean get() = this == NEW_RELEASE || this == CONCERT_ANNOUNCEMENT
 
     val supportsCommentActions: Boolean
         get() = this in listOf(COMMENT, REPLY, MENTION)

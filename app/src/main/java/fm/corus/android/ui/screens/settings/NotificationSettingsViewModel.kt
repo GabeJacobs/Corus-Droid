@@ -33,6 +33,8 @@ data class NotificationSettings(
     val reactions: Boolean = true,
     val mapUpdates: Boolean = true,
     val concerts: Boolean = true,
+    val newReleases: Boolean = true,
+    val concertAnnouncements: Boolean = true,
     val updatesAndReminders: Boolean = true,
     val messagePush: Boolean = true,
     val readReceipts: Boolean = true,
@@ -55,6 +57,8 @@ class NotificationSettingsViewModel @Inject constructor(
      *  notifications are launched (same flag the backend + other clients use). */
     val playMilestoneEnabled: Boolean
         get() = remoteConfigService.playMilestoneEnabled
+    val discoveryConfigRevision get() = remoteConfigService.revision
+    val creatorTrackingEnabled: Boolean get() = remoteConfigService.creatorTrackingEnabled
     val concertsEnabled: Boolean
         get() = remoteConfigService.concertsEnabled
 
@@ -84,6 +88,8 @@ class NotificationSettingsViewModel @Inject constructor(
                     trending = notif["trending"] as? Boolean ?: true,
                     reactions = notif["reactions"] as? Boolean ?: true,
                     mapUpdates = notif["mapUpdates"] as? Boolean ?: true,
+                    newReleases = notif["newReleases"] as? Boolean ?: true,
+                    concertAnnouncements = notif["concertAnnouncements"] as? Boolean ?: true,
                     concerts = notif["concerts"] as? Boolean ?: true,
                     updatesAndReminders = notif["updatesAndReminders"] as? Boolean ?: true,
                     messagePush = msg["pushEnabled"] as? Boolean ?: true,
@@ -132,6 +138,12 @@ class NotificationSettingsViewModel @Inject constructor(
     fun setMapUpdates(enabled: Boolean) = updateNotif("mapUpdates", enabled) {
         _settings.value = _settings.value.copy(mapUpdates = enabled)
     }
+    fun setNewReleases(enabled: Boolean) = updateNotif("newReleases", enabled) {
+        _settings.value = _settings.value.copy(newReleases = enabled)
+    }
+    fun setConcertAnnouncements(enabled: Boolean) = updateNotif("concertAnnouncements", enabled) {
+        _settings.value = _settings.value.copy(concertAnnouncements = enabled)
+    }
     fun setConcerts(enabled: Boolean) = updateNotif("concerts", enabled) {
         _settings.value = _settings.value.copy(concerts = enabled)
         analyticsService.logConcertEvent("notification_setting_changed", "notification_settings", result = if (enabled) "enabled" else "disabled")
@@ -177,6 +189,7 @@ class NotificationSettingsViewModel @Inject constructor(
 
     private fun updateNotif(key: String, enabled: Boolean, optimistic: () -> Unit) {
         val uid = authRepository.currentUserId ?: return
+        val previous = _settings.value
         optimistic()
         viewModelScope.launch {
             try {
@@ -186,7 +199,14 @@ class NotificationSettingsViewModel @Inject constructor(
                 }
                 userRepository.updateUserProfile(uid, updates)
                 analyticsService.logSettingToggled("${key}_notifications", enabled)
-            } catch (_: Exception) { }
+                if (key in listOf("newReleases", "concertAnnouncements")) analyticsService.logEvent("discovery_setting_changed", mapOf("category" to key, "enabled" to enabled, "result" to "success"))
+            } catch (_: Exception) {
+                if (key in listOf("newReleases", "concertAnnouncements")) {
+                    _settings.value = if (key == "newReleases") _settings.value.copy(newReleases = previous.newReleases)
+                        else _settings.value.copy(concertAnnouncements = previous.concertAnnouncements)
+                    analyticsService.logEvent("discovery_setting_changed", mapOf("category" to key, "enabled" to enabled, "result" to "error"))
+                }
+            }
         }
     }
 }

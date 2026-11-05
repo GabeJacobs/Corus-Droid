@@ -1,0 +1,21 @@
+<resources>
+    <string name="corus_discovery_track_artist">"Künstler verfolgen"</string>
+    <string name="corus_discovery_untrack_artist">"Künstler nicht mehr verfolgen"</string>
+    <string name="corus_discovery_track_director">"Regisseur verfolgen"</string>
+    <string name="corus_discovery_untrack_director">"Regisseur nicht mehr verfolgen"</string>
+    <string name="corus_discovery_artist_tracked">"Künstler wird verfolgt."</string>
+    <string name="corus_discovery_director_tracked">"Regisseur wird verfolgt."</string>
+    <string name="corus_discovery_artist_untracked">"Künstler wird nicht mehr verfolgt."</string>
+    <string name="corus_discovery_director_untracked">"Regisseur wird nicht mehr verfolgt."</string>
+    <string name="corus_discovery_artist_tracked_off">"Künstler wird verfolgt. Aktiviere Neuerscheinungen in den Einstellungen, um Benachrichtigungen zu erhalten."</string>
+    <string name="corus_discovery_director_tracked_off">"Regisseur wird verfolgt. Aktiviere Neuerscheinungen in den Einstellungen, um Benachrichtigungen zu erhalten."</string>
+    <string name="corus_discovery_new_releases">"Neuerscheinungen"</string>
+    <string name="corus_discovery_concert_announcements">"Konzertankündigungen"</string>
+    <string name="corus_discovery_concert_activity">"Konzertaktivität"</string>
+    <string name="corus_discovery_release_from">"Neu von %1$s"</string>
+    <string name="corus_discovery_release_short">"Neuerscheinung"</string>
+    <string name="corus_discovery_concert_in_city">"%1$s kommt nach %2$s"</string>
+    <string name="corus_discovery_concert_dates">"%1$s Termine · %2$s"</string>
+    <string name="corus_discovery_tracking_error">"Aktualisierung fehlgeschlagen. Bitte versuche es erneut."</string>
+    <string name="corus_discovery_concert_list">"Anstehende Konzerte"</string>
+</resources>

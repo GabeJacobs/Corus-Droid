@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FCM resolves notification localization keys by resource name, including
+     the short-title fallback that has no direct Kotlin reference. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@string/corus_discovery_*" />

@@ -14,6 +14,13 @@ data class CymbalNotification(
     val postId: String? = null,
     val eventId: String? = null,
     val concertTitle: String? = null,
+    val creatorName: String? = null,
+    val creatorKind: String? = null,
+    val destinationType: String? = null,
+    val destinationId: String? = null,
+    val releaseTitle: String? = null,
+    val cityName: String? = null,
+    val eventIds: List<String> = emptyList(),
     val postAlbumArtURL: String? = null,
     val commentText: String? = null,
     val commentId: String? = null,
@@ -64,6 +71,7 @@ data class CymbalNotification(
             // Anonymous aggregate — the row prepends "{playCount} people".
             NotificationType.PLAY_MILESTONE -> "played your corus."
             NotificationType.TRENDING -> "Your corus is trending."
+            NotificationType.NEW_RELEASE, NotificationType.CONCERT_ANNOUNCEMENT -> bodyText.orEmpty()
             NotificationType.CONCERT_GOING -> bodyText ?: "is also going to ${concertTitle ?: "this concert"}."
         }
 
@@ -90,6 +98,13 @@ data class CymbalNotification(
                 postId = data["postId"] as? String,
                 eventId = data["eventId"] as? String,
                 concertTitle = data["concertTitle"] as? String,
+                creatorName = data["creatorName"] as? String,
+                creatorKind = data["creatorKind"] as? String,
+                destinationType = data["destinationType"] as? String,
+                destinationId = data["destinationId"] as? String,
+                releaseTitle = data["releaseTitle"] as? String,
+                cityName = data["cityName"] as? String,
+                eventIds = (data["eventIds"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
                 postAlbumArtURL = data["postAlbumArtURL"] as? String,
                 commentText = data["commentText"] as? String,
                 commentId = data["commentId"] as? String,

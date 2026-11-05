@@ -126,6 +126,7 @@ const val CATALOG_SCROLL_TO_TRACK_KEY = "catalogScrollToTrack"
 @Serializable data class MapExploreRoute(val cityId: String? = null, val userIds: List<String> = emptyList(), val fromProfile: Boolean = false)
 @Serializable object SearchRoute
 @Serializable data object ConcertsRoute
+@Serializable data class ConcertAnnouncementRoute(val notificationId: String)
 @Serializable data class ConcertDetailRoute(val eventId: String)
 /** Full-screen trending list ("See all" from the search page's trending
  *  strips). [kind] is "songs" | "films" | "hashtags" | "artists" | "albums" |

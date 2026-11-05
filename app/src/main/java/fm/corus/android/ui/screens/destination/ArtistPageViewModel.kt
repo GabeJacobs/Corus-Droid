@@ -66,6 +66,8 @@ class ArtistPageViewModel @Inject constructor(
         SongPlayRouting.preferFullPlaybackOnCatalog(preferencesDataStore)
 
     /** Send-side gate for the "..." Share entry on this page. */
+    val discoveryConfigRevision get() = remoteConfigService.revision
+    val creatorTrackingEnabled: Boolean get() = remoteConfigService.creatorTrackingEnabled
     val entityShareEnabled: Boolean get() = remoteConfigService.entityShareEnabled
     val concertsEnabled: Boolean get() = remoteConfigService.concertsEnabled
 

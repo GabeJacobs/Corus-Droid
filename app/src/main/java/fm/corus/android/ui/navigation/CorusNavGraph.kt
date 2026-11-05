@@ -339,6 +339,10 @@ fun NotificationsNavGraph(
                 tabActivationTrigger = tabActivationTrigger,
                 onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
                 onNavigateToConcert = { eventId -> navController.navigate(ConcertDetailRoute(eventId)) },
+                onNavigateToDiscovery = { type, id ->
+                    if (type == "concert_list") navController.navigate(ConcertAnnouncementRoute(id))
+                    else navController.navigate(EntityLinkRoute(type, id))
+                },
                 onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
                 hasRequestedPushPermission = hasRequestedPush,
                 onMarkPushPermissionRequested = {
@@ -1099,6 +1103,12 @@ internal fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             onBack = { navController.safePopBackStack() },
             onConcert = { navController.navigate(ConcertDetailRoute(it)) },
         )
+    }
+    composable<ConcertAnnouncementRoute> { entry ->
+        val route = entry.toRoute<ConcertAnnouncementRoute>()
+        fm.corus.android.ui.screens.destination.ConcertAnnouncementScreen(route.notificationId,
+            onBack = { navController.safePopBackStack() },
+            onConcert = { navController.navigate(ConcertDetailRoute(it)) })
     }
     composable<ConcertDetailRoute> { entry ->
         val route = entry.toRoute<ConcertDetailRoute>()

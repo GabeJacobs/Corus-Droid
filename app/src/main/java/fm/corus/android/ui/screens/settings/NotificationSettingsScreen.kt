@@ -39,6 +39,8 @@ fun NotificationSettingsScreen(
     onBack: () -> Unit = {},
     viewModel: NotificationSettingsViewModel = hiltViewModel(),
 ) {
+    val discoveryRevision by viewModel.discoveryConfigRevision.collectAsState()
+    val trackingEnabled = remember(discoveryRevision) { viewModel.creatorTrackingEnabled }
     val settings by viewModel.settings.collectAsState()
 
     LaunchedEffect(Unit) { viewModel.load() }
@@ -115,10 +117,21 @@ fun NotificationSettingsScreen(
                 onCheckedChange = viewModel::setMapUpdates,
             )
 
+            if (trackingEnabled) {
+                NotifToggleRow(icon = Icons.Filled.NotificationsActive,
+                    title = stringResource(R.string.corus_discovery_new_releases),
+                    checked = settings.newReleases, enabled = settings.isLoaded,
+                    onCheckedChange = viewModel::setNewReleases)
+                NotifToggleRow(icon = Icons.Filled.NotificationsActive,
+                    title = stringResource(R.string.corus_discovery_concert_announcements),
+                    checked = settings.concertAnnouncements, enabled = settings.isLoaded,
+                    onCheckedChange = viewModel::setConcertAnnouncements)
+            }
             if (viewModel.concertsEnabled) {
                 NotifToggleRow(
                     icon = Icons.Filled.NotificationsActive,
-                    title = stringResource(fm.corus.android.localization.CorusStrings.concerts_title),
+                    title = stringResource(if (trackingEnabled) R.string.corus_discovery_concert_activity
+                        else fm.corus.android.localization.CorusStrings.concerts_title),
                     checked = settings.concerts,
                     onCheckedChange = viewModel::setConcerts,
                 )

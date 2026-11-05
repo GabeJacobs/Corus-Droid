@@ -1,0 +1,21 @@
+<resources>
+    <string name="corus_discovery_track_artist">"追踪艺人"</string>
+    <string name="corus_discovery_untrack_artist">"取消追踪艺人"</string>
+    <string name="corus_discovery_track_director">"追踪导演"</string>
+    <string name="corus_discovery_untrack_director">"取消追踪导演"</string>
+    <string name="corus_discovery_artist_tracked">"已追踪艺人。"</string>
+    <string name="corus_discovery_director_tracked">"已追踪导演。"</string>
+    <string name="corus_discovery_artist_untracked">"已取消追踪艺人。"</string>
+    <string name="corus_discovery_director_untracked">"已取消追踪导演。"</string>
+    <string name="corus_discovery_artist_tracked_off">"已追踪艺人。请在设置中开启“新作发布”以接收通知。"</string>
+    <string name="corus_discovery_director_tracked_off">"已追踪导演。请在设置中开启“新作发布”以接收通知。"</string>
+    <string name="corus_discovery_new_releases">"新作发布"</string>
+    <string name="corus_discovery_concert_announcements">"演唱会公告"</string>
+    <string name="corus_discovery_concert_activity">"演唱会动态"</string>
+    <string name="corus_discovery_release_from">"%1$s的新作"</string>
+    <string name="corus_discovery_release_short">"新作"</string>
+    <string name="corus_discovery_concert_in_city">"%1$s将在%2$s演出"</string>
+    <string name="corus_discovery_concert_dates">"%1$s场演出 · %2$s"</string>
+    <string name="corus_discovery_tracking_error">"无法更新，请重试。"</string>
+    <string name="corus_discovery_concert_list">"即将举行的演唱会"</string>
+</resources>

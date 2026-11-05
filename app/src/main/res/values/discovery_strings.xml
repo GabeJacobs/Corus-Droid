@@ -1,0 +1,21 @@
+<resources>
+    <string name="corus_discovery_track_artist">"Track Artist"</string>
+    <string name="corus_discovery_untrack_artist">"Untrack Artist"</string>
+    <string name="corus_discovery_track_director">"Track Director"</string>
+    <string name="corus_discovery_untrack_director">"Untrack Director"</string>
+    <string name="corus_discovery_artist_tracked">"Artist tracked."</string>
+    <string name="corus_discovery_director_tracked">"Director tracked."</string>
+    <string name="corus_discovery_artist_untracked">"Artist untracked."</string>
+    <string name="corus_discovery_director_untracked">"Director untracked."</string>
+    <string name="corus_discovery_artist_tracked_off">"Artist tracked. Turn on New Releases in Settings to receive notifications."</string>
+    <string name="corus_discovery_director_tracked_off">"Director tracked. Turn on New Releases in Settings to receive notifications."</string>
+    <string name="corus_discovery_new_releases">"New Releases"</string>
+    <string name="corus_discovery_concert_announcements">"Concert Announcements"</string>
+    <string name="corus_discovery_concert_activity">"Concert Activity"</string>
+    <string name="corus_discovery_release_from">"New release from %1$s"</string>
+    <string name="corus_discovery_release_short">"New release"</string>
+    <string name="corus_discovery_concert_in_city">"%1$s is coming to %2$s"</string>
+    <string name="corus_discovery_concert_dates">"%1$s dates · %2$s"</string>
+    <string name="corus_discovery_tracking_error">"Couldn’t save changes. Please try again."</string>
+    <string name="corus_discovery_concert_list">"Upcoming concerts"</string>
+</resources>

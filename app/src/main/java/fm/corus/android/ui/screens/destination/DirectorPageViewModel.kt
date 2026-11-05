@@ -45,6 +45,8 @@ class DirectorPageViewModel @Inject constructor(
 ) : ViewModel() {
 
     /** Send-side gate for the "..." Share entry on this page. */
+    val discoveryConfigRevision get() = remoteConfigService.revision
+    val creatorTrackingEnabled: Boolean get() = remoteConfigService.creatorTrackingEnabled
     val entityShareEnabled: Boolean get() = remoteConfigService.entityShareEnabled
 
     /** Prototype gate for the immersive (blurred-photo hero + frosted collapsing

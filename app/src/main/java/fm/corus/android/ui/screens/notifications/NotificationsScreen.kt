@@ -117,6 +117,7 @@ fun NotificationsScreen(
     onNavigateToUser: (String) -> Unit = {},
     onNavigateToPost: (String) -> Unit = {},
     onNavigateToConcert: (String) -> Unit = {},
+    onNavigateToDiscovery: (String, String) -> Unit = { _, _ -> },
     onNavigateToPostComments: (postId: String, commentId: String) -> Unit = { _, _ -> },
     hasRequestedPushPermission: Boolean = false,
     onMarkPushPermissionRequested: () -> Unit = {},
@@ -124,7 +125,10 @@ fun NotificationsScreen(
     disabledBannerDismissed: Boolean = true,
     onDismissDisabledBanner: () -> Unit = {},
 ) {
-    val displayedNotifications by viewModel.displayedNotifications.collectAsState()
+    val allDisplayedNotifications by viewModel.displayedNotifications.collectAsState()
+    val discoveryRevision by viewModel.discoveryConfigRevision.collectAsState()
+    val discoveryEnabled = remember(discoveryRevision) { viewModel.creatorTrackingEnabled }
+    val displayedNotifications = allDisplayedNotifications.filter { discoveryEnabled || !it.type.isDiscovery }
     val selectedFilter by viewModel.selectedFilter.collectAsState()
     val showFilterChips by viewModel.showFilterChips.collectAsState()
     val isFilterLoading by viewModel.isFilterLoading.collectAsState()
@@ -412,6 +416,13 @@ fun NotificationsScreen(
                                         selectedGift = notification
                                     } else if (notification.type == NotificationType.FAVORITE) {
                                         showFavoriteInfo = true
+                                    } else if (notification.type.isDiscovery) {
+                                        if (notification.type == NotificationType.CONCERT_ANNOUNCEMENT) {
+                                            if (notification.eventIds.size > 1) onNavigateToDiscovery("concert_list", notification.id)
+                                            else notification.eventId?.let(onNavigateToConcert)
+                                        } else if (notification.destinationType != null && notification.destinationId != null) {
+                                            onNavigateToDiscovery(notification.destinationType, notification.destinationId)
+                                        }
                                     } else if (notification.type == NotificationType.CONCERT_GOING) {
                                         notification.eventId?.let(onNavigateToConcert)
                                     } else if (notification.type == NotificationType.TASTE_MATCH) {
@@ -714,6 +725,9 @@ private fun NotificationRow(
                     modifier = Modifier.size(20.dp),
                 )
             }
+        } else if (notification.type.isDiscovery) {
+            Icon(imageVector = Icons.Outlined.Notifications, contentDescription = null,
+                tint = CorusColors.Accent, modifier = Modifier.size(CorusSpacing.avatarMedium))
         } else if (notification.type == NotificationType.TRENDING) {
             // Same anonymous row as play milestones; chart icon matches
             // the Trending feed mode.
@@ -755,7 +769,20 @@ private fun NotificationRow(
         val timeString = DateUtils.relativeTime(context, notification.timestamp)
         val timeSuffix = " $timeString"
 
-        val fullAnnotatedText = if (notification.type == NotificationType.GIFT) {
+        val fullAnnotatedText = if (notification.type.isDiscovery) {
+            buildAnnotatedString {
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = 15.sp)) {
+                    append(if (notification.type == NotificationType.NEW_RELEASE)
+                        context.getString(R.string.corus_discovery_release_from, notification.creatorName.orEmpty())
+                    else context.getString(R.string.corus_discovery_concert_in_city, notification.creatorName.orEmpty(), notification.cityName.orEmpty()))
+                }
+                append("\n")
+                append(if (notification.type == NotificationType.NEW_RELEASE) notification.releaseTitle.orEmpty()
+                    else if (notification.eventIds.size > 1) context.getString(R.string.corus_discovery_concert_dates, notification.eventIds.size, notification.cityName.orEmpty())
+                    else notification.bodyText.orEmpty())
+                append(" · $timeString")
+            }
+        } else if (notification.type == NotificationType.GIFT) {
             giftReceiptSenderLine(context, notification, sentToYou = true)
         } else if (notification.type == NotificationType.FAVORITE) {
             // Anonymous — "Someone" is NOT bolded here (special case): there's no
@@ -1437,6 +1464,7 @@ private fun localizedNotificationMessage(
         NotificationType.FAVORITE -> context.getString(fm.corus.android.localization.CorusStrings.notif_favorite)
         NotificationType.PLAY_MILESTONE -> context.getString(R.string.notif_msg_play_milestone, notification.playCount ?: 0)
         NotificationType.TRENDING -> context.getString(fm.corus.android.localization.CorusStrings.notif_trending)
+        NotificationType.NEW_RELEASE, NotificationType.CONCERT_ANNOUNCEMENT -> notification.bodyText.orEmpty()
         NotificationType.CONCERT_GOING -> notification.concertTitle?.let {
             context.getString(R.string.concert_notif_going, it)
         } ?: context.getString(fm.corus.android.localization.CorusStrings.concert_notification_going_fallback)

@@ -1,0 +1,21 @@
+<resources>
+    <string name="corus_discovery_track_artist">"Segui le uscite dell’artista"</string>
+    <string name="corus_discovery_untrack_artist">"Non seguire più le uscite dell’artista"</string>
+    <string name="corus_discovery_track_director">"Segui le uscite del regista"</string>
+    <string name="corus_discovery_untrack_director">"Non seguire più le uscite del regista"</string>
+    <string name="corus_discovery_artist_tracked">"Ora segui le uscite dell’artista."</string>
+    <string name="corus_discovery_director_tracked">"Ora segui le uscite del regista."</string>
+    <string name="corus_discovery_artist_untracked">"Non segui più le uscite dell’artista."</string>
+    <string name="corus_discovery_director_untracked">"Non segui più le uscite del regista."</string>
+    <string name="corus_discovery_artist_tracked_off">"Ora segui le uscite dell’artista. Attiva Nuove uscite nelle Impostazioni per ricevere notifiche."</string>
+    <string name="corus_discovery_director_tracked_off">"Ora segui le uscite del regista. Attiva Nuove uscite nelle Impostazioni per ricevere notifiche."</string>
+    <string name="corus_discovery_new_releases">"Nuove uscite"</string>
+    <string name="corus_discovery_concert_announcements">"Annunci dei concerti"</string>
+    <string name="corus_discovery_concert_activity">"Attività dei concerti"</string>
+    <string name="corus_discovery_release_from">"Nuova uscita di %1$s"</string>
+    <string name="corus_discovery_release_short">"Nuova uscita"</string>
+    <string name="corus_discovery_concert_in_city">"%1$s arriva a %2$s"</string>
+    <string name="corus_discovery_concert_dates">"%1$s date · %2$s"</string>
+    <string name="corus_discovery_tracking_error">"Impossibile aggiornare. Riprova."</string>
+    <string name="corus_discovery_concert_list">"Prossimi concerti"</string>
+</resources>

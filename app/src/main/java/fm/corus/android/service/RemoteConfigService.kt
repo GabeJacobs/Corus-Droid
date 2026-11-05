@@ -360,6 +360,9 @@ class RemoteConfigService @Inject constructor(
     val concertCalendarEnabled: Boolean
         get() = concertsEnabled && feedFlag("concert_calendar_enabled")
 
+    val creatorTrackingEnabled: Boolean
+        get() = feedFlag("creator_tracking_enabled")
+
     /** Shared concert switch. Remote Config scopes the first public Android
      *  rollout to the minimum supported app version. */
     val concertsEnabled: Boolean
@@ -1036,6 +1039,7 @@ class RemoteConfigService @Inject constructor(
     private fun cacheFeedFlags() {
         flagCache.edit()
             .putString("onboarding_minimum_follows", remoteConfig.getString("onboarding_minimum_follows"))
+            .putBoolean("creator_tracking_enabled", remoteConfig.getBoolean("creator_tracking_enabled"))
             .putBoolean("concerts_enabled", remoteConfig.getBoolean("concerts_enabled"))
             .putBoolean("concert_calendar_enabled", remoteConfig.getBoolean("concert_calendar_enabled"))
             .putBoolean("trending_feed_enabled", remoteConfig.getBoolean("trending_feed_enabled"))
@@ -1121,6 +1125,7 @@ class RemoteConfigService @Inject constructor(
         /// server template and the iOS/web defaults.
         private val DEFAULTS: Map<String, Any> = mapOf(
             "onboarding_minimum_follows" to 0L,
+            "creator_tracking_enabled" to false,
             "concerts_enabled" to false,
             "concert_calendar_enabled" to false,
             "gifts_enabled" to false,

@@ -1,0 +1,21 @@
+<resources>
+    <string name="corus_discovery_track_artist">"아티스트 소식 받기"</string>
+    <string name="corus_discovery_untrack_artist">"아티스트 소식 끄기"</string>
+    <string name="corus_discovery_track_director">"감독 소식 받기"</string>
+    <string name="corus_discovery_untrack_director">"감독 소식 끄기"</string>
+    <string name="corus_discovery_artist_tracked">"아티스트 소식을 받습니다."</string>
+    <string name="corus_discovery_director_tracked">"감독 소식을 받습니다."</string>
+    <string name="corus_discovery_artist_untracked">"아티스트 소식을 껐습니다."</string>
+    <string name="corus_discovery_director_untracked">"감독 소식을 껐습니다."</string>
+    <string name="corus_discovery_artist_tracked_off">"아티스트 소식을 받습니다. 알림을 받으려면 설정에서 새 작품을 켜세요."</string>
+    <string name="corus_discovery_director_tracked_off">"감독 소식을 받습니다. 알림을 받으려면 설정에서 새 작품을 켜세요."</string>
+    <string name="corus_discovery_new_releases">"새 작품"</string>
+    <string name="corus_discovery_concert_announcements">"공연 발표"</string>
+    <string name="corus_discovery_concert_activity">"공연 활동"</string>
+    <string name="corus_discovery_release_from">"%1$s의 새 작품"</string>
+    <string name="corus_discovery_release_short">"새 작품"</string>
+    <string name="corus_discovery_concert_in_city">"%1$s, %2$s 공연 예정"</string>
+    <string name="corus_discovery_concert_dates">"%1$s회 공연 · %2$s"</string>
+    <string name="corus_discovery_tracking_error">"업데이트할 수 없습니다. 다시 시도해 주세요."</string>
+    <string name="corus_discovery_concert_list">"예정된 공연"</string>
+</resources>

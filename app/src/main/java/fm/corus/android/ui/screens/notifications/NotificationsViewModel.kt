@@ -107,6 +107,9 @@ class NotificationsViewModel @Inject constructor(
         }
     }
 
+    val discoveryConfigRevision get() = remoteConfigService.revision
+    val creatorTrackingEnabled get() = remoteConfigService.creatorTrackingEnabled
+
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -463,6 +466,8 @@ class NotificationsViewModel @Inject constructor(
             type = n.type.value,
             filter = _selectedFilter.value.value,
         )
+        if (n.type.isDiscovery) analyticsService.logEvent("discovery_opened", mapOf(
+            "category" to n.type.value, "source" to "activity", "destination_type" to (n.destinationType ?: "unknown")))
         if (n.type == fm.corus.android.data.model.NotificationType.CONCERT_GOING && !n.eventId.isNullOrEmpty()) {
             analyticsService.logConcertEvent("notification_opened", "activity", eventId = n.eventId, result = "concert_going")
         }

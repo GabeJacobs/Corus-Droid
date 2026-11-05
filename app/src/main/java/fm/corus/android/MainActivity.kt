@@ -223,6 +223,10 @@ class MainActivity : ComponentActivity() {
         val destination = DeepLinkHandler.parseNotificationData(data)
         if (destination != null) {
             analyticsService.logDeepLinkOpened(destination.analyticsType())
+            if (data["type"] in listOf("new_release", "concert_announcement")) {
+                analyticsService.logEvent("discovery_opened", mapOf("category" to data["type"].orEmpty(),
+                    "source" to "push", "destination_type" to data["destinationType"].orEmpty()))
+            }
             if (data["type"] == "updates_and_reminders" || data["type"] == "following_activity") {
                 analyticsService.logCampaignOpened(
                     campaignId = data["campaignId"] ?: "unknown",

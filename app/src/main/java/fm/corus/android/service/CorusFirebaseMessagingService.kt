@@ -96,8 +96,8 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
             // System would auto-display this, but we need to attach navigation data.
             // Build a custom notification with a PendingIntent that carries the data payload.
             showNotification(
-                title = notification.title ?: "",
-                body = notification.body ?: "",
+                title = notification.title ?: localizedDiscoveryPush(notification.titleLocalizationKey, notification.titleLocalizationArgs) ?: "",
+                body = notification.body ?: localizedDiscoveryPush(notification.bodyLocalizationKey, notification.bodyLocalizationArgs) ?: "",
                 data = data,
             )
         } else if (data.isNotEmpty()) {
@@ -108,6 +108,13 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
                 data = data,
             )
         }
+    }
+
+    private fun localizedDiscoveryPush(key: String?, args: Array<String>?): String? {
+        if (key == null || !key.startsWith("corus_discovery_")) return null
+        val resource = resources.getIdentifier(key, "string", packageName)
+        if (resource == 0) return null
+        return runCatching { getString(resource, *(args ?: emptyArray())) }.getOrNull()
     }
 
     /** When an engagement-type notification (comment/like/repost/etc.) arrives

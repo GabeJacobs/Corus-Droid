@@ -68,6 +68,7 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material.icons.filled.MoreVert
+import fm.corus.android.ui.components.rememberCreatorTracking
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import fm.corus.android.ui.components.CorusModalBottomSheet
@@ -107,6 +108,8 @@ fun DirectorPageScreen(
     onSeeAllTrailers: () -> Unit = {},
     onShowPhoto: (ExpandedPhoto) -> Unit = {},
 ) {
+    val discoveryRevision by viewModel.discoveryConfigRevision.collectAsState()
+    val trackingEnabled = remember(discoveryRevision) { viewModel.creatorTrackingEnabled }
     val detail by viewModel.detail.collectAsState()
     val isCatalogLoading by viewModel.isCatalogLoading.collectAsState()
     val catalogError by viewModel.catalogError.collectAsState()
@@ -122,6 +125,7 @@ fun DirectorPageScreen(
     val isLoadingShareContacts by viewModel.isLoadingShareContacts.collectAsState()
     var showShareSheet by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    val tracking = rememberCreatorTracking("director", detail?.id ?: directorId, detail?.name ?: nameHint.orEmpty(), trackingEnabled)
 
     val directorName = detail?.name?.takeIf { it.isNotBlank() } ?: nameHint
     val photo = detail?.imageUrl ?: imageUrlHint
@@ -183,7 +187,7 @@ fun DirectorPageScreen(
                     )
                 },
                 actions = {
-                    if (viewModel.entityShareEnabled) {
+                    if (viewModel.entityShareEnabled || trackingEnabled) {
                         Box {
                             CorusHeaderIconButton(
                                 onClick = { showMenu = true },
@@ -195,13 +199,22 @@ fun DirectorPageScreen(
                                 onDismissRequest = { showMenu = false },
                                 containerColor = CorusColors.CardBackground,
                             ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_share), style = CorusFont.body) },
-                                    onClick = {
-                                        showMenu = false
-                                        showShareSheet = true
-                                    },
-                                )
+                                if (trackingEnabled) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(if (tracking.tracked) R.string.corus_discovery_untrack_director else R.string.corus_discovery_track_director), style = CorusFont.body) },
+                                        enabled = !tracking.busy && tracking.available,
+                                        onClick = { showMenu = false; tracking.toggle() },
+                                    )
+                                }
+                                if (viewModel.entityShareEnabled) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_share), style = CorusFont.body) },
+                                        onClick = {
+                                            showMenu = false
+                                            showShareSheet = true
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
@@ -447,7 +460,7 @@ fun DirectorPageScreen(
                 onBack = onBack,
                 topInset = statusBarPadding,
                 actions = { tint ->
-                    if (viewModel.entityShareEnabled) {
+                    if (viewModel.entityShareEnabled || trackingEnabled) {
                         Box {
                             CorusHeaderIconButton(
                                 onClick = { showMenu = true },
@@ -460,13 +473,22 @@ fun DirectorPageScreen(
                                 onDismissRequest = { showMenu = false },
                                 containerColor = CorusColors.CardBackground,
                             ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_share), style = CorusFont.body) },
-                                    onClick = {
-                                        showMenu = false
-                                        showShareSheet = true
-                                    },
-                                )
+                                if (trackingEnabled) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(if (tracking.tracked) R.string.corus_discovery_untrack_director else R.string.corus_discovery_track_director), style = CorusFont.body) },
+                                        enabled = !tracking.busy && tracking.available,
+                                        onClick = { showMenu = false; tracking.toggle() },
+                                    )
+                                }
+                                if (viewModel.entityShareEnabled) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(fm.corus.android.localization.CorusStrings.concert_share), style = CorusFont.body) },
+                                        onClick = {
+                                            showMenu = false
+                                            showShareSheet = true
+                                        },
+                                    )
+                                }
                             }
                         }
                     }

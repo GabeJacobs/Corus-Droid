@@ -2,6 +2,7 @@ package fm.corus.android.service
 
 import android.content.Intent
 import android.net.Uri
+import kotlinx.serialization.json.Json
 
 sealed class DeepLinkDestination {
     data object FollowingFeed : DeepLinkDestination()
@@ -14,6 +15,7 @@ sealed class DeepLinkDestination {
     data object Club : DeepLinkDestination()
     data class Map(val cityId: String?, val userIds: List<String>) : DeepLinkDestination()
     data class Concert(val eventId: String) : DeepLinkDestination()
+    data class ConcertAnnouncement(val notificationId: String) : DeepLinkDestination()
 
     /**
      * A catalog page named by a public URL. [key] is exactly what the path
@@ -34,6 +36,7 @@ sealed class DeepLinkDestination {
         is Entity -> segment.segment
         is Map -> "map_follow_join"
         is Concert -> "concert"
+        is ConcertAnnouncement -> "concert_announcement"
     }
 }
 
@@ -94,6 +97,12 @@ object DeepLinkHandler {
         }
     }
 
+    // Platform-independent parser: Android's org.json is a stub in JVM tests.
+    // Also reject malformed arrays rather than navigating with invented ids.
+    private fun notificationIds(encoded: String?): List<String> = runCatching {
+        Json.decodeFromString<List<String>>(encoded ?: "[]").filter { it.isNotBlank() }.distinct()
+    }.getOrDefault(emptyList())
+
     /**
      * Parse push notification data payload into a navigation destination.
      * Matches the notification types used by iOS DeepLinkManager.
@@ -102,13 +111,16 @@ object DeepLinkHandler {
         val type = data["type"] ?: return fallbackParse(data)
         return when (type) {
             "updates_and_reminders" -> parseCampaignDestination(data)
+            "new_release" -> entityDestination(data["destinationType"], data["destinationId"])
+            "concert_announcement" -> {
+                val count = notificationIds(data["eventIds"]).size
+                if (count > 1) data["notificationId"]?.let(DeepLinkDestination::ConcertAnnouncement)
+                else data["eventId"]?.takeIf { it.isNotBlank() }?.let(DeepLinkDestination::Concert)
+            }
             "concert_going" -> data["eventId"]?.takeIf { it.isNotBlank() }?.let(DeepLinkDestination::Concert)
             "map_follow_join" -> {
                 val cityId = data["cityId"]?.takeIf { it.isNotEmpty() }
-                val ids = runCatching {
-                    val array = org.json.JSONArray(data["userIds"].orEmpty())
-                    (0 until array.length()).mapNotNull { array.optString(it).takeIf(String::isNotEmpty) }
-                }.getOrDefault(emptyList()).ifEmpty {
+                val ids = notificationIds(data["userIds"]).ifEmpty {
                     listOfNotNull(data["userId"]?.takeIf { it.isNotEmpty() })
                 }
                 DeepLinkDestination.Map(cityId, ids)

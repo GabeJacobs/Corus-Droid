@@ -1,0 +1,21 @@
+<resources>
+    <string name="corus_discovery_track_artist">"アーティストを追跡"</string>
+    <string name="corus_discovery_untrack_artist">"アーティストの追跡を解除"</string>
+    <string name="corus_discovery_track_director">"監督を追跡"</string>
+    <string name="corus_discovery_untrack_director">"監督の追跡を解除"</string>
+    <string name="corus_discovery_artist_tracked">"アーティストの追跡を開始しました。"</string>
+    <string name="corus_discovery_director_tracked">"監督の追跡を開始しました。"</string>
+    <string name="corus_discovery_artist_untracked">"アーティストの追跡を解除しました。"</string>
+    <string name="corus_discovery_director_untracked">"監督の追跡を解除しました。"</string>
+    <string name="corus_discovery_artist_tracked_off">"アーティストの追跡を開始しました。通知を受け取るには、設定で「新作」をオンにしてください。"</string>
+    <string name="corus_discovery_director_tracked_off">"監督の追跡を開始しました。通知を受け取るには、設定で「新作」をオンにしてください。"</string>
+    <string name="corus_discovery_new_releases">"新作"</string>
+    <string name="corus_discovery_concert_announcements">"ライブ開催のお知らせ"</string>
+    <string name="corus_discovery_concert_activity">"ライブのアクティビティ"</string>
+    <string name="corus_discovery_release_from">"%1$sの新作"</string>
+    <string name="corus_discovery_release_short">"新作"</string>
+    <string name="corus_discovery_concert_in_city">"%1$sが%2$sで公演"</string>
+    <string name="corus_discovery_concert_dates">"%1$s公演 · %2$s"</string>
+    <string name="corus_discovery_tracking_error">"更新できませんでした。もう一度お試しください。"</string>
+    <string name="corus_discovery_concert_list">"今後のライブ"</string>
+</resources>
