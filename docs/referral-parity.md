@@ -8,7 +8,7 @@ Supply the SDK developer key through ignored `local.properties` as `appsflyer.de
 
 Run referral unit tests with `./gradlew :app:testDebugUnitTest --tests 'fm.corus.android.service.Referral*'`. Build checks include `:app:assembleDebug` and `:app:assembleRelease`.
 
-`ReferralPreviewActivity` and its **Preview Club claim** launcher shortcut exist only in debug builds. The `ready` scenario can run while signed in and never resets referral state, records claim analytics, submits a grant, or updates seen-progress preferences. It simulates a 1.2-second claim and a sample 90-day expiry. Other scenarios still require a signed-out emulator. Done exits the standalone preview; in the normal Settings flow it only dismisses the sheet.
+`ReferralPreviewActivity` and its **Preview Club claim** entry exist only in debug builds. Open the ready scenario with `adb shell am start -n fm.corus.android/.ClaimRewardPreview`. It can run while signed in and never resets referral state, records claim analytics, submits a grant, or updates seen-progress preferences. It simulates a 1.2-second claim and a sample 90-day expiry. Other scenarios still require a signed-out emulator. Done exits the standalone preview; in the normal Settings flow it only dismisses the sheet.
 
 Android claim feedback keeps the same sheet height, displays a centered white spinner in the disabled blue button, and crossfades to a confirmation with the server expiry and white checkmark. Applied and saved confirmations stay open until Done. Settings puts Corus Club before Friends and uses the same icon/text geometry for Invite Friends as standard navigation rows.
 

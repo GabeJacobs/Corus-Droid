@@ -12,12 +12,25 @@ import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Exercises real PackageManager/task lifecycle behavior that Robolectric cannot model. */
 @RunWith(AndroidJUnit4::class)
 class AppIconSwitchLifecycleTest {
+    @Test fun packageLaunchIntentTargetsCorusLauncherForBackgroundPushes() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val packageName = context.packageName
+        val launcher = context.packageManager.getLaunchIntentForPackage(packageName)?.component
+        val corusLaunchers = setOf(
+            ComponentName(packageName, "$packageName.DefaultLauncher"),
+            ComponentName(packageName, "$packageName.CorusBlueLauncher"),
+        )
+
+        assertTrue("Background pushes must launch Corus, got $launcher", launcher in corusLaunchers)
+    }
+
     @Test fun switchingLauncherIconKeepsTheOpenActivityResumed() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val icons = AppIconManager(context)
