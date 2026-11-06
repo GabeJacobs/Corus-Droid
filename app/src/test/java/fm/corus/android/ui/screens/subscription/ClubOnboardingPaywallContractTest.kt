@@ -1,6 +1,22 @@
 package fm.corus.android.ui.screens.subscription
 
 import android.app.Application
+import android.content.res.Configuration
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.Density
+import androidx.test.core.app.ApplicationProvider
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -15,47 +31,86 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import java.io.File
+import java.util.Locale
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class, qualifiers = "w360dp-h640dp-xxhdpi")
 class ClubOnboardingPaywallContractTest {
     @get:Rule val composeRule = createComposeRule()
 
-    @Test fun `supported tall layout fills extra rows in approved order`() {
-        val five = listOf(
-            R.string.club_feature_unlock_all_taste_matches,
-            R.string.parity_8624339e6a12,
-            R.string.parity_4cb955a437ea,
-            R.string.club_feature_unlimited_playlists,
-            R.string.club_feature_support,
-        )
-        assertEquals(five, ClubOnboardingPaywallContract.benefitStringResources(true, 560.dp))
-        assertEquals(five, ClubOnboardingPaywallContract.benefitStringResources(true, 560.dp, mapEnabled = true))
-        assertTrue(ClubOnboardingPaywallContract.showsReviews(440.dp))
-        assertEquals(280.dp, ClubOnboardingPaywallContract.subtitleMaxWidth)
-        assertEquals(7, ClubOnboardingPaywallContract.playStoreReviews.size)
-    }
-
-    @Test fun `compact layout keeps the core four and youtube extras replace export`() {
-        val compact = listOf(
-            R.string.club_feature_unlock_all_taste_matches,
-            R.string.parity_8624339e6a12,
-            R.string.parity_4cb955a437ea,
-            R.string.club_feature_support,
-        )
-        assertEquals(compact, ClubOnboardingPaywallContract.benefitStringResources(true, 400.dp))
-        assertEquals(compact, ClubOnboardingPaywallContract.benefitStringResources(false, 560.dp))
+    @Test fun `onboarding benefits show the same three perks in order`() {
         assertEquals(
             listOf(
                 R.string.club_feature_unlock_all_taste_matches,
-                R.string.parity_8624339e6a12,
-                R.string.club_feature_unlimited_playlists,
-                R.string.club_feature_support,
+                R.string.club_onboarding_unlimited_mixes,
+                R.string.club_onboarding_customize_profile,
             ),
-            ClubOnboardingPaywallContract.benefitStringResources(true, 440.dp),
+            ClubOnboardingPaywallContract.benefitStringResources,
         )
+    }
+
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Test fun `localized benefits fit narrow screens at default and enlarged text sizes`() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val benefits = ClubOnboardingPaywallContract.benefitStringResources
+        val localeTags = listOf("en", "pt-BR", "es", "ja", "zh-Hans", "de", "fr", "ko", "it")
+        val language = mutableStateOf(localeTags.first())
+        val fontScale = mutableStateOf(1f)
+        fun localizedContext(tag: String) = context.createConfigurationContext(
+            Configuration(context.resources.configuration).apply { setLocale(Locale.forLanguageTag(tag)) },
+        )
+
+        composeRule.setContent {
+            val localized = localizedContext(language.value)
+            val density = LocalDensity.current.density
+            CompositionLocalProvider(
+                LocalContext provides localized,
+                LocalConfiguration provides localized.resources.configuration,
+                LocalDensity provides Density(density, fontScale = fontScale.value),
+            ) {
+                Column(Modifier.width(320.dp).padding(horizontal = 20.dp)) {
+                    benefits.forEach { OnboardingBenefitRow(it) }
+                }
+            }
+        }
+
+        val failures = mutableListOf<String>()
+        for ((scale, maxLines) in listOf(1f to 1, 1.3f to 2)) {
+            composeRule.runOnIdle { fontScale.value = scale }
+            for (tag in localeTags) {
+                composeRule.runOnIdle { language.value = tag }
+                val localized = localizedContext(tag)
+                for (benefit in benefits) {
+                    val label = localized.getString(benefit)
+                    if (tag != "en") assertTrue("$tag fell back to English", label != context.getString(benefit))
+                    val layouts = mutableListOf<TextLayoutResult>()
+                    composeRule.onNodeWithText(label)
+                        .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+                    val layout = layouts.single()
+                    val paragraph = layout.multiParagraph
+                    assertFalse("$tag truncated: $label", paragraph.didExceedMaxLines)
+                    for (line in 0 until layout.lineCount) {
+                        val right = layout.getLineRight(line)
+                        val limit = layout.layoutInput.constraints.maxWidth
+                        if (right > limit + 1) failures += "$tag $label: $right > $limit"
+                    }
+                    assertTrue("$tag clipped vertically: $label", paragraph.height <= layout.size.height + 1)
+                    if (layout.lineCount > maxLines) {
+                        failures += "$tag at ${scale * 100}%: $label took ${layout.lineCount} lines"
+                    }
+                }
+            }
+        }
+        assertTrue(failures.joinToString("\n"), failures.isEmpty())
+    }
+
+    @Test fun `reviews appear when the scroll region is tall enough`() {
+        assertTrue(ClubOnboardingPaywallContract.showsReviews(440.dp))
         assertFalse(ClubOnboardingPaywallContract.showsReviews(400.dp))
+        assertEquals(280.dp, ClubOnboardingPaywallContract.subtitleMaxWidth)
+        assertEquals(7, ClubOnboardingPaywallContract.playStoreReviews.size)
     }
 
     @Test fun `artwork and close target meet layout contract`() {

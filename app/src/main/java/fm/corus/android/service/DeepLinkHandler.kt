@@ -123,7 +123,8 @@ object DeepLinkHandler {
                 val ids = notificationIds(data["userIds"]).ifEmpty {
                     listOfNotNull(data["userId"]?.takeIf { it.isNotEmpty() })
                 }
-                DeepLinkDestination.Map(cityId, ids)
+                ids.singleOrNull()?.takeIf { it.isNotBlank() }?.let(DeepLinkDestination::Profile)
+                    ?: DeepLinkDestination.Map(cityId, ids)
             }
             "follow", "contact_joined" -> {
                 val userId = data["fromUserId"].orEmpty().ifEmpty { data["userId"].orEmpty() }

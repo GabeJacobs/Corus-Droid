@@ -1,101 +1,101 @@
 package fm.corus.android.service
 
+import android.app.Activity
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
+import com.google.android.play.core.review.ReviewInfo
+import com.google.android.play.core.review.ReviewManagerFactory
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resume
 
-/**
- * iOS [ReviewPromptManager] parity: after 8 likes in a process session, show a
- * custom "Leave a review" sheet. Tapping the button opens the Play Store listing
- * (the Play equivalent of iOS's App Store write-review URL). Backdrop / Not now
- * dismisses and starts the 60-day cooldown.
- *
- * Existing users who were never asked have no [KEY_LAST_PROMPT_DATE], so they
- * are eligible the same way as new users.
- */
 @Singleton
 class ReviewPromptManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val remoteConfigService: RemoteConfigService,
+    private val remoteConfig: RemoteConfigService,
+    private val analytics: AnalyticsService,
 ) {
-    private var sessionLikeCount = 0
-    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences("review_prompt", Context.MODE_PRIVATE)
+    private val _readyUserId = MutableStateFlow<String?>(null)
+    val readyUserId = _readyUserId.asStateFlow()
+    private var deferredUntilNextVisit = false
 
-    private val _shouldShowPrompt = MutableStateFlow(false)
-    val shouldShowPrompt: StateFlow<Boolean> = _shouldShowPrompt.asStateFlow()
+    fun beginVisit(userId: String, now: Long = System.currentTimeMillis()) {
+        deferredUntilNextVisit = false
+        recordActiveDay(userId, now)
+        refresh(userId, now)
+    }
 
-    fun recordLike() {
-        if (!remoteConfigService.reviewPromptEnabled) return
-        if (hasRecentlyPrompted()) return
-        sessionLikeCount += 1
-        if (sessionLikeCount >= LIKES_NEEDED && !_shouldShowPrompt.value) {
-            _shouldShowPrompt.value = true
+    fun recordPublishedPost(
+        userId: String,
+        deferUntilNextVisit: Boolean,
+        now: Long = System.currentTimeMillis(),
+    ) {
+        recordActiveDay(userId, now)
+        if (!remoteConfig.reviewPromptEnabled || prefs.getInt("days.$userId", 0) < 3 ||
+            !cooldownElapsed(now)
+        ) return
+
+        prefs.edit().putBoolean("pending.$userId", true).apply()
+        if (deferUntilNextVisit) deferredUntilNextVisit = true
+        refresh(userId, now)
+    }
+
+    fun deferForThisVisit() {
+        deferredUntilNextVisit = true
+        _readyUserId.value = null
+    }
+
+    suspend fun requestIfReady(activity: Activity, userId: String, canPresent: () -> Boolean) {
+        if (_readyUserId.value != userId || !remoteConfig.reviewPromptEnabled) return
+        val manager = ReviewManagerFactory.create(context)
+        val info = suspendCancellableCoroutine<ReviewInfo?> { continuation ->
+            manager.requestReviewFlow().addOnCompleteListener { task ->
+                continuation.resume(if (task.isSuccessful) task.result else null)
+            }
+        }
+        if (_readyUserId.value != userId) return
+        if (info == null || !canPresent() || !activity.hasWindowFocus()) {
+            deferForThisVisit()
+            return
+        }
+        if (!consumeRequest(userId)) return
+
+        manager.launchReviewFlow(activity, info)
+        analytics.logEvent("review_prompt_requested", mapOf("trigger" to "post_published"))
+    }
+
+    internal fun consumeRequest(userId: String, now: Long = System.currentTimeMillis()): Boolean {
+        if (_readyUserId.value != userId || !cooldownElapsed(now) || !remoteConfig.reviewPromptEnabled) {
+            return false
+        }
+        prefs.edit().putLong(KEY_LAST_REQUEST, now).remove("pending.$userId").apply()
+        _readyUserId.value = null
+        return true
+    }
+
+    private fun refresh(userId: String, now: Long) {
+        _readyUserId.value = userId.takeIf {
+            !deferredUntilNextVisit && cooldownElapsed(now) && prefs.getBoolean("pending.$userId", false)
         }
     }
 
-    /** User tapped "Leave a review" — hide the sheet and open the Play listing. */
-    fun requestReview() {
-        _shouldShowPrompt.value = false
-        markPrompted()
-        openPlayStoreListing()
+    private fun recordActiveDay(userId: String, now: Long) {
+        val today = now / DAY_MS
+        if (today <= prefs.getLong("last_day.$userId", 0)) return
+        val count = prefs.getInt("days.$userId", 0)
+        prefs.edit().putLong("last_day.$userId", today)
+            .putInt("days.$userId", (count + 1).coerceAtMost(3)).apply()
     }
 
-    /** User tapped "Not now" or the dimmed backdrop. */
-    fun dismiss() {
-        _shouldShowPrompt.value = false
-        markPrompted()
-        val count = prefs.getInt(KEY_DISMISS_COUNT, 0)
-        prefs.edit().putInt(KEY_DISMISS_COUNT, count + 1).apply()
-    }
+    private fun cooldownElapsed(now: Long): Boolean =
+        now - prefs.getLong(KEY_LAST_REQUEST, 0) >= 30 * DAY_MS
 
-    fun resetSession() {
-        sessionLikeCount = 0
-    }
-
-    /**
-     * Never-asked devices (no stored date, including every existing user who
-     * never saw this prompt) are eligible. Matches iOS `hasRecentlyPrompted`.
-     */
-    private fun hasRecentlyPrompted(): Boolean {
-        val lastDate = prefs.getLong(KEY_LAST_PROMPT_DATE, 0L)
-        if (lastDate <= 0L) return false
-        val daysSince = (System.currentTimeMillis() - lastDate) / MS_PER_DAY
-        return daysSince < DAYS_BETWEEN_PROMPTS
-    }
-
-    private fun markPrompted() {
-        prefs.edit().putLong(KEY_LAST_PROMPT_DATE, System.currentTimeMillis()).apply()
-        sessionLikeCount = 0
-    }
-
-    private fun openPlayStoreListing() {
-        val packageName = context.packageName
-        val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName")).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        try {
-            context.startActivity(market)
-        } catch (_: Exception) {
-            val web = Intent(
-                Intent.ACTION_VIEW,
-                Uri.parse("https://play.google.com/store/apps/details?id=$packageName"),
-            ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-            runCatching { context.startActivity(web) }
-        }
-    }
-
-    companion object {
-        private const val PREFS_NAME = "review_prompt"
-        internal const val KEY_LAST_PROMPT_DATE = "last_prompt_date"
-        private const val KEY_DISMISS_COUNT = "dismiss_count"
-        internal const val LIKES_NEEDED = 8
-        private const val DAYS_BETWEEN_PROMPTS = 60
-        private const val MS_PER_DAY = 1000L * 60 * 60 * 24
+    private companion object {
+        const val KEY_LAST_REQUEST = "last_prompt_date"
+        const val DAY_MS = 86_400_000L
     }
 }

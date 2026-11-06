@@ -97,6 +97,7 @@ fun ComposeScreen(
     onDismiss: () -> Unit = {},
     onOpenProfile: (String) -> Unit = {},
     onShowPostSuccessOthers: (PostSuccessOthersPayload) -> Unit = {},
+    onPostPublished: () -> Unit = {},
     movieModeEnabled: Boolean = false,
     preSelectedTrackId: String? = null,
     preSelectedMovieId: String? = null,
@@ -310,6 +311,7 @@ fun ComposeScreen(
 
     LaunchedEffect(postSuccess) {
         if (postSuccess) {
+            onPostPublished()
             onDismiss()
         }
     }

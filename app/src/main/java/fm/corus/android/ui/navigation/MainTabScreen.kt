@@ -31,7 +31,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Scaffold
 import fm.corus.android.ui.components.PlaybackModePromptOverlay
-import fm.corus.android.ui.components.ReviewPromptView
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -107,6 +106,11 @@ import androidx.compose.ui.zIndex
 import androidx.core.view.WindowInsetsControllerCompat
 import android.app.Activity
 import fm.corus.android.ui.util.PushNotificationPermission
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.lifecycle.compose.LifecycleStartEffect
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.compose.currentBackStackEntryAsState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -166,7 +170,6 @@ fun MainTabScreen(
     val playFullSongs by viewModel.playFullSongs.collectAsState()
     val alwaysPlayFullSongs by viewModel.alwaysPlayFullSongs.collectAsState()
     val playbackModePending by viewModel.playbackModePromptManager.pending.collectAsState()
-    val showReviewPrompt by viewModel.reviewPromptManager.shouldShowPrompt.collectAsState()
     val isResolvingLinkOut by fm.corus.android.domain.MusicServiceLinkOut.isResolving.collectAsState()
     val isResolvingQobuz by fm.corus.android.domain.QobuzLinks.isResolving.collectAsState()
     val qobuzMessage by fm.corus.android.domain.QobuzLinks.message.collectAsState()
@@ -884,13 +887,6 @@ fun MainTabScreen(
         )
     }
 
-    ReviewPromptView(
-        visible = showReviewPrompt,
-        onLeaveReview = { viewModel.reviewPromptManager.requestReview() },
-        onDismiss = { viewModel.reviewPromptManager.dismiss() },
-        modifier = Modifier.zIndex(4f),
-    )
-
     // Status-bar strip cover. The immersive detail pages (song/artist/album/director/
     // film) paint their blurred backdrop UP into the shared, unclipped status-bar strip
     // (see extendIntoStatusBar). When a non-immersive page (post/profile) is pushed on
@@ -951,6 +947,44 @@ fun MainTabScreen(
         }
     }
 
+    val reviewPrompt = viewModel.reviewPromptManager
+    val reviewUserId = viewModel.reviewUserId
+    val reviewReadyUserId by reviewPrompt.readyUserId.collectAsState()
+    var reviewVisitStarted by remember { mutableStateOf(false) }
+    LifecycleStartEffect(reviewUserId) {
+        reviewUserId?.let { reviewPrompt.beginVisit(it) }
+        reviewVisitStarted = true
+        onStopOrDispose { reviewVisitStarted = false }
+    }
+    val feedEntry by feedNavController.currentBackStackEntryAsState()
+    val canRequestReview = reviewVisitStarted && selectedTab == CorusTab.FEED &&
+        feedEntry?.destination?.hasRoute<FeedTabRoute>() == true &&
+        !showCompose && postSuccessOthers == null && !showPostSuccessOthers &&
+        !showMilestonePaywall && !showClubOffer && !showPlayerQueue && !citySheetOpen &&
+        commentPostId == null && playerLikesPostId == null && playerSharePost == null &&
+        expandedPhoto == null && notificationDestination == null &&
+        playbackModePending == null && livePlayerExpansion < 0.01f
+    val reviewCanPresentNow by rememberUpdatedState(canRequestReview)
+    LaunchedEffect(showMilestonePaywall, showClubOffer) {
+        if ((showMilestonePaywall || showClubOffer) && reviewPrompt.readyUserId.value != null) {
+            reviewPrompt.deferForThisVisit()
+        }
+    }
+    LaunchedEffect(reviewReadyUserId?.takeIf { canRequestReview && it == reviewUserId }) {
+        val userId = reviewReadyUserId ?: return@LaunchedEffect
+        val activity = rootView.context as? Activity ?: return@LaunchedEffect
+        if (!canRequestReview || userId != reviewUserId) return@LaunchedEffect
+        try {
+            delay(2_000)
+            reviewPrompt.requestIfReady(activity, userId) {
+                reviewCanPresentNow && viewModel.reviewUserId == userId
+            }
+        } catch (cancelled: CancellationException) {
+            if (reviewPrompt.readyUserId.value == userId) reviewPrompt.deferForThisVisit()
+            throw cancelled
+        }
+    }
+
     // Compose screen as full-screen overlay OVER everything (including bottom bar & mini player).
     // Same stacking as comments: player is z=1, tab bar is z=2 — compose must sit above both
     // so the Set Corus button and trophy celebration aren't clipped by the menu bar (iOS parity).
@@ -971,7 +1005,16 @@ fun MainTabScreen(
                     viewModel.checkPostMilestonePaywall()
                 }
             },
+            onPostPublished = {
+                reviewUserId?.let {
+                    reviewPrompt.recordPublishedPost(
+                        it, deferUntilNextVisit = selectedTab != CorusTab.FEED ||
+                            feedEntry?.destination?.hasRoute<FeedTabRoute>() != true,
+                    )
+                }
+            },
             onShowPostSuccessOthers = { payload ->
+                reviewUserId?.let { reviewPrompt.recordPublishedPost(it, deferUntilNextVisit = true) }
                 postSuccessOthers = payload
                 showCompose = false
                 composeMovieMode = false

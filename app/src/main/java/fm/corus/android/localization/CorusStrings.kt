@@ -99,6 +99,7 @@ object CorusStrings {
     @StringRes val club_gift_subscription_notice: Int = R.string.corus_club_gift_subscription_notice
     @StringRes val club_monthly_detail_billed_format: Int = R.string.club_monthly_detail_billed_format
     @StringRes val club_monthly_detail_trial_format: Int = R.string.club_monthly_detail_trial_format
+    @StringRes val club_onboarding_customize_profile: Int = R.string.club_onboarding_customize_profile
     @StringRes val club_onboarding_renewal: Int = R.string.club_onboarding_renewal
     @StringRes val club_onboarding_renewal_no_trial: Int = R.string.club_onboarding_renewal_no_trial
     @StringRes val club_onboarding_review_audible_orange_name: Int = R.string.club_onboarding_review_audible_orange_name
@@ -118,6 +119,7 @@ object CorusStrings {
     @StringRes val club_onboarding_reviews_source: Int = R.string.club_onboarding_reviews_source
     @StringRes val club_onboarding_social_proof: Int = R.string.club_onboarding_social_proof
     @StringRes val club_onboarding_subtitle: Int = R.string.club_onboarding_subtitle
+    @StringRes val club_onboarding_unlimited_mixes: Int = R.string.club_onboarding_unlimited_mixes
     @StringRes val club_onboarding_yearly_billed: Int = R.string.club_onboarding_yearly_billed
     @StringRes val club_period_day_format: Int = R.string.club_period_day_format
     @StringRes val club_period_day_one: Int = R.string.club_period_day_one

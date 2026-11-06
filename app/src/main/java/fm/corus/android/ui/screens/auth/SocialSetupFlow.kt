@@ -179,7 +179,7 @@ internal fun MusicServiceScreen(
         Column(
             modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
         ) {
-            Spacer(modifier = Modifier.height(CorusSpacing.lg))
+            Spacer(modifier = Modifier.height(CorusSpacing.lg + 12.dp))
 
             // Featured tier — Spotify + TIDAL as large side-by-side cards
             // (mirrors the iOS two-tier layout). Spotify shows the full-playback subtitle.

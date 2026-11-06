@@ -1025,6 +1025,8 @@
     <string name="messaging_group_sys_and">"%1$sと%2$s"</string>
     <string name="messaging_group_sys_and_n_other">%1$s、%2$s、他%3$d人</string>
     <string name="messaging_group_sys_and_n_others">"%1$s、%2$s、他%3$d人"</string>
+    <string name="club_onboarding_unlimited_mixes">"あなた向けのミックスが無制限"</string>
+    <string name="club_onboarding_customize_profile">"プロフィールをカスタマイズ"</string>
     <string name="club_feature_taste_matches">"あなた向けのミックス"</string>
     <string name="feed_taste_matches_coldstart_title">"好きな曲や映画を3つ教えてください。"</string>
     <string name="feed_taste_matches_coldstart_body">"Corusがあなた専用のフィードを作り、好みの近い人とつなげます。"</string>
@@ -1371,7 +1373,7 @@
     <string name="map_listen_mode_preview">"リッスンモードのプレビュー · Corus Clubを見る"</string>
     <string name="map_watch_mode_preview">"視聴モードのプレビュー · Corus Clubを見る"</string>
     <string name="club_feature_unlimited_playlists">"プレイリストを無制限に書き出す"</string>
-    <string name="club_feature_unlock_all_taste_matches">"すべてのテイストマッチをアンロック"</string>
+    <string name="club_feature_unlock_all_taste_matches">"すべてのテイストマッチを見る"</string>
     <string name="gift_club_offer_title">"3つのギフトをアンロック"</string>
     <string name="gift_club_offer_body">"Corus Clubに参加して、毎週3つのギフトを送りましょう。"</string>
     <string name="gift_club_offer_cta_trial">"無料で利用する"</string>

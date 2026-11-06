@@ -18,12 +18,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.Brush
-import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Verified
@@ -118,25 +117,11 @@ internal object ClubOnboardingPaywallContract {
         contentHeight >= expandedBenefitMinimumContentHeight &&
             !showsReviews(contentHeight)
 
-    fun benefitStringResources(
-        supportsPlaylistExport: Boolean,
-        contentHeight: Dp,
-        mapEnabled: Boolean = false,
-    ): List<Int> = buildList {
-        add(fm.corus.android.localization.CorusStrings.club_feature_unlock_all_taste_matches)
-        add(fm.corus.android.localization.CorusStrings.parity_8624339e6a12)
-        val showReviews = showsReviews(contentHeight)
-        val showFivePerks = contentHeight >= expandedBenefitMinimumContentHeight
-        // Drop saves on mid-height phones so the review quote can sit fully
-        // above the pinned plans. Keep it on compact (no reviews) and tall.
-        if (!showReviews || showFivePerks || !supportsPlaylistExport) {
-            add(fm.corus.android.localization.CorusStrings.parity_4cb955a437ea)
-        }
-        if (supportsPlaylistExport && showReviews) {
-            add(fm.corus.android.localization.CorusStrings.club_feature_unlimited_playlists)
-        }
-        add(fm.corus.android.localization.CorusStrings.club_feature_support)
-    }
+    val benefitStringResources = listOf(
+        fm.corus.android.localization.CorusStrings.club_feature_unlock_all_taste_matches,
+        R.string.club_onboarding_unlimited_mixes,
+        R.string.club_onboarding_customize_profile,
+    )
 }
 
 // Inside a ModalBottomSheet, LocalContext.current is a ContextWrapper around the
@@ -360,7 +345,9 @@ fun CymbalClubOfferScreen(
                     }
                 },
             ) { availableHeight ->
-                // Spinning vinyl record
+                if (isOnboarding) {
+                    Spacer(modifier = Modifier.height(CorusSpacing.md))
+                }
                 fm.corus.android.ui.components.CymbalClubVinyl(
                     size = if (isOnboarding) ClubOnboardingPaywallContract.vinylSize else 140.dp,
                 )
@@ -452,11 +439,7 @@ fun CymbalClubOfferScreen(
                     verticalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                 ) {
                     if (isOnboarding) {
-                        ClubOnboardingPaywallContract.benefitStringResources(
-                            supportsPlaylistExport = musicService != MusicService.YOUTUBE_MUSIC,
-                            contentHeight = availableHeight,
-                            mapEnabled = viewModel.remoteConfig.mapEnabled,
-                        ).forEach { OnboardingBenefitRow(it) }
+                        ClubOnboardingPaywallContract.benefitStringResources.forEach { OnboardingBenefitRow(it) }
                     } else {
                         if (tasteMatchesEnabled) {
                             FeatureRow(text = stringResource(fm.corus.android.localization.CorusStrings.parity_f035d9bdea71)) {
@@ -631,6 +614,7 @@ fun CymbalClubOfferScreen(
                         Text(
                             text = stringResource(fm.corus.android.localization.CorusStrings.parity_27ad1d833422),
                             style = CorusFont.bodyMedium,
+                            fontSize = 14.sp,
                             color = CorusColors.Secondary,
                         )
                     }
@@ -1159,19 +1143,14 @@ private fun OnboardingPlayStoreReviews() {
 }
 
 @Composable
-private fun OnboardingBenefitRow(stringRes: Int) {
+internal fun OnboardingBenefitRow(stringRes: Int) {
     val text = stringResource(stringRes)
     when (stringRes) {
         fm.corus.android.localization.CorusStrings.club_feature_unlock_all_taste_matches -> FeatureRow(text = text) {
             VennDiagramIcon(size = 20.dp, color = CorusColors.Accent, shadedIntersection = true)
         }
-        fm.corus.android.localization.CorusStrings.parity_8624339e6a12 -> FeatureRow(icon = Icons.Filled.Brush, text = text)
-        fm.corus.android.localization.CorusStrings.parity_4cb955a437ea -> FeatureRow(icon = Icons.Filled.Bookmark, text = text)
-        fm.corus.android.localization.CorusStrings.club_feature_unlimited_playlists -> FeatureRow(icon = Icons.Filled.QueueMusic, text = text)
-        fm.corus.android.localization.CorusStrings.club_feature_favorites -> FeatureRow(icon = Icons.Filled.Star, text = text)
-        fm.corus.android.localization.CorusStrings.club_feature_see_whos_nearby -> FeatureRow(icon = Icons.Filled.LocationOn, text = text)
-        fm.corus.android.localization.CorusStrings.parity_5c419b5daae2 -> FeatureRow(icon = Icons.Filled.Verified, text = text)
-        else -> FeatureRow(icon = Icons.Filled.Favorite, text = text)
+        R.string.club_onboarding_unlimited_mixes -> FeatureRow(icon = Icons.Filled.MusicNote, text = text)
+        R.string.club_onboarding_customize_profile -> FeatureRow(icon = Icons.Filled.Brush, text = text)
     }
 }
 

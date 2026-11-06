@@ -1152,6 +1152,8 @@
     <string name="messaging_group_sys_and">"%1$s et %2$s"</string>
     <string name="messaging_group_sys_and_n_other">%1$s, %2$s et %3$d autre</string>
     <string name="messaging_group_sys_and_n_others">"%1$s, %2$s et %3$d autres"</string>
+    <string name="club_onboarding_unlimited_mixes">"Mix personnalisés illimités"</string>
+    <string name="club_onboarding_customize_profile">"Personnalisez votre profil"</string>
     <string name="club_feature_taste_matches">"Mix personnalisés"</string>
     <string name="feed_taste_matches_coldstart_title">"Quels sont 3 chansons ou films que vous adorez ?"</string>
     <string name="feed_taste_matches_coldstart_body">"Corus vous compose un fil personnalisé et vous met en relation avec des personnes aux goûts similaires."</string>
@@ -1508,7 +1510,7 @@
     <string name="map_listen_mode_preview">"Aperçu du mode Écoute · Découvrir Corus Club"</string>
     <string name="map_watch_mode_preview">"Aperçu du mode Visionnage · Découvrir Corus Club"</string>
     <string name="club_feature_unlimited_playlists">"Exporter des playlists en illimité"</string>
-    <string name="club_feature_unlock_all_taste_matches">"Débloquez toutes les affinités de goûts"</string>
+    <string name="club_feature_unlock_all_taste_matches">"Voir tous vos matchs"</string>
     <string name="gift_club_offer_title">"Débloquez 3 cadeaux"</string>
     <string name="gift_club_offer_body">"Rejoignez Corus Club et envoyez 3 cadeaux chaque semaine."</string>
     <string name="gift_club_offer_cta_trial">"Débloquer gratuitement"</string>

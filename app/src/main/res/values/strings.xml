@@ -1283,6 +1283,8 @@
     <string name="club_feature_customization">"Profile customization"</string>
     <string name="club_feature_playlists">"Export playlists"</string>
     <string name="club_feature_support">"Keep Corus ad-free"</string>
+    <string name="club_onboarding_unlimited_mixes">"Unlimited personalized mixes"</string>
+    <string name="club_onboarding_customize_profile">"Customize your profile"</string>
     <string name="club_feature_taste_matches">"Personalized mixes"</string>
     <string name="club_feature_unlock_all_taste_matches">"Unlock all Taste Matches"</string>
     <string name="club_feature_see_whos_nearby">"See who’s on Corus in your city"</string>

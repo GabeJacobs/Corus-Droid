@@ -45,7 +45,6 @@ class PostEngagementManagerSaveTest {
         saveChangedEvent = saveEvent,
         youtubeMusicService = mock(),
         spotifySaveAutoAdd = mock(),
-        reviewPromptManager = mock(),
     )
 
     /** checkSaveStatuses launches on Dispatchers.IO; poll briefly for the result. */

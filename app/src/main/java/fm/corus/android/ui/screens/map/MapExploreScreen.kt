@@ -187,22 +187,19 @@ fun MapExploreScreen(
         hapticView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
         model.select(city)
     }
-    LaunchedEffect(cities, initialCityId, initialUserIds, pushDestinationApplied) {
-        if (pushDestinationApplied || (initialCityId == null && initialUserIds.isEmpty())) return@LaunchedEffect
-        var target = initialCityId?.let { id -> cities.firstOrNull { it.city.cityId == id }?.city }
-        if (target == null && initialCityId != null && cities.isNotEmpty()) {
-            val resolved = runCatching { model.repository.resolveCityId(initialCityId) }.getOrNull()
-            target = resolved?.let { city -> cities.firstOrNull { it.city.cityId == city.cityId }?.city }
-        }
+    val destinationCities = if (fromProfile) cities else state.cities.filter { (it.facets["all"]?.count ?: 0) > 0 }
+    LaunchedEffect(destinationCities, state.directoryReady, initialCityId, pushDestinationApplied) {
+        if (pushDestinationApplied || initialCityId == null || !state.directoryReady) return@LaunchedEffect
+        val target = destinationCities.firstOrNull { it.city.cityId == initialCityId }?.city
+            ?: runCatching { model.repository.resolveCityId(initialCityId) }.getOrNull()?.let { resolved ->
+                destinationCities.firstOrNull { it.city.cityId == resolved.cityId }?.city
+            }
         if (target != null) {
-            if (!fromProfile) model.filter("following")
+            if (!fromProfile) model.filter("all")
             browsingCityId = target.cityId
             openCitySheet(target)
-            pushDestinationApplied = true
-        } else if (cities.isNotEmpty()) {
-            if (initialCityId == null && !fromProfile) model.filter("following")
-            pushDestinationApplied = true
         }
+        pushDestinationApplied = true
     }
     fun focusSharedCity(city: MapCity) {
         preserveRoamingCamera = false
@@ -435,7 +432,8 @@ fun MapExploreScreen(
     BackHandler(mapPaywallSource != null || dialog.isNotEmpty() || state.selected != null || state.mode != null) { when { mapPaywallSource != null -> mapPaywallSource = null; dialog.isNotEmpty() -> { if (dialog != "intro" && dialog != "confirm" && !state.busy) dialog = "" }; state.selected != null -> dismissCitySheet(); else -> model.stop() } }
     if (!model.enabled) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { TextButton(onClick = onBack) { Text(parityCopy("Back to Search")) } }; return }
     Box(Modifier.fillMaxSize().background(CorusColors.Background).onSizeChanged { mapViewportHeightPx = it.height }) {
-        if (view == "map") CityMapView(
+        val loadingPushCity = !fromProfile && initialCityId != null && !pushDestinationApplied && state.error == null
+        if (view == "map" && !loadingPushCity) CityMapView(
             cities = state.cities,
             filter = state.filter,
             selected = state.selected,
@@ -617,8 +615,8 @@ fun MapExploreScreen(
                 }
             }
         }
-        if (state.loading && !resolvingCity) CircularProgressIndicator(Modifier.align(Alignment.Center))
-        if (!state.loading && cities.isEmpty()) Surface(Modifier.align(Alignment.Center).padding(24.dp), shape = RoundedCornerShape(20.dp)) { Column(Modifier.padding(20.dp)) { Text(if (state.filter == "tasteMatches" && !state.tasteMatchesReady) stringResource(fm.corus.android.localization.CorusStrings.map_please_try_again) else parityCopy("No people to show for this filter.")); TextButton(onClick = { model.refresh() }) { Text(parityCopy("Retry")) } } }
+        if ((state.loading || loadingPushCity) && !resolvingCity) CircularProgressIndicator(Modifier.align(Alignment.Center))
+        if (!state.loading && !loadingPushCity && cities.isEmpty()) Surface(Modifier.align(Alignment.Center).padding(24.dp), shape = RoundedCornerShape(20.dp)) { Column(Modifier.padding(20.dp)) { Text(if (state.filter == "tasteMatches" && !state.tasteMatchesReady) stringResource(fm.corus.android.localization.CorusStrings.map_please_try_again) else parityCopy("No people to show for this filter.")); TextButton(onClick = { model.refresh() }) { Text(parityCopy("Retry")) } } }
         if (view == "list" && state.selected == null && state.playing == null) {
             // MainTabScreen already reserves its measured bottom chrome and
             // only adds mini-player height while it is actually visible. A

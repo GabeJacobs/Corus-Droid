@@ -39,7 +39,6 @@ class PostEngagementManagerSaveCountTest {
         saveChangedEvent = mock(),
         youtubeMusicService = mock(),
         spotifySaveAutoAdd = mock(),
-        reviewPromptManager = mock(),
     )
 
     @Test

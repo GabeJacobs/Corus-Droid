@@ -125,6 +125,17 @@ class DeepLinkHandlerTest {
     }
 
     @Test
+    fun `single person map follow join notification opens the profile`() {
+        val base = mapOf("type" to "map_follow_join", "cityId" to "brooklyn-us")
+        for (payload in listOf(mapOf("userIds" to "[\"user_123\"]"), mapOf("userId" to "user_123"))) {
+            assertEquals(
+                DeepLinkDestination.Profile("user_123"),
+                DeepLinkHandler.parseNotificationData(base + payload),
+            )
+        }
+    }
+
+    @Test
     fun `map follow join notification preserves city and profile targets`() {
         val dest = DeepLinkHandler.parseNotificationData(
             mapOf(

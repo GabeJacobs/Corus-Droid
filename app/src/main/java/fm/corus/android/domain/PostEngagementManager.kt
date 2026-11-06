@@ -8,7 +8,6 @@ import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
-import fm.corus.android.service.ReviewPromptManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -69,7 +68,6 @@ class PostEngagementManager @Inject constructor(
     private val saveChangedEvent: SaveChangedEvent,
     private val youtubeMusicService: YouTubeMusicService,
     private val spotifySaveAutoAdd: SpotifySaveAutoAdd,
-    private val reviewPromptManager: ReviewPromptManager,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -244,7 +242,6 @@ class PostEngagementManager @Inject constructor(
             try {
                 if (newLiked) {
                     postRepository.likePost(userId, postId)
-                    reviewPromptManager.recordLike()
                     // Send notification to post owner (matches iOS behavior)
                     try {
                         val post = postRepository.getCachedPost(postId)

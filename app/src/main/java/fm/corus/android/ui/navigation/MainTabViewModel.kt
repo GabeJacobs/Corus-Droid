@@ -54,6 +54,8 @@ class MainTabViewModel @Inject constructor(
     val reviewPromptManager: fm.corus.android.service.ReviewPromptManager,
 ) : ViewModel() {
 
+    val reviewUserId: String? get() = authRepository.currentUserId
+
     val playFullSongs = preferencesDataStore.playFullSongs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
@@ -322,7 +324,6 @@ class MainTabViewModel @Inject constructor(
             runCatching {
                 if (nowLiked) {
                     cloudFunctions.likePost(postId)
-                    reviewPromptManager.recordLike()
                 } else {
                     cloudFunctions.unlikePost(postId)
                 }
