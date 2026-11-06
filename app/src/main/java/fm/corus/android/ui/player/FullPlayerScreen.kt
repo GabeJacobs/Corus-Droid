@@ -58,6 +58,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import fm.corus.android.ui.components.qobuzWordmarkColorFilter
 import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.material3.Text
 import fm.corus.android.ui.components.rememberGuardedSheetState
@@ -217,7 +218,7 @@ fun FullPlayerScreen(
     val shareTrack = remember(sourcePost, state) { fullPlayerShareTrack(sourcePost, state) }
     var showShareSheet by remember { mutableStateOf(false) }
     val openInLabel = fullPlayerOpenInServiceLabelKey(state.source, if (musicService == MusicService.QOBUZ && !fm.corus.android.domain.QobuzLinks.enabled) MusicService.SPOTIFY else musicService)
-    val openInServiceTitle = if (musicService == MusicService.QOBUZ && fm.corus.android.domain.QobuzLinks.enabled) "Open in Qobuz" else when (openInLabel) {
+    val openInServiceTitle = if (!state.source.keepsOriginalService && musicService == MusicService.QOBUZ && fm.corus.android.domain.QobuzLinks.enabled) "Open in Qobuz" else when (openInLabel) {
         FullPlayerOpenInLabel.OpenSoundCloud -> stringResource(fm.corus.android.localization.CorusStrings.post_aria_open_soundcloud)
         FullPlayerOpenInLabel.OpenAudiomack -> stringResource(fm.corus.android.localization.CorusStrings.post_menu_open_audiomack)
         FullPlayerOpenInLabel.OpenBandcamp -> stringResource(fm.corus.android.localization.CorusStrings.post_menu_open_bandcamp)
@@ -1144,8 +1145,8 @@ private fun TransportServiceLogo(
     trackSource: TrackSource,
     musicService: MusicService,
 ) {
-    if (fm.corus.android.ui.components.rememberQobuzEnabled(musicService == MusicService.QOBUZ)) {
-        Image(painter = painterResource(fm.corus.android.R.drawable.qobuz_logo), contentDescription = "Open in Qobuz", modifier = Modifier.size(26.dp))
+    if (fm.corus.android.ui.components.rememberQobuzEnabled(!trackSource.keepsOriginalService && musicService == MusicService.QOBUZ)) {
+        Image(painter = painterResource(fm.corus.android.R.drawable.qobuz_logo), colorFilter = qobuzWordmarkColorFilter(), contentDescription = "Open in Qobuz", modifier = Modifier.size(26.dp))
         return
     }
     when (trackSource) {

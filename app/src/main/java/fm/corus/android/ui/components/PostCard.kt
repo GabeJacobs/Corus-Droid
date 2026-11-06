@@ -264,7 +264,7 @@ fun PostCard(
     var showUnavailableToast by remember(post.id) { mutableStateOf(false) }
     val flipState = backCoverFlipState
     val haptics = LocalHapticManager.current
-    val qobuzSelected = rememberQobuzEnabled(musicService == fm.corus.android.data.model.MusicService.QOBUZ && post.isTrack)
+    val qobuzSelected = rememberQobuzEnabled(!post.track.source.keepsOriginalService && musicService == fm.corus.android.data.model.MusicService.QOBUZ && post.isTrack)
     val qobuzURL = rememberQobuzURL(post.track, musicService == fm.corus.android.data.model.MusicService.QOBUZ && post.isTrack)
     val postCardContext = LocalContext.current
     // Audiomack full-song playback is link-out only — the service badge glyph
@@ -1027,6 +1027,7 @@ fun PostCard(
                 if (qobuzSelected) {
                     Image(
                         painter = painterResource(R.drawable.qobuz_logo),
+                        colorFilter = qobuzWordmarkColorFilter(),
                         contentDescription = "Open in Qobuz",
                         modifier = Modifier.offset(y = PostRowServiceControlYOffset).size(28.dp).clickable {
                             fm.corus.android.domain.MusicServiceLinkOut.openQobuz(postCardContext, scope, post.track)

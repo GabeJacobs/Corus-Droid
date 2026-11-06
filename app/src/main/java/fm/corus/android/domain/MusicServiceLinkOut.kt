@@ -101,6 +101,8 @@ object MusicServiceLinkOut {
         service: MusicService,
         cloud: CloudFunctionsDataSource,
     ): String? {
+        if (track.source == TrackSource.SOUNDCLOUD) return track.soundcloudPermalinkUrl
+        if (track.source == TrackSource.BANDCAMP) return track.bandcampLinkOutUrl
         if (service == MusicService.QOBUZ) {
             if (!QobuzLinks.enabled) return if (track.source == TrackSource.APPLEMUSIC) track.appleMusicURL else spotifyFallbackUrl(track)
             return QobuzLinks.destination(track)
@@ -256,7 +258,7 @@ object MusicServiceLinkOut {
             val resolve = resolveLinkOut ?: return
             scope.launch { open(resolve()) }
         }
-        if (musicService == MusicService.QOBUZ && QobuzLinks.enabled) {
+        if (!state.source.keepsOriginalService && musicService == MusicService.QOBUZ && QobuzLinks.enabled) {
             resolveAndOpenLinkOut()
             return
         }

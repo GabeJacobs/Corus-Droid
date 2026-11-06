@@ -727,7 +727,7 @@ fun SongDetailScreen(
                         Text(stringResource(fm.corus.android.localization.CorusStrings.song_detail_post_song), style = CorusFont.buttonSmall)
                     }
 
-                    if (musicService == MusicService.QOBUZ && qobuzAvailable) {
+                    if (!isSoundCloud && !isBandcamp && musicService == MusicService.QOBUZ && qobuzAvailable) {
                         Button(onClick = { openInService(MusicService.QOBUZ) }, shape = RoundedCornerShape(50)) {
                             Text("Open in Qobuz", style = CorusFont.buttonSmall)
                         }

@@ -68,7 +68,7 @@ fun FeaturedCymbalView(
     staggerVinyl: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    val qobuzSelected = rememberQobuzEnabled(musicService == fm.corus.android.data.model.MusicService.QOBUZ)
+    val qobuzSelected = rememberQobuzEnabled(!post.track.source.keepsOriginalService && musicService == fm.corus.android.data.model.MusicService.QOBUZ)
     val qobuzContext = androidx.compose.ui.platform.LocalContext.current
     val qobuzScope = rememberCoroutineScope()
     // Match iOS: when staggering, album art appears first, then vinyl fades in
@@ -315,7 +315,7 @@ fun FeaturedCymbalView(
             val isBandcamp = post.track.source == fm.corus.android.data.model.TrackSource.BANDCAMP
             val isAppleMusic = post.track.source == fm.corus.android.data.model.TrackSource.APPLEMUSIC
             if (qobuzSelected) {
-                Image(painter = painterResource(R.drawable.qobuz_logo), contentDescription = "Open in Qobuz",
+                Image(painter = painterResource(R.drawable.qobuz_logo), colorFilter = qobuzWordmarkColorFilter(), contentDescription = "Open in Qobuz",
                     modifier = Modifier.size(28.dp).clickable {
                         fm.corus.android.domain.MusicServiceLinkOut.openQobuz(qobuzContext, qobuzScope, post.track)
                     }, contentScale = ContentScale.Fit)

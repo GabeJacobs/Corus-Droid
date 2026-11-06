@@ -48,6 +48,9 @@ enum class TrackSource(val raw: String) {
      */
     BANDCAMP("bandcamp");
 
+    val keepsOriginalService: Boolean
+        get() = this == SOUNDCLOUD || this == BANDCAMP
+
     companion object {
         fun fromRaw(raw: String?): TrackSource =
             entries.firstOrNull { it.raw.equals(raw, ignoreCase = true) } ?: SPOTIFY

@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
+import fm.corus.android.ui.components.qobuzWordmarkColorFilter
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MusicService
@@ -323,6 +324,7 @@ private fun MusicServiceCard(
     ) {
         Image(
             painter = painterResource(id = logoRes),
+            colorFilter = if (logoRes == R.drawable.qobuz_logo) qobuzWordmarkColorFilter() else null,
             contentDescription = label,
             modifier = Modifier.size(48.dp),
         )
@@ -375,6 +377,7 @@ private fun MusicServiceRow(
     ) {
         Image(
             painter = painterResource(id = logoRes),
+            colorFilter = if (logoRes == R.drawable.qobuz_logo) qobuzWordmarkColorFilter() else null,
             contentDescription = label,
             modifier = Modifier.size(28.dp),
         )

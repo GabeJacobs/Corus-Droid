@@ -1074,8 +1074,11 @@ fun MainTabScreen(
     // dim covers the whole window. Shared by music-service link-out and
     // Search destination resolve (album / artist). Deferred so a fast
     // resolve never flashes a spinner before the page push.
-    ChromeLoadingHud(visible = isResolvingLinkOut || isResolvingDestination || isResolvingQobuz,
-        message = if (isResolvingQobuz) "Loading Qobuz..." else null)
+    ChromeLoadingHud(
+        visible = isResolvingLinkOut || isResolvingDestination || isResolvingQobuz,
+        message = if (isResolvingQobuz) "Loading Qobuz..." else null,
+        modifier = Modifier.zIndex(5f),
+    )
     if (qobuzMessage != null) androidx.compose.material3.AlertDialog(
         onDismissRequest = { fm.corus.android.domain.QobuzLinks.dismissMessage() },
         title = { Text("Qobuz") }, text = { Text(qobuzMessage.orEmpty()) },

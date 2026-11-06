@@ -55,6 +55,7 @@ import android.net.Uri
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
+import fm.corus.android.ui.components.qobuzWordmarkColorFilter
 import fm.corus.android.data.model.CymbalComment
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalPost
@@ -1004,6 +1005,7 @@ private fun PostDetailSongInfo(
                 }
                 Image(
                     painter = painterResource(fm.corus.android.domain.MusicServiceLinkOut.logoRes(displayedService)),
+                    colorFilter = if (displayedService == fm.corus.android.data.model.MusicService.QOBUZ) qobuzWordmarkColorFilter() else null,
                     contentDescription = stringResource(fm.corus.android.localization.CorusStrings.featured_cd_play_spotify),
                     modifier = Modifier
                         .offset(y = PostRowServiceControlYOffset)

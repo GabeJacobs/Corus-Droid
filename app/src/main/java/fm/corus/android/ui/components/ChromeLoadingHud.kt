@@ -56,6 +56,7 @@ fun ChromeLoadingHud(
     message: String? = null,
     spinnerTint: Color = Color.White,
     showDelayMs: Long = CHROME_HUD_SHOW_DELAY_MS,
+    modifier: Modifier = Modifier,
 ) {
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(visible, showDelayMs) {
@@ -68,6 +69,7 @@ fun ChromeLoadingHud(
     }
     AnimatedVisibility(
         visible = visible && (showDelayMs == 0L || shown),
+        modifier = modifier,
         enter = fadeIn(animationSpec = tween(CHROME_HUD_FADE_IN_MS)),
         exit = ExitTransition.None,
     ) {

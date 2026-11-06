@@ -34,13 +34,13 @@ object QobuzLinks {
         track.isrc, track.name, track.artistName, track.albumName, track.durationMs).joinToString("\u001f")
 
     fun url(track: CymbalTrack): String? {
-        if (!enabled) return null
+        if (track.source.keepsOriginalService || !enabled) return null
         if (track.qobuzMatchStatus == "matched") track.qobuzMatchInput?.confirmedUrl(track)?.let { return it }
         return mutableEntries.value[key(track)]?.takeIf { it.expiresAtMs > System.currentTimeMillis() }?.url
     }
 
     suspend fun destination(track: CymbalTrack): String? = tapMutex.withLock {
-        if (!enabled) return@withLock null
+        if (track.source.keepsOriginalService || !enabled) return@withLock null
         val uid = FirebaseAuth.getInstance().currentUser?.uid
         mutableMessage.value = null
         url(track)?.let { return@withLock it }
@@ -57,7 +57,7 @@ object QobuzLinks {
     }
 
     suspend fun resolve(track: CymbalTrack, onTap: Boolean = false) {
-        if (!enabled || track.isrc.isNullOrBlank() || track.durationMs <= 0 || url(track) != null) return
+        if (track.source.keepsOriginalService || !enabled || track.isrc.isNullOrBlank() || track.durationMs <= 0 || url(track) != null) return
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val identity = key(track)
         // A tap must not inherit an in-flight cache-only pending result.
