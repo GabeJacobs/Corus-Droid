@@ -574,6 +574,9 @@ internal fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         if (artistPagesEnabled) { { route -> navController.navigate(route) } } else null
     val navigateToDirector: ((DirectorPageRoute) -> Unit)? =
         if (artistPagesEnabled) { { route -> navController.navigate(route) } } else null
+    composable<CorusLiveRoute> {
+        fm.corus.android.ui.screens.live.CorusLiveScreen(onBack = { navController.popBackStack() })
+    }
     composable<PostDetailRoute> { backStackEntry ->
         val route = backStackEntry.toRoute<PostDetailRoute>()
         PostDetailScreen(

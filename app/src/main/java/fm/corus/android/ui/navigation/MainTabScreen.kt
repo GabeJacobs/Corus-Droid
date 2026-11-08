@@ -1,5 +1,7 @@
 package fm.corus.android.ui.navigation
 
+import kotlinx.coroutines.tasks.await
+
 import fm.corus.android.ui.components.rememberGuardedSheetState
 
 import androidx.activity.compose.BackHandler
@@ -127,6 +129,13 @@ fun MainTabScreen(
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(CorusTab.FEED) }
     var showCompose by rememberSaveable { mutableStateOf(false) }
+    var showLiveCreateMenu by remember { mutableStateOf(false) }
+    var liveAvailable by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        liveAvailable = runCatching {
+            com.google.firebase.functions.FirebaseFunctions.getInstance().getHttpsCallable("corusLive").call(mapOf("action" to "availability")).await()
+        }.getOrNull()?.getData().let { (it as? Map<*, *>)?.get("available") == true }
+    }
     LaunchedEffect(showCompose) {
         if (showCompose) viewModel.beginPostMilestoneSession()
     }
@@ -273,6 +282,21 @@ fun MainTabScreen(
 
     var expandedPhoto by remember { mutableStateOf<ExpandedPhoto?>(null) }
 
+    if (showLiveCreateMenu) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showLiveCreateMenu = false },
+            title = { androidx.compose.material3.Text("Create") },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = {
+                showLiveCreateMenu = false
+                navControllers[selectedTab]?.navigate(CorusLiveRoute)
+            }) { androidx.compose.material3.Text("Go Live") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = {
+                showLiveCreateMenu = false
+                composeViewModel.reset()
+                showCompose = true
+            }) { androidx.compose.material3.Text("Post music") } },
+        )
+    }
     LaunchedEffect(showCompose, postSuccessOthers) {
         if (!showCompose && postSuccessOthers != null && !showPostSuccessOthers) {
             delay(300)
@@ -502,7 +526,8 @@ fun MainTabScreen(
                     onShowComments = { commentPostId = it },
                     onShowPhoto = { expandedPhoto = it },
                     onNavigateToCompose = {
-                        if (viewModel.subscriptionRepository.canPost) {
+                        if (liveAvailable) { showLiveCreateMenu = true }
+                        else if (viewModel.subscriptionRepository.canPost) {
                             composeViewModel.reset()
                             showCompose = true
                         } else {
@@ -553,7 +578,8 @@ fun MainTabScreen(
                     onShowComments = { commentPostId = it },
                     onShowPhoto = { expandedPhoto = it },
                     onOpenCompose = { mediaType ->
-                        if (viewModel.subscriptionRepository.canPost) {
+                        if (liveAvailable && mediaType != "movie") { showLiveCreateMenu = true }
+                        else if (viewModel.subscriptionRepository.canPost) {
                             composeViewModel.reset()
                             composeMovieMode = mediaType == "movie"
                             showCompose = true

@@ -125,6 +125,7 @@ const val CATALOG_SCROLL_TO_TRACK_KEY = "catalogScrollToTrack"
 @Serializable data class HashtagFeedRoute(val hashtag: String)
 @Serializable data class HashtagPeopleRoute(val hashtag: String, val isFollowers: Boolean)
 @Serializable data class MapExploreRoute(val cityId: String? = null, val userIds: List<String> = emptyList(), val fromProfile: Boolean = false)
+@Serializable object CorusLiveRoute
 @Serializable object SearchRoute
 @Serializable data object ConcertsRoute
 @Serializable data class ConcertAnnouncementRoute(val notificationId: String)

@@ -122,6 +122,7 @@ android {
 }
 
 dependencies {
+    implementation("io.livekit:livekit-android:2.30.0")
     implementation("com.appsflyer:af-android-sdk:7.0.4")
     implementation("com.android.installreferrer:installreferrer:2.2")
     // Classic View runtime; avoids upgrading the app's Compose BOM for gifts.
