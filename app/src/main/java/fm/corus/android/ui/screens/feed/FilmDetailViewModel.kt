@@ -19,6 +19,7 @@ import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.ui.components.ToastManager
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -99,6 +100,15 @@ class FilmDetailViewModel @Inject constructor(
 
     private val _uniquePosterCount = MutableStateFlow<Int?>(null)
     val uniquePosterCount: StateFlow<Int?> = _uniquePosterCount.asStateFlow()
+
+    private val _likeAllEligibleCount = MutableStateFlow<Int?>(null)
+    val likeAllEligibleCount = _likeAllEligibleCount.asStateFlow()
+
+    private val _likeAllTargetCount = MutableStateFlow<Int?>(null)
+    val likeAllTargetCount = _likeAllTargetCount.asStateFlow()
+
+    private val _isLikingAll = MutableStateFlow(false)
+    val isLikingAll = _isLikingAll.asStateFlow()
 
     private var firstPosterId: String? = null
     private var paginationCursor: Long? = null
@@ -204,6 +214,8 @@ class FilmDetailViewModel @Inject constructor(
                 )
                 firstPosterId = page.firstPosterId
                 _uniquePosterCount.value = page.uniquePosterCount
+                _likeAllEligibleCount.value = page.likeAllEligibleCount
+                _likeAllTargetCount.value = page.likeAllTargetCount
                 paginationCursor = page.posts.lastOrNull()?.timestamp?.time
 
                 val unique = deduplicateByUser(page.posts)
@@ -231,6 +243,32 @@ class FilmDetailViewModel @Inject constructor(
                 _loadError.value = "Couldn't load posts for this film."
             }
             _isLoading.value = false
+        }
+    }
+
+    fun likeAllMoviePosts(movieId: String) {
+        if (movieId != currentMovieId || (_likeAllEligibleCount.value ?: 0) <= 0 || _isLikingAll.value) return
+        _isLikingAll.value = true
+        viewModelScope.launch {
+            try {
+                val result = cloudFunctions.likeAllMoviePosts(movieId)
+                if (currentMovieId == movieId) {
+                    _likeAllTargetCount.value = result.eligibleCount
+                    _likeAllEligibleCount.value = result.failedCount
+                    if (result.failedCount > 0) {
+                        ToastManager.show(
+                            if (result.likedCount > 0) "Some posts couldn't be liked. Try again for the rest."
+                            else "Couldn't like all posts. Try again."
+                        )
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                ToastManager.show("Couldn't like all posts. Try again.")
+            } finally {
+                _isLikingAll.value = false
+            }
         }
     }
 

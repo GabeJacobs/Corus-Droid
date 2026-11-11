@@ -20,10 +20,12 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Tv
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -50,6 +52,7 @@ import fm.corus.android.R
 import fm.corus.android.data.model.CymbalPost
 import fm.corus.android.data.model.CymbalMovie
 import fm.corus.android.domain.TrailerPlaybackCoordinator
+import fm.corus.android.localization.CorusStrings
 import fm.corus.android.ui.components.CorusHeaderIconButton
 import fm.corus.android.ui.components.contentHazeSource
 import fm.corus.android.ui.components.ImmersiveBarHeight
@@ -112,8 +115,34 @@ fun FilmDetailScreen(
     val hasMore by viewModel.hasMore.collectAsState()
     val loadError by viewModel.loadError.collectAsState()
     val uniquePosterCount by viewModel.uniquePosterCount.collectAsState()
+    val likeAllEligibleCount by viewModel.likeAllEligibleCount.collectAsState()
+    val likeAllTargetCount by viewModel.likeAllTargetCount.collectAsState()
+    val isLikingAll by viewModel.isLikingAll.collectAsState()
+    var showLikeAllConfirmation by remember(movieId) { mutableStateOf(false) }
     val movieHeader by viewModel.movieHeader.collectAsState()
     val context = LocalContext.current
+
+    if (showLikeAllConfirmation) {
+        val count = likeAllEligibleCount ?: 0
+        AlertDialog(
+            onDismissRequest = { showLikeAllConfirmation = false },
+            title = { Text(pluralStringResource(R.plurals.song_detail_like_all_title, count, count)) },
+            text = { Text(stringResource(CorusStrings.song_detail_like_all_message)) },
+            dismissButton = {
+                TextButton(onClick = { showLikeAllConfirmation = false }) {
+                    Text(stringResource(CorusStrings.common_cancel))
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLikeAllConfirmation = false
+                    viewModel.likeAllMoviePosts(movieId)
+                }) {
+                    Text(stringResource(CorusStrings.song_detail_like_all))
+                }
+            },
+        )
+    }
 
     var showShareSheet by remember { mutableStateOf(false) }
     val shareSearchResults by viewModel.shareSearchResults.collectAsState()
@@ -642,15 +671,40 @@ fun FilmDetailScreen(
             } else {
                 item {
                     val count = uniquePosterCount ?: posts.map { it.user.id }.toSet().size
-                    Text(
-                        text = pluralStringResource(R.plurals.film_detail_posted_by_count, count, formatFilmUserCount(count)),
-                        style = CorusFont.sectionHeader,
-                        color = CorusColors.Secondary,
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = CorusSpacing.lg)
                             .padding(top = CorusSpacing.lg, bottom = CorusSpacing.md),
-                    )
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = pluralStringResource(R.plurals.film_detail_posted_by_count, count, formatFilmUserCount(count)),
+                            style = CorusFont.sectionHeader,
+                            color = CorusColors.Secondary,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (count > 1 && (likeAllTargetCount ?: 0) > 0 && likeAllEligibleCount != null) {
+                            if (isLikingAll || likeAllEligibleCount == 0) {
+                                Icon(Icons.Filled.Favorite, null, Modifier.size(14.dp), tint = CorusColors.Like)
+                                Spacer(Modifier.width(CorusSpacing.xxs))
+                                Text(
+                                    stringResource(CorusStrings.song_detail_all_liked),
+                                    style = CorusFont.sectionHeader,
+                                    color = CorusColors.Like,
+                                )
+                            } else {
+                                TextButton(
+                                    onClick = { showLikeAllConfirmation = true },
+                                    contentPadding = PaddingValues(horizontal = 0.dp),
+                                ) {
+                                    Icon(Icons.Outlined.FavoriteBorder, null, Modifier.size(14.dp))
+                                    Spacer(Modifier.width(CorusSpacing.xxs))
+                                    Text(stringResource(CorusStrings.song_detail_like_all), style = CorusFont.sectionHeader)
+                                }
+                            }
+                        }
+                    }
                 }
 
                 items(posts, key = { it.id }) { post ->

@@ -868,7 +868,7 @@ class CloudFunctionsDataSource @Inject constructor(
     }
 
     /** Additive-only bulk like for a complete canonical song group. */
-    suspend fun likeAllSongPosts(track: CymbalTrack): LikeAllSongPostsResult {
+    suspend fun likeAllSongPosts(track: CymbalTrack): BulkLikePostsResult {
         val params = mutableMapOf<String, Any>(
             "trackId" to track.id,
             "trackName" to track.name,
@@ -878,9 +878,17 @@ class CloudFunctionsDataSource @Inject constructor(
         )
         track.spotifyURI.takeIf { it.isNotBlank() }?.let { params["spotifyURI"] = it }
         track.isrc?.takeIf { it.isNotBlank() }?.let { params["isrc"] = it }
-        val response = functions.getHttpsCallable("likeAllSongPosts").call(params).await()
+        return bulkLikePosts("likeAllSongPosts", params)
+    }
+
+    suspend fun likeAllMoviePosts(movieId: String): BulkLikePostsResult =
+        bulkLikePosts("likeAllMoviePosts", mapOf("movieId" to movieId))
+
+    private suspend fun bulkLikePosts(callable: String, params: Map<String, Any>): BulkLikePostsResult {
+        val response = functions.getHttpsCallable(callable).call(params).await()
         val data = response.getData() as? Map<*, *> ?: emptyMap<Any, Any>()
-        return LikeAllSongPostsResult(
+        return BulkLikePostsResult(
+            eligibleCount = (data["eligibleCount"] as? Number)?.toInt() ?: 0,
             likedCount = (data["likedCount"] as? Number)?.toInt() ?: 0,
             alreadyLikedCount = (data["alreadyLikedCount"] as? Number)?.toInt() ?: 0,
             failedCount = (data["failedCount"] as? Number)?.toInt() ?: 0,
@@ -995,7 +1003,8 @@ class CloudFunctionsDataSource @Inject constructor(
         val likeAllTargetCount: Int? = null,
     )
 
-    data class LikeAllSongPostsResult(
+    data class BulkLikePostsResult(
+        val eligibleCount: Int,
         val likedCount: Int,
         val alreadyLikedCount: Int,
         val failedCount: Int,
@@ -1005,6 +1014,8 @@ class CloudFunctionsDataSource @Inject constructor(
         val posts: List<CymbalPost>,
         val uniquePosterCount: Int?,
         val firstPosterId: String?,
+        val likeAllEligibleCount: Int? = null,
+        val likeAllTargetCount: Int? = null,
     )
 
     data class HashtagPostsPage(
@@ -1069,7 +1080,13 @@ class CloudFunctionsDataSource @Inject constructor(
 
         val posts = applyFirstPoster(postsData.map { CymbalPost.fromCloudData(it) }, firstPosterId)
 
-        return MoviePostsPage(posts, uniquePosterCount, firstPosterId)
+        return MoviePostsPage(
+            posts = posts,
+            uniquePosterCount = uniquePosterCount,
+            firstPosterId = firstPosterId,
+            likeAllEligibleCount = (data["likeAllEligibleCount"] as? Number)?.toInt(),
+            likeAllTargetCount = (data["likeAllTargetCount"] as? Number)?.toInt(),
+        )
     }
 
     @Suppress("UNCHECKED_CAST")
