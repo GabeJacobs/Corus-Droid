@@ -124,7 +124,8 @@ import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.PostPlaybackHighlight
 import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.ui.LocalHapticManager
-import fm.corus.android.ui.components.ComposePlusButton
+import fm.corus.android.ui.screens.live.LiveCreateButton
+import fm.corus.android.ui.screens.live.LiveDiscovery
 import fm.corus.android.ui.components.FrostedStatusStrip
 import fm.corus.android.ui.components.LocalContainingTabSelected
 import fm.corus.android.ui.components.contentHazeSource
@@ -734,6 +735,7 @@ fun FeedScreen(
         pageCacheRevision
         val isSelected = pageMode == feedMode
         val pagePosts = viewModel.postsForTabPage(pageMode)
+        val liveFollowingIds by viewModel.followingUserIds.collectAsState()
         val pageListState = listStateFor(pageMode)
         // Pad *inside* the scroll, never the list viewport. Outer padding
         // resized the LazyColumn mid-drag and jumped the feed.
@@ -1232,7 +1234,10 @@ fun FeedScreen(
                             ChromeInset()
                             if (includeHeader) header()
                             TrendingHashtagBanner(dailyHashtagBanner, onNavigateToHashtag, trackHashtagBanner, isAtRoot)
-                            if (feedMode == "following") fm.corus.android.ui.components.ReferralInviteBanner("feed")
+                            if (feedMode == "following") {
+                                LiveDiscovery("following", liveFollowingIds)
+                                fm.corus.android.ui.components.ReferralInviteBanner("feed")
+                            }
                         },
                         topContent = {
                             Column(
@@ -1292,6 +1297,14 @@ fun FeedScreen(
                     if (includeHeader) item { header() }
                     if (isSelected && dailyHashtagBanner.candidate != null) item(key = "daily_hashtag_banner") {
                         TrendingHashtagBanner(dailyHashtagBanner, onNavigateToHashtag, trackHashtagBanner, isAtRoot)
+                    }
+                    if (isSelected && (feedMode == "following" || feedMode == "tasteMatches")) {
+                        item(key = "corus_live_discovery") {
+                            LiveDiscovery(
+                                source = if (feedMode == "following") "following" else "your_mix",
+                                following = liveFollowingIds.takeIf { feedMode == "following" },
+                            )
+                        }
                     }
                     if (isSelected && feedMode == "following") item(key = "referral_feed_banner") { fm.corus.android.ui.components.ReferralInviteBanner("feed") }
                     if (isSelected && showTasteMatchesTrialBanner) {
@@ -2838,8 +2851,8 @@ internal fun FeedHeader(
         Box(
             modifier = if (tabsVisible) Modifier.matchParentSize() else Modifier.fillMaxWidth(),
         ) {
-        ComposePlusButton(
-            onClick = onComposePlus,
+        LiveCreateButton(
+            onDefault = onComposePlus,
             modifier = Modifier.align(Alignment.CenterStart),
         )
 

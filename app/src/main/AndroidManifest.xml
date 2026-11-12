@@ -121,6 +121,7 @@
                 <data android:scheme="https" />
                 <data android:host="corus.fm" />
                 <data android:pathPrefix="/post/" />
+                <data android:pathPrefix="/live/" />
                 <data android:pathPrefix="/invite/" />
                 <data android:pathPrefix="/u/" />
                 <data android:pathPrefix="/song/" />

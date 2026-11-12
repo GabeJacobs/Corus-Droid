@@ -71,6 +71,7 @@ fun CorusModalBottomSheet(
     dragHandle: @Composable (() -> Unit)? = { BottomSheetDefaults.DragHandle() },
     contentWindowInsets: @Composable () -> WindowInsets = { BottomSheetDefaults.windowInsets },
     properties: ModalBottomSheetProperties = ModalBottomSheetDefaults.properties,
+    containerColor: Color = CorusColors.Background,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     CorusSheetTheme {
@@ -80,7 +81,7 @@ fun CorusModalBottomSheet(
             sheetState = sheetState,
             sheetMaxWidth = sheetMaxWidth,
             shape = shape,
-            containerColor = CorusColors.Background,
+            containerColor = containerColor,
             contentColor = contentColor,
             tonalElevation = 0.dp,
             scrimColor = scrimColor,

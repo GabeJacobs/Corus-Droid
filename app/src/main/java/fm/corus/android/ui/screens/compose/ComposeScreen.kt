@@ -99,6 +99,7 @@ fun ComposeScreen(
     onShowPostSuccessOthers: (PostSuccessOthersPayload) -> Unit = {},
     onPostPublished: () -> Unit = {},
     movieModeEnabled: Boolean = false,
+    singleMediaPicker: Boolean = false,
     preSelectedTrackId: String? = null,
     preSelectedMovieId: String? = null,
     viewModel: ComposeViewModel = hiltViewModel(),
@@ -127,7 +128,7 @@ fun ComposeScreen(
     val isLoadingTrending by viewModel.isLoadingTrending.collectAsState()
     // Unified picker (compose_unified_search_enabled). Read once per screen so
     // the layout can't swap under the user if the flag activates mid-session.
-    val unifiedPicker = remember { viewModel.composeUnifiedSearchEnabled }
+    val unifiedPicker = remember(singleMediaPicker) { viewModel.composeUnifiedSearchEnabled && !singleMediaPicker }
     val unifiedFilter by viewModel.unifiedFilter.collectAsState()
     val unifiedSongResults by viewModel.unifiedSongResults.collectAsState()
     val settledQueries by viewModel.settledQueries.collectAsState()
@@ -494,6 +495,7 @@ fun ComposeScreen(
                             }
                         },
                         mediaType = mediaType,
+                        showMediaTabs = !singleMediaPicker,
                         onMediaTypeChange = { newType ->
                             mediaType = newType
                             viewModel.clearSelection()
@@ -1371,6 +1373,7 @@ private fun SearchModeContent(
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     mediaType: MediaType,
+    showMediaTabs: Boolean,
     onMediaTypeChange: (MediaType) -> Unit,
     isSearching: Boolean,
     searchResults: List<SearchResultItem>,
@@ -1409,7 +1412,7 @@ private fun SearchModeContent(
 
     Column(modifier = Modifier.fillMaxSize().imePadding().nestedScroll(scrollDismissConnection)) {
         // ── Songs / Films segmented toggle ──
-        SegmentedToggle(
+        if (showMediaTabs) SegmentedToggle(
             options = listOf(stringResource(fm.corus.android.localization.CorusStrings.search_tab_songs), stringResource(fm.corus.android.localization.CorusStrings.search_tab_films)),
             selectedIndex = if (mediaType == MediaType.TRACK) 0 else 1,
             onSelected = { index ->

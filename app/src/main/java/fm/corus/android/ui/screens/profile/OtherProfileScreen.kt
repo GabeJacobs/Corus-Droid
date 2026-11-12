@@ -954,12 +954,14 @@ fun OtherProfileScreen(
                             .padding(top = CorusSpacing.sm),
                         verticalAlignment = if (hasCity) Alignment.Top else Alignment.CenterVertically,
                     ) {
-                        UserAvatarView(
-                            avatarURL = currentProfile.avatarURL,
-                            displayName = currentProfile.displayName,
-                            size = headerAvatarSize,
-                            modifier = Modifier.clickable { showAvatarFullScreen = true },
-                        )
+                        fm.corus.android.ui.screens.live.LiveProfileAvatar(currentProfile.id) {
+                            UserAvatarView(
+                                avatarURL = currentProfile.avatarURL,
+                                displayName = currentProfile.displayName,
+                                size = headerAvatarSize,
+                                modifier = Modifier.clickable { showAvatarFullScreen = true },
+                            )
+                        }
 
                         Spacer(modifier = Modifier.width(CorusSpacing.profileAvatarTextGap))
 

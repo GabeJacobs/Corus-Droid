@@ -85,7 +85,9 @@ import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.ProfileHeaderStylePolicy
 import fm.corus.android.ui.LocalHapticManager
 import android.graphics.Bitmap
-import fm.corus.android.ui.components.ComposePlusButton
+import fm.corus.android.ui.screens.live.LiveCreateButton
+import fm.corus.android.ui.screens.live.LiveSaveItem
+import fm.corus.android.ui.screens.live.LocalLiveNavigation
 import fm.corus.android.ui.components.AvatarCropView
 import fm.corus.android.ui.components.LocalContainingTabSelected
 import fm.corus.android.ui.components.FrostedStatusStrip
@@ -209,6 +211,15 @@ fun ProfileScreen(
     val isSavingStyle by viewModel.isSavingStyle.collectAsState()
     val engagementStates by viewModel.engagementStates.collectAsState()
     val likesSavesFilter by viewModel.likesSavesFilter.collectAsState()
+    val live = LocalLiveNavigation.current
+    val liveSaves = live?.state?.mixedSaves?.filter { item ->
+        when (likesSavesFilter) {
+            ProfileMediaFilter.ALL -> true
+            ProfileMediaFilter.MUSIC -> item is LiveSaveItem.Track || (item is LiveSaveItem.Post && !item.post.isMovie)
+            ProfileMediaFilter.FILM -> item is LiveSaveItem.Post && item.post.isMovie
+        }
+    }
+
     // Whether the Likes/Saves filter dropdown is open.
     var filterMenuExpanded by remember { mutableStateOf(false) }
     // The user's explicit choice once they've tapped a tab. While null, the
@@ -224,6 +235,10 @@ fun ProfileScreen(
         ?: profile?.preferredProfileSegmentFromPosts(posts, hasMoreMixedPosts)
         ?: 0).let { current ->
         if (current in visibleLogicalTabs) current else visibleLogicalTabs.first()
+    }
+    val usingMixedSaves = selectedSegment == 3 && liveSaves != null
+    LaunchedEffect(selectedSegment, live?.state?.access?.saves) {
+        if (selectedSegment == 3) live?.viewModel?.loadMixedSaves(reset = true)
     }
     // Render full 2:3 posters (not square crops) when the grid is films-only:
     // the Film tab, or a Likes/Saves grid filtered to Film.
@@ -449,8 +464,10 @@ fun ProfileScreen(
             totalItems > 0 && lastVisibleItem >= totalItems - 6
         }
     }
-    LaunchedEffect(shouldLoadMore, selectedSegment) {
-        if (shouldLoadMore && hasMore[selectedSegment] == true && !isLoadingMore && !isLoading) {
+    LaunchedEffect(shouldLoadMore, selectedSegment, liveSaves?.size) {
+        if (shouldLoadMore && usingMixedSaves && live?.state?.mixedSavesHasMore == true) {
+            live.viewModel.loadMixedSaves()
+        } else if (shouldLoadMore && !usingMixedSaves && hasMore[selectedSegment] == true && !isLoadingMore && !isLoading) {
             viewModel.loadMoreForSegment(selectedSegment)
         }
     }
@@ -461,7 +478,7 @@ fun ProfileScreen(
             0 -> posts.filter { it.mediaType == fm.corus.android.data.model.MediaType.TRACK }
             1 -> posts.filter { it.mediaType == fm.corus.android.data.model.MediaType.MOVIE }
             2 -> likedPosts
-            3 -> savedPosts
+            3 -> if (usingMixedSaves) liveSaves.orEmpty().filterIsInstance<LiveSaveItem.Post>().map { it.post } else savedPosts
             else -> posts
         }
         ProfileFeedCache.posts = filteredForNav
@@ -528,7 +545,7 @@ fun ProfileScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
                     ) {
-                        ComposePlusButton(onClick = { onOpenCompose("track") })
+                        LiveCreateButton(onDefault = { onOpenCompose("track") })
                         if (showHeaderStyle) {
                             Box(
                                 modifier = Modifier
@@ -1142,7 +1159,7 @@ fun ProfileScreen(
                             staggerVinyl = shouldStagger,
                         )
                     }
-                } else if (filteredPosts.isEmpty() && !isLoading
+                } else if ((if (usingMixedSaves) liveSaves.isNullOrEmpty() else filteredPosts.isEmpty()) && !isLoading
                     && !(selectedSegment == 2 && isLoadingLiked && currentProfile.likesCount != 0)
                     && !(selectedSegment == 3 && isLoadingSaved && currentProfile.savesCount != 0)
                 ) {
@@ -1275,7 +1292,29 @@ fun ProfileScreen(
             // SubcomposeLayout with "Key … was already used".
             val gridPosts = (if (selectedSegment <= 1) filteredPosts.drop(1) else filteredPosts)
                 .distinctBy { it.id }
-            if (gridPosts.isNotEmpty()) {
+            if (usingMixedSaves) {
+                items(liveSaves.orEmpty(), key = { "mixed_save:${it.id}" }) { item ->
+                    when (item) {
+                        is LiveSaveItem.Post -> PostGridItem(item.post, isFilmPoster = showPosterGrid) {
+                            navigateToFeed(item.post.id)
+                        }
+                        is LiveSaveItem.Track -> Box(
+                            Modifier.aspectRatio(1f).background(CorusColors.CardBackground)
+                                .clickable { live?.viewModel?.presentSavedTrack(item) },
+                        ) {
+                            ShimmerAsyncImage(
+                                model = item.track.song.albumArtURL,
+                                contentDescription = item.track.song.name,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                            Icon(
+                                Icons.Filled.MusicNote, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White,
+                                modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp).size(16.dp),
+                            )
+                        }
+                    }
+                }
+            } else if (gridPosts.isNotEmpty()) {
                 items(gridPosts, key = { it.id }, contentType = { "post_grid" }) { post ->
                     PostGridItem(
                         post = post,
@@ -1295,7 +1334,7 @@ fun ProfileScreen(
             }
 
             // Loading more indicator
-            if (isLoadingMore) {
+            if (isLoadingMore || (usingMixedSaves && live?.state?.mixedSavesLoading == true)) {
                 item(span = { GridItemSpan(3) }) {
                     Box(
                         modifier = Modifier

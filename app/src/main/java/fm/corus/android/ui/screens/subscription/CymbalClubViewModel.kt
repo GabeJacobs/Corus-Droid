@@ -34,6 +34,7 @@ enum class PaywallSource(val subtitle: String, val analyticsName: String) {
     TENTH_POST("Support Corus. Get Perks.", "tenth_post"),
     PLAYLIST_LIMIT("Unlock playlist generation.", "playlist_limit"),
     SAVE_LIMIT("Unlock unlimited saves.", "save_limit"),
+    LIVE_HOST("Host live shows with Corus Club.", "live_host"),
     FAVORITE_LIMIT("Unlock unlimited favorites.", "favorite_people_cap"),
     GIFT("Get 3 Gifts to thank people for great recommendations.", "gift"),
     SETTINGS("Support Corus. Get Perks.", "settings"),

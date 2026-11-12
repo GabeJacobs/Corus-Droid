@@ -44,7 +44,7 @@ import java.io.File
  * Three states: idle, recording, recorded.
  * Records M4A/AAC, 44.1kHz, mono, 64kbps. Max 30 seconds.
  */
-class VoiceNoteRecorderState {
+class VoiceNoteRecorderState(private val maxDuration: Float = 30f) {
     var isRecording by mutableStateOf(false)
         private set
     var hasRecording by mutableStateOf(false)
@@ -79,9 +79,7 @@ class VoiceNoteRecorderState {
     private var previewPlayer: android.media.MediaPlayer? = null
     private var file: File? = null
 
-    private val maxDuration = 30f
-
-    fun startRecording(context: android.content.Context) {
+    fun startRecording(context: android.content.Context, input: android.media.AudioDeviceInfo? = null) {
         stopPreview()
         // A fresh recording supersedes any existing (resumed-draft) note.
         loadedFromExisting = false
@@ -94,6 +92,7 @@ class VoiceNoteRecorderState {
             recorder = (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
                 MediaRecorder(context) else @Suppress("DEPRECATION") MediaRecorder()).apply {
                 setAudioSource(MediaRecorder.AudioSource.MIC)
+                if (input != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) setPreferredDevice(input)
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                 setAudioSamplingRate(44100)
@@ -250,8 +249,8 @@ class VoiceNoteRecorderState {
 }
 
 @Composable
-fun rememberVoiceNoteRecorderState(): VoiceNoteRecorderState {
-    return remember { VoiceNoteRecorderState() }
+fun rememberVoiceNoteRecorderState(maxDuration: Float = 30f): VoiceNoteRecorderState {
+    return remember(maxDuration) { VoiceNoteRecorderState(maxDuration) }
 }
 
 @Composable

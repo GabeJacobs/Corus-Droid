@@ -1355,6 +1355,9 @@ private fun SuggestedUsersContent(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(0.dp),
     ) {
+        item(key = "corus_live_discovery") {
+            fm.corus.android.ui.screens.live.LiveDiscovery("search_users", inSearch = true)
+        }
         item(key = "referral_search_banner") { fm.corus.android.ui.components.ReferralInviteBanner("search") }
         item(key = "corus_map_preview") { fm.corus.android.ui.screens.map.MapPreviewEntry(onNavigateToMap) }
         contactsSections(

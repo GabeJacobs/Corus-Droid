@@ -397,6 +397,40 @@ class NowPlayingManager @Inject constructor(
     private var spotifyCorusBackgroundedAt: Long? = null
     private var spotifyDeviceLockedForQueueDriving = false
 
+    private var liveOwnsSpotify = false
+    private val queueAfterLive = mutableListOf<QueuedTrack>()
+    internal var livePlaybackExit: (suspend () -> Boolean)? = null
+
+    internal suspend fun beginLiveSpotifyPlayback() {
+        if (liveOwnsSpotify) return
+        liveOwnsSpotify = true
+        val spotifyActive = isSpotifyConnectPlaying || isExternalSpotifyListening
+        if (spotifyActive) {
+            if (spotifyPlaybackService.isConnected) spotifyPlaybackService.pause()
+            if (isSpotifyConnectPlaying) silentlyHaltSpotifyForPreview(stopRemote = false)
+            if (isExternalSpotifyListening) {
+                val previousState = _state.value
+                clearExternalSpotifyListening()
+                _state.value = previousState
+            }
+            _state.value = _state.value.copy(isPlaying = false)
+        } else {
+            pause()
+        }
+    }
+
+    internal fun endLiveSpotifyPlayback() = managerScope.launch {
+        if (!liveOwnsSpotify) return@launch
+        try {
+            spotifyPlaybackService.pause()
+        } finally {
+            liveOwnsSpotify = false
+            val pending = queueAfterLive.toList()
+            queueAfterLive.clear()
+            pending.forEach { enqueueTrack(it, startIfIdle = false) }
+        }
+    }
+
     @Volatile
     private var corusWindowFocused = true
 
@@ -874,8 +908,16 @@ class NowPlayingManager @Inject constructor(
         if (track.source == TrackSource.TIDAL || track.source == TrackSource.DEEZER) {
             return false
         }
+        if (liveOwnsSpotify) {
+            queueAfterLive.add(track)
+            return true
+        }
+        return enqueueTrack(track)
+    }
+
+    private fun enqueueTrack(track: QueuedTrack, startIfIdle: Boolean = true): Boolean {
         var item = track.copy(isUserQueued = true)
-        if (!_state.value.hasActiveTrack) {
+        if (!_state.value.hasActiveTrack && startIfIdle) {
             item = item.copy(isUserQueued = false)
             managerScope.launch { play(item, listOf(item)) }
             return true
@@ -1849,6 +1891,7 @@ class NowPlayingManager @Inject constructor(
         preserveUserQueue: Boolean = true,
         forceSwitch: Boolean = false,
     ) {
+        if (liveOwnsSpotify && livePlaybackExit?.invoke() != true) return
         if (!mapOwned) MapPlaybackOwner.yield()
         queueOrderPinnedByUser = false
         val preserved = if (previewOnly || !preserveUserQueue) emptyList() else snapshotUserQueuedUpNext()
@@ -1997,6 +2040,7 @@ class NowPlayingManager @Inject constructor(
         notOnSpotify: Boolean = false,
         bandcampUrl: String? = null,
     ) {
+        if (liveOwnsSpotify && livePlaybackExit?.invoke() != true) return
         MapPlaybackOwner.yield()
         // Single-track path: clear any queued context so hasNext is false.
         queue = emptyList()
@@ -2031,6 +2075,7 @@ class NowPlayingManager @Inject constructor(
         forceSwitch: Boolean = false,
         previewOnly: Boolean = false,
     ) {
+        if (liveOwnsSpotify && livePlaybackExit?.invoke() != true) return
         val trackId = track.trackId
 
         // Audio sources are mutually exclusive: starting music stops any inline
@@ -3151,6 +3196,7 @@ class NowPlayingManager @Inject constructor(
         pending: SpotifyAuthPendingPlay,
         replaceSpotifyQueue: Boolean = false,
     ) {
+        if (liveOwnsSpotify && livePlaybackExit?.invoke() != true) return
         clearExternalSpotifyListening()
         awaySkipMutedUri = null
         spotifyPlaybackService.clearContextTakeoverWithoutTrackChange()
@@ -3536,7 +3582,7 @@ class NowPlayingManager @Inject constructor(
         playInternal(track, userInitiated = userInitiated, forceSwitch = true)
     }
 
-    fun silentlyHaltSpotifyForPreview() {
+    fun silentlyHaltSpotifyForPreview(stopRemote: Boolean = true) {
         stopSpotifyConnectKeepAlive()
         spotifyConnectPlayJob?.cancel()
         cancelDebouncedSpotifyRelinquish()
@@ -3544,7 +3590,7 @@ class NowPlayingManager @Inject constructor(
         spotifyPlaybackService.onTrackEnded = null
         spotifyPlaybackService.onPlayerStateUpdated = null
         spotifyPlaybackService.onPlayerContextUpdated = null
-        if (isSpotifyConnectPlaying || spotifyPlaybackService.isConnected) {
+        if (stopRemote && (isSpotifyConnectPlaying || spotifyPlaybackService.isConnected)) {
             spotifyPlaybackService.stop()
         }
         isSpotifyConnectPlaying = false
@@ -4106,6 +4152,7 @@ class NowPlayingManager @Inject constructor(
         spotifyURI: String,
         playerStateIsFresh: Boolean = false,
     ) {
+        if (liveOwnsSpotify) return
         val trackId = spotifyURI.removePrefix("spotify:track:")
             .takeIf { spotifyURI.startsWith("spotify:track:") } ?: return
 
@@ -4287,7 +4334,7 @@ class NowPlayingManager @Inject constructor(
     }
 
     private suspend fun reconcileExternalSpotifyOnForeground() {
-        if (spotifyCorusPlayIntentInFlight()) return
+        if (liveOwnsSpotify || spotifyCorusPlayIntentInFlight()) return
 
         val svc = spotifyPlaybackService
 

@@ -12,6 +12,7 @@ sealed class DeepLinkDestination {
     data class PostComment(val postId: String, val commentId: String) : DeepLinkDestination()
     data class Thread(val threadId: String, val otherUserId: String = "") : DeepLinkDestination()
     data class Hashtag(val tag: String) : DeepLinkDestination()
+    data class LiveRoom(val roomId: String, val fromInvite: Boolean = false, val sharedLink: Boolean = false) : DeepLinkDestination()
     data object Club : DeepLinkDestination()
     data class Map(val cityId: String?, val userIds: List<String>) : DeepLinkDestination()
     data class Concert(val eventId: String) : DeepLinkDestination()
@@ -33,6 +34,7 @@ sealed class DeepLinkDestination {
         is Thread -> "thread"
         is Hashtag -> "hashtag"
         is Club -> "club"
+        is LiveRoom -> if (fromInvite) "corus_live_dj_invite" else "corus_live"
         is Entity -> segment.segment
         is Map -> "map_follow_join"
         is Concert -> "concert"
@@ -75,6 +77,7 @@ object DeepLinkHandler {
             "thread" -> uri.pathSegments.firstOrNull()?.let { DeepLinkDestination.Thread(it) }
             "hashtag" -> uri.pathSegments.firstOrNull()?.let { DeepLinkDestination.Hashtag(it) }
             "club" -> DeepLinkDestination.Club
+            "live" -> liveDestination(uri.pathSegments.singleOrNull(), sharedLink = true)
             "concert" -> uri.pathSegments.lastOrNull()?.takeIf { it.isNotBlank() }?.let(DeepLinkDestination::Concert)
             else -> entityDestination(uri.host, uri.pathSegments.firstOrNull())
         }
@@ -91,11 +94,16 @@ object DeepLinkHandler {
         if (segments.isEmpty()) return null
         return when (segments[0]) {
             "post" -> segments.getOrNull(1)?.let { DeepLinkDestination.Post(it) }
+            "live" -> liveDestination(segments.getOrNull(1)?.takeIf { segments.size == 2 }, sharedLink = true)
             "u" -> segments.getOrNull(1)?.let { DeepLinkDestination.ProfileByUsername(it) }
             "concert" -> segments.lastOrNull()?.takeIf { it.isNotBlank() }?.let(DeepLinkDestination::Concert)
             else -> entityDestination(segments[0], segments.getOrNull(1))
         }
     }
+
+    private fun liveDestination(roomId: String?, fromInvite: Boolean = false, sharedLink: Boolean = false) =
+        roomId?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{16,80}")) }
+            ?.let { DeepLinkDestination.LiveRoom(it, fromInvite, sharedLink) }
 
     // Platform-independent parser: Android's org.json is a stub in JVM tests.
     // Also reject malformed arrays rather than navigating with invented ids.
@@ -110,6 +118,8 @@ object DeepLinkHandler {
     fun parseNotificationData(data: Map<String, String>): DeepLinkDestination? {
         val type = data["type"] ?: return fallbackParse(data)
         return when (type) {
+            "corus_live" -> liveDestination(data["roomId"])
+            "corus_live_dj_invite" -> liveDestination(data["roomId"], fromInvite = true)
             "updates_and_reminders" -> parseCampaignDestination(data)
             "new_release" -> entityDestination(data["destinationType"], data["destinationId"])
             "concert_announcement" -> {

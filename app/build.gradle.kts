@@ -186,6 +186,7 @@ dependencies {
     implementation(libs.coil.gif)
 
     // Media
+    implementation("io.livekit:livekit-android:2.30.0")
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.exoplayer.hls)
     implementation(libs.media3.session)

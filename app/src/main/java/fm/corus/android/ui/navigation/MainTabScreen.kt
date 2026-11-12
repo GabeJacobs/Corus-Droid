@@ -91,6 +91,11 @@ import fm.corus.android.ui.screens.feed.CommentsBottomSheet
 import fm.corus.android.ui.screens.feed.LikesBottomSheet
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.service.DeepLinkDestination
+import fm.corus.android.ui.screens.live.LiveMiniPlayer
+import fm.corus.android.ui.screens.live.LiveNavigation
+import fm.corus.android.ui.screens.live.LivePresentation
+import fm.corus.android.ui.screens.live.LiveViewModel
+import fm.corus.android.ui.screens.live.LocalLiveNavigation
 import fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet
 import fm.corus.android.ui.screens.subscription.PaywallSource
 import fm.corus.android.ui.theme.CorusColors
@@ -131,10 +136,15 @@ fun MainTabScreen(
         if (showCompose) viewModel.beginPostMilestoneSession()
     }
     var composeMovieMode by rememberSaveable { mutableStateOf(false) }
+    var singleMediaPicker by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(viewModel) { viewModel.musicComposeRequests.collect { composeMovieMode = false; showCompose = true } }
     var postSuccessOthers by remember { mutableStateOf<PostSuccessOthersPayload?>(null) }
     var showPostSuccessOthers by remember { mutableStateOf(false) }
     val composeViewModel: ComposeViewModel = hiltViewModel()
+    val liveViewModel: LiveViewModel = hiltViewModel()
+    val liveState by liveViewModel.state.collectAsState()
+    val liveDiscovery = liveState.copy(positionMs = 0L, messages = emptyList())
+    val showLiveMini = liveState.room != null && liveState.minimized
     val showMilestonePaywall by viewModel.showMilestonePaywall.collectAsState()
     val milestonePaywallSource by viewModel.milestonePaywallSource.collectAsState()
     val notificationCount by viewModel.notificationCount.collectAsState()
@@ -194,6 +204,27 @@ fun MainTabScreen(
     // Club offer sheet state
     var showClubOffer by remember { mutableStateOf(false) }
     var clubOfferSource by remember { mutableStateOf(PaywallSource.DEFAULT) }
+    LaunchedEffect(liveState.needsClub) {
+        if (liveState.needsClub) {
+            viewModel.logPaywallShown("live_host")
+            clubOfferSource = PaywallSource.LIVE_HOST
+            showClubOffer = true
+            liveViewModel.clearClub()
+        }
+    }
+    val liveNavigation = remember(liveDiscovery, liveViewModel, viewModel, composeViewModel) {
+        LiveNavigation(liveDiscovery, liveViewModel, post = { movie ->
+            if (viewModel.subscriptionRepository.canPost) {
+                composeMovieMode = movie
+                singleMediaPicker = true
+                composeViewModel.reset()
+                showCompose = true
+            } else {
+                clubOfferSource = PaywallSource.POST_LIMIT
+                showClubOffer = true
+            }
+        })
+    }
 
     // Save cap snackbar
     val saveCapSnackbarHost = remember { androidx.compose.material3.SnackbarHostState() }
@@ -366,8 +397,20 @@ fun MainTabScreen(
 
     // Handle notification tap navigation
     val notificationDestination = pendingNotificationDestination?.collectAsState()?.value
-    LaunchedEffect(notificationDestination) {
+    val liveLinkReady = notificationDestination is DeepLinkDestination.LiveRoom && liveState.accessResolved
+    LaunchedEffect(notificationDestination, liveLinkReady) {
         if (notificationDestination == null) return@LaunchedEffect
+        if (notificationDestination is DeepLinkDestination.LiveRoom) {
+            if (!liveLinkReady) return@LaunchedEffect
+            val invite = liveState.invites.firstOrNull { it["roomId"] == notificationDestination.roomId }
+            if (notificationDestination.fromInvite) {
+                if (invite != null) liveViewModel.presentInvite(invite) else liveViewModel.openInvite(notificationDestination.roomId)
+            } else {
+                liveViewModel.join(notificationDestination.roomId, link = notificationDestination.sharedLink)
+            }
+            onNotificationDestinationConsumed()
+            return@LaunchedEffect
+        }
         // Collapse the full player if it was left open when the app went to
         // background (e.g. lock-screen notification tap). Navigation lands on
         // the Activity tab underneath the player overlay otherwise.
@@ -423,7 +466,7 @@ fun MainTabScreen(
             )
             is DeepLinkDestination.ConcertAnnouncement -> navController.navigate(ConcertAnnouncementRoute(notificationDestination.notificationId))
             is DeepLinkDestination.Concert -> navController.navigate(ConcertDetailRoute(notificationDestination.eventId))
-            is DeepLinkDestination.FollowingFeed -> Unit
+            is DeepLinkDestination.FollowingFeed, is DeepLinkDestination.LiveRoom -> Unit
         }
         onNotificationDestinationConsumed()
     }
@@ -438,7 +481,7 @@ fun MainTabScreen(
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
     val isHydratingExternalSpotify by viewModel.nowPlayingManager.isHydratingExternalSpotify.collectAsState()
     val isExternalSpotifyListening by viewModel.nowPlayingManager.isExternalSpotifyListeningFlow.collectAsState()
-    val showsMiniPlayer = nowPlayingState.hasActiveTrack && !isHydratingExternalSpotify &&
+    val showsMiniPlayer = liveState.room == null && nowPlayingState.hasActiveTrack && !isHydratingExternalSpotify &&
         (!isExternalSpotifyListening ||
             (nowPlayingState.trackName.isNotBlank() && nowPlayingState.trackName != "Unknown Track"))
     // Hold the white empty shell invisible until the art wash has painted —
@@ -455,7 +498,7 @@ fun MainTabScreen(
     val livePlayerExpansion = if (showsMiniPlayer) playerExpansion.liveExpansion() else 0f
     val bottomChromeHeight = with(density) {
         if (citySheetOpen) 0.dp else tabBarHeightPx.toDp() +
-            if (showsMiniPlayer && playerSurfaceReady) miniHeightPx.toDp() else 0.dp
+            if (showLiveMini) 64.dp else if (showsMiniPlayer && playerSurfaceReady) miniHeightPx.toDp() else 0.dp
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -489,6 +532,7 @@ fun MainTabScreen(
               LocalMapCitySheetPresented provides mapCitySheetPresented,
               LocalContentHaze provides (if (FrostedBottomBar) bottomHaze else null),
               LocalCollectionMainTabViewModel provides viewModel,
+              LocalLiveNavigation provides liveNavigation,
           ) {
             // Keep all tab NavHosts alive but only show the selected one.
             // This preserves scroll position and back stack per tab.
@@ -779,6 +823,13 @@ fun MainTabScreen(
         )
     }
 
+    if (showLiveMini && !citySheetOpen) {
+        LiveMiniPlayer(
+            liveState, liveViewModel,
+            Modifier.align(Alignment.BottomCenter).padding(bottom = with(density) { tabBarHeightPx.toDp() }).zIndex(2f),
+        )
+    }
+
     // Tab bar — topmost chrome when collapsed; slides off as the player expands.
     if (!citySheetOpen) Column(
         modifier = Modifier
@@ -1000,6 +1051,7 @@ fun MainTabScreen(
             onDismiss = {
                 showCompose = false
                 composeMovieMode = false
+                singleMediaPicker = false
                 viewModel.clearPreSelectedMedia()
                 if (postSuccessOthers == null) {
                     viewModel.checkPostMilestonePaywall()
@@ -1018,12 +1070,14 @@ fun MainTabScreen(
                 postSuccessOthers = payload
                 showCompose = false
                 composeMovieMode = false
+                singleMediaPicker = false
                 viewModel.clearPreSelectedMedia()
             },
             onOpenProfile = { userId ->
                 navControllers[selectedTab]?.navigate(OtherProfileRoute(userId))
             },
             movieModeEnabled = preSelectedMovieId != null || composeMovieMode,
+            singleMediaPicker = singleMediaPicker,
             preSelectedTrackId = preSelectedTrackId,
             preSelectedMovieId = preSelectedMovieId,
         )
@@ -1103,6 +1157,12 @@ fun MainTabScreen(
             )
         }
     }
+
+    LivePresentation(
+        liveState, liveViewModel,
+        openProfile = { uid -> navControllers[selectedTab]?.navigate(OtherProfileRoute(uid)) },
+        openSong = { track -> navControllers[selectedTab]?.navigate(track.toSongDetailRoute()) },
+    )
 
     // Save cap toast/snackbar host (overlay above content, inside outer Box).
     androidx.compose.material3.SnackbarHost(
