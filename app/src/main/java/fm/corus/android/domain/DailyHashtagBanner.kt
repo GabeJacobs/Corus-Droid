@@ -15,8 +15,7 @@ fun parseDailyHashtagBanner(
     if (day != utcDay(now) || updatedAt == null || now - updatedAt >= 7_200_000L || updatedAt > now + 60_000L) return null
     val item = items?.firstOrNull() ?: return null
     val name = (item["name"] as? String)?.takeIf { it.isNotBlank() } ?: return null
-    val posts = (item["postCount"] as? Number)?.toDouble() ?: return null
     val people = (item["distinctAuthors"] as? Number)?.toDouble() ?: return null
-    if (!posts.isFinite() || !people.isFinite() || posts < 8 || people < 6) return null
+    if (!people.isFinite() || people < 7) return null
     return DailyHashtagBannerCandidate(name, day, updatedAt)
 }

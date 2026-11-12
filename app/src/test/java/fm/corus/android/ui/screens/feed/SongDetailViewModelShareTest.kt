@@ -1,6 +1,10 @@
 package fm.corus.android.ui.screens.feed
 
+import fm.corus.android.data.model.CymbalMessage
 import fm.corus.android.data.model.CymbalThread
+import fm.corus.android.data.model.MessageSendStatus
+import fm.corus.android.data.model.MessageType
+import fm.corus.android.data.model.ShareRecipient
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.repository.AuthRepository
@@ -20,6 +24,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
@@ -71,20 +76,25 @@ class SongDetailViewModelShareTest {
         Dispatchers.resetMain()
     }
 
+    private val friend = ShareRecipient(user = CymbalUser("friend", "friend", "Friend"))
+
     @Test
-    fun `sendTrackToUser sends a sharedTrack message on the created thread`() = runTest {
-        whenever(messageRepository.resolveShareThread(eq("me"), eq("friend"))).doReturn("thread1")
+    fun `sendTrackToUser queues a song card before resolving the thread`() = runTest {
+        viewModel.sendTrackToUser(friend, track, "  check this out  ")
 
-        viewModel.sendTrackToUser("friend", track, "  check this out  ")
-        advanceUntilIdle()
+        val message = argumentCaptor<CymbalMessage>()
+        val deliver = argumentCaptor<suspend (String, String) -> Unit>()
+        verify(messageRepository).queueShare(
+            eq("friend"), eq(friend), message.capture(), eq(track.name), deliver.capture(), any(), any(), any(),
+        )
+        assertEquals(MessageType.SHARED_TRACK, message.firstValue.type)
+        assertEquals(MessageSendStatus.SENDING, message.firstValue.sendStatus)
+        assertEquals(track.name, message.firstValue.trackName)
+        assertEquals("check this out", message.firstValue.text)
 
-        verify(messageRepository).resolveShareThread("me", "friend")
+        deliver.firstValue("thread1", message.firstValue.id)
         verify(messageRepository).sendSharedTrackMessage(
-            threadId = eq("thread1"),
-            fromUserId = eq("me"),
-            text = eq("check this out"),
-            track = eq(track),
-            clientMessageId = anyOrNull(),
+            "thread1", "me", "check this out", track, message.firstValue.id,
         )
     }
 
@@ -92,11 +102,9 @@ class SongDetailViewModelShareTest {
     fun `sendTrackToUser no-ops when signed out`() = runTest {
         whenever(authRepository.currentUserId).doReturn(null)
 
-        viewModel.sendTrackToUser("friend", track, "hi")
-        advanceUntilIdle()
+        viewModel.sendTrackToUser(friend, track, "hi")
 
-        verify(messageRepository, never()).resolveShareThread(any(), any())
-        verify(messageRepository, never()).sendSharedTrackMessage(any(), any(), any(), any(), anyOrNull())
+        verify(messageRepository, never()).queueShare(any(), anyOrNull(), any(), any(), any(), any(), any(), any())
     }
 
     @Test

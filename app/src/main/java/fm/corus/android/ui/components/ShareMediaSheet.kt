@@ -173,7 +173,7 @@ fun ShareMediaSheet(
     isSearching: Boolean,
     isLoadingContacts: Boolean,
     onSearchQueryChange: (String) -> Unit,
-    onSendToUser: (userId: String, message: String) -> Unit,
+    onSendToUser: (recipient: ShareRecipient, message: String) -> Unit,
     onDismiss: () -> Unit,
     onAnalyticsLog: ((method: String) -> Unit)? = null,
     isOwnProfile: Boolean = false,
@@ -752,7 +752,7 @@ private fun RecipientPickerShareMediaSheet(
     isSearching: Boolean,
     isLoadingContacts: Boolean,
     onSearchQueryChange: (String) -> Unit,
-    onSendToUser: (userId: String, message: String) -> Unit,
+    onSendToUser: (recipient: ShareRecipient, message: String) -> Unit,
     onDismiss: () -> Unit,
     onAnalyticsLog: ((method: String) -> Unit)?,
     profileShareAnalytics: ProfileShareAnalytics? = null,
@@ -985,7 +985,7 @@ private fun RecipientPickerShareMediaSheet(
                                         profileShareAnalytics = profileShareAnalytics,
                                         onAnalyticsLog = onAnalyticsLog,
                                     )
-                                    onSendToUser(user.id, messageText.text)
+                                    onSendToUser(user, messageText.text)
                                     onDismiss()
                                 }
                             },

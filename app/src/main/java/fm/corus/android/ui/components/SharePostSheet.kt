@@ -68,7 +68,7 @@ fun SharePostSheet(
     sheetState: SheetState,
     postToInstagramV2: Boolean = false,
     onSearchQueryChange: (String) -> Unit,
-    onSendToUser: (userId: String, message: String) -> Unit,
+    onSendToUser: (recipient: ShareRecipient, message: String) -> Unit,
     onRepost: () -> Unit,
     onDismiss: () -> Unit,
     onAnalyticsLog: ((method: String) -> Unit)? = null,
@@ -340,7 +340,7 @@ fun SharePostSheet(
                             onClick = {
                                 selectedUser?.let { user ->
                                     onAnalyticsLog?.invoke("direct_message")
-                                    onSendToUser(user.id, messageText.text)
+                                    onSendToUser(user, messageText.text)
                                     onDismiss()
                                 }
                             },

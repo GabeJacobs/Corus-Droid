@@ -836,8 +836,8 @@ fun FilmDetailScreen(
                 isSearching = isShareSearching,
                 isLoadingContacts = isLoadingShareContacts,
                 onSearchQueryChange = { query -> viewModel.searchShareUsers(query) },
-                onSendToUser = { userId, message ->
-                    viewModel.sendFilmToUser(userId, shareMovie, message)
+                onSendToUser = { recipient, message ->
+                    viewModel.sendFilmToUser(recipient.id, shareMovie, message)
                     ToastManager.show(filmSharedMsg)
                     showShareSheet = false
                 },

@@ -1059,10 +1059,10 @@ fun ConcertDetailScreen(
                 isSearching = isShareSearching,
                 isLoadingContacts = isLoadingShareContacts,
                 onSearchQueryChange = vm::searchShareUsers,
-                onSendToUser = { userId, message ->
+                onSendToUser = { recipient, message ->
                     ToastManager.show(context.getString(fm.corus.android.localization.CorusStrings.share_toast_message_sent))
                     vm.sendInvite(
-                        userId = userId,
+                        userId = recipient.id,
                         note = message,
                         onError = { error ->
                             fm.corus.android.ui.screens.messaging.showDmSendError(context, error, fm.corus.android.R.string.concert_invite_error)

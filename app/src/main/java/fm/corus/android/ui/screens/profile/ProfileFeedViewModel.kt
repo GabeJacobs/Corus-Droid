@@ -14,6 +14,7 @@ import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.TMDBApiService
 import fm.corus.android.data.remote.TMDBMovieDetails
 import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.ui.screens.messaging.queuePostShare
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
@@ -682,21 +683,9 @@ class ProfileFeedViewModel @Inject constructor(
         }
     }
 
-    override fun sendPostToUser(userId: String, post: CymbalPost, message: String) {
-        val currentUserId = authRepository.currentUserId ?: return
-        viewModelScope.launch {
-            try {
-                val threadId = messageRepository.resolveShareThread(currentUserId, userId)
-                messageRepository.sendSharedPostMessage(
-                    threadId = threadId,
-                    fromUserId = currentUserId,
-                    postId = post.id,
-                    text = message.trim(),
-                )
-            } catch (error: Exception) {
-                fm.corus.android.ui.screens.messaging.showDmSendError(context, error, fm.corus.android.R.string.feed_toast_failed_send_post)
-            }
-        }
+    override fun sendPostToUser(recipient: ShareRecipient, post: CymbalPost, message: String) {
+        val sender = authRepository.currentUserId ?: return
+        messageRepository.queuePostShare(context, sender, recipient, post, message.trim())
     }
 
     override fun reportPost(postId: String, postUserId: String) {

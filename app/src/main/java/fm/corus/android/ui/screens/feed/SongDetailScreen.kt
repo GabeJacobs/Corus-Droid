@@ -1157,7 +1157,7 @@ fun SongDetailScreen(
     // ── Share Song bottom sheet ──
     if (showShareSheet) {
         val shareSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
-        val songSharedMsg = stringResource(fm.corus.android.localization.CorusStrings.share_toast_message_sent)
+
 
         LaunchedEffect(Unit) { viewModel.loadRecentShareContacts() }
 
@@ -1179,9 +1179,8 @@ fun SongDetailScreen(
                 isSearching = isShareSearching,
                 isLoadingContacts = isLoadingShareContacts,
                 onSearchQueryChange = { query -> viewModel.searchShareUsers(query) },
-                onSendToUser = { userId, message ->
-                    viewModel.sendTrackToUser(userId, resolvedTrack, message)
-                    ToastManager.show(songSharedMsg)
+                onSendToUser = { recipient, message ->
+                    viewModel.sendTrackToUser(recipient, resolvedTrack, message)
                     showShareSheet = false
                 },
                 onDismiss = { showShareSheet = false },

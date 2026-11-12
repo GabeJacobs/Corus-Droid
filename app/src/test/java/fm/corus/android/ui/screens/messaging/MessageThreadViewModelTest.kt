@@ -57,6 +57,7 @@ class MessageThreadViewModelTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         messageRepository = mock {
+            on { outgoingShares } doReturn kotlinx.coroutines.flow.MutableStateFlow(emptyList())
             on { listenToMessages(any()) } doReturn emptyFlow()
             on { listenToGroupThreadInfo(any()) } doReturn emptyFlow()
             on { listenToThreadRow(any(), any()) } doReturn emptyFlow()

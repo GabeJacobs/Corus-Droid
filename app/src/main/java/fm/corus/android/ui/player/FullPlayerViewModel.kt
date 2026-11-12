@@ -15,6 +15,7 @@ import fm.corus.android.data.model.PostGiftPreview
 import fm.corus.android.data.repository.GiftSendResult
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.ui.screens.messaging.queueSongShare
 import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.PostRepository
 import fm.corus.android.data.repository.UserRepository
@@ -574,20 +575,8 @@ class FullPlayerViewModel @Inject constructor(
         }
     }
 
-    fun sendTrackToUser(userId: String, track: CymbalTrack, message: String) {
-        val currentUserId = authRepository.currentUserId ?: return
-        viewModelScope.launch {
-            try {
-                val threadId = messageRepository.resolveShareThread(currentUserId, userId)
-                messageRepository.sendSharedTrackMessage(
-                    threadId = threadId,
-                    fromUserId = currentUserId,
-                    text = message.trim(),
-                    track = track,
-                )
-            } catch (error: Exception) {
-                fm.corus.android.ui.screens.messaging.showDmSendError(context, error, fm.corus.android.R.string.feed_toast_failed_send_post)
-            }
-        }
+    fun sendTrackToUser(recipient: ShareRecipient, track: CymbalTrack, message: String) {
+        val sender = authRepository.currentUserId ?: return
+        messageRepository.queueSongShare(context, sender, recipient, track, message.trim())
     }
 }

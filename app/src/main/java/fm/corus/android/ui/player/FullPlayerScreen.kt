@@ -582,7 +582,7 @@ fun FullPlayerScreen(
 
     if (showShareSheet && shareTrack != null) {
         val shareSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
-        val songSharedMsg = stringResource(fm.corus.android.localization.CorusStrings.share_toast_message_sent)
+
         val recentShareContacts by fullPlayerViewModel.recentShareContacts.collectAsState()
         val shareSearchResults by fullPlayerViewModel.shareSearchResults.collectAsState()
         val isShareSearching by fullPlayerViewModel.isShareSearching.collectAsState()
@@ -608,9 +608,8 @@ fun FullPlayerScreen(
                 isSearching = isShareSearching,
                 isLoadingContacts = isLoadingShareContacts,
                 onSearchQueryChange = { query -> fullPlayerViewModel.searchShareUsers(query) },
-                onSendToUser = { userId, message ->
-                    fullPlayerViewModel.sendTrackToUser(userId, shareTrack, message)
-                    ToastManager.show(songSharedMsg)
+                onSendToUser = { recipient, message ->
+                    fullPlayerViewModel.sendTrackToUser(recipient, shareTrack, message)
                     showShareSheet = false
                 },
                 onDismiss = { showShareSheet = false },

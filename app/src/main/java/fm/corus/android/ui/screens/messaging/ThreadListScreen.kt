@@ -113,6 +113,7 @@ fun ThreadListScreen(
         )
     }
     val threads by viewModel.threads.collectAsState()
+    val outgoingShares by viewModel.outgoingShares.collectAsState()
     val scrollToNewestRequest by viewModel.scrollToNewestRequest.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
@@ -137,6 +138,14 @@ fun ThreadListScreen(
     }
 
     val isSearching = inboxSearchText.isNotBlank()
+    val latestShareId = outgoingShares.lastOrNull { it.message.fromUserId == viewModel.currentUserId }?.message?.id
+    var revealedShareId by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(latestShareId, isSearching) {
+        if (!isSearching && latestShareId != null && latestShareId != revealedShareId) {
+            listState.scrollToItem(0)
+            revealedShareId = latestShareId
+        }
+    }
     KeepInboxTopVisible(listState, threads.map { it.id }, enabled = !isSearching)
     LaunchedEffect(scrollToNewestRequest, isSearching) {
         if (scrollToNewestRequest > 0 && !isSearching) listState.scrollToItem(0)
@@ -314,12 +323,19 @@ fun ThreadListScreen(
                         }
                     } else {
                         items(threads, key = { it.id }) { thread ->
+                            val share = outgoingShares.lastOrNull {
+                                it.message.fromUserId == viewModel.currentUserId &&
+                                    it.matches(thread) && it.message.createdAt == thread.lastMessageAt
+                            }
+                            val provisional = thread.id.startsWith("outgoing:")
                             ThreadRow(
                                 blockedAuthors = blockedGroupAuthors,
                                     blocksReady = groupBlocksReady,
                                 thread = thread,
-                                onClick = { onThreadTap(thread.id, thread.otherUserId) },
+                                onClick = { onThreadTap(if (provisional) "" else thread.id, thread.otherUserId) },
                                     onPin = { viewModel.togglePin(thread) },
+                                shareStatus = share?.message?.sendStatus,
+                                onRetry = if (share != null) ({ viewModel.retryShare(share.message.id) }) else null,
                                 membersById = groupMembersById,
                                 currentUserId = viewModel.currentUserId,
                             )
@@ -889,6 +905,8 @@ private fun ThreadRow(
     onPin: () -> Unit,
     membersById: Map<String, CymbalUser> = emptyMap(),
     currentUserId: String? = null,
+    shareStatus: fm.corus.android.data.model.MessageSendStatus? = null,
+    onRetry: (() -> Unit)? = null,
 ) {
     var showActions by remember { mutableStateOf(false) }
     if (showActions) {
@@ -941,7 +959,7 @@ private fun ThreadRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(onClick = onClick, onLongClick = { showActions = true }, onLongClickLabel = stringResource(fm.corus.android.localization.CorusStrings.messaging_conversation_actions))
+            .combinedClickable(onClick = onClick, onLongClick = { if (!thread.id.startsWith("outgoing:")) showActions = true }, onLongClickLabel = stringResource(fm.corus.android.localization.CorusStrings.messaging_conversation_actions))
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -972,12 +990,24 @@ private fun ThreadRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = preview,
+                text = when (shareStatus) {
+                    fm.corus.android.data.model.MessageSendStatus.SENDING ->
+                        "${stringResource(fm.corus.android.localization.CorusStrings.auth_button_sending)} · $preview"
+                    fm.corus.android.data.model.MessageSendStatus.FAILED ->
+                        "${stringResource(fm.corus.android.localization.CorusStrings.messaging_thread_failed_to_deliver)} · $preview"
+                    else -> preview
+                },
                 style = CorusFont.body.copy(fontSize = 14.sp),
                 color = CorusColors.Secondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+        }
+
+        if (shareStatus == fm.corus.android.data.model.MessageSendStatus.FAILED && onRetry != null) {
+            TextButton(onClick = onRetry) {
+                Text(stringResource(fm.corus.android.localization.CorusStrings.common_retry))
+            }
         }
 
         Text(

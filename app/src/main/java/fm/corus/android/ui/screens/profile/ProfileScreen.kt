@@ -1465,9 +1465,9 @@ fun ProfileScreen(
                 isSearching = isShareSearching,
                 isLoadingContacts = isLoadingShareContacts,
                 onSearchQueryChange = { query -> viewModel.searchShareUsers(query) },
-                onSendToUser = { userId, message ->
+                onSendToUser = { recipient, message ->
                     viewModel.sendProfileToUser(
-                        userId, currentProfile.id, currentProfile.username,
+                        recipient.id, currentProfile.id, currentProfile.username,
                         currentProfile.displayName, currentProfile.avatarURL, message,
                     )
                     ToastManager.show(sentMsg)

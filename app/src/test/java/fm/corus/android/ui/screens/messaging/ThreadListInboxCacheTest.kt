@@ -58,6 +58,7 @@ class ThreadListInboxCacheTest {
     )
 
     private fun repoWithCache(cache: MessageRepository.CachedInbox?): MessageRepository = mock {
+        on { outgoingShares } doReturn kotlinx.coroutines.flow.MutableStateFlow(emptyList())
         on { confirmedSends } doReturn kotlinx.coroutines.flow.MutableSharedFlow()
         on { leftThreads } doReturn kotlinx.coroutines.flow.MutableSharedFlow()
         on { cachedInbox } doReturn cache

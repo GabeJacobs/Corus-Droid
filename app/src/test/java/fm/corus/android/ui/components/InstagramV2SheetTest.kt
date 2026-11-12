@@ -27,7 +27,7 @@ class InstagramV2SheetTest {
                     subject = InstagramV2Subject("Test song", "Artist", null, "https://corus.fm/song/test", "https://corus.fm/song/test"),
                     recentContacts = listOf(recipient), searchResults = listOf(recipient), isSearching = false,
                     isLoadingContacts = false, instagramShareEnabled = false,
-                    onSearchQueryChange = {}, onSendToUser = { id, _ -> sent = id }, onDismiss = { dismissed = true },
+                    onSearchQueryChange = {}, onSendToUser = { selected, _ -> sent = selected.id }, onDismiss = { dismissed = true },
                 )
             }
         }

@@ -12,6 +12,9 @@ import fm.corus.android.data.repository.MessageRepository
 import fm.corus.android.data.repository.UserRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -152,6 +155,29 @@ internal fun applyLiveThreadUpdates(
     return LiveThreadMerge(merged, newThreads)
 }
 
+/** Apply local shares over the server window without caching provisional rows. */
+internal fun mergeOutgoingShares(
+    threads: List<CymbalThread>,
+    shares: List<MessageRepository.OutgoingShare>,
+    userId: String?,
+): List<CymbalThread> {
+    val result = threads.toMutableList()
+    for (share in shares) {
+        if (share.message.fromUserId != userId) continue
+        val index = result.indexOfFirst(share::matches)
+        val existing = result.getOrNull(index)
+        if (existing != null && existing.lastMessageAt >= share.message.createdAt) continue
+        val row = (existing ?: share.row.copy(id = share.threadId ?: share.row.id)).copy(
+            lastMessageAt = share.message.createdAt,
+            lastMessageType = share.message.type,
+            lastMessageText = share.row.lastMessageText,
+            lastMessageFromUserId = userId,
+        )
+        if (index == -1) result += row else result[index] = row
+    }
+    return result
+}
+
 @HiltViewModel
 class ThreadListViewModel @Inject constructor(
     private val messageRepository: MessageRepository,
@@ -209,7 +235,13 @@ class ThreadListViewModel @Inject constructor(
     }
 
     private val _threads = MutableStateFlow(visible(seededInbox?.threads ?: emptyList()))
-    val threads: StateFlow<List<CymbalThread>> = _threads.asStateFlow()
+    val outgoingShares = messageRepository.outgoingShares
+    val threads: StateFlow<List<CymbalThread>> = combine(_threads, outgoingShares, blockedGroupAuthorIds) { rows, shares, _ ->
+        visible(mergeOutgoingShares(rows, shares, currentUserId))
+    }.stateIn(viewModelScope, SharingStarted.Eagerly,
+        visible(mergeOutgoingShares(_threads.value, outgoingShares.value, currentUserId)))
+
+    fun retryShare(messageId: String) { messageRepository.retryShare(messageId) }
 
     /**
      * Counts publishes rather than compares lists, so a publish that restates the

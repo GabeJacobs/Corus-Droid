@@ -648,9 +648,9 @@ fun AlbumPageScreen(
                 isSearching = isShareSearching,
                 isLoadingContacts = isLoadingShareContacts,
                 onSearchQueryChange = { query -> viewModel.searchShareUsers(query) },
-                onSendToUser = { userId, message ->
+                onSendToUser = { recipient, message ->
                     viewModel.sendAlbumToUser(
-                        userId, albumId, title ?: "Album", artistName ?: "", cover,
+                        recipient.id, albumId, title ?: "Album", artistName ?: "", cover,
                         (catalog?.year ?: yearHint)?.toString(), message,
                     )
                     ToastManager.show(sentMsg)

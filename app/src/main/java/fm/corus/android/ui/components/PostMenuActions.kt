@@ -30,7 +30,7 @@ interface PostMenuActions {
     fun isOwnPost(post: CymbalPost): Boolean
     fun loadRecentShareContacts(includeCachedFallbacks: Boolean = false)
     fun searchShareUsers(query: String)
-    fun sendPostToUser(userId: String, post: CymbalPost, message: String)
+    fun sendPostToUser(recipient: ShareRecipient, post: CymbalPost, message: String)
     fun reportPost(postId: String, postUserId: String)
     fun blockUser(targetUserId: String)
     /** Toggles the viewer's save (bookmark) on the post — same action as the

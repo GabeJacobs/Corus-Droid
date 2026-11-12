@@ -56,6 +56,7 @@ class MessageThreadAccessTest {
         Dispatchers.setMain(testDispatcher)
         rows = MutableSharedFlow(replay = 1)
         messageRepository = mock {
+            on { outgoingShares } doReturn kotlinx.coroutines.flow.MutableStateFlow(emptyList())
             on { listenToMessages(any()) } doReturn emptyFlow()
             on { listenToGroupThreadInfo(any()) } doReturn emptyFlow()
             on { listenToRecipientUnreadCount(any(), any()) } doReturn emptyFlow()

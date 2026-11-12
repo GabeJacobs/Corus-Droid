@@ -553,7 +553,7 @@ internal fun PostToInstagramV2Sheet(
     subject: InstagramV2Subject,
     recentContacts: List<ShareRecipient>, searchResults: List<ShareRecipient>,
     isSearching: Boolean, isLoadingContacts: Boolean, instagramShareEnabled: Boolean,
-    onSearchQueryChange: (String) -> Unit, onSendToUser: (String, String) -> Unit,
+    onSearchQueryChange: (String) -> Unit, onSendToUser: (ShareRecipient, String) -> Unit,
     onDismiss: () -> Unit, onRepost: (() -> Unit)? = null, onAnalyticsLog: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
@@ -1015,7 +1015,7 @@ internal fun PostToInstagramV2Sheet(
                         )
                         Button(
                             enabled = !sent,
-                            onClick = { selected?.let { sent = true; onAnalyticsLog?.invoke("direct_message"); onSendToUser(it.id, message.text); onDismiss() } },
+                            onClick = { selected?.let { sent = true; onAnalyticsLog?.invoke("direct_message"); onSendToUser(it, message.text); onDismiss() } },
                             colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
                             shape = RoundedCornerShape(50),
                             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),

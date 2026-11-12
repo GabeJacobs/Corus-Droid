@@ -932,8 +932,8 @@ fun ArtistPageScreen(
                 isSearching = isShareSearching,
                 isLoadingContacts = isLoadingShareContacts,
                 onSearchQueryChange = { query -> viewModel.searchShareUsers(query) },
-                onSendToUser = { userId, message ->
-                    viewModel.sendArtistToUser(userId, artistId, artistName ?: "Artist", heroImage, message)
+                onSendToUser = { recipient, message ->
+                    viewModel.sendArtistToUser(recipient.id, artistId, artistName ?: "Artist", heroImage, message)
                     ToastManager.show(sentMsg)
                     showShareSheet = false
                 },

@@ -98,7 +98,6 @@ fun PostMenuSheets(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val postSentMsg = stringResource(fm.corus.android.localization.CorusStrings.share_toast_message_sent)
     val captionUpdatedMsg = stringResource(fm.corus.android.localization.CorusStrings.nav_toast_caption_updated)
     val addedToQueueMsg = stringResource(fm.corus.android.localization.CorusStrings.post_menu_toast_added_to_queue)
     val albumNotFoundMsg = stringResource(fm.corus.android.localization.CorusStrings.post_toast_album_not_found)
@@ -206,9 +205,8 @@ fun PostMenuSheets(
                 postToInstagramV2 = actions.remoteConfig.postToInstagramV2,
                 sheetState = shareSheetState,
                 onSearchQueryChange = { query -> actions.searchShareUsers(query) },
-                onSendToUser = { userId, message ->
-                    actions.sendPostToUser(userId, post, message)
-                    ToastManager.show(postSentMsg)
+                onSendToUser = { recipient, message ->
+                    actions.sendPostToUser(recipient, post, message)
                     onSharePostChange(null)
                 },
                 onRepost = {

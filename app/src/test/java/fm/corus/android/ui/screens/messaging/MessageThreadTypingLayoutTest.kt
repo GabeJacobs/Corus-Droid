@@ -62,6 +62,7 @@ class MessageThreadTypingLayoutTest {
 
     private fun render(row: CymbalThread?) {
         val messageRepository = mock<MessageRepository> {
+            on { outgoingShares } doReturn kotlinx.coroutines.flow.MutableStateFlow(emptyList())
             on { listenToMessages(any()) } doReturn flowOf((0..30).map { incoming.copy(id = "m$it", text = "Message $it") })
             on { listenToGroupThreadInfo(any()) } doReturn emptyFlow()
             on { listenToRecipientUnreadCount(any(), any()) } doReturn emptyFlow()

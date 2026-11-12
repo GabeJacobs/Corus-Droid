@@ -54,6 +54,7 @@ class MessageThreadScreenAccessTest {
 
     private fun render(row: CymbalThread?) {
         val messageRepository = mock<MessageRepository> {
+            on { outgoingShares } doReturn kotlinx.coroutines.flow.MutableStateFlow(emptyList())
             on { listenToMessages(any()) } doReturn flowOf(listOf(incoming))
             on { listenToGroupThreadInfo(any()) } doReturn emptyFlow()
             on { listenToRecipientUnreadCount(any(), any()) } doReturn emptyFlow()
@@ -110,6 +111,7 @@ class MessageThreadScreenAccessTest {
     @Test
     fun `an empty 1-1 thread shows the profile opener above the composer`() {
         val messageRepository = mock<MessageRepository> {
+            on { outgoingShares } doReturn kotlinx.coroutines.flow.MutableStateFlow(emptyList())
             on { listenToMessages(any()) } doReturn flowOf(emptyList())
             on { listenToGroupThreadInfo(any()) } doReturn emptyFlow()
             on { listenToRecipientUnreadCount(any(), any()) } doReturn emptyFlow()

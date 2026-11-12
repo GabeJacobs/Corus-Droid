@@ -6,12 +6,11 @@ import java.time.Instant
 
 class DailyHashtagBannerTest {
     private val now = Instant.parse("2026-11-03T20:00:00Z").toEpochMilli()
-    private fun items(posts: Int = 8, people: Int = 6) = listOf(mapOf<String, Any>("name" to "jazztuesday", "postCount" to posts, "distinctAuthors" to people))
+    private fun items(posts: Int = 7, people: Int = 7) = listOf(mapOf<String, Any>("name" to "jazztuesday", "postCount" to posts, "distinctAuthors" to people))
 
-    @Test fun requiresBothDailyThresholds() {
+    @Test fun requiresSevenDistinctContributors() {
         assertEquals("jazztuesday", parseDailyHashtagBanner("2026-11-03", now, items(), now)?.name)
-        assertNull(parseDailyHashtagBanner("2026-11-03", now, items(7, 6), now))
-        assertNull(parseDailyHashtagBanner("2026-11-03", now, items(8, 5), now))
+        assertNull(parseDailyHashtagBanner("2026-11-03", now, items(20, 6), now))
     }
     @Test fun hidesOldRemovedAndMissingData() {
         assertNull(parseDailyHashtagBanner("2026-11-02", now, items(), now))

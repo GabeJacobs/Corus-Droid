@@ -76,6 +76,7 @@ class ThreadListLiveMergeFlashTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         messageRepository = mock {
+            on { outgoingShares } doReturn kotlinx.coroutines.flow.MutableStateFlow(emptyList())
             on { confirmedSends } doReturn kotlinx.coroutines.flow.MutableSharedFlow()
             on { leftThreads } doReturn MutableSharedFlow()
             on { cachedInbox } doReturn null

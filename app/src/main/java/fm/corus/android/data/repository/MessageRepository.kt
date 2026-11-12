@@ -1,10 +1,12 @@
 package fm.corus.android.data.repository
 
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.MetadataChanges
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import fm.corus.android.domain.TypingPulse
 import fm.corus.android.data.model.CymbalMessage
@@ -14,12 +16,19 @@ import fm.corus.android.data.model.InboxSearchResult
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MessageType
+import fm.corus.android.data.model.MessageSendStatus
+import fm.corus.android.data.model.ShareRecipient
 import fm.corus.android.data.model.TrackSource
 import java.util.Date
 import java.util.concurrent.ConcurrentHashMap
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import fm.corus.android.data.remote.FirebaseStorageDataSource
 import kotlinx.coroutines.async
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -27,6 +36,9 @@ import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.callbackFlow
@@ -52,6 +64,118 @@ class MessageRepository @Inject constructor(
         /** Small enough for an instant first paint; older history is paged on demand. */
         const val MESSAGE_PAGE_SIZE = 40L
     }
+    data class OutgoingShare(
+        val destinationId: String,
+        val row: CymbalThread,
+        val message: CymbalMessage,
+        val threadId: String? = null,
+        val deliver: suspend (String, String) -> Unit,
+        val onStart: () -> Unit,
+        val onSent: () -> Unit,
+        val onFailure: (Exception) -> Unit,
+    ) {
+        fun matches(thread: CymbalThread): Boolean = thread.id == (threadId ?: row.id) ||
+            (!thread.isGroup && !row.isGroup && row.otherUserId == thread.otherUserId)
+    }
+
+    private val shareScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val _outgoingShares = MutableStateFlow<List<OutgoingShare>>(emptyList())
+    val outgoingShares = _outgoingShares.asStateFlow()
+
+    fun queueShare(
+        destinationId: String,
+        recipient: ShareRecipient?,
+        message: CymbalMessage,
+        preview: String,
+        deliver: suspend (String, String) -> Unit,
+        onStart: () -> Unit,
+        onSent: () -> Unit,
+        onFailure: (Exception) -> Unit,
+    ) {
+        val groupId = destinationId.takeIf { it.startsWith("group:") }?.removePrefix("group:")
+        val existing = cachedInbox?.takeIf { it.userId == message.fromUserId }?.threads?.firstOrNull {
+            if (groupId != null) it.id == groupId else !it.isGroup && it.otherUserId == destinationId
+        } ?: recipient?.group
+        val row = (existing ?: CymbalThread(
+            id = groupId ?: "outgoing:$destinationId",
+            otherUser = recipient?.user,
+            otherUserId = if (groupId == null) destinationId else "",
+            isGroup = groupId != null,
+        )).copy(
+            lastMessageText = preview,
+            lastMessageType = message.type,
+            lastMessageAt = message.createdAt,
+            lastMessageFromUserId = message.fromUserId,
+        )
+        val share = OutgoingShare(destinationId, row, message, existing?.id ?: groupId, deliver, onStart, onSent, onFailure)
+        _outgoingShares.update { shares ->
+            shares.filter { it.message.fromUserId == message.fromUserId } + share
+        }
+        sendQueuedShare(share)
+    }
+
+    fun retryShare(messageId: String): Boolean {
+        val share = outgoingShares.value.firstOrNull {
+            it.message.id == messageId && it.message.sendStatus == MessageSendStatus.FAILED
+        } ?: return false
+        sendQueuedShare(share)
+        return true
+    }
+
+    private fun sendQueuedShare(share: OutgoingShare) {
+        val sender = share.message.fromUserId
+        if (FirebaseAuth.getInstance().currentUser?.uid != sender) return
+        val id = share.message.id
+        share.onStart()
+        var sending = share.copy(message = share.message.copy(sendStatus = MessageSendStatus.SENDING))
+        updateShare(sending)
+        shareScope.launch {
+            var listener: ListenerRegistration? = null
+            try {
+                val threadId = sending.threadId ?: resolveShareThread(sender, sending.destinationId)
+                if (FirebaseAuth.getInstance().currentUser?.uid != sender) return@launch
+                sending = sending.copy(threadId = threadId, message = sending.message.copy(threadId = threadId))
+                updateShare(sending)
+                listener = firestore.collection("threads").document(threadId).collection("messages").document(id)
+                    .addSnapshotListener { snapshot, _ ->
+                        if (snapshot?.exists() == true && !snapshot.metadata.hasPendingWrites()) {
+                            shareScope.launch {
+                                listener?.remove()
+                                confirmShare(id)
+                            }
+                        }
+                    }
+                sending.deliver(threadId, id)
+                confirmShare(id)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                if (outgoingShares.value.any { it.message.id == id && it.message.sendStatus == MessageSendStatus.SENDING }) {
+                    updateShare(sending.copy(message = sending.message.copy(sendStatus = MessageSendStatus.FAILED)))
+                    if (FirebaseAuth.getInstance().currentUser?.uid == sender) sending.onFailure(error)
+                }
+            } finally {
+                listener?.remove()
+            }
+        }
+    }
+
+    private fun confirmShare(id: String) {
+        val share = outgoingShares.value.firstOrNull {
+            it.message.id == id && it.message.sendStatus == MessageSendStatus.SENDING
+        } ?: return
+        updateShare(share.copy(message = share.message.copy(sendStatus = MessageSendStatus.SENT)))
+        if (FirebaseAuth.getInstance().currentUser?.uid == share.message.fromUserId) share.onSent()
+        shareScope.launch {
+            delay(30_000)
+            _outgoingShares.update { shares -> shares.filterNot { it.message.id == id } }
+        }
+    }
+
+    private fun updateShare(updated: OutgoingShare) {
+        _outgoingShares.update { shares -> shares.map { if (it.message.id == updated.message.id) updated else it } }
+    }
+
     // Replay the latest confirmed send so an inbox opened after a share also
     // reconciles. This is emitted only after the backend accepts the message.
     private val _confirmedSends = MutableSharedFlow<String>(replay = 1, extraBufferCapacity = 8)

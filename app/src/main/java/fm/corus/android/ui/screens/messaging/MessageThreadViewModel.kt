@@ -148,6 +148,7 @@ class MessageThreadViewModel @Inject constructor(
      * matches and holding the copy longer can't duplicate a bubble.
      */
     private val _pendingMessages = MutableStateFlow<Map<String, CymbalMessage>>(emptyMap())
+    private val shareTarget = MutableStateFlow<Pair<String, String>?>(null)
 
     // Track local insertions independently of delivery status: an ack must not
     // interrupt the animation, and every message type uses launchOutgoing.
@@ -163,7 +164,9 @@ class MessageThreadViewModel @Inject constructor(
         _serverMessages,
         _olderMessages,
         _pendingMessages,
-    ) { server, older, pending ->
+        messageRepository.outgoingShares,
+        shareTarget,
+    ) { server, older, pending, shares, target ->
         val history = mergeMessagePages(server, older)
         val byPending = pending
         val held = history.map { msg ->
@@ -174,7 +177,12 @@ class MessageThreadViewModel @Inject constructor(
         }
         val confirmedIds = held.map { it.id }.toSet()
         val unconfirmed = pending.values.filter { it.id !in confirmedIds }
-        (held + unconfirmed).sortedByDescending { it.createdAt }
+        val fromShareSheet = shares.filter { share ->
+            share.message.id !in confirmedIds && share.message.fromUserId == authRepository.currentUserId &&
+                target != null && ((target.first.isNotEmpty() && target.first == share.threadId) ||
+                (target.second.isNotEmpty() && !share.row.isGroup && target.second == share.row.otherUserId))
+        }.map { it.message }
+        (held + unconfirmed + fromShareSheet).sortedByDescending { it.createdAt }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     // Starts true so the first frame of an opened thread cannot paint a blank
@@ -293,6 +301,7 @@ class MessageThreadViewModel @Inject constructor(
 
 
     fun loadMessages(threadId: String, otherUserId: String) {
+        shareTarget.value = threadId to otherUserId
         // Popping back onto this screen re-runs LaunchedEffect(threadId). The
         // ViewModel (and its Firestore listener) survived on the back stack, so
         // tearing the listener down and treating that cancel as a load failure
@@ -1389,6 +1398,7 @@ class MessageThreadViewModel @Inject constructor(
     // ── Retry ──
 
     fun retrySendMessage(messageId: String) {
+        if (messageRepository.retryShare(messageId)) return
         val message = _pendingMessages.value[messageId] ?: return
         if (message.failureReason == MessageFailureReason.MESSAGING_DISABLED) return
 

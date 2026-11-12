@@ -525,8 +525,8 @@ fun DirectorPageScreen(
                 isSearching = isShareSearching,
                 isLoadingContacts = isLoadingShareContacts,
                 onSearchQueryChange = { query -> viewModel.searchShareUsers(query) },
-                onSendToUser = { userId, message ->
-                    viewModel.sendDirectorToUser(userId, directorId, directorName ?: "Director", photo, message)
+                onSendToUser = { recipient, message ->
+                    viewModel.sendDirectorToUser(recipient.id, directorId, directorName ?: "Director", photo, message)
                     ToastManager.show(sentMsg)
                     showShareSheet = false
                 },
