@@ -43,7 +43,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.foundation.isSystemInDarkTheme
-import fm.corus.android.R
 import fm.corus.android.service.DeepLinkDestination
 import fm.corus.android.ui.components.LocalPromptOverlayHost
 import fm.corus.android.ui.components.PromptOverlayHost
@@ -84,14 +83,6 @@ fun CorusApp(
         val referralWelcome by fm.corus.android.service.ReferralService.welcome.collectAsState()
         val referralIssue by fm.corus.android.service.ReferralService.completionIssue.collectAsState()
         LaunchedEffect(referralWelcome, referralIssue, authState) { if (referralWelcome != null || referralIssue != null) viewModel.showLateReferralOutcome() }
-        val prototypeState by viewModel.forYouPrototype.state.collectAsState()
-        val tabPresentation by viewModel.feedTabPresentation.collectAsState()
-        val waitingForFeedTabs = authState == AuthViewModel.AuthState.SignedIn &&
-            (!tabPresentation.hasPresentation || viewModel.isResolvingFeedTabs ||
-                !prototypeState.hasPresentation || viewModel.forYouPrototype.isResolvingAccess)
-        LaunchedEffect(authState, tabPresentation.uid, tabPresentation.generation) {
-            if (authState == AuthViewModel.AuthState.SignedIn) viewModel.awaitFeedTabPresentation()
-        }
         val isConnected by viewModel.networkConnected.collectAsState()
         val signupGateRevision by viewModel.signupGateConfigRevision.collectAsState()
 
@@ -107,6 +98,7 @@ fun CorusApp(
         var gateRetry by remember { mutableStateOf(0) }
         LaunchedEffect(gateUid, authState, gateEnabled, signupGateRevision, gateRetry) {
             val eligibleRoute = authState != AuthViewModel.AuthState.Loading &&
+                authState != AuthViewModel.AuthState.SigningIn &&
                 authState != AuthViewModel.AuthState.SignedOut && authState != AuthViewModel.AuthState.NeedsOnboarding
             if (!gateEnabled || gateUid == null || !eligibleRoute ||
                 (TimeZone.getDefault().id != "Africa/Lagos" && !gatePrefs.getBoolean(gateUid, false))) {
@@ -142,10 +134,15 @@ fun CorusApp(
             CompactWidthContainer(modifier = Modifier.fillMaxSize()) {
                 when (authState) {
                     AuthViewModel.AuthState.Loading -> {
-                        Box(Modifier.fillMaxSize().background(CorusColors.Background))
+                        Box(
+                            Modifier.fillMaxSize().background(CorusColors.Background),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator(color = CorusColors.Accent)
+                        }
                     }
-                    AuthViewModel.AuthState.SignedOut -> {
-                        AuthScreen()
+                    AuthViewModel.AuthState.SignedOut, AuthViewModel.AuthState.SigningIn -> {
+                        AuthScreen(viewModel, finishingSignIn = authState == AuthViewModel.AuthState.SigningIn)
                     }
                     AuthViewModel.AuthState.NeedsOnboarding -> {
                         OnboardingScreen()
@@ -162,9 +159,7 @@ fun CorusApp(
                     }
                     AuthViewModel.AuthState.SignedIn -> {
                         fm.corus.android.ui.screens.settings.ReferralWelcomeDialog()
-                        if (waitingForFeedTabs) {
-                            Box(Modifier.fillMaxSize().background(CorusColors.Background))
-                        } else MainTabScreen(
+                        MainTabScreen(
                             pendingNotificationDestination = pendingNotificationDestination,
                             onNotificationDestinationConsumed = onNotificationDestinationConsumed,
                         )
@@ -173,7 +168,6 @@ fun CorusApp(
 
                 val globalReferralSheet by fm.corus.android.service.ReferralService.presentingInvite.collectAsState()
                 if (globalReferralSheet) fm.corus.android.ui.screens.settings.ReferralScreen(onClose = { fm.corus.android.service.ReferralService.presentingInvite.value = false })
-                FeedLaunchCover(visible = authState == AuthViewModel.AuthState.Loading || waitingForFeedTabs)
 
                 AnimatedVisibility(
                     visible = !isConnected,

@@ -2,15 +2,14 @@ package fm.corus.android.ui.screens.live
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.media.AudioDeviceInfo
 import android.media.AudioFormat
-import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -20,6 +19,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -35,6 +38,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
+import kotlin.math.log10
+
+private val MicrophoneMeterHeight = 16.dp
+private const val GoodMicLevel = .07f
+private const val MicMeterSegmentCount = 24
+private const val LoudMicMeterLevel = (MicMeterSegmentCount - 2f) / MicMeterSegmentCount
+private const val MicMeterFloorDecibels = -30f
 
 @Composable
 internal fun LiveMicrophone(
@@ -45,13 +55,10 @@ internal fun LiveMicrophone(
 ) {
     val context = LocalContext.current
     val recorder = rememberVoiceNoteRecorderState(maxDuration = if (welcome) 30f else 3f)
-    val audioManager = remember(context) { context.getSystemService(AudioManager::class.java) }
-    var input by remember { mutableStateOf<AudioDeviceInfo?>(null) }
-    var inputs by remember { mutableStateOf<List<AudioDeviceInfo>>(emptyList()) }
-    var inputMenu by remember { mutableStateOf(false) }
     var sampling by remember { mutableStateOf(welcome) }
     var monitor by remember { mutableStateOf(false) }
     var level by remember { mutableFloatStateOf(0f) }
+    var recordingLevel by remember(recorder.isRecording) { mutableFloatStateOf(0f) }
     var detectedSound by remember { mutableStateOf(false) }
     var denied by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
@@ -91,16 +98,16 @@ internal fun LiveMicrophone(
         if (recordRequest == 0) return@LaunchedEffect
         delay(150)
         recorder.deleteRecording()
-        recorder.startRecording(context, input)
+        recorder.startRecording(context)
         if (!recorder.isRecording) failed = true
     }
 
-    LaunchedEffect(monitor, input) {
+    LaunchedEffect(monitor) {
         if (!monitor) return@LaunchedEffect
         try {
-            monitorMicrophone(input) { sample ->
+            monitorMicrophone { sample ->
                 level = sample
-                detectedSound = detectedSound || sample > .07f
+                detectedSound = detectedSound || sample > GoodMicLevel
             }
         } catch (error: CancellationException) {
             throw error
@@ -113,6 +120,10 @@ internal fun LiveMicrophone(
     LaunchedEffect(recorder.isRecording, recorder.isPreviewing) {
         while (recorder.isRecording || recorder.isPreviewing) {
             delay(100)
+            if (recorder.isRecording) {
+                val peak = recorder.readRecordingPeakAmplitude()
+                recordingLevel = peak / 32768f
+            }
             recorder.updateTimerTick()
         }
     }
@@ -132,7 +143,7 @@ internal fun LiveMicrophone(
         lifecycle.addObserver(observer)
         onDispose {
             lifecycle.removeObserver(observer)
-            if (recorder.isRecording) recorder.stopRecording()
+            recorder.cancelRecording()
             recorder.stopPreview()
         }
     }
@@ -146,7 +157,14 @@ internal fun LiveMicrophone(
 
     LiveSheet(
         if (welcome) stringResource(CorusStrings.corus_live_welcome_message) else stringResource(CorusStrings.corus_live_test_microphone),
-        { if (!recorder.isRecording) finish() },
+        {
+            if (recorder.isRecording) {
+                recorder.cancelRecording()
+                close()
+            } else {
+                finish()
+            }
+        },
     ) {
         LiveText(
             when {
@@ -165,16 +183,19 @@ internal fun LiveMicrophone(
                 LiveText(
                     when {
                         !monitor -> "Microphone paused"
-                        level > .93f -> "Too loud · Move back"
-                        level > .07f -> "Good level"
+                        microphoneMeterLevel(level) > LoudMicMeterLevel -> "Too loud · Move back"
+                        level > GoodMicLevel -> "Good level"
                         detectedSound -> "Too quiet · Move closer"
                         else -> "Speak to test"
                     },
                     CorusFont.username,
                 )
-                LiveVoiceMeter(level)
+                LiveMicrophoneMeter(if (monitor) level else 0f)
             } else {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.heightIn(min = 48.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     if (recorder.hasRecording) {
                         LiveIconButton(if (recorder.isPreviewing) Icons.Default.Pause else Icons.Default.PlayArrow,
                             if (recorder.isPreviewing) "Pause playback" else "Play sample", { recorder.togglePreview(context) },
@@ -193,30 +214,34 @@ internal fun LiveMicrophone(
                     if (recorder.hasRecording) {
                         LiveIconButton(Icons.Default.Replay, "Record again", { request(true) })
                         if (welcome) LiveIconButton(Icons.Default.DeleteOutline, "Remove welcome message", { recorder.deleteRecording() })
+                    } else if (recorder.isRecording) {
+                        LiveText(
+                            "0:${duration.toString().padStart(2, '0')}",
+                            style = CorusFont.caption.copy(fontFeatureSettings = "tnum"),
+                            color = CorusColors.Secondary,
+                            lines = 1,
+                        )
                     }
                 }
-                LinearProgressIndicator(
-                    progress = { (recorder.previewCurrentTime / recorder.recordingDuration.coerceAtLeast(1f)).coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth().height(4.dp), color = CorusColors.Accent,
-                )
-            }
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) {
-                TextButton(enabled = !recorder.isRecording && !recorder.isPreviewing, onClick = {
-                    inputs = audioManager?.getDevices(AudioManager.GET_DEVICES_INPUTS)?.toList().orEmpty()
-                    inputMenu = true
-                }) { LiveText(input?.productName?.toString() ?: "Microphone") }
-                DropdownMenu(inputMenu, { inputMenu = false }) {
-                    inputs.forEach { device ->
-                        DropdownMenuItem(
-                            text = { LiveText(device.productName.toString()) },
-                            onClick = { input = device; inputMenu = false },
+                if (recorder.isRecording || (!welcome && !recorder.hasRecording)) {
+                    LiveMicrophoneMeter(recordingLevel)
+                } else if (recorder.hasRecording) {
+                    Box(
+                        Modifier.fillMaxWidth().height(MicrophoneMeterHeight),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        LinearProgressIndicator(
+                            progress = {
+                                (recorder.previewCurrentTime / recorder.recordingDuration.coerceAtLeast(.001f))
+                                    .coerceIn(0f, 1f)
+                            },
+                            modifier = Modifier.fillMaxWidth().height(4.dp),
+                            color = CorusColors.Accent,
+                            drawStopIndicator = {},
                         )
                     }
                 }
             }
-            LiveIconButton(Icons.Default.SpeakerGroup, stringResource(CorusStrings.corus_live_audio_output), { showLiveAudioOutput(context) })
         }
         when {
             recorder.isRecording -> LivePrimary("Stop recording", onClick = recorder::stopRecording)
@@ -236,7 +261,38 @@ internal fun LiveMicrophone(
     }
 }
 
-private suspend fun monitorMicrophone(device: AudioDeviceInfo?, onLevel: (Float) -> Unit) = withContext(Dispatchers.IO) {
+@Composable
+private fun LiveMicrophoneMeter(amplitude: Float) {
+    val level = microphoneMeterLevel(amplitude)
+    val activeColor = when {
+        level > LoudMicMeterLevel -> LiveRed
+        amplitude > GoodMicLevel -> CorusColors.Verified
+        else -> CorusColors.Accent
+    }
+    Row(
+        Modifier.fillMaxWidth().semantics {
+            contentDescription = "Microphone level"
+            progressBarRangeInfo = ProgressBarRangeInfo(level, 0f..1f)
+        },
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        repeat(MicMeterSegmentCount) { segment ->
+            val color = if (segment.toFloat() / MicMeterSegmentCount < level) {
+                activeColor
+            } else {
+                CorusColors.Secondary.copy(alpha = .15f)
+            }
+            Box(Modifier.weight(1f).height(MicrophoneMeterHeight).background(color, CircleShape))
+        }
+    }
+}
+
+private fun microphoneMeterLevel(amplitude: Float): Float {
+    val decibels = 20f * log10(amplitude.coerceAtLeast(.001f))
+    return ((decibels - MicMeterFloorDecibels) / -MicMeterFloorDecibels).coerceIn(0f, 1f)
+}
+
+private suspend fun monitorMicrophone(onLevel: (Float) -> Unit) = withContext(Dispatchers.IO) {
     val rate = 16_000
     val channel = AudioFormat.CHANNEL_IN_MONO
     val encoding = AudioFormat.ENCODING_PCM_16BIT
@@ -248,7 +304,6 @@ private suspend fun monitorMicrophone(device: AudioDeviceInfo?, onLevel: (Float)
         .build()
     val samples = ShortArray(bufferSize / 2)
     try {
-        device?.let(record::setPreferredDevice)
         record.startRecording()
         while (isActive) {
             val count = record.read(samples, 0, samples.size)

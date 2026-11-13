@@ -6,7 +6,12 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -39,25 +44,42 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 internal data class LiveNavigation(
-    val state: LiveUiState,
+    val state: LiveNavigationState,
     val viewModel: LiveViewModel,
     val post: (Boolean) -> Unit,
     val postBook: (() -> Unit)? = null,
 )
 
-internal val LocalLiveNavigation = staticCompositionLocalOf<LiveNavigation?> { null }
+internal data class LiveNavigationState(
+    val access: LiveAccess?,
+    val discovery: List<LiveRoom>,
+    val discoveryCounts: Map<String, Int>,
+    val invites: List<LiveFields>,
+    val showGoLive: Boolean,
+    val canOpenSetup: Boolean,
+    val mixedSaves: List<LiveSaveItem>?,
+    val mixedSavesLoading: Boolean,
+    val mixedSavesHasMore: Boolean,
+)
+
+internal val LocalLiveNavigation = compositionLocalOf<LiveNavigation?> { null }
 
 @Composable
 internal fun LiveCreateButton(onDefault: () -> Unit, modifier: Modifier = Modifier) {
     val live = LocalLiveNavigation.current
-    if (live?.state?.access == null) {
+    if (live == null) {
         ComposePlusButton(onClick = onDefault, modifier = modifier)
         return
     }
     var menu by remember { mutableStateOf(false) }
+    var handingOffToLive by remember { mutableStateOf(false) }
     Box(modifier) {
-        ComposePlusButton(onClick = { menu = true })
-        DropdownMenu(menu, { menu = false }) {
+        ComposePlusButton(onClick = {
+            if (live.state.showGoLive && live.state.canOpenSetup) live.viewModel.preloadFirstSong()
+            handingOffToLive = false
+            menu = true
+        })
+        if (!handingOffToLive) DropdownMenu(menu, { menu = false }) {
             DropdownMenuItem(
                 { LiveText(stringResource(CorusStrings.destination_song_label)) }, { menu = false; live.post(false) },
                 leadingIcon = { Icon(Icons.Default.MusicNote, null) },
@@ -72,9 +94,10 @@ internal fun LiveCreateButton(onDefault: () -> Unit, modifier: Modifier = Modifi
                     leadingIcon = { Icon(Icons.Default.Book, null) },
                 )
             }
-            DropdownMenuItem(
-                { LiveText(stringResource(CorusStrings.corus_live_go_live)) }, { menu = false; live.viewModel.openSetup() },
-                enabled = live.state.progress == null && (live.state.room == null || live.state.hosting),
+            if (live.state.showGoLive) DropdownMenuItem(
+                { LiveText(stringResource(CorusStrings.corus_live_go_live)) },
+                { handingOffToLive = true; menu = false; live.viewModel.openSetup() },
+                enabled = live.state.canOpenSetup,
                 leadingIcon = { Icon(Icons.Default.Sensors, null) },
             )
         }
@@ -232,7 +255,24 @@ internal fun BoxScope.LivePresentation(
             LiveRoomScreen(room, state, vm, openProfile, openSong)
         }
     }
-    state.setup?.let { LiveHostSetup(it, profile, vm, state.progress) }
+    val setupTransition = remember { MutableTransitionState(false) }
+    setupTransition.targetState = state.setup != null
+    AnimatedVisibility(
+        visibleState = setupTransition,
+        modifier = Modifier.fillMaxSize().zIndex(10f),
+        enter = slideInVertically { it },
+        exit = if (state.hosting) ExitTransition.None else slideOutVertically { it },
+    ) {
+        val latest = state.setup
+        var exitingSetup by remember { mutableStateOf(latest) }
+        SideEffect { if (latest != null) exitingSetup = latest }
+        (latest ?: exitingSetup)?.let {
+            LiveHostSetup(
+                it, profile, vm, state.progress, state.checkingSetupAccess, roomOpened = state.hosting,
+                visible = latest != null, modifier = Modifier.blockTouchPassthrough(),
+            )
+        }
+    }
     if (state.setup == null && state.progress != null) {
         Box(Modifier.fillMaxSize().zIndex(10f).background(CorusColors.Background)) { LiveLoading(state.progress) }
     }

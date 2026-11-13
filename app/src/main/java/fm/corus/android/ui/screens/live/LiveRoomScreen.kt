@@ -20,7 +20,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -49,15 +48,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.customActions
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import coil3.compose.AsyncImage
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.DiscoIntensity
 import fm.corus.android.data.model.RainIntensity
@@ -72,7 +68,6 @@ import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 private enum class RoomPanel { HISTORY, LISTENERS, OPTIONS, RENAME, INVITE, LINEUP, PICK_DJS, QUEUE, REQUEST_SONG, GIF, REPORT, END }
 
@@ -103,6 +98,11 @@ internal fun LiveRoomScreen(
         if (!room.allowSongRequests && panel == RoomPanel.REQUEST_SONG) close()
     }
     val canControl = state.hosting || state.dj != null
+    LaunchedEffect(vm, state.uid, canControl) {
+        if (canControl) vm.preloadSongSuggestions()
+    }
+    val openDJSpots = (LIVE_MAX_GUEST_DJS - room.djs.size -
+        state.pendingDJs.count { it.number("expiresAt") > vm.serverTime() }).coerceAtLeast(0)
     val pager = rememberPagerState { 2 }
     val listenRoster = remember { mutableStateOf<List<LiveFields>?>(null) }
     var selectedMessage by remember { mutableStateOf<LiveMessage?>(null) }
@@ -337,14 +337,22 @@ internal fun LiveRoomScreen(
             }
         }
         RoomPanel.INVITE -> LiveSheet(stringResource(CorusStrings.native_1fd9ae1607aa), close) {
-            LiveRow("Invite a DJ", Icons.Default.PersonAdd) { panel = RoomPanel.PICK_DJS }
+            if (openDJSpots > 0) LiveRow("Invite a DJ", Icons.Default.PersonAdd) { panel = RoomPanel.PICK_DJS }
             LiveRow("Invite Listeners", Icons.Default.IosShare) { close(); share() }
         }
-        RoomPanel.PICK_DJS -> LivePersonPicker(emptyList(), vm, close) { people ->
-            if (people.isNotEmpty()) vm.action("inviteDJs", mapOf("uids" to people.map { it.uid }))
+        RoomPanel.PICK_DJS -> LivePersonPicker(
+            emptyList(), vm, close, limit = openDJSpots,
+            excluded = (room.djs + state.pendingDJs.filter { it.number("expiresAt") > vm.serverTime() })
+                .map { it.text("uid") }.toSet() + room.host.uid,
+        ) { people ->
+            if (people.isNotEmpty() && people.size <= openDJSpots) vm.action("inviteDJs", mapOf("uids" to people.map { it.uid }))
             close()
         }
-        RoomPanel.LINEUP -> LiveLineupSheet(room, state, vm, close, visitProfile, { panel = RoomPanel.PICK_DJS }, { panel = RoomPanel.REQUEST_SONG })
+        RoomPanel.LINEUP -> LiveLineupSheet(
+            room, state, vm, close, visitProfile,
+            invite = ({ panel = RoomPanel.PICK_DJS }).takeIf { openDJSpots > 0 },
+            requestSong = { panel = RoomPanel.REQUEST_SONG },
+        )
         RoomPanel.QUEUE -> RoomQueueEditor(room, state, vm, close)
         RoomPanel.REQUEST_SONG -> LiveSongPicker("Request a song", vm, close) { track ->
             vm.action("requestSong", mapOf("track" to track.fields()))
@@ -434,11 +442,13 @@ private fun RoomLineup(
     openProfile: (String) -> Unit,
     openLineup: () -> Unit,
 ) {
+    val hasFourDJs = room.djs.size >= LIVE_MAX_GUEST_DJS
     Row(
         Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+        horizontalArrangement = Arrangement.spacedBy(if (hasFourDJs) 8.dp else 16.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.Top,
     ) {
+        val slot = if (hasFourDJs) Modifier.weight(1f) else Modifier.widthIn(max = 100.dp)
         (listOf(room.host) + room.djs.map(LivePerson::parse)).forEach { person ->
             val isHost = person.uid == room.host.uid
             val talking = room.voiceMode == "talk"
@@ -446,7 +456,7 @@ private fun RoomLineup(
                 room.pausedAt == null && room.pendingSkip == null && (room.currentDJ?.uid ?: room.host.uid) == person.uid
             val openPerson = if (isHost) ({ openProfile(person.uid) }) else openLineup
             Column(
-                Modifier.widthIn(max = 100.dp).clickable(enabled = !isHost || !hosting, onClick = openPerson),
+                slot.clickable(enabled = !isHost || !hosting, onClick = openPerson),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Box(Modifier.size(56.dp), contentAlignment = Alignment.Center) {
@@ -750,7 +760,7 @@ private fun RoomQueueEditor(room: LiveRoom, state: LiveUiState, vm: LiveViewMode
     }
     LiveSheet(
         if (hosting) stringResource(CorusStrings.full_player_queue_title) else "My queue",
-        done, large = true, done = done, sheetToolbar = true,
+        done, large = true, done = done, sheetToolbar = true, dismissKeyboardFromHeader = true,
     ) {
         LiveSongPickerContent(
             vm,
@@ -817,53 +827,31 @@ private fun HostQueueButton(
 private fun HostQueueRow(
     track: LiveTrack, index: Int, count: Int, enabled: Boolean, onPlay: (() -> Unit)?, remove: () -> Unit, move: (Int) -> Unit,
 ) {
-    val latestMove by rememberUpdatedState(move)
-    val rowHeight = with(LocalDensity.current) { 60.dp.toPx() }
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 6.dp).semantics {
-            if (enabled) customActions = buildList {
-                if (index > 0) add(CustomAccessibilityAction("Move up") { move(index - 1); true })
-                if (index < count - 1) add(CustomAccessibilityAction("Move down") { move(index + 1); true })
-            }
-        },
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
+    LiveQueueReorderRow(index, count, 60.dp, move, enabled = enabled) { handle ->
         Row(
-            Modifier.weight(1f).heightIn(min = 48.dp)
-                .then(if (onPlay == null) Modifier else Modifier.clickable(enabled = enabled, onClick = onPlay)),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+            Modifier.fillMaxWidth().padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Box(Modifier.widthIn(min = 14.dp), contentAlignment = Alignment.Center) {
-                LiveText((index + 1).toString(), CorusFont.caption, CorusColors.Secondary)
-            }
-            LiveArtwork(track.song.albumArtURL, 40.dp, neutralPlaceholder = true)
-            Column(Modifier.weight(1f)) {
-                LiveText(track.song.name, CorusFont.username, lines = 1)
-                LiveText(track.song.artistName, CorusFont.caption, CorusColors.Secondary, lines = 1)
-            }
-        }
-        LiveIconButton(
-            Icons.Default.Close, "Remove from queue", remove,
-            enabled = enabled, touchSize = 44.dp, glyphSize = 17.dp,
-        )
-        if (count > 1) {
-            Box(
-                Modifier.size(34.dp, 48.dp).pointerInput(index, count, rowHeight, enabled) {
-                    if (!enabled) return@pointerInput
-                    var travel = 0f
-                    detectDragGesturesAfterLongPress(
-                        onDragStart = { travel = 0f },
-                        onDragEnd = {
-                            val destination = (index + (travel / rowHeight).roundToInt()).coerceIn(0, count - 1)
-                            if (destination != index) latestMove(destination)
-                        },
-                        onDrag = { change, delta -> change.consume(); travel += delta.y },
-                    )
-                },
-                contentAlignment = Alignment.Center,
+            Row(
+                Modifier.weight(1f).heightIn(min = 48.dp)
+                    .then(if (onPlay == null) Modifier else Modifier.clickable(enabled = enabled, onClick = onPlay)),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Icon(Icons.Default.DragHandle, "Reorder song", tint = CorusColors.Secondary, modifier = Modifier.size(20.dp))
+                Box(Modifier.widthIn(min = 14.dp), contentAlignment = Alignment.Center) {
+                    LiveText((index + 1).toString(), CorusFont.caption, CorusColors.Secondary)
+                }
+                LiveArtwork(track.song.albumArtURL, 40.dp, neutralPlaceholder = true)
+                Column(Modifier.weight(1f)) {
+                    LiveText(track.song.name, CorusFont.username, lines = 1)
+                    LiveText(track.song.artistName, CorusFont.caption, CorusColors.Secondary, lines = 1)
+                }
             }
+            LiveIconButton(
+                Icons.Default.Close, stringResource(R.string.live_remove_queue_song), remove,
+                enabled = enabled, touchSize = 44.dp, glyphSize = 17.dp,
+            )
+            handle()
         }
     }
 }
@@ -1018,7 +1006,7 @@ private fun ChatActions(
 @Composable
 private fun LiveLineupSheet(
     room: LiveRoom, state: LiveUiState, vm: LiveViewModel, close: () -> Unit,
-    openProfile: (String) -> Unit, invite: () -> Unit, requestSong: () -> Unit,
+    openProfile: (String) -> Unit, invite: (() -> Unit)?, requestSong: () -> Unit,
 ) {
     var handoff by remember { mutableStateOf<List<String>>(emptyList()) }
     LaunchedEffect(room.id, room.djs) {
@@ -1068,7 +1056,9 @@ private fun LiveLineupSheet(
                 }
             }
         }
-        if (state.hosting || state.dj != null) LiveRow("Invite a DJ", Icons.Default.PersonAdd, onClick = invite)
+        if (invite != null && (state.hosting || state.dj != null)) {
+            LiveRow("Invite a DJ", Icons.Default.PersonAdd, onClick = invite)
+        }
         if (!state.hosting && state.dj == null && room.allowDJRequests) {
             val requested = state.myDJRequest.text("status") == "pending"
             LiveRow(if (requested) "Cancel DJ request" else "Request to DJ", Icons.Default.Headphones) {

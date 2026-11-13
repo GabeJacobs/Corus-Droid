@@ -429,7 +429,19 @@ fun MapExploreScreen(
             model.closeCity()
         }
     }
-    BackHandler(mapPaywallSource != null || dialog.isNotEmpty() || state.selected != null || state.mode != null) { when { mapPaywallSource != null -> mapPaywallSource = null; dialog.isNotEmpty() -> { if (dialog != "intro" && dialog != "confirm" && !state.busy) dialog = "" }; state.selected != null -> dismissCitySheet(); else -> model.stop() } }
+    val isMapIntro = dialog == "intro"
+    fun canDismissMapDialog() = !isMapIntro && dialog != "confirm" && !state.busy
+    fun dismissMapDialog() {
+        if (canDismissMapDialog()) dialog = ""
+    }
+    BackHandler(mapPaywallSource != null || dialog.isNotEmpty() || state.selected != null || state.mode != null) {
+        when {
+            mapPaywallSource != null -> mapPaywallSource = null
+            dialog.isNotEmpty() -> dismissMapDialog()
+            state.selected != null -> dismissCitySheet()
+            else -> model.stop()
+        }
+    }
     if (!model.enabled) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { TextButton(onClick = onBack) { Text(parityCopy("Back to Search")) } }; return }
     Box(Modifier.fillMaxSize().background(CorusColors.Background).onSizeChanged { mapViewportHeightPx = it.height }) {
         val loadingPushCity = !fromProfile && initialCityId != null && !pushDestinationApplied && state.error == null
@@ -846,7 +858,10 @@ fun MapExploreScreen(
         }
         state.error?.let { message -> AlertDialog(onDismissRequest = { model.error(null) }, title = { Text(stringResource(fm.corus.android.localization.CorusStrings.map_please_try_again)) }, text = { Text(message) }, confirmButton = { TextButton(onClick = { model.error(null) }) { Text(parityCopy("OK")) } }) }
     }
-    val sharingSheet = rememberGuardedSheetState(skipPartiallyExpanded = true, confirmValueChange = { value -> value != SheetValue.Hidden || (dialog != "intro" && dialog != "confirm" && !state.busy) })
+    val sharingSheet = rememberGuardedSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { value -> value != SheetValue.Hidden || canDismissMapDialog() },
+    )
     // Give the growing country directory enough initial room for roughly three
     // rows without turning it into a full-screen page. The capped LazyColumn is
     // the scrolling surface, and the remaining top gap protects the cutout.
@@ -865,7 +880,9 @@ fun MapExploreScreen(
     } }
     if (dialog.isNotEmpty()) CorusModalBottomSheet(
         sheetState = if (dialog == "countries") countryPickerSheet else sharingSheet,
-        onDismissRequest = { if (dialog != "intro" && dialog != "confirm" && !state.busy) dialog = "" },
+        onDismissRequest = ::dismissMapDialog,
+        dragHandle = if (isMapIntro) null else { { BottomSheetDefaults.DragHandle() } },
+        properties = ModalBottomSheetProperties(shouldDismissOnBackPress = !isMapIntro),
         contentWindowInsets = {
             if (dialog == "countries") WindowInsets.systemBars.only(WindowInsetsSides.Bottom)
             else BottomSheetDefaults.windowInsets
@@ -891,7 +908,12 @@ fun MapExploreScreen(
                         Triple(Icons.Default.LocationOff, "Share your city, not your exact location.", "People can find you in the city you choose."),
                         Triple(Icons.Default.Lock, "No one sees you until you choose.", "Change this anytime."),
                     ).forEach { (icon, title, body) -> item { MapIntroBenefitRow(icon, title, body) } }
-                    item { MapSheetPrimaryButton(onClick = { prefs.edit().putBoolean("intro.${model.repository.currentUserId}", true).apply(); dialog = "audience" }) { Text(parityCopy("Next")) } }
+                    item {
+                        MapSheetPrimaryButton(onClick = {
+                            prefs.edit().putBoolean("intro.${model.repository.currentUserId}", true).apply()
+                            dialog = "audience"
+                        }) { Text(parityCopy("Next")) }
+                    }
                 }
                 "audience" -> {
                     item { Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -66,17 +66,22 @@ import fm.corus.android.ui.theme.CorusFont
 import kotlin.math.roundToInt
 
 /** Fixed tab order — `feed_mode_order` still owns the dropdown, not the tabs. */
-val FEED_MODE_TAB_ORDER = listOf(
+private val LEGACY_FEED_MODE_TAB_ORDER = listOf(
     FeedModeOrder.FOLLOWING,
     FeedModeOrder.TRENDING,
     FeedModeOrder.TASTE_MATCHES,
     FeedModeOrder.FAVORITES,
 )
 
+private val SIGNED_IN_FEED_MODE_TAB_ORDER = listOf(
+    FeedModeOrder.FOLLOWING,
+    FeedModeOrder.TASTE_MATCHES,
+    FeedModeOrder.TRENDING,
+    FeedModeOrder.NEW_RELEASES,
+)
+
 /**
- * Modes shown in the tab row + pager. Following always appears; Trending /
- * Taste Matches / Favorites follow the same gates as iOS (Favorites also
- * requires at least one starred person).
+ * The signed-in layout is fixed. The legacy layout still honors the mode gates.
  */
 fun visibleFeedModeTabs(
     trendingEnabled: Boolean,
@@ -86,21 +91,26 @@ fun visibleFeedModeTabs(
     favoritesUnlocked: Boolean = false,
     prototypeEnabled: Boolean = false,
     newTabEnabled: Boolean = false,
-): List<String> = (if (prototypeEnabled) listOf(
-    FeedModeOrder.FOLLOWING, FeedModeOrder.TASTE_MATCHES, FeedModeOrder.TRENDING, FeedModeOrder.FAVORITES,
-) else FEED_MODE_TAB_ORDER).let { if (newTabEnabled) it.filterNot { mode -> mode == FeedModeOrder.FAVORITES } + FeedModeOrder.NEW_RELEASES else it }.filter { mode ->
-    when (mode) {
-        FeedModeOrder.FOLLOWING -> true
-        FeedModeOrder.TRENDING -> newTabEnabled || trendingEnabled
-        FeedModeOrder.TASTE_MATCHES -> newTabEnabled || tasteMatchesAvailable || prototypeEnabled
-        FeedModeOrder.NEW_RELEASES -> newTabEnabled
-        FeedModeOrder.FAVORITES -> !newTabEnabled &&
-            fm.corus.android.domain.FavoritesTabGate.showsTab(
+): List<String> {
+    if (newTabEnabled) return SIGNED_IN_FEED_MODE_TAB_ORDER
+    val order = if (prototypeEnabled) listOf(
+        FeedModeOrder.FOLLOWING,
+        FeedModeOrder.TASTE_MATCHES,
+        FeedModeOrder.TRENDING,
+        FeedModeOrder.FAVORITES,
+    ) else LEGACY_FEED_MODE_TAB_ORDER
+    return order.filter { mode ->
+        when (mode) {
+            FeedModeOrder.FOLLOWING -> true
+            FeedModeOrder.TRENDING -> trendingEnabled
+            FeedModeOrder.TASTE_MATCHES -> tasteMatchesAvailable || prototypeEnabled
+            FeedModeOrder.FAVORITES -> fm.corus.android.domain.FavoritesTabGate.showsTab(
                 featureEnabled = favoritesEnabled,
                 count = favoritesCount,
                 unlocked = favoritesUnlocked,
             )
-        else -> false
+            else -> false
+        }
     }
 }
 
@@ -181,10 +191,15 @@ fun FeedModeTabBar(
             softWrap = false).size.width
         val compactWidth = textMeasurer.measure(AnnotatedString(compactTitle), style = titleStyle,
             softWrap = false).size.width
-        val prototypeTitle = if (fullWidth > titleWidth && compactWidth < fullWidth) compactTitle else yourMixTitle
+        val yourMixLabel = if (fullWidth > titleWidth && compactWidth < fullWidth) compactTitle else yourMixTitle
+        val showsYourMix = prototypeEnabled || FeedModeOrder.NEW_RELEASES in modes
         val labels = ArrayList<String>(modes.size)
         for (mode in modes) {
-            labels.add(if (prototypeEnabled && mode == FeedModeOrder.TASTE_MATCHES) prototypeTitle else feedModeTabLabel(if (mode == FeedModeOrder.FOLLOWING) followingMode else mode))
+            labels.add(when {
+                mode == FeedModeOrder.TASTE_MATCHES && showsYourMix -> yourMixLabel
+                mode == FeedModeOrder.FOLLOWING -> feedModeTabLabel(followingMode)
+                else -> feedModeTabLabel(mode)
+            })
         }
         ModeTabBar(
             labels = labels,

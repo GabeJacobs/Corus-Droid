@@ -13,10 +13,7 @@ import fm.corus.android.domain.FeedModeOrder
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
@@ -46,7 +43,7 @@ class RemoteConfigService @Inject constructor(
             override fun onUpdate(update: com.google.firebase.remoteconfig.ConfigUpdate) {
                 remoteConfig.activate().addOnSuccessListener {
                     cacheFeedFlags()
-                    auth.currentUser?.uid?.takeIf { it == newTabResolvedUid }?.let { cacheFeedTabPresentation(it) }
+                    updateRealtimeFeedConfig()
                     _revision.value += 1; ReferralService.setEnabled(referralsEnabled, auth.currentUser?.uid); ReferralAttribution.updateEnabled(referralAttributionEnabled)
                 }
             }
@@ -497,6 +494,9 @@ class RemoteConfigService @Inject constructor(
     val booksEnabled: Boolean
         get() = feedFlag("books_enabled")
 
+    val liveShowGoLiveOnLaunch: Boolean
+        get() = feedFlag("live_show_go_live_on_launch")
+
     /// Volume gate for showing the chips (paired with minTypes). Default 8.
     val notificationFiltersMinCount: Int
         get() {
@@ -862,9 +862,8 @@ class RemoteConfigService @Inject constructor(
         _revision.value += 1; ReferralService.setEnabled(referralsEnabled, auth.currentUser?.uid); ReferralAttribution.updateEnabled(referralAttributionEnabled)
     }
 
-    data class FeedTabPresentation(
+    private data class FeedConfig(
         val uid: String?,
-        val hasPresentation: Boolean,
         val values: Map<String, String> = emptyMap(),
         val generation: Int = 0,
     )
@@ -876,20 +875,14 @@ class RemoteConfigService @Inject constructor(
         "favorites_enabled", "taste_matches_enabled")
     private val tabPrefs = context.getSharedPreferences("corus_feed_tab_presentation", Context.MODE_PRIVATE)
     private val tabLock = Any()
-    private val _feedTabPresentation = MutableStateFlow(cachedTabPresentation(auth.currentUser?.uid))
-    val feedTabPresentation = _feedTabPresentation.asStateFlow()
-    val isResolvingFeedTabs: Boolean
-        get() = auth.currentUser?.uid?.let {
-            _feedTabPresentation.value.uid != it || !_feedTabPresentation.value.hasPresentation
-        } ?: false
+    private var feedConfig = cachedFeedConfig(auth.currentUser?.uid)
 
     init {
-        auth.addAuthStateListener { beginFeedTabSession(it.currentUser?.uid) }
+        auth.addAuthStateListener { beginFeedConfigSession(it.currentUser?.uid) }
     }
 
-    private fun cachedTabPresentation(uid: String?): FeedTabPresentation = FeedTabPresentation(
+    private fun cachedFeedConfig(uid: String?): FeedConfig = FeedConfig(
         uid = uid,
-        hasPresentation = uid == null,
         values = if (uid == null) emptyMap() else (tabBooleanKeys + tabStringKeys).associateWith { key ->
             // On upgrade, preserve ordinary released tabs from the existing cache.
             // Pilot and tester access can only come from this account's confirmed cache.
@@ -901,36 +894,39 @@ class RemoteConfigService @Inject constructor(
         },
     )
 
-    private fun beginFeedTabSession(uid: String?) = synchronized(tabLock) {
-        if (_feedTabPresentation.value.uid != uid) {
-            _feedTabPresentation.value = cachedTabPresentation(uid).copy(generation = _feedTabPresentation.value.generation + 1)
+    private fun beginFeedConfigSession(uid: String?): Int = synchronized(tabLock) {
+        if (feedConfig.uid != uid) {
+            feedConfig = cachedFeedConfig(uid).copy(generation = feedConfig.generation + 1)
+        }
+        feedConfig.generation
+    }
+
+    private fun presentedFeedValue(key: String): String? {
+        val uid = auth.currentUser?.uid ?: return null
+        return synchronized(tabLock) {
+            val config = feedConfig.takeIf { it.uid == uid } ?: cachedFeedConfig(uid)
+            config.values[key]
         }
     }
 
-    private fun presentedFeedValue(key: String): String? = _feedTabPresentation.value.let {
-        if (it.hasPresentation && it.uid != null && it.uid == auth.currentUser?.uid) it.values[key] else null
-    }
-
-    /** The feed waits here, independently of the background fetch. Late results warm the next launch. */
-    suspend fun awaitFeedTabPresentation() {
-        val uid = auth.currentUser?.uid ?: return
-        beginFeedTabSession(uid)
-        val generation = _feedTabPresentation.value.generation
-        withTimeoutOrNull(1_000) {
-            feedTabPresentation.first { it.generation != generation || it.hasPresentation }
-        }
-        finishFeedTabPresentation(uid, generation)
-    }
-
-    private fun finishFeedTabPresentation(uid: String?, generation: Int, values: Map<String, String>? = null) = synchronized(tabLock) {
-        val current = _feedTabPresentation.value
-        if (current.uid == uid && current.generation == generation && auth.currentUser?.uid == uid && !current.hasPresentation) {
-            _feedTabPresentation.value = current.copy(hasPresentation = true, values = values ?: current.values)
-            _revision.value += 1; ReferralService.setEnabled(referralsEnabled, auth.currentUser?.uid); ReferralAttribution.updateEnabled(referralAttributionEnabled)
+    private fun updateRealtimeFeedConfig() = synchronized(tabLock) {
+        val uid = auth.currentUser?.uid
+        if (uid != null && uid == newTabResolvedUid && uid == feedConfig.uid) {
+            feedConfig = feedConfig.copy(values = cacheFeedConfig(uid))
         }
     }
 
-    private fun cacheFeedTabPresentation(uid: String): Map<String, String> {
+    private fun applyFetchedFeedConfig(uid: String?, generation: Int): Boolean = synchronized(tabLock) {
+        if (feedConfig.uid != uid || feedConfig.generation != generation || auth.currentUser?.uid != uid) {
+            return@synchronized false
+        }
+        newTabResolvedUid = uid
+        cacheFeedFlags()
+        if (uid != null) feedConfig = feedConfig.copy(values = cacheFeedConfig(uid))
+        true
+    }
+
+    private fun cacheFeedConfig(uid: String): Map<String, String> {
         val values = tabBooleanKeys.associateWith { remoteConfig.getBoolean(it).toString() } +
             tabStringKeys.associateWith { remoteConfig.getString(it) }
         tabPrefs.edit().also { edit -> values.forEach { (key, value) -> edit.putString("$uid:$key", value) } }.apply()
@@ -979,8 +975,7 @@ class RemoteConfigService @Inject constructor(
     suspend fun fetchAndActivate(forceFresh: Boolean = false) {
         fetchMutex.withLock {
             val requestedUid = auth.currentUser?.uid
-            beginFeedTabSession(requestedUid)
-            val generation = _feedTabPresentation.value.generation
+            val generation = beginFeedConfigSession(requestedUid)
             try {
                 // Make sure the user-targeting custom signal is in place before
                 // fetching so conditional values resolve correctly on the very
@@ -1008,16 +1003,11 @@ class RemoteConfigService @Inject constructor(
                 } else {
                     remoteConfig.fetchAndActivate().await()
                 }
-                if (auth.currentUser?.uid != requestedUid || _feedTabPresentation.value.generation != generation) return@withLock
-                newTabResolvedUid = requestedUid
-                cacheFeedFlags()
-                val presentation = requestedUid?.let { cacheFeedTabPresentation(it) }
-                finishFeedTabPresentation(requestedUid, generation, presentation)
+                if (!applyFetchedFeedConfig(requestedUid, generation)) return@withLock
                 _revision.value += 1; ReferralService.setEnabled(referralsEnabled, auth.currentUser?.uid); ReferralAttribution.updateEnabled(referralAttributionEnabled)
                 logValues(activated)
             } catch (e: Exception) {
                 Log.w("RemoteConfig", "fetchAndActivate failed", e)
-                finishFeedTabPresentation(requestedUid, generation)
             } finally {
                 if (!initialFetchGate.isCompleted) {
                     initialFetchGate.complete(Unit)
@@ -1061,6 +1051,7 @@ class RemoteConfigService @Inject constructor(
             .putBoolean("compose_unified_search_enabled", remoteConfig.getBoolean("compose_unified_search_enabled"))
             .putBoolean("notification_filters_enabled", remoteConfig.getBoolean("notification_filters_enabled"))
             .putBoolean("books_enabled", remoteConfig.getBoolean("books_enabled"))
+            .putBoolean("live_show_go_live_on_launch", remoteConfig.getBoolean("live_show_go_live_on_launch"))
             .putBoolean("feed_switch_hint_enabled", remoteConfig.getBoolean("feed_switch_hint_enabled"))
             .putBoolean("onboarding_club_offer_enabled", remoteConfig.getBoolean("onboarding_club_offer_enabled"))
             .putBoolean("onboarding_taste_match_enabled", remoteConfig.getBoolean("onboarding_taste_match_enabled"))
@@ -1200,6 +1191,7 @@ class RemoteConfigService @Inject constructor(
             "post_success_others_enabled" to false,
             "notification_filters_enabled" to true,
             "books_enabled" to false,
+            "live_show_go_live_on_launch" to false,
             "notification_filters_min_count" to 8L,
             "notification_filters_min_types" to 3L,
             "feed_switch_hint_enabled" to false,

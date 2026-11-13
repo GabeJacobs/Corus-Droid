@@ -24,11 +24,11 @@ class FeedNewTabTest {
             visibleFeedModeTabs(true, true, true, 1, prototypeEnabled = true))
         assertEquals(listOf("following", "tasteMatches", "trending", "newReleases"),
             visibleFeedModeTabs(true, true, true, 0, prototypeEnabled = true, newTabEnabled = true))
-        assertEquals(listOf("following", "trending", "tasteMatches", "newReleases"),
+        assertEquals(listOf("following", "tasteMatches", "trending", "newReleases"),
             visibleFeedModeTabs(true, false, false, 0, newTabEnabled = true))
     }
     @Test fun `New layout is independent of For You and old availability gates`() {
-        assertEquals(listOf("following", "trending", "tasteMatches", "newReleases"),
+        assertEquals(listOf("following", "tasteMatches", "trending", "newReleases"),
             visibleFeedModeTabs(false, false, false, 0, prototypeEnabled = false, newTabEnabled = true))
         assertEquals(listOf("following", "tasteMatches", "trending", "newReleases"),
             visibleFeedModeTabs(false, false, false, 0, prototypeEnabled = true, newTabEnabled = true))

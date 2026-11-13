@@ -127,6 +127,19 @@ class VoiceNoteRecorderState(private val maxDuration: Float = 30f) {
         }
     }
 
+    internal fun cancelRecording() {
+        if (!isRecording) return
+        try {
+            recorder?.release()
+        } catch (_: RuntimeException) {
+            // Clear the partial recording even if the platform recorder has already stopped.
+        } finally {
+            recorder = null
+            isRecording = false
+            deleteRecording()
+        }
+    }
+
     fun deleteRecording() {
         stopPreview()
         audioData = null
@@ -244,6 +257,15 @@ class VoiceNoteRecorderState(private val maxDuration: Float = 30f) {
         }
         if (isPreviewing) {
             previewCurrentTime = (previewPlayer?.currentPosition?.toFloat()?.div(1000f)) ?: 0f
+        }
+    }
+
+    internal fun readRecordingPeakAmplitude(): Int {
+        if (!isRecording) return 0
+        return try {
+            recorder?.maxAmplitude ?: 0
+        } catch (_: IllegalStateException) {
+            0
         }
     }
 }

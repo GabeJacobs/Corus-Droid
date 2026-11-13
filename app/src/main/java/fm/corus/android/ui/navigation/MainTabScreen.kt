@@ -93,6 +93,7 @@ import fm.corus.android.data.model.MusicService
 import fm.corus.android.service.DeepLinkDestination
 import fm.corus.android.ui.screens.live.LiveMiniPlayer
 import fm.corus.android.ui.screens.live.LiveNavigation
+import fm.corus.android.ui.screens.live.LiveNavigationState
 import fm.corus.android.ui.screens.live.LivePresentation
 import fm.corus.android.ui.screens.live.LiveViewModel
 import fm.corus.android.ui.screens.live.LocalLiveNavigation
@@ -143,7 +144,20 @@ fun MainTabScreen(
     val composeViewModel: ComposeViewModel = hiltViewModel()
     val liveViewModel: LiveViewModel = hiltViewModel()
     val liveState by liveViewModel.state.collectAsState()
-    val liveDiscovery = liveState.copy(positionMs = 0L, messages = emptyList())
+    val remoteConfig = viewModel.remoteConfigService
+    val remoteConfigRevision by remoteConfig.revision.collectAsState()
+    val liveShowGoLiveOnLaunch = remember(remoteConfig, remoteConfigRevision) { remoteConfig.liveShowGoLiveOnLaunch }
+    val liveNavigationState = LiveNavigationState(
+        access = liveState.access,
+        discovery = liveState.discovery,
+        discoveryCounts = liveState.discoveryCounts,
+        invites = liveState.invites,
+        showGoLive = liveState.uid != null && (liveShowGoLiveOnLaunch || liveState.cachedMenuAccess),
+        canOpenSetup = liveState.setup == null && liveState.progress == null && (liveState.room == null || liveState.hosting),
+        mixedSaves = liveState.mixedSaves,
+        mixedSavesLoading = liveState.mixedSavesLoading,
+        mixedSavesHasMore = liveState.mixedSavesHasMore,
+    )
     val showLiveMini = liveState.room != null && liveState.minimized
     val showMilestonePaywall by viewModel.showMilestonePaywall.collectAsState()
     val milestonePaywallSource by viewModel.milestonePaywallSource.collectAsState()
@@ -212,8 +226,8 @@ fun MainTabScreen(
             liveViewModel.clearClub()
         }
     }
-    val liveNavigation = remember(liveDiscovery, liveViewModel, viewModel, composeViewModel) {
-        LiveNavigation(liveDiscovery, liveViewModel, post = { movie ->
+    val liveNavigation = remember(liveNavigationState, liveViewModel, viewModel, composeViewModel) {
+        LiveNavigation(liveNavigationState, liveViewModel, post = { movie ->
             if (viewModel.subscriptionRepository.canPost) {
                 composeMovieMode = movie
                 singleMediaPicker = true

@@ -52,7 +52,6 @@ class AuthViewModel @Inject constructor(
     private val exploreRepository: ExploreRepository,
     private val engagementManager: PostEngagementManager,
     private val remoteConfigService: RemoteConfigService,
-    val forYouPrototype: fm.corus.android.service.ForYouPrototypeStore,
     val analyticsService: AnalyticsService,
     private val firebaseAuth: FirebaseAuth,
     private val unreadCountsRepository: UnreadCountsRepository,
@@ -69,6 +68,7 @@ class AuthViewModel @Inject constructor(
     sealed class AuthState {
         data object Loading : AuthState()
         data object SignedOut : AuthState()
+        data object SigningIn : AuthState()
         data object NeedsOnboarding : AuthState()
         data object NeedsSocialSetup : AuthState()
         data object OnboardingClubOffer : AuthState()
@@ -78,7 +78,7 @@ class AuthViewModel @Inject constructor(
 
     // Seed the initial state synchronously from local data so a returning,
     // already-onboarded user renders the feed on the very first frame — native
-    // splash → feed skeleton, never the Loading spinner. The auth-state listener
+    // splash → feed skeleton. The auth-state listener
     // (started by observeAuthState) then runs the same re-validation in the
     // background and can eject. A signed-out launch goes straight to the auth
     // screen; a logged-in-but-not-yet-flagged user (new sign-up, or an existing
@@ -95,11 +95,8 @@ class AuthViewModel @Inject constructor(
         }
     )
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
-    val feedTabPresentation = remoteConfigService.feedTabPresentation
     val signupGateConfigRevision = remoteConfigService.revision
     val lagosSignupGateEnabled get() = remoteConfigService.lagosSignupGateEnabled
-    val isResolvingFeedTabs: Boolean get() = remoteConfigService.isResolvingFeedTabs
-    suspend fun awaitFeedTabPresentation() = remoteConfigService.awaitFeedTabPresentation()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
@@ -270,10 +267,10 @@ class AuthViewModel @Inject constructor(
             return
         }
 
-        // Keep the in-app sign-in screen (and Google button spinner) mounted
-        // until the profile is known. Cold launches still use the launch cover.
-        if (firebaseIsNewUser == null || _authState.value != AuthState.SignedOut) {
-            _authState.value = AuthState.Loading
+        // Keep the existing form mounted until we can route to onboarding or the feed.
+        _authState.value = when (_authState.value) {
+            AuthState.SignedOut, AuthState.SigningIn -> AuthState.SigningIn
+            else -> AuthState.Loading
         }
         // Returning-user login: apply this uid's cached Favorites
         // before the feed mounts (iOS waits on the profile read).

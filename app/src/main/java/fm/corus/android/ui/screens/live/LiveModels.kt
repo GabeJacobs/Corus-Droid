@@ -21,6 +21,7 @@ internal data class LiveTrack(
 ) {
     val id get() = song.id
     val duration get() = song.durationMs
+    val playsFromSource get() = song.source == TrackSource.SOUNDCLOUD || song.source == TrackSource.BANDCAMP
     val spotifyUri: String?
         get() = song.spotifyURI.takeIf(spotifyUriPattern::matches)
             ?: song.id.takeIf { song.source == TrackSource.SPOTIFY && spotifyIdPattern.matches(it) }
@@ -75,7 +76,12 @@ internal data class LiveTrack(
     }
 }
 
-internal data class LivePerson(val uid: String, val username: String, val avatar: String?) {
+internal data class LivePerson(
+    val uid: String,
+    val username: String,
+    val avatar: String?,
+    val profile: fm.corus.android.data.model.CymbalUser? = null,
+) {
     companion object {
         fun parse(fields: LiveFields): LivePerson = LivePerson(
             fields.text("uid"),
@@ -146,7 +152,10 @@ internal data class LiveAccess(
     val talkRequests: Boolean,
     val listenerCounts: Boolean,
     val saves: Boolean,
+    val sourceTracks: Boolean,
 )
+
+internal data class LiveSearchPage(val tracks: List<LiveTrack>, val nextOffset: Int?)
 
 internal data class LiveSetup(
     val id: String,
@@ -157,6 +166,7 @@ internal data class LiveSetup(
     val notificationMessage: String = "",
     val micTested: Boolean = false,
     val welcome: LiveRecording? = null,
+    val loadingFirstSong: Boolean = false,
 )
 
 internal data class LiveSuggestions(

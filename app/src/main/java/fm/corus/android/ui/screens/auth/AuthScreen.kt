@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -56,6 +57,7 @@ import fm.corus.android.ui.theme.CorusSpacing
 @Composable
 fun AuthScreen(
     viewModel: AuthViewModel = hiltViewModel(),
+    finishingSignIn: Boolean = false,
 ) {
     ScreenViewAnalytics("Auth", viewModel.analyticsService)
     val isLoading by viewModel.isLoading.collectAsState()
@@ -64,6 +66,10 @@ fun AuthScreen(
     val verificationSent by viewModel.verificationSent.collectAsState()
     val context = LocalContext.current
     val activity = context as Activity
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(finishingSignIn) {
+        if (finishingSignIn) focusManager.clearFocus()
+    }
 
     var phoneNumber by remember { mutableStateOf("") }
     var emailAddress by remember { mutableStateOf("") }
@@ -99,6 +105,7 @@ fun AuthScreen(
     val showSecondaryFlow = showPhoneFlow || showEmailFlow
 
     BackHandler(enabled = showSecondaryFlow) {
+        if (finishingSignIn) return@BackHandler
         if (verificationSent) {
             verificationCode = ""
             viewModel.resetVerification()
@@ -133,7 +140,8 @@ fun AuthScreen(
                 verificationCode = verificationCode,
                 onVerificationCodeChange = { verificationCode = it.filter { c -> c.isDigit() }.take(6) },
                 verificationSent = verificationSent,
-                isLoading = isLoading,
+                isLoading = isLoading || finishingSignIn,
+                finishingSignIn = finishingSignIn,
                 error = error,
                 onSendCode = { viewModel.sendVerificationCode(phoneNumber, selectedCountry.dialCode, activity) },
                 onVerifyCode = { viewModel.verifyCode(verificationCode) },
@@ -155,7 +163,8 @@ fun AuthScreen(
                 verificationCode = verificationCode,
                 onVerificationCodeChange = { verificationCode = it.filter { c -> c.isDigit() }.take(6) },
                 verificationSent = verificationSent,
-                isLoading = isLoading,
+                isLoading = isLoading || finishingSignIn,
+                finishingSignIn = finishingSignIn,
                 error = error,
                 onSendCode = { viewModel.sendEmailOtpCode(emailAddress) },
                 onVerifyCode = { viewModel.verifyEmailOtpCode(verificationCode) },
@@ -215,8 +224,11 @@ fun AuthScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Error message
-            if (error != null) {
+            if (finishingSignIn && busyProvider == null) {
+                Box(Modifier.padding(bottom = CorusSpacing.lg)) {
+                    SigningInIndicator(color = CorusColors.Text)
+                }
+            } else if (error != null) {
                 Text(
                     text = error ?: "",
                     style = CorusFont.caption,
@@ -244,6 +256,7 @@ fun AuthScreen(
                         )
                     },
                     isLoading = busyProvider == "google",
+                    enabled = !finishingSignIn && busyProvider == null,
                     onClick = {
                         // Mirrors iOS AuthView.signInWithGoogle / signInWithApple haptic.
                         haptics.impact(HapticManager.ImpactStyle.LIGHT)
@@ -271,6 +284,7 @@ fun AuthScreen(
                         )
                     },
                     isLoading = busyProvider == "apple",
+                    enabled = !finishingSignIn && busyProvider == null,
                     onClick = {
                         haptics.impact(HapticManager.ImpactStyle.LIGHT)
                         viewModel.signInWithApple(activity)
@@ -289,6 +303,7 @@ fun AuthScreen(
                         )
                     },
                     isLoading = false,
+                    enabled = !finishingSignIn && busyProvider == null,
                     onClick = {
                         // Mirrors iOS AuthView button-tap haptic (Apple/Google).
                         haptics.impact(HapticManager.ImpactStyle.LIGHT)
@@ -310,6 +325,7 @@ fun AuthScreen(
                         )
                     },
                     isLoading = false,
+                    enabled = !finishingSignIn && busyProvider == null,
                     onClick = {
                         haptics.impact(HapticManager.ImpactStyle.LIGHT)
                         showEmailInput = true
@@ -338,11 +354,12 @@ private fun AuthButton(
     text: String,
     icon: @Composable () -> Unit,
     isLoading: Boolean,
+    enabled: Boolean,
     onClick: () -> Unit,
 ) {
     Surface(
         onClick = onClick,
-        enabled = !isLoading,
+        enabled = enabled,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
         color = CorusColors.CardBackground,
@@ -356,11 +373,7 @@ private fun AuthButton(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                    color = CorusColors.Text,
-                    strokeWidth = 2.dp,
-                )
+                SigningInIndicator(color = CorusColors.Text)
             } else {
                 icon()
                 Spacer(modifier = Modifier.width(CorusSpacing.md))
@@ -374,6 +387,18 @@ private fun AuthButton(
     }
 }
 
+@Composable
+private fun SigningInIndicator(color: Color) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CircularProgressIndicator(modifier = Modifier.size(18.dp), color = color, strokeWidth = 2.dp)
+        Text(stringResource(R.string.auth_signing_in), style = CorusFont.button, color = color)
+    }
+
+}
+
 /**
  * Email OTP auth flow — matches onboarding title/subtitle + phone OTP chrome.
  */
@@ -385,6 +410,7 @@ private fun EmailAuthContent(
     onVerificationCodeChange: (String) -> Unit,
     verificationSent: Boolean,
     isLoading: Boolean,
+    finishingSignIn: Boolean,
     error: String?,
     onSendCode: () -> Unit,
     onVerifyCode: () -> Unit,
@@ -460,6 +486,7 @@ private fun EmailAuthContent(
                 OutlinedTextField(
                     value = email,
                     onValueChange = onEmailChange,
+                    enabled = !finishingSignIn,
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.auth_email_label)) },
                     keyboardOptions = KeyboardOptions(
@@ -467,7 +494,7 @@ private fun EmailAuthContent(
                         imeAction = ImeAction.Done,
                     ),
                     keyboardActions = KeyboardActions(
-                        onDone = { if (emailLooksValid) onSendCode() }
+                        onDone = { if (emailLooksValid && !isLoading) onSendCode() }
                     ),
                     singleLine = true,
                     shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
@@ -483,10 +510,9 @@ private fun EmailAuthContent(
                     colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp,
+                        if (finishingSignIn) SigningInIndicator(color = CorusColors.Text)
+                        else CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp,
                         )
                     } else {
                         Text(stringResource(id = fm.corus.android.localization.CorusStrings.auth_button_send_code), style = CorusFont.button, color = Color.White)
@@ -496,6 +522,7 @@ private fun EmailAuthContent(
                 OutlinedTextField(
                     value = verificationCode,
                     onValueChange = onVerificationCodeChange,
+                    enabled = !finishingSignIn,
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.auth_code_placeholder)) },
                     keyboardOptions = KeyboardOptions(
@@ -503,7 +530,7 @@ private fun EmailAuthContent(
                         imeAction = ImeAction.Done,
                     ),
                     keyboardActions = KeyboardActions(
-                        onDone = { if (verificationCode.length == 6) onVerifyCode() }
+                        onDone = { if (verificationCode.length == 6 && !isLoading) onVerifyCode() }
                     ),
                     singleLine = true,
                     shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
@@ -519,11 +546,7 @@ private fun EmailAuthContent(
                     colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp,
-                        )
+                        SigningInIndicator(color = CorusColors.Text)
                     } else {
                         Text(stringResource(id = fm.corus.android.localization.CorusStrings.auth_button_verify), style = CorusFont.button, color = Color.White)
                     }
@@ -546,7 +569,7 @@ private fun EmailAuthContent(
                         color = if (resendCooldown > 0) CorusColors.Tertiary else CorusColors.Accent,
                     )
                 }
-                TextButton(onClick = onUseDifferentEmail) {
+                TextButton(onClick = onUseDifferentEmail, enabled = !finishingSignIn) {
                     Text(
                         stringResource(id = fm.corus.android.localization.CorusStrings.auth_email_use_different),
                         style = CorusFont.captionMedium,
@@ -558,6 +581,7 @@ private fun EmailAuthContent(
 
         IconButton(
             onClick = onBack,
+            enabled = !finishingSignIn,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .statusBarsPadding()
@@ -585,6 +609,7 @@ private fun PhoneAuthContent(
     onVerificationCodeChange: (String) -> Unit,
     verificationSent: Boolean,
     isLoading: Boolean,
+    finishingSignIn: Boolean,
     error: String?,
     onSendCode: () -> Unit,
     onVerifyCode: () -> Unit,
@@ -643,6 +668,7 @@ private fun PhoneAuthContent(
             ) {
                 OutlinedButton(
                     onClick = { showCountryPicker = true },
+                    enabled = !finishingSignIn,
                     shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
                     modifier = Modifier.height(56.dp),
                     contentPadding = PaddingValues(horizontal = CorusSpacing.md),
@@ -661,6 +687,7 @@ private fun PhoneAuthContent(
                 OutlinedTextField(
                     value = phoneNumber,
                     onValueChange = onPhoneNumberChange,
+                    enabled = !finishingSignIn,
                     modifier = Modifier.weight(1f),
                     placeholder = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.auth_phone_label)) },
                     keyboardOptions = KeyboardOptions(
@@ -668,7 +695,7 @@ private fun PhoneAuthContent(
                         imeAction = ImeAction.Done,
                     ),
                     keyboardActions = KeyboardActions(
-                        onDone = { if (isValidPhone) onSendCode() }
+                        onDone = { if (isValidPhone && !isLoading) onSendCode() }
                     ),
                     singleLine = true,
                     shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
@@ -687,10 +714,9 @@ private fun PhoneAuthContent(
                 colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp,
+                    if (finishingSignIn) SigningInIndicator(color = CorusColors.Text)
+                    else CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp,
                     )
                 } else {
                     Text(stringResource(id = fm.corus.android.localization.CorusStrings.auth_button_send_code), style = CorusFont.button, color = Color.White)
@@ -709,6 +735,7 @@ private fun PhoneAuthContent(
             OutlinedTextField(
                 value = verificationCode,
                 onValueChange = onVerificationCodeChange,
+                enabled = !finishingSignIn,
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text(stringResource(id = fm.corus.android.localization.CorusStrings.auth_code_placeholder)) },
                 keyboardOptions = KeyboardOptions(
@@ -716,7 +743,7 @@ private fun PhoneAuthContent(
                     imeAction = ImeAction.Done,
                 ),
                 keyboardActions = KeyboardActions(
-                    onDone = { if (verificationCode.length == 6) onVerifyCode() }
+                    onDone = { if (verificationCode.length == 6 && !isLoading) onVerifyCode() }
                 ),
                 singleLine = true,
                 shape = RoundedCornerShape(CorusSpacing.cornerRadiusMedium),
@@ -734,11 +761,7 @@ private fun PhoneAuthContent(
                 colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp,
-                    )
+                    SigningInIndicator(color = CorusColors.Text)
                 } else {
                     Text(stringResource(id = fm.corus.android.localization.CorusStrings.auth_button_verify), style = CorusFont.button, color = Color.White)
                 }
@@ -761,7 +784,7 @@ private fun PhoneAuthContent(
             }
 
             // Use a different number — matches iOS
-            TextButton(onClick = onUseDifferentNumber) {
+            TextButton(onClick = onUseDifferentNumber, enabled = !finishingSignIn) {
                 Text(
                     stringResource(id = fm.corus.android.localization.CorusStrings.change_phone_use_different_number),
                     style = CorusFont.captionMedium,
@@ -819,6 +842,7 @@ private fun PhoneAuthContent(
 
         IconButton(
             onClick = onBack,
+            enabled = !finishingSignIn,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .statusBarsPadding()

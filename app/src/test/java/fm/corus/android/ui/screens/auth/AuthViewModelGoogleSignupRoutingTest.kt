@@ -3,6 +3,7 @@ package fm.corus.android.ui.screens.auth
 import android.app.Application
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.data.repository.SubscriptionRepository
 import fm.corus.android.service.AppCheckTokenSource
@@ -58,11 +59,14 @@ class AuthViewModelGoogleSignupRoutingTest {
         val network = mock<NetworkMonitor> {
             on { isConnected } doReturn MutableStateFlow(true)
         }
+        val musicService = mock<fm.corus.android.domain.MusicServicePreference> {
+            on { current } doReturn MutableStateFlow(MusicService.SPOTIFY)
+        }
         val vm = AuthViewModel(
             authRepository = auth, userRepository = mock(), subscriptionRepository = subscriptions,
             exploreRepository = mock(), engagementManager = mock(), remoteConfigService = remote,
-            forYouPrototype = mock(), analyticsService = mock(), firebaseAuth = firebase,
-            unreadCountsRepository = mock(), musicServicePreference = mock(), nowPlayingManager = mock(),
+            analyticsService = mock(), firebaseAuth = firebase,
+            unreadCountsRepository = mock(), musicServicePreference = musicService, nowPlayingManager = mock(),
             networkMonitor = network, onboardingLocalStore = mock(), preferencesDataStore = mock(),
             feedSwitchHintManager = mock(), appCheckTokenSource = appCheck,
             context = RuntimeEnvironment.getApplication(),
@@ -99,7 +103,7 @@ class AuthViewModelGoogleSignupRoutingTest {
         assertEquals(AuthViewModel.AuthState.NeedsOnboarding, vm.authState.value)
     }
 
-    @Test fun `late Firebase callback cannot send a confirmed new user back to the logo`() = runTest(dispatcher) {
+    @Test fun `late Firebase callback keeps a confirmed new user in setup`() = runTest(dispatcher) {
         val vm = viewModel(isNewUser = true, notifyBeforeResult = false)
         vm.signInWithGoogle("test-token")
         runCurrent()
@@ -119,7 +123,7 @@ class AuthViewModelGoogleSignupRoutingTest {
         vm.signInWithGoogle("test-token")
         runCurrent()
 
-        assertEquals(AuthViewModel.AuthState.SignedOut, vm.authState.value)
+        assertEquals(AuthViewModel.AuthState.SigningIn, vm.authState.value)
         assertTrue("Sign-in stopped early: ${vm.error.value}", vm.isLoading.value)
         assertEquals("google", vm.busyProvider.value)
         profile.complete(true)
@@ -127,6 +131,21 @@ class AuthViewModelGoogleSignupRoutingTest {
         assertEquals(AuthViewModel.AuthState.NeedsOnboarding, vm.authState.value)
         assertFalse(vm.isLoading.value)
         subscription.complete(Unit)
+        runCurrent()
+    }
+
+    @Test fun `existing Google account opens the feed while Remote Config is pending`() = runTest(dispatcher) {
+        val config = CompletableDeferred<Unit>()
+        whenever(remote.fetchAndActivate(any())).doSuspendableAnswer { config.await() }
+        val vm = viewModel(isNewUser = false)
+        vm.signInWithGoogle("test-token")
+        runCurrent()
+
+        assertEquals(AuthViewModel.AuthState.SignedIn, vm.authState.value)
+        assertFalse(vm.isLoading.value)
+        verify(remote, atLeastOnce()).fetchAndActivate(any())
+
+        config.complete(Unit)
         runCurrent()
     }
 

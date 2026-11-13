@@ -28,8 +28,11 @@ import androidx.compose.material.icons.filled.LocationOff
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheetProperties
+import androidx.compose.material3.SheetValue
 import fm.corus.android.ui.components.CorusModalBottomSheet
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -218,9 +221,15 @@ fun EditProfileCitySection(viewModel: EditProfileViewModel) {
     }
 
     if (dialog.isNotEmpty()) {
+        val isMapIntro = dialog == "intro"
         CorusModalBottomSheet(
-            onDismissRequest = { if (dialog != "intro") dialog = "" },
-            sheetState = rememberGuardedSheetState(skipPartiallyExpanded = true),
+            onDismissRequest = { if (!isMapIntro) dialog = "" },
+            sheetState = rememberGuardedSheetState(
+                skipPartiallyExpanded = true,
+                confirmValueChange = { value -> value != SheetValue.Hidden || !isMapIntro },
+            ),
+            dragHandle = if (isMapIntro) null else { { BottomSheetDefaults.DragHandle() } },
+            properties = ModalBottomSheetProperties(shouldDismissOnBackPress = !isMapIntro),
         ) {
             LazyColumn(
                 contentPadding = PaddingValues(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 24.dp),

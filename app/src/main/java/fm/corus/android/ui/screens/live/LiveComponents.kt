@@ -10,7 +10,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -21,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,8 +29,11 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import fm.corus.android.ui.components.CorusModalBottomSheet
 import fm.corus.android.ui.components.UserAvatarView
+import fm.corus.android.ui.components.dismissKeyboardOnDownwardDrag
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collectLatest
 
 @Composable
 internal fun LiveText(
@@ -42,23 +45,18 @@ internal fun LiveText(
 ) = Text(text, modifier, color = color, style = style, maxLines = lines, overflow = TextOverflow.Ellipsis)
 
 @Composable
-internal fun LiveHeader(title: String, close: () -> Unit, done: (() -> Unit)? = null, sheetToolbar: Boolean = false) {
-    val height = if (sheetToolbar) 56.dp else 66.dp
-    Box(Modifier.fillMaxWidth().height(height).padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
+private fun LiveHeader(
+    title: String,
+    done: (() -> Unit)? = null,
+    sheetToolbar: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
+    val height = if (done != null || sheetToolbar) 56.dp else 48.dp
+    Box(modifier.fillMaxWidth().height(height).padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
         LiveText(title, CorusFont.screenTitle, modifier = Modifier.padding(horizontal = 54.dp), lines = 1)
-        if (done == null) {
-            LiveIconButton(Icons.Default.Close, stringResource(CorusStrings.corus_live_close), close, Modifier.align(Alignment.CenterEnd), circle = true)
-        } else if (sheetToolbar) {
-            Box(
-                Modifier.align(Alignment.CenterEnd).height(44.dp).clip(CircleShape)
-                    .background(CorusColors.SheetControlBackground).clickable(onClick = done).padding(horizontal = 16.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                LiveText(stringResource(CorusStrings.corus_live_done), CorusFont.body.copy(fontWeight = FontWeight.Bold), CorusColors.Secondary)
-            }
-        } else {
+        if (done != null) {
             TextButton(onClick = done, modifier = Modifier.align(Alignment.CenterEnd)) {
-                LiveText(stringResource(CorusStrings.corus_live_done), CorusFont.usernameLarge, CorusColors.Accent)
+                LiveText(stringResource(CorusStrings.corus_live_done), CorusFont.button, CorusColors.Secondary)
             }
         }
     }
@@ -146,7 +144,7 @@ internal fun LiveAvatar(person: LivePerson, size: Dp, ring: Boolean = false) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun LiveSheet(
     title: String,
@@ -156,30 +154,35 @@ internal fun LiveSheet(
     sheetToolbar: Boolean = false,
     startsHalfExpanded: Boolean = false,
     expand: Boolean = false,
+    dismissKeyboardFromHeader: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val largeHeightFraction = if (sheetToolbar && !expand) .90f else .96f
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = !startsHalfExpanded)
-    LaunchedEffect(expand) {
-        if (expand && sheetState.hasExpandedState) sheetState.expand()
-    }
     CorusModalBottomSheet(
         onDismissRequest = close,
+        modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
         sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
         containerColor = CorusColors.SheetBackground,
-        dragHandle = if (sheetToolbar) {
-            {
-                Box(Modifier.fillMaxWidth().height(9.dp), contentAlignment = Alignment.BottomCenter) {
-                    Box(Modifier.size(width = 36.dp, height = 5.dp).clip(CircleShape).background(CorusColors.Secondary.copy(alpha = .55f)))
-                }
-            }
-        } else null,
     ) {
-        val height = if (sheetToolbar) .90f else .96f
-        Column(Modifier.fillMaxWidth().then(if (large) Modifier.fillMaxHeight(height) else Modifier)) {
-            LiveHeader(title, close, done, sheetToolbar)
+        val ime = WindowInsets.ime
+        val density = LocalDensity.current
+        LaunchedEffect(expand, ime, density, sheetState) {
+            if (expand) {
+                snapshotFlow { sheetState.hasExpandedState }.first { it }
+                // Material recalculates the detents as the keyboard resizes the dialog.
+                snapshotFlow { ime.getBottom(density) }.collectLatest { sheetState.expand() }
+            }
+        }
+        Column(Modifier.fillMaxWidth().then(if (large) Modifier.fillMaxHeight(largeHeightFraction) else Modifier)) {
+            LiveHeader(
+                title, done, sheetToolbar,
+                modifier = if (dismissKeyboardFromHeader) Modifier.dismissKeyboardOnDownwardDrag() else Modifier,
+            )
             Column(
-                Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 16.dp),
+                Modifier.fillMaxWidth().then(if (large) Modifier.weight(1f) else Modifier)
+                    .padding(horizontal = 20.dp).padding(bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 content = content,
             )

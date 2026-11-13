@@ -7,12 +7,16 @@ import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.Source
 import com.google.firebase.functions.FirebaseFunctions
 import fm.corus.android.data.remote.CloudFunctionsDataSource
+import fm.corus.android.data.remote.BandcampPlaybackService
 import fm.corus.android.data.remote.FirebaseStorageDataSource
 import fm.corus.android.data.repository.MusicSearchRepository
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.TrackSource
+import fm.corus.android.data.model.recentShareRecipients
 import fm.corus.android.data.repository.UserRepository
+import fm.corus.android.service.RemoteConfigService
 import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -33,6 +37,8 @@ internal class LiveRepository @Inject constructor(
     private val users: UserRepository,
     private val posts: fm.corus.android.data.repository.PostRepository,
     private val explore: fm.corus.android.data.repository.ExploreRepository,
+    private val bandcamp: BandcampPlaybackService,
+    private val remoteConfig: RemoteConfigService,
 ) {
     private val rooms get() = database.collection("corusLiveRooms")
 
@@ -46,7 +52,8 @@ internal class LiveRepository @Inject constructor(
         val fields = call("availability", fields = mapOf(
             "savesProtocol" to 1, "djTalkRequestProtocol" to 1, "hostMonetizationProtocol" to 1,
         ))
-        if (!fields.flag("available")) return null
+        val available = fields["available"] as? Boolean ?: error("Missing Live availability.")
+        if (!available) return null
         return LiveAccess(
             fields.flag("collaborationAvailable"),
             fields.flag("confirmedSkipAvailable"),
@@ -54,6 +61,7 @@ internal class LiveRepository @Inject constructor(
             fields.flag("djTalkRequestsAvailable"),
             fields.flag("discoveryListenerCountsAvailable"),
             fields.flag("savesAvailable"),
+            fields.flag("sourceTracksAvailable"),
         )
     }
 
@@ -133,12 +141,40 @@ internal class LiveRepository @Inject constructor(
         return result.text("playlistWebURL").ifBlank { error("Couldn’t export playlist.") }
     }
 
-    suspend fun search(query: String, offset: Int): List<LiveTrack> =
-        music.search(query, offset = offset, limit = 40).tracks.toLiveTracks()
+    suspend fun search(query: String, offset: Int, sourceTracks: Boolean): LiveSearchPage {
+        val page = music.search(
+            query, offset = offset, limit = 20,
+            includeSoundCloud = sourceTracks && remoteConfig.soundcloudEnabled,
+        )
+        return LiveSearchPage(
+            page.tracks.toLiveTracks(sourceTracks),
+            (offset + page.tracks.size).takeIf { page.hasMore && page.tracks.isNotEmpty() },
+        )
+    }
 
-    private fun List<CymbalTrack>.toLiveTracks(): List<LiveTrack> = filter { song ->
-        song.durationMs >= 1_000 && song.source in listOf(TrackSource.SPOTIFY, TrackSource.APPLEMUSIC)
+    private fun List<CymbalTrack>.toLiveTracks(sourceTracks: Boolean): List<LiveTrack> = filter { song ->
+        when (song.source) {
+            TrackSource.SPOTIFY, TrackSource.APPLEMUSIC -> song.durationMs >= 1_000
+            TrackSource.SOUNDCLOUD -> sourceTracks && song.soundcloudId != null && song.durationMs >= 1_000
+            TrackSource.BANDCAMP -> sourceTracks && song.bandcampId != null
+            else -> false
+        }
     }.distinctBy { it.id }.map { LiveTrack(it) }
+
+    suspend fun sourceAudioUrl(track: LiveTrack): String? {
+        val song = track.song
+        return when (song.source) {
+            TrackSource.SOUNDCLOUD -> {
+                val id = song.soundcloudId ?: return null
+                val stream = cloud.soundcloudResolveStream(id)
+                (stream["streamUrl"] as? String)?.takeIf { it.isNotBlank() && stream["isPreview"] != true }
+            }
+            TrackSource.BANDCAMP -> bandcamp.resolve(song.bandcampUrl, song.bandcampId, song.name, song.artistName) { page ->
+                cloud.resolveBandcampPreview(page, song.bandcampId, song.name, song.artistName)
+            }?.first
+            else -> null
+        }
+    }
 
     suspend fun lastSong(uid: String): LiveTrack? =
         posts.getProfilePosts(uid, uid, limit = 1, mediaType = "track")
@@ -165,38 +201,33 @@ internal class LiveRepository @Inject constructor(
         return LiveSavesPage(items, result["cursor"].liveFields())
     }
 
-    suspend fun suggestions(uid: String): LiveSuggestions = coroutineScope {
+    suspend fun suggestions(uid: String, sourceTracks: Boolean): LiveSuggestions = coroutineScope {
         val recent = async {
-            posts.getProfilePosts(uid, uid, limit = 24, mediaType = "track").map { it.track }.toLiveTracks()
+            posts.getProfilePosts(uid, uid, limit = 24, mediaType = "track").map { it.track }.toLiveTracks(sourceTracks)
         }
         val saved = async {
             try {
                 mixedSaves().items.mapNotNull { item ->
                     when (item) {
                         is LiveSaveItem.Track -> item.track.song
-                        is LiveSaveItem.Post -> item.post.takeIf { !it.isMovie }?.track
+                        is LiveSaveItem.Post -> item.post.takeIf { it.isTrack }?.track
                     }
-                }.toLiveTracks()
+                }.toLiveTracks(sourceTracks)
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
-                cloud.getSavedPosts(uid, limit = 24).filterNot { it.isMovie }.map { it.track }.toLiveTracks()
+                cloud.getSavedPosts(uid, limit = 24).filter { it.isTrack }.map { it.track }.toLiveTracks(sourceTracks)
             }
         }
         val latest = recent.await()
         val savedSongs = saved.await()
         val trending = if (latest.isEmpty() && savedSongs.isEmpty()) {
-            explore.fetchTrendingSongs(limit = 12).map { it.track }.toLiveTracks()
+            explore.fetchTrendingSongs(limit = 12).map { it.track }.toLiveTracks(sourceTracks)
         } else emptyList()
         LiveSuggestions(latest, savedSongs, trending)
     }
 
-    suspend fun spotifyPlaylist(link: String): Pair<String, List<LiveTrack>> {
-        val uri = android.net.Uri.parse(link.trim())
-        val id = uri.pathSegments.lastOrNull()
-        require(uri.scheme == "https" && uri.host == "open.spotify.com" &&
-            uri.pathSegments.dropLast(1).lastOrNull() == "playlist" &&
-            id?.matches(Regex("[A-Za-z0-9]{22}")) == true) { "Paste a Spotify playlist link." }
+    suspend fun spotifyPlaylist(id: String): Pair<String, List<LiveTrack>> {
         val data = functions.getHttpsCallable("corusLiveSpotifyPlaylist").call(mapOf(
             "playlistId" to id, "market" to Locale.getDefault().country.ifBlank { "US" },
         )).await().getData().liveFields().orEmpty()
@@ -223,12 +254,31 @@ internal class LiveRepository @Inject constructor(
                 ?.takeIf { it.matches(Regex("[A-Za-z0-9]{22}")) }?.let { "spotify:track:$it" }
     }
 
+    suspend fun recentPeople(uid: String, roomId: String?): List<LivePerson> = coroutineScope {
+        val contacts = async {
+            recentShareRecipients(cloud.listThreadsPage(uid, limit = 20).threads)
+                .mapNotNull { it.user?.toLivePerson() }
+        }
+        val listeners = async {
+            if (roomId == null) return@async emptyList()
+            try {
+                val roster = call("listeners", roomId).rows("listeners").map(LivePerson::parse)
+                val profiles = users.fetchUsersByIdsBatched(roster.map { it.uid }).associateBy { it.id }
+                roster.map { profiles[it.uid]?.toLivePerson() ?: it }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                emptyList()
+            }
+        }
+        (listeners.await() + contacts.await()).filter { it.uid.isNotBlank() && it.uid != uid }.distinctBy { it.uid }
+    }
+
     suspend fun searchPeople(query: String, uid: String): List<LivePerson> =
-        if (query.isBlank()) {
-            users.fetchUsersByIdsBatched(users.fetchFollowerIds(uid).take(30))
-        } else {
-            users.searchUsers(query.trim().removePrefix("@"), includeFollowed = true)
-        }.filter { it.id != uid }.map { LivePerson(it.id, it.username, it.avatarThumbURL ?: it.avatarURL) }
+        users.searchUsers(query, includeFollowed = true)
+            .filter { it.id != uid }.distinctBy { it.id }.map { it.toLivePerson() }
+
+    private fun CymbalUser.toLivePerson() = LivePerson(id, username, avatarThumbURL ?: avatarURL, this)
 
     suspend fun uploadWelcome(uid: String, id: String, recording: LiveRecording): Map<String, Any> = mapOf(
         "url" to storage.uploadVoiceNote(uid, id, recording.bytes),
