@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.domain.SpotifyPlaybackService
 import fm.corus.android.ui.components.ComposePlusButton
 import fm.corus.android.ui.components.blockTouchPassthrough
 import fm.corus.android.ui.theme.CorusColors
@@ -256,14 +257,15 @@ internal fun BoxScope.LivePresentation(
         }
     }
     val setupTransition = remember { MutableTransitionState(false) }
-    setupTransition.targetState = state.setup != null
+    val setupReady = state.setup != null && !state.checkingSetupAccess && !state.hostSpotifyRequiredForSetup
+    setupTransition.targetState = setupReady
     AnimatedVisibility(
         visibleState = setupTransition,
         modifier = Modifier.fillMaxSize().zIndex(10f),
         enter = slideInVertically { it },
         exit = if (state.hosting) ExitTransition.None else slideOutVertically { it },
     ) {
-        val latest = state.setup
+        val latest = state.setup.takeIf { setupReady }
         var exitingSetup by remember { mutableStateOf(latest) }
         SideEffect { if (latest != null) exitingSetup = latest }
         (latest ?: exitingSetup)?.let {
@@ -273,7 +275,7 @@ internal fun BoxScope.LivePresentation(
             )
         }
     }
-    if (state.setup == null && state.progress != null) {
+    if ((state.setup == null || state.hostSpotifyRequiredForSetup) && state.progress != null) {
         Box(Modifier.fillMaxSize().zIndex(10f).background(CorusColors.Background)) { LiveLoading(state.progress) }
     }
     state.ended?.let { ended ->
@@ -316,6 +318,24 @@ internal fun BoxScope.LivePresentation(
             onDismissRequest = vm::clearError,
             title = { LiveText("This room hasn’t started yet", CorusFont.songTitle) },
             confirmButton = { TextButton(onClick = vm::clearError) { LiveText(stringResource(CorusStrings.common_ok)) } },
+        )
+    }
+    if (state.hostSpotifyPrompt) {
+        val installed = SpotifyPlaybackService.isSpotifyAppInstalled(context)
+        AlertDialog(
+            onDismissRequest = vm::dismissHostSpotifyPrompt,
+            title = { LiveText("Spotify Premium required", CorusFont.songTitle) },
+            text = { LiveText(state.hostSpotifyHint ?: "To go live on Android, connect Spotify Premium. Corus will switch your music service to Spotify.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (installed) vm.connectSpotifyFromHostPrompt()
+                    else try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.spotify.music"))) }
+                    catch (_: ActivityNotFoundException) {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.spotify.music")))
+                    }
+                }) { LiveText(if (installed) "Connect Spotify" else "Install Spotify") }
+            },
+            dismissButton = { TextButton(onClick = vm::dismissHostSpotifyPrompt) { LiveText(stringResource(CorusStrings.common_cancel)) } },
         )
     }
     state.error?.let { error ->

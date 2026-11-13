@@ -1,5 +1,14 @@
 package fm.corus.android.domain
 
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
+
+internal suspend fun awaitSpotifyPlayback(isPlaying: suspend () -> Boolean): Boolean =
+    withTimeoutOrNull(6_000L) {
+        while (!isPlaying()) delay(250L)
+        true
+    } ?: false
+
 /**
  * Cold-start rules for App Remote when the Spotify app is not listening.
  * A hung silent connect means further silent retries will also hang; wake
@@ -9,6 +18,15 @@ package fm.corus.android.domain
 internal object SpotifyConnectWake {
     const val POST_AUTH_CONNECT_TIMEOUT_MS = 20_000L
     const val POST_AUTH_CONNECT_MAX_ATTEMPTS = 3
+
+    fun shouldRecoverConnectedPlay(error: SpotifyPlaybackError): Boolean = when (error) {
+        is SpotifyPlaybackError.NotConnected, is SpotifyPlaybackError.PlaybackUnconfirmed -> true
+        is SpotifyPlaybackError.ApiError -> {
+            val message = error.message.orEmpty().lowercase()
+            listOf("timed out", "connect", "transport", "network", "ipc", "binder").any(message::contains)
+        }
+        else -> false
+    }
 
     fun shouldAbandonSilentRetries(error: Exception): Boolean {
         val msg = error.message?.lowercase().orEmpty()

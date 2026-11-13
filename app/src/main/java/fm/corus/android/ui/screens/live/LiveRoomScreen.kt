@@ -21,6 +21,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -30,6 +31,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -47,12 +50,19 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import coil3.compose.AsyncImage
+import com.valentinilk.shimmer.shimmer
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.DiscoIntensity
@@ -62,14 +72,17 @@ import fm.corus.android.ui.components.DiscoEffectView
 import fm.corus.android.ui.components.DiscoScrim
 import fm.corus.android.ui.components.RainEffectView
 import fm.corus.android.ui.components.SnowEffectView
+import fm.corus.android.ui.components.ShimmerAsyncImage
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import java.util.Locale
 
-private enum class RoomPanel { HISTORY, LISTENERS, OPTIONS, RENAME, INVITE, LINEUP, PICK_DJS, QUEUE, REQUEST_SONG, GIF, REPORT, END }
+private enum class RoomPanel { HISTORY, LISTENERS, OPTIONS, INVITE, LINEUP, PICK_DJS, EDIT_TITLE, QUEUE, REQUEST_SONG, GIF, REPORT, END }
 
 private data class QueuePlaySelection(val track: LiveTrack, val index: Int, val version: Long, val revision: Long)
 
@@ -150,8 +163,9 @@ internal fun LiveRoomScreen(
         if (uid.isNotBlank()) { vm.minimize(); openProfile(uid) }
     }
 
+    val visibleEffect = state.effectSelection.visible(room.effect)
     Box(Modifier.fillMaxSize().background(CorusColors.Background)) {
-        LiveRoomEffects(room.effect, room.hearts, !canControl || pager.currentPage == 1)
+        LiveRoomEffects(visibleEffect, room.hearts, !canControl || pager.currentPage == 1)
         Column(
             Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()
                 .widthIn(max = 650.dp).align(Alignment.TopCenter).padding(start = 16.dp, end = 16.dp, top = 4.dp),
@@ -203,7 +217,7 @@ internal fun LiveRoomScreen(
                         RoomPlayerCard(room, state, vm, welcomePlaying, { selectedSong = it }, { show(RoomPanel.HISTORY) })
                     }
                 }
-                RoomStatus(state.listenerCount, room.collaborative, state.djRequests.size,
+                RoomStatus(state.listenerCount, room.collaborative,
                     { show(RoomPanel.LISTENERS) }, { show(RoomPanel.LINEUP) })
             }
             val chat: @Composable ColumnScope.() -> Unit = {
@@ -307,35 +321,62 @@ internal fun LiveRoomScreen(
             }
         }
         RoomPanel.OPTIONS -> LiveSheet(stringResource(CorusStrings.corus_live_room_options), close) {
-            LiveRow("Room title", Icons.Default.Edit, room.title) { panel = RoomPanel.RENAME }
-            HorizontalDivider()
-            LiveText("Room effects", CorusFont.usernameLarge)
-            val effects = listOf("off" to stringResource(CorusStrings.corus_live_off), "rain" to stringResource(CorusStrings.corus_live_rain), "snow" to stringResource(CorusStrings.corus_live_snow), "slow" to "Slow", "disco" to stringResource(CorusStrings.profile_share_effect_disco), "party" to "Party")
-            effects.chunked(3).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    row.forEach { (id, label) ->
-                        FilterChip(room.effect == id, { vm.action("effect", mapOf("effect" to id)) }, { LiveText(label) })
+            Column(
+                Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth()
+                        .clickable(role = Role.Button) { panel = RoomPanel.EDIT_TITLE }
+                        .heightIn(min = 56.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        LiveText(stringResource(R.string.live_room_title_field), CorusFont.username)
+                        LiveText(room.title, color = CorusColors.Secondary, lines = 1)
+                    }
+                    Icon(Icons.Default.Edit, stringResource(R.string.live_edit_room_title),
+                        tint = CorusColors.Accent, modifier = Modifier.size(20.dp))
+                }
+                HorizontalDivider(color = CorusColors.Divider)
+                LiveText(stringResource(R.string.live_room_effects), CorusFont.username,
+                    modifier = Modifier.semantics { heading() })
+                RoomEffectSection(
+                    title = stringResource(CorusStrings.style_picker_disco_effect),
+                    effects = listOf(
+                        "slow" to stringResource(CorusStrings.style_disco_slow_dance),
+                        "disco" to stringResource(CorusStrings.style_disco_disco_ball),
+                        "party" to stringResource(CorusStrings.style_disco_dance_party),
+                    ),
+                    selected = visibleEffect,
+                    toggle = vm::toggleRoomEffect,
+                )
+                RoomEffectSection(
+                    title = stringResource(R.string.live_room_weather),
+                    effects = listOf(
+                        "rain" to stringResource(CorusStrings.corus_live_rain),
+                        "snow" to stringResource(CorusStrings.corus_live_snow),
+                    ),
+                    selected = visibleEffect,
+                    toggle = vm::toggleRoomEffect,
+                )
+                if (room.collaborative) {
+                    HorizontalDivider(Modifier.padding(top = 12.dp), color = CorusColors.Divider)
+                    RoomSwitch("Allow DJ requests", room.allowDJRequests) {
+                        vm.action("setRequestPermission", mapOf("type" to "dj", "allowed" to it))
+                    }
+                    RoomSwitch("Allow song requests", room.allowSongRequests) {
+                        vm.action("setRequestPermission", mapOf("type" to "song", "allowed" to it))
                     }
                 }
             }
-            if (room.collaborative) {
-                RoomSwitch("Allow DJ requests", room.allowDJRequests) {
-                    vm.action("setRequestPermission", mapOf("type" to "dj", "allowed" to it))
-                }
-                RoomSwitch("Allow song requests", room.allowSongRequests) {
-                    vm.action("setRequestPermission", mapOf("type" to "song", "allowed" to it))
-                }
-            }
         }
-        RoomPanel.RENAME -> {
-            var title by remember { mutableStateOf(room.customTitle) }
-            LiveSheet("Room title", { panel = RoomPanel.OPTIONS }) {
-                LiveSearchField(title, "Room title") { title = limitLiveCharacters(it, LIVE_ROOM_TITLE_LIMIT) }
-                LivePrimary(stringResource(CorusStrings.corus_live_save)) {
-                    vm.action("renameRoom", mapOf("title" to title.trim())) { panel = RoomPanel.OPTIONS }
-                }
-            }
-        }
+        RoomPanel.EDIT_TITLE -> EditRoomTitleSheet(
+            room.customTitle,
+            onDismiss = { panel = RoomPanel.OPTIONS },
+            onSave = { title -> vm.renameRoom(room.id, title) },
+        )
         RoomPanel.INVITE -> LiveSheet(stringResource(CorusStrings.native_1fd9ae1607aa), close) {
             if (openDJSpots > 0) LiveRow("Invite a DJ", Icons.Default.PersonAdd) { panel = RoomPanel.PICK_DJS }
             LiveRow("Invite Listeners", Icons.Default.IosShare) { close(); share() }
@@ -417,6 +458,92 @@ internal fun LiveRoomScreen(
 }
 
 @Composable
+private fun RoomEffectSection(
+    title: String,
+    effects: List<Pair<String, String>>,
+    selected: String,
+    toggle: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LiveText(title, CorusFont.captionMedium, CorusColors.Secondary,
+            modifier = Modifier.semantics { heading() })
+        effects.chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { (id, label) ->
+                    val active = selected == id
+                    Row(
+                        Modifier.weight(1f).clip(CircleShape)
+                            .background(if (active) CorusColors.Accent else CorusColors.SheetControlBackground)
+                            .selectable(active, role = Role.Button, onClick = { toggle(id) })
+                            .heightIn(min = 44.dp).padding(horizontal = 8.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(label, style = CorusFont.captionMedium, textAlign = TextAlign.Center,
+                            color = if (active) Color.White else CorusColors.Text)
+                        if (active) Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(13.dp))
+                    }
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditRoomTitleSheet(initialTitle: String, onDismiss: () -> Unit, onSave: suspend (String) -> Unit) {
+    val originalTitle = remember { initialTitle }
+    var title by remember { mutableStateOf(originalTitle) }
+    var saving by remember { mutableStateOf(false) }
+    var failed by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val focus = LocalFocusManager.current
+    val editedTitle = title.trim().replace(Regex("[\\s\\p{Z}]+"), " ")
+    val canSave = !saving && editedTitle != originalTitle
+    val save: () -> Unit = {
+        if (canSave) {
+            saving = true
+            failed = false
+            focus.clearFocus()
+            scope.launch {
+                try {
+                    onSave(editedTitle)
+                    onDismiss()
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    failed = true
+                } finally {
+                    saving = false
+                }
+            }
+        }
+    }
+
+    LiveSheet(stringResource(R.string.live_edit_room_title), onDismiss, dismissEnabled = !saving) {
+        OutlinedTextField(
+            value = title,
+            onValueChange = { title = limitLiveCharacters(it, LIVE_ROOM_TITLE_LIMIT) },
+            modifier = Modifier.fillMaxWidth(),
+            label = { LiveText(stringResource(R.string.live_room_title_field)) },
+            textStyle = CorusFont.body,
+            singleLine = true,
+            enabled = !saving,
+            keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { save() }),
+        )
+        if (failed) {
+            LiveText(stringResource(R.string.edit_profile_save_error), CorusFont.caption, CorusColors.Secondary)
+        }
+        LivePrimary(
+            stringResource(if (saving) CorusStrings.compose_draft_saving else R.string.live_save_room_title),
+            enabled = canSave,
+            onClick = save,
+        )
+    }
+}
+
+@Composable
 private fun RoomIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
     LiveIconButton(icon, label, onClick, tint = CorusColors.Text, touchSize = 44.dp, glyphSize = 17.dp)
 }
@@ -463,7 +590,7 @@ private fun RoomLineup(
                     LiveAvatar(person, 48.dp, ring = isHost || playing || (voiceLevels[person.uid] ?: 0f) > .03f)
                     if (playing || (isHost && !talking && room.djs.isEmpty())) {
                         LiveText(
-                            "LIVE", CorusFont.captionMedium, Color.White,
+                            "LIVE", CorusFont.captionMedium.copy(fontWeight = FontWeight.Black), Color.White,
                             Modifier.align(Alignment.BottomCenter).background(Color(0xFF4774CA), CircleShape)
                                 .padding(horizontal = 6.dp, vertical = 1.dp),
                         )
@@ -578,12 +705,12 @@ internal fun LiveVoiceMeter(level: Float) {
 }
 
 @Composable
-private fun RoomStatus(count: Int, collaboration: Boolean, requests: Int, listeners: () -> Unit, lineup: () -> Unit) {
+private fun RoomStatus(count: Int, collaboration: Boolean, listeners: () -> Unit, lineup: () -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         HorizontalDivider(Modifier.weight(1f), color = CorusColors.Secondary.copy(alpha = .25f))
         LivePill(count.toString(), listeners, showPeople = true)
-        if (collaboration) LivePill(if (requests > 0) "DJs · $requests" else "DJs", lineup)
+        if (collaboration) LivePill("DJs", lineup)
         HorizontalDivider(Modifier.weight(1f), color = CorusColors.Secondary.copy(alpha = .25f))
     }
 }
@@ -608,15 +735,14 @@ private fun HostControls(
 ) {
     var playNext by remember(room.id) { mutableStateOf<QueuePlaySelection?>(null) }
     val guest = state.dj
-    val queue = guest?.rows("queue")?.mapNotNull(LiveTrack::parse) ?: room.queue
+    val serverQueue = guest?.rows("queue")?.mapNotNull(LiveTrack::parse) ?: room.queue
     val version = guest?.number("version") ?: room.queueVersion
+    val pendingOrder = remember(room.id, guest?.text("uid"), version) { mutableStateOf<List<LiveTrack>?>(null) }
+    val queue = pendingOrder.value ?: serverQueue
+    val dragPreview = remember(pendingOrder) { mutableStateOf<LiveQueueDrag?>(null) }
     val editingEnabled = room.pendingSkip == null && !state.queueUpdating
     val canPlay = state.hosting && room.djs.isEmpty() && room.pausedAt == null
-    val canSkip = editingEnabled && room.current != null && room.pausedAt == null && room.status == "playing" &&
-        if (state.hosting) {
-            (room.collaborative || queue.isNotEmpty()) &&
-                !(room.djs.isEmpty() && queue.isNotEmpty() && state.access?.confirmedSkip == true && state.muted)
-        } else room.currentDJ?.uid == state.uid
+    val canSkip = state.canSkipTrack(room, queue)
     val accentText = if (LocalCorusDarkTheme.current) Color(0xFF98BAFF) else Color(0xFF3A6BB9)
     Column(modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (state.hosting) {
@@ -686,16 +812,21 @@ private fun HostControls(
                 }
             } else {
                 LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
-                    items(queue.size) { index ->
+                    val keys = liveQueueRowKeys(queue)
+                    items(queue.size, key = { keys[it] }) { index ->
                         val track = queue[index]
                         HostQueueRow(
-                            track, index, queue.size, editingEnabled,
+                            track, index, queue.size, editingEnabled, dragPreview,
                             onPlay = if (canPlay) { { playNext = QueuePlaySelection(track, index, version, room.revision) } } else null,
                             remove = {
                                 vm.updateQueue(queue.toMutableList().apply { removeAt(index) }, version, state.hosting)
                             },
                             move = { destination ->
-                                vm.updateQueue(queue.toMutableList().apply { add(destination, removeAt(index)) }, version, state.hosting)
+                                val reordered = queue.toMutableList().apply { add(destination, removeAt(index)) }
+                                pendingOrder.value = reordered
+                                if (!vm.updateQueue(reordered, version, state.hosting) { pendingOrder.value = null }) {
+                                    pendingOrder.value = null
+                                }
                             },
                         )
                     }
@@ -751,6 +882,7 @@ private fun RoomQueueEditor(room: LiveRoom, state: LiveUiState, vm: LiveViewMode
     val version = remember(room.id) { state.dj?.number("version") ?: room.queueVersion }
     val hosting = remember(room.id) { state.hosting }
     val queue = remember(room.id) { initial.toMutableStateList() }
+    val dragPreview = remember(room.id) { mutableStateOf<LiveQueueDrag?>(null) }
     val limit = if (hosting) 50 else 20
     var importing by remember { mutableStateOf(false) }
     val done = {
@@ -779,21 +911,31 @@ private fun RoomQueueEditor(room: LiveRoom, state: LiveUiState, vm: LiveViewMode
             },
         ) {
             if (hosting && room.current != null) item {
-                LiveText(stringResource(CorusStrings.full_player_queue_now_playing), CorusFont.captionMedium, CorusColors.Secondary)
-                LiveTrackRow(room.current)
+                RoomQueueSectionTitle(stringResource(CorusStrings.full_player_queue_now_playing))
+                LiveTrackRow(
+                    room.current,
+                    queueStyle = true,
+                    artworkSize = LiveSongPickerArtworkSize,
+                    itemSpacing = 12.dp,
+                )
+                HorizontalDivider(
+                    Modifier.padding(start = LiveSongPickerArtworkSize + 12.dp),
+                    color = CorusColors.Divider,
+                )
             }
             item {
-                LiveText(
-                    "${stringResource(CorusStrings.full_player_queue_title)} · ${queue.size}",
-                    CorusFont.captionMedium, CorusColors.Secondary,
+                RoomQueueSectionTitle(
+                    "${stringResource(CorusStrings.full_player_queue_title)} · ${queue.size}"
                 )
                 if (queue.isEmpty()) {
-                    LiveText("Add songs to your queue.", color = CorusColors.Secondary, modifier = Modifier.padding(vertical = 12.dp))
+                    LiveText("Add songs to your queue.", color = CorusColors.Secondary, modifier = Modifier.padding(vertical = 16.dp))
+                    HorizontalDivider(color = CorusColors.Divider)
                 }
             }
-            items(queue.size) { index ->
+            val keys = liveQueueRowKeys(queue)
+            items(queue.size, key = { keys[it] }) { index ->
                 HostQueueRow(
-                    queue[index], index, queue.size, enabled = true, onPlay = null,
+                    queue[index], index, queue.size, enabled = true, dragPreview = dragPreview, onPlay = null,
                     remove = { queue.removeAt(index) },
                     move = { destination -> queue.add(destination, queue.removeAt(index)) },
                 )
@@ -804,6 +946,14 @@ private fun RoomQueueEditor(room: LiveRoom, state: LiveUiState, vm: LiveViewMode
         queue.addAll(tracks)
         importing = false
     }
+}
+
+@Composable
+private fun RoomQueueSectionTitle(title: String) {
+    LiveText(
+        title.uppercase(Locale.getDefault()), CorusFont.caption, CorusColors.Secondary,
+        modifier = Modifier.padding(top = 16.dp, bottom = 12.dp).semantics { heading() },
+    )
 }
 
 @Composable
@@ -825,9 +975,10 @@ private fun HostQueueButton(
 
 @Composable
 private fun HostQueueRow(
-    track: LiveTrack, index: Int, count: Int, enabled: Boolean, onPlay: (() -> Unit)?, remove: () -> Unit, move: (Int) -> Unit,
+    track: LiveTrack, index: Int, count: Int, enabled: Boolean,
+    dragPreview: MutableState<LiveQueueDrag?>, onPlay: (() -> Unit)?, remove: () -> Unit, move: (Int) -> Unit,
 ) {
-    LiveQueueReorderRow(index, count, 60.dp, move, enabled = enabled) { handle ->
+    LiveQueueReorderRow(index, count, 60.dp, move, enabled = enabled, dragPreview = dragPreview) { handle ->
         Row(
             Modifier.fillMaxWidth().padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -1093,17 +1244,72 @@ private fun RoomSwitch(text: String, enabled: Boolean, onChange: (Boolean) -> Un
 @Composable
 private fun LiveGifPicker(vm: LiveViewModel, close: () -> Unit, choose: (String) -> Unit) {
     var query by remember { mutableStateOf("") }
-    var urls by remember { mutableStateOf<List<String>>(emptyList()) }
-    LaunchedEffect(query) {
-        delay(300)
-        try { urls = vm.gifs(query) } catch (e: CancellationException) { throw e } catch (_: Exception) { urls = emptyList() }
+    val search = query.trim()
+    var attempt by remember { mutableIntStateOf(0) }
+    var result by remember(search, attempt) { mutableStateOf<Result<List<String>>?>(null) }
+    LaunchedEffect(search, attempt) {
+        if (search.isNotEmpty()) delay(300)
+        result = try {
+            val urls = vm.gifs(search)
+            coroutineContext.ensureActive()
+            Result.success(urls.distinct())
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            coroutineContext.ensureActive()
+            Result.failure(error)
+        }
     }
     LiveSheet(stringResource(CorusStrings.native_c275c265cabd), close, large = true) {
-        LiveSearchField(query, "Search GIFs") { query = it }
-        LazyColumn(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            items(urls.distinct().chunked(3)) { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    row.forEach { url -> AsyncImage(url, stringResource(CorusStrings.comments_cd_gif), Modifier.weight(1f).height(100.dp).clickable { choose(url) }) }
+        LiveSearchField(query, stringResource(CorusStrings.parity_9e867d1a518b)) { query = it }
+        val urls = result?.getOrNull()
+        when {
+            result?.isFailure == true -> Column(
+                Modifier.fillMaxWidth().padding(top = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                LiveText(stringResource(CorusStrings.share_generic_error), color = CorusColors.Secondary)
+                TextButton(onClick = { attempt++ }) {
+                    Text(stringResource(R.string.feed_offline_retry))
+                }
+            }
+            urls?.isEmpty() == true -> LiveText(
+                stringResource(CorusStrings.share_post_no_results),
+                color = CorusColors.Secondary,
+                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 20.dp),
+            )
+            else -> key(search, attempt) {
+                LazyColumn(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    if (urls == null) {
+                        items(6) {
+                            Row(
+                                Modifier.fillMaxWidth().shimmer(),
+                                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                            ) {
+                                repeat(3) {
+                                    Box(
+                                        Modifier.weight(1f).height(100.dp)
+                                            .clip(RoundedCornerShape(6.dp)).background(CorusColors.Skeleton),
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        items(urls.chunked(3), key = { it.first() }) { row ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                row.forEach { url ->
+                                    ShimmerAsyncImage(
+                                        model = url,
+                                        contentDescription = stringResource(CorusStrings.comments_cd_gif),
+                                        modifier = Modifier.weight(1f).height(100.dp).clickable { choose(url) },
+                                        contentScale = ContentScale.Fit,
+                                        shape = RoundedCornerShape(6.dp),
+                                    )
+                                }
+                                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1143,7 +1349,7 @@ private fun LiveRoomEffects(effect: String, hearts: Long, showHearts: Boolean) {
     }
     Box(Modifier.fillMaxSize()) {
         when (effect) {
-            "rain" -> RainEffectView(RainIntensity.HEAVY)
+            "rain" -> RainEffectView(RainIntensity.LIGHT, Modifier.alpha(.8f))
             "snow" -> SnowEffectView(SnowIntensity.HEAVY)
             "slow", "disco", "party" -> {
                 val intensity = when (effect) {

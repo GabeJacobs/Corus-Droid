@@ -45,6 +45,9 @@ private const val GoodMicLevel = .07f
 private const val MicMeterSegmentCount = 24
 private const val LoudMicMeterLevel = (MicMeterSegmentCount - 2f) / MicMeterSegmentCount
 private const val MicMeterFloorDecibels = -30f
+private const val MicMeterIntervalMs = 100L
+
+private fun normalizedMicPeak(peak: Int): Float = (peak / 32768f).coerceIn(0f, 1f)
 
 @Composable
 internal fun LiveMicrophone(
@@ -119,10 +122,10 @@ internal fun LiveMicrophone(
 
     LaunchedEffect(recorder.isRecording, recorder.isPreviewing) {
         while (recorder.isRecording || recorder.isPreviewing) {
-            delay(100)
+            delay(MicMeterIntervalMs)
             if (recorder.isRecording) {
                 val peak = recorder.readRecordingPeakAmplitude()
-                recordingLevel = peak / 32768f
+                recordingLevel = normalizedMicPeak(peak)
             }
             recorder.updateTimerTick()
         }
@@ -296,13 +299,15 @@ private suspend fun monitorMicrophone(onLevel: (Float) -> Unit) = withContext(Di
     val rate = 16_000
     val channel = AudioFormat.CHANNEL_IN_MONO
     val encoding = AudioFormat.ENCODING_PCM_16BIT
-    val bufferSize = AudioRecord.getMinBufferSize(rate, channel, encoding).coerceAtLeast(2_048)
+    val samplesPerReading = (rate * MicMeterIntervalMs / 1_000).toInt()
+    val bufferSize = AudioRecord.getMinBufferSize(rate, channel, encoding)
+        .coerceAtLeast(samplesPerReading * Short.SIZE_BYTES)
     val record = AudioRecord.Builder()
-        .setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION)
+        .setAudioSource(MediaRecorder.AudioSource.MIC)
         .setAudioFormat(AudioFormat.Builder().setSampleRate(rate).setChannelMask(channel).setEncoding(encoding).build())
         .setBufferSizeInBytes(bufferSize)
         .build()
-    val samples = ShortArray(bufferSize / 2)
+    val samples = ShortArray(samplesPerReading)
     try {
         record.startRecording()
         while (isActive) {
@@ -310,7 +315,7 @@ private suspend fun monitorMicrophone(onLevel: (Float) -> Unit) = withContext(Di
             check(count > 0) { "Couldn’t read microphone input." }
             var peak = 0
             for (index in 0 until count) peak = maxOf(peak, abs(samples[index].toInt()))
-            withContext(Dispatchers.Main) { onLevel((peak / 32768f).coerceIn(0f, 1f)) }
+            withContext(Dispatchers.Main) { onLevel(normalizedMicPeak(peak)) }
         }
     } finally {
         try {

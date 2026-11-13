@@ -3297,6 +3297,7 @@ class NowPlayingManager @Inject constructor(
                 uri = resolvedUri,
                 replaceQueue = replaceQueue,
                 queueSessionId = queueSession,
+                confirmPlayback = true,
             )
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e

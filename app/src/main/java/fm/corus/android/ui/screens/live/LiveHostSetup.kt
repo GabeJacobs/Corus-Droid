@@ -5,12 +5,28 @@ import fm.corus.android.R
 import fm.corus.android.localization.CorusStrings
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import fm.corus.android.data.model.TrackSource
+import fm.corus.android.domain.collectionArtworkUrl
 import fm.corus.android.ui.components.BandcampBadgeOverlay
 import fm.corus.android.ui.components.SoundCloudBadgeOverlay
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,6 +52,7 @@ import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,16 +60,24 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import java.util.Locale
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.FlairStyle
 import fm.corus.android.ui.components.dismissKeyboardOnDownwardDrag
@@ -66,6 +91,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 private enum class SetupPanel { QUEUE, INVITE, WELCOME, MIC, NOTIFY }
 
@@ -117,7 +143,11 @@ internal fun LiveHostSetup(
                 Modifier.weight(1f).widthIn(max = 480.dp).fillMaxWidth().align(Alignment.CenterHorizontally)
                     .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
             ) {
-                val avatarSize = if (setup.invitees.size > 1) 48.dp else 56.dp
+                val avatarSize by animateDpAsState(
+                    if (setup.invitees.size > 1) 48.dp else 56.dp,
+                    animationSpec = tween(250),
+                    label = "DJ avatar size",
+                )
                 val showsInvite = setup.invitees.size < LIVE_MAX_GUEST_DJS
                 val usesFourSlots = setup.invitees.size + (if (showsInvite) 1 else 0) == LIVE_MAX_GUEST_DJS
                 Spacer(Modifier.height(32.dp))
@@ -127,24 +157,67 @@ internal fun LiveHostSetup(
                     verticalAlignment = Alignment.Top,
                 ) {
                     val slot = if (usesFourSlots) Modifier.weight(1f) else Modifier
-                    Column(slot, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        LiveAvatar(LivePerson(profile?.id.orEmpty(), profile?.username.orEmpty(), profile?.avatarURL),
-                            avatarSize, ring = true)
+                    Column(slot.animateLineupPlacement(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(contentAlignment = Alignment.BottomCenter) {
+                            LiveAvatar(LivePerson(profile?.id.orEmpty(), profile?.username.orEmpty(), profile?.avatarURL),
+                                avatarSize, ring = true)
+                            if (setup.queue.isNotEmpty()) {
+                                LiveText(
+                                    stringResource(CorusStrings.corus_live_ready).uppercase(Locale.getDefault()),
+                                    CorusFont.caption.copy(
+                                        fontSize = 10.sp, lineHeight = 12.sp,
+                                        fontWeight = FontWeight.Black, letterSpacing = 0.3.sp,
+                                    ),
+                                    color = Color.White,
+                                    modifier = Modifier.offset(y = 4.dp)
+                                        .background(Color(0xFF4774CA), CircleShape)
+                                        .border(1.dp, CorusColors.Background, CircleShape)
+                                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                                    lines = 1,
+                                )
+                            }
+                        }
                         LiveText(profile?.username?.let { "@${it.removePrefix("@")}" }.orEmpty(), CorusFont.usernameLarge, lines = 1)
                     }
                     setup.invitees.forEach { person ->
-                        Column(
-                            slot.widthIn(max = 83.dp).clickable { panel = SetupPanel.INVITE },
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Box(Modifier.padding(4.dp)) { LiveAvatar(person, avatarSize) }
-                            LiveText("@${person.username}", CorusFont.usernameLarge, lines = 1)
+                        key(person.uid) {
+                            val opacity = remember { Animatable(0f) }
+                            LaunchedEffect(Unit) { opacity.animateTo(1f, tween(250)) }
+                            Column(
+                                slot.widthIn(max = 83.dp).animateLineupPlacement()
+                                    .graphicsLayer { alpha = opacity.value }
+                                    .clickable { panel = SetupPanel.INVITE },
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Box(Modifier.size(avatarSize + 8.dp), contentAlignment = Alignment.Center) {
+                                    LiveAvatar(person, avatarSize)
+                                    val removeLabel = stringResource(R.string.live_remove_dj_invite, person.username)
+                                    Box(
+                                        Modifier.align(Alignment.TopEnd)
+                                            .size(48.dp)
+                                            .clickable(role = Role.Button) {
+                                                vm.editSetup { copy(invitees = invitees.filterNot { it.uid == person.uid }) }
+                                            }
+                                            .semantics { contentDescription = removeLabel },
+                                        contentAlignment = Alignment.TopEnd,
+                                    ) {
+                                        Box(
+                                            Modifier.size(24.dp).background(CorusColors.SheetControlBackground, CircleShape)
+                                                .border(1.dp, CorusColors.Background, CircleShape),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Icon(Icons.Default.Close, null, tint = CorusColors.Secondary, modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                }
+                                LiveText("@${person.username}", CorusFont.usernameLarge, lines = 1)
+                            }
                         }
                     }
                     if (showsInvite) {
                         Column(
-                            slot.clickable { panel = SetupPanel.INVITE },
+                            slot.animateLineupPlacement().clickable { panel = SetupPanel.INVITE },
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
@@ -156,9 +229,14 @@ internal fun LiveHostSetup(
                         }
                     }
                 }
-                if (setup.invitees.isNotEmpty()) {
+                AnimatedVisibility(
+                    visible = setup.invitees.isNotEmpty(),
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                    enter = fadeIn(tween(250)) + expandVertically(tween(250)),
+                    exit = fadeOut(tween(250)) + shrinkVertically(tween(250)),
+                ) {
                     LiveText("DJ Invites will send when you go live", CorusFont.caption, CorusColors.Secondary,
-                        Modifier.align(Alignment.CenterHorizontally).padding(top = 7.dp))
+                        Modifier.padding(top = 7.dp))
                 }
                 Spacer(Modifier.height(24.dp))
                 BasicTextField(
@@ -248,7 +326,6 @@ internal fun LiveHostSetup(
         )
         SetupPanel.INVITE -> LivePersonPicker(setup.invitees, vm, closePanel, setup = true) { selected ->
             vm.editSetup { copy(invitees = selected) }
-            closePanel()
         }
         SetupPanel.MIC, SetupPanel.WELCOME -> LiveMicrophone(
             welcome = panel == SetupPanel.WELCOME, initial = setup.welcome, close = closePanel,
@@ -312,6 +389,20 @@ internal fun LiveHostSetup(
 internal const val LIVE_ROOM_TITLE_LIMIT = 32
 internal const val LIVE_MAX_GUEST_DJS = 3
 
+@Composable
+private fun Modifier.animateLineupPlacement(): Modifier {
+    var initialX by remember { mutableStateOf<Int?>(null) }
+    var placedOffset by remember { mutableIntStateOf(0) }
+    val animatedOffset by animateIntAsState(placedOffset, tween(250), label = "DJ lineup position")
+    return onPlaced { coordinates ->
+        val x = coordinates.positionInParent().x.roundToInt()
+        if (initialX == null) initialX = x
+        placedOffset = x - (initialX ?: x)
+    }.graphicsLayer {
+        translationX = (animatedOffset - placedOffset).toFloat()
+    }
+}
+
 internal fun limitLiveCharacters(value: String, max: Int): String {
     val boundary = android.icu.text.BreakIterator.getCharacterInstance()
     boundary.setText(value)
@@ -321,6 +412,12 @@ internal fun limitLiveCharacters(value: String, max: Int): String {
 
 @Composable
 internal fun LiveLoading(progress: LiveProgress, track: LiveTrack? = null) {
+    val titleTravel = with(LocalDensity.current) { 6.dp.roundToPx() }
+    val progressFraction by animateFloatAsState(
+        targetValue = if (progress == LiveProgress.PREPARING) .2f else .7f,
+        animationSpec = tween(220),
+        label = "Live startup progress",
+    )
     Column(
         Modifier.fillMaxSize().background(
             Brush.radialGradient(listOf(CorusColors.Accent.copy(alpha = .24f), Color.Transparent)),
@@ -328,22 +425,44 @@ internal fun LiveLoading(progress: LiveProgress, track: LiveTrack? = null) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterVertically),
     ) {
-        LiveArtwork(track?.song?.albumArtURL, 132.dp)
-        LiveText(
-            when (progress) {
+        val artwork = track?.song?.let { song ->
+            (song.albumArtLargeURL?.takeIf(String::isNotBlank) ?: song.albumArtURL)
+                ?.let(::collectionArtworkUrl)
+        }
+        LiveArtwork(artwork, 132.dp)
+        AnimatedContent(
+            targetState = progress,
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+            transitionSpec = {
+                (slideInVertically(tween(240)) { titleTravel } + fadeIn(tween(240))) togetherWith
+                    (slideOutVertically(tween(180)) { -titleTravel } + fadeOut(tween(180)))
+            },
+            label = "Live startup message",
+        ) { stage ->
+            val message = when (stage) {
                 LiveProgress.TUNING -> stringResource(CorusStrings.corus_live_tuning_in)
                 LiveProgress.PREPARING -> stringResource(CorusStrings.corus_live_getting_ready)
                 LiveProgress.CUEING -> stringResource(CorusStrings.corus_live_cueing_first_song)
+                LiveProgress.STARTING_SPOTIFY -> stringResource(R.string.live_starting_spotify)
                 LiveProgress.STARTING -> stringResource(CorusStrings.corus_live_going_live)
-            }, CorusFont.songTitleLarge,
-        )
+            }
+            Text(
+                message,
+                color = CorusColors.Text,
+                style = CorusFont.songTitleLarge.copy(textAlign = TextAlign.Center),
+                minLines = 2,
+            )
+        }
         track?.let { LiveText("${it.song.name} · ${it.song.artistName}", color = CorusColors.Secondary, lines = 2) }
         if (progress == LiveProgress.TUNING) {
             LinearProgressIndicator(modifier = Modifier.width(224.dp), color = CorusColors.Accent)
         } else {
             LinearProgressIndicator(
-                progress = { if (progress == LiveProgress.PREPARING) .2f else .7f },
+                progress = { progressFraction },
                 modifier = Modifier.width(224.dp), color = CorusColors.Accent,
+                gapSize = 0.dp,
+                drawStopIndicator = {},
             )
         }
     }
@@ -362,61 +481,57 @@ private fun LiveSetupQueueEditor(
     var importing by remember { mutableStateOf(false) }
     val selection = listOfNotNull(first) + queue
     val commit = { onDone(listOfNotNull(first) + queue) }
+    val rowPadding = Modifier.padding(horizontal = 20.dp)
     LiveSheet(
         stringResource(CorusStrings.corus_live_set_queue),
         commit,
         large = true,
         done = commit,
         sheetToolbar = true,
+        horizontalContentPadding = 0.dp,
     ) {
+        val dragPreview = remember { mutableStateOf<LiveQueueDrag?>(null) }
         LazyColumn(
             Modifier.weight(1f, fill = false),
             contentPadding = PaddingValues(top = 36.dp),
         ) {
             item {
-                LiveText(stringResource(CorusStrings.corus_live_first_song), CorusFont.username)
-                Spacer(Modifier.height(16.dp))
-                if (first == null) QueueAddMusic(Icons.Default.MusicNote) { pickSong = true }
-                first?.let { track ->
-                    var menu by remember { mutableStateOf(false) }
-                    LiveTrackRow(track, onTrack = { pickSong = true }, handle = {
-                        Box {
-                            LiveIconButton(Icons.Default.MoreHoriz, stringResource(CorusStrings.corus_live_first_song), { menu = true })
-                            DropdownMenu(menu, { menu = false }) {
-                                DropdownMenuItem(text = { LiveText(stringResource(CorusStrings.corus_live_choose_song)) }, onClick = { menu = false; pickSong = true })
-                                DropdownMenuItem(text = { LiveText(stringResource(CorusStrings.concert_remove)) }, onClick = { menu = false; first = null })
-                            }
-                        }
-                    })
+                Column(rowPadding) {
+                    LiveText(stringResource(CorusStrings.corus_live_first_song), CorusFont.username)
+                    Spacer(Modifier.height(16.dp))
                 }
-                HorizontalDivider(Modifier.padding(start = 56.dp), color = CorusColors.Divider)
-                Spacer(Modifier.height(32.dp))
+                if (first == null) QueueAddMusic(Icons.Default.MusicNote) { pickSong = true }
+                Column(rowPadding) {
+                    first?.let { track ->
+                        var menu by remember { mutableStateOf(false) }
+                        LiveTrackRow(track, onTrack = { pickSong = true }, handle = {
+                            Box {
+                                LiveIconButton(Icons.Default.MoreHoriz, stringResource(CorusStrings.corus_live_first_song), { menu = true })
+                                DropdownMenu(menu, { menu = false }) {
+                                    DropdownMenuItem(text = { LiveText(stringResource(CorusStrings.corus_live_choose_song)) }, onClick = { menu = false; pickSong = true })
+                                    DropdownMenuItem(text = { LiveText(stringResource(CorusStrings.concert_remove)) }, onClick = { menu = false; first = null })
+                                }
+                            }
+                        })
+                    }
+                    HorizontalDivider(Modifier.padding(start = 56.dp), color = CorusColors.Divider)
+                    Spacer(Modifier.height(32.dp))
+                }
             }
             item {
-                LiveText(stringResource(CorusStrings.full_player_queue_title), CorusFont.username)
+                LiveText(stringResource(CorusStrings.full_player_queue_title), CorusFont.username, modifier = rowPadding)
                 Spacer(Modifier.height(16.dp))
             }
-            items(queue.size, key = { queue[it].id }) { index ->
-                LiveQueueReorderRow(
-                    index, queue.size, 70.dp,
-                    move = { destination -> queue.add(destination, queue.removeAt(index)) },
-                    modifier = Modifier.animateItem(),
-                ) { handle ->
-                    LiveTrackRow(
-                        queue[index], Icons.Default.Close, stringResource(R.string.live_remove_queue_song),
-                        action = { queue.removeAt(index) }, handle = handle, queueStyle = true,
-                    )
-                }
-            }
+            setupQueueRows(queue, dragPreview)
             if (selection.size < limit) {
                 item {
                     QueueAddMusic(Icons.Default.QueueMusic) { pickSong = false }
-                    HorizontalDivider(Modifier.padding(start = 56.dp), color = CorusColors.Divider)
+                    HorizontalDivider(rowPadding.padding(start = 56.dp), color = CorusColors.Divider)
                 }
                 item {
                     val tint = if (LocalCorusDarkTheme.current) Color(0xFF98BAFF) else Color(0xFF3A6BB9)
                     Row(
-                        Modifier.fillMaxWidth().padding(vertical = 18.dp).clip(CircleShape)
+                        rowPadding.fillMaxWidth().padding(vertical = 18.dp).clip(CircleShape)
                             .background(CorusColors.Accent.copy(alpha = .13f)).clickable { importing = true }
                             .heightIn(min = 44.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
@@ -425,25 +540,26 @@ private fun LiveSetupQueueEditor(
                         Icon(Icons.Default.Link, null, tint = tint, modifier = Modifier.size(18.dp))
                         LiveText("Import playlist", CorusFont.body.copy(fontWeight = FontWeight.Bold), tint)
                     }
-                    HorizontalDivider(Modifier.padding(start = 144.dp), color = CorusColors.Divider)
+                    HorizontalDivider(rowPadding.padding(start = 144.dp), color = CorusColors.Divider)
                 }
             }
             item {
                 LiveText(
                     stringResource(CorusStrings.corus_live_you_can_change_your_queue_while_live),
-                    CorusFont.caption, CorusColors.Secondary, Modifier.padding(vertical = 18.dp),
+                    CorusFont.caption, CorusColors.Secondary, rowPadding.padding(vertical = 18.dp),
                 )
-                HorizontalDivider(color = CorusColors.Divider)
+                HorizontalDivider(rowPadding, color = CorusColors.Divider)
             }
         }
     }
     pickSong?.let { firstSlot ->
         LiveSongPicker(
-            if (firstSlot) stringResource(CorusStrings.corus_live_choose_song) else stringResource(CorusStrings.corus_live_add_music),
+            if (firstSlot) stringResource(CorusStrings.corus_live_choose_song) else stringResource(CorusStrings.full_player_queue_title),
             vm,
             close = { pickSong = null },
             queued = if (firstSlot) emptyList() else selection,
             canAdd = firstSlot || selection.size < limit,
+            editableQueue = if (firstSlot) null else queue,
         ) { track ->
             if (firstSlot) {
                 queue.removeAll { it.id == track.id || (track.song.isrc != null && track.song.isrc == it.song.isrc) }
@@ -463,10 +579,28 @@ private fun LiveSetupQueueEditor(
     }
 }
 
+private fun LazyListScope.setupQueueRows(queue: SnapshotStateList<LiveTrack>, dragPreview: MutableState<LiveQueueDrag?>) {
+    items(queue.size, key = { "setup-queue:${queue[it].id}" }) { index ->
+        LiveQueueReorderRow(
+            index, queue.size, 70.dp,
+            move = { destination -> queue.add(destination, queue.removeAt(index)) },
+            modifier = Modifier.animateItem(placementSpec = null),
+            dragPreview = dragPreview,
+        ) { handle ->
+            LiveTrackRow(
+                queue[index], Icons.Default.Close, stringResource(R.string.live_remove_queue_song),
+                action = { queue.removeAt(index) }, handle = handle, queueStyle = true,
+                modifier = Modifier.padding(start = 20.dp, end = 12.dp),
+            )
+        }
+    }
+}
+
 @Composable
 private fun QueueAddMusic(icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).heightIn(min = 72.dp),
+        Modifier.fillMaxWidth().clickable(onClick = onClick).heightIn(min = 72.dp)
+            .padding(horizontal = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -490,19 +624,26 @@ internal fun LiveTrackRow(
     onTrack: (() -> Unit)? = null,
     handle: @Composable (() -> Unit)? = null,
     queueStyle: Boolean = false,
+    modifier: Modifier = Modifier,
+    artworkSize: Dp = 44.dp,
+    itemSpacing: Dp = 10.dp,
 ) {
     Row(
-        Modifier.fillMaxWidth().heightIn(min = if (queueStyle) 70.dp else 57.dp)
+        modifier.fillMaxWidth().heightIn(min = if (queueStyle) 70.dp else 57.dp)
             .then(if (onTrack == null) Modifier else Modifier.clickable(onClick = onTrack)),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(itemSpacing),
     ) {
-        LiveArtwork(track.song.albumArtURL, 44.dp)
+        LiveArtwork(track.song.albumArtURL ?: track.song.albumArtLargeURL, artworkSize)
         Column(Modifier.weight(1f)) {
             LiveText(track.song.name, if (queueStyle) CorusFont.body else CorusFont.songTitle, lines = 1)
             LiveText(track.song.artistName, CorusFont.caption, CorusColors.Secondary, lines = 1)
         }
-        if (icon != null) LiveIconButton(icon, label, action, glyphSize = if (queueStyle) 18.dp else 24.dp)
-        handle?.invoke()
+        if (icon != null || handle != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (icon != null) LiveIconButton(icon, label, action, glyphSize = if (queueStyle) 18.dp else 24.dp)
+                handle?.invoke()
+            }
+        }
     }
 }
 
@@ -513,10 +654,28 @@ internal fun LiveSongPicker(
     close: () -> Unit,
     queued: List<LiveTrack> = emptyList(),
     canAdd: Boolean = true,
+    editableQueue: SnapshotStateList<LiveTrack>? = null,
     choose: (LiveTrack) -> Unit,
 ) {
-    LiveSheet(title, close, large = true, done = close, dismissKeyboardFromHeader = true) {
-        LiveSongPickerContent(vm, choose, queued = queued, canAdd = canAdd)
+    LiveSheet(title, close, large = true, done = close, dismissKeyboardFromHeader = true, horizontalContentPadding = 0.dp) {
+        val dragPreview = remember { mutableStateOf<LiveQueueDrag?>(null) }
+        LiveSongPickerContent(vm, choose, queued = queued, canAdd = canAdd, horizontalPadding = 20.dp) {
+            if (editableQueue != null) {
+                item(key = "setup-queue:heading") {
+                    val queueTitle = stringResource(CorusStrings.full_player_queue_title).uppercase(Locale.getDefault())
+                    Column(Modifier.padding(horizontal = 20.dp)) {
+                        LiveText(
+                            "$queueTitle · ${editableQueue.size}", CorusFont.caption, CorusColors.Secondary,
+                            modifier = Modifier.padding(top = 16.dp, bottom = 12.dp),
+                        )
+                        if (editableQueue.isEmpty()) {
+                            LiveText("Add songs to your queue.", color = CorusColors.Secondary)
+                        }
+                    }
+                }
+                setupQueueRows(editableQueue, dragPreview)
+            }
+        }
     }
 }
 
@@ -529,6 +688,7 @@ internal fun ColumnScope.LiveSongPickerContent(
     choose: (LiveTrack) -> Unit,
     queued: List<LiveTrack> = emptyList(),
     canAdd: Boolean = true,
+    horizontalPadding: Dp = 0.dp,
     afterSearch: @Composable (String) -> Unit = {},
     queueContent: LazyListScope.() -> Unit = {},
 ) {
@@ -653,7 +813,8 @@ internal fun ColumnScope.LiveSongPickerContent(
             loading = false
         }
     }
-    LiveSongPickerSearch(query) { query = it }
+    val contentPadding = Modifier.padding(horizontal = horizontalPadding)
+    LiveSongPickerSearch(query, contentPadding) { query = it }
     afterSearch(query)
     val browsing = query.isBlank()
     val sections = if (browsing) listOf(
@@ -674,7 +835,7 @@ internal fun ColumnScope.LiveSongPickerContent(
                         LiveText(stringResource(R.string.live_retry_loading_songs))
                     }
                     suggestions == null -> SongPickerLoadingIndicator()
-                    else -> LiveText(stringResource(R.string.live_search_to_find_song), color = CorusColors.Secondary)
+                    else -> LiveText(stringResource(R.string.live_search_to_find_song), color = CorusColors.Secondary, modifier = contentPadding)
                 }
             }
         } else if (!browsing && (loading || failed || tracks.isEmpty())) {
@@ -683,6 +844,7 @@ internal fun ColumnScope.LiveSongPickerContent(
                 else LiveText(
                     if (failed) "Couldn’t load songs. Try again." else stringResource(CorusStrings.search_no_songs_found),
                     color = CorusColors.Secondary,
+                    modifier = contentPadding,
                 )
             }
         }
@@ -690,7 +852,7 @@ internal fun ColumnScope.LiveSongPickerContent(
             if (section.title.isNotEmpty()) item(key = "${section.id}:heading") {
                 LiveText(
                     section.title.uppercase(Locale.getDefault()), CorusFont.caption, CorusColors.Secondary,
-                    modifier = Modifier.padding(top = 16.dp, bottom = 12.dp),
+                    modifier = contentPadding.padding(top = 16.dp, bottom = 12.dp),
                 )
             }
             val visible = section.tracks.take(section.limit)
@@ -699,9 +861,11 @@ internal fun ColumnScope.LiveSongPickerContent(
                 val add = if (canAdd && !inQueue && (!track.playsFromSource || adding == null)) {
                     { addTrack(track) }
                 } else null
-                SongPickerTrackRow(track, playing == track.id, inQueue, adding == track.id, { audition(track) }, add)
-                if (track.id != visible.last().id) {
-                    HorizontalDivider(Modifier.padding(start = 60.dp), color = CorusColors.Divider)
+                Column(contentPadding) {
+                    SongPickerTrackRow(track, playing == track.id, inQueue, adding == track.id, { audition(track) }, add)
+                    if (track.id != visible.last().id) {
+                        HorizontalDivider(Modifier.padding(start = 60.dp), color = CorusColors.Divider)
+                    }
                 }
             }
             val showMore = section.showMore
@@ -752,13 +916,13 @@ private data class SongPickerSection(
 )
 
 @Composable
-private fun LiveSongPickerSearch(query: String, onChange: (String) -> Unit) {
+private fun LiveSongPickerSearch(query: String, modifier: Modifier = Modifier, onChange: (String) -> Unit) {
     val focus = LocalFocusManager.current
     val placeholder = stringResource(CorusStrings.parity_9de9debbfd35)
     BasicTextField(
         value = query,
         onValueChange = onChange,
-        modifier = Modifier.fillMaxWidth().semantics { contentDescription = placeholder },
+        modifier = modifier.fillMaxWidth().semantics { contentDescription = placeholder },
         singleLine = true,
         textStyle = CorusFont.body.copy(color = CorusColors.Text),
         cursorBrush = SolidColor(CorusColors.Accent),
@@ -846,7 +1010,7 @@ internal fun LivePersonPicker(
     setup: Boolean = false,
     limit: Int = LIVE_MAX_GUEST_DJS,
     excluded: Set<String> = emptySet(),
-    done: (List<LivePerson>) -> Unit,
+    onSelection: (List<LivePerson>) -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
     var focused by remember { mutableStateOf(false) }
@@ -855,15 +1019,19 @@ internal fun LivePersonPicker(
     var results by remember { mutableStateOf<List<LivePerson>>(emptyList()) }
     var loadedQuery by remember { mutableStateOf<String?>(null) }
     var failed by remember { mutableStateOf(false) }
-    var selection by remember { mutableStateOf(initial) }
+    var pendingInvites by remember { mutableStateOf(initial) }
+    val selection = if (setup) initial else pendingInvites
     val searchQuery = query.trim().trim('@').trim()
     val searching = focused || query.isNotEmpty()
     fun toggle(person: LivePerson) {
-        if (selection.any { it.uid == person.uid }) {
-            selection = selection.filterNot { it.uid == person.uid }
+        val updated = if (selection.any { it.uid == person.uid }) {
+            selection.filterNot { it.uid == person.uid }
         } else if (selection.size < limit) {
-            selection = selection + person
+            selection + person
+        } else {
+            return
         }
+        if (setup) onSelection(updated) else pendingInvites = updated
     }
 
     LaunchedEffect(vm) {
@@ -891,7 +1059,11 @@ internal fun LivePersonPicker(
         loadedQuery = searchQuery
     }
 
-    LiveSheet("Invite DJs", close, large = true, sheetToolbar = true, startsHalfExpanded = true, expand = expand) {
+    LiveSheet(
+        "Invite DJs", close,
+        large = true, done = close.takeIf { setup }, sheetToolbar = true,
+        startsHalfExpanded = true, expand = expand, dismissKeyboardFromHeader = setup,
+    ) {
         val sheetFocus = LocalFocusManager.current
         val sheetKeyboard = LocalSoftwareKeyboardController.current
         OutlinedTextField(
@@ -1020,14 +1192,10 @@ internal fun LivePersonPicker(
                 }
             }
         }
-        if (selection.isNotEmpty() || (setup && initial.isNotEmpty())) {
-            if (setup && selection.isNotEmpty()) {
-                LiveText("DJ Invites will send when you go live", CorusFont.caption, CorusColors.Secondary,
-                    modifier = Modifier.align(Alignment.CenterHorizontally))
-            }
-            LivePrimary(if (setup) stringResource(CorusStrings.corus_live_save) else "Send invite") {
+        if (!setup && selection.isNotEmpty()) {
+            LivePrimary("Send invite") {
                 sheetFocus.clearFocus()
-                done(selection)
+                onSelection(selection)
             }
         }
     }
@@ -1068,6 +1236,7 @@ internal fun LivePlaylistPicker(
     LiveSheet(
         stringResource(R.string.live_import_playlist), close,
         large = true, sheetToolbar = true, dismissKeyboardFromHeader = true,
+        fixedTopGap = 36.dp,
     ) {
         val focus = LocalFocusManager.current
         val keyboard = LocalSoftwareKeyboardController.current

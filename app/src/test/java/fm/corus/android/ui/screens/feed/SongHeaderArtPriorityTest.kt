@@ -21,6 +21,19 @@ import org.junit.Test
 class SongHeaderArtPriorityTest {
 
     @Test
+    fun spotifyThumbnailFromLiveSetlistUsesLargerVersionOfTheSameCover() {
+        assertEquals(
+            "https://i.scdn.co/image/ab67616d0000b273abc",
+            resolveSongHeaderArtUrl(
+                routeLarge = null,
+                routeSmall = "https://i.scdn.co/image/ab67616d00004851abc",
+                postLarge = "https://post/different-pressing.png",
+                postSmall = null,
+            ),
+        )
+    }
+
+    @Test
     fun routeArtWinsOverFirstPostSnapshot() {
         assertEquals(
             "https://route/new-avatar-large.png",

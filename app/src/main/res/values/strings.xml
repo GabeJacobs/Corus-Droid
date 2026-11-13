@@ -1624,6 +1624,13 @@
     <string name="live_stop_song_preview">Stop preview</string>
     <string name="live_song_in_queue">In queue</string>
     <string name="live_remove_queue_song">Remove song</string>
+    <string name="live_remove_dj_invite">Remove %1$s from DJ invites</string>
+    <string name="live_starting_spotify">Starting Spotify…</string>
+    <string name="live_edit_room_title">Edit room title</string>
+    <string name="live_room_title_field">Room title</string>
+    <string name="live_save_room_title">Save changes</string>
+    <string name="live_room_effects">Effects</string>
+    <string name="live_room_weather">Weather</string>
     <string name="live_reorder_song">Reorder song</string>
     <string name="live_add_song">Add song</string>
     <string name="live_import_playlist">Import playlist</string>

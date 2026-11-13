@@ -125,6 +125,15 @@ internal data class LiveRoom(val id: String, private val fields: LiveFields) {
     val talkRequests = fields["talkRequests"].liveFields()?.values.orEmpty().mapNotNull { it.liveFields() }
     val currentDJ = fields["currentDJ"].liveFields()?.let(LivePerson::parse)
     val hostBackgroundUntil = fields.number("hostBackgroundUntil")
+    val hostWaitStartsAt get() = hostBackgroundUntil.takeIf { it > 0L }?.let {
+        if (current == null || pausedAt != null) 0L else deadline
+    }
+
+    fun miniPlayerTrack(now: Long): LiveTrack? = current?.takeIf {
+        status == "playing" && hostWaitStartsAt?.let { now >= it } != true &&
+            (pausedAt != null || now < deadline)
+    }
+
     val setlist get() = recent.asReversed() + listOfNotNull(current?.copy(playedBy = currentDJ ?: host))
 
     fun musicShouldPlay(now: Long): Boolean =
@@ -138,8 +147,11 @@ internal data class LiveRoom(val id: String, private val fields: LiveFields) {
         ((pausedAt ?: now) - startedAt).coerceIn(0, (current?.duration ?: 1).toLong() - 1)
 }
 
-internal data class LiveMessage(val id: String, val fields: LiveFields) {
-    val author = LivePerson.parse(fields)
+internal data class LiveMessage(
+    val id: String,
+    val fields: LiveFields,
+    val author: LivePerson = LivePerson.parse(fields),
+) {
     val text = fields.text("text")
     val kind = fields.text("kind")
     val gifUrl = fields["gifURL"] as? String

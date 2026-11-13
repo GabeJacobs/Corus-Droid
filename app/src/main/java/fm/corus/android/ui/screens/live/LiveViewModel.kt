@@ -7,11 +7,13 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.repeatOnLifecycle
 import android.os.SystemClock
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import fm.corus.android.data.model.TrackSource
+import fm.corus.android.data.model.MusicService
 import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
 import com.google.firebase.functions.FirebaseFunctionsException
@@ -20,6 +22,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.data.repository.AuthRepository
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.MusicServicePreference
+import fm.corus.android.domain.SpotifyPlaybackError
 import fm.corus.android.domain.SpotifyPlaybackService
 import fm.corus.android.service.AnalyticsService
 import java.security.MessageDigest
@@ -49,7 +53,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
 
-internal enum class LiveProgress { TUNING, PREPARING, CUEING, STARTING }
+internal enum class LiveProgress { TUNING, PREPARING, CUEING, STARTING_SPOTIFY, STARTING }
 
 internal data class LiveUiState(
     val uid: String? = null,
@@ -67,6 +71,7 @@ internal data class LiveUiState(
     val room: LiveRoom? = null,
     val ended: LiveRoom? = null,
     val minimized: Boolean = false,
+    val recoverableHostRoom: LiveRoom? = null,
     val muted: Boolean = false,
     val audioReady: Boolean = false,
     val audioError: String? = null,
@@ -85,15 +90,30 @@ internal data class LiveUiState(
     val djRequests: List<LiveFields> = emptyList(),
     val myDJRequest: LiveFields = emptyMap(),
     val queueUpdating: Boolean = false,
+    val effectSelection: LiveEffectSelection = LiveEffectSelection(),
     val micEnabled: Boolean = false,
     val voiceLevels: Map<String, Float> = emptyMap(),
     val needsClub: Boolean = false,
     val spotifyInstallNeeded: Boolean = false,
+    val hostSpotifyPrompt: Boolean = false,
+    val hostSpotifyRequiredForSetup: Boolean = false,
+    val hostSpotifyHint: String? = null,
     val linkUpcoming: Boolean = false,
     val positionMs: Long = 0L,
     val confirmPlaybackExit: Boolean = false,
 ) {
     val hosting get() = room?.host?.uid == uid && room != null
+    val miniPlayerRoom get() = if (room == null && setup == null && ended == null) recoverableHostRoom
+        else room?.takeIf { minimized }
+
+    fun canSkipTrack(room: LiveRoom, queue: List<LiveTrack> = room.queue): Boolean =
+        room.pendingSkip == null && !queueUpdating && room.current != null &&
+            room.pausedAt == null && room.status == "playing" &&
+            if (hosting) {
+                (room.collaborative || queue.isNotEmpty()) &&
+                    !(room.djs.isEmpty() && queue.isNotEmpty() && access?.confirmedSkip == true && muted)
+            } else dj != null && room.currentDJ?.uid == uid
+
     val dj get() = room?.djs?.firstOrNull { it.text("uid") == uid }
 }
 
@@ -104,6 +124,7 @@ internal class LiveViewModel @Inject constructor(
     private val auth: AuthRepository,
     private val spotify: SpotifyPlaybackService,
     private val player: NowPlayingManager,
+    private val musicService: MusicServicePreference,
     private val voice: LiveVoice,
     private val analytics: AnalyticsService,
     private val subscriptions: fm.corus.android.data.repository.SubscriptionRepository,
@@ -123,6 +144,8 @@ internal class LiveViewModel @Inject constructor(
     private var playbackJob: Job? = null
     private var voiceJob: Job? = null
     private var queueUpdateJob: Job? = null
+    private var effectSaveJob: Job? = null
+    private var effectConfirmationJob: Job? = null
     private var expectedUri: String? = null
     private var sourcePlayer: ExoPlayer? = null
     private var sourceTrackId: String? = null
@@ -220,6 +243,29 @@ internal class LiveViewModel @Inject constructor(
                 }
             }
         }
+        viewModelScope.launch {
+            ProcessLifecycleOwner.get().lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                state.map {
+                    it.uid?.takeIf { _ -> it.access != null && it.room == null && it.setup == null && it.ended == null }
+                }.distinctUntilChanged().collectLatest { uid ->
+                    if (uid == null) return@collectLatest
+                    try {
+                        val hosted = repository.hostedRoom(uid)?.takeIf { it.active(now) }
+                        currentCoroutineContext().ensureActive()
+                        update { copy(recoverableHostRoom = hosted) }
+                        if (hosted != null) {
+                            repository.observeRoom(hosted.id).collectLatest { room ->
+                                update { copy(recoverableHostRoom = room?.takeIf { it.host.uid == uid && it.active(now) }) }
+                            }
+                        }
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (_: Exception) {
+                        update { copy(recoverableHostRoom = null) }
+                    }
+                }
+            }
+        }
     }
 
     private suspend fun resolveAccess(uid: String): LiveAccess? = accessLock.withLock {
@@ -310,7 +356,15 @@ internal class LiveViewModel @Inject constructor(
                     update { copy(setup = null, checkingSetupAccess = false, needsClub = true) }
                     return@runOperation
                 }
-                update { copy(checkingSetupAccess = false) }
+                val mustConnectSpotify = musicService.current.value != MusicService.SPOTIFY ||
+                    !SpotifyPlaybackService.isSpotifyAppInstalled(context)
+                update {
+                    copy(
+                        checkingSetupAccess = false,
+                        hostSpotifyPrompt = mustConnectSpotify,
+                        hostSpotifyRequiredForSetup = mustConnectSpotify,
+                    )
+                }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -350,23 +404,72 @@ internal class LiveViewModel @Inject constructor(
         val current = state.value
         if (current.progress != null) return
         if (current.checkingSetupAccess) operation?.cancel()
-        update { copy(setup = null, checkingSetupAccess = false) }
+        update {
+            copy(setup = null, checkingSetupAccess = false, hostSpotifyPrompt = false,
+                hostSpotifyRequiredForSetup = false, hostSpotifyHint = null)
+        }
     }
     fun clearError() = update { copy(error = null, spotifyInstallNeeded = false, linkUpcoming = false) }
     fun clearEnded() = update { copy(ended = null) }
     fun clearClub() = update { copy(needsClub = false) }
     fun retryJoin() { pendingJoin?.let { join(it) } }
 
-    fun start() {
+    fun dismissHostSpotifyPrompt() {
+        if (state.value.hostSpotifyRequiredForSetup) closeSetup()
+        else update { copy(hostSpotifyPrompt = false, hostSpotifyHint = null) }
+    }
+
+    fun start() = startHosting(connectSpotify = false)
+
+    fun connectSpotifyFromHostPrompt() {
+        if (!state.value.hostSpotifyRequiredForSetup) {
+            startHosting(connectSpotify = true)
+            return
+        }
+        if (operation?.isActive == true) return
+        update { copy(hostSpotifyPrompt = false, hostSpotifyHint = null) }
+        runOperation(LiveProgress.STARTING_SPOTIFY) {
+            try {
+                spotify.authorizeForLink()
+                val canPlayOnDemand = spotify.canPlayOnDemandForLive()
+                if (canPlayOnDemand == true) {
+                    musicService.syncToFirestore(MusicService.SPOTIFY)
+                    update { copy(hostSpotifyRequiredForSetup = false) }
+                } else {
+                    val hint = if (canPlayOnDemand == false) "Use a Spotify Premium account and try connecting again."
+                        else "Couldn’t verify Spotify playback. Open Spotify and try connecting again."
+                    update { copy(hostSpotifyPrompt = true, hostSpotifyHint = hint) }
+                }
+            } catch (error: SpotifyPlaybackError) {
+                val hint = if (error is SpotifyPlaybackError.AuthorizationCancelled) null
+                    else "Couldn’t connect to Spotify. Open Spotify and try again."
+                update { copy(hostSpotifyPrompt = true, hostSpotifyHint = hint) }
+            }
+        }
+    }
+
+    private fun startHosting(connectSpotify: Boolean) {
         val current = state.value
-        if (current.checkingSetupAccess || current.room != null) return
+        if (current.checkingSetupAccess || current.room != null || operation?.isActive == true) return
         val setup = current.setup ?: return
         val first = setup.queue.firstOrNull() ?: return
+        val needsSpotify = connectSpotify || !first.playsFromSource
+        val mustSwitch = !connectSpotify && musicService.current.value != MusicService.SPOTIFY
+        if (mustSwitch || (needsSpotify && !SpotifyPlaybackService.isSpotifyAppInstalled(context))) {
+            update { copy(hostSpotifyPrompt = true, hostSpotifyHint = null) }
+            return
+        }
+        dismissHostSpotifyPrompt()
         runOperation(LiveProgress.PREPARING) {
-            if (!first.playsFromSource) requireSpotify()
             val uid = state.value.uid ?: return@runOperation
             var created = false
+            var checkingSpotify = needsSpotify
             try {
+                if (connectSpotify) {
+                    update { copy(progress = LiveProgress.STARTING_SPOTIFY) }
+                    spotify.authorizeForLink()
+                    update { copy(progress = LiveProgress.PREPARING) }
+                }
                 val fields = buildMap<String, Any?> {
                     put("musicService", "spotify")
                     put("queue", setup.queue.map(LiveTrack::fields))
@@ -385,7 +488,23 @@ internal class LiveViewModel @Inject constructor(
                 }
                 delay(1_000)
                 update { copy(progress = LiveProgress.CUEING) }
-                prepareTrack(first, { 0L })
+                prepareTrack(first, { 0L }, forceSpotifyPlay = true, onStartingSpotify = {
+                    update { copy(progress = LiveProgress.STARTING_SPOTIFY) }
+                })
+                if (checkingSpotify) {
+                    val canPlayOnDemand = spotify.canPlayOnDemandForLive()
+                    if (canPlayOnDemand != true) {
+                        releasePlayback()
+                        val hint = if (canPlayOnDemand == false) "Use a Spotify Premium account and try connecting again."
+                            else "Couldn’t verify Spotify playback. Open Spotify and try connecting again."
+                        update { copy(hostSpotifyPrompt = true, hostSpotifyHint = hint) }
+                        return@runOperation
+                    }
+                }
+                if (connectSpotify && musicService.current.value != MusicService.SPOTIFY) {
+                    viewModelScope.launch { musicService.syncToFirestore(MusicService.SPOTIFY) }
+                }
+                checkingSpotify = false
                 update { copy(progress = LiveProgress.STARTING) }
                 val position = livePlaybackPosition(first)
                 val result = command("create", setup.id, fields + ("initialPlaybackPositionMs" to position))
@@ -401,7 +520,13 @@ internal class LiveViewModel @Inject constructor(
                     try { repository.call("end", setup.id) } catch (_: Exception) { }
                 }
                 if (state.value.room == null) releasePlayback()
-                if (error is FirebaseFunctionsException &&
+                if (error is CancellationException) throw error
+                if (checkingSpotify && error is SpotifyPlaybackError) {
+                    update {
+                        copy(hostSpotifyPrompt = true, hostSpotifyHint = if (error is SpotifyPlaybackError.AuthorizationCancelled) null
+                            else "Couldn’t connect to Spotify. Open Spotify, check that you’re signed in to Premium, then try again.")
+                    }
+                } else if (error is FirebaseFunctionsException &&
                     error.details.liveFields()?.text("reason") == "live-host-club-required"
                 ) update { copy(needsClub = true) } else throw error
             }
@@ -469,6 +594,21 @@ internal class LiveViewModel @Inject constructor(
 
     fun minimize() = update { copy(minimized = true) }
     fun expand() = update { copy(minimized = false) }
+
+    fun openMiniPlayer() {
+        if (state.value.room != null) expand()
+        else if (state.value.miniPlayerRoom != null) openSetup()
+    }
+
+    suspend fun miniPlayerHostProfile(uid: String) = repository.chatAuthors(listOf(uid))[uid]?.profile
+
+    fun skipFromMiniPlayer(roomId: String, revision: Long) {
+        val current = state.value
+        val room = current.room ?: return
+        if (current.minimized && room.id == roomId && room.revision == revision &&
+            room.miniPlayerTrack(now) != null && current.canSkipTrack(room)
+        ) skip()
+    }
 
     fun claimWelcome(roomId: String): Boolean =
         state.value.room?.takeIf { it.id == roomId }?.welcomeUrl != null && playedWelcomes.add(roomId)
@@ -568,6 +708,37 @@ internal class LiveViewModel @Inject constructor(
         }
     }
 
+    fun toggleRoomEffect(effect: String) {
+        val room = state.value.room ?: return
+        if (!state.value.hosting) return
+        update { copy(effectSelection = effectSelection.toggle(effect, room.effect)) }
+        if (effectSaveJob?.isActive == true) return
+
+        effectSaveJob = viewModelScope.launch {
+            while (state.value.room?.id == room.id && state.value.hosting) {
+                val requested = state.value.effectSelection.requested ?: break
+                try {
+                    command("effect", room.id, mapOf("effect" to requested))
+                    currentCoroutineContext().ensureActive()
+                    update { copy(effectSelection = effectSelection.saved(requested, this.room?.effect.orEmpty())) }
+                    effectConfirmationJob?.cancel()
+                    val confirmation = state.value.effectSelection.awaitingSnapshot
+                    if (confirmation != null) {
+                        effectConfirmationJob = viewModelScope.launch {
+                            delay(5_000)
+                            update { copy(effectSelection = effectSelection.observe(confirmation)) }
+                        }
+                    }
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    update { copy(effectSelection = effectSelection.finished(requested)) }
+                    if (state.value.effectSelection.requested == null) showError(error)
+                }
+            }
+        }
+    }
+
     fun openInvite(id: String) = runOperation {
         val uid = state.value.uid ?: return@runOperation
         val invite = repository.invite(uid, id)?.takeIf { it.number("expiresAt") > now }
@@ -587,6 +758,14 @@ internal class LiveViewModel @Inject constructor(
         val id = invite.text("roomId")
         if (accept) join(id, invite = invite)
         else runOperation { command("declineDJInvite", id, mapOf("inviteExpiresAt" to invite.number("expiresAt"))) }
+    }
+
+    suspend fun renameRoom(roomId: String, title: String) {
+        require(state.value.room?.id == roomId && state.value.hosting)
+        command("renameRoom", roomId, mapOf("title" to title))
+        withTimeoutOrNull(3_000) {
+            state.first { it.room?.id != roomId || it.room.customTitle == title }
+        }
     }
 
     fun send(text: String, gif: String?, done: () -> Unit) {
@@ -692,15 +871,17 @@ internal class LiveViewModel @Inject constructor(
         update { copy(openSavedTrack = null, savedIds = savedIds - track.id, mixedSaves = mixedSaves?.filterNot { it.id == track.id }) }
     }
 
-    fun updateQueue(queue: List<LiveTrack>, expectedVersion: Long, expectedHosting: Boolean) {
+    fun updateQueue(
+        queue: List<LiveTrack>, expectedVersion: Long, expectedHosting: Boolean, onFinished: () -> Unit = {},
+    ): Boolean {
         val snapshot = state.value
-        val room = snapshot.room ?: return
-        if (queueUpdateJob?.isActive == true) return
+        val room = snapshot.room ?: return false
+        if (queueUpdateJob?.isActive == true) return false
         val dj = snapshot.dj
         val version = dj?.number("version") ?: room.queueVersion
         if (expectedVersion != version || expectedHosting != snapshot.hosting || (!snapshot.hosting && dj == null)) {
             update { copy(error = "The queue changed. Try again.") }
-            return
+            return false
         }
         val fields = mapOf(
             "queue" to queue.map(LiveTrack::fields),
@@ -722,8 +903,10 @@ internal class LiveViewModel @Inject constructor(
                 if (state.value.room?.id == room.id) showError(error)
             } finally {
                 if (state.value.room?.id == room.id) update { copy(queueUpdating = false) }
+                onFinished()
             }
         }
+        return true
     }
 
     fun skip() {
@@ -822,11 +1005,13 @@ internal class LiveViewModel @Inject constructor(
         roomJobs.forEach(Job::cancel)
         roomJobs.clear()
         queueUpdateJob?.cancel()
+        cancelEffectSaves()
         lastTick = 0
         update {
             copy(
-                room = room, ended = null, minimized = false, muted = false, messages = emptyList(),
+                room = room, ended = null, minimized = false, recoverableHostRoom = null, muted = false, messages = emptyList(),
                 listenerCount = 0, membership = emptyMap(), audioError = null, queueUpdating = false,
+                effectSelection = LiveEffectSelection(),
             )
         }
         observe(room.id)
@@ -846,7 +1031,14 @@ internal class LiveViewModel @Inject constructor(
                     return@collect
                 }
                 val previous = state.value.room
-                update { copy(room = next) }
+                val stillHosting = next.host.uid == uid
+                if (!stillHosting && previous?.host?.uid == uid) cancelEffectSaves()
+                update {
+                    copy(
+                        room = next,
+                        effectSelection = if (stillHosting) effectSelection.observe(next.effect) else LiveEffectSelection(),
+                    )
+                }
                 if (previous?.host?.uid != next.host.uid) observeHostRecords(next, uid)
                 if (previous?.revision != next.revision) refreshSaves(listOfNotNull(next.current))
                 if (previous?.revision != next.revision || previous.status != next.status ||
@@ -859,8 +1051,31 @@ internal class LiveViewModel @Inject constructor(
             }
         }
         roomJobs += viewModelScope.launch {
+            val knownAuthors = mutableMapOf<String, LivePerson?>()
             repository.messages(id).catch { error -> showError(error) }.collect { messages ->
-                if (state.value.room?.id == id) update { copy(messages = messages) }
+                if (state.value.room?.id != id) return@collect
+                fun withAvatars() = messages.map { message ->
+                    val sender = message.author
+                    val avatar = knownAuthors[sender.uid]?.avatar ?: sender.avatar
+                    if (avatar == sender.avatar) message else message.copy(author = sender.copy(avatar = avatar))
+                }
+                update { copy(messages = withAvatars()) }
+                val missing = messages.asSequence()
+                    .filter { it.kind != "listenerJoined" }
+                    .map { it.author.uid }
+                    .filter { it.isNotBlank() && it !in knownAuthors }
+                    .distinct()
+                    .toList()
+                if (missing.isEmpty()) return@collect
+                try {
+                    val profiles = repository.chatAuthors(missing)
+                    missing.forEach { knownAuthors[it] = profiles[it] }
+                    if (state.value.room?.id == id) update { copy(messages = withAvatars()) }
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    // Keep the chat visible and retry the lookup on the next snapshot.
+                }
             }
         }
         roomJobs += viewModelScope.launch {
@@ -1021,7 +1236,13 @@ internal class LiveViewModel @Inject constructor(
         return uriCache[key] ?: repository.spotifyUri(track)?.also { uriCache[key] = it }
     }
 
-    private suspend fun prepareTrack(track: LiveTrack, position: () -> Long, knownUri: String? = null) {
+    private suspend fun prepareTrack(
+        track: LiveTrack,
+        position: () -> Long,
+        knownUri: String? = null,
+        forceSpotifyPlay: Boolean = false,
+        onStartingSpotify: () -> Unit = {},
+    ) {
         if (track.playsFromSource) {
             playSourceTrack(track, position, forceSeek = true)
             return
@@ -1031,11 +1252,9 @@ internal class LiveViewModel @Inject constructor(
         val uri = knownUri ?: resolve(track) ?: error("This song is unavailable on Spotify.")
         claimLivePlayback()
         expectedUri = uri
-        if (!spotify.isConnected || !matchesSpotifyUri(uri) || !spotify.isPlaying.value) {
-            spotify.play(uri.substringAfterLast(':'), uri, replaceQueue = false)
-            spotify.refreshState()
-            check(spotify.currentTrackUri.value?.let { SpotifyPlaybackService.spotifyURIsMatch(it, uri) } == true &&
-                spotify.isPlaying.value) { "Couldn’t start Spotify." }
+        if (forceSpotifyPlay || !spotify.isConnected || !matchesSpotifyUri(uri) || !spotify.isPlaying.value) {
+            onStartingSpotify()
+            spotify.play(uri.substringAfterLast(':'), uri, replaceQueue = false, confirmPlayback = true)
         }
         val target = position().coerceIn(0, track.duration.toLong() - 1)
         val observed = spotify.positionSeconds.value * 1_000
@@ -1175,7 +1394,8 @@ internal class LiveViewModel @Inject constructor(
         update {
             copy(room = null, ended = ended, minimized = false, messages = emptyList(),
                 audioReady = false, audioError = null, micEnabled = false, voiceLevels = emptyMap(), membership = emptyMap(),
-                pendingDJs = emptyList(), djRequests = emptyList(), myDJRequest = emptyMap(), queueUpdating = false)
+                pendingDJs = emptyList(), djRequests = emptyList(), myDJRequest = emptyMap(), queueUpdating = false,
+                effectSelection = LiveEffectSelection())
         }
     }
 
@@ -1186,6 +1406,7 @@ internal class LiveViewModel @Inject constructor(
         playbackJob?.cancel()
         voiceJob?.cancel()
         queueUpdateJob?.cancel()
+        cancelEffectSaves()
         heartJob?.cancel()
         saveLookup?.cancel()
         heartsPending = 0
@@ -1193,6 +1414,11 @@ internal class LiveViewModel @Inject constructor(
         auditionPlaying = false
         voice.disconnect()
         releasePlayback()
+    }
+
+    private fun cancelEffectSaves() {
+        effectSaveJob?.cancel()
+        effectConfirmationJob?.cancel()
     }
 
     private fun releasePlayback() {

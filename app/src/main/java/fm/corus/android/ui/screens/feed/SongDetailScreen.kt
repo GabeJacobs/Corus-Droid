@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.feed
 
+import fm.corus.android.domain.collectionArtworkUrl
 import fm.corus.android.ui.components.rememberGuardedSheetState
 
 import fm.corus.android.ui.components.CorusModalBottomSheet
@@ -1401,10 +1402,11 @@ internal fun resolveSongHeaderArtUrl(
     postLarge: String?,
     postSmall: String?,
 ): String? =
-    routeLarge?.takeIf { it.isNotBlank() }
+    (routeLarge?.takeIf { it.isNotBlank() }
         ?: routeSmall?.takeIf { it.isNotBlank() }
         ?: postLarge?.takeIf { it.isNotBlank() }
-        ?: postSmall?.takeIf { it.isNotBlank() }
+        ?: postSmall?.takeIf { it.isNotBlank() })
+        ?.let(::collectionArtworkUrl)
 
 private fun formatUserCount(count: Int): String {
     return when {

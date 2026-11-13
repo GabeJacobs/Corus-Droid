@@ -21,6 +21,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,10 +54,19 @@ private fun LiveHeader(
     modifier: Modifier = Modifier,
 ) {
     val height = if (done != null || sheetToolbar) 56.dp else 48.dp
+    val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     Box(modifier.fillMaxWidth().height(height).padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
         LiveText(title, CorusFont.screenTitle, modifier = Modifier.padding(horizontal = 54.dp), lines = 1)
         if (done != null) {
-            TextButton(onClick = done, modifier = Modifier.align(Alignment.CenterEnd)) {
+            TextButton(
+                onClick = {
+                    keyboard?.hide()
+                    focus.clearFocus()
+                    done()
+                },
+                modifier = Modifier.align(Alignment.CenterEnd),
+            ) {
                 LiveText(stringResource(CorusStrings.corus_live_done), CorusFont.button, CorusColors.Secondary)
             }
         }
@@ -155,13 +166,24 @@ internal fun LiveSheet(
     startsHalfExpanded: Boolean = false,
     expand: Boolean = false,
     dismissKeyboardFromHeader: Boolean = false,
+    horizontalContentPadding: Dp = 20.dp,
+    fixedTopGap: Dp? = null,
+    dismissEnabled: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val largeHeightFraction = if (sheetToolbar && !expand) .90f else .96f
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = !startsHalfExpanded)
+    val largeHeightFraction = when {
+        fixedTopGap != null -> 1f
+        sheetToolbar && !expand -> .90f
+        else -> .96f
+    }
+    val canDismiss by rememberUpdatedState(dismissEnabled)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = !startsHalfExpanded) {
+        it != SheetValue.Hidden || canDismiss
+    }
     CorusModalBottomSheet(
-        onDismissRequest = close,
-        modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
+        onDismissRequest = { if (canDismiss) close() },
+        modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
+            .padding(top = fixedTopGap ?: 0.dp),
         sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
         containerColor = CorusColors.SheetBackground,
@@ -182,7 +204,7 @@ internal fun LiveSheet(
             )
             Column(
                 Modifier.fillMaxWidth().then(if (large) Modifier.weight(1f) else Modifier)
-                    .padding(horizontal = 20.dp).padding(bottom = 16.dp),
+                    .padding(horizontal = horizontalContentPadding).padding(bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 content = content,
             )

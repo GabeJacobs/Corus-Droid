@@ -101,6 +101,9 @@ internal class LiveRepository @Inject constructor(
         .orderBy("createdAt", Query.Direction.DESCENDING).limit(100)
         .snapshots { documents -> documents.asReversed().mapNotNull { doc -> doc.data?.let { LiveMessage(doc.id, it) } } }
 
+    suspend fun chatAuthors(ids: List<String>): Map<String, LivePerson> =
+        users.fetchUsersByIdsBatched(ids).associate { it.id to it.toLivePerson() }
+
     fun invites(uid: String): Flow<List<LiveFields>> =
         database.collection("corusLiveDJInboxes").document(uid).collection("invites")
             .orderBy("createdAt", Query.Direction.DESCENDING).limit(20)

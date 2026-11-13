@@ -8,7 +8,10 @@ import android.content.IntentFilter
 import androidx.test.core.app.ApplicationProvider
 import com.spotify.android.appremote.api.ConnectionParams
 import com.spotify.android.appremote.api.Connector
+import com.spotify.android.appremote.api.PlayerApi
 import com.spotify.android.appremote.api.SpotifyAppRemote
+import com.spotify.protocol.client.CallResult
+import com.spotify.protocol.client.ErrorCallback
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -16,12 +19,14 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.MockedStatic
 import org.mockito.Mockito
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows
@@ -112,6 +117,31 @@ class SpotifyPlaybackConnectOrderTest {
     }
 
     private fun service() = SpotifyPlaybackService(context, authService, analyticsService, saveAutoAdd)
+
+    @Test
+    fun `unresponsive connected player disconnects before trying to wake Spotify`() = runTest {
+        val service = service()
+        val remote = mock<SpotifyAppRemote>()
+        val player = mock<PlayerApi>()
+        val play = mock<CallResult<com.spotify.protocol.types.Empty>>()
+        whenever(remote.isConnected).thenReturn(true)
+        whenever(remote.playerApi).thenReturn(player)
+        whenever(player.play(any())).thenReturn(play)
+        whenever(play.setErrorCallback(any())).thenAnswer {
+            it.getArgument<ErrorCallback>(0).onError(IllegalStateException("Connection lost"))
+            play
+        }
+        SpotifyPlaybackService::class.java.getDeclaredField("appRemote").apply {
+            isAccessible = true
+            set(service, remote)
+        }
+
+        val failure = runCatching { service.play("4cOdK2wGLETKBW3PvgPWqT", null, replaceQueue = false) }.exceptionOrNull()
+
+        appRemoteStatic.verify { SpotifyAppRemote.disconnect(remote) }
+        // This test has no foreground Activity to present Spotify authorization.
+        assertEquals(SpotifyPlaybackError.NotConnected::class.java, failure?.javaClass)
+    }
 
     private suspend fun playOnce() {
         runCatching {
