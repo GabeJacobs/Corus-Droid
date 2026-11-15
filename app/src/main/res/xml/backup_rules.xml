@@ -4,6 +4,7 @@
          files without their keys makes them permanently unreadable. -->
     <exclude domain="sharedpref" path="fm.corus.spotify.auth.xml" />
     <exclude domain="sharedpref" path="fm.corus.spotify.libraryauth.xml" />
+    <exclude domain="sharedpref" path="fm.corus.applemusic.auth.xml" />
     <!-- Reinstalls must not restore a previous installation's invite or attribution state. -->
     <exclude domain="sharedpref" path="corus_referrals_v1.xml" />
     <exclude domain="sharedpref" path="corus_referral_attribution.xml" />

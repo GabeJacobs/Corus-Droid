@@ -18,6 +18,7 @@ import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.SilenceMediaSource
@@ -41,6 +42,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
 import fm.corus.android.ui.components.VoiceNotePlayerManager
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -58,6 +61,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import javax.inject.Inject
@@ -414,15 +418,18 @@ class NowPlayingManager @Inject constructor(
                 _state.value = previousState
             }
             _state.value = _state.value.copy(isPlaying = false)
+        } else if (isAppleMusicFullPlayback || appleMusicRequestInFlight) {
+            cancelLoading()
+            releaseAppleMusicPlayer()
         } else {
             pause()
         }
     }
 
-    internal fun endLiveSpotifyPlayback() = managerScope.launch {
+    internal fun endLiveSpotifyPlayback(pauseSpotify: Boolean = true) = managerScope.launch {
         if (!liveOwnsSpotify) return@launch
         try {
-            spotifyPlaybackService.pause()
+            if (pauseSpotify) spotifyPlaybackService.pause()
         } finally {
             liveOwnsSpotify = false
             val pending = queueAfterLive.toList()
@@ -567,13 +574,28 @@ class NowPlayingManager @Inject constructor(
     fun externalSpotifyCymbalTrack(): CymbalTrack? = externalSpotifyCachedTrack
 
     val currentSourcePostId: String? get() = _state.value.sourcePostId
+    @Inject lateinit var appleMusicPlayback: AppleMusicPlayback
+    private var appleMusicPlayer: Player? = null
+    private var appleMusicStart: CompletableDeferred<Boolean>? = null
+    private var appleMusicRequestInFlight = false
+    private var appleMusicPreviewFallback: Pair<String, String?>? = null
+    private var previewSessionPlayer: Player? = null
+    private val isAppleMusicFullPlayback: Boolean get() = appleMusicPlayer != null
+
+    fun displayedFullSongMode(service: MusicService, selectedFullSongMode: Boolean): Boolean {
+        if (service != MusicService.APPLE_MUSIC) return selectedFullSongMode
+        return isAppleMusicFullPlayback || selectedFullSongMode &&
+            appleMusicPreviewFallback != (_state.value.trackId to _state.value.sourcePostId)
+    }
+
     private var isAudiomackFullPlayback = false
     val isPreviewMode: Boolean
-        get() = _state.value.hasActiveTrack && !isSpotifyConnectPlaying && !isAudiomackFullPlayback && player != null
+        get() = _state.value.hasActiveTrack && !isSpotifyConnectPlaying && !isAudiomackFullPlayback && !isAppleMusicFullPlayback && player != null
 
     /** Upgrade the current feed preview to in-app full playback (mini-player toggle). */
     suspend fun upgradeCurrentPreviewToFullSong() {
-        if (!isPreviewMode || !isPlaying) return
+        val appleMusicSelected = musicServicePreference.current.value == MusicService.APPLE_MUSIC
+        if (!isPreviewMode || (!isPlaying && !appleMusicSelected)) return
         val idx = currentQueueIndex
         val track = when {
             idx != null && idx in queue.indices -> queue[idx]
@@ -590,6 +612,10 @@ class NowPlayingManager @Inject constructor(
                 sourcePostId = _state.value.sourcePostId,
                 source = _state.value.source,
             )
+        }
+        if (appleMusicSelected) {
+            playInternal(track, forceSwitch = true, preferFullSong = true)
+            return
         }
         val playFullSongs = preferencesDataStore.effectivePlayFullSongsSync()
         val outcome = FullSongPlayCoordinator.playTapOutcome(
@@ -644,7 +670,7 @@ class NowPlayingManager @Inject constructor(
             clearExternalSpotifyListening()
         }
         silentlyHaltSpotifyForPreview()
-        playInternal(track, userInitiated = true, forceSwitch = true)
+        playInternal(track, userInitiated = true, forceSwitch = true, previewOnly = isAppleMusicFullPlayback)
     }
 
     private var playbackModeDowngradeJob: Job? = null
@@ -664,7 +690,7 @@ class NowPlayingManager @Inject constructor(
 
         if (toFull) {
             if (isExternalSpotifyListening) return
-            if (isPlaying && isPreviewMode) {
+            if (isPreviewMode && (isPlaying || musicServicePreference.current.value == MusicService.APPLE_MUSIC)) {
                 upgradeCurrentPreviewToFullSong()
             } else {
                 restartCurrentTrackForDesiredPlaybackMode()
@@ -697,7 +723,10 @@ class NowPlayingManager @Inject constructor(
             isPreviewMode = isPreviewMode,
             desiresFullSong = preferencesDataStore.effectivePlayFullSongsSync(),
             isExternalSpotifyListening = isExternalSpotifyListening,
-            fullSongUnavailable = _state.value.notOnSpotify,
+            fullSongUnavailable = if (musicServicePreference.current.value == MusicService.APPLE_MUSIC) {
+                appleMusicPreviewFallback == (_state.value.trackId to _state.value.sourcePostId) ||
+                    !SongPlayRouting.supportsInAppFullSong(context, _state.value.source, MusicService.APPLE_MUSIC, remoteConfigService)
+            } else _state.value.notOnSpotify,
         )
     }
 
@@ -826,6 +855,7 @@ class NowPlayingManager @Inject constructor(
     fun showsFullSongPlayingOverlay(service: MusicService): Boolean {
         if (_isResolvingSpotify.value) return false
         return when (service) {
+            MusicService.APPLE_MUSIC -> isAppleMusicFullPlayback && _state.value.isPlaying
             MusicService.AUDIOMACK -> isAudiomackFullPlayback && _state.value.isPlaying
             MusicService.SPOTIFY -> {
                 val spotifyActive = isSpotifyConnectPlaying || isExternalSpotifyListening
@@ -848,6 +878,7 @@ class NowPlayingManager @Inject constructor(
         }
         if (isPreviewMode) return false
         return when (service) {
+            MusicService.APPLE_MUSIC -> isAppleMusicFullPlayback
             MusicService.AUDIOMACK -> isAudiomackFullPlayback
             MusicService.SPOTIFY -> isSpotifyConnectPlaying || isExternalSpotifyListening
             else -> false
@@ -867,6 +898,7 @@ class NowPlayingManager @Inject constructor(
         get() {
             if (isPreviewMode) return false
             return when (musicServicePreference.current.value) {
+                MusicService.APPLE_MUSIC -> isAppleMusicFullPlayback
                 MusicService.AUDIOMACK -> isAudiomackFullPlayback
             MusicService.SPOTIFY -> isSpotifyConnectPlaying || isExternalSpotifyListening
                 else -> false
@@ -1248,8 +1280,9 @@ class NowPlayingManager @Inject constructor(
         positionJob?.cancel()
         positionJob = managerScope.launch {
             while (isActive) {
-                val p = player?.currentPosition?.coerceAtLeast(0L) ?: 0L
-                val d = (player?.duration ?: 0L).takeIf { it > 0L } ?: 0L
+                val activePlayer = appleMusicPlayer ?: player
+                val p = activePlayer?.currentPosition?.coerceAtLeast(0L) ?: 0L
+                val d = (activePlayer?.duration ?: 0L).takeIf { it > 0L } ?: 0L
                 ScrubberClock.update(p, d)
                 delay(250L)
             }
@@ -1268,6 +1301,14 @@ class NowPlayingManager @Inject constructor(
      * back to the pre-seek position before the next poll lands.
      */
     fun seek(toMs: Long) {
+        appleMusicPlayer?.let { apple ->
+            if (apple.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)) {
+                val clamped = toMs.coerceIn(0L, apple.duration.coerceAtLeast(0L))
+                apple.seekTo(clamped)
+                ScrubberClock.snapTime(clamped)
+            }
+            return
+        }
         if (isSpotifyConnectPlaying || isExternalSpotifyListening) {
             val seconds = toMs.coerceAtLeast(0L) / 1000.0
             spotifyScrubberHoldAtZero = false
@@ -1890,6 +1931,7 @@ class NowPlayingManager @Inject constructor(
         previewOnly: Boolean = false,
         preserveUserQueue: Boolean = true,
         forceSwitch: Boolean = false,
+        preferFullSong: Boolean = false,
     ) {
         if (liveOwnsSpotify && livePlaybackExit?.invoke() != true) return
         if (!mapOwned) MapPlaybackOwner.yield()
@@ -1903,8 +1945,9 @@ class NowPlayingManager @Inject constructor(
         restoreUserQueuedUpNext(preserved)
         playInternal(
             track,
-            forceSwitch = forceSwitch || (previewOnly && isAudiomackFullPlayback),
+            forceSwitch = forceSwitch || (previewOnly && (isAudiomackFullPlayback || isAppleMusicFullPlayback)),
             previewOnly = previewOnly,
+            preferFullSong = preferFullSong,
         )
         // Map playback owns Next outside the one-item audio queue. playInternal
         // publishes the new NowPlayingState after it has checked hasNext, so
@@ -2074,9 +2117,16 @@ class NowPlayingManager @Inject constructor(
         userInitiated: Boolean = true,
         forceSwitch: Boolean = false,
         previewOnly: Boolean = false,
+        preferFullSong: Boolean = false,
+        showTrackWhileLoading: Boolean = false,
     ) {
         if (liveOwnsSpotify && livePlaybackExit?.invoke() != true) return
         val trackId = track.trackId
+        val wantsApple = !previewOnly && ::appleMusicPlayback.isInitialized && AppleMusicPlayback.isAvailable() &&
+            SongPlayRouting.wantsFullSong(
+                track.source, musicServicePreference.current.value,
+                preferFullSong || preferencesDataStore.effectivePlayFullSongsSync(),
+            )
 
         // Audio sources are mutually exclusive: starting music stops any inline
         // trailer and any playing audio caption so they never play over each other.
@@ -2089,8 +2139,8 @@ class NowPlayingManager @Inject constructor(
         // instead of pausing. See [isReTapOfActiveEntry] / [PostPlaybackHighlight].
         // Skipped when recovering from a failed Spotify Connect attempt that already
         // updated the mini-player state to this track.
-        if (!forceSwitch &&
-            player != null &&
+        if (!forceSwitch && !(wantsApple && preferFullSong && !isAppleMusicFullPlayback) &&
+            (player != null || isAppleMusicFullPlayback) &&
             isReTapOfActiveEntry(_state.value.trackId, _state.value.sourcePostId, trackId, track.sourcePostId)
         ) {
             togglePlayPause()
@@ -2108,9 +2158,6 @@ class NowPlayingManager @Inject constructor(
         // pill armed for [track] — that target is the song we're about to load.
         cancelLoading(clearStagedSkipPill = false)
 
-        // iOS song_preview_played — ExoPlayer / preview path (Connect logs separately).
-        analyticsService.logSongPreviewPlayed(trackId)
-
         if (isSpotifyConnectPlaying) {
             silentlyHaltSpotifyForPreview()
         }
@@ -2121,7 +2168,43 @@ class NowPlayingManager @Inject constructor(
         _loadingTrackId.value = trackId
         _loadingSourcePostId.value = track.sourcePostId
         val generation = ++playGeneration
+        releaseAppleMusicPlayer()
+        if (showTrackWhileLoading) {
+            player?.pause()
+            player?.clearMediaItems()
+            beginStagedFeedSkipLoading(track, armPill = true)
+            publishInAppTrack(track, isPlaying = false)
+        }
 
+        if (wantsApple) {
+            player?.pause()
+            _state.value = _state.value.copy(isPlaying = false)
+            appleMusicRequestInFlight = true
+            val started = try {
+                tryPlayAppleMusic(track, userInitiated, preferFullSong, generation)
+            } catch (e: CancellationException) {
+                if (generation == playGeneration) {
+                    releaseAppleMusicPlayer()
+                    cancelLoading()
+                }
+                throw e
+            } catch (e: Exception) {
+                android.util.Log.w("NowPlaying", "Apple Music playback failed (${e.javaClass.simpleName})")
+                false
+            } catch (e: LinkageError) {
+                android.util.Log.w("NowPlaying", "Apple Music SDK unavailable on this device", e)
+                false
+            } finally {
+                if (generation == playGeneration) appleMusicRequestInFlight = false
+            }
+            if (started || generation != playGeneration) return
+            releaseAppleMusicPlayer()
+            appleMusicPreviewFallback = trackId to track.sourcePostId
+        } else {
+            if (appleMusicPreviewFallback != (trackId to track.sourcePostId)) appleMusicPreviewFallback = null
+        }
+
+        analyticsService.logSongPreviewPlayed(trackId)
         // Resolve playback URL.
         //   SoundCloud → fetch a fresh signed HLS URL (short-lived, never cached on the post).
         //   Spotify/Apple → use the 30s preview URL (looked up server-side via Apple Music).
@@ -2201,16 +2284,7 @@ class NowPlayingManager @Inject constructor(
         // releasing kills the system media notification permanently.
         isAudiomackFullPlayback = fullAudiomack != null
         currentTrackIsSoundCloud = track.source == TrackSource.SOUNDCLOUD
-        val mediaItem = MediaItem.Builder()
-            .setUri(resolvedUrl)
-            .setMediaMetadata(
-                MediaMetadata.Builder()
-                    .setTitle(track.trackName)
-                    .setArtist(track.artistName)
-                    .setArtworkUri(sessionArtworkUrl(track.albumArtURL, track.albumArtLargeURL)?.let { Uri.parse(it) })
-                    .build()
-            )
-            .build()
+        val mediaItem = playbackMediaItem(track, resolvedUrl)
         stopSpotifyConnectKeepAlive()
         val exo = ensurePlayerAndSession()
         exo.setMediaItem(mediaItem)
@@ -2228,8 +2302,31 @@ class NowPlayingManager @Inject constructor(
             return
         }
 
+        publishInAppTrack(track, resolvedBandcampPage)
+        recordPlayIfNeeded(track.sourcePostId)
+        onPlaybackBecamePlaying(trackId)
+    }
+
+    private fun playbackMediaItem(track: QueuedTrack, uri: String? = null): MediaItem =
+        MediaItem.Builder()
+            .setMediaId(track.trackId)
+            .setUri(uri)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(track.trackName)
+                    .setArtist(track.artistName)
+                    .setArtworkUri(sessionArtworkUrl(track.albumArtURL, track.albumArtLargeURL)?.let(Uri::parse))
+                    .build(),
+            )
+            .build()
+
+    private fun publishInAppTrack(
+        track: QueuedTrack,
+        bandcampUrl: String? = track.bandcampUrl,
+        isPlaying: Boolean = true,
+    ) {
         _state.value = NowPlayingState(
-            trackId = trackId,
+            trackId = track.trackId,
             trackName = track.trackName,
             artistName = track.artistName,
             albumArtURL = track.albumArtURL,
@@ -2237,27 +2334,99 @@ class NowPlayingManager @Inject constructor(
             spotifyURI = track.spotifyURI,
             spotifyWebURL = track.spotifyWebURL,
             isrc = track.isrc,
-            isPlaying = true,
+            isPlaying = isPlaying,
             sourcePostId = track.sourcePostId,
-            // This state mutation changes the active identity. Evaluate the
-            // Map-owned continuation against that incoming track, not the old
-            // StateFlow value; the audio engine queue is intentionally only
-            // one item during Map Listen mode.
-            hasNext = computeHasNext(trackId),
+            hasNext = computeHasNext(track.trackId),
             source = track.source,
             soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
             audiomackUrl = track.audiomackUrl,
-            bandcampUrl = resolvedBandcampPage,
+            bandcampUrl = bandcampUrl,
             catalogOrigin = track.catalogOrigin,
             notOnSpotify = track.notOnSpotify,
         )
+    }
 
-        // This corus is now playing in-app — report a unique play. Reached for
-        // both initial taps and auto-advance (which also routes through here);
-        // the same-track pause/resume path returns early above, so this won't
-        // double-fire on resume.
+    private suspend fun tryPlayAppleMusic(
+        track: QueuedTrack,
+        userInitiated: Boolean,
+        explicit: Boolean,
+        generation: Int,
+    ): Boolean {
+        val candidate = appleMusicPlayback.createPlayer(
+            track = track,
+            mediaItem = playbackMediaItem(track),
+            interactive = userInitiated,
+            explicit = explicit,
+            onNext = { skipToNext(preferPreviewOnInAppSkip, immediate = true) },
+            onPrevious = ::skipToPreviousOrRestart,
+        ) ?: return false
+        if (generation != playGeneration) {
+            candidate.release()
+            return false
+        }
+
+        ensurePlayerAndSession().pause()
+        stopPositionPolling(resetClock = true)
+        clearExternalSpotifyListening()
+        isAudiomackFullPlayback = false
+        appleMusicPlayer = candidate
+        mediaSession?.player = candidate
+        val start = CompletableDeferred<Boolean>()
+        appleMusicStart = start
+        candidate.addListener(object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (appleMusicPlayer !== candidate) return
+                if (isPlaying) start.complete(true)
+                if (_loadingTrackId.value != null) return
+                _state.value = _state.value.copy(isPlaying = isPlaying)
+                if (isPlaying) startPositionPolling() else stopPositionPolling(resetClock = false)
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (appleMusicPlayer !== candidate || playbackState != Player.STATE_ENDED) return
+                stopPositionPolling(resetClock = false)
+                ScrubberClock.snapTime(0)
+                _state.value = _state.value.copy(isPlaying = false)
+                managerScope.launch(Dispatchers.Main) {
+                    if (appleMusicPlayer === candidate) handlePlaybackEnded()
+                }
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                if (appleMusicPlayer !== candidate || start.complete(false)) return
+                if (_loadingTrackId.value != null) return
+                managerScope.launch(Dispatchers.Main) {
+                    if (appleMusicPlayer !== candidate || generation != playGeneration) return@launch
+                    appleMusicPreviewFallback = track.trackId to track.sourcePostId
+                    playInternal(track, userInitiated = false, forceSwitch = true, previewOnly = true)
+                }
+            }
+        })
+        candidate.play()
+        candidate.prepare()
+        if (!startForegroundServiceIfNeeded()) return false
+        if (withTimeoutOrNull(15_000) { start.await() } != true || generation != playGeneration) return false
+
+        appleMusicStart = null
+        _loadingTrackId.value = null
+        _loadingSourcePostId.value = null
+        appleMusicPreviewFallback = null
+        publishInAppTrack(track)
+        startPositionPolling()
         recordPlayIfNeeded(track.sourcePostId)
-        onPlaybackBecamePlaying(trackId)
+        onPlaybackBecamePlaying(track.trackId)
+        return true
+    }
+
+    private fun releaseAppleMusicPlayer() {
+        appleMusicStart?.complete(false)
+        appleMusicStart = null
+        val apple = appleMusicPlayer ?: return
+        appleMusicPlayer = null
+        previewSessionPlayer?.let { mediaSession?.player = it }
+        apple.release()
+        stopPositionPolling(resetClock = false)
+        _state.value = _state.value.copy(isPlaying = false)
     }
 
     /**
@@ -2535,6 +2704,7 @@ class NowPlayingManager @Inject constructor(
             currentQueueIndex = idx + 1
             val track = queue[idx + 1]
             val leadInGen = ++feedSkipLeadInGeneration
+            if (startAppleMusicQueueHandoff(track)) return
 
             if (immediate) {
                 beginStagedFeedSkipLoading(track, armPill = false)
@@ -2575,8 +2745,9 @@ class NowPlayingManager @Inject constructor(
             val currentIdx = currentQueueIndex ?: return@launch
             val next = queue.getOrNull(currentIdx + 1) ?: return@launch
             val leadInGen = ++feedSkipLeadInGeneration
-            stagedFeedSkipInFlight = true
             currentQueueIndex = currentIdx + 1
+            if (startAppleMusicQueueHandoff(next)) return@launch
+            stagedFeedSkipInFlight = true
             publishSourcePostIdForFeedScroll(next.sourcePostId)
             beginStagedFeedSkipLoading(next, armPill = true)
             android.util.Log.i("NowPlaying", "staged preview Next → ${next.trackName} (350+280ms then chrome+play)")
@@ -2589,6 +2760,17 @@ class NowPlayingManager @Inject constructor(
             android.util.Log.i("NowPlaying", "staged preview play → ${next.trackName}")
             playInternal(next, userInitiated = false)
         }
+    }
+
+    private fun startAppleMusicQueueHandoff(track: QueuedTrack): Boolean {
+        if (musicServicePreference.current.value != MusicService.APPLE_MUSIC ||
+            !AppleMusicPlayback.isAvailable() || !preferencesDataStore.effectivePlayFullSongsSync()
+        ) return false
+
+        managerScope.launch {
+            playInternal(track, userInitiated = false, forceSwitch = true, showTrackWhileLoading = true)
+        }
+        return true
     }
 
     /**
@@ -2609,12 +2791,14 @@ class NowPlayingManager @Inject constructor(
      * staged-skip abort). Keeps the Spotify session; only stops audio.
      */
     private fun abortOutgoingPlaybackForStagedSkip() {
+        appleMusicRequestInFlight = false
         playGeneration++
         spotifyConnectPlayGeneration++
         spotifyConnectPlayJob?.cancel()
         spotifyConnectPlayJob = null
         spotifyPlaybackService.cancelPendingPlayRequest()
         spotifyPlaybackService.pauseImmediately()
+        releaseAppleMusicPlayer()
         player?.pause()
     }
 
@@ -2684,7 +2868,7 @@ class NowPlayingManager @Inject constructor(
             .build().apply {
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
-                    if (spotifyConnectKeepAliveActive) return
+                    if (spotifyConnectKeepAliveActive || isAppleMusicFullPlayback) return
                     if (playbackState == Player.STATE_ENDED) {
                         _state.value = _state.value.copy(isPlaying = false)
                         stopPositionPolling(resetClock = false)
@@ -2700,7 +2884,7 @@ class NowPlayingManager @Inject constructor(
                 }
 
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    if (spotifyConnectKeepAliveActive) return
+                    if (spotifyConnectKeepAliveActive || isAppleMusicFullPlayback) return
                     if (isPlaying) startPositionPolling()
                     else stopPositionPolling(resetClock = false)
                 }
@@ -2709,7 +2893,7 @@ class NowPlayingManager @Inject constructor(
                     mediaItem: MediaItem?,
                     reason: Int,
                 ) {
-                    if (spotifyConnectKeepAliveActive) return
+                    if (spotifyConnectKeepAliveActive || isAppleMusicFullPlayback) return
                     // Track change — snap clock to 0 so the scrubber doesn't
                     // briefly tween from the outgoing track's position into
                     // the new one's. Polling will refill it on the next tick.
@@ -2808,6 +2992,7 @@ class NowPlayingManager @Inject constructor(
             }
         }
         player = exo
+        previewSessionPlayer = sessionPlayer
         // setSessionActivity makes tapping the now-playing card (QS media player,
         // lock screen, Android Auto, media3's own notification provider) open
         // Corus instead of doing nothing.
@@ -2959,6 +3144,8 @@ class NowPlayingManager @Inject constructor(
     fun onForegroundStartDenied() {
         foregroundServiceStarted = false
         stopSpotifyConnectKeepAlive()
+        appleMusicStart?.complete(false)
+        appleMusicPlayer?.pause()
         player?.pause()
         _state.value = _state.value.copy(isPlaying = false)
     }
@@ -3021,6 +3208,8 @@ class NowPlayingManager @Inject constructor(
             cancelStagedFeedSkip()
             return
         }
+        if (appleMusicRequestInFlight) releaseAppleMusicPlayer()
+        appleMusicRequestInFlight = false
         val cancellingFullSongResolve =
             _isResolvingSpotify.value || spotifyConnectPlayJob?.isActive == true
         playGeneration++
@@ -3115,7 +3304,17 @@ class NowPlayingManager @Inject constructor(
             }
             return
         }
+        appleMusicPlayer?.let { apple ->
+            if (apple.playWhenReady) pause() else resume()
+            return
+        }
         val p = player ?: return
+        if (p.mediaItemCount == 0 && _state.value.hasActiveTrack &&
+            musicServicePreference.current.value == MusicService.APPLE_MUSIC
+        ) {
+            restartCurrentTrackForDesiredPlaybackMode()
+            return
+        }
         if (p.isPlaying) {
             p.pause()
             _state.value = _state.value.copy(isPlaying = false)
@@ -3130,7 +3329,19 @@ class NowPlayingManager @Inject constructor(
         }
     }
 
+    fun isAppleMusicConnected(): Boolean = ::appleMusicPlayback.isInitialized && appleMusicPlayback.isConnected()
+
+    suspend fun connectAppleMusic(): Boolean = appleMusicPlayback.connect()
+
+    fun disconnectAppleMusic() {
+        if (isAppleMusicFullPlayback || appleMusicRequestInFlight) stop()
+        appleMusicPlayback.disconnect()
+    }
+
     fun stop() {
+        cancelLoading()
+        releaseAppleMusicPlayer()
+        appleMusicPreviewFallback = null
         feedSkipLeadInGeneration++
         stagedFeedSkipInFlight = false
         clearExternalSpotifyListening()
@@ -3141,6 +3352,7 @@ class NowPlayingManager @Inject constructor(
         stopPositionPolling(resetClock = true)
         mediaSession?.release()
         mediaSession = null
+        previewSessionPlayer = null
         player?.release()
         player = null
         isAudiomackFullPlayback = false
@@ -3163,6 +3375,10 @@ class NowPlayingManager @Inject constructor(
     }
 
     fun pause() {
+        appleMusicPlayer?.let {
+            it.pause()
+            return
+        }
         if (isExternalSpotifyListening) {
             if (_state.value.isPlaying) togglePlayPause()
             return
@@ -3177,6 +3393,11 @@ class NowPlayingManager @Inject constructor(
     }
 
     fun resume() {
+        appleMusicPlayer?.let {
+            VoiceNotePlayerManager.stopActivePlayer()
+            it.play()
+            return
+        }
         if (isExternalSpotifyListening) {
             if (!_state.value.isPlaying) togglePlayPause()
             return
@@ -3197,6 +3418,10 @@ class NowPlayingManager @Inject constructor(
         replaceSpotifyQueue: Boolean = false,
     ) {
         if (liveOwnsSpotify && livePlaybackExit?.invoke() != true) return
+        if (isAppleMusicFullPlayback || appleMusicRequestInFlight) {
+            cancelLoading()
+            releaseAppleMusicPlayer()
+        }
         clearExternalSpotifyListening()
         awaySkipMutedUri = null
         spotifyPlaybackService.clearContextTakeoverWithoutTrackChange()

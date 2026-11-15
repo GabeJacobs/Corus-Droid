@@ -240,6 +240,10 @@ class SocialSetupViewModel @Inject constructor(
     fun saveMusicService(service: MusicService, spotifyInstalled: Boolean) {
         analyticsService.logMusicServiceSelected(service.value)
         viewModelScope.launch {
+            val supportsAppleFullPlayback = fm.corus.android.domain.AppleMusicPlayback.isAvailable()
+            if (service == MusicService.APPLE_MUSIC && supportsAppleFullPlayback) {
+                preferencesDataStore.setPlayFullSongs(true)
+            }
             musicServicePreference.syncToFirestore(service)
             // Experiment value is delivered on fetch. Stamp only after that
             // so a fast onboarding tap does not stick `off` forever.
@@ -251,6 +255,7 @@ class SocialSetupViewModel @Inject constructor(
                 rcVariant = remoteConfigService.spotifyFtueVariant,
                 preferences = preferencesDataStore,
                 analytics = analyticsService,
+                supportsAppleFullPlayback = supportsAppleFullPlayback,
             )
         }
     }

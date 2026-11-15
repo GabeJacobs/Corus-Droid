@@ -62,6 +62,7 @@ import fm.corus.android.ui.components.qobuzWordmarkColorFilter
 import fm.corus.android.R
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.data.model.MusicService
+import fm.corus.android.domain.AppleMusicPlayback
 import fm.corus.android.data.model.SuggestedUserMatch
 import fm.corus.android.ui.components.PopularUsersInfiniteGrid
 import fm.corus.android.ui.components.UserAvatarView
@@ -148,6 +149,7 @@ internal fun MusicServiceScreen(
     ctaLabelRes: Int = fm.corus.android.localization.CorusStrings.onboarding_get_started,
 ) {
     var selected by remember { mutableStateOf(MusicService.SPOTIFY) }
+    val appleMusicFullPlaybackAvailable = AppleMusicPlayback.isAvailable()
     val tidalEnabled = viewModel.tidalEnabled
     val youtubeMusicEnabled = viewModel.youtubeMusicEnabled
     val deezerEnabled = viewModel.deezerEnabled
@@ -181,8 +183,7 @@ internal fun MusicServiceScreen(
         ) {
             Spacer(modifier = Modifier.height(CorusSpacing.lg + 12.dp))
 
-            // Featured tier — Spotify + TIDAL as large side-by-side cards
-            // (mirrors the iOS two-tier layout). Spotify shows the full-playback subtitle.
+            // Keep the same featured provider order as iOS.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(CorusSpacing.lg),
@@ -196,11 +197,26 @@ internal fun MusicServiceScreen(
                     selected = selected == MusicService.SPOTIFY,
                     onClick = { selected = MusicService.SPOTIFY },
                 )
-                // TIDAL only appears when its Remote Config gate is on (and the
-                // integration has shipped on all clients).
-                if (tidalEnabled) {
+                if (appleMusicFullPlaybackAvailable) {
                     MusicServiceCard(
                         modifier = Modifier.weight(1f),
+                        logoRes = R.drawable.apple_music_logo,
+                        label = MusicService.APPLE_MUSIC.displayLabel,
+                        subtitle = fullPlaybackSubtitle,
+                        accent = CorusColors.AppleMusicPink,
+                        selected = selected == MusicService.APPLE_MUSIC,
+                        onClick = { selected = MusicService.APPLE_MUSIC },
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(CorusSpacing.lg))
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
+            ) {
+                if (tidalEnabled) {
+                    MusicServiceRow(
                         logoRes = R.drawable.tidal_logo,
                         label = MusicService.TIDAL.displayLabel,
                         accent = CorusColors.Tidal,
@@ -208,16 +224,6 @@ internal fun MusicServiceScreen(
                         onClick = { selected = MusicService.TIDAL },
                     )
                 }
-            }
-
-            // Secondary tier — full-width list rows beneath the featured pair:
-            // YouTube Music (below TIDAL, above Deezer), then Deezer, then Apple Music.
-            // These link out to their own app.
-            Spacer(modifier = Modifier.height(CorusSpacing.lg))
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
-            ) {
                 // YouTube Music only appears when its Remote Config gate is on.
                 if (youtubeMusicEnabled) {
                     MusicServiceRow(
@@ -238,13 +244,15 @@ internal fun MusicServiceScreen(
                         onClick = { selected = MusicService.DEEZER },
                     )
                 }
-                MusicServiceRow(
-                    logoRes = R.drawable.apple_music_logo,
-                    label = MusicService.APPLE_MUSIC.displayLabel,
-                    accent = CorusColors.AppleMusicPink,
-                    selected = selected == MusicService.APPLE_MUSIC,
-                    onClick = { selected = MusicService.APPLE_MUSIC },
-                )
+                if (!appleMusicFullPlaybackAvailable) {
+                    MusicServiceRow(
+                        logoRes = R.drawable.apple_music_logo,
+                        label = MusicService.APPLE_MUSIC.displayLabel,
+                        accent = CorusColors.AppleMusicPink,
+                        selected = selected == MusicService.APPLE_MUSIC,
+                        onClick = { selected = MusicService.APPLE_MUSIC },
+                    )
+                }
                 if (qobuzEnabled) {
                     MusicServiceRow(
                         logoRes = R.drawable.qobuz_logo,
@@ -304,7 +312,7 @@ private fun MusicServiceCard(
     modifier: Modifier = Modifier,
     logoRes: Int,
     label: String,
-    subtitle: String? = null,
+    subtitle: String,
     accent: Color,
     selected: Boolean,
     onClick: () -> Unit,
@@ -335,10 +343,8 @@ private fun MusicServiceCard(
             color = CorusColors.Text,
             textAlign = TextAlign.Center,
         )
-        // Always reserve two lines so cards with and without a subtitle
-        // (Spotify vs TIDAL) stay the same height.
         Text(
-            text = subtitle.orEmpty(),
+            text = subtitle,
             style = CorusFont.caption,
             color = CorusColors.Secondary,
             textAlign = TextAlign.Center,

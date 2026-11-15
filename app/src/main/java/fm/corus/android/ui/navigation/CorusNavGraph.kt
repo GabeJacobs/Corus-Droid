@@ -33,6 +33,7 @@ import fm.corus.android.ui.screens.subscription.CymbalClubOfferScreen
 import fm.corus.android.ui.screens.notifications.NotificationsScreen
 import fm.corus.android.ui.screens.profile.FollowListScreen
 import fm.corus.android.ui.screens.profile.OtherProfileScreen
+import fm.corus.android.ui.screens.profile.ProfileMediaFilter
 import fm.corus.android.ui.screens.profile.ProfileFeedScreen
 import fm.corus.android.ui.screens.profile.ProfileScreen
 import fm.corus.android.ui.screens.settings.BlockedUsersScreen
@@ -424,6 +425,9 @@ fun ProfileNavGraph(
                 onNavigateToFollowList = { userId, isFollowers, username, followerCount, followingCount ->
                     navController.navigate(FollowListRoute(userId, isFollowers, username, followerCount, followingCount))
                 },
+                onNavigateToLiveSaves = { uid, username, itemId, filter ->
+                    navController.navigate(ProfileFeedRoute(uid, username, 3, itemId, mixedSavesFilter = filter.name))
+                },
                 onNavigateToProfileFeed = { userId, username, postId, segment ->
                     navController.navigate(ProfileFeedRoute(userId, username, segment, postId))
                 },
@@ -606,6 +610,7 @@ internal fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             segment = route.segment,
             initialPostId = route.initialPostId,
             hashtag = route.hashtag,
+            mixedSavesFilter = route.mixedSavesFilter?.let(ProfileMediaFilter::valueOf),
             isContainingTabSelected = isContainingTabSelected,
             onBack = { navController.safePopBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },

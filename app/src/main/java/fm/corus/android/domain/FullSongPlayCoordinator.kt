@@ -38,7 +38,7 @@ object FullSongPlayCoordinator {
                 sourcePostId = sourcePostId,
                 musicService = musicService,
                 nowPlaying = nowPlaying,
-                skipForResume = skipPlaybackModePrompt || preferFullSong,
+                skipForResume = skipPlaybackModePrompt || (preferFullSong && musicService != MusicService.APPLE_MUSIC),
             )
         ) {
             return PlayTapOutcome.NeedsPlaybackModeChoice
@@ -139,7 +139,7 @@ object FullSongPlayCoordinator {
     ) {
         when (outcome) {
             PlayTapOutcome.NeedsPlaybackModeChoice -> {
-                val kind = playbackModePromptManager.catalogPromptKind()
+                val kind = playbackModePromptManager.catalogPromptKind(musicService)
                     ?: SpotifyFtuePromptKind.CHOOSE_LISTEN
                 playbackModePromptManager.present(
                     PendingPlaybackModeChoice(

@@ -145,7 +145,9 @@ import fm.corus.android.ui.util.FeedFollowScrollLift
 import fm.corus.android.ui.util.FeedFollowScrollPeekAbovePost
 import fm.corus.android.ui.util.animateScrollItemToTop
 import fm.corus.android.ui.util.computeFollowScrollTopInset
+import fm.corus.android.ui.util.FeedPrefixItem
 import fm.corus.android.ui.util.feedPostLazyIndex
+import fm.corus.android.ui.util.feedPrefixItems
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -458,10 +460,13 @@ fun FeedScreen(
     // destination) and use reference equality to avoid clobbering another
     // screen's handler on cleanup.
     val currentPostsForRouter by rememberUpdatedState(posts)
-    val feedPrefixItemCount = (if (feedModeTabsVisible) 0 else 1) +
-        (if (showTasteMatchesTrialBanner) 1 else 0) +
-        (if (dailyHashtagBanner.candidate != null) 1 else 0)
-    val currentPrefixForRouter by rememberUpdatedState(feedPrefixItemCount)
+    val selectedFeedPrefix = feedPrefixItems(
+        includeHeader = !feedModeTabsVisible,
+        feedMode = feedMode,
+        showDailyHashtag = dailyHashtagBanner.candidate != null,
+        showTasteMatchesTrial = showTasteMatchesTrialBanner,
+    )
+    val currentPrefixForRouter by rememberUpdatedState(selectedFeedPrefix.size)
     val routerScope = scope
     val feedScrollHandler = remember<(String) -> Boolean>(listState) {
         handler@ { postId ->
@@ -1294,25 +1299,33 @@ fun FeedScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = chromeTop),
                 ) {
-                    if (includeHeader) item { header() }
-                    if (isSelected && dailyHashtagBanner.candidate != null) item(key = "daily_hashtag_banner") {
-                        TrendingHashtagBanner(dailyHashtagBanner, onNavigateToHashtag, trackHashtagBanner, isAtRoot)
+                    val prefix = when {
+                        isSelected -> selectedFeedPrefix
+                        includeHeader -> listOf(FeedPrefixItem.Header)
+                        else -> emptyList()
                     }
-                    if (isSelected && (feedMode == "following" || feedMode == "tasteMatches")) {
-                        item(key = "corus_live_discovery") {
-                            LiveDiscovery(
-                                source = if (feedMode == "following") "following" else "your_mix",
-                                following = liveFollowingIds.takeIf { feedMode == "following" },
-                            )
-                        }
-                    }
-                    if (isSelected && feedMode == "following") item(key = "referral_feed_banner") { fm.corus.android.ui.components.ReferralInviteBanner("feed") }
-                    if (isSelected && showTasteMatchesTrialBanner) {
-                        item(key = "taste_matches_trial_banner", contentType = "taste_matches_trial_banner") {
-                            TasteMatchesTrialBanner(
-                                onClick = { viewModel.onTasteMatchesBannerTapped() },
-                                previewMode = if (isStayCloseTrial) prototypeState.mode else null,
-                            )
+                    for (row in prefix) {
+                        when (row) {
+                            FeedPrefixItem.Header -> item { header() }
+                            FeedPrefixItem.DailyHashtag -> item(key = "daily_hashtag_banner") {
+                                TrendingHashtagBanner(dailyHashtagBanner, onNavigateToHashtag, trackHashtagBanner, isAtRoot)
+                            }
+                            FeedPrefixItem.LiveDiscovery -> item(key = "corus_live_discovery") {
+                                LiveDiscovery(
+                                    source = if (feedMode == "following") "following" else "your_mix",
+                                    following = liveFollowingIds.takeIf { feedMode == "following" },
+                                )
+                            }
+                            FeedPrefixItem.ReferralInvite -> item(key = "referral_feed_banner") {
+                                fm.corus.android.ui.components.ReferralInviteBanner("feed")
+                            }
+                            FeedPrefixItem.TasteMatchesTrial ->
+                                item(key = "taste_matches_trial_banner", contentType = "taste_matches_trial_banner") {
+                                    TasteMatchesTrialBanner(
+                                        onClick = { viewModel.onTasteMatchesBannerTapped() },
+                                        previewMode = if (isStayCloseTrial) prototypeState.mode else null,
+                                    )
+                                }
                         }
                     }
                     itemsIndexed(

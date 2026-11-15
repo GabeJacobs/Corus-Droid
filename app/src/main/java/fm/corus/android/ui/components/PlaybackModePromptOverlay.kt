@@ -16,8 +16,9 @@ import fm.corus.android.domain.SpotifyFtuePromptKind
 @Composable
 fun PlaybackModePromptOverlay(
     kind: SpotifyFtuePromptKind,
+    musicService: MusicService,
     onSecondary: () -> Unit,
-    onLinkSpotify: () -> Unit,
+    onConnect: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var visible by remember { mutableStateOf(false) }
@@ -36,25 +37,32 @@ fun PlaybackModePromptOverlay(
             stringResource(fm.corus.android.localization.CorusStrings.playback_mode_prompt_previews)
     }
 
+    val isAppleMusic = musicService == MusicService.APPLE_MUSIC
     CorusPromptOverlay(
         visible = visible,
         title = title,
-        message = stringResource(fm.corus.android.localization.CorusStrings.playback_mode_prompt_body_spotify_link),
+        message = stringResource(
+            if (isAppleMusic) R.string.playback_mode_prompt_body_apple_music
+            else fm.corus.android.localization.CorusStrings.playback_mode_prompt_body_spotify_link,
+        ),
         footnote = if (kind == SpotifyFtuePromptKind.LINK_SPOTIFY) {
             stringResource(fm.corus.android.localization.CorusStrings.playback_mode_prompt_link_footnote)
         } else {
             null
         },
-        iconRes = MusicServiceLinkOut.logoRes(MusicService.SPOTIFY),
+        iconRes = MusicServiceLinkOut.logoRes(musicService),
         buttons = listOf(
             CorusPromptButton(
                 label = secondary,
                 onClick = onSecondary,
             ),
             CorusPromptButton(
-                label = stringResource(fm.corus.android.localization.CorusStrings.playback_mode_prompt_link_spotify),
+                label = stringResource(
+                    if (isAppleMusic) R.string.settings_connect_apple_music
+                    else fm.corus.android.localization.CorusStrings.playback_mode_prompt_link_spotify,
+                ),
                 emphasized = true,
-                onClick = onLinkSpotify,
+                onClick = onConnect,
             ),
         ),
         modifier = modifier,

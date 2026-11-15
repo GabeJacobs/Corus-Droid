@@ -27,6 +27,7 @@ import fm.corus.android.data.repository.TMDBRepository
 import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.HapticManager
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.domain.PostCreationEvent
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.NetworkMonitor
@@ -1293,19 +1294,7 @@ class ComposeViewModel @Inject constructor(
 
     fun togglePreview(track: CymbalTrack) {
         viewModelScope.launch {
-            nowPlayingManager.play(
-                trackId = track.id,
-                trackName = track.name,
-                artistName = track.artistName,
-                albumArtURL = track.albumArtURL,
-                albumArtLargeURL = track.albumArtLargeURL,
-                previewUrl = track.previewUrl,
-                isrc = track.isrc,
-                source = track.source,
-                bandcampUrl = track.bandcampUrl,
-                soundcloudId = track.soundcloudId,
-                soundcloudPermalinkUrl = track.soundcloudPermalinkUrl,
-            )
+            nowPlayingManager.play(track.toQueuedTrack(), queue = emptyList(), previewOnly = true)
         }
     }
 

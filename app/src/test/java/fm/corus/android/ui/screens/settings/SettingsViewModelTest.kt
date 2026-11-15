@@ -44,6 +44,7 @@ class SettingsViewModelTest {
 
     private fun preferencesDataStoreMock(): PreferencesDataStore = mock {
         on { autoplayNextSong } doReturn MutableStateFlow(true)
+        on { autoAddSavedToAppleMusic } doReturn MutableStateFlow(true)
         on { autoAddSavedToSpotify } doReturn MutableStateFlow(false)
         on { autoAddSavedToSpotifySync() } doReturn false
         on { alwaysPlayFullSongs } doReturn MutableStateFlow(true)

@@ -68,6 +68,7 @@ class PostEngagementManager @Inject constructor(
     private val saveChangedEvent: SaveChangedEvent,
     private val youtubeMusicService: YouTubeMusicService,
     private val spotifySaveAutoAdd: SpotifySaveAutoAdd,
+    private val appleMusicSaveAutoAdd: AppleMusicSaveAutoAdd,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -342,6 +343,7 @@ class PostEngagementManager @Inject constructor(
                         // branch below). Silently no-ops when the flag/toggle
                         // are off or the post isn't resolvable on Spotify.
                         spotifySaveAutoAdd.handleSaved(post)
+                        appleMusicSaveAutoAdd.handleSaved(post, userId)
                         scope.launch { youtubeMusicService.saved(post.id) }
                     }
                 } else {

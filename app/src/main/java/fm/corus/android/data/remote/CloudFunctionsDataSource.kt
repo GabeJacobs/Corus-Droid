@@ -2481,7 +2481,34 @@ class CloudFunctionsDataSource @Inject constructor(
         return parsePlaylistTracksResponse(data)
     }
 
-    @Suppress("UNCHECKED_CAST")
+    data class AppleMusicDeveloperToken(val token: String, val expiresAt: Long)
+
+    suspend fun getAppleMusicDeveloperToken(): AppleMusicDeveloperToken {
+        val data = functions.getHttpsCallable("getAppleMusicDeveloperToken").call().await().getData() as? Map<*, *>
+        val token = data?.get("token") as? String
+        val expiresAt = data?.get("expiresAt") as? Number
+        check(!token.isNullOrBlank() && expiresAt != null) { "Invalid Apple Music developer token response" }
+        return AppleMusicDeveloperToken(token, expiresAt.toLong())
+    }
+
+    internal suspend fun resolveAppleMusicSong(
+        track: fm.corus.android.domain.QueuedTrack,
+        storefront: String,
+    ): String? {
+        val data = appleMusicMatch(
+            name = track.trackName,
+            artist = track.artistName,
+            isrc = track.isrc,
+            spotifyTrackId = track.trackId,
+            appleMusicId = track.appleMusicId,
+            durationMs = track.durationMs,
+            albumName = track.albumName,
+            storefront = storefront,
+            appleMusicStorefront = track.appleMusicStorefront,
+        )
+        return (data?.get("appleMusicId") as? String)?.takeIf { it.matches(Regex("[0-9]+")) }
+    }
+
     suspend fun appleMusicLookup(
         name: String,
         artist: String,
@@ -2491,20 +2518,30 @@ class CloudFunctionsDataSource @Inject constructor(
         durationMs: Int? = null,
         albumName: String? = null,
         storefront: String? = null,
-    ): String? {
+    ): String? = appleMusicMatch(
+        name, artist, isrc, spotifyTrackId, appleMusicId, durationMs, albumName, storefront, storefront,
+    )?.get("previewUrl") as? String
+
+    private suspend fun appleMusicMatch(
+        name: String,
+        artist: String,
+        isrc: String?,
+        spotifyTrackId: String?,
+        appleMusicId: String? = null,
+        durationMs: Int? = null,
+        albumName: String? = null,
+        storefront: String?,
+        appleMusicStorefront: String?,
+    ): Map<*, *>? {
         val params = mutableMapOf<String, Any>("name" to name, "artist" to artist)
         if (!isrc.isNullOrBlank()) params["isrc"] = isrc
         if (!spotifyTrackId.isNullOrBlank()) params["spotifyTrackId"] = spotifyTrackId
         if (!appleMusicId.isNullOrBlank()) params["appleMusicId"] = appleMusicId
         if (durationMs != null && durationMs > 0) params["durationMs"] = durationMs
         if (!albumName.isNullOrBlank()) params["albumName"] = albumName
-        if (!storefront.isNullOrBlank()) {
-            params["storefront"] = storefront
-            params["appleMusicStorefront"] = storefront
-        }
-        val result = functions.getHttpsCallable("appleMusicLookup").call(params).await()
-        val data = result.getData() as? Map<String, Any?> ?: return null
-        return data["previewUrl"] as? String
+        if (!storefront.isNullOrBlank()) params["storefront"] = storefront
+        if (!appleMusicStorefront.isNullOrBlank()) params["appleMusicStorefront"] = appleMusicStorefront
+        return functions.getHttpsCallable("appleMusicLookup").call(params).await().getData() as? Map<*, *>
     }
 
     // ── Music-service link-out resolvers ──────────────────────────────────────

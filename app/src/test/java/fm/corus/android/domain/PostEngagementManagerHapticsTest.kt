@@ -27,6 +27,7 @@ class PostEngagementManagerHapticsTest {
         saveChangedEvent = mock(),
         youtubeMusicService = mock(),
         spotifySaveAutoAdd = mock(),
+        appleMusicSaveAutoAdd = mock(),
     )
 
     @Test

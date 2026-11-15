@@ -92,6 +92,7 @@ import fm.corus.android.ui.screens.feed.LikesBottomSheet
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.service.DeepLinkDestination
 import fm.corus.android.ui.screens.live.LiveMiniPlayer
+import fm.corus.android.ui.screens.live.LiveMiniPlayerHeight
 import fm.corus.android.ui.screens.live.LiveNavigation
 import fm.corus.android.ui.screens.live.LiveNavigationState
 import fm.corus.android.ui.screens.live.LivePresentation
@@ -157,8 +158,9 @@ fun MainTabScreen(
         mixedSaves = liveState.mixedSaves,
         mixedSavesLoading = liveState.mixedSavesLoading,
         mixedSavesHasMore = liveState.mixedSavesHasMore,
+        mixedSavesFailed = liveState.mixedSavesFailed,
     )
-    val showLiveMini = liveState.room != null && liveState.minimized
+    val showLiveMini = liveState.miniPlayerRoom != null
     val showMilestonePaywall by viewModel.showMilestonePaywall.collectAsState()
     val milestonePaywallSource by viewModel.milestonePaywallSource.collectAsState()
     val notificationCount by viewModel.notificationCount.collectAsState()
@@ -495,7 +497,7 @@ fun MainTabScreen(
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
     val isHydratingExternalSpotify by viewModel.nowPlayingManager.isHydratingExternalSpotify.collectAsState()
     val isExternalSpotifyListening by viewModel.nowPlayingManager.isExternalSpotifyListeningFlow.collectAsState()
-    val showsMiniPlayer = liveState.room == null && nowPlayingState.hasActiveTrack && !isHydratingExternalSpotify &&
+    val showsMiniPlayer = !showLiveMini && liveState.room == null && nowPlayingState.hasActiveTrack && !isHydratingExternalSpotify &&
         (!isExternalSpotifyListening ||
             (nowPlayingState.trackName.isNotBlank() && nowPlayingState.trackName != "Unknown Track"))
     // Hold the white empty shell invisible until the art wash has painted —
@@ -512,7 +514,7 @@ fun MainTabScreen(
     val livePlayerExpansion = if (showsMiniPlayer) playerExpansion.liveExpansion() else 0f
     val bottomChromeHeight = with(density) {
         if (citySheetOpen) 0.dp else tabBarHeightPx.toDp() +
-            if (showLiveMini) 64.dp else if (showsMiniPlayer && playerSurfaceReady) miniHeightPx.toDp() else 0.dp
+            if (showLiveMini) LiveMiniPlayerHeight else if (showsMiniPlayer && playerSurfaceReady) miniHeightPx.toDp() else 0.dp
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -840,7 +842,14 @@ fun MainTabScreen(
     if (showLiveMini && !citySheetOpen) {
         LiveMiniPlayer(
             liveState, liveViewModel,
-            Modifier.align(Alignment.BottomCenter).padding(bottom = with(density) { tabBarHeightPx.toDp() }).zIndex(2f),
+            Modifier.align(Alignment.BottomCenter)
+                .padding(bottom = with(density) { tabBarHeightPx.toDp() })
+                .zIndex(2f)
+                .then(if (FrostedBottomBar) Modifier.hazeEffect(state = bottomHaze) {
+                    blurRadius = 30.dp
+                    backgroundColor = bottomFrost
+                    tints = listOf(HazeTint(bottomFrost.copy(alpha = 0.88f)))
+                } else Modifier.background(CorusColors.CardBackground)),
         )
     }
 
@@ -936,6 +945,7 @@ fun MainTabScreen(
     playbackModePending?.let { pendingChoice ->
         PlaybackModePromptOverlay(
             kind = pendingChoice.kind,
+            musicService = pendingChoice.musicService,
             onSecondary = {
                 if (pendingChoice.kind ==
                     fm.corus.android.domain.SpotifyFtuePromptKind.LINK_SPOTIFY
@@ -945,7 +955,7 @@ fun MainTabScreen(
                     viewModel.playbackModePromptManager.choosePreviews()
                 }
             },
-            onLinkSpotify = { viewModel.playbackModePromptManager.chooseLinkSpotify() },
+            onConnect = { viewModel.playbackModePromptManager.chooseConnect() },
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(3f),

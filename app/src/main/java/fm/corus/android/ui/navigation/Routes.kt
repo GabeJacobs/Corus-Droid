@@ -32,6 +32,7 @@ const val CATALOG_SCROLL_TO_TRACK_KEY = "catalogScrollToTrack"
     /** Set when [segment] == 4 (hashtag feed reuses this route). The lowercased
      *  hashtag name without the leading `#`. */
     val hashtag: String = "",
+    val mixedSavesFilter: String? = null,
 )
 @Serializable data class SongDetailRoute(
     val trackId: String,

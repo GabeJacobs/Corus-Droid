@@ -524,6 +524,7 @@ class PreferencesDataStore @Inject constructor(
         val SPOTIFY_FTUE_VARIANT = stringPreferencesKey("spotify_ftue_variant")
         val SPOTIFY_FTUE_LINK_PROMPT_CONSUMED = booleanPreferencesKey("spotify_ftue_link_prompt_consumed")
         val SPOTIFY_FTUE_FIRST_PLAY_CONSUMED = booleanPreferencesKey("spotify_ftue_first_play_consumed")
+        val AUTO_ADD_APPLE_MUSIC = booleanPreferencesKey("auto_add_saved_to_apple_music")
         val AUTO_ADD_SPOTIFY = booleanPreferencesKey("auto_add_saved_to_spotify")
         val FEED_FOLLOWS_NOW_PLAYING = booleanPreferencesKey("feed_follows_now_playing")
         val TRENDING_SONGS_WINDOW = stringPreferencesKey("trending_songs_window")
@@ -696,6 +697,15 @@ class PreferencesDataStore @Inject constructor(
     fun effectivePlayFullSongsSync(): Boolean =
         alwaysPlayFullSongsSync() || playFullSongsSync()
 
+    fun appleMusicFirstPlayChoiceMade(userId: String): Boolean =
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean("apple_music_first_play_choice:$userId", false)
+
+    fun markAppleMusicFirstPlayChoiceMade(userId: String) {
+        context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("apple_music_first_play_choice:$userId", true).apply()
+    }
+
     fun isSpotifyFtueAssigned(uid: String): Boolean {
         val prefs = context.getSharedPreferences(SYNC_PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getString("spotify_ftue_uid", null) == uid &&
@@ -771,6 +781,14 @@ class PreferencesDataStore @Inject constructor(
      */
     val autoAddSavedToSpotify: Flow<Boolean> = dataStore.data.map { prefs ->
         (prefs[AUTO_ADD_SPOTIFY] ?: true).also { mirrorAutoAddSavedToSpotifySync(it) }
+    }
+
+    val autoAddSavedToAppleMusic: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[AUTO_ADD_APPLE_MUSIC] ?: true
+    }
+
+    suspend fun setAutoAddSavedToAppleMusic(value: Boolean) {
+        dataStore.edit { it[AUTO_ADD_APPLE_MUSIC] = value }
     }
 
     suspend fun setAutoAddSavedToSpotify(value: Boolean) {

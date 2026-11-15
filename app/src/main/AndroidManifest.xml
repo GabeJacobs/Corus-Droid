@@ -20,6 +20,7 @@
 
     <!-- Package visibility (Android 11+): the share sheet detects Instagram and
          WhatsApp via PackageManager.getPackageInfo(); without these <queries>
+        <package android:name="com.apple.android.music" />
         <package android:name="com.google.android.calendar" />
         <package android:name="com.google.android.apps.maps" />
          entries that call always throws NameNotFoundException, so the Instagram
@@ -52,6 +53,14 @@
              task, so it overlays that app like a sheet and Back returns there
              instead of pulling the main Corus task forward — the Android twin
              of the iOS CorusShare extension. -->
+        <!-- MusicKitAuth declares the callback without a theme. It is an AppCompatActivity. -->
+        <activity
+            android:name="com.apple.android.sdk.authentication.SDKUriHandlerActivity"
+            android:enabled="${appleMusicSdkEnabled}"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            tools:ignore="MissingClass" />
+
         <activity
             android:name=".share.ShareToCorusActivity"
             android:exported="true"

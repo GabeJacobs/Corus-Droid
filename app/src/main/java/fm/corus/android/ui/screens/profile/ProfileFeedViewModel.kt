@@ -21,6 +21,9 @@ import fm.corus.android.data.repository.UserRepository
 import fm.corus.android.domain.CommentDeletedEvent
 import fm.corus.android.domain.CommentEditedEvent
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.QueuedTrack
+import fm.corus.android.ui.screens.live.LiveSaveItem
+import fm.corus.android.ui.screens.live.withLiveDisplayArtwork
 import fm.corus.android.domain.PlaybackOrigin
 import fm.corus.android.domain.PostDeletionEvent
 import fm.corus.android.domain.PostEngagementManager
@@ -29,6 +32,7 @@ import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.ui.screens.feed.applyCommentDeleteToPosts
 import fm.corus.android.ui.screens.feed.applyCommentEditToPosts
 import fm.corus.android.ui.screens.feed.loadRecentShareRecipients
+import fm.corus.android.ui.screens.messaging.queueSongShare
 import fm.corus.android.service.AnalyticsService
 import fm.corus.android.service.RemoteConfigService
 import fm.corus.android.ui.components.PostMenuActions
@@ -149,6 +153,7 @@ class ProfileFeedViewModel @Inject constructor(
     internal var collection: CollectionFeedSession? = null
         private set
     private var collectionPlayGeneration = 0
+    private var usesMixedSaves = false
 
     /** Public read of the current hashtag, used by the screen to show `#tag` in the title bar. */
     val currentHashtag: String get() = hashtag
@@ -176,6 +181,7 @@ class ProfileFeedViewModel @Inject constructor(
         // so the mini-player next button stays enabled past the first page.
         viewModelScope.launch {
             combine(_posts, _hasMore) { posts, hasMore -> posts to hasMore }.collect { (posts, hasMore) ->
+                if (usesMixedSaves) return@collect
                 val tracks = posts
                     .filter { it.mediaType == MediaType.TRACK }
                     .map { it.toQueuedTrack() }
@@ -520,8 +526,55 @@ class ProfileFeedViewModel @Inject constructor(
         _isLoadingMore.value = false
     }
 
-    fun playPreview(post: CymbalPost) {
-        viewModelScope.launch { routePostPlayTap(post, preferFullSong = false) }
+    internal fun initMixedSaves(userId: String) {
+        usesMixedSaves = true
+        this.userId = userId
+    }
+
+    internal fun syncMixedSavesPosts(posts: List<CymbalPost>) {
+        val previousIds = _posts.value.mapTo(hashSetOf()) { it.id }
+        _posts.value = posts
+        val viewer = authRepository.currentUserId ?: return
+        val newPosts = posts.filter { it.id !in previousIds }
+        if (newPosts.isEmpty()) return
+        newPosts.forEach { post ->
+            engagementManager.initState(
+                post.id, post.likeCount, post.commentCount, post.repostCount,
+                isLiked = post.isLiked, isSaved = true, saveCount = post.saveCount,
+            )
+        }
+        viewModelScope.launch { engagementManager.checkLikeStatuses(newPosts.map { it.id }, viewer) }
+    }
+
+    internal fun playSavedTrack(
+        saved: LiveSaveItem.Track,
+        queue: List<QueuedTrack>,
+        hasMore: Boolean,
+        loadMore: (suspend () -> Unit)?,
+    ) {
+        val song = saved.track.song.withLiveDisplayArtwork()
+        val track = saved.queuedTrack() ?: return
+        viewModelScope.launch { playFeedTrack(song, track, queue, false, false, hasMore, loadMore) }
+    }
+
+    fun playPreview(
+        post: CymbalPost,
+        mixedQueue: List<QueuedTrack>? = null,
+        mixedHasMore: Boolean = false,
+        mixedPageLoader: (suspend () -> Unit)? = null,
+    ) {
+        viewModelScope.launch {
+            if (mixedQueue != null) {
+                playFeedTrack(post.track, post.toQueuedTrack(), mixedQueue, false, false, mixedHasMore, mixedPageLoader)
+            } else routePostPlayTap(post, preferFullSong = false)
+        }
+    }
+
+    internal fun updateMixedSavesQueue(queue: List<QueuedTrack>, hasMore: Boolean, loadMore: (suspend () -> Unit)?) {
+        val origin = nowPlayingManager.activeContext
+        if (origin is PlaybackOrigin.Profile && origin.userId == userId) {
+            nowPlayingManager.updateFeedQueue(queue, hasMore && loadMore != null, loadMore ?: {})
+        }
     }
 
     internal fun resolveCollectionPost(id: String, retry: Boolean = false) {
@@ -556,20 +609,33 @@ class ProfileFeedViewModel @Inject constructor(
             if (generation != collectionPlayGeneration) return
             collectionQueue.activate(nowPlayingManager, post)
         } else nowPlayingManager.setPlaybackOrigin(PlaybackOrigin.Profile(userId))
+        val queue = collectionQueue?.tracks ?: _posts.value.filter { it.mediaType == MediaType.TRACK }.map { it.toQueuedTrack() }
+        playFeedTrack(post.track, post.toQueuedTrack(), queue, preferFullSong, skipPlaybackModePrompt,
+            _hasMore.value, { loadMoreSuspending() }, afterPlay = collectionQueue?.let { { it.activate(nowPlayingManager, post) } })
+    }
+
+    private suspend fun playFeedTrack(
+        song: fm.corus.android.data.model.CymbalTrack,
+        track: QueuedTrack,
+        queue: List<QueuedTrack>,
+        preferFullSong: Boolean,
+        skipPlaybackModePrompt: Boolean,
+        hasMore: Boolean,
+        loadMore: (suspend () -> Unit)?,
+        afterPlay: (() -> Unit)? = null,
+    ) {
+        val sourceId = track.sourcePostId ?: return
+        if (afterPlay == null) nowPlayingManager.setPlaybackOrigin(PlaybackOrigin.Profile(userId))
+        nowPlayingManager.lastUserInitiatedSourcePostId = sourceId
         val musicService = musicServicePreference.current.value
-        if (!preferFullSong &&
-            nowPlayingManager.isFullSongSessionActive(musicService, post.track.id, post.id)
-        ) {
+        if (!preferFullSong && nowPlayingManager.isFullSongSessionActive(musicService, song.id, sourceId)) {
             nowPlayingManager.togglePlayPause()
             return
         }
-        val trackPosts = _posts.value.filter { it.mediaType == MediaType.TRACK }
-        val queue = collectionQueue?.tracks ?: trackPosts.map { it.toQueuedTrack() }
-        val track = post.toQueuedTrack()
         val playFullSongs = preferencesDataStore.effectivePlayFullSongsSync()
         val outcome = FullSongPlayCoordinator.playTapOutcome(
-            track = post.track,
-            sourcePostId = post.id,
+            track = song,
+            sourcePostId = sourceId,
             queue = queue,
             nowPlaying = nowPlayingManager,
             remoteConfig = remoteConfig,
@@ -581,8 +647,8 @@ class ProfileFeedViewModel @Inject constructor(
         )
         FullSongPlayCoordinator.applyPlayTapOutcome(
             outcome = outcome,
-            track = post.track,
-            sourcePostId = post.id,
+            track = song,
+            sourcePostId = sourceId,
             queue = queue,
             nowPlaying = nowPlayingManager,
             remoteConfig = remoteConfig,
@@ -591,15 +657,11 @@ class ProfileFeedViewModel @Inject constructor(
             playbackModePromptManager = playbackModePromptManager,
             onPreview = {
                 if (queue.any { it.trackId == track.trackId }) {
-                    nowPlayingManager.play(track = track, queue = queue)
-                    if (collectionQueue != null) collectionQueue.activate(nowPlayingManager, post)
-                    else nowPlayingManager.updateFeedQueue(
-                        newQueue = queue,
-                        hasMore = _hasMore.value,
-                        loadMore = { loadMoreSuspending() },
-                    )
+                    nowPlayingManager.play(track = track, queue = queue, preferFullSong = preferFullSong)
+                    if (afterPlay != null) afterPlay()
+                    else nowPlayingManager.updateFeedQueue(queue, hasMore && loadMore != null, loadMore ?: {})
                 } else {
-                    nowPlayingManager.play(track = track, queue = listOf(track))
+                    nowPlayingManager.play(track = track, queue = listOf(track), preferFullSong = preferFullSong)
                 }
             },
             scope = viewModelScope,
@@ -681,6 +743,22 @@ class ProfileFeedViewModel @Inject constructor(
             }
             _isShareSearching.value = false
         }
+    }
+
+    internal fun sendSavedSongToUser(recipient: ShareRecipient, track: fm.corus.android.data.model.CymbalTrack, message: String) {
+        val sender = authRepository.currentUserId ?: return
+        messageRepository.queueSongShare(context, sender, recipient, track, message.trim())
+    }
+
+    internal suspend fun savedSongBackCover(track: fm.corus.android.data.model.CymbalTrack): String? {
+        val matching = cloudFunctions.fetchSongPostsFromCloud(
+            track.id, track.spotifyURI, track.isrc, track.name, track.artistName,
+        ).posts.filter {
+            if (track.albumName.isBlank()) it.track.id == track.id
+            else it.track.albumName.equals(track.albumName, ignoreCase = true)
+        }
+        return matching.firstNotNullOfOrNull { it.track.albumArtBackURL?.takeIf(String::isNotBlank) }
+            ?: matching.firstOrNull()?.let { fetchBackCover(it.id) }
     }
 
     override fun sendPostToUser(recipient: ShareRecipient, post: CymbalPost, message: String) {

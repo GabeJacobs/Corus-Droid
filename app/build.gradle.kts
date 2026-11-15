@@ -41,7 +41,22 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val appleMusicSdk = listOf(
+    file("libs/apple-musickit/MediaPlayback-release-1.1.4.aar"),
+    file("libs/apple-musickit/MusicKitAuth-release-1.1.5.aar"),
+)
+val hasAppleMusicSdk = appleMusicSdk.all { it.isFile }
+require(hasAppleMusicSdk || (appleMusicSdk.none { it.exists() } &&
+    providers.gradleProperty("requireAppleMusicSdk").orNull != "true")) {
+    "Install both Apple MusicKit libraries as described in app/libs/apple-musickit/README.md."
+}
+
 android {
+    sourceSets.getByName("main").java.srcDir(
+        if (hasAppleMusicSdk) "src/appleMusic/java" else "src/withoutAppleMusic/java",
+    )
+    // Rive and MusicKit both ship the Android NDK's shared C++ runtime.
+    if (hasAppleMusicSdk) packaging.jniLibs.pickFirsts.add("**/libc++_shared.so")
     namespace = "fm.corus.android"
     compileSdk = 36
 
@@ -56,6 +71,7 @@ android {
 
     defaultConfig {
         applicationId = "fm.corus.android"
+        manifestPlaceholders["appleMusicSdkEnabled"] = hasAppleMusicSdk
         minSdk = 26
         targetSdk = 36
         versionCode = resolvedVersionCode
@@ -122,6 +138,10 @@ android {
 }
 
 dependencies {
+    if (hasAppleMusicSdk) {
+        implementation(files(appleMusicSdk))
+        implementation("androidx.media:media:1.7.0")
+    }
     implementation("com.appsflyer:af-android-sdk:7.0.4")
     implementation("com.android.installreferrer:installreferrer:2.2")
     // Classic View runtime; avoids upgrading the app's Compose BOM for gifts.

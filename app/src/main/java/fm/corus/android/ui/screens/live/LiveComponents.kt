@@ -146,9 +146,16 @@ internal fun LiveArtwork(url: String?, size: Dp, modifier: Modifier = Modifier, 
 }
 
 @Composable
-internal fun LiveAvatar(person: LivePerson, size: Dp, ring: Boolean = false) {
+internal fun LiveAvatar(
+    person: LivePerson,
+    size: Dp,
+    ring: Boolean = false,
+    ringPadding: Dp = 4.dp,
+    ringWidth: Dp = 2.dp,
+    modifier: Modifier = Modifier,
+) {
     Box(
-        Modifier.then(if (ring) Modifier.border(2.dp, CorusColors.Accent, CircleShape).padding(4.dp) else Modifier),
+        modifier.then(if (ring) Modifier.border(ringWidth, CorusColors.Accent, CircleShape).padding(ringPadding) else Modifier),
         contentAlignment = Alignment.Center,
     ) {
         UserAvatarView(person.avatar, displayName = person.username, size = size, usesSolidLoadingPlaceholder = true)

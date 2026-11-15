@@ -87,6 +87,7 @@ import fm.corus.android.ui.LocalHapticManager
 import android.graphics.Bitmap
 import fm.corus.android.ui.screens.live.LiveCreateButton
 import fm.corus.android.ui.screens.live.LiveSaveItem
+import fm.corus.android.ui.screens.live.liveDisplayArtwork
 import fm.corus.android.ui.screens.live.LocalLiveNavigation
 import fm.corus.android.ui.components.AvatarCropView
 import fm.corus.android.ui.components.LocalContainingTabSelected
@@ -159,6 +160,7 @@ fun ProfileScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToMap: (String) -> Unit = {},
     onNavigateToFollowList: (String, Boolean, String, Int, Int) -> Unit = { _, _, _, _, _ -> },
+    onNavigateToLiveSaves: (userId: String, username: String, itemId: String, filter: ProfileMediaFilter) -> Unit = { _, _, _, _ -> },
     onNavigateToProfileFeed: (userId: String, username: String, postId: String, segment: Int) -> Unit = { _, _, _, _ -> },
     onNavigateToPost: (String) -> Unit = {},
     onNavigateToClub: () -> Unit = {},
@@ -212,13 +214,7 @@ fun ProfileScreen(
     val engagementStates by viewModel.engagementStates.collectAsState()
     val likesSavesFilter by viewModel.likesSavesFilter.collectAsState()
     val live = LocalLiveNavigation.current
-    val liveSaves = live?.state?.mixedSaves?.filter { item ->
-        when (likesSavesFilter) {
-            ProfileMediaFilter.ALL -> true
-            ProfileMediaFilter.MUSIC -> item is LiveSaveItem.Track || (item is LiveSaveItem.Post && !item.post.isMovie)
-            ProfileMediaFilter.FILM -> item is LiveSaveItem.Post && item.post.isMovie
-        }
-    }
+    val liveSaves = live?.state?.mixedSaves?.filter { it.matches(likesSavesFilter) }
 
     // Whether the Likes/Saves filter dropdown is open.
     var filterMenuExpanded by remember { mutableStateOf(false) }
@@ -464,8 +460,8 @@ fun ProfileScreen(
             totalItems > 0 && lastVisibleItem >= totalItems - 6
         }
     }
-    LaunchedEffect(shouldLoadMore, selectedSegment, liveSaves?.size) {
-        if (shouldLoadMore && usingMixedSaves && live?.state?.mixedSavesHasMore == true) {
+    LaunchedEffect(shouldLoadMore, live?.state?.mixedSavesFailed, selectedSegment, liveSaves?.size) {
+        if (shouldLoadMore && usingMixedSaves && live?.state?.mixedSavesHasMore == true && !live.state.mixedSavesFailed) {
             live.viewModel.loadMixedSaves()
         } else if (shouldLoadMore && !usingMixedSaves && hasMore[selectedSegment] == true && !isLoadingMore && !isLoading) {
             viewModel.loadMoreForSegment(selectedSegment)
@@ -473,12 +469,16 @@ fun ProfileScreen(
     }
 
     // Helper: populate cache and navigate to profile feed
-    val navigateToFeed: (String) -> Unit = { postId ->
+    val navigateToFeed: (String) -> Unit = navigate@ { postId ->
+        if (usingMixedSaves) {
+            onNavigateToLiveSaves(currentProfile.id, currentProfile.username, postId, likesSavesFilter)
+            return@navigate
+        }
         val filteredForNav = when (selectedSegment) {
             0 -> posts.filter { it.mediaType == fm.corus.android.data.model.MediaType.TRACK }
             1 -> posts.filter { it.mediaType == fm.corus.android.data.model.MediaType.MOVIE }
             2 -> likedPosts
-            3 -> if (usingMixedSaves) liveSaves.orEmpty().filterIsInstance<LiveSaveItem.Post>().map { it.post } else savedPosts
+            3 -> savedPosts
             else -> posts
         }
         ProfileFeedCache.posts = filteredForNav
@@ -1293,23 +1293,19 @@ fun ProfileScreen(
             val gridPosts = (if (selectedSegment <= 1) filteredPosts.drop(1) else filteredPosts)
                 .distinctBy { it.id }
             if (usingMixedSaves) {
-                items(liveSaves.orEmpty(), key = { "mixed_save:${it.id}" }) { item ->
+                items(liveSaves.orEmpty(), key = { it.feedId }) { item ->
                     when (item) {
                         is LiveSaveItem.Post -> PostGridItem(item.post, isFilmPoster = showPosterGrid) {
                             navigateToFeed(item.post.id)
                         }
                         is LiveSaveItem.Track -> Box(
                             Modifier.aspectRatio(1f).background(CorusColors.CardBackground)
-                                .clickable { live?.viewModel?.presentSavedTrack(item) },
+                                .clickable { navigateToFeed(item.feedId) },
                         ) {
                             ShimmerAsyncImage(
-                                model = item.track.song.albumArtURL,
+                                model = item.track.song.liveDisplayArtwork,
                                 contentDescription = item.track.song.name,
                                 modifier = Modifier.fillMaxSize(),
-                            )
-                            Icon(
-                                Icons.Filled.MusicNote, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White,
-                                modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp).size(16.dp),
                             )
                         }
                     }
@@ -1330,6 +1326,15 @@ fun ProfileScreen(
                         isFilm = selectedSegment == 1,
                         onClick = { onOpenCompose(if (selectedSegment == 1) "movie" else "track") },
                     )
+                }
+            }
+
+            if (selectedSegment == 3 && live?.state?.mixedSavesFailed == true) {
+                item(span = { GridItemSpan(3) }) {
+                    TextButton(
+                        onClick = { live.viewModel.loadMixedSaves(reset = live.state.mixedSaves == null) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(fm.corus.android.ui.components.parityCopy("Retry")) }
                 }
             }
 

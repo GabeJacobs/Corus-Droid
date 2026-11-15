@@ -68,9 +68,21 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun isAppleMusicConnected(): Boolean = nowPlayingManager.isAppleMusicConnected()
+
+    suspend fun connectAppleMusic(): Boolean = nowPlayingManager.connectAppleMusic()
+
+    fun disconnectAppleMusic() = nowPlayingManager.disconnectAppleMusic()
+
     /** Gate for the "Add Saved Songs to Library" App Remote opt-in settings row. */
     val spotifyLibrarySaveEnabled: Boolean
         get() = remoteConfigService.spotifyLibrarySaveEnabled
+
+    val autoAddSavedToAppleMusic = preferencesDataStore.autoAddSavedToAppleMusic
+
+    fun onAppleMusicLibrarySaveToggled(enabled: Boolean) {
+        viewModelScope.launch { preferencesDataStore.setAutoAddSavedToAppleMusic(enabled) }
+    }
 
     val autoAddSavedToSpotify: StateFlow<Boolean> = preferencesDataStore.autoAddSavedToSpotify
         .stateIn(
@@ -102,7 +114,15 @@ class SettingsViewModel @Inject constructor(
     /** Persist the user's music-service choice (local cache + Firestore). */
     fun setMusicService(service: MusicService) {
         analyticsService.logMusicServiceSelected(service.value)
-        viewModelScope.launch { musicServicePreference.syncToFirestore(service) }
+        viewModelScope.launch {
+            if (service == MusicService.APPLE_MUSIC &&
+                fm.corus.android.domain.AppleMusicPlayback.isAvailable() &&
+                FirebaseAuth.getInstance().currentUser?.uid?.let(preferencesDataStore::appleMusicFirstPlayChoiceMade) != true
+            ) {
+                preferencesDataStore.setPlayFullSongs(true)
+            }
+            musicServicePreference.syncToFirestore(service)
+        }
     }
 
     enum class RestoreResult { Success, NoSubscription, Failed }

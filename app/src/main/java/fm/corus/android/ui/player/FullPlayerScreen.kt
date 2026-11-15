@@ -311,7 +311,7 @@ fun FullPlayerScreen(
                 showsShareRow = fullPlayerShowsShareRow(shareTrack),
                 onSendGift = giftEligiblePost?.let { post -> { giftPost = post } },
                 showsPlaybackModeToggle = showsPlaybackModeToggle,
-                playFullSongs = playFullSongs,
+                playFullSongs = nowPlayingManager.displayedFullSongMode(musicService, playFullSongs),
                 onDismiss = onDismiss,
                 onPlaybackModeSelect = onPlaybackModeChange,
                 onOpenInService = onOpenInService,

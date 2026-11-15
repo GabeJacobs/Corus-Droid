@@ -45,6 +45,7 @@ class PostEngagementManagerSaveTest {
         saveChangedEvent = saveEvent,
         youtubeMusicService = mock(),
         spotifySaveAutoAdd = mock(),
+        appleMusicSaveAutoAdd = mock(),
     )
 
     /** checkSaveStatuses launches on Dispatchers.IO; poll briefly for the result. */

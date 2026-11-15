@@ -40,6 +40,9 @@ import fm.corus.android.ui.components.ToastManager
 import fm.corus.android.ui.components.rememberReducedMotion
 import fm.corus.android.ui.components.parityCopy
 import fm.corus.android.ui.screens.feed.FilmInfoSheet
+import fm.corus.android.ui.screens.live.LocalLiveNavigation
+import fm.corus.android.ui.screens.live.LiveSaveItem
+import fm.corus.android.ui.screens.live.withLiveDisplayArtwork
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
@@ -55,6 +58,7 @@ fun ProfileFeedScreen(
     initialPostId: String,
     /** Set when [segment] == 4 (hashtag feed). The lowercased tag name. */
     hashtag: String = "",
+    mixedSavesFilter: ProfileMediaFilter? = null,
     /**
      * True when the tab hosting this ProfileFeedScreen is currently
      * selected. Mini-player tap-to-scroll only registers while this is
@@ -81,17 +85,44 @@ fun ProfileFeedScreen(
      *  hides the "…" menu's "Go to Album" row. */
     onNavigateToAlbum: ((fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit)? = null,
 ) {
-    val initialized = remember(viewModel, userId, segment, hashtag) { viewModel.initFeed(userId, segment, hashtag) }
+    val live = LocalLiveNavigation.current
+    val useMixedSaves = mixedSavesFilter != null && live != null
+    val mixedItems = live?.state?.mixedSaves.orEmpty().filter { mixedSavesFilter != null && it.matches(mixedSavesFilter) }
+    val mixedQueue = remember(mixedItems) { mixedItems.mapNotNull { it.queuedTrack() } }
+    val mixedPageLoader: (suspend () -> Unit)? = if (useMixedSaves) {
+        { live?.viewModel?.loadMixedSaves()?.join() }
+    } else null
+    val initialized = remember(viewModel, userId, segment, hashtag, useMixedSaves) {
+        if (useMixedSaves) {
+            viewModel.initMixedSaves(userId)
+            true
+        } else viewModel.initFeed(userId, segment, hashtag)
+    }
+    LaunchedEffect(useMixedSaves, live?.state?.access?.saves) {
+        if (useMixedSaves && live?.state?.mixedSaves == null) live?.viewModel?.loadMixedSaves()
+    }
+    LaunchedEffect(useMixedSaves, mixedItems) {
+        if (useMixedSaves) viewModel.syncMixedSavesPosts(mixedItems.filterIsInstance<LiveSaveItem.Post>().map { it.post })
+    }
     val collection = viewModel.collection
     val collectionItems by (collection?.items ?: remember { kotlinx.coroutines.flow.MutableStateFlow(emptyList<CollectionItem>()) }).collectAsState()
     val failedIds by (collection?.failedIds ?: remember { kotlinx.coroutines.flow.MutableStateFlow(emptySet<String>()) }).collectAsState()
-    val pageFailed by (collection?.pageFailed ?: remember { kotlinx.coroutines.flow.MutableStateFlow(false) }).collectAsState()
+    val collectionPageFailed by (collection?.pageFailed ?: remember { kotlinx.coroutines.flow.MutableStateFlow(false) }).collectAsState()
+    val pageFailed = if (useMixedSaves) live?.state?.mixedSavesFailed == true else collectionPageFailed
     val posts by viewModel.posts.collectAsState()
-    val feedIds = if (collection != null) collectionItems.map { it.id } else posts.map { it.id }
+    val feedIds = when {
+        useMixedSaves -> mixedItems.map { it.feedId }
+        collection != null -> collectionItems.map { it.id }
+        else -> posts.map { it.id }
+    }
+    val mixedById = remember(mixedItems) { mixedItems.associateBy { it.feedId } }
     val postsById = posts.associateBy { it.id }
-    val hasMore by viewModel.hasMore.collectAsState()
-    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
-    val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val regularHasMore by viewModel.hasMore.collectAsState()
+    val regularLoading by viewModel.isLoadingMore.collectAsState()
+    val regularRefreshing by viewModel.isRefreshing.collectAsState()
+    val hasMore = if (useMixedSaves) live?.state?.mixedSavesHasMore == true else regularHasMore
+    val isLoadingMore = if (useMixedSaves) live?.state?.mixedSavesLoading == true else regularLoading
+    val isRefreshing = if (useMixedSaves) isLoadingMore && mixedItems.isNotEmpty() else regularRefreshing
     val engagementStates by viewModel.engagementStates.collectAsState()
     val currentUserProfile by viewModel.currentUserProfile.collectAsState()
     val nowPlayingState by viewModel.nowPlayingManager.state.collectAsState()
@@ -142,7 +173,7 @@ fun ProfileFeedScreen(
     // Scroll to the tapped post once posts are loaded
     var hasScrolledToInitial by remember { mutableStateOf(false) }
     LaunchedEffect(feedIds) {
-        if (!hasScrolledToInitial && feedIds.isNotEmpty()) {
+        if (!hasScrolledToInitial && feedIds.isNotEmpty() && (initialPostId in feedIds || !hasMore)) {
             val index = feedIds.indexOf(initialPostId)
             if (index >= 0) {
                 listState.scrollToItem(index)
@@ -215,8 +246,14 @@ fun ProfileFeedScreen(
         }
     }
     LaunchedEffect(shouldLoadMore, hasMore, isLoadingMore, feedIds.size, pageFailed) {
-        if (shouldLoadMore && hasMore && !isLoadingMore && !pageFailed) {
-            viewModel.loadMore()
+        if ((shouldLoadMore || useMixedSaves && initialPostId !in feedIds && !hasScrolledToInitial) && hasMore && !isLoadingMore && !pageFailed) {
+            if (useMixedSaves) live?.viewModel?.loadMixedSaves() else viewModel.loadMore()
+        }
+    }
+
+    LaunchedEffect(mixedQueue, hasMore, nowPlayingState.sourcePostId) {
+        if (useMixedSaves && mixedQueue.any { it.sourcePostId == nowPlayingState.sourcePostId }) {
+            viewModel.updateMixedSavesQueue(mixedQueue, hasMore, mixedPageLoader)
         }
     }
 
@@ -225,6 +262,7 @@ fun ProfileFeedScreen(
     // it blurs the feed scrolling beneath it (Haze) and blends up under the status
     // bar. Gated by the same immersive_artist_header_enabled flag (debug-on).
     val barTitle = when (segment) {
+        3 -> if (useMixedSaves) parityCopy("Saves") else "@$username"
         5 -> androidx.compose.ui.res.stringResource(fm.corus.android.localization.CorusStrings.profile_collection_trophies)
         6 -> androidx.compose.ui.res.stringResource(fm.corus.android.localization.CorusStrings.activity_filter_gifts)
         4 -> if (hashtag.isNotEmpty()) "#$hashtag" else "@$username"
@@ -281,7 +319,7 @@ fun ProfileFeedScreen(
                     onRefresh = {
                         // Mirrors iOS ProfileFeedView.refreshable haptic.
                         haptics.impact(HapticManager.ImpactStyle.LIGHT)
-                        viewModel.refresh()
+                        if (useMixedSaves) live?.viewModel?.loadMixedSaves(reset = true) else viewModel.refresh()
                     },
                 ),
             contentPadding = PaddingValues(
@@ -291,9 +329,24 @@ fun ProfileFeedScreen(
             itemsIndexed(
                 feedIds,
                 key = { _, id -> id },
-                contentType = { _, _ -> "post_card" },
+                contentType = { _, id -> if (mixedById[id] is LiveSaveItem.Track) "live_saved_track" else "post_card" },
             ) { _, id ->
-                val post = postsById[id]
+                val saved = mixedById[id]
+                if (saved is LiveSaveItem.Track && live != null) {
+                    LiveSavedTrackCard(
+                        saved = saved,
+                        viewModel = viewModel,
+                        onPlay = { viewModel.playSavedTrack(saved, mixedQueue, hasMore, mixedPageLoader) },
+                        onSong = { onNavigateToSong(saved.track.song.withLiveDisplayArtwork()) },
+                        onUser = onNavigateToUser,
+                        onViewSet = { live.viewModel.showSavedSetlist(saved) },
+                        onUnsave = { live.viewModel.removeSavedTrack(saved) },
+                        onArtist = onNavigateToArtist,
+                        onAlbum = onNavigateToAlbum,
+                    )
+                    return@itemsIndexed
+                }
+                val post = postsById[id] ?: (saved as? LiveSaveItem.Post)?.post
                 if (post == null) {
                     val item = collectionItems.firstOrNull { it.id == id }
                     LaunchedEffect(id) { viewModel.resolveCollectionPost(id) }
@@ -346,7 +399,10 @@ fun ProfileFeedScreen(
                     onSaveTap = { viewModel.toggleSave(post.id) },
                     onUserTap = { onNavigateToUser(post.user.id) },
                     onPostTap = { /* Already viewing post in feed */ },
-                    onPreviewTap = { viewModel.playPreview(post) },
+                    onPreviewTap = {
+                        if (useMixedSaves) viewModel.playPreview(post, mixedQueue, hasMore, mixedPageLoader)
+                        else viewModel.playPreview(post)
+                    },
                     isFullSongPlaying = PostPlaybackHighlight.shouldHighlight(
                         activeTrackId = nowPlayingState.trackId,
                         activeSourcePostId = nowPlayingState.sourcePostId,
@@ -484,7 +540,13 @@ fun ProfileFeedScreen(
                 }
             }
             if (pageFailed) item {
-                TextButton(onClick = viewModel::retryCollectionPage, modifier = Modifier.fillMaxWidth()) { Text(parityCopy("Retry")) }
+                TextButton(
+                    onClick = {
+                        if (useMixedSaves) live?.viewModel?.loadMixedSaves(reset = live.state.mixedSaves == null)
+                        else viewModel.retryCollectionPage()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(parityCopy("Retry")) }
             }
         }
         PullToRefreshDefaults.Indicator(

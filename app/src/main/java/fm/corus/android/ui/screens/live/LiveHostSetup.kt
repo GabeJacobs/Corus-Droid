@@ -445,6 +445,7 @@ internal fun LiveLoading(progress: LiveProgress, track: LiveTrack? = null) {
                 LiveProgress.PREPARING -> stringResource(CorusStrings.corus_live_getting_ready)
                 LiveProgress.CUEING -> stringResource(CorusStrings.corus_live_cueing_first_song)
                 LiveProgress.STARTING_SPOTIFY -> stringResource(R.string.live_starting_spotify)
+                LiveProgress.STARTING_APPLE_MUSIC -> stringResource(R.string.live_starting_apple_music)
                 LiveProgress.STARTING -> stringResource(CorusStrings.corus_live_going_live)
             }
             Text(

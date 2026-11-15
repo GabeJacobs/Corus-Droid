@@ -36,7 +36,7 @@ internal data class LiveTrack(
         song.isrc?.let { put("isrc", it) }
         song.appleMusicId?.let { put("appleMusicId", it) }
         spotifyUri?.let { put("spotifyURI", it) }
-        song.albumArtURL?.let { put("artwork", it) }
+        song.liveDisplayArtwork?.let { put("artwork", it) }
         song.albumName.takeIf(String::isNotBlank)?.let { put("album", it) }
         song.soundcloudId?.let { put("soundcloudId", it) }
         song.soundcloudPermalinkUrl?.let { put("soundcloudPermalinkUrl", it) }
@@ -99,6 +99,7 @@ internal data class LiveRoom(val id: String, private val fields: LiveFields) {
     )
     val customTitle = fields.text("title")
     val title = customTitle.ifBlank { "@${host.username.removePrefix("@")}" }
+    val chatEnabled = fields["chatEnabled"] != false
     val allowDJRequests = fields["allowDJRequests"] != false
     val allowSongRequests = fields["allowSongRequests"] != false
     val status = fields.text("status")
@@ -107,6 +108,16 @@ internal data class LiveRoom(val id: String, private val fields: LiveFields) {
     val recent = fields.rows("recent").mapNotNull(LiveTrack::parse)
     val revision = fields.number("revision")
     val queueVersion = fields.number("queueVersion")
+    val nextTrack: LiveTrack?
+        get() {
+            val hostTrack = queue.firstOrNull()
+            val cursor = fields.number("currentDJOrder")
+            val guestTracks = djs.mapNotNull { dj ->
+                val track = dj.rows("queue").firstOrNull()?.let(LiveTrack::parse) ?: return@mapNotNull null
+                dj.number("order") to track
+            }
+            return guestTracks.firstOrNull { it.first > cursor }?.second ?: hostTrack ?: guestTracks.firstOrNull()?.second
+        }
     val endedAt = fields.number("endedAt")
     val deadline = fields.number("deadline")
     val leaseUntil = fields.number("leaseUntil")
@@ -132,6 +143,11 @@ internal data class LiveRoom(val id: String, private val fields: LiveFields) {
     fun miniPlayerTrack(now: Long): LiveTrack? = current?.takeIf {
         status == "playing" && hostWaitStartsAt?.let { now >= it } != true &&
             (pausedAt != null || now < deadline)
+    }
+
+    fun canLikeFromMiniPlayer(uid: String?, now: Long): Boolean {
+        val track = miniPlayerTrack(now) ?: return false
+        return uid != null && uid != (currentDJ?.uid ?: track.playedBy?.uid ?: host.uid)
     }
 
     val setlist get() = recent.asReversed() + listOfNotNull(current?.copy(playedBy = currentDJ ?: host))
@@ -165,6 +181,8 @@ internal data class LiveAccess(
     val listenerCounts: Boolean,
     val saves: Boolean,
     val sourceTracks: Boolean,
+    val appleMusicHostAutoplay: Boolean = false,
+    val appleMusicHostEarlyAdvance: Boolean = false,
 )
 
 internal data class LiveSearchPage(val tracks: List<LiveTrack>, val nextOffset: Int?)
@@ -189,6 +207,7 @@ internal data class LiveSuggestions(
 
 internal sealed interface LiveSaveItem {
     val id: String
+    val feedId get() = if (this is Track) "live-save:$id" else id
 
     data class Post(val post: fm.corus.android.data.model.CymbalPost) : LiveSaveItem {
         override val id get() = post.id
@@ -204,3 +223,10 @@ internal sealed interface LiveSaveItem {
 }
 
 internal data class LiveSavesPage(val items: List<LiveSaveItem>, val cursor: LiveFields?)
+
+internal val CymbalTrack.liveDisplayArtwork: String?
+    get() = (albumArtLargeURL?.takeIf(String::isNotBlank) ?: albumArtURL?.takeIf(String::isNotBlank))
+        ?.let { fm.corus.android.domain.collectionArtworkUrl(it) }
+
+internal fun CymbalTrack.withLiveDisplayArtwork(): CymbalTrack =
+    copy(albumArtLargeURL = liveDisplayArtwork)

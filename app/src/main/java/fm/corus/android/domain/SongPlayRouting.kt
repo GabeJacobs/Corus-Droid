@@ -15,7 +15,7 @@ object SongPlayRouting {
     fun wantsAudiomackFullSong(source: TrackSource, service: MusicService, enabled: Boolean): Boolean =
         enabled && service == MusicService.AUDIOMACK && source != TrackSource.SOUNDCLOUD && source != TrackSource.BANDCAMP
 
-    /** True when a play tap should go to MusicKit full-song playback (iOS only). */
+    /** True when a play tap should go to MusicKit full-song playback using the configured Apple Music provider. */
     fun wantsFullSong(
         source: TrackSource,
         service: MusicService,
@@ -93,13 +93,15 @@ object SongPlayRouting {
         service: MusicService,
         remoteConfig: RemoteConfigService,
     ): Boolean {
+        if (service == MusicService.APPLE_MUSIC) {
+            return AppleMusicPlayback.isAvailable() && wantsFullSong(source, service, playFullSongs = true)
+        }
         if (!nativeAppInstalled(context, service)) return false
         when (source) {
             TrackSource.SPOTIFY, TrackSource.APPLEMUSIC -> Unit
             TrackSource.SOUNDCLOUD, TrackSource.AUDIOMACK, TrackSource.BANDCAMP, TrackSource.TIDAL, TrackSource.DEEZER -> return false
         }
         return when (service) {
-            // Apple Music full songs are iOS/MusicKit-only — never on Android.
             // TIDAL full streaming has no Android player engine yet — don't advertise.
             MusicService.SPOTIFY -> SpotifyPlaybackService.isSpotifyAppInstalled(context)
             else -> false
@@ -184,6 +186,7 @@ object SongPlayRouting {
         service: MusicService,
         remoteConfig: RemoteConfigService,
     ): Boolean {
+        if (service == MusicService.APPLE_MUSIC) return AppleMusicPlayback.isAvailable()
         if (!nativeAppInstalled(context, service)) return false
         return when (service) {
             MusicService.SPOTIFY -> SpotifyPlaybackService.isSpotifyAppInstalled(context)
@@ -200,6 +203,6 @@ object SongPlayRouting {
         when (service) {
             MusicService.SPOTIFY -> SpotifyPlaybackService.isSpotifyAppInstalled(context)
             MusicService.QOBUZ, MusicService.AUDIOMACK, MusicService.TIDAL, MusicService.DEEZER, MusicService.YOUTUBE_MUSIC -> true
-            MusicService.APPLE_MUSIC -> false
+            MusicService.APPLE_MUSIC -> context.packageManager.getLaunchIntentForPackage("com.apple.android.music") != null
         }
 }

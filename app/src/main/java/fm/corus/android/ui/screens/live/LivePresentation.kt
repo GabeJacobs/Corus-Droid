@@ -7,11 +7,15 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.alpha
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -30,14 +34,30 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import fm.corus.android.R
 import fm.corus.android.data.model.CymbalTrack
+import fm.corus.android.data.model.MusicService
+import fm.corus.android.domain.AppleMusicPlayback
 import fm.corus.android.domain.SpotifyPlaybackService
 import fm.corus.android.ui.components.ComposePlusButton
+import fm.corus.android.ui.components.UsernameWithFlair
+import fm.corus.android.ui.components.rememberReducedMotion
+import fm.corus.android.ui.components.parityCopy
+import fm.corus.android.data.model.FlairStyle
 import fm.corus.android.ui.components.blockTouchPassthrough
+import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import kotlinx.coroutines.CancellationException
@@ -61,6 +81,7 @@ internal data class LiveNavigationState(
     val mixedSaves: List<LiveSaveItem>?,
     val mixedSavesLoading: Boolean,
     val mixedSavesHasMore: Boolean,
+    val mixedSavesFailed: Boolean,
 )
 
 internal val LocalLiveNavigation = compositionLocalOf<LiveNavigation?> { null }
@@ -117,29 +138,16 @@ internal fun LiveDiscovery(source: String, following: Set<String>? = null, inSea
             LiveText(stringResource(CorusStrings.corus_live_live_now), CorusFont.sectionHeader, CorusColors.Secondary, Modifier.padding(horizontal = 16.dp))
         }
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 12.dp),
+            contentPadding = PaddingValues(horizontal = if (inSearch) 16.dp else 12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(rooms, key = { it.id }) { room ->
-                Row(
-                    Modifier.widthIn(max = 264.dp).heightIn(min = 47.dp).clip(CircleShape)
-                        .background(CorusColors.Accent.copy(alpha = .12f))
-                        .combinedClickable(
-                            onClick = { live.viewModel.event("discovery_opened", source = source); live.viewModel.join(room.id) },
-                            onLongClick = { hide = room },
-                        ).padding(horizontal = 8.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp),
-                ) {
-                    LiveAvatar(room.host, 28.dp, ring = true)
-                    Column(Modifier.widthIn(max = 153.dp)) {
-                        LiveText(room.title, CorusFont.username, lines = 1)
-                        room.current?.let {
-                            LiveText("${it.song.name} · ${it.song.artistName}", CorusFont.caption, CorusColors.Secondary, lines = 1)
-                        }
-                    }
-                    LiveText(stringResource(CorusStrings.corus_live_live), CorusFont.sectionHeader, LiveRed)
-                    live.state.discoveryCounts[room.id]?.let { LiveText(it.toString(), CorusFont.caption, CorusColors.Secondary) }
-                }
+                val count = if (inSearch) 0 else live.state.discoveryCounts[room.id] ?: 0
+                LiveDiscoveryPill(
+                    room, count,
+                    open = { live.viewModel.event("discovery_opened", source = source); live.viewModel.join(room.id) },
+                    hide = { hide = room },
+                )
             }
         }
         live.state.invites.forEach { invite ->
@@ -167,6 +175,109 @@ internal fun LiveDiscovery(source: String, following: Set<String>? = null, inSea
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun LiveDiscoveryPill(room: LiveRoom, count: Int, open: () -> Unit, hide: () -> Unit) {
+    val djs = remember(room.djs) { room.djs.map(LivePerson::parse).filter { it.uid.isNotBlank() } }
+    val customTitle = room.customTitle.trim()
+    val hasNamedLineup = customTitle.isNotEmpty() && djs.isNotEmpty()
+    val handles = (listOf(room.host) + djs).map { "@${it.username.removePrefix("@")}" }
+    val number = remember(count) { java.text.NumberFormat.getIntegerInstance().format(count) }
+    val liveLabel = stringResource(CorusStrings.corus_live_live)
+    val stateLabel = if (count > 0) parityCopy("Live, listeners: $number") else liveLabel
+    val fill = CorusColors.Accent.copy(alpha = if (LocalCorusDarkTheme.current) .16f else .07f)
+    Row(
+        Modifier.widthIn(max = 264.dp).heightIn(min = 48.dp).clip(CircleShape).background(fill)
+            .combinedClickable(onClick = open, onLongClick = hide)
+            .semantics { stateDescription = stateLabel }
+            .padding(start = 8.dp, end = if (count > 0) 12.dp else 16.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
+    ) {
+        LiveBadgedArtwork {
+            LiveMiniAvatarStack(room.host, djs)
+        }
+        Column(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            if (djs.isEmpty() || hasNamedLineup) {
+                LiveText(customTitle.ifEmpty { handles.first() }, CorusFont.username, lines = 1)
+            }
+            if (djs.isNotEmpty()) {
+                val style = if (hasNamedLineup) CorusFont.caption else CorusFont.username
+                val color = if (hasNamedLineup) CorusColors.Secondary else CorusColors.Text
+                LiveDiscoveryDJNames(handles, style, color)
+            }
+            if (!hasNamedLineup) room.current?.let { track ->
+                val subtitle = listOf(track.song.name, track.song.artistName).filter { it.isNotBlank() }.joinToString(" · ")
+                LiveText(subtitle, CorusFont.caption, CorusColors.Secondary, lines = 1)
+            }
+        }
+        if (count > 0) {
+            Row(
+                Modifier.clearAndSetSemantics {},
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Default.People, null, tint = CorusColors.Secondary, modifier = Modifier.size(14.dp))
+                LiveText(number, CorusFont.caption, CorusColors.Secondary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiveDiscoveryDJNames(
+    handles: List<String>,
+    style: androidx.compose.ui.text.TextStyle,
+    color: Color,
+) {
+    val full = handles.joinToString(" · ")
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    androidx.compose.ui.layout.SubcomposeLayout(
+        Modifier.clearAndSetSemantics { contentDescription = full },
+    ) { constraints ->
+        val short = if (handles.size > 2) "${handles.take(2).joinToString(" · ")} +${handles.size - 2}" else full
+        fun fits(text: String) = measurer.measure(text, style = style, maxLines = 1).size.width <= constraints.maxWidth
+        val label = when {
+            fits(full) -> full
+            fits(short) -> short
+            else -> null
+        }
+        val child = subcompose(Unit) {
+            if (label != null) LiveText(label, style, color, lines = 1)
+            else Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                LiveText(handles.first(), style, color, Modifier.weight(1f, fill = false), lines = 1)
+                LiveText("+${handles.size - 1}", style, color, lines = 1)
+            }
+        }.single().measure(constraints)
+        layout(child.width, child.height) { child.placeRelative(0, 0) }
+    }
+}
+
+@Composable
+private fun LiveBadgedArtwork(content: @Composable () -> Unit) {
+    Box(Modifier.clearAndSetSemantics {}, contentAlignment = Alignment.BottomCenter) {
+        content()
+        LiveText(
+            stringResource(CorusStrings.corus_live_live).uppercase(),
+            CorusFont.custom(weight = 900, size = 8).copy(letterSpacing = 0.3.sp), Color.White,
+            Modifier.offset(y = 4.dp).clip(CircleShape).background(Color(0xFF4774CA))
+                .border(1.dp, CorusColors.Background, CircleShape).padding(horizontal = 4.dp, vertical = 1.dp),
+            lines = 1,
+        )
+    }
+}
+
+@Composable
+private fun LiveMiniAvatarStack(host: LivePerson, djs: List<LivePerson>) {
+    Row(horizontalArrangement = Arrangement.spacedBy((-8).dp)) {
+        (listOf(host) + djs).forEachIndexed { index, person ->
+            Box(Modifier.zIndex(if (index == 0) 1f else 0f)) {
+                LiveAvatar(person, 28.dp, ring = true, ringPadding = 2.dp, ringWidth = 1.5.dp)
+            }
+        }
+    }
+}
+
 @Composable
 internal fun LiveProfileAvatar(uid: String, avatar: @Composable () -> Unit) {
     val live = LocalLiveNavigation.current
@@ -186,56 +297,137 @@ internal fun LiveProfileAvatar(uid: String, avatar: @Composable () -> Unit) {
     }
 }
 
+internal val LiveMiniPlayerHeight = 56.dp
+
 @Composable
 internal fun LiveMiniPlayer(state: LiveUiState, vm: LiveViewModel, modifier: Modifier = Modifier) {
-    val room = state.room ?: return
-    var hostLabel by remember(room.id) { mutableStateOf(false) }
-    LaunchedEffect(room.id) {
-        while (true) { delay(3_500); hostLabel = !hostLabel }
+    val room = state.miniPlayerRoom ?: return
+    val mounted = state.room?.id == room.id
+    val isHost = room.host.uid == state.uid
+    val localProfile by vm.profile.collectAsState()
+    val hostProfile by produceState(localProfile?.takeIf { it.id == room.host.uid }, room.host.uid, state.uid) {
+        if (!isHost) {
+            value = try {
+                vm.miniPlayerHostProfile(room.host.uid)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                null
+            }
+        }
     }
-    Column(modifier.fillMaxWidth().background(CorusColors.Background)) {
+    val profile = localProfile?.takeIf { it.id == room.host.uid } ?: hostProfile?.takeIf { it.id == room.host.uid }
+    val now by produceState(vm.serverTime(), room.id) {
+        while (true) {
+            value = vm.serverTime()
+            delay(500)
+        }
+    }
+    val track = room.miniPlayerTrack(now)
+    val djs = remember(room.djs) { room.djs.map(LivePerson::parse).filter { it.uid.isNotBlank() } }
+    val ready = state.audioReady || isHost
+    val canLike = mounted && state.audioReady && room.canLikeFromMiniPlayer(state.uid, now)
+    val canSkip = mounted && track != null && state.canSkipTrack(room)
+    val reducedMotion = rememberReducedMotion()
+    val artwork = track?.song?.takeIf { room.pausedAt == null }?.liveDisplayArtwork
+
+    Box(modifier.fillMaxWidth().height(LiveMiniPlayerHeight).blockTouchPassthrough()) {
         Row(
-            Modifier.fillMaxWidth().height(62.dp).clickable(onClick = vm::expand).padding(start = 12.dp),
+            Modifier.fillMaxSize().padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            LiveAvatar(room.host, 36.dp, ring = true)
-            Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Icon(Icons.Default.Sensors, null, tint = CorusColors.Accent, modifier = Modifier.size(15.dp))
-                    Crossfade(if (hostLabel) "@${room.host.username.removePrefix("@")}" else room.title, label = "Live room label") {
-                        LiveText(it, CorusFont.username, lines = 1)
-                    }
+            Row(
+                Modifier.weight(1f).fillMaxHeight().clickable(onClick = vm::openMiniPlayer),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                LiveBadgedArtwork {
+                    if (djs.isEmpty()) {
+                        var showArtwork by remember(room.id, artwork, reducedMotion) { mutableStateOf(false) }
+                        LaunchedEffect(room.id, artwork, reducedMotion) {
+                            if (artwork == null || reducedMotion) return@LaunchedEffect
+                            while (true) {
+                                delay(4_000)
+                                showArtwork = !showArtwork
+                            }
+                        }
+                        val artworkAlpha by animateFloatAsState(
+                            if (showArtwork && artwork != null) 1f else 0f,
+                            tween(if (reducedMotion) 0 else 250),
+                            label = "Live artwork",
+                        )
+                        Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) {
+                            LiveAvatar(room.host, 30.dp, ring = true, ringPadding = 3.dp,
+                                modifier = Modifier.alpha(1f - artworkAlpha))
+                            if (artwork != null) LiveArtwork(artwork, 34.dp, Modifier.alpha(artworkAlpha))
+                        }
+                    } else LiveMiniAvatarStack(room.host, djs)
                 }
-                val song = room.current
-                LiveText(
-                    when {
-                        room.voiceMode == "talk" -> "Listening live"
-                        !state.audioReady -> stringResource(CorusStrings.corus_live_connect_to_hear_the_music)
-                        song == null -> stringResource(CorusStrings.corus_live_waiting_for_the_next_song)
-                        else -> "${song.song.name} · ${song.song.artistName}"
-                    },
-                    CorusFont.caption, CorusColors.Secondary, lines = 1,
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        val nameStyle = CorusFont.custom(weight = 800, size = 12)
+                        UsernameWithFlair(
+                            username = (profile?.username?.takeIf { it.isNotBlank() } ?: room.host.username).removePrefix("@"),
+                            isVerified = profile?.isVerified == true,
+                            isClubMember = profile?.isClubMember == true,
+                            isBot = profile?.isBot == true,
+                            flairStyle = profile?.flairStyle ?: FlairStyle.NONE,
+                            showAtPrefix = true,
+                            style = nameStyle,
+                            flairIconSize = 10.dp,
+                            flairAssetSize = 14.dp,
+                        )
+                        if (djs.isNotEmpty()) {
+                            LiveText(djs.joinToString(separator = " · ", prefix = "· ") { "@${it.username.removePrefix("@")}" },
+                                nameStyle, lines = 1)
+                        }
+                    }
+                    LiveText(
+                        when {
+                            room.hostWaitStartsAt?.let { now >= it } == true -> parityCopy("Waiting for host")
+                            room.status == "waiting" && room.pausedAt != null -> parityCopy("Talk mode")
+                            track == null -> stringResource(CorusStrings.corus_live_waiting_for_the_next_song)
+                            !ready -> parityCopy("Connect a streaming provider")
+                            else -> "${track.song.name} · ${track.song.artistName}"
+                        },
+                        CorusFont.caption, CorusColors.Secondary, lines = 1,
+                    )
+                }
+            }
+            if (canLike) {
+                val liked = state.membership.number("likedRevision") == room.revision
+                LiveIconButton(
+                    if (liked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                    if (liked) parityCopy("Song liked") else stringResource(CorusStrings.corus_live_like_song),
+                    { vm.heartFromMiniPlayer(room.id, room.revision) },
+                    tint = if (liked) CorusColors.Like else CorusColors.Text,
+                    touchSize = 44.dp, glyphSize = 20.dp,
                 )
             }
-            LiveIconButton(if (state.muted) Icons.Default.VolumeOff else Icons.Default.VolumeUp,
-                if (state.muted) stringResource(CorusStrings.corus_live_unmute_audio) else stringResource(CorusStrings.corus_live_mute_audio), vm::toggleMute)
-            LiveIconButton(
-                if (state.membership.number("likedRevision") == room.revision) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
-                stringResource(CorusStrings.corus_live_like_song), vm::heart, tint = LiveRed, enabled = room.current != null,
-            )
-            if (state.hosting) {
-                var end by remember { mutableStateOf(false) }
-                LiveIconButton(Icons.Default.Close, stringResource(CorusStrings.corus_live_end_live), { end = true })
-                if (end) LiveConfirmation(stringResource(CorusStrings.corus_live_end_live), stringResource(CorusStrings.corus_live_this_will_end_the_room_for_everyone), stringResource(CorusStrings.corus_live_end_live),
-                    { end = false }, { end = false; vm.end() })
-            } else LiveIconButton(Icons.Default.Close, stringResource(CorusStrings.corus_live_leave_room), vm::leave)
+            if (mounted && !isHost) {
+                LiveIconButton(Icons.Default.Close, stringResource(CorusStrings.corus_live_leave_room), vm::leave,
+                    tint = CorusColors.Text, touchSize = 44.dp, glyphSize = 20.dp)
+            }
+            if (canSkip) {
+                LiveIconButton(Icons.Default.SkipNext, stringResource(CorusStrings.corus_live_skip_song),
+                    { vm.skipFromMiniPlayer(room.id, room.revision) },
+                    tint = CorusColors.Text, touchSize = 44.dp, glyphSize = 24.dp)
+            }
         }
-        room.current?.let {
-            LinearProgressIndicator(
-                progress = { (state.positionMs.toFloat() / it.duration.coerceAtLeast(1)).coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().height(2.dp), color = CorusColors.Accent,
-                trackColor = CorusColors.Secondary.copy(alpha = .15f),
-            )
+        if (track != null && ready && room.startedAt > 0L) {
+            key(room.id, room.revision) {
+                val fraction = (((room.pausedAt ?: now) - room.startedAt).toFloat() / track.duration).coerceIn(0f, 1f)
+                val displayed by animateFloatAsState(
+                    fraction, tween(if (reducedMotion) 0 else 500, easing = LinearEasing),
+                    label = "Live playback progress",
+                )
+                Box(
+                    Modifier.align(Alignment.TopCenter).fillMaxWidth().height(2.5.dp).background(CorusColors.Divider)
+                        .semantics { progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f) },
+                ) {
+                    Box(Modifier.fillMaxWidth(displayed.coerceIn(0f, 1f)).fillMaxHeight().background(CorusColors.Secondary))
+                }
+            }
         }
     }
 }
@@ -257,7 +449,7 @@ internal fun BoxScope.LivePresentation(
         }
     }
     val setupTransition = remember { MutableTransitionState(false) }
-    val setupReady = state.setup != null && !state.checkingSetupAccess && !state.hostSpotifyRequiredForSetup
+    val setupReady = state.setup != null && !state.checkingSetupAccess && !state.hostProviderRequiredForSetup
     setupTransition.targetState = setupReady
     AnimatedVisibility(
         visibleState = setupTransition,
@@ -275,7 +467,7 @@ internal fun BoxScope.LivePresentation(
             )
         }
     }
-    if ((state.setup == null || state.hostSpotifyRequiredForSetup) && state.progress != null) {
+    if ((state.setup == null || state.hostProviderRequiredForSetup) && state.progress != null) {
         Box(Modifier.fillMaxSize().zIndex(10f).background(CorusColors.Background)) { LiveLoading(state.progress) }
     }
     state.ended?.let { ended ->
@@ -283,20 +475,6 @@ internal fun BoxScope.LivePresentation(
     }
     state.openSavedSetlist?.let { savedRoom ->
         LiveEndedSheets(savedRoom, vm, openSong, vm::closeSavedSetlist, startInSetlist = true)
-    }
-    state.openSavedTrack?.let { saved ->
-        LiveSheet(saved.track.song.name, vm::closeSavedTrack) {
-            LiveTrackRow(saved.track)
-            saved.pickedBy?.let { LiveText("@${it.username}", CorusFont.caption, CorusColors.Secondary) }
-            LiveRow(stringResource(CorusStrings.native_84b771e51b43), Icons.Default.MusicNote) {
-                vm.closeSavedTrack()
-                openSong(saved.track.song)
-            }
-            LiveRow(stringResource(CorusStrings.corus_live_view_setlist), Icons.Default.QueueMusic, saved.roomTitle) {
-                vm.showSavedSetlist(saved)
-            }
-            LiveRow("Remove from saves", Icons.Default.BookmarkRemove) { vm.removeSavedTrack(saved) }
-        }
     }
     if (state.confirmPlaybackExit) {
         LiveConfirmation(
@@ -320,22 +498,39 @@ internal fun BoxScope.LivePresentation(
             confirmButton = { TextButton(onClick = vm::clearError) { LiveText(stringResource(CorusStrings.common_ok)) } },
         )
     }
-    if (state.hostSpotifyPrompt) {
+    if (state.hostProviderPrompt) {
         val installed = SpotifyPlaybackService.isSpotifyAppInstalled(context)
+        val connecting = state.connectingProvider
+        val appleAvailable = AppleMusicPlayback.isAvailable()
         AlertDialog(
-            onDismissRequest = vm::dismissHostSpotifyPrompt,
-            title = { LiveText("Spotify Premium required", CorusFont.songTitle) },
-            text = { LiveText(state.hostSpotifyHint ?: "To go live on Android, connect Spotify Premium. Corus will switch your music service to Spotify.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (installed) vm.connectSpotifyFromHostPrompt()
-                    else try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.spotify.music"))) }
-                    catch (_: ActivityNotFoundException) {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.spotify.music")))
-                    }
-                }) { LiveText(if (installed) "Connect Spotify" else "Install Spotify") }
+            onDismissRequest = vm::dismissHostProviderPrompt,
+            title = { LiveText(if (appleAvailable) "Connect a streaming provider" else "Spotify Premium required", CorusFont.songTitle) },
+            text = {
+                LiveText(state.hostProviderHint ?: if (appleAvailable)
+                    "Go Live requires Apple Music or Spotify Premium. Connecting a provider also switches your music service in Corus."
+                else "To go live on Android, connect Spotify Premium. Corus will switch your music service to Spotify.")
             },
-            dismissButton = { TextButton(onClick = vm::dismissHostSpotifyPrompt) { LiveText(stringResource(CorusStrings.common_cancel)) } },
+            confirmButton = {
+                Column(horizontalAlignment = Alignment.End) {
+                    if (appleAvailable) {
+                        LiveProviderButton("Connect Apple Music", MusicService.APPLE_MUSIC, connecting) {
+                            vm.connectHostProvider(MusicService.APPLE_MUSIC)
+                        }
+                    }
+                    LiveProviderButton(if (installed) "Connect Spotify" else "Install Spotify", MusicService.SPOTIFY, connecting) {
+                        if (installed) vm.connectHostProvider(MusicService.SPOTIFY)
+                        else try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.spotify.music"))) }
+                        catch (_: ActivityNotFoundException) {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.spotify.music")))
+                        }
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = vm::dismissHostProviderPrompt, enabled = connecting == null) {
+                    LiveText(stringResource(CorusStrings.common_cancel))
+                }
+            },
         )
     }
     state.error?.let { error ->
@@ -427,7 +622,7 @@ private fun LiveEndedSheets(
         }
         LazyColumn(Modifier.weight(1f)) {
             items(tracks) { track ->
-                LiveTrackRow(track, onTrack = { close(); openSong(track.song) })
+                LiveTrackRow(track, onTrack = { close(); openSong(track.song.withLiveDisplayArtwork()) })
             }
         }
     }
@@ -438,5 +633,28 @@ private fun LiveEndedSheets(
             text = { LiveText(message) },
             confirmButton = { TextButton(onClick = { error = null }) { LiveText(stringResource(CorusStrings.common_ok)) } },
         )
+    }
+}
+
+
+@Composable
+internal fun LiveProviderButton(
+    label: String,
+    provider: MusicService,
+    connecting: MusicService?,
+    onClick: () -> Unit,
+) {
+    TextButton(enabled = connecting == null, onClick = onClick) {
+        if (connecting == provider) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(14.dp),
+                color = CorusColors.Accent,
+                strokeWidth = 2.dp,
+            )
+            Spacer(Modifier.width(8.dp))
+            LiveText(stringResource(R.string.live_connecting_spotify))
+        } else {
+            LiveText(label)
+        }
     }
 }

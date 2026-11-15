@@ -18,6 +18,30 @@ class LazyListScrollTest {
     }
 
     @Test
+    fun `follow scroll skips Live and referral before the Following posts`() {
+        val prefix = feedPrefixItems(
+            includeHeader = false,
+            feedMode = "following",
+            showDailyHashtag = true,
+            showTasteMatchesTrial = false,
+        )
+        assertEquals(listOf(FeedPrefixItem.DailyHashtag, FeedPrefixItem.LiveDiscovery, FeedPrefixItem.ReferralInvite), prefix)
+        assertEquals(4, feedPostLazyIndex(postIndex = 1, prefixItemCount = prefix.size))
+    }
+
+    @Test
+    fun `follow scroll skips Live and trial banner before Your Mix posts`() {
+        val prefix = feedPrefixItems(
+            includeHeader = true,
+            feedMode = "tasteMatches",
+            showDailyHashtag = false,
+            showTasteMatchesTrial = true,
+        )
+        assertEquals(listOf(FeedPrefixItem.Header, FeedPrefixItem.LiveDiscovery, FeedPrefixItem.TasteMatchesTrial), prefix)
+        assertEquals(3, feedPostLazyIndex(postIndex = 0, prefixItemCount = prefix.size))
+    }
+
+    @Test
     fun `delta leaves room for the status-bar inset so the username stays visible`() {
         assertEquals(1720, scrollDeltaToAlignItemTop(itemOffset = 1800, topInsetPx = 80))
         assertEquals(0, scrollDeltaToAlignItemTop(itemOffset = 80, topInsetPx = 80))

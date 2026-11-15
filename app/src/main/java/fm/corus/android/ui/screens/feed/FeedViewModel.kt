@@ -1619,14 +1619,14 @@ class FeedViewModel @Inject constructor(
             playbackModePromptManager = playbackModePromptManager,
             onPreview = {
                 if (queue.any { it.trackId == track.trackId }) {
-                    nowPlayingManager.play(track = track, queue = queue)
+                    nowPlayingManager.play(track = track, queue = queue, preferFullSong = preferFullSong)
                     nowPlayingManager.updateFeedQueue(
                         newQueue = queue,
                         hasMore = _hasMore.value,
                         loadMore = { loadFeedSuspending(refresh = false) },
                     )
                 } else {
-                    nowPlayingManager.play(track = track, queue = listOf(track))
+                    nowPlayingManager.play(track = track, queue = listOf(track), preferFullSong = preferFullSong)
                 }
             },
             scope = viewModelScope,

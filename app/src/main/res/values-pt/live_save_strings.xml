@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="live_save_played_in">Tocada em %1$s · Corus Live</string>
+    <string name="live_save_played_on">Tocada no Corus Live</string>
+    <string name="live_save_view_full_set">Ver set completo</string>
+    <string name="live_save_unsave">Remover dos salvos</string>
+    <string name="live_save_more">Mais</string>
+    <string name="live_save_share">Compartilhar</string>
+    <string name="live_save_go_to_song">Ir para a música</string>
+    <string name="live_save_go_to_artist">Ir para o artista</string>
+    <string name="live_save_view_front_cover">Ver capa</string>
+    <string name="live_save_open_in">Abrir no %1$s</string>
+    <string name="live_save_play_in">Tocar no %1$s</string>
+    <string name="live_save_action_unavailable">Ação indisponível para esta música</string>
+    <string name="live_save_pause_song">Pausar música</string>
+    <string name="live_save_play_song">Tocar música</string>
+    <string name="live_save_no_back_cover">Não há contracapa disponível para esta música.</string>
+</resources>

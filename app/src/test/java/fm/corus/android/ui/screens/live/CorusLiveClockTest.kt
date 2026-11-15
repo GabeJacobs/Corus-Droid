@@ -25,6 +25,33 @@ class CorusLiveClockTest {
         assertTrue(resumed.musicShouldPlay(50_000L))
     }
 
+    @Test fun miniPlayerReactionsFollowTheDjWhoIsPlaying() {
+        val solo = LiveRoom("room", fields)
+        assertFalse(solo.canLikeFromMiniPlayer("host", 5_000L))
+        assertTrue(solo.canLikeFromMiniPlayer("listener", 5_000L))
+
+        val guestTurn = LiveRoom("room", fields + ("currentDJ" to mapOf("uid" to "guest")))
+        assertFalse(guestTurn.canLikeFromMiniPlayer("guest", 5_000L))
+        assertTrue(guestTurn.canLikeFromMiniPlayer("host", 5_000L))
+        assertFalse(guestTurn.canLikeFromMiniPlayer("listener", 181_000L))
+    }
+
+    @Test fun appleMusicStagesTheNextDjInServerRotation() {
+        fun song(id: String) = mapOf("id" to id, "title" to id, "durationMs" to 180_000)
+        val lineup = fields + mapOf(
+            "queue" to listOf(song("hostSong")),
+            "djs" to listOf(
+                mapOf("order" to 1, "queue" to emptyList<LiveFields>()),
+                mapOf("order" to 2, "queue" to listOf(song("guestSong"))),
+            ),
+        )
+
+        assertEquals("guestSong", LiveRoom("room", lineup).nextTrack?.id)
+        val afterGuest = lineup + ("currentDJOrder" to 2)
+        assertEquals("hostSong", LiveRoom("room", afterGuest).nextTrack?.id)
+        assertEquals("guestSong", LiveRoom("room", afterGuest - "queue").nextTrack?.id)
+    }
+
     @Test fun expiredEndedAndEmptyRoomsCannotPlayMusic() {
         assertFalse(LiveRoom("room", fields).musicShouldPlay(250_000L))
         assertFalse(LiveRoom("room", fields + ("status" to "ended")).musicShouldPlay(5_000L))

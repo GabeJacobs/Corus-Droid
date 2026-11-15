@@ -120,7 +120,7 @@ fun MiniPlayerBar(
             isExternalSpotifyListening = isExternalSpotifyListening,
             alwaysPlayFullSongs = alwaysPlayFullSongs,
         )
-    val playbackModeToggleShowsFull = playFullSongs
+    val playbackModeToggleShowsFull = nowPlayingManager.displayedFullSongMode(musicService, playFullSongs)
 
     val stagedFeedSkipLoading by nowPlayingManager.stagedFeedSkipLoading.collectAsState()
     val loadingTrackId by nowPlayingManager.loadingTrackId.collectAsState()

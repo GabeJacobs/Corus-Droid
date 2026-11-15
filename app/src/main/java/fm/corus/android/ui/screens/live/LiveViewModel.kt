@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.repeatOnLifecycle
 import android.os.SystemClock
+import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -21,7 +22,10 @@ import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fm.corus.android.data.repository.AuthRepository
+import fm.corus.android.domain.AppleMusicLiveQueue
+import fm.corus.android.domain.AppleMusicPlayback
 import fm.corus.android.domain.NowPlayingManager
+import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.domain.MusicServicePreference
 import fm.corus.android.domain.SpotifyPlaybackError
 import fm.corus.android.domain.SpotifyPlaybackService
@@ -53,7 +57,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
 
-internal enum class LiveProgress { TUNING, PREPARING, CUEING, STARTING_SPOTIFY, STARTING }
+internal enum class LiveProgress { TUNING, PREPARING, CUEING, STARTING_SPOTIFY, STARTING_APPLE_MUSIC, STARTING }
 
 internal data class LiveUiState(
     val uid: String? = null,
@@ -71,6 +75,7 @@ internal data class LiveUiState(
     val room: LiveRoom? = null,
     val ended: LiveRoom? = null,
     val minimized: Boolean = false,
+    val pendingChatEnabled: Boolean? = null,
     val recoverableHostRoom: LiveRoom? = null,
     val muted: Boolean = false,
     val audioReady: Boolean = false,
@@ -84,7 +89,7 @@ internal data class LiveUiState(
     val mixedSaves: List<LiveSaveItem>? = null,
     val mixedSavesLoading: Boolean = false,
     val mixedSavesHasMore: Boolean = false,
-    val openSavedTrack: LiveSaveItem.Track? = null,
+    val mixedSavesFailed: Boolean = false,
     val openSavedSetlist: LiveRoom? = null,
     val pendingDJs: List<LiveFields> = emptyList(),
     val djRequests: List<LiveFields> = emptyList(),
@@ -95,11 +100,11 @@ internal data class LiveUiState(
     val voiceLevels: Map<String, Float> = emptyMap(),
     val needsClub: Boolean = false,
     val spotifyInstallNeeded: Boolean = false,
-    val hostSpotifyPrompt: Boolean = false,
-    val hostSpotifyRequiredForSetup: Boolean = false,
-    val hostSpotifyHint: String? = null,
+    val hostProviderPrompt: Boolean = false,
+    val hostProviderRequiredForSetup: Boolean = false,
+    val connectingProvider: MusicService? = null,
+    val hostProviderHint: String? = null,
     val linkUpcoming: Boolean = false,
-    val positionMs: Long = 0L,
     val confirmPlaybackExit: Boolean = false,
 ) {
     val hosting get() = room?.host?.uid == uid && room != null
@@ -123,11 +128,13 @@ internal class LiveViewModel @Inject constructor(
     private val repository: LiveRepository,
     private val auth: AuthRepository,
     private val spotify: SpotifyPlaybackService,
+    private val appleMusic: AppleMusicPlayback,
     private val player: NowPlayingManager,
     private val musicService: MusicServicePreference,
     private val voice: LiveVoice,
     private val analytics: AnalyticsService,
     private val subscriptions: fm.corus.android.data.repository.SubscriptionRepository,
+    private val saveChangedEvent: fm.corus.android.domain.SaveChangedEvent,
 ) : ViewModel(), DefaultLifecycleObserver {
     private val menuAccessPrefs = context.getSharedPreferences("corus_live_menu_access", Context.MODE_PRIVATE)
     private val accessLock = Mutex()
@@ -147,6 +154,20 @@ internal class LiveViewModel @Inject constructor(
     private var effectSaveJob: Job? = null
     private var effectConfirmationJob: Job? = null
     private var expectedUri: String? = null
+    private var liveProvider: MusicService? = null
+    private var applePlayer: Player? = null
+    private data class AppleQueueTarget(
+        val player: AppleMusicLiveQueue,
+        val roomId: String,
+        val revision: Long,
+        val queueVersion: Long,
+        val track: LiveTrack,
+    )
+
+    private var appleQueueTarget: AppleQueueTarget? = null
+    private var appleQueueLookup: Job? = null
+    private var appleAdvanceConfirmed: AppleQueueTarget? = null
+    private var appleTrackKey: Pair<TrackSource, String>? = null
     private var sourcePlayer: ExoPlayer? = null
     private var sourceTrackId: String? = null
     private var ownsLivePlayback = false
@@ -181,6 +202,16 @@ internal class LiveViewModel @Inject constructor(
     fun serverTime(): Long = now
 
     init {
+        viewModelScope.launch {
+            saveChangedEvent.events.collect { change ->
+                if (state.value.mixedSaves == null) return@collect
+                if (change.isSaved) loadMixedSaves(reset = true)
+                else update {
+                    copy(mixedSaves = mixedSaves?.filterNot { it is LiveSaveItem.Post && it.id == change.postId })
+                }
+            }
+        }
+
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
         player.livePlaybackExit = ::requestPlaybackExit
         viewModelScope.launch {
@@ -336,15 +367,13 @@ internal class LiveViewModel @Inject constructor(
         runOperation {
             try {
                 check(resolveAccess(uid) != null) { "Live is unavailable." }
-                val existing = repository.hostedRoom(uid)?.takeIf { it.active(now) }
+                val existing = current.recoverableHostRoom?.takeIf { it.host.uid == uid && it.active(now) }
                 if (existing != null) {
-                    if (existing.current?.playsFromSource != true) requireSpotify()
-                    command("tick", existing.id, mapOf("hostActivity" to "foreground"))
-                    existing.pendingSkip?.let { command("cancelSkip", existing.id, mapOf("skipId" to it)) }
-                    if (existing.voiceMode == "talk") command("voiceMode", existing.id, mapOf("mode" to "music"))
-                    mount(repository.room(existing.id) ?: error("This room has ended."))
-                    update { copy(checkingSetupAccess = false) }
-                    return@runOperation
+                    if (resumeHostedRoom(existing)) {
+                        update { copy(setup = null, checkingSetupAccess = false) }
+                        return@runOperation
+                    }
+                    update { copy(recoverableHostRoom = null) }
                 }
                 var access = repository.call("hostAccess").text("access")
                 if (access == "upgrade" && subscriptions.hasFullAccessFlow.value) {
@@ -356,13 +385,12 @@ internal class LiveViewModel @Inject constructor(
                     update { copy(setup = null, checkingSetupAccess = false, needsClub = true) }
                     return@runOperation
                 }
-                val mustConnectSpotify = musicService.current.value != MusicService.SPOTIFY ||
-                    !SpotifyPlaybackService.isSpotifyAppInstalled(context)
+                val mustConnectProvider = selectedLiveProvider() == null
                 update {
                     copy(
                         checkingSetupAccess = false,
-                        hostSpotifyPrompt = mustConnectSpotify,
-                        hostSpotifyRequiredForSetup = mustConnectSpotify,
+                        hostProviderPrompt = mustConnectProvider,
+                        hostProviderRequiredForSetup = mustConnectProvider,
                     )
                 }
             } catch (error: CancellationException) {
@@ -372,6 +400,23 @@ internal class LiveViewModel @Inject constructor(
                 throw error
             }
         }
+    }
+
+    private suspend fun resumeHostedRoom(existing: LiveRoom): Boolean {
+        try {
+            command("tick", existing.id, mapOf("hostActivity" to "foreground"))
+        } catch (error: FirebaseFunctionsException) {
+            if (error.code == FirebaseFunctionsException.Code.FAILED_PRECONDITION ||
+                error.code == FirebaseFunctionsException.Code.NOT_FOUND
+            ) return false
+            throw error
+        }
+        existing.pendingSkip?.let { command("cancelSkip", existing.id, mapOf("skipId" to it)) }
+        if (existing.voiceMode == "talk") command("voiceMode", existing.id, mapOf("mode" to "music"))
+        val room = repository.room(existing.id)?.takeIf { it.active(now) } ?: return false
+        liveProvider = selectedLiveProvider()
+        mount(room)
+        return true
     }
 
     fun preloadFirstSong(): Deferred<LiveTrack?>? {
@@ -402,11 +447,11 @@ internal class LiveViewModel @Inject constructor(
     fun dismissDiscoveryRoom(id: String) { hiddenRooms += id; update { copy(discovery = discovery.filterNot { it.id == id }) } }
     fun closeSetup() {
         val current = state.value
-        if (current.progress != null) return
+        if (current.progress != null || current.connectingProvider != null) return
         if (current.checkingSetupAccess) operation?.cancel()
         update {
-            copy(setup = null, checkingSetupAccess = false, hostSpotifyPrompt = false,
-                hostSpotifyRequiredForSetup = false, hostSpotifyHint = null)
+            copy(setup = null, checkingSetupAccess = false, hostProviderPrompt = false,
+                hostProviderRequiredForSetup = false, hostProviderHint = null)
         }
     }
     fun clearError() = update { copy(error = null, spotifyInstallNeeded = false, linkUpcoming = false) }
@@ -414,64 +459,84 @@ internal class LiveViewModel @Inject constructor(
     fun clearClub() = update { copy(needsClub = false) }
     fun retryJoin() { pendingJoin?.let { join(it) } }
 
-    fun dismissHostSpotifyPrompt() {
-        if (state.value.hostSpotifyRequiredForSetup) closeSetup()
-        else update { copy(hostSpotifyPrompt = false, hostSpotifyHint = null) }
+    fun dismissHostProviderPrompt() {
+        if (state.value.hostProviderRequiredForSetup) closeSetup()
+        else update { copy(hostProviderPrompt = false, hostProviderHint = null) }
     }
 
-    fun start() = startHosting(connectSpotify = false)
-
-    fun connectSpotifyFromHostPrompt() {
-        if (!state.value.hostSpotifyRequiredForSetup) {
-            startHosting(connectSpotify = true)
-            return
+    private fun selectedLiveProvider(): MusicService? = when (musicService.current.value) {
+        MusicService.APPLE_MUSIC -> MusicService.APPLE_MUSIC.takeIf {
+            AppleMusicPlayback.isAvailable() && appleMusic.isConnected()
         }
-        if (operation?.isActive == true) return
-        update { copy(hostSpotifyPrompt = false, hostSpotifyHint = null) }
-        runOperation(LiveProgress.STARTING_SPOTIFY) {
+        MusicService.SPOTIFY -> MusicService.SPOTIFY.takeIf {
+            SpotifyPlaybackService.isSpotifyAppInstalled(context)
+        }
+        else -> null
+    }
+
+    private suspend fun authorizeLiveProvider(provider: MusicService): String? = when (provider) {
+        MusicService.APPLE_MUSIC -> if (appleMusic.isConnected() || appleMusic.connect()) null
+            else "Connect an Apple Music subscription and try again."
+        MusicService.SPOTIFY -> {
+            requireSpotify()
+            spotify.authorizeForLink()
+            spotifyCapabilityError()
+        }
+        else -> "Apple Music or Spotify Premium is required for Live."
+    }
+
+    private suspend fun spotifyCapabilityError(): String? = when (spotify.canPlayOnDemandForLive()) {
+        true -> null
+        false -> "Use a Spotify Premium account and try connecting again."
+        null -> "Couldn’t verify Spotify playback. Open Spotify and try connecting again."
+    }
+
+    fun connectHostProvider(provider: MusicService) {
+        val current = state.value
+        if (!current.hostProviderPrompt || current.connectingProvider != null || operation?.isActive == true) return
+        runOperation {
+            update { copy(connectingProvider = provider, hostProviderHint = null) }
             try {
-                spotify.authorizeForLink()
-                val canPlayOnDemand = spotify.canPlayOnDemandForLive()
-                if (canPlayOnDemand == true) {
-                    musicService.syncToFirestore(MusicService.SPOTIFY)
-                    update { copy(hostSpotifyRequiredForSetup = false) }
-                } else {
-                    val hint = if (canPlayOnDemand == false) "Use a Spotify Premium account and try connecting again."
-                        else "Couldn’t verify Spotify playback. Open Spotify and try connecting again."
-                    update { copy(hostSpotifyPrompt = true, hostSpotifyHint = hint) }
+                val hint = authorizeLiveProvider(provider)
+                if (hint == null) {
+                    musicService.syncToFirestore(provider)
+                    currentCoroutineContext().ensureActive()
+                    update { copy(hostProviderPrompt = false, hostProviderRequiredForSetup = false) }
+                } else update { copy(hostProviderHint = hint) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (error !is SpotifyPlaybackError.AuthorizationCancelled) {
+                    update { copy(hostProviderHint = "Couldn’t connect to ${provider.displayLabel}. Try again.") }
                 }
-            } catch (error: SpotifyPlaybackError) {
-                val hint = if (error is SpotifyPlaybackError.AuthorizationCancelled) null
-                    else "Couldn’t connect to Spotify. Open Spotify and try again."
-                update { copy(hostSpotifyPrompt = true, hostSpotifyHint = hint) }
+            } finally {
+                update { copy(connectingProvider = null) }
             }
         }
     }
 
-    private fun startHosting(connectSpotify: Boolean) {
+    fun start() {
         val current = state.value
         if (current.checkingSetupAccess || current.room != null || operation?.isActive == true) return
         val setup = current.setup ?: return
         val first = setup.queue.firstOrNull() ?: return
-        val needsSpotify = connectSpotify || !first.playsFromSource
-        val mustSwitch = !connectSpotify && musicService.current.value != MusicService.SPOTIFY
-        if (mustSwitch || (needsSpotify && !SpotifyPlaybackService.isSpotifyAppInstalled(context))) {
-            update { copy(hostSpotifyPrompt = true, hostSpotifyHint = null) }
+        val provider = selectedLiveProvider()
+        if (provider == null) {
+            update { copy(hostProviderPrompt = true, hostProviderHint = null) }
             return
         }
-        dismissHostSpotifyPrompt()
+        dismissHostProviderPrompt()
         runOperation(LiveProgress.PREPARING) {
             val uid = state.value.uid ?: return@runOperation
+            val existing = repository.hostedRoom(uid)?.takeIf { it.active(now) }
+            currentCoroutineContext().ensureActive()
+            if (existing != null && resumeHostedRoom(existing)) return@runOperation
             var created = false
-            var checkingSpotify = needsSpotify
+            liveProvider = provider
+            var checkingProvider = !first.playsFromSource
             try {
-                if (connectSpotify) {
-                    update { copy(progress = LiveProgress.STARTING_SPOTIFY) }
-                    spotify.authorizeForLink()
-                    update { copy(progress = LiveProgress.PREPARING) }
-                }
                 val fields = buildMap<String, Any?> {
-                    put("musicService", "spotify")
+                    put("musicService", provider.value)
                     put("queue", setup.queue.map(LiveTrack::fields))
                     put("notifyFollowers", setup.notifyFollowers)
                     put("voiceProtocol", 2)
@@ -488,23 +553,19 @@ internal class LiveViewModel @Inject constructor(
                 }
                 delay(1_000)
                 update { copy(progress = LiveProgress.CUEING) }
-                prepareTrack(first, { 0L }, forceSpotifyPlay = true, onStartingSpotify = {
-                    update { copy(progress = LiveProgress.STARTING_SPOTIFY) }
+                prepareTrack(first, { 0L }, forceSpotifyPlay = true, onStartingProvider = {
+                    update { copy(progress = if (provider == MusicService.APPLE_MUSIC)
+                        LiveProgress.STARTING_APPLE_MUSIC else LiveProgress.STARTING_SPOTIFY) }
                 })
-                if (checkingSpotify) {
-                    val canPlayOnDemand = spotify.canPlayOnDemandForLive()
-                    if (canPlayOnDemand != true) {
+                if (checkingProvider && provider == MusicService.SPOTIFY) {
+                    val hint = spotifyCapabilityError()
+                    if (hint != null) {
                         releasePlayback()
-                        val hint = if (canPlayOnDemand == false) "Use a Spotify Premium account and try connecting again."
-                            else "Couldn’t verify Spotify playback. Open Spotify and try connecting again."
-                        update { copy(hostSpotifyPrompt = true, hostSpotifyHint = hint) }
+                        update { copy(hostProviderPrompt = true, hostProviderHint = hint) }
                         return@runOperation
                     }
                 }
-                if (connectSpotify && musicService.current.value != MusicService.SPOTIFY) {
-                    viewModelScope.launch { musicService.syncToFirestore(MusicService.SPOTIFY) }
-                }
-                checkingSpotify = false
+                checkingProvider = false
                 update { copy(progress = LiveProgress.STARTING) }
                 val position = livePlaybackPosition(first)
                 val result = command("create", setup.id, fields + ("initialPlaybackPositionMs" to position))
@@ -521,9 +582,10 @@ internal class LiveViewModel @Inject constructor(
                 }
                 if (state.value.room == null) releasePlayback()
                 if (error is CancellationException) throw error
-                if (checkingSpotify && error is SpotifyPlaybackError) {
+                if (checkingProvider && (error is SpotifyPlaybackError || provider == MusicService.APPLE_MUSIC)) {
                     update {
-                        copy(hostSpotifyPrompt = true, hostSpotifyHint = if (error is SpotifyPlaybackError.AuthorizationCancelled) null
+                        copy(hostProviderPrompt = true, hostProviderHint = if (error is SpotifyPlaybackError.AuthorizationCancelled) null
+                            else if (provider == MusicService.APPLE_MUSIC) error.message ?: "Couldn’t start Apple Music. Try again."
                             else "Couldn’t connect to Spotify. Open Spotify, check that you’re signed in to Premium, then try again.")
                     }
                 } else if (error is FirebaseFunctionsException &&
@@ -561,12 +623,17 @@ internal class LiveViewModel @Inject constructor(
                 }
             }
             val original = repository.room(id) ?: error("This room is unavailable.")
-            if (original.current?.playsFromSource != true) {
-                requireSpotify()
-                spotify.authorizeForLink()
-                check(spotify.isConnected) { "Connect Spotify to hear the music." }
-            }
             if (state.value.room != null) exitCurrent(end = state.value.hosting, showSetlist = false)
+            liveProvider = selectedLiveProvider()
+            if (liveProvider == MusicService.SPOTIFY && original.current?.playsFromSource != true) {
+                try {
+                    spotify.authorizeForLink()
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: SpotifyPlaybackError) {
+                    liveProvider = null
+                }
+            }
             if (original.host.uid == state.value.uid) {
                 command("tick", id, mapOf("hostActivity" to "foreground"))
                 mount(repository.room(id) ?: original)
@@ -577,7 +644,7 @@ internal class LiveViewModel @Inject constructor(
                 try {
                     command("join", id, mapOf(
                         "revision" to latest.revision, "voiceProtocol" to 1,
-                        "collaborationProtocol" to 1, "musicService" to "spotify",
+                        "collaborationProtocol" to 1, "musicService" to liveProvider?.value,
                     ))
                     mount(latest)
                     pendingJoin = null
@@ -601,6 +668,13 @@ internal class LiveViewModel @Inject constructor(
     }
 
     suspend fun miniPlayerHostProfile(uid: String) = repository.chatAuthors(listOf(uid))[uid]?.profile
+
+    fun heartFromMiniPlayer(roomId: String, revision: Long) {
+        val current = state.value
+        val room = current.room ?: return
+        if (!current.minimized || !current.audioReady || room.id != roomId || room.revision != revision) return
+        if (room.canLikeFromMiniPlayer(current.uid, now)) heart()
+    }
 
     fun skipFromMiniPlayer(roomId: String, revision: Long) {
         val current = state.value
@@ -643,15 +717,34 @@ internal class LiveViewModel @Inject constructor(
         state.value.room?.let { synchronize(it) }
     }
 
-    fun reconnectAudio() {
+    fun connectListenerProvider(provider: MusicService) {
         val room = state.value.room ?: return
+        if (state.value.connectingProvider != null || operation?.isActive == true) return
         runOperation {
-            if (room.current?.playsFromSource != true) {
-                requireSpotify()
-                spotify.authorizeForLink()
+            update { copy(connectingProvider = provider, audioError = null) }
+            try {
+                val hint = authorizeLiveProvider(provider)
+                if (hint != null) {
+                    update { copy(audioError = hint) }
+                    return@runOperation
+                }
+                val latest = state.value.room?.takeIf { it.id == room.id } ?: return@runOperation
+                liveProvider = provider
+                musicService.syncToFirestore(provider)
+                currentCoroutineContext().ensureActive()
+                state.value.room?.takeIf { it.id == latest.id }?.let {
+                    synchronize(it, force = true)?.join()
+                    synchronizeVoice(it)
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (state.value.room?.id == room.id) {
+                    update { copy(audioError = "Couldn’t connect to ${provider.displayLabel}. Try again.") }
+                }
+            } finally {
+                update { copy(connectingProvider = null) }
             }
-            synchronize(room, force = true)
-            synchronizeVoice(room)
         }
     }
 
@@ -768,8 +861,29 @@ internal class LiveViewModel @Inject constructor(
         }
     }
 
+    fun setChatEnabled(enabled: Boolean) {
+        val current = state.value
+        val room = current.room ?: return
+        if (!current.hosting || current.pendingChatEnabled != null || room.chatEnabled == enabled) return
+        update { copy(pendingChatEnabled = enabled) }
+        viewModelScope.launch {
+            try {
+                command("setChatEnabled", room.id, mapOf("enabled" to enabled))
+                withTimeoutOrNull(3_000) {
+                    state.first { it.room?.id != room.id || !it.hosting || it.room.chatEnabled == enabled }
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (state.value.room?.id == room.id) showError(error)
+            } finally {
+                update { if (this.room?.id == room.id) copy(pendingChatEnabled = null) else this }
+            }
+        }
+    }
+
     fun send(text: String, gif: String?, done: () -> Unit) {
-        if (text.isBlank() && gif == null) return
+        if (state.value.room?.chatEnabled != true || (text.isBlank() && gif == null)) return
         action("chat", buildMap {
             put("requestId", UUID.randomUUID().toString())
             put("text", text.trim())
@@ -807,7 +921,7 @@ internal class LiveViewModel @Inject constructor(
         val room = state.value.room ?: return
         if (saveId(track) in state.value.savedIds) {
             action("unsaveLiveTrack", mapOf("saveId" to saveId(track))) {
-                update { copy(savedIds = savedIds - saveId(track), mixedSaves = mixedSaves?.filterNot { it.id == saveId(track) }) }
+                update { copy(savedIds = savedIds - saveId(track), mixedSaves = mixedSaves?.filterNot { it is LiveSaveItem.Track && it.id == saveId(track) }) }
             }
         } else {
             action("saveLiveTrack", mapOf(
@@ -832,43 +946,45 @@ internal class LiveViewModel @Inject constructor(
         }
     }
 
-    fun loadMixedSaves(reset: Boolean = false) {
-        val uid = state.value.uid ?: return
-        if (state.value.access?.saves != true) return
-        if (!reset && (shelfLookup?.isActive == true || (state.value.mixedSaves != null && shelfCursor == null))) return
+    fun loadMixedSaves(reset: Boolean = false): Job? {
+        val uid = state.value.uid ?: return null
+        if (state.value.access?.saves != true) return null
+        if (!reset && shelfLookup?.isActive == true) return shelfLookup
+        if (!reset && state.value.mixedSaves != null && shelfCursor == null) return null
         shelfLookup?.cancel()
         shelfLookup = viewModelScope.launch {
-            update { copy(mixedSavesLoading = true) }
+            update { copy(mixedSavesLoading = true, mixedSavesFailed = false) }
             try {
                 val page = repository.mixedSaves(if (reset) null else shelfCursor)
                 if (state.value.uid != uid) return@launch
                 shelfCursor = page.cursor
                 update {
                     val prior = if (reset) emptyList() else mixedSaves.orEmpty()
-                    copy(mixedSaves = (prior + page.items).distinctBy { it.id }, mixedSavesHasMore = page.cursor != null)
+                    copy(mixedSaves = (prior + page.items).distinctBy { it.feedId }, mixedSavesHasMore = page.cursor != null)
                 }
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
-                // The existing post-only shelf remains usable when mixed saves are unavailable.
+                if (state.value.uid == uid) update { copy(mixedSavesFailed = true) }
             } finally {
                 if (state.value.uid == uid) update { copy(mixedSavesLoading = false) }
             }
         }
+        return shelfLookup
     }
 
-    fun presentSavedTrack(track: LiveSaveItem.Track) = update { copy(openSavedTrack = track) }
-    fun closeSavedTrack() = update { copy(openSavedTrack = null) }
     fun closeSavedSetlist() = update { copy(openSavedSetlist = null) }
 
     fun showSavedSetlist(track: LiveSaveItem.Track) = runOperation {
-        val room = repository.room(track.roomId) ?: error("Setlist unavailable.")
-        update { copy(openSavedTrack = null, openSavedSetlist = room) }
+        val room = repository.room(track.roomId) ?: error("Couldn’t load this set.")
+        update { copy(openSavedSetlist = room) }
     }
 
     fun removeSavedTrack(track: LiveSaveItem.Track) = runOperation {
         repository.call("unsaveLiveTrack", fields = mapOf("saveId" to track.id))
-        update { copy(openSavedTrack = null, savedIds = savedIds - track.id, mixedSaves = mixedSaves?.filterNot { it.id == track.id }) }
+        update {
+            copy(savedIds = savedIds - track.id, mixedSaves = mixedSaves?.filterNot { it.feedId == track.feedId })
+        }
     }
 
     fun updateQueue(
@@ -1009,7 +1125,7 @@ internal class LiveViewModel @Inject constructor(
         lastTick = 0
         update {
             copy(
-                room = room, ended = null, minimized = false, recoverableHostRoom = null, muted = false, messages = emptyList(),
+                room = room, ended = null, minimized = false, pendingChatEnabled = null, recoverableHostRoom = null, muted = false, messages = emptyList(),
                 listenerCount = 0, membership = emptyMap(), audioError = null, queueUpdating = false,
                 effectSelection = LiveEffectSelection(),
             )
@@ -1101,13 +1217,17 @@ internal class LiveViewModel @Inject constructor(
                     closeRoom(room)
                     break
                 }
-                update { copy(positionMs = room.position(serverNow)) }
+                if (followAppleMusicQueue(room)) {
+                    delay(250)
+                    continue
+                }
                 if (room.status == "playing" && room.pausedAt == null && room.deadline <= serverNow &&
                     expiredRevision != room.revision
                 ) {
                     expiredRevision = room.revision
                     if (room.pendingSkip == null) {
                         sourcePlayer?.pause()
+                        applePlayer?.pause()
                         if (expectedUri != null) spotify.pauseImmediately()
                     }
                 }
@@ -1125,7 +1245,9 @@ internal class LiveViewModel @Inject constructor(
             while (state.value.room?.id == id) {
                 val room = state.value.room ?: break
                 maintain(room, "presence", mapOf("hostHandoffReady" to foreground))
-                if (!state.value.muted && foreground) synchronize(room)
+                val current = state.value
+                val latest = current.room
+                if (latest?.id == id && !current.muted && foreground) synchronize(latest)
                 delay(15_000)
             }
         }
@@ -1167,15 +1289,91 @@ internal class LiveViewModel @Inject constructor(
         } catch (_: Exception) { }
     }
 
-    private fun synchronize(room: LiveRoom, force: Boolean = false) {
-        if (state.value.room?.id != room.id || (room.pendingSkip != null && state.value.hosting)) return
+    private fun appleQueueTarget(room: LiveRoom): AppleQueueTarget? {
+        val current = state.value
+        if (!foreground || !current.hosting || current.access?.appleMusicHostAutoplay != true ||
+            current.muted || welcomePlaying || auditionPlaying || operation?.isActive == true ||
+            room.id != current.room?.id || room.status != "playing" || room.pausedAt != null ||
+            room.voiceMode == "talk" || room.pendingSkip != null || confirmedRevision != room.revision ||
+            room.current?.playsFromSource != false || liveProvider != MusicService.APPLE_MUSIC
+        ) return null
+        val nativeQueue = applePlayer as? AppleMusicLiveQueue ?: return null
+        val next = room.nextTrack?.takeUnless { it.playsFromSource } ?: return null
+        return AppleQueueTarget(nativeQueue, room.id, room.revision, room.queueVersion, next)
+    }
+
+    // Let MusicKit cross the track boundary before publishing the new room clock.
+    // If MusicKit can't stage or start the next song, the room's deadline still advances it.
+    private suspend fun followAppleMusicQueue(room: LiveRoom): Boolean {
+        val target = appleQueueTarget(room)
+        if (target != appleQueueTarget) {
+            appleQueueLookup?.cancel()
+            val previous = appleQueueTarget
+            appleQueueTarget = target
+            if (previous != null && (target == null || previous.player != target.player ||
+                previous.revision == target.revision && previous.track.appleKey != target.track.appleKey)
+            ) {
+                previous.player.stageNext(null, previous.revision)
+            }
+            appleQueueLookup = target?.let {
+                viewModelScope.launch {
+                    try {
+                        val songId = appleMusic.resolveConnectedSong(target.track.song.toQueuedTrack()) ?: return@launch
+                        val latest = state.value.room ?: return@launch
+                        if (appleQueueTarget(latest) == target) {
+                            target.player.stageNext(songId, target.revision, MediaItem.Builder().setMediaId(target.track.id).build())
+                        }
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (_: Exception) {
+                        // A lookup failure uses the server's scheduled advance.
+                    }
+                }
+            }
+        }
+        if (target == null || now >= room.deadline + APPLE_QUEUE_GRACE_MS) return false
+        if (appleAdvanceConfirmed == target) return true
+        val position = target.player.stagedPosition(target.track.id, target.revision)
+        if (position == null) return now >= room.deadline && target.player.hasStagedNext(target.track.id, target.revision)
+        if (position >= target.track.duration) return false
+        if (state.value.access?.appleMusicHostEarlyAdvance != true && now - position < room.deadline - 4_000L) return true
+
+        appleTrackKey = target.track.appleKey
+        initialTrackRevision = room.revision + 1
+        return try {
+            withTimeoutOrNull(APPLE_QUEUE_GRACE_MS) {
+                command("confirmAppleMusicAdvance", room.id, mapOf(
+                    "revision" to room.revision,
+                    "queueVersion" to room.queueVersion,
+                    "trackId" to target.track.id,
+                    "trackSource" to target.track.song.source.raw,
+                    "positionMs" to position,
+                ))
+            }?.let {
+                appleAdvanceConfirmed = target
+                true
+            } ?: false
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun synchronize(room: LiveRoom, force: Boolean = false): Job? {
+        if (state.value.room?.id != room.id || (room.pendingSkip != null && state.value.hosting)) return null
         playbackJob?.cancel()
         playbackJob = viewModelScope.launch {
             try {
                 playbackLock.withLock {
                     val track = room.current
+                    val staged = appleQueueTarget(room)
+                    if (staged != null && now < room.deadline + APPLE_QUEUE_GRACE_MS &&
+                        staged.player.stagedPosition(staged.track.id, staged.revision) != null
+                    ) return@withLock
                     if (state.value.muted || welcomePlaying || auditionPlaying || track == null || !room.musicShouldPlay(now)) {
                         sourcePlayer?.pause()
+                        applePlayer?.pause()
                         if (expectedUri != null) spotify.pause()
                         return@withLock
                     }
@@ -1191,6 +1389,29 @@ internal class LiveViewModel @Inject constructor(
                         return@withLock
                     }
                     releaseSourcePlayer()
+                    when (liveProvider) {
+                        MusicService.APPLE_MUSIC -> {
+                            val previousRevision = confirmedRevision
+                            val startedHere = initialTrackRevision == room.revision && appleTrackKey == track.appleKey &&
+                                applePlayer?.isPlaying == true
+                            if (startedHere) initialTrackRevision = null
+                            else if (applePlayer?.playbackState != Player.STATE_ENDED || confirmedRevision != room.revision || force) {
+                                playAppleTrack(track, { room.position(now) },
+                                    forceSeek = force || confirmedRevision != room.revision)
+                            }
+                            confirmedRevision = room.revision
+                            if (previousRevision == null && !state.value.hosting) {
+                                event("playback_started", source = MusicService.APPLE_MUSIC.value)
+                            }
+                            update { copy(audioReady = true, audioError = null) }
+                            return@withLock
+                        }
+                        MusicService.SPOTIFY -> releaseApplePlayer()
+                        else -> {
+                            update { copy(audioReady = false, audioError = "Connect a streaming provider to hear the music.") }
+                            return@withLock
+                        }
+                    }
                     if (!foreground && !spotify.isConnected) return@withLock
                     val uri = resolve(track)
                     if (uri == null) {
@@ -1201,17 +1422,21 @@ internal class LiveViewModel @Inject constructor(
                     val previousRevision = confirmedRevision
                     if (initialTrackRevision == room.revision && expectedUri == uri) {
                         initialTrackRevision = null
-                    } else if (!spotify.isConnected || !matchesSpotifyUri(uri) || confirmedRevision != room.revision) {
+                    } else if (!spotify.isConnected || confirmedRevision != room.revision) {
                         prepareTrack(track, { room.position(now) }, uri)
                     } else {
-                        if (!spotify.isPlaying.value) check(spotify.resume()) { "Couldn’t resume Spotify." }
-                        val difference = kotlin.math.abs(spotify.positionSeconds.value * 1_000 - room.position(now))
-                        if (force || difference > 1_800) {
-                            check(spotify.seek(room.position(now) / 1_000.0)) { "Couldn’t sync Spotify." }
-                            if (difference > 1_800) analytics.logEvent("live_sync_corrected", mapOf(
+                        val sameTrack = spotify.syncLiveTrack(uri, force, targetPosition = {
+                            val latest = state.value.room
+                            if (latest?.id == room.id && latest.revision == room.revision &&
+                                !(latest.pendingSkip != null && state.value.hosting) &&
+                                !state.value.muted && !welcomePlaying && !auditionPlaying && latest.musicShouldPlay(now)
+                            ) latest.position(now) else null
+                        }) { difference ->
+                            analytics.logEvent("live_sync_corrected", mapOf(
                                 "source" to "spotify", "milliseconds" to difference.toInt(),
                             ))
-                        }
+                        } ?: return@withLock
+                        if (!sameTrack) prepareTrack(track, { room.position(now) }, uri, forceSpotifyPlay = true)
                     }
                     confirmedRevision = room.revision
                     if (previousRevision == null && !state.value.hosting) event("playback_started")
@@ -1219,13 +1444,22 @@ internal class LiveViewModel @Inject constructor(
                 }
             } catch (error: CancellationException) {
                 throw error
-            } catch (_: Exception) {
-                if (room.current?.playsFromSource == true) releaseSourcePlayer()
-                val message = if (room.current?.playsFromSource == true) "Couldn’t play this Live track. Try again."
-                    else "Couldn’t sync Spotify. Try again."
+            } catch (error: Exception) {
+                val message = when {
+                    room.current?.playsFromSource == true -> {
+                        releaseSourcePlayer()
+                        "Couldn’t play this Live track. Try again."
+                    }
+                    liveProvider == MusicService.APPLE_MUSIC -> {
+                        releaseApplePlayer()
+                        error.message ?: "Couldn’t sync Apple Music. Try again."
+                    }
+                    else -> "Couldn’t sync Spotify. Try again."
+                }
                 update { copy(audioReady = false, audioError = message) }
             }
         }
+        return playbackJob
     }
 
     private fun matchesSpotifyUri(uri: String): Boolean =
@@ -1241,19 +1475,25 @@ internal class LiveViewModel @Inject constructor(
         position: () -> Long,
         knownUri: String? = null,
         forceSpotifyPlay: Boolean = false,
-        onStartingSpotify: () -> Unit = {},
+        onStartingProvider: () -> Unit = {},
     ) {
         if (track.playsFromSource) {
             playSourceTrack(track, position, forceSeek = true)
             return
         }
         releaseSourcePlayer()
+        if (liveProvider == MusicService.APPLE_MUSIC) {
+            onStartingProvider()
+            playAppleTrack(track, position, forceSeek = true, restart = true)
+            return
+        }
+        releaseApplePlayer()
         requireSpotify()
         val uri = knownUri ?: resolve(track) ?: error("This song is unavailable on Spotify.")
         claimLivePlayback()
         expectedUri = uri
         if (forceSpotifyPlay || !spotify.isConnected || !matchesSpotifyUri(uri) || !spotify.isPlaying.value) {
-            onStartingSpotify()
+            onStartingProvider()
             spotify.play(uri.substringAfterLast(':'), uri, replaceQueue = false, confirmPlayback = true)
         }
         val target = position().coerceIn(0, track.duration.toLong() - 1)
@@ -1271,14 +1511,82 @@ internal class LiveViewModel @Inject constructor(
         }
     }
 
+    private suspend fun pauseLiveSpotify() {
+        if (expectedUri == null) return
+        val paused = spotify.pause()
+        currentCoroutineContext().ensureActive()
+        check(paused || !spotify.isConnected) { "Couldn’t pause Spotify." }
+        expectedUri = null
+    }
+
+    private val LiveTrack.appleKey get() = song.source to id
+
+    private suspend fun playAppleTrack(
+        track: LiveTrack,
+        position: () -> Long,
+        forceSeek: Boolean,
+        restart: Boolean = false,
+    ) {
+        claimLivePlayback()
+        pauseLiveSpotify()
+        val current = applePlayer
+        val audio = if (!restart && appleTrackKey == track.appleKey && current != null &&
+            current.playerError == null && current.playbackState != Player.STATE_ENDED
+        ) current else {
+            releaseApplePlayer()
+            check(appleMusic.isConnected()) { "Connect Apple Music to hear the music." }
+            val candidate = appleMusic.createPlayer(
+                track.song.toQueuedTrack(), MediaItem.Builder().setMediaId(track.id).build(),
+                interactive = false, explicit = false, onNext = {}, onPrevious = {},
+            ) ?: error("This song is unavailable on Apple Music.")
+            applePlayer = candidate
+            appleTrackKey = track.appleKey
+            candidate.play()
+            candidate.prepare()
+            candidate
+        }
+        val ready = withTimeoutOrNull(15_000L) {
+            while (audio.playbackState != Player.STATE_READY) {
+                audio.playerError?.let { throw it }
+                check(audio.playbackState != Player.STATE_ENDED) { "Apple Music finished the song before it could sync." }
+                delay(50)
+            }
+            true
+        }
+        check(ready == true) { "Apple Music took too long to start. Try again." }
+        val target = position().coerceIn(0, track.duration.toLong() - 1)
+        val threshold = if (forceSeek) 750L else 1_500L
+        if (kotlin.math.abs(audio.currentPosition - target) > threshold) {
+            check(audio.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)) {
+                "Apple Music couldn’t seek to the room’s playback position."
+            }
+            audio.seekTo(target)
+            val synced = withTimeoutOrNull(3_000L) {
+                while (kotlin.math.abs(audio.currentPosition - position()) > 1_500L) {
+                    audio.playerError?.let { throw it }
+                    delay(50)
+                }
+                true
+            }
+            check(synced == true) { "Couldn’t sync Apple Music. Try again." }
+        }
+        audio.play()
+    }
+
+    private fun releaseApplePlayer() {
+        appleQueueLookup?.cancel()
+        appleQueueLookup = null
+        appleQueueTarget = null
+        appleAdvanceConfirmed = null
+        applePlayer?.release()
+        applePlayer = null
+        appleTrackKey = null
+    }
+
     private suspend fun playSourceTrack(track: LiveTrack, position: () -> Long, forceSeek: Boolean) {
         claimLivePlayback()
-        if (expectedUri != null) {
-            val paused = spotify.pause()
-            currentCoroutineContext().ensureActive()
-            check(paused || !spotify.isConnected) { "Couldn’t pause Spotify." }
-            expectedUri = null
-        }
+        releaseApplePlayer()
+        pauseLiveSpotify()
         val current = sourcePlayer
         val audio = if (sourceTrackId == track.id && current != null &&
             current.playerError == null && current.playbackState != Player.STATE_IDLE &&
@@ -1313,8 +1621,11 @@ internal class LiveViewModel @Inject constructor(
     }
 
     private fun livePlaybackPosition(track: LiveTrack): Long {
-        val position = if (track.playsFromSource) sourcePlayer?.currentPosition ?: 0
-            else (spotify.positionSeconds.value * 1_000).toLong()
+        val position = when {
+            track.playsFromSource -> sourcePlayer?.currentPosition ?: 0
+            liveProvider == MusicService.APPLE_MUSIC -> applePlayer?.currentPosition ?: 0
+            else -> (spotify.positionSeconds.value * 1_000).toLong()
+        }
         return position.coerceIn(0, track.duration.toLong() - 1)
     }
 
@@ -1392,7 +1703,7 @@ internal class LiveViewModel @Inject constructor(
     private fun closeRoom(ended: LiveRoom?) {
         resetRoom()
         update {
-            copy(room = null, ended = ended, minimized = false, messages = emptyList(),
+            copy(room = null, ended = ended, minimized = false, pendingChatEnabled = null, messages = emptyList(),
                 audioReady = false, audioError = null, micEnabled = false, voiceLevels = emptyMap(), membership = emptyMap(),
                 pendingDJs = emptyList(), djRequests = emptyList(), myDJRequest = emptyMap(), queueUpdating = false,
                 effectSelection = LiveEffectSelection())
@@ -1423,10 +1734,12 @@ internal class LiveViewModel @Inject constructor(
 
     private fun releasePlayback() {
         releaseSourcePlayer()
+        releaseApplePlayer()
         if (ownsLivePlayback) {
-            playbackRelease = player.endLiveSpotifyPlayback()
+            playbackRelease = player.endLiveSpotifyPlayback(pauseSpotify = expectedUri != null)
             ownsLivePlayback = false
         }
+        liveProvider = null
         expectedUri = null
         confirmedRevision = null
         initialTrackRevision = null
@@ -1454,7 +1767,9 @@ internal class LiveViewModel @Inject constructor(
                     confirmedRevision?.let { revision ->
                         if (room.current?.playsFromSource == true) {
                             if (sourcePlayer?.isPlaying == true) put("backgroundPlaybackRevision", revision)
-                        } else put("spotifyPlaybackRevision", revision)
+                        } else if (liveProvider == MusicService.APPLE_MUSIC) {
+                            if (applePlayer?.isPlaying == true) put("backgroundPlaybackRevision", revision)
+                        } else if (expectedUri != null) put("spotifyPlaybackRevision", revision)
                     }
                 }
                 maintain(room, "tick", fields)
@@ -1480,6 +1795,7 @@ internal class LiveViewModel @Inject constructor(
         _state.update { it.change() }
 
     companion object {
+        private const val APPLE_QUEUE_GRACE_MS = 2_500L
         fun saveId(track: LiveTrack): String = MessageDigest.getInstance("SHA-256")
             .digest("${track.song.source.raw}:${track.id}".toByteArray())
             .joinToString("") { "%02x".format(it.toInt() and 255) }
@@ -1487,3 +1803,31 @@ internal class LiveViewModel @Inject constructor(
 }
 
 private fun Boolean?.orFalse(): Boolean = this == true
+
+/** True for a matching track, false when it needs to be cued again, null when sync should wait. */
+internal suspend fun SpotifyPlaybackService.syncLiveTrack(
+    expectedUri: String,
+    force: Boolean,
+    targetPosition: () -> Long?,
+    onDriftCorrected: (Long) -> Unit,
+): Boolean? {
+    // App Remote state callbacks can lag behind playback. Only a fresh reading
+    // can justify interrupting the current track to correct drift.
+    val snapshot = try {
+        refreshState()
+    } catch (_: SpotifyPlaybackError.ApiError) {
+        return null
+    } ?: return null
+    val target = targetPosition() ?: return null
+    val uri = snapshot.track?.uri?.takeIf(String::isNotBlank) ?: return null
+    if (!SpotifyPlaybackService.spotifyURIsMatch(uri, expectedUri)) return false
+    val difference = kotlin.math.abs(snapshot.playbackPosition - target)
+    if (snapshot.isPaused) check(resume()) { "Couldn’t resume Spotify." }
+    if (force || difference > 1_800L) {
+        currentCoroutineContext().ensureActive()
+        val seekTarget = targetPosition() ?: return null
+        check(seek(seekTarget / 1_000.0)) { "Couldn’t sync Spotify." }
+        if (difference > 1_800L) onDriftCorrected(difference)
+    }
+    return true
+}

@@ -311,28 +311,13 @@ class PostDetailViewModel @Inject constructor(
             playFullSongs = preferencesDataStore.effectivePlayFullSongsSync(),
             playbackModePromptManager = playbackModePromptManager,
             onPreview = {
-                if (source != null) {
-                    nowPlayingManager.play(post.toQueuedTrack(), source.tracks)
-                    source.activate(nowPlayingManager, post)
-                } else {
+                val queuedTrack = post.toQueuedTrack()
                 nowPlayingManager.play(
-                    trackId = post.track.id,
-                    trackName = post.track.name,
-                    artistName = post.track.artistName,
-                    albumArtURL = post.track.albumArtURL,
-                    albumArtLargeURL = post.track.albumArtLargeURL,
-                    previewUrl = post.track.previewUrl,
-                    spotifyURI = post.track.spotifyURI,
-                    spotifyWebURL = post.track.spotifyWebURL,
-                    isrc = post.track.isrc,
-                    sourcePostId = post.id,
-                    source = post.track.source,
-                    soundcloudId = post.track.soundcloudId,
-                    soundcloudPermalinkUrl = post.track.soundcloudPermalinkUrl,
-                    audiomackUrl = post.track.audiomackUrl,
-                    notOnSpotify = post.track.notOnSpotify,
+                    track = queuedTrack,
+                    queue = source?.tracks.orEmpty(),
+                    preferFullSong = preferFullSong,
                 )
-                }
+                source?.activate(nowPlayingManager, post)
             },
             scope = viewModelScope,
         )

@@ -35,6 +35,7 @@ class PostEngagementManagerLikeBatchTest {
         saveChangedEvent = mock(),
         youtubeMusicService = mock(),
         spotifySaveAutoAdd = mock(),
+        appleMusicSaveAutoAdd = mock(),
     )
 
     /** checkLikeStatuses launches on Dispatchers.IO; poll briefly for the result. */

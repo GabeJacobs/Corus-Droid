@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var analyticsService: AnalyticsService
     @Inject lateinit var followingActivityDataSource: fm.corus.android.data.remote.FirestoreDataSource
     @Inject lateinit var spotifyPlaybackService: SpotifyPlaybackService
+    @Inject lateinit var appleMusicPlayback: fm.corus.android.domain.AppleMusicPlayback
     @Inject lateinit var nowPlayingManager: NowPlayingManager
     @Inject lateinit var audiomackAuthService: fm.corus.android.domain.AudiomackAuthService
     @Inject lateinit var youtubeMusicService: fm.corus.android.domain.YouTubeMusicService
@@ -144,8 +145,9 @@ class MainActivity : ComponentActivity() {
     @Deprecated("Required for Spotify auth-lib AuthorizationClient")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == SpotifyConnectContext.AUTH_REQUEST_CODE) {
-            SpotifyConnectContext.deliverAuthorizationResult(resultCode, data)
+        when (requestCode) {
+            SpotifyConnectContext.AUTH_REQUEST_CODE -> SpotifyConnectContext.deliverAuthorizationResult(resultCode, data)
+            fm.corus.android.domain.AppleMusicPlayback.AUTH_REQUEST_CODE -> appleMusicPlayback.deliverAuthorizationResult(data)
         }
     }
 

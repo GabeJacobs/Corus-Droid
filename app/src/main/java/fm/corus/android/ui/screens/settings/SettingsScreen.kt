@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.settings
 
+import fm.corus.android.ui.components.ChromeLoadingHud
 import fm.corus.android.ui.components.rememberGuardedSheetState
 
 import fm.corus.android.ui.components.CorusModalBottomSheet
@@ -104,6 +105,7 @@ fun SettingsScreen(
 ) {
     settingsViewModel.remoteConfigService.revision.collectAsState().value
     val context = LocalContext.current
+    var connectingAppleMusic by remember { mutableStateOf(false) }
     val referralStatus by fm.corus.android.service.ReferralService.status.collectAsState()
     val referralsEnabled by fm.corus.android.service.ReferralService.enabled.collectAsState()
     val referralReceipt by fm.corus.android.service.ReferralService.receipt.collectAsState()
@@ -477,17 +479,62 @@ fun SettingsScreen(
                 )
             }
 
-            // Always Play Full Songs — Spotify only on Android (app installed).
-            // Apple Music / TIDAL full songs are iOS-only until Android engines ship.
-            if (musicService == MusicService.SPOTIFY &&
+            val supportsAppleMusic = musicService == MusicService.APPLE_MUSIC &&
+                fm.corus.android.domain.AppleMusicPlayback.isAvailable()
+            if (supportsAppleMusic) {
+                val scope = rememberCoroutineScope()
+                var connected by remember { mutableStateOf(settingsViewModel.isAppleMusicConnected()) }
+                SettingsNavRow(
+                    icon = Icons.Filled.QueueMusic,
+                    title = stringResource(
+                        if (connected) R.string.settings_disconnect_apple_music else R.string.settings_connect_apple_music,
+                    ),
+                    onClick = {
+                        if (connected) {
+                            settingsViewModel.disconnectAppleMusic()
+                            connected = false
+                        } else if (!connectingAppleMusic) {
+                            connectingAppleMusic = true
+                            scope.launch {
+                                try {
+                                    connected = settingsViewModel.connectAppleMusic()
+                                } catch (e: kotlinx.coroutines.CancellationException) {
+                                    throw e
+                                } catch (_: Exception) {
+                                    fm.corus.android.ui.components.ToastManager.show(
+                                        context.getString(R.string.settings_connect_apple_music_failed),
+                                    )
+                                } finally {
+                                    connectingAppleMusic = false
+                                }
+                            }
+                        }
+                    },
+                )
+            }
+            if (supportsAppleMusic || musicService == MusicService.SPOTIFY &&
                 SpotifyPlaybackService.isSpotifyAppInstalled(context)
             ) {
                 SettingsToggleRow(
                     icon = Icons.Filled.QueueMusic,
                     title = stringResource(fm.corus.android.localization.CorusStrings.settings_row_play_full_songs_title),
-                    subtitle = stringResource(fm.corus.android.localization.CorusStrings.settings_row_play_full_songs_spotify_subtitle),
+                    subtitle = stringResource(
+                        if (supportsAppleMusic) R.string.playback_mode_prompt_body_apple_music
+                        else fm.corus.android.localization.CorusStrings.settings_row_play_full_songs_spotify_subtitle,
+                    ),
                     checked = alwaysPlayFullSongs,
                     onCheckedChange = { settingsViewModel.setAlwaysPlayFullSongs(it) },
+                )
+            }
+
+            if (supportsAppleMusic) {
+                val autoAddSavedToAppleMusic by settingsViewModel.autoAddSavedToAppleMusic.collectAsState(initial = true)
+                SettingsToggleRow(
+                    icon = Icons.Filled.LibraryAdd,
+                    title = stringResource(fm.corus.android.localization.CorusStrings.settings_row_spotify_library_save_title),
+                    subtitle = stringResource(R.string.settings_apple_music_library_save_subtitle),
+                    checked = autoAddSavedToAppleMusic,
+                    onCheckedChange = settingsViewModel::onAppleMusicLibrarySaveToggled,
                 )
             }
 
@@ -779,6 +826,12 @@ fun SettingsScreen(
             )
         }
     }
+
+    ChromeLoadingHud(
+        visible = connectingAppleMusic,
+        message = stringResource(R.string.settings_connecting_apple_music),
+        showDelayMs = 0L,
+    )
 
     // ── Club Offer Sheet ──
     if (showClubOffer) {

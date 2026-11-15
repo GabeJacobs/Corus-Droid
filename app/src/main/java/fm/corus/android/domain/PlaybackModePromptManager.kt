@@ -1,5 +1,6 @@
 package fm.corus.android.domain
 
+import com.google.firebase.auth.FirebaseAuth
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MusicService
@@ -32,6 +33,7 @@ data class PendingPlaybackModeChoice(
 class PlaybackModePromptManager @Inject constructor(
     private val preferencesDataStore: PreferencesDataStore,
     private val analyticsService: AnalyticsService,
+    private val auth: FirebaseAuth,
 ) {
     var debugAlwaysShowPlaybackModePrompt: Boolean = false
 
@@ -52,6 +54,12 @@ class PlaybackModePromptManager @Inject constructor(
         skipForResume: Boolean = false,
     ): Boolean {
         if (skipForResume) return false
+        if (musicService == MusicService.APPLE_MUSIC) {
+            return AppleMusicPlayback.isAvailable() && trackSupportsPreviews(track) &&
+                auth.currentUser?.uid?.let { !preferencesDataStore.appleMusicFirstPlayChoiceMade(it) } == true &&
+                !nowPlaying.isAppleMusicConnected()
+        }
+        if (musicService != MusicService.SPOTIFY) return false
         if (!debugAlwaysShowPlaybackModePrompt && catalogPromptKind() == null) {
             return false
         }
@@ -82,7 +90,8 @@ class PlaybackModePromptManager @Inject constructor(
         )
     }
 
-    fun catalogPromptKind(): SpotifyFtuePromptKind? {
+    fun catalogPromptKind(musicService: MusicService = MusicService.SPOTIFY): SpotifyFtuePromptKind? {
+        if (musicService == MusicService.APPLE_MUSIC) return SpotifyFtuePromptKind.CHOOSE_LISTEN
         val variant = SpotifyFtueVariant.fromRaw(preferencesDataStore.spotifyFtueVariantSync())
         val firstPlayConsumed = preferencesDataStore.spotifyFtueFirstPlayChooserConsumedSync()
         if (SpotifyFtueExperiment.shouldPromptFirstPlay(variant, firstPlayConsumed)) {
@@ -122,7 +131,7 @@ class PlaybackModePromptManager @Inject constructor(
         scope: CoroutineScope,
         onEnableFull: suspend () -> Unit,
     ): Boolean {
-        if (!shouldInterceptEnableFull()) return false
+        if (musicService != MusicService.SPOTIFY || !shouldInterceptEnableFull()) return false
         present(
             PendingPlaybackModeChoice(
                 kind = SpotifyFtuePromptKind.LINK_SPOTIFY,
@@ -141,7 +150,11 @@ class PlaybackModePromptManager @Inject constructor(
         val pending = _pending.value ?: return
         _pending.value = null
         pending.scope.launch {
-            preferencesDataStore.setSpotifyFtueFirstPlayChooserConsumed()
+            if (pending.musicService == MusicService.APPLE_MUSIC) {
+                auth.currentUser?.uid?.let(preferencesDataStore::markAppleMusicFirstPlayChoiceMade)
+            } else {
+                preferencesDataStore.setSpotifyFtueFirstPlayChooserConsumed()
+            }
             logChoice(pending, "previews")
             preferencesDataStore.setAlwaysPlayFullSongs(false)
             if (!debugAlwaysShowPlaybackModePrompt) {
@@ -166,10 +179,18 @@ class PlaybackModePromptManager @Inject constructor(
         }
     }
 
-    fun chooseLinkSpotify() {
+    fun chooseConnect() {
         val pending = _pending.value ?: return
         _pending.value = null
         pending.scope.launch {
+            if (pending.musicService == MusicService.APPLE_MUSIC) {
+                auth.currentUser?.uid?.let(preferencesDataStore::markAppleMusicFirstPlayChoiceMade)
+                preferencesDataStore.setAlwaysPlayFullSongs(true)
+                logChoice(pending, "link")
+                // The original tap retains its queue and starts Apple authorization as needed.
+                pending.onPreview()
+                return@launch
+            }
             preferencesDataStore.setSpotifyFtueLinkPromptConsumed()
             if (pending.kind == SpotifyFtuePromptKind.CHOOSE_LISTEN) {
                 preferencesDataStore.setSpotifyFtueFirstPlayChooserConsumed()
@@ -252,6 +273,10 @@ class PlaybackModePromptManager @Inject constructor(
     }
 
     private fun logPromptShown(pending: PendingPlaybackModeChoice) {
+        if (pending.musicService == MusicService.APPLE_MUSIC) {
+            analyticsService.logEvent("apple_music_first_play_prompt_shown")
+            return
+        }
         analyticsService.logSpotifyAuthConnectPromptShown(
             trackId = pending.track?.id.orEmpty(),
             variant = preferencesDataStore.spotifyFtueVariantSync() ?: "off",
@@ -260,6 +285,10 @@ class PlaybackModePromptManager @Inject constructor(
     }
 
     private fun logChoice(pending: PendingPlaybackModeChoice, choice: String) {
+        if (pending.musicService == MusicService.APPLE_MUSIC) {
+            analyticsService.logEvent("apple_music_first_play_prompt_chosen", mapOf("choice" to choice))
+            return
+        }
         analyticsService.logSpotifyFtuePromptChosen(
             variant = preferencesDataStore.spotifyFtueVariantSync() ?: "off",
             surface = pending.surface,

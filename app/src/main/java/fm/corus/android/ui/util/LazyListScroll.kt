@@ -36,6 +36,23 @@ fun computeFollowScrollTopInset(statusBarPx: Int, peekPx: Int, liftPx: Int = 0):
     (statusBarPx.coerceAtLeast(0) + peekPx.coerceAtLeast(0) - liftPx.coerceAtLeast(0))
         .coerceAtLeast(0)
 
+internal enum class FeedPrefixItem {
+    Header, DailyHashtag, LiveDiscovery, ReferralInvite, TasteMatchesTrial,
+}
+
+internal fun feedPrefixItems(
+    includeHeader: Boolean,
+    feedMode: String,
+    showDailyHashtag: Boolean,
+    showTasteMatchesTrial: Boolean,
+): List<FeedPrefixItem> = buildList {
+    if (includeHeader) add(FeedPrefixItem.Header)
+    if (showDailyHashtag) add(FeedPrefixItem.DailyHashtag)
+    if (feedMode == "following" || feedMode == "tasteMatches") add(FeedPrefixItem.LiveDiscovery)
+    if (feedMode == "following") add(FeedPrefixItem.ReferralInvite)
+    if (showTasteMatchesTrial) add(FeedPrefixItem.TasteMatchesTrial)
+}
+
 /**
  * LazyColumn index of a feed post sitting after [prefixItemCount] leading
  * items (header, optional trial banner, …).
