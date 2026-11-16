@@ -241,9 +241,11 @@ internal class LiveRepository @Inject constructor(
             val duration = row.number("duration_ms").toInt()
             if (duration < 1_000 || row.text("id").isBlank() || row.text("name").isBlank()) return@mapNotNull null
             val album = row["album"].liveFields().orEmpty()
+            val artists = row.rows("artists")
             LiveTrack(CymbalTrack(
                 id = row.text("id"), name = row.text("name"),
-                artistName = row.rows("artists").joinToString(", ") { it.text("name") },
+                artistName = artists.joinToString(", ") { it.text("name") },
+                artistIds = artists.mapNotNull { it.text("id").takeIf(String::isNotBlank) },
                 albumName = album.text("name"), albumArtURL = album.rows("images").firstOrNull()?.text("url"),
                 durationMs = duration, spotifyURI = row.text("uri"),
                 isrc = row["external_ids"].liveFields()?.text("isrc"),

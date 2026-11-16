@@ -9,6 +9,44 @@ import org.mockito.kotlin.mock
 
 class DeepLinkHandlerTest {
     @Test
+    fun followerNotificationPreservesTheHostForTheRoomPrompt() {
+        val roomId = "RoomIdForRoomPrompt"
+        val payload = mapOf("type" to "corus_live", "roomId" to roomId)
+        assertEquals(
+            DeepLinkDestination.LiveRoom(roomId, hostName = "isa"),
+            DeepLinkHandler.parseNotificationData(payload + ("hostName" to "isa")),
+        )
+        assertEquals(DeepLinkDestination.LiveRoom(roomId), DeepLinkHandler.parseNotificationData(payload))
+    }
+
+    @Test
+    fun djInviteNotificationPreservesRecipientAndVersion() {
+        val roomId = "RoomIdForLiveInvite"
+        val expiresAt = 1_794_850_000_000L
+        val destination = DeepLinkHandler.parseNotificationData(mapOf(
+            "type" to "corus_live_dj_invite",
+            "roomId" to roomId,
+            "recipientId" to "invited-user",
+            "expiresAt" to expiresAt.toString(),
+        ))
+        assertEquals(
+            DeepLinkDestination.LiveRoom(
+                roomId, fromInvite = true, inviteRecipientId = "invited-user", inviteExpiresAt = expiresAt,
+            ),
+            destination,
+        )
+    }
+
+    @Test
+    fun djInviteNotificationRequiresRecipientAndVersion() {
+        val payload = mapOf("type" to "corus_live_dj_invite", "roomId" to "RoomIdForLiveInvite")
+        assertNull(DeepLinkHandler.parseNotificationData(payload))
+        assertNull(DeepLinkHandler.parseNotificationData(payload + mapOf(
+            "recipientId" to "invited-user", "expiresAt" to "invalid",
+        )))
+    }
+
+    @Test
     fun `following activity opens the exact post without using the author profile`() {
         assertEquals(DeepLinkDestination.Post("post-42"), DeepLinkHandler.parseNotificationData(mapOf(
             "type" to "following_activity", "postId" to "post-42", "fromUserId" to "author-1",

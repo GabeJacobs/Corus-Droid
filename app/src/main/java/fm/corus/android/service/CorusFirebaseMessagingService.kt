@@ -17,6 +17,8 @@ import fm.corus.android.domain.PostEngagementManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -29,6 +31,8 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
 
     companion object {
         private val tokenRegistrationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        private val _tokenChanged = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        internal val tokenChanged = _tokenChanged.asSharedFlow()
 
         private const val CHANNEL_ID = "corus_default"
         private const val CHANNEL_NAME = "Corus"
@@ -70,6 +74,7 @@ class CorusFirebaseMessagingService : FirebaseMessagingService() {
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
         tokenRegistrationScope.launch {
             runCatching { firestoreDataSource.updateFCMToken(uid, token) }
+            _tokenChanged.tryEmit(Unit)
         }
     }
 

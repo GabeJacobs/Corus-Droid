@@ -1,0 +1,20 @@
+<resources>
+    <string name="live_join_room_prompt">이 라이브 룸에 참여할까요?</string>
+    <string name="live_join_room">룸 참여</string>
+    <string name="live_notification_settings">라이브 룸</string>
+    <string name="live_notification_preview_title">%1$s 님이 라이브 중이에요</string>
+    <string name="live_notification_message_placeholder">맞춤 메시지 작성</string>
+    <string name="live_notify_followers_description">라이브를 시작할 때 푸시 알림 보내기</string>
+    <string name="live_dj_invitation_title">DJ 초대</string>
+    <string name="live_dj_invitation_close">초대 닫기</string>
+    <string name="live_dj_invitation_from_host">%1$s 님이 자신의 라이브 룸에 DJ로 초대했어요.</string>
+    <string name="live_dj_invitation_from_codj">%1$s 님이 라이브 룸에 DJ로 초대했어요.</string>
+    <string name="live_dj_invitation_host_fallback">호스트</string>
+    <string name="live_dj_invitation_join">DJ로 참여</string>
+    <string name="live_dj_invitation_joining">참여 중…</string>
+    <string name="live_dj_invitation_decline">거절</string>
+    <string name="live_dj_invitation_other_room">DJ로 참여하려면 현재 룸에서 먼저 나가세요.</string>
+    <string name="live_dj_invitation_unavailable">이 DJ 초대는 더 이상 유효하지 않아요.</string>
+    <string name="live_dj_invitation_open_error">DJ 초대를 열 수 없어요. 다시 시도해 주세요.</string>
+    <string name="live_dj_invitation_join_error">DJ로 참여할 수 없어요. 다시 시도해 주세요.</string>
+</resources>

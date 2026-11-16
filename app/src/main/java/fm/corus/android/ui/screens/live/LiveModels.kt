@@ -31,6 +31,7 @@ internal data class LiveTrack(
         put("id", id)
         put("title", song.name)
         put("artist", song.artistName)
+        if (song.artistIds.isNotEmpty()) put("artistIds", song.artistIds)
         put("source", song.source.raw)
         put("durationMs", duration)
         song.isrc?.let { put("isrc", it) }
@@ -57,6 +58,8 @@ internal data class LiveTrack(
                     id = id,
                     name = title,
                     artistName = fields.text("artist"),
+                    artistIds = (fields["artistIds"] as? List<*>)
+                        ?.mapNotNull { (it as? String)?.takeIf(String::isNotBlank) }.orEmpty(),
                     albumName = fields.text("album"),
                     albumArtURL = fields["artwork"] as? String,
                     spotifyURI = fields.text("spotifyURI"),
@@ -97,6 +100,8 @@ internal data class LiveRoom(val id: String, private val fields: LiveFields) {
         fields.text("hostUsername").ifBlank { fields.text("hostName") },
         fields["hostAvatar"] as? String,
     )
+    val hostHandle = fields.text("hostUsername").trim().removePrefix("@")
+        .takeUnless { it.isBlank() || it == "…" }?.let { "@$it" }
     val customTitle = fields.text("title")
     val title = customTitle.ifBlank { "@${host.username.removePrefix("@")}" }
     val chatEnabled = fields["chatEnabled"] != false
@@ -108,16 +113,25 @@ internal data class LiveRoom(val id: String, private val fields: LiveFields) {
     val recent = fields.rows("recent").mapNotNull(LiveTrack::parse)
     val revision = fields.number("revision")
     val queueVersion = fields.number("queueVersion")
-    val nextTrack: LiveTrack?
+    private data class QueuedPick(val djUid: String, val order: Long, val track: LiveTrack)
+
+    private val nextPick: QueuedPick?
         get() {
-            val hostTrack = queue.firstOrNull()
             val cursor = fields.number("currentDJOrder")
-            val guestTracks = djs.mapNotNull { dj ->
+            val guestPicks = djs.mapNotNull { dj ->
                 val track = dj.rows("queue").firstOrNull()?.let(LiveTrack::parse) ?: return@mapNotNull null
-                dj.number("order") to track
+                QueuedPick(dj.text("uid"), dj.number("order"), track)
             }
-            return guestTracks.firstOrNull { it.first > cursor }?.second ?: hostTrack ?: guestTracks.firstOrNull()?.second
+            return guestPicks.firstOrNull { it.order > cursor }
+                ?: queue.firstOrNull()?.let { QueuedPick(host.uid, 0, it) }
+                ?: guestPicks.firstOrNull()
         }
+    val nextTrack get() = nextPick?.track
+    val nextDJUid get() = if (djs.isEmpty()) null else nextPick?.djUid
+    val playingDJUid get() = (currentDJ?.uid ?: host.uid).takeIf {
+        djs.isNotEmpty() && status == "playing" && current != null &&
+            voiceMode != "talk" && pausedAt == null && pendingSkip == null
+    }
     val endedAt = fields.number("endedAt")
     val deadline = fields.number("deadline")
     val leaseUntil = fields.number("leaseUntil")
@@ -171,6 +185,18 @@ internal data class LiveMessage(
     val text = fields.text("text")
     val kind = fields.text("kind")
     val gifUrl = fields["gifURL"] as? String
+    val createdAt = fields.number("createdAt")
+    val requestedTrack = fields["requestedTrack"].liveFields()?.let(LiveTrack::parse)
+    val requestStatus = fields.text("requestStatus").ifBlank {
+        if (kind == "songRequest" || kind == "djRequest") "pending" else ""
+    }
+    val isPrivateDJRequest get() = kind == "djRequest" && id.startsWith("private-dj-request:")
+
+    fun requestTarget(): LiveFields = if (isPrivateDJRequest) {
+        mapOf("targetUid" to author.uid, "requestCreatedAt" to createdAt)
+    } else {
+        mapOf("targetUid" to author.uid, "requestMessageId" to id)
+    }
 }
 
 internal data class LiveAccess(
@@ -230,3 +256,7 @@ internal val CymbalTrack.liveDisplayArtwork: String?
 
 internal fun CymbalTrack.withLiveDisplayArtwork(): CymbalTrack =
     copy(albumArtLargeURL = liveDisplayArtwork)
+
+internal data class LiveInvitePush(val roomId: String, val recipientId: String?, val expiresAt: Long?)
+
+internal fun LiveFields.inviteKey(): Pair<String, Long> = text("roomId") to number("expiresAt")

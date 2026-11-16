@@ -1,0 +1,20 @@
+<resources>
+    <string name="live_join_room_prompt">Rejoindre ce salon en direct ?</string>
+    <string name="live_join_room">Rejoindre le salon</string>
+    <string name="live_notification_settings">Salons en direct</string>
+    <string name="live_notification_preview_title">%1$s est en direct</string>
+    <string name="live_notification_message_placeholder">Écris un message personnalisé</string>
+    <string name="live_notify_followers_description">Envoie une notification push quand tu passes en direct</string>
+    <string name="live_dj_invitation_title">Invitation à mixer</string>
+    <string name="live_dj_invitation_close">Fermer l’invitation</string>
+    <string name="live_dj_invitation_from_host">%1$s t’invite à mixer dans son salon en direct.</string>
+    <string name="live_dj_invitation_from_codj">%1$s t’invite à mixer dans un salon en direct.</string>
+    <string name="live_dj_invitation_host_fallback">Hôte</string>
+    <string name="live_dj_invitation_join">Rejoindre comme DJ</string>
+    <string name="live_dj_invitation_joining">Connexion…</string>
+    <string name="live_dj_invitation_decline">Refuser</string>
+    <string name="live_dj_invitation_other_room">Quitte ton salon actuel avant de rejoindre comme DJ.</string>
+    <string name="live_dj_invitation_unavailable">Cette invitation à mixer n’est plus disponible.</string>
+    <string name="live_dj_invitation_open_error">Impossible d’ouvrir l’invitation à mixer. Réessaie.</string>
+    <string name="live_dj_invitation_join_error">Impossible de rejoindre comme DJ. Réessaie.</string>
+</resources>

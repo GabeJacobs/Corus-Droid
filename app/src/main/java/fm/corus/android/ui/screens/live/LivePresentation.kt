@@ -11,6 +11,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.alpha
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.slideInVertically
@@ -43,6 +44,16 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
+import coil3.SingletonImageLoader
+import coil3.request.ImageRequest
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -51,6 +62,7 @@ import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.domain.AppleMusicPlayback
 import fm.corus.android.domain.SpotifyPlaybackService
+import fm.corus.android.service.DeepLinkDestination
 import fm.corus.android.ui.components.ComposePlusButton
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.components.rememberReducedMotion
@@ -59,6 +71,7 @@ import fm.corus.android.data.model.FlairStyle
 import fm.corus.android.ui.components.blockTouchPassthrough
 import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import fm.corus.android.ui.theme.CorusColors
+import fm.corus.android.ui.theme.CorusContentTheme
 import fm.corus.android.ui.theme.CorusFont
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -73,9 +86,9 @@ internal data class LiveNavigation(
 
 internal data class LiveNavigationState(
     val access: LiveAccess?,
+    val roomCoversFeed: Boolean,
     val discovery: List<LiveRoom>,
     val discoveryCounts: Map<String, Int>,
-    val invites: List<LiveFields>,
     val showGoLive: Boolean,
     val canOpenSetup: Boolean,
     val mixedSaves: List<LiveSaveItem>?,
@@ -131,7 +144,19 @@ internal fun LiveCreateButton(onDefault: () -> Unit, modifier: Modifier = Modifi
 internal fun LiveDiscovery(source: String, following: Set<String>? = null, inSearch: Boolean = false) {
     val live = LocalLiveNavigation.current ?: return
     val rooms = live.state.discovery.filter { following == null || it.host.uid in following }
-    if (rooms.isEmpty() && live.state.invites.isEmpty()) return
+    val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    val artworkUrls = if (lifecycle.isAtLeast(Lifecycle.State.RESUMED) && !live.state.roomCoversFeed) {
+        rooms.take(3).mapNotNull { it.current?.loadingArtworkUrl }.distinct()
+    } else emptyList()
+    val context = LocalContext.current
+    val artworkSize = with(LocalDensity.current) { LiveLoadingArtworkSize.roundToPx() }
+    LaunchedEffect(artworkUrls, artworkSize) {
+        val loader = SingletonImageLoader.get(context)
+        artworkUrls.forEach { url ->
+            loader.enqueue(ImageRequest.Builder(context).data(url).size(artworkSize).build())
+        }
+    }
+    if (rooms.isEmpty()) return
     var hide by remember { mutableStateOf<LiveRoom?>(null) }
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (inSearch && rooms.isNotEmpty()) {
@@ -148,19 +173,6 @@ internal fun LiveDiscovery(source: String, following: Set<String>? = null, inSea
                     open = { live.viewModel.event("discovery_opened", source = source); live.viewModel.join(room.id) },
                     hide = { hide = room },
                 )
-            }
-        }
-        live.state.invites.forEach { invite ->
-            val host = invite.text("hostName")
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(12.dp))
-                    .background(CorusColors.CardBackground).padding(horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TextButton(onClick = { live.viewModel.presentInvite(invite) }, modifier = Modifier.weight(1f)) {
-                    LiveText(if (host.isBlank()) "DJ invite" else "@$host invited you to DJ", CorusFont.username)
-                }
-                LiveIconButton(Icons.Default.Close, "Decline DJ invite", { live.viewModel.inviteDecision(invite, false) })
             }
         }
     }
@@ -441,11 +453,24 @@ internal fun BoxScope.LivePresentation(
 ) {
     val profile by vm.profile.collectAsState()
     val context = LocalContext.current
-    val room = state.room
-    if (room != null && !state.minimized) {
-        BackHandler(onBack = vm::minimize)
-        Box(Modifier.fillMaxSize().zIndex(9f).background(CorusColors.Background).blockTouchPassthrough()) {
-            LiveRoomScreen(room, state, vm, openProfile, openSong)
+    val expandedRoom = state.room?.takeUnless { state.minimized }
+    var visibleRoomState by remember { mutableStateOf<LiveUiState?>(null) }
+    SideEffect { if (expandedRoom != null) visibleRoomState = state }
+    val reduceMotion = rememberReducedMotion()
+    BackHandler(enabled = expandedRoom != null, onBack = vm::minimize)
+    AnimatedVisibility(
+        visible = expandedRoom != null,
+        modifier = Modifier.fillMaxSize().zIndex(9f),
+        enter = EnterTransition.None,
+        exit = if (reduceMotion) ExitTransition.None else slideOutVertically(tween(240)) { it },
+    ) {
+        val screenState = if (expandedRoom != null) state else visibleRoomState
+        screenState?.room?.let { room ->
+            CorusContentTheme(LocalCorusDarkTheme.current || screenState.usesDarkRoomAppearance) {
+                Box(Modifier.fillMaxSize().background(CorusColors.Background).blockTouchPassthrough()) {
+                    key(room.id) { LiveRoomScreen(room, screenState, vm, openProfile, openSong) }
+                }
+            }
         }
     }
     val setupTransition = remember { MutableTransitionState(false) }
@@ -467,8 +492,10 @@ internal fun BoxScope.LivePresentation(
             )
         }
     }
-    if ((state.setup == null || state.hostProviderRequiredForSetup) && state.progress != null) {
-        Box(Modifier.fillMaxSize().zIndex(10f).background(CorusColors.Background)) { LiveLoading(state.progress) }
+    if (expandedRoom == null && (state.setup == null || state.hostProviderRequiredForSetup) && state.progress != null) {
+        Box(Modifier.fillMaxSize().zIndex(10f).background(CorusColors.Background).blockTouchPassthrough()) {
+            LiveLoading(state.progress, state.joiningRoom?.current, state.joiningRoom?.title, state.joinReady)
+        }
     }
     state.ended?.let { ended ->
         LiveEndedSheets(ended, vm, openSong, vm::clearEnded)
@@ -484,12 +511,26 @@ internal fun BoxScope.LivePresentation(
             { vm.confirmPlaybackExit(false) }, { vm.confirmPlaybackExit(true) },
         )
     }
-    state.shownInvite?.let { invite ->
-        LiveSheet("DJ invite", vm::closeInvite) {
-            LiveText("@${invite.text("hostName")} invited you to DJ.")
-            LivePrimary("Accept") { vm.inviteDecision(invite, true) }
-            TextButton(onClick = { vm.inviteDecision(invite, false) }) { LiveText("Decline") }
+    LiveDJInvitation(state, vm)
+    state.roomJoinPrompt?.takeIf {
+        state.shownInvite == null && state.progress == null && state.setup == null &&
+            state.ended == null && state.openSavedSetlist == null
+    }?.let { prompt ->
+        val discoveredRoom = state.discovery.firstOrNull { it.id == prompt.roomId }
+        val room by produceState(discoveredRoom, prompt.roomId, discoveredRoom) {
+            value = discoveredRoom ?: try {
+                vm.roomJoinPreview(prompt.roomId)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                null
+            }
         }
+        LiveRoomJoinSheet(
+            prompt, room?.takeIf { it.id == prompt.roomId },
+            close = { vm.dismissRoomJoinPrompt(prompt) },
+            join = { vm.confirmRoomJoin(prompt) },
+        )
     }
     if (state.linkUpcoming) {
         AlertDialog(
@@ -655,6 +696,143 @@ internal fun LiveProviderButton(
             LiveText(stringResource(R.string.live_connecting_spotify))
         } else {
             LiveText(label)
+        }
+    }
+}
+
+@Composable
+private fun LiveRoomJoinSheet(
+    prompt: DeepLinkDestination.LiveRoom,
+    room: LiveRoom?,
+    close: () -> Unit,
+    join: () -> Unit,
+) {
+    val host = room?.host ?: LivePerson("", prompt.hostName.orEmpty(), null)
+    val hostName = room?.hostHandle ?: host.username
+    LiveSheet(
+        title = stringResource(R.string.live_join_room_prompt),
+        close = close,
+        showCloseButton = true,
+        horizontalContentPadding = 16.dp,
+    ) {
+        LiveAvatar(
+            host.copy(username = host.username.removePrefix("@")),
+            56.dp,
+            modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 12.dp),
+        )
+        if (hostName.isNotBlank() && room?.status != "ended") {
+            LiveInviteMessage(stringResource(R.string.live_notification_preview_title, hostName), hostName)
+        }
+        LivePrimary(stringResource(R.string.live_join_room), onClick = join)
+        TextButton(onClick = close, modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)) {
+            LiveText(stringResource(CorusStrings.common_cancel), CorusFont.body.copy(fontWeight = FontWeight.Bold),
+                CorusColors.Secondary)
+        }
+    }
+}
+
+@Composable
+private fun LiveInviteMessage(message: String, name: String) {
+    val nameColor = CorusColors.Text
+    Text(
+        buildAnnotatedString {
+            append(message)
+            val start = message.indexOf(name)
+            if (name.isNotBlank() && start >= 0) {
+                addStyle(SpanStyle(color = nameColor, fontWeight = FontWeight.Bold), start, start + name.length)
+            }
+        },
+        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+        style = CorusFont.body,
+        color = CorusColors.Secondary,
+        textAlign = TextAlign.Center,
+    )
+}
+
+@Composable
+private fun LiveDJInvitation(state: LiveUiState, vm: LiveViewModel) {
+    val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    val push = state.pendingInvitePush
+    val candidate = if (push == null && state.shownInvite == null) {
+        state.invites.firstOrNull {
+            (state.room == null || state.room.id == it.text("roomId")) &&
+                it.number("expiresAt") > vm.serverTime() && it.inviteKey() !in state.seenInviteKeys
+        }
+    } else null
+    val canPresent = lifecycle.isAtLeast(Lifecycle.State.RESUMED) && state.access?.collaboration == true &&
+        state.progress == null && !state.joiningInvite && state.roomJoinPrompt == null
+    LaunchedEffect(vm, state.uid, canPresent, push, candidate) {
+        if (canPresent && (push != null || candidate != null)) vm.presentPendingInvite(push, candidate)
+    }
+
+    val invite = state.shownInvite ?: return
+    val joining = state.joiningInvite
+    LaunchedEffect(invite.inviteKey(), joining) {
+        if (!joining) {
+            delay((invite.number("expiresAt") - vm.serverTime()).coerceAtLeast(0))
+            vm.closeInvite()
+        }
+    }
+
+    val fromCoDJ = invite.text("inviterId").isNotBlank()
+    val senderId = invite.text("inviterId").ifBlank { invite.text("hostId") }
+    val senderName = invite.text("inviterName").ifBlank { invite.text("hostName") }.removePrefix("@")
+    val senderAvatar = invite.text(if (fromCoDJ) "inviterAvatar" else "hostAvatar")
+    val avatar by produceState(senderAvatar, senderId, senderAvatar) {
+        value = senderAvatar
+        if (senderAvatar.isBlank() && senderId.isNotBlank()) {
+            val profile = try {
+                vm.miniPlayerHostProfile(senderId)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                null
+            }
+            value = profile?.avatarThumbURL ?: profile?.avatarURL.orEmpty()
+        }
+    }
+    val inAnotherRoom = state.room?.id?.let { it != invite.text("roomId") } == true
+    LiveSheet(
+        title = stringResource(R.string.live_dj_invitation_title),
+        close = vm::closeInvite,
+        showCloseButton = true,
+        dismissEnabled = !joining,
+        horizontalContentPadding = 16.dp,
+    ) {
+        LiveAvatar(
+            LivePerson(senderId, senderName, avatar.ifBlank { null }),
+            56.dp,
+            modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 12.dp),
+        )
+        val message = stringResource(
+            if (fromCoDJ) R.string.live_dj_invitation_from_codj else R.string.live_dj_invitation_from_host,
+            senderName.ifBlank { stringResource(R.string.live_dj_invitation_host_fallback) },
+        )
+        LiveInviteMessage(message, senderName)
+        val help = state.inviteError ?: R.string.live_dj_invitation_other_room.takeIf { inAnotherRoom }
+        help?.let {
+            Text(
+                stringResource(it),
+                modifier = Modifier.fillMaxWidth(),
+                style = CorusFont.caption,
+                color = CorusColors.Secondary,
+                textAlign = TextAlign.Center,
+            )
+        }
+        LivePrimary(
+            stringResource(if (joining) R.string.live_dj_invitation_joining else R.string.live_dj_invitation_join),
+            enabled = !joining && !inAnotherRoom,
+        ) { vm.inviteDecision(invite, true) }
+        TextButton(
+            onClick = { vm.inviteDecision(invite, false) },
+            enabled = !joining,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
+        ) {
+            LiveText(
+                stringResource(R.string.live_dj_invitation_decline),
+                CorusFont.body.copy(fontWeight = FontWeight.Bold),
+                LiveRed.copy(alpha = if (joining) .4f else 1f),
+            )
         }
     }
 }

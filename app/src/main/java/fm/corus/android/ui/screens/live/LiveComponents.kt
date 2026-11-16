@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
@@ -20,7 +21,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
@@ -34,8 +34,6 @@ import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.dismissKeyboardOnDownwardDrag
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.collectLatest
 
 @Composable
 internal fun LiveText(
@@ -52,8 +50,9 @@ private fun LiveHeader(
     done: (() -> Unit)? = null,
     sheetToolbar: Boolean = false,
     modifier: Modifier = Modifier,
+    close: (() -> Unit)? = null,
 ) {
-    val height = if (done != null || sheetToolbar) 56.dp else 48.dp
+    val height = if (done != null || sheetToolbar || close != null) 56.dp else 48.dp
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     Box(modifier.fillMaxWidth().height(height).padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
@@ -68,6 +67,12 @@ private fun LiveHeader(
                 modifier = Modifier.align(Alignment.CenterEnd),
             ) {
                 LiveText(stringResource(CorusStrings.corus_live_done), CorusFont.button, CorusColors.Secondary)
+            }
+        } else if (close != null) {
+            IconButton(onClick = close, modifier = Modifier.align(Alignment.CenterEnd)) {
+                Box(Modifier.size(44.dp).background(CorusColors.CardBackground, CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Close, stringResource(fm.corus.android.R.string.live_dj_invitation_close), tint = CorusColors.Secondary)
+                }
             }
         }
     }
@@ -129,17 +134,24 @@ internal fun LiveRow(label: String, icon: ImageVector, detail: String? = null, o
 }
 
 @Composable
-internal fun LiveArtwork(url: String?, size: Dp, modifier: Modifier = Modifier, neutralPlaceholder: Boolean = false) {
+internal fun LiveArtwork(
+    url: String?,
+    size: Dp,
+    modifier: Modifier = Modifier,
+    neutralPlaceholder: Boolean = false,
+    showPlaceholderWhileLoading: Boolean = false,
+) {
     val background = if (neutralPlaceholder) CorusColors.SheetControlBackground else CorusColors.Accent.copy(alpha = .12f)
     Box(
         modifier.size(size).clip(RoundedCornerShape(7.dp)).background(background),
         contentAlignment = Alignment.Center,
     ) {
-        if (url.isNullOrBlank()) {
+        if (url.isNullOrBlank() || showPlaceholderWhileLoading) {
             Icon(Icons.Default.MusicNote, null,
                 tint = if (neutralPlaceholder) CorusColors.Tertiary else CorusColors.Accent,
                 modifier = Modifier.size(size * .5f))
-        } else {
+        }
+        if (!url.isNullOrBlank()) {
             AsyncImage(url, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         }
     }
@@ -171,16 +183,16 @@ internal fun LiveSheet(
     done: (() -> Unit)? = null,
     sheetToolbar: Boolean = false,
     startsHalfExpanded: Boolean = false,
-    expand: Boolean = false,
     dismissKeyboardFromHeader: Boolean = false,
     horizontalContentPadding: Dp = 20.dp,
     fixedTopGap: Dp? = null,
     dismissEnabled: Boolean = true,
+    showCloseButton: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val largeHeightFraction = when {
         fixedTopGap != null -> 1f
-        sheetToolbar && !expand -> .90f
+        sheetToolbar -> .90f
         else -> .96f
     }
     val canDismiss by rememberUpdatedState(dismissEnabled)
@@ -195,18 +207,10 @@ internal fun LiveSheet(
         shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
         containerColor = CorusColors.SheetBackground,
     ) {
-        val ime = WindowInsets.ime
-        val density = LocalDensity.current
-        LaunchedEffect(expand, ime, density, sheetState) {
-            if (expand) {
-                snapshotFlow { sheetState.hasExpandedState }.first { it }
-                // Material recalculates the detents as the keyboard resizes the dialog.
-                snapshotFlow { ime.getBottom(density) }.collectLatest { sheetState.expand() }
-            }
-        }
         Column(Modifier.fillMaxWidth().then(if (large) Modifier.fillMaxHeight(largeHeightFraction) else Modifier)) {
             LiveHeader(
                 title, done, sheetToolbar,
+                close = if (showCloseButton) ({ if (canDismiss) close() }) else null,
                 modifier = if (dismissKeyboardFromHeader) Modifier.dismissKeyboardOnDownwardDrag() else Modifier,
             )
             Column(

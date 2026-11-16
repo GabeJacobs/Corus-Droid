@@ -34,6 +34,7 @@ import fm.corus.android.ui.components.VennDiagramIcon
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusSpacing
+import fm.corus.android.ui.screens.live.LocalLiveNavigation
 
 @Composable
 fun NotificationSettingsScreen(
@@ -110,6 +111,16 @@ fun NotificationSettingsScreen(
                 onCheckedChange = viewModel::setFollowingActivity,
                 enabled = settings.isLoaded,
             )
+
+            if (LocalLiveNavigation.current?.state?.access != null) {
+                NotifToggleRow(
+                    icon = Icons.Filled.NotificationsActive,
+                    title = stringResource(R.string.live_notification_settings),
+                    checked = settings.liveRooms,
+                    onCheckedChange = viewModel::setLiveRooms,
+                    enabled = settings.isLoaded,
+                )
+            }
 
             NotifToggleRow(
                 icon = Icons.Filled.Map,

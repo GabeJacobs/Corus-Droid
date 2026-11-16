@@ -1,6 +1,7 @@
 package fm.corus.android.ui.screens.live
 
 import android.content.Context
+import android.content.res.Resources
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -30,6 +31,9 @@ import fm.corus.android.domain.MusicServicePreference
 import fm.corus.android.domain.SpotifyPlaybackError
 import fm.corus.android.domain.SpotifyPlaybackService
 import fm.corus.android.service.AnalyticsService
+import fm.corus.android.service.CorusFirebaseMessagingService
+import fm.corus.android.service.DeepLinkDestination
+import fm.corus.android.i18n.LanguageManager
 import java.security.MessageDigest
 import java.util.UUID
 import javax.inject.Inject
@@ -49,15 +53,21 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
+import fm.corus.android.R
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
 
 internal enum class LiveProgress { TUNING, PREPARING, CUEING, STARTING_SPOTIFY, STARTING_APPLE_MUSIC, STARTING }
+
+internal const val LiveJoinMinimumMs = 1_800
+internal const val LiveJoinFinishMs = 180
 
 internal data class LiveUiState(
     val uid: String? = null,
@@ -68,6 +78,11 @@ internal data class LiveUiState(
     val discoveryCounts: Map<String, Int> = emptyMap(),
     val invites: List<LiveFields> = emptyList(),
     val shownInvite: LiveFields? = null,
+    val seenInviteKeys: Set<Pair<String, Long>> = emptySet(),
+    val pendingInvitePush: LiveInvitePush? = null,
+    val roomJoinPrompt: DeepLinkDestination.LiveRoom? = null,
+    val joiningInvite: Boolean = false,
+    val inviteError: Int? = null,
     val setup: LiveSetup? = null,
     val checkingSetupAccess: Boolean = false,
     val songSuggestions: LiveSuggestions? = null,
@@ -82,6 +97,8 @@ internal data class LiveUiState(
     val audioError: String? = null,
     val error: String? = null,
     val progress: LiveProgress? = null,
+    val joiningRoom: LiveRoom? = null,
+    val joinReady: Boolean = false,
     val listenerCount: Int = 0,
     val messages: List<LiveMessage> = emptyList(),
     val membership: LiveFields = emptyMap(),
@@ -94,6 +111,8 @@ internal data class LiveUiState(
     val pendingDJs: List<LiveFields> = emptyList(),
     val djRequests: List<LiveFields> = emptyList(),
     val myDJRequest: LiveFields = emptyMap(),
+    val mySongRequest: LiveFields = emptyMap(),
+    val requestBusy: Boolean = false,
     val queueUpdating: Boolean = false,
     val effectSelection: LiveEffectSelection = LiveEffectSelection(),
     val micEnabled: Boolean = false,
@@ -107,6 +126,28 @@ internal data class LiveUiState(
     val linkUpcoming: Boolean = false,
     val confirmPlaybackExit: Boolean = false,
 ) {
+    val coversFeed get() = room != null && !minimized || progress == LiveProgress.TUNING
+    val usesDarkRoomAppearance: Boolean
+        get() = when (room?.let { effectSelection.visible(it.effect) }) {
+            "slow", "disco", "party", "rain", "snow" -> true
+            else -> false
+        }
+
+    val chatRows: List<LiveMessage>
+        get() {
+            if (!hosting) return messages.filterNot { it.kind == "djRequest" }
+            if (djRequests.isEmpty()) return messages
+            val publicIds = messages.mapTo(hashSetOf()) { it.id }
+            val privateRequests = djRequests.mapNotNull { request ->
+                if (request.text("chatMessageId") in publicIds) return@mapNotNull null
+                val requestId = "private-dj-request:${request.text("uid")}:${request.number("createdAt")}"
+                LiveMessage(requestId, request + mapOf(
+                    "kind" to "djRequest", "requestStatus" to request.text("status"),
+                ))
+            }
+            return (messages + privateRequests).sortedBy { it.createdAt }
+        }
+
     val hosting get() = room?.host?.uid == uid && room != null
     val miniPlayerRoom get() = if (room == null && setup == null && ended == null) recoverableHostRoom
         else room?.takeIf { minimized }
@@ -185,6 +226,7 @@ internal class LiveViewModel @Inject constructor(
     private var lastTick = 0L
     private var pendingJoin: String? = null
     private var operation: Job? = null
+    private var requestJob: Job? = null
     private var playbackExit: CompletableDeferred<Boolean>? = null
     private var playbackRelease: Job? = null
     private val hiddenRooms = mutableSetOf<String>()
@@ -245,16 +287,6 @@ internal class LiveViewModel @Inject constructor(
                 if (uid == null || access == null) return@collectLatest
                 coroutineScope {
                     launch {
-                        try {
-                            val token = FirebaseMessaging.getInstance().token.await()
-                            repository.call("registerPush", fields = mapOf(
-                                "token" to token, "djInvites" to access.collaboration, "locale" to LiveRepository.locale(),
-                            ))
-                        } catch (error: CancellationException) {
-                            throw error
-                        } catch (_: Exception) { }
-                    }
-                    launch {
                         repository.discovery().catch { error -> showError(error) }.collectLatest { rooms ->
                             discoverySource = rooms
                             refreshDiscovery()
@@ -262,7 +294,17 @@ internal class LiveViewModel @Inject constructor(
                     }
                     if (access.collaboration) launch {
                         repository.invites(uid).catch { error -> showError(error) }.collectLatest { invites ->
-                            update { copy(invites = invites.filter { it.number("expiresAt") > now }) }
+                            val currentInvites = invites.filter { it.number("expiresAt") > now }
+                            update {
+                                val shown = shownInvite
+                                copy(
+                                    invites = currentInvites,
+                                    shownInvite = shown?.takeIf {
+                                        joiningInvite || this.invites.none { it.inviteKey() == shown.inviteKey() } ||
+                                            currentInvites.any { it.inviteKey() == shown.inviteKey() }
+                                    },
+                                )
+                            }
                         }
                     }
                     launch {
@@ -270,6 +312,27 @@ internal class LiveViewModel @Inject constructor(
                             delay(15_000)
                             refreshDiscovery()
                         }
+                    }
+                }
+            }
+        }
+        viewModelScope.launch {
+            ProcessLifecycleOwner.get().lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                state.map { it.uid to it.access?.collaboration }.distinctUntilChanged().collectLatest { (uid, collaboration) ->
+                    if (uid == null || collaboration == null) return@collectLatest
+                    CorusFirebaseMessagingService.tokenChanged.onStart { emit(Unit) }.collectLatest refresh@ {
+                        try {
+                            val token = FirebaseMessaging.getInstance().token.await()
+                            if (auth.currentUserId != uid) return@refresh
+                            val locale = LanguageManager.current(context).tag.ifEmpty {
+                                Resources.getSystem().configuration.locales[0].toLanguageTag()
+                            }
+                            repository.call("registerPush", fields = mapOf(
+                                "token" to token, "djInvites" to collaboration, "locale" to locale,
+                            ))
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (_: Exception) { }
                     }
                 }
             }
@@ -595,20 +658,59 @@ internal class LiveViewModel @Inject constructor(
         }
     }
 
+    fun promptToJoinRoom(destination: DeepLinkDestination.LiveRoom) {
+        if (state.value.access == null || state.value.room?.id == destination.roomId) {
+            join(destination.roomId, link = destination.sharedLink)
+        } else {
+            update { copy(roomJoinPrompt = destination) }
+        }
+    }
+
+    fun dismissRoomJoinPrompt(prompt: DeepLinkDestination.LiveRoom) {
+        update { if (roomJoinPrompt == prompt) copy(roomJoinPrompt = null) else this }
+    }
+
+    fun confirmRoomJoin(prompt: DeepLinkDestination.LiveRoom) {
+        if (state.value.roomJoinPrompt != prompt) return
+        dismissRoomJoinPrompt(prompt)
+        event("invite_opened", source = if (prompt.sharedLink) "share" else "push")
+        join(prompt.roomId, link = prompt.sharedLink)
+    }
+
+    suspend fun roomJoinPreview(id: String): LiveRoom? = repository.room(id)
+
     fun join(id: String, link: Boolean = false, invite: LiveFields? = null) {
         if (state.value.access == null) {
             if (state.value.accessResolved) update { copy(error = "Live is unavailable.") }
             return
         }
         if (state.value.room?.id == id) {
-            expand()
-            invite?.let { action("acceptDJInvite", mapOf("inviteExpiresAt" to it.number("expiresAt"))) }
+            if (invite == null) expand()
+            else runOperation(onError = ::showInviteJoinError) {
+                command("acceptDJInvite", id, mapOf("inviteExpiresAt" to invite.number("expiresAt")))
+                clearInvite()
+                expand()
+            }
             return
         }
         if (operation?.isActive == true) return
         pendingJoin = id
+        val entranceStartedAt = SystemClock.elapsedRealtime()
+        suspend fun awaitEntrance() {
+            delay((LiveJoinMinimumMs - (SystemClock.elapsedRealtime() - entranceStartedAt)).coerceAtLeast(0))
+        }
+        suspend fun finishEntrance() {
+            val remaining = LiveJoinMinimumMs - LiveJoinFinishMs - (SystemClock.elapsedRealtime() - entranceStartedAt)
+            delay(remaining.coerceAtLeast(0))
+            update { copy(joinReady = true) }
+            delay(LiveJoinFinishMs.toLong())
+        }
+        update { copy(joiningRoom = discovery.firstOrNull { it.id == id }) }
         event("join_attempted", source = if (link) "share_link" else if (invite != null) "dj_invite" else "discovery")
-        runOperation(LiveProgress.TUNING) {
+        runOperation(
+            progress = if (invite == null) LiveProgress.TUNING else null,
+            onError = if (invite == null) null else ::showInviteJoinError,
+        ) {
             if (link) {
                 when (repository.call("resolveShareLink", id).text("status")) {
                     "upcoming" -> {
@@ -622,11 +724,22 @@ internal class LiveViewModel @Inject constructor(
                     }
                 }
             }
-            val original = repository.room(id) ?: error("This room is unavailable.")
-            if (state.value.room != null) exitCurrent(end = state.value.hosting, showSetlist = false)
+            val original = repository.room(id)
+            if (original == null) {
+                if (invite == null) error("This room is unavailable.")
+                pendingJoin = null
+                update { copy(joiningInvite = false, inviteError = R.string.live_dj_invitation_unavailable) }
+                return@runOperation
+            }
+            update { copy(joiningRoom = original) }
+            if (state.value.room != null) {
+                check(invite == null)
+                exitCurrent(end = state.value.hosting, showSetlist = false)
+            }
             liveProvider = selectedLiveProvider()
             if (liveProvider == MusicService.SPOTIFY && original.current?.playsFromSource != true) {
                 try {
+                    awaitEntrance()
                     spotify.authorizeForLink()
                 } catch (error: CancellationException) {
                     throw error
@@ -636,25 +749,46 @@ internal class LiveViewModel @Inject constructor(
             }
             if (original.host.uid == state.value.uid) {
                 command("tick", id, mapOf("hostActivity" to "foreground"))
-                mount(repository.room(id) ?: original)
+                val room = repository.room(id) ?: original
+                finishEntrance()
+                mount(room)
+                pendingJoin = null
                 return@runOperation
             }
-            var latest = original
+            var latest: LiveRoom = original
             repeat(3) { attempt ->
                 try {
                     command("join", id, mapOf(
                         "revision" to latest.revision, "voiceProtocol" to 1,
                         "collaborationProtocol" to 1, "musicService" to liveProvider?.value,
                     ))
-                    mount(latest)
-                    pendingJoin = null
-                    invite?.let { command("acceptDJInvite", id, mapOf("inviteExpiresAt" to it.number("expiresAt"))) }
-                    event("join_finished", "joined", if (link) "share_link" else "discovery")
-                    return@runOperation
                 } catch (error: FirebaseFunctionsException) {
                     if (attempt == 2 || error.code != FirebaseFunctionsException.Code.ABORTED) throw error
                     latest = repository.room(id) ?: throw error
+                    update { copy(joiningRoom = latest) }
+                    return@repeat
                 }
+                if (invite != null) {
+                    try {
+                        command("acceptDJInvite", id, mapOf("inviteExpiresAt" to invite.number("expiresAt")))
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (error: Exception) {
+                        try {
+                            command("leave", id)
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (_: Exception) { }
+                        throw error
+                    }
+                    clearInvite()
+                } else {
+                    finishEntrance()
+                }
+                mount(latest)
+                pendingJoin = null
+                event("join_finished", "joined", if (link) "share_link" else if (invite != null) "dj_invite" else "discovery")
+                return@runOperation
             }
         }
     }
@@ -774,7 +908,18 @@ internal class LiveViewModel @Inject constructor(
 
     fun confirmPlaybackExit(leave: Boolean) { playbackExit?.complete(leave) }
 
-    fun leave() = runOperation { exitCurrent(end = false, showSetlist = false) }
+    fun leave() = runOperation {
+        val room = state.value.room ?: return@runOperation
+        closeRoom(null)
+        try {
+            command("leave", room.id)
+            event("listener_left")
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            // Presence expires if the leave could not reach the server.
+        }
+    }
     fun end() = runOperation { exitCurrent(end = true, showSetlist = true) }
 
     private suspend fun exitCurrent(end: Boolean, showSetlist: Boolean) {
@@ -787,6 +932,23 @@ internal class LiveViewModel @Inject constructor(
         event(if (end) "host_ended" else "listener_left")
     }
 
+    fun requestAction(name: String, fields: LiveFields = emptyMap()) {
+        val room = state.value.room ?: return
+        if (requestJob?.isActive == true) return
+        requestJob = viewModelScope.launch {
+            update { copy(requestBusy = true) }
+            try {
+                command(name, room.id, fields)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (state.value.room?.id == room.id) showError(error)
+            } finally {
+                if (state.value.room?.id == room.id) update { copy(requestBusy = false) }
+            }
+        }
+    }
+
     fun action(name: String, fields: LiveFields = emptyMap(), done: ((LiveFields) -> Unit)? = null) {
         val room = state.value.room ?: return
         viewModelScope.launch {
@@ -797,6 +959,41 @@ internal class LiveViewModel @Inject constructor(
                 throw error
             } catch (error: Exception) {
                 if (state.value.room?.id == room.id) showError(error)
+            }
+        }
+    }
+
+    fun resolveTalkRequest(
+        requestId: String,
+        approve: Boolean,
+        onResolved: (approved: Boolean) -> Unit,
+        onFinished: () -> Unit,
+    ) {
+        val room = state.value.room ?: return onFinished()
+        if (!state.value.hosting || room.voiceMode == "talk") return onFinished()
+        val fields = buildMap {
+            put("talkRequestId", requestId)
+            if (approve) {
+                put("mode", "talk")
+                put("expectedVoiceSession", room.voiceSession)
+            }
+        }
+        viewModelScope.launch {
+            try {
+                command(if (approve) "voiceMode" else "declineTalkRequest", room.id, fields)
+                if (state.value.room?.id == room.id) onResolved(approve)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (state.value.room?.id == room.id) {
+                    if (error is FirebaseFunctionsException && error.code == FirebaseFunctionsException.Code.ABORTED) {
+                        onResolved(false)
+                    } else {
+                        showError(error)
+                    }
+                }
+            } finally {
+                onFinished()
             }
         }
     }
@@ -832,25 +1029,99 @@ internal class LiveViewModel @Inject constructor(
         }
     }
 
-    fun openInvite(id: String) = runOperation {
-        val uid = state.value.uid ?: return@runOperation
-        val invite = repository.invite(uid, id)?.takeIf { it.number("expiresAt") > now }
-            ?: error("This invite has expired.")
-        presentInvite(invite)
+    fun openInvite(id: String, recipientId: String?, expiresAt: Long?) =
+        update { copy(pendingInvitePush = LiveInvitePush(id, recipientId, expiresAt)) }
+
+    suspend fun presentPendingInvite(push: LiveInvitePush?, candidate: LiveFields?) {
+        val uid = state.value.uid ?: return
+        val roomId = push?.roomId ?: candidate?.text("roomId") ?: return
+        try {
+            if (push?.recipientId != null && push.recipientId != uid) return
+            val invite = (candidate ?: repository.invite(uid, roomId))?.takeIf {
+                it.number("expiresAt") > now &&
+                    (push?.expiresAt == null || it.number("expiresAt") == push.expiresAt)
+            }
+            val available = invite != null && try {
+                command("inspect", roomId)
+                invite.number("expiresAt") > now
+            } catch (error: FirebaseFunctionsException) {
+                if (!error.isUnavailableDJInvite()) throw error
+                false
+            }
+            currentCoroutineContext().ensureActive()
+            val current = state.value
+            if (current.uid != uid || current.joiningInvite || current.pendingInvitePush != push) return
+            if (push == null && current.shownInvite != null) return
+            if (available && invite != null) {
+                if (push == null && current.invites.none { it.inviteKey() == invite.inviteKey() }) return
+                event("invite_opened", source = if (push == null) "in_app" else "notification")
+                update { copy(shownInvite = invite, seenInviteKeys = seenInviteKeys + invite.inviteKey(), inviteError = null) }
+            } else if (push != null) {
+                val message = LanguageManager.wrapContext(context).getString(R.string.live_dj_invitation_unavailable)
+                update { copy(error = message) }
+            } else if (candidate != null) {
+                update { copy(seenInviteKeys = seenInviteKeys + candidate.inviteKey()) }
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            if (push != null && state.value.uid == uid) {
+                val message = LanguageManager.wrapContext(context).getString(R.string.live_dj_invitation_open_error)
+                update { copy(error = message) }
+            }
+        } finally {
+            if (push != null && currentCoroutineContext().isActive) {
+                update { if (uid == this.uid && pendingInvitePush == push) copy(pendingInvitePush = null) else this }
+            }
+        }
     }
 
-    fun presentInvite(invite: LiveFields) {
-        event("invite_opened", source = "notification")
-        update { copy(shownInvite = invite) }
+    private fun clearInvite() = update { copy(shownInvite = null, joiningInvite = false, inviteError = null) }
+
+    fun closeInvite() {
+        if (!state.value.joiningInvite) clearInvite()
     }
 
-    fun closeInvite() = update { copy(shownInvite = null) }
+    private fun FirebaseFunctionsException.isUnavailableDJInvite() =
+        code == FirebaseFunctionsException.Code.NOT_FOUND || code == FirebaseFunctionsException.Code.FAILED_PRECONDITION
+
+    private fun showInviteJoinError(error: Exception) {
+        pendingJoin = null
+        val unavailable = (error as? FirebaseFunctionsException)?.isUnavailableDJInvite() == true
+        update {
+            copy(
+                joiningInvite = false,
+                inviteError = if (unavailable) R.string.live_dj_invitation_unavailable
+                    else R.string.live_dj_invitation_join_error,
+            )
+        }
+    }
 
     fun inviteDecision(invite: LiveFields, accept: Boolean) {
-        closeInvite()
+        val current = state.value
+        if (current.shownInvite?.inviteKey() != invite.inviteKey() || current.joiningInvite) return
         val id = invite.text("roomId")
-        if (accept) join(id, invite = invite)
-        else runOperation { command("declineDJInvite", id, mapOf("inviteExpiresAt" to invite.number("expiresAt"))) }
+        val fields = mapOf("inviteExpiresAt" to invite.number("expiresAt"))
+        if (accept) {
+            if (current.room?.id?.let { it != id } == true || operation?.isActive == true || current.access == null) return
+            if (invite.number("expiresAt") <= now) {
+                update { copy(inviteError = R.string.live_dj_invitation_unavailable) }
+                return
+            }
+            update { copy(joiningInvite = true, inviteError = null) }
+            join(id, invite = invite)
+        } else {
+            clearInvite()
+            viewModelScope.launch {
+                try {
+                    if (repository.invite(current.uid ?: return@launch, id)?.inviteKey() == invite.inviteKey() &&
+                        state.value.uid == current.uid
+                    ) command("declineDJInvite", id, fields)
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) { }
+            }
+        }
     }
 
     suspend fun renameRoom(roomId: String, title: String) {
@@ -1172,7 +1443,8 @@ internal class LiveViewModel @Inject constructor(
                 if (state.value.room?.id != id) return@collect
                 fun withAvatars() = messages.map { message ->
                     val sender = message.author
-                    val avatar = knownAuthors[sender.uid]?.avatar ?: sender.avatar
+                    val profile = knownAuthors[sender.uid]
+                    val avatar = profile?.avatar ?: sender.avatar
                     if (avatar == sender.avatar) message else message.copy(author = sender.copy(avatar = avatar))
                 }
                 update { copy(messages = withAvatars()) }
@@ -1206,6 +1478,11 @@ internal class LiveViewModel @Inject constructor(
         roomJobs += viewModelScope.launch {
             repository.ownRequest(id, "djRequests", uid).catch { }.collect { request ->
                 if (state.value.room?.id == id) update { copy(myDJRequest = request) }
+            }
+        }
+        roomJobs += viewModelScope.launch {
+            repository.ownRequest(id, "songRequests", uid).catch { }.collect { request ->
+                if (state.value.room?.id == id) update { copy(mySongRequest = request) }
             }
         }
         if (initialHost) state.value.room?.let { observeHostRecords(it, uid) }
@@ -1291,19 +1568,20 @@ internal class LiveViewModel @Inject constructor(
 
     private fun appleQueueTarget(room: LiveRoom): AppleQueueTarget? {
         val current = state.value
-        if (!foreground || !current.hosting || current.access?.appleMusicHostAutoplay != true ||
+        if (!current.hosting || current.access?.appleMusicHostAutoplay != true ||
             current.muted || welcomePlaying || auditionPlaying || operation?.isActive == true ||
             room.id != current.room?.id || room.status != "playing" || room.pausedAt != null ||
             room.voiceMode == "talk" || room.pendingSkip != null || confirmedRevision != room.revision ||
             room.current?.playsFromSource != false || liveProvider != MusicService.APPLE_MUSIC
         ) return null
-        val nativeQueue = applePlayer as? AppleMusicLiveQueue ?: return null
+        val nativeQueue = applePlayer?.takeIf { it.playerError == null } as? AppleMusicLiveQueue ?: return null
         val next = room.nextTrack?.takeUnless { it.playsFromSource } ?: return null
         return AppleQueueTarget(nativeQueue, room.id, room.revision, room.queueVersion, next)
     }
 
     // Let MusicKit cross the track boundary before publishing the new room clock.
-    // If MusicKit can't stage or start the next song, the room's deadline still advances it.
+    // The foreground host can fall back to a scheduled advance. In the background,
+    // only publish an advance after MusicKit confirms that the staged track started.
     private suspend fun followAppleMusicQueue(room: LiveRoom): Boolean {
         val target = appleQueueTarget(room)
         if (target != appleQueueTarget) {
@@ -1331,8 +1609,9 @@ internal class LiveViewModel @Inject constructor(
                 }
             }
         }
-        if (target == null || now >= room.deadline + APPLE_QUEUE_GRACE_MS) return false
+        if (target == null) return false
         if (appleAdvanceConfirmed == target) return true
+        if (foreground && now >= room.deadline + APPLE_QUEUE_GRACE_MS) return false
         val position = target.player.stagedPosition(target.track.id, target.revision)
         if (position == null) return now >= room.deadline && target.player.hasStagedNext(target.track.id, target.revision)
         if (position >= target.track.duration) return false
@@ -1340,7 +1619,7 @@ internal class LiveViewModel @Inject constructor(
 
         appleTrackKey = target.track.appleKey
         initialTrackRevision = room.revision + 1
-        return try {
+        val confirmed = try {
             withTimeoutOrNull(APPLE_QUEUE_GRACE_MS) {
                 command("confirmAppleMusicAdvance", room.id, mapOf(
                     "revision" to room.revision,
@@ -1349,15 +1628,24 @@ internal class LiveViewModel @Inject constructor(
                     "trackSource" to target.track.song.source.raw,
                     "positionMs" to position,
                 ))
-            }?.let {
-                appleAdvanceConfirmed = target
                 true
-            } ?: false
+            } == true
         } catch (error: CancellationException) {
             throw error
         } catch (_: Exception) {
             false
         }
+        if (confirmed) {
+            appleAdvanceConfirmed = target
+            return true
+        }
+        if (!foreground) {
+            // Keep streaming across a transient network failure and check again
+            // against the latest room snapshot and native playback position.
+            delay(750)
+            return true
+        }
+        return false
     }
 
     private fun synchronize(room: LiveRoom, force: Boolean = false): Job? {
@@ -1674,7 +1962,11 @@ internal class LiveViewModel @Inject constructor(
         return result
     }
 
-    private fun runOperation(progress: LiveProgress? = null, block: suspend () -> Unit) {
+    private fun runOperation(
+        progress: LiveProgress? = null,
+        onError: ((Exception) -> Unit)? = null,
+        block: suspend () -> Unit,
+    ) {
         if (operation?.isActive == true) return
         operation = viewModelScope.launch {
             update { copy(progress = progress, error = null) }
@@ -1683,9 +1975,9 @@ internal class LiveViewModel @Inject constructor(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                showError(error)
+                if (onError != null) onError(error) else showError(error)
             } finally {
-                update { copy(progress = null) }
+                update { copy(progress = null, joiningRoom = null, joinReady = false) }
             }
         }
     }
@@ -1705,12 +1997,15 @@ internal class LiveViewModel @Inject constructor(
         update {
             copy(room = null, ended = ended, minimized = false, pendingChatEnabled = null, messages = emptyList(),
                 audioReady = false, audioError = null, micEnabled = false, voiceLevels = emptyMap(), membership = emptyMap(),
-                pendingDJs = emptyList(), djRequests = emptyList(), myDJRequest = emptyMap(), queueUpdating = false,
+                pendingDJs = emptyList(), djRequests = emptyList(), myDJRequest = emptyMap(),
+                mySongRequest = emptyMap(), requestBusy = false, queueUpdating = false,
                 effectSelection = LiveEffectSelection())
         }
     }
 
     private fun resetRoom() {
+        requestJob?.cancel()
+        requestJob = null
         roomJobs.forEach(Job::cancel)
         roomJobs.clear()
         hostRecords?.cancel()

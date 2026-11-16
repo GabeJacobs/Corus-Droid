@@ -52,6 +52,21 @@ import fm.corus.android.ui.theme.CorusSystemBars
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun PostActionMenuSheet(onDismiss: () -> Unit, content: @Composable () -> Unit) {
+    CorusModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberGuardedSheetState(skipPartiallyExpanded = true),
+        dragHandle = null,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+    ) {
+        CorusSystemBars()
+        BackHandler(onBack = onDismiss)
+        content()
+    }
+}
+
 /**
  * Shared bottom-sheet / dialog bundle for the post "…" menu: action menu,
  * share sheet, edit-caption sheet, and delete confirmation dialog. All three
@@ -227,18 +242,10 @@ fun PostMenuSheets(
 
     // ── Post Action Menu Bottom Sheet ──
     menuPost?.let { post ->
-        val menuSheetState = rememberGuardedSheetState(skipPartiallyExpanded = true)
         val isOwn = actions.isOwnPost(post)
         val isSaved = engagementStates[post.id]?.isSaved ?: false
 
-        CorusModalBottomSheet(
-            onDismissRequest = { onMenuPostChange(null) },
-            sheetState = menuSheetState,
-            dragHandle = null,
-            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        ) {
-            CorusSystemBars()
-            BackHandler { onMenuPostChange(null) }
+        PostActionMenuSheet(onDismiss = { onMenuPostChange(null) }) {
             PostActionMenu(
                 post = post,
                 isMine = isOwn,

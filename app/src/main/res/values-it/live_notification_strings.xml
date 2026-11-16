@@ -1,0 +1,20 @@
+<resources>
+    <string name="live_join_room_prompt">Entrare in questa stanza in diretta?</string>
+    <string name="live_join_room">Entra nella stanza</string>
+    <string name="live_notification_settings">Stanze in diretta</string>
+    <string name="live_notification_preview_title">%1$s è in diretta</string>
+    <string name="live_notification_message_placeholder">Scrivi un messaggio personalizzato</string>
+    <string name="live_notify_followers_description">Invia una notifica push quando vai in diretta</string>
+    <string name="live_dj_invitation_title">Invito a fare il DJ</string>
+    <string name="live_dj_invitation_close">Chiudi l’invito</string>
+    <string name="live_dj_invitation_from_host">%1$s ti ha invitato a fare il DJ nella sua stanza in diretta.</string>
+    <string name="live_dj_invitation_from_codj">%1$s ti ha invitato a fare il DJ in una stanza in diretta.</string>
+    <string name="live_dj_invitation_host_fallback">Host</string>
+    <string name="live_dj_invitation_join">Entra come DJ</string>
+    <string name="live_dj_invitation_joining">Ingresso in corso…</string>
+    <string name="live_dj_invitation_decline">Rifiuta</string>
+    <string name="live_dj_invitation_other_room">Esci dalla stanza attuale prima di entrare come DJ.</string>
+    <string name="live_dj_invitation_unavailable">Questo invito a fare il DJ non è più disponibile.</string>
+    <string name="live_dj_invitation_open_error">Impossibile aprire l’invito a fare il DJ. Riprova.</string>
+    <string name="live_dj_invitation_join_error">Impossibile entrare come DJ. Riprova.</string>
+</resources>

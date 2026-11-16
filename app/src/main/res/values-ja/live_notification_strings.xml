@@ -1,0 +1,20 @@
+<resources>
+    <string name="live_join_room_prompt">このライブルームに参加しますか？</string>
+    <string name="live_join_room">ルームに参加</string>
+    <string name="live_notification_settings">ライブルーム</string>
+    <string name="live_notification_preview_title">%1$sがライブ配信中</string>
+    <string name="live_notification_message_placeholder">カスタムメッセージを書く</string>
+    <string name="live_notify_followers_description">ライブ配信を開始したときにプッシュ通知を送信</string>
+    <string name="live_dj_invitation_title">DJの招待</string>
+    <string name="live_dj_invitation_close">招待を閉じる</string>
+    <string name="live_dj_invitation_from_host">%1$sが自分のライブルームのDJにあなたを招待しました。</string>
+    <string name="live_dj_invitation_from_codj">%1$sがライブルームのDJにあなたを招待しました。</string>
+    <string name="live_dj_invitation_host_fallback">ホスト</string>
+    <string name="live_dj_invitation_join">DJとして参加</string>
+    <string name="live_dj_invitation_joining">参加中…</string>
+    <string name="live_dj_invitation_decline">辞退する</string>
+    <string name="live_dj_invitation_other_room">DJとして参加する前に、今いるルームから退出してください。</string>
+    <string name="live_dj_invitation_unavailable">このDJ招待はもう利用できません。</string>
+    <string name="live_dj_invitation_open_error">DJ招待を開けませんでした。もう一度お試しください。</string>
+    <string name="live_dj_invitation_join_error">DJとして参加できませんでした。もう一度お試しください。</string>
+</resources>

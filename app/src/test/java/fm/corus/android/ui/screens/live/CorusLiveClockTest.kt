@@ -36,20 +36,37 @@ class CorusLiveClockTest {
         assertFalse(guestTurn.canLikeFromMiniPlayer("listener", 181_000L))
     }
 
-    @Test fun appleMusicStagesTheNextDjInServerRotation() {
+    @Test fun nextTrackAndDjFollowServerRotation() {
         fun song(id: String) = mapOf("id" to id, "title" to id, "durationMs" to 180_000)
         val lineup = fields + mapOf(
             "queue" to listOf(song("hostSong")),
             "djs" to listOf(
-                mapOf("order" to 1, "queue" to emptyList<LiveFields>()),
-                mapOf("order" to 2, "queue" to listOf(song("guestSong"))),
+                mapOf("uid" to "emptyGuest", "order" to 1, "queue" to emptyList<LiveFields>()),
+                mapOf("uid" to "guest", "order" to 2, "queue" to listOf(song("guestSong"))),
             ),
         )
 
         assertEquals("guestSong", LiveRoom("room", lineup).nextTrack?.id)
+        assertEquals("guest", LiveRoom("room", lineup).nextDJUid)
         val afterGuest = lineup + ("currentDJOrder" to 2)
         assertEquals("hostSong", LiveRoom("room", afterGuest).nextTrack?.id)
+        assertEquals("host", LiveRoom("room", afterGuest).nextDJUid)
         assertEquals("guestSong", LiveRoom("room", afterGuest - "queue").nextTrack?.id)
+        assertEquals("guest", LiveRoom("room", afterGuest - "queue").nextDJUid)
+        assertEquals(null, LiveRoom("room", lineup - "djs").nextDJUid)
+    }
+
+    @Test fun playingDjTracksCollaborativePlayback() {
+        val lineup = fields + mapOf(
+            "djs" to listOf(mapOf("uid" to "guest")),
+            "currentDJ" to mapOf("uid" to "guest"),
+        )
+        assertEquals("guest", LiveRoom("room", lineup).playingDJUid)
+        assertEquals("host", LiveRoom("room", lineup - "currentDJ").playingDJUid)
+        assertEquals(null, LiveRoom("room", lineup + ("voiceMode" to "talk")).playingDJUid)
+        assertEquals(null, LiveRoom("room", lineup + ("pausedAt" to 6_000L)).playingDJUid)
+        assertEquals(null, LiveRoom("room", lineup + ("pendingSkip" to mapOf("id" to "skip"))).playingDJUid)
+        assertEquals(null, LiveRoom("room", fields).playingDJUid)
     }
 
     @Test fun expiredEndedAndEmptyRoomsCannotPlayMusic() {

@@ -12,7 +12,14 @@ sealed class DeepLinkDestination {
     data class PostComment(val postId: String, val commentId: String) : DeepLinkDestination()
     data class Thread(val threadId: String, val otherUserId: String = "") : DeepLinkDestination()
     data class Hashtag(val tag: String) : DeepLinkDestination()
-    data class LiveRoom(val roomId: String, val fromInvite: Boolean = false, val sharedLink: Boolean = false) : DeepLinkDestination()
+    data class LiveRoom(
+        val roomId: String,
+        val fromInvite: Boolean = false,
+        val sharedLink: Boolean = false,
+        val inviteRecipientId: String? = null,
+        val inviteExpiresAt: Long? = null,
+        val hostName: String? = null,
+    ) : DeepLinkDestination()
     data object Club : DeepLinkDestination()
     data class Map(val cityId: String?, val userIds: List<String>) : DeepLinkDestination()
     data class Concert(val eventId: String) : DeepLinkDestination()
@@ -118,8 +125,17 @@ object DeepLinkHandler {
     fun parseNotificationData(data: Map<String, String>): DeepLinkDestination? {
         val type = data["type"] ?: return fallbackParse(data)
         return when (type) {
-            "corus_live" -> liveDestination(data["roomId"])
-            "corus_live_dj_invite" -> liveDestination(data["roomId"], fromInvite = true)
+            "corus_live" -> liveDestination(data["roomId"])?.copy(
+                hostName = data["hostName"]?.trim()?.takeIf { it.isNotEmpty() },
+            )
+            "corus_live_dj_invite" -> {
+                val recipientId = data["recipientId"]?.takeIf { it.isNotBlank() } ?: return null
+                val expiresAt = data["expiresAt"]?.toLongOrNull()?.takeIf { it > 0 } ?: return null
+                liveDestination(data["roomId"], fromInvite = true)?.copy(
+                    inviteRecipientId = recipientId,
+                    inviteExpiresAt = expiresAt,
+                )
+            }
             "updates_and_reminders" -> parseCampaignDestination(data)
             "new_release" -> entityDestination(data["destinationType"], data["destinationId"])
             "concert_announcement" -> {

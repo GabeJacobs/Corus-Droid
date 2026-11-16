@@ -64,11 +64,15 @@ fun CorusTheme(
     darkTheme: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val palette = if (darkTheme) DarkCorusPalette else LightCorusPalette
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
-
     CorusWindowAppearance(darkTheme)
     CorusSystemBars(darkTheme)
+    CorusContentTheme(darkTheme, content)
+}
+
+@Composable
+internal fun CorusContentTheme(darkTheme: Boolean, content: @Composable () -> Unit) {
+    val palette = if (darkTheme) DarkCorusPalette else LightCorusPalette
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
     val shimmerTheme = remember(darkTheme) { corusShimmerTheme(darkTheme) }
     CompositionLocalProvider(

@@ -150,9 +150,9 @@ fun MainTabScreen(
     val liveShowGoLiveOnLaunch = remember(remoteConfig, remoteConfigRevision) { remoteConfig.liveShowGoLiveOnLaunch }
     val liveNavigationState = LiveNavigationState(
         access = liveState.access,
+        roomCoversFeed = liveState.coversFeed,
         discovery = liveState.discovery,
         discoveryCounts = liveState.discoveryCounts,
-        invites = liveState.invites,
         showGoLive = liveState.uid != null && (liveShowGoLiveOnLaunch || liveState.cachedMenuAccess),
         canOpenSetup = liveState.setup == null && liveState.progress == null && (liveState.room == null || liveState.hosting),
         mixedSaves = liveState.mixedSaves,
@@ -183,7 +183,7 @@ fun MainTabScreen(
     // white-over-hero icons leak onto a light Feed/Profile as invisible
     // white-on-white. The active immersive page (if any) re-applies its own
     // override right after, keyed on its tab becoming selected again.
-    val darkTheme = LocalCorusDarkTheme.current
+    val darkTheme = LocalCorusDarkTheme.current || (!liveState.minimized && liveState.usesDarkRoomAppearance)
     val rootView = LocalView.current
     LaunchedEffect(selectedTab, darkTheme) {
         (rootView.context as? Activity)?.window?.let { window ->
@@ -418,11 +418,14 @@ fun MainTabScreen(
         if (notificationDestination == null) return@LaunchedEffect
         if (notificationDestination is DeepLinkDestination.LiveRoom) {
             if (!liveLinkReady) return@LaunchedEffect
-            val invite = liveState.invites.firstOrNull { it["roomId"] == notificationDestination.roomId }
             if (notificationDestination.fromInvite) {
-                if (invite != null) liveViewModel.presentInvite(invite) else liveViewModel.openInvite(notificationDestination.roomId)
+                liveViewModel.openInvite(
+                    notificationDestination.roomId,
+                    notificationDestination.inviteRecipientId,
+                    notificationDestination.inviteExpiresAt,
+                )
             } else {
-                liveViewModel.join(notificationDestination.roomId, link = notificationDestination.sharedLink)
+                liveViewModel.promptToJoinRoom(notificationDestination)
             }
             onNotificationDestinationConsumed()
             return@LaunchedEffect

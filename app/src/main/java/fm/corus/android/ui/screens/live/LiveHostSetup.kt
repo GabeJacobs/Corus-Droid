@@ -8,6 +8,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
@@ -360,7 +361,10 @@ internal fun LiveHostSetup(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 LiveText("CORUS", CorusFont.caption, CorusColors.Secondary)
-                LiveText("@${profile?.username.orEmpty()} is live", CorusFont.username)
+                LiveText(
+                    stringResource(R.string.live_notification_preview_title, "@${profile?.username.orEmpty()}"),
+                    CorusFont.username,
+                )
                 BasicTextField(
                     value = setup.notificationMessage,
                     onValueChange = { message -> vm.editSetup { copy(notificationMessage = limitLiveCharacters(message, 140)) } },
@@ -410,8 +414,20 @@ internal fun limitLiveCharacters(value: String, max: Int): String {
     return value.substring(0, boundary.current())
 }
 
+internal val LiveLoadingArtworkSize = 132.dp
+
+internal val LiveTrack.loadingArtworkUrl: String?
+    get() = (song.albumArtLargeURL?.takeIf(String::isNotBlank) ?: song.albumArtURL?.takeIf(String::isNotBlank))
+        ?.let(::collectionArtworkUrl)
+
 @Composable
-internal fun LiveLoading(progress: LiveProgress, track: LiveTrack? = null) {
+internal fun LiveLoading(
+    progress: LiveProgress,
+    track: LiveTrack? = null,
+    roomTitle: String? = null,
+    joinReady: Boolean = false,
+) {
+    val tuning = progress == LiveProgress.TUNING
     val titleTravel = with(LocalDensity.current) { 6.dp.roundToPx() }
     val progressFraction by animateFloatAsState(
         targetValue = if (progress == LiveProgress.PREPARING) .2f else .7f,
@@ -425,47 +441,58 @@ internal fun LiveLoading(progress: LiveProgress, track: LiveTrack? = null) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterVertically),
     ) {
-        val artwork = track?.song?.let { song ->
-            (song.albumArtLargeURL?.takeIf(String::isNotBlank) ?: song.albumArtURL)
-                ?.let(::collectionArtworkUrl)
-        }
-        LiveArtwork(artwork, 132.dp)
-        AnimatedContent(
-            targetState = progress,
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.Center,
-            transitionSpec = {
-                (slideInVertically(tween(240)) { titleTravel } + fadeIn(tween(240))) togetherWith
-                    (slideOutVertically(tween(180)) { -titleTravel } + fadeOut(tween(180)))
-            },
-            label = "Live startup message",
-        ) { stage ->
-            val message = when (stage) {
-                LiveProgress.TUNING -> stringResource(CorusStrings.corus_live_tuning_in)
-                LiveProgress.PREPARING -> stringResource(CorusStrings.corus_live_getting_ready)
-                LiveProgress.CUEING -> stringResource(CorusStrings.corus_live_cueing_first_song)
-                LiveProgress.STARTING_SPOTIFY -> stringResource(R.string.live_starting_spotify)
-                LiveProgress.STARTING_APPLE_MUSIC -> stringResource(R.string.live_starting_apple_music)
-                LiveProgress.STARTING -> stringResource(CorusStrings.corus_live_going_live)
+        LiveArtwork(track?.loadingArtworkUrl, LiveLoadingArtworkSize, showPlaceholderWhileLoading = true)
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(if (tuning) 5.dp else 7.dp),
+        ) {
+            AnimatedContent(
+                targetState = progress,
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+                transitionSpec = {
+                    (slideInVertically(tween(240)) { titleTravel } + fadeIn(tween(240))) togetherWith
+                        (slideOutVertically(tween(180)) { -titleTravel } + fadeOut(tween(180)))
+                },
+                label = "Live startup message",
+            ) { stage ->
+                val message = when (stage) {
+                    LiveProgress.TUNING -> stringResource(CorusStrings.corus_live_tuning_in)
+                    LiveProgress.PREPARING -> stringResource(CorusStrings.corus_live_getting_ready)
+                    LiveProgress.CUEING -> stringResource(CorusStrings.corus_live_cueing_first_song)
+                    LiveProgress.STARTING_SPOTIFY -> stringResource(R.string.live_starting_spotify)
+                    LiveProgress.STARTING_APPLE_MUSIC -> stringResource(R.string.live_starting_apple_music)
+                    LiveProgress.STARTING -> stringResource(CorusStrings.corus_live_going_live)
+                }
+                Text(
+                    message,
+                    color = CorusColors.Text,
+                    style = CorusFont.songTitleLarge.copy(textAlign = TextAlign.Center),
+                    maxLines = 2,
+                )
             }
-            Text(
-                message,
-                color = CorusColors.Text,
-                style = CorusFont.songTitleLarge.copy(textAlign = TextAlign.Center),
-                minLines = 2,
-            )
+            if (tuning) {
+                roomTitle?.let { LiveText(it, CorusFont.username, lines = 1) }
+            }
+            track?.let { LiveText("${it.song.name} · ${it.song.artistName}", color = CorusColors.Secondary, lines = 2) }
         }
-        track?.let { LiveText("${it.song.name} · ${it.song.artistName}", color = CorusColors.Secondary, lines = 2) }
-        if (progress == LiveProgress.TUNING) {
-            LinearProgressIndicator(modifier = Modifier.width(224.dp), color = CorusColors.Accent)
-        } else {
-            LinearProgressIndicator(
-                progress = { progressFraction },
-                modifier = Modifier.width(224.dp), color = CorusColors.Accent,
-                gapSize = 0.dp,
-                drawStopIndicator = {},
-            )
-        }
+        val tuningFraction = if (tuning) {
+            val fraction = remember { Animatable(0f) }
+            LaunchedEffect(joinReady) {
+                if (joinReady) {
+                    fraction.animateTo(1f, tween(LiveJoinFinishMs - 40, easing = LinearEasing))
+                } else {
+                    fraction.animateTo(.9f, tween(LiveJoinMinimumMs - LiveJoinFinishMs, easing = LinearEasing))
+                }
+            }
+            fraction
+        } else null
+        LinearProgressIndicator(
+            progress = { tuningFraction?.value ?: progressFraction },
+            modifier = Modifier.width(224.dp), color = CorusColors.Accent,
+            gapSize = 0.dp,
+            drawStopIndicator = {},
+        )
     }
 }
 
@@ -1015,7 +1042,6 @@ internal fun LivePersonPicker(
 ) {
     var query by remember { mutableStateOf("") }
     var focused by remember { mutableStateOf(false) }
-    var expand by remember { mutableStateOf(false) }
     var recent by remember { mutableStateOf<List<LivePerson>?>(null) }
     var results by remember { mutableStateOf<List<LivePerson>>(emptyList()) }
     var loadedQuery by remember { mutableStateOf<String?>(null) }
@@ -1063,17 +1089,15 @@ internal fun LivePersonPicker(
     LiveSheet(
         "Invite DJs", close,
         large = true, done = close.takeIf { setup }, sheetToolbar = true,
-        startsHalfExpanded = true, expand = expand, dismissKeyboardFromHeader = setup,
+        dismissKeyboardFromHeader = setup,
+        fixedTopGap = 28.dp,
     ) {
         val sheetFocus = LocalFocusManager.current
         val sheetKeyboard = LocalSoftwareKeyboardController.current
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
-            modifier = Modifier.fillMaxWidth().onFocusChanged {
-                focused = it.isFocused
-                if (it.isFocused) expand = true
-            },
+            modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused },
             singleLine = true,
             textStyle = CorusFont.body,
             placeholder = { LiveText(stringResource(CorusStrings.nav_search), color = CorusColors.Secondary) },

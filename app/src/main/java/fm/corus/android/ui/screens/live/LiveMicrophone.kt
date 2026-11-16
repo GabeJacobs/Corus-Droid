@@ -267,11 +267,6 @@ internal fun LiveMicrophone(
 @Composable
 private fun LiveMicrophoneMeter(amplitude: Float) {
     val level = microphoneMeterLevel(amplitude)
-    val activeColor = when {
-        level > LoudMicMeterLevel -> LiveRed
-        amplitude > GoodMicLevel -> CorusColors.Verified
-        else -> CorusColors.Accent
-    }
     Row(
         Modifier.fillMaxWidth().semantics {
             contentDescription = "Microphone level"
@@ -281,7 +276,7 @@ private fun LiveMicrophoneMeter(amplitude: Float) {
     ) {
         repeat(MicMeterSegmentCount) { segment ->
             val color = if (segment.toFloat() / MicMeterSegmentCount < level) {
-                activeColor
+                CorusColors.Accent
             } else {
                 CorusColors.Secondary.copy(alpha = .15f)
             }

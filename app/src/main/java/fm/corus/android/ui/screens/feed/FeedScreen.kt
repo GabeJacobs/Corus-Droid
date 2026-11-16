@@ -430,6 +430,12 @@ fun FeedScreen(
     val immersive = viewModel.remoteConfig.immersiveArtistHeaderEnabled
     val frost = rememberImmersiveHeaderState(immersive)
     val chromeCollapse = remember { FeedChromeCollapse() }
+    val liveRoomCoversFeed = fm.corus.android.ui.screens.live.LocalLiveNavigation.current?.state?.roomCoversFeed == true
+    var wasCoveredByLiveRoom by remember { mutableStateOf(false) }
+    LaunchedEffect(liveRoomCoversFeed) {
+        if (wasCoveredByLiveRoom && !liveRoomCoversFeed) chromeCollapse.reveal()
+        wasCoveredByLiveRoom = liveRoomCoversFeed
+    }
     LaunchedEffect(scope) {
         chromeCollapse.attach(scope)
     }

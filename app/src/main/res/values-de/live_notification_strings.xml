@@ -1,0 +1,20 @@
+<resources>
+    <string name="live_join_room_prompt">Diesem Live-Raum beitreten?</string>
+    <string name="live_join_room">Raum beitreten</string>
+    <string name="live_notification_settings">Live-Räume</string>
+    <string name="live_notification_preview_title">%1$s ist live</string>
+    <string name="live_notification_message_placeholder">Schreib eine eigene Nachricht</string>
+    <string name="live_notify_followers_description">Sende eine Push-Mitteilung, wenn du live gehst</string>
+    <string name="live_dj_invitation_title">Einladung zum Auflegen</string>
+    <string name="live_dj_invitation_close">Einladung schließen</string>
+    <string name="live_dj_invitation_from_host">%1$s hat dich eingeladen, im eigenen Live-Raum aufzulegen.</string>
+    <string name="live_dj_invitation_from_codj">%1$s hat dich eingeladen, in einem Live-Raum aufzulegen.</string>
+    <string name="live_dj_invitation_host_fallback">Host</string>
+    <string name="live_dj_invitation_join">Als DJ beitreten</string>
+    <string name="live_dj_invitation_joining">Beitritt läuft…</string>
+    <string name="live_dj_invitation_decline">Ablehnen</string>
+    <string name="live_dj_invitation_other_room">Verlasse deinen aktuellen Raum, bevor du als DJ beitrittst.</string>
+    <string name="live_dj_invitation_unavailable">Diese DJ-Einladung ist nicht mehr verfügbar.</string>
+    <string name="live_dj_invitation_open_error">Die DJ-Einladung konnte nicht geöffnet werden. Versuch es erneut.</string>
+    <string name="live_dj_invitation_join_error">Beitritt als DJ fehlgeschlagen. Versuch es erneut.</string>
+</resources>

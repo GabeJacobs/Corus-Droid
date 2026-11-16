@@ -131,6 +131,27 @@ fun ProfileFeedScreen(
     val stagedSkipPillTrackId by viewModel.nowPlayingManager.stagedFeedSkipPillTrackId.collectAsState()
     val stagedSkipPillSourcePostId by viewModel.nowPlayingManager.stagedFeedSkipPillSourcePostId.collectAsState()
     val isResolvingSpotify by viewModel.nowPlayingManager.isResolvingSpotifyFlow.collectAsState()
+    fun isArtworkLoading(trackId: String, cardId: String) = PostPlaybackHighlight.isAlbumArtLoading(
+        loadingTrackId = loadingTrackId,
+        loadingSourcePostId = loadingSourcePostId,
+        fullSongTrackId = nowPlayingState.trackId,
+        fullSongSourcePostId = nowPlayingState.sourcePostId,
+        isResolvingFullSong = isResolvingSpotify,
+        postTrackId = trackId,
+        postId = cardId,
+        stagedSkipPillTrackId = stagedSkipPillTrackId,
+        stagedSkipPillSourcePostId = stagedSkipPillSourcePostId,
+    )
+
+    fun isArtworkPlaying(trackId: String, cardId: String) = PostPlaybackHighlight.shouldShowPlayingOverlay(
+        activeTrackId = nowPlayingState.trackId,
+        activeSourcePostId = nowPlayingState.sourcePostId,
+        isPlaying = nowPlayingState.isPlaying,
+        isResolvingFullSong = isResolvingSpotify,
+        postTrackId = trackId,
+        postId = cardId,
+    )
+
     val feedFollowsNowPlaying by viewModel.feedFollowsNowPlaying.collectAsState()
     val context = LocalContext.current
     val musicService by viewModel.musicServicePreference.current.collectAsState()
@@ -336,6 +357,8 @@ fun ProfileFeedScreen(
                     LiveSavedTrackCard(
                         saved = saved,
                         viewModel = viewModel,
+                        isPlaying = isArtworkPlaying(saved.track.song.id, saved.feedId),
+                        isLoading = isArtworkLoading(saved.track.song.id, saved.feedId),
                         onPlay = { viewModel.playSavedTrack(saved, mixedQueue, hasMore, mixedPageLoader) },
                         onSong = { onNavigateToSong(saved.track.song.withLiveDisplayArtwork()) },
                         onUser = onNavigateToUser,
@@ -370,25 +393,8 @@ fun ProfileFeedScreen(
                     saveCountEnabled = viewModel.remoteConfig.saveCountEnabled,
                     showGifts = viewModel.remoteConfig.giftsEnabledForCurrentUser,
                     currentUser = currentUserProfile,
-                    isPreviewLoading = post.isTrack && PostPlaybackHighlight.isAlbumArtLoading(
-                        loadingTrackId = loadingTrackId,
-                        loadingSourcePostId = loadingSourcePostId,
-                        fullSongTrackId = nowPlayingState.trackId,
-                        fullSongSourcePostId = nowPlayingState.sourcePostId,
-                        isResolvingFullSong = isResolvingSpotify,
-                        postTrackId = post.track.id,
-                        postId = post.id,
-                        stagedSkipPillTrackId = stagedSkipPillTrackId,
-                        stagedSkipPillSourcePostId = stagedSkipPillSourcePostId,
-                    ),
-                    isPreviewPlaying = post.isTrack && PostPlaybackHighlight.shouldShowPlayingOverlay(
-                        activeTrackId = nowPlayingState.trackId,
-                        activeSourcePostId = nowPlayingState.sourcePostId,
-                        isPlaying = nowPlayingState.isPlaying,
-                        isResolvingFullSong = isResolvingSpotify,
-                        postTrackId = post.track.id,
-                        postId = post.id,
-                    ),
+                    isPreviewLoading = post.isTrack && isArtworkLoading(post.track.id, post.id),
+                    isPreviewPlaying = post.isTrack && isArtworkPlaying(post.track.id, post.id),
                     ownsActivePlayback = post.isTrack &&
                         nowPlayingState.trackId == post.track.id &&
                         nowPlayingState.sourcePostId == post.id,

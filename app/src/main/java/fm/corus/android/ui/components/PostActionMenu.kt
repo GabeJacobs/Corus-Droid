@@ -82,37 +82,23 @@ fun PostActionMenu(
 ) {
     val isMovie = post.isMovie
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = CorusSpacing.md),
-    ) {
-        // Drag handle
-        Box(
-            modifier = Modifier
-                .padding(bottom = CorusSpacing.md)
-                .align(Alignment.CenterHorizontally)
-                .width(36.dp)
-                .height(4.dp)
-                .padding(top = CorusSpacing.sm),
-        )
-
+    PostActionMenuContent {
         // ── 1. Act on the post ──
         if (isMine) {
-            MenuRow(
+            PostActionMenuRow(
                 icon = Icons.Filled.Edit,
                 label = stringResource(fm.corus.android.localization.CorusStrings.post_kebab_edit_caption),
                 onClick = { onEditCaption(); onDismiss() },
             )
         } else {
             if (canSendGift) {
-                MenuRow(
+                PostActionMenuRow(
                     icon = Icons.Filled.CardGiftcard,
                     label = stringResource(fm.corus.android.localization.CorusStrings.gift_send_action),
                     onClick = { onSendGift(); onDismiss() },
                 )
             }
-            MenuRow(
+            PostActionMenuRow(
                 icon = if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                 label = stringResource(
                     if (isSaved) fm.corus.android.localization.CorusStrings.post_kebab_unsave else fm.corus.android.localization.CorusStrings.save_post
@@ -121,7 +107,7 @@ fun PostActionMenu(
             )
         }
 
-        MenuRow(
+        PostActionMenuRow(
             icon = Icons.AutoMirrored.Filled.Send,
             label = stringResource(fm.corus.android.localization.CorusStrings.concert_share),
             onClick = { onSharePost(); onDismiss() },
@@ -134,13 +120,13 @@ fun PostActionMenu(
 
         // ── 2. Discover ──
         if (isMovie) {
-            MenuRow(
+            PostActionMenuRow(
                 icon = Icons.Filled.Movie,
                 label = stringResource(fm.corus.android.localization.CorusStrings.post_kebab_view_film),
                 onClick = { onViewFilmPage(); onDismiss() },
             )
             if (showGoToDirectorRow(post = post, artistPagesEnabled = artistPagesEnabled)) {
-                MenuRow(
+                PostActionMenuRow(
                     // Material Campaign ≡ megaphone (matches iOS SF Symbol "megaphone").
                     icon = Icons.Filled.Campaign,
                     label = stringResource(fm.corus.android.localization.CorusStrings.post_kebab_go_to_director),
@@ -148,7 +134,7 @@ fun PostActionMenu(
                 )
             }
         } else {
-            MenuRow(
+            PostActionMenuRow(
                 icon = Icons.Filled.MusicNote,
                 label = stringResource(fm.corus.android.localization.CorusStrings.post_kebab_view_song),
                 onClick = { onViewSongPage(); onDismiss() },
@@ -156,14 +142,14 @@ fun PostActionMenu(
         }
 
         if (showGoToArtistRow(post = post, artistPagesEnabled = artistPagesEnabled)) {
-            MenuRow(
+            PostActionMenuRow(
                 icon = Icons.Filled.Person,
                 label = stringResource(fm.corus.android.localization.CorusStrings.concert_go_to_artist),
                 onClick = { onGoToArtist(); onDismiss() },
             )
         }
         if (showGoToAlbumRow(post = post, artistPagesEnabled = artistPagesEnabled)) {
-            MenuRow(
+            PostActionMenuRow(
                 icon = Icons.Filled.Album,
                 label = stringResource(fm.corus.android.localization.CorusStrings.post_kebab_go_to_album),
                 onClick = { onGoToAlbum(); onDismiss() },
@@ -171,7 +157,7 @@ fun PostActionMenu(
         }
 
         if (!isMovie && showBackCoverOption) {
-            MenuRow(
+            PostActionMenuRow(
                 icon = Icons.Outlined.Style,
                 label = stringResource(
                     if (isBackCoverFlipped) fm.corus.android.localization.CorusStrings.post_kebab_view_front_cover
@@ -199,14 +185,14 @@ fun PostActionMenu(
                 else ->
                     stringResource(R.string.post_menu_play_in_service, musicService.displayLabel)
             }
-            MenuRow(
+            PostActionMenuRow(
                 icon = Icons.Filled.PlayArrow,
                 label = openLabel,
                 onClick = { onOpenInService(); onDismiss() },
             )
 
             if (showAddToQueueRow(post)) {
-                MenuRow(
+                PostActionMenuRow(
                     icon = Icons.AutoMirrored.Filled.PlaylistAdd,
                     label = stringResource(fm.corus.android.localization.CorusStrings.post_menu_add_to_queue),
                     onClick = { onAddToQueue(); onDismiss() },
@@ -224,20 +210,20 @@ fun PostActionMenu(
         }
 
         if (isMine) {
-            MenuRow(
+            PostActionMenuRow(
                 icon = Icons.Filled.Delete,
                 label = stringResource(fm.corus.android.localization.CorusStrings.post_menu_delete_post),
                 tint = CorusColors.Error,
                 onClick = { onDeletePost(); onDismiss() },
             )
         } else if (showReportBlockActions) {
-            MenuRow(
+            PostActionMenuRow(
                 icon = Icons.Filled.Flag,
                 label = stringResource(fm.corus.android.localization.CorusStrings.profile_report),
                 onClick = { onReportPost(); onDismiss() },
             )
 
-            MenuRow(
+            PostActionMenuRow(
                 icon = Icons.Filled.Block,
                 label = stringResource(fm.corus.android.localization.CorusStrings.post_menu_block_user),
                 tint = CorusColors.Error,
@@ -308,7 +294,27 @@ internal fun showGoToDirectorRow(post: CymbalPost, artistPagesEnabled: Boolean):
     artistPagesEnabled && post.isMovie && post.directorIds.any { it.isNotBlank() }
 
 @Composable
-private fun MenuRow(
+internal fun PostActionMenuContent(content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = CorusSpacing.md),
+    ) {
+        // Drag handle
+        Box(
+            modifier = Modifier
+                .padding(bottom = CorusSpacing.md)
+                .align(Alignment.CenterHorizontally)
+                .width(36.dp)
+                .height(4.dp)
+                .padding(top = CorusSpacing.sm),
+        )
+        content()
+    }
+}
+
+@Composable
+internal fun PostActionMenuRow(
     icon: ImageVector,
     label: String,
     tint: Color = CorusColors.Text,

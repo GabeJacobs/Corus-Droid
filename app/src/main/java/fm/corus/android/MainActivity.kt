@@ -225,6 +225,11 @@ class MainActivity : ComponentActivity() {
         val destination = DeepLinkHandler.parseNotificationData(data)
         if (destination != null) {
             analyticsService.logDeepLinkOpened(destination.analyticsType())
+            if (destination is DeepLinkDestination.LiveRoom) {
+                analyticsService.logEvent("live_push_opened", mapOf(
+                    "source" to "push", "room_id" to destination.roomId, "push_type" to destination.analyticsType(),
+                ))
+            }
             if (data["type"] in listOf("new_release", "concert_announcement")) {
                 analyticsService.logEvent("discovery_opened", mapOf("category" to data["type"].orEmpty(),
                     "source" to "push", "destination_type" to data["destinationType"].orEmpty()))

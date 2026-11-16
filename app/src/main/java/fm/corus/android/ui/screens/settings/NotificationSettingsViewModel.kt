@@ -27,6 +27,7 @@ data class NotificationSettings(
     val followRequests: Boolean = true,
     val contactJoined: Boolean = true,
     val followingActivity: Boolean = true,
+    val liveRooms: Boolean = true,
     val tasteMatches: Boolean = true,
     val plays: Boolean = true,
     val trending: Boolean = true,
@@ -83,6 +84,7 @@ class NotificationSettingsViewModel @Inject constructor(
                     followRequests = notif["followRequests"] as? Boolean ?: true,
                     contactJoined = notif["contactJoined"] as? Boolean ?: true,
                     followingActivity = (notif["followingActivity"] as? Boolean) ?: !notif.containsKey("followingActivity"),
+                    liveRooms = notif["liveRooms"] as? Boolean ?: true,
                     tasteMatches = notif["tasteMatches"] as? Boolean ?: true,
                     plays = notif["plays"] as? Boolean ?: true,
                     trending = notif["trending"] as? Boolean ?: true,
@@ -125,6 +127,9 @@ class NotificationSettingsViewModel @Inject constructor(
     }
     fun setFollowingActivity(enabled: Boolean) = updateNotif("followingActivity", enabled) {
         _settings.value = _settings.value.copy(followingActivity = enabled)
+    }
+    fun setLiveRooms(enabled: Boolean) = updateNotif("liveRooms", enabled) {
+        _settings.value = _settings.value.copy(liveRooms = enabled)
     }
     fun setPlays(enabled: Boolean) = updateNotif("plays", enabled) {
         _settings.value = _settings.value.copy(plays = enabled)
@@ -201,6 +206,9 @@ class NotificationSettingsViewModel @Inject constructor(
                 analyticsService.logSettingToggled("${key}_notifications", enabled)
                 if (key in listOf("newReleases", "concertAnnouncements")) analyticsService.logEvent("discovery_setting_changed", mapOf("category" to key, "enabled" to enabled, "result" to "success"))
             } catch (_: Exception) {
+                if (key == "liveRooms" && _settings.value.liveRooms == enabled) {
+                    _settings.value = _settings.value.copy(liveRooms = previous.liveRooms)
+                }
                 if (key in listOf("newReleases", "concertAnnouncements")) {
                     _settings.value = if (key == "newReleases") _settings.value.copy(newReleases = previous.newReleases)
                         else _settings.value.copy(concertAnnouncements = previous.concertAnnouncements)

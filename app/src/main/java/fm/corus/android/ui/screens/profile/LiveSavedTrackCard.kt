@@ -2,21 +2,28 @@ package fm.corus.android.ui.screens.profile
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import fm.corus.android.R
 import fm.corus.android.data.model.FlairStyle
@@ -25,6 +32,10 @@ import fm.corus.android.domain.QueuedTrack
 import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.localization.CorusStrings
 import fm.corus.android.ui.components.CorusModalBottomSheet
+import fm.corus.android.ui.components.FeedPlayingPill
+import fm.corus.android.ui.components.PostActionMenuContent
+import fm.corus.android.ui.components.PostActionMenuRow
+import fm.corus.android.ui.components.PostActionMenuSheet
 import fm.corus.android.ui.components.ShareMediaSheet
 import fm.corus.android.ui.components.ShareMediaSubject
 import fm.corus.android.ui.components.ShimmerAsyncImage
@@ -42,6 +53,7 @@ import fm.corus.android.ui.screens.live.liveDisplayArtwork
 import fm.corus.android.ui.screens.live.withLiveDisplayArtwork
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
+import fm.corus.android.ui.theme.CorusSpacing
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -60,6 +72,8 @@ internal fun LiveSaveItem.queuedTrack(): QueuedTrack? = when (this) {
 internal fun LiveSavedTrackCard(
     saved: LiveSaveItem.Track,
     viewModel: ProfileFeedViewModel,
+    isPlaying: Boolean,
+    isLoading: Boolean,
     onPlay: () -> Unit,
     onSong: () -> Unit,
     onUser: (String) -> Unit,
@@ -69,10 +83,7 @@ internal fun LiveSavedTrackCard(
     onAlbum: ((AlbumPageRoute) -> Unit)?,
 ) {
     val track = saved.track.song
-    val playingState by viewModel.nowPlayingManager.state.collectAsState()
-    val loadingSourceId by viewModel.nowPlayingManager.loadingSourcePostId.collectAsState()
     val service by viewModel.musicServicePreference.current.collectAsState()
-    val isPlaying = playingState.sourcePostId == saved.feedId && playingState.isPlaying
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val backCover = rememberBackCoverFlipState()
@@ -99,25 +110,33 @@ internal fun LiveSavedTrackCard(
     }
 
     fun openArtist() {
+        val navigate = onArtist ?: return
+        if (actionLoading) return
+        val knownId = track.artistIds.firstOrNull { it.isNotBlank() }
+        if (knownId != null) {
+            navigate(ArtistPageRoute(knownId, name = track.artistName))
+            return
+        }
         runSongAction {
             val id = viewModel.resolveArtistIdForTrack(track) ?: return@runSongAction false
-            onArtist?.invoke(ArtistPageRoute(id, name = track.artistName))
+            navigate(ArtistPageRoute(id, name = track.artistName))
             true
         }
     }
 
     Column {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            Modifier.fillMaxWidth().padding(horizontal = CorusSpacing.lg, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(CorusSpacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val dj = saved.pickedBy
             if (dj != null) {
-                Box(Modifier.size(40.dp).clickable(enabled = dj.uid.isNotBlank()) { onUser(dj.uid) },
-                    contentAlignment = Alignment.Center) {
-                    LiveAvatar(dj, 28.dp)
-                }
+                LiveAvatar(
+                    person = dj,
+                    size = CorusSpacing.avatarSmall,
+                    modifier = Modifier.clickable(enabled = dj.uid.isNotBlank()) { onUser(dj.uid) },
+                )
             }
             Column(Modifier.weight(1f)) {
                 if (dj != null) {
@@ -144,78 +163,18 @@ internal fun LiveSavedTrackCard(
                 } else {
                     LiveIconButton(Icons.Default.MoreHoriz, stringResource(R.string.live_save_more), { showMenu = true })
                 }
-                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                    @Composable
-                    fun entry(label: String, action: () -> Unit) {
-                        DropdownMenuItem(text = { LiveText(label) }, onClick = {
-                            showMenu = false
-                            action()
-                        })
-                    }
-                    if (saved.roomId.isNotBlank()) {
-                        entry(stringResource(R.string.live_save_view_full_set), onViewSet)
-                        HorizontalDivider()
-                    }
-                    entry(stringResource(R.string.live_save_unsave), onUnsave)
-                    entry(stringResource(R.string.live_save_share)) { showShare = true }
-                    HorizontalDivider()
-                    entry(stringResource(R.string.live_save_go_to_song), onSong)
-                    if (onArtist != null) entry(stringResource(R.string.live_save_go_to_artist), ::openArtist)
-                    if (onAlbum != null) entry(stringResource(CorusStrings.post_kebab_go_to_album)) {
-                        runSongAction {
-                            val album = viewModel.resolveTrackDestinationsForTrack(track)
-                            if (album.goToAlbumAsSong) onSong()
-                            else {
-                                val id = album.albumId ?: return@runSongAction false
-                                onAlbum(AlbumPageRoute(id, track.albumName, track.artistName, track.liveDisplayArtwork))
-                            }
-                            true
-                        }
-                    }
-                    if (!saved.track.playsFromSource) {
-                        entry(stringResource(if (backCover.isFlipped) R.string.live_save_view_front_cover else CorusStrings.post_kebab_view_back_cover)) {
-                            if (backCover.isFlipped) backCover.flipBack()
-                            else scope.launchBackCoverFlip(backCover, saved.feedId) {
-                                try {
-                                    viewModel.savedSongBackCover(track)
-                                } catch (error: CancellationException) {
-                                    throw error
-                                } catch (_: Exception) {
-                                    null
-                                }
-                            }
-                        }
-                    }
-                    HorizontalDivider()
-                    val serviceLabel = when (track.source) {
-                        TrackSource.SOUNDCLOUD -> stringResource(R.string.live_save_open_in, "SoundCloud")
-                        TrackSource.BANDCAMP -> stringResource(R.string.live_save_open_in, "Bandcamp")
-                        else -> stringResource(R.string.live_save_play_in, service.displayLabel)
-                    }
-                    entry(serviceLabel) {
-                        runSongAction {
-                            val url = viewModel.resolveServiceLinkUrl(track)
-                                ?: track.appleMusicURL?.takeIf { track.source == TrackSource.APPLEMUSIC }
-                                ?: track.spotifyWebURL.takeIf { it.isNotBlank() }
-                                ?: track.spotifyURI.takeIf { it.isNotBlank() }
-                                ?: return@runSongAction false
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                            true
-                        }
-                    }
-                    entry(stringResource(CorusStrings.post_menu_add_to_queue)) {
-                        saved.queuedTrack()?.let {
-                            if (viewModel.nowPlayingManager.addToUserQueue(it)) ToastManager.show(queued)
-                        }
-                    }
-                }
             }
         }
         Box(
-            Modifier.fillMaxWidth().aspectRatio(1f).clickable {
-                if (backCover.isFlipped) backCover.flipBack() else onPlay()
-            },
-            contentAlignment = Alignment.Center,
+            Modifier.fillMaxWidth().aspectRatio(1f).clipToBounds().clickable(
+                onClickLabel = stringResource(when {
+                    backCover.isFlipped -> R.string.live_save_view_front_cover
+                    isPlaying -> R.string.live_save_pause_song
+                    else -> R.string.live_save_play_song
+                }),
+                role = Role.Button,
+                onClick = { if (backCover.isFlipped) backCover.flipBack() else onPlay() },
+            ),
         ) {
             ShimmerAsyncImage(
                 model = if (backCover.isFlipped) backCover.backCoverURL else track.liveDisplayArtwork,
@@ -223,19 +182,7 @@ internal fun LiveSavedTrackCard(
                 modifier = Modifier.fillMaxSize(),
             )
             if (!backCover.isFlipped) {
-                if (loadingSourceId == saved.feedId) {
-                    CircularProgressIndicator(Modifier.size(32.dp), color = androidx.compose.ui.graphics.Color.White)
-                } else {
-                    Box(Modifier.size(56.dp).background(androidx.compose.ui.graphics.Color.Black.copy(alpha = .45f), CircleShape),
-                        contentAlignment = Alignment.Center) {
-                        Icon(
-                            if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = stringResource(if (isPlaying) R.string.live_save_pause_song else R.string.live_save_play_song),
-                            tint = androidx.compose.ui.graphics.Color.White,
-                            modifier = Modifier.size(36.dp),
-                        )
-                    }
-                }
+                FeedPlayingPill(isPlaying = isPlaying, isLoading = isLoading)
             }
         }
         Row(
@@ -252,6 +199,86 @@ internal fun LiveSavedTrackCard(
             LiveIconButton(Icons.Default.Bookmark, stringResource(R.string.live_save_unsave), onUnsave, tint = CorusColors.Text)
         }
         HorizontalDivider(color = CorusColors.Divider)
+    }
+    if (showMenu) {
+        PostActionMenuSheet(onDismiss = { showMenu = false }) {
+            PostActionMenuContent {
+                @Composable
+                fun entry(icon: ImageVector, label: String, action: () -> Unit) {
+                    PostActionMenuRow(icon = icon, label = label, onClick = {
+                        showMenu = false
+                        action()
+                    })
+                }
+
+                @Composable
+                fun divider() {
+                    HorizontalDivider(
+                        color = CorusColors.Divider,
+                        modifier = Modifier.padding(horizontal = CorusSpacing.lg),
+                    )
+                }
+
+                if (saved.roomId.isNotBlank()) {
+                    entry(Icons.AutoMirrored.Filled.PlaylistPlay, stringResource(R.string.live_save_view_full_set), onViewSet)
+                    divider()
+                }
+                entry(Icons.AutoMirrored.Filled.Send, stringResource(R.string.live_save_share)) { showShare = true }
+                divider()
+                entry(Icons.Default.MusicNote, stringResource(R.string.live_save_go_to_song), onSong)
+                if (onArtist != null) entry(Icons.Default.Person, stringResource(R.string.live_save_go_to_artist), ::openArtist)
+                if (onAlbum != null) entry(Icons.Default.Album, stringResource(CorusStrings.post_kebab_go_to_album)) {
+                    runSongAction {
+                        val album = viewModel.resolveTrackDestinationsForTrack(track)
+                        if (album.goToAlbumAsSong) onSong()
+                        else {
+                            val id = album.albumId ?: return@runSongAction false
+                            onAlbum(AlbumPageRoute(id, track.albumName, track.artistName, track.liveDisplayArtwork))
+                        }
+                        true
+                    }
+                }
+                if (!saved.track.playsFromSource) {
+                    entry(
+                        Icons.Outlined.Style,
+                        stringResource(if (backCover.isFlipped) R.string.live_save_view_front_cover else CorusStrings.post_kebab_view_back_cover),
+                    ) {
+                        if (backCover.isFlipped) backCover.flipBack()
+                        else scope.launchBackCoverFlip(backCover, saved.feedId) {
+                            try {
+                                viewModel.savedSongBackCover(track)
+                            } catch (error: CancellationException) {
+                                throw error
+                            } catch (_: Exception) {
+                                null
+                            }
+                        }
+                    }
+                }
+                divider()
+                val serviceLabel = when (track.source) {
+                    TrackSource.SOUNDCLOUD -> stringResource(R.string.live_save_open_in, "SoundCloud")
+                    TrackSource.BANDCAMP -> stringResource(R.string.live_save_open_in, "Bandcamp")
+                    else -> stringResource(R.string.live_save_play_in, service.displayLabel)
+                }
+                entry(Icons.Default.PlayArrow, serviceLabel) {
+                    runSongAction {
+                        val url = viewModel.resolveServiceLinkUrl(track)
+                            ?: track.appleMusicURL?.takeIf { track.source == TrackSource.APPLEMUSIC }
+                            ?: track.spotifyWebURL.takeIf { it.isNotBlank() }
+                            ?: track.spotifyURI.takeIf { it.isNotBlank() }
+                            ?: return@runSongAction false
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                        true
+                    }
+                }
+                entry(Icons.AutoMirrored.Filled.PlaylistAdd, stringResource(CorusStrings.post_menu_add_to_queue)) {
+                    saved.queuedTrack()?.let {
+                        if (viewModel.nowPlayingManager.addToUserQueue(it)) ToastManager.show(queued)
+                    }
+                }
+            }
+        }
     }
     LaunchedEffect(backCover.showNotFound) {
         if (backCover.showNotFound) ToastManager.show(context.getString(R.string.live_save_no_back_cover))

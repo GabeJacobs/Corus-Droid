@@ -1,0 +1,20 @@
+<resources>
+    <string name="live_join_room_prompt">Entrar nesta sala ao vivo?</string>
+    <string name="live_join_room">Entrar na sala</string>
+    <string name="live_notification_settings">Salas ao vivo</string>
+    <string name="live_notification_preview_title">%1$s está ao vivo</string>
+    <string name="live_notification_message_placeholder">Escreva uma mensagem personalizada</string>
+    <string name="live_notify_followers_description">Envie uma notificação push ao entrar ao vivo</string>
+    <string name="live_dj_invitation_title">Convite para ser DJ</string>
+    <string name="live_dj_invitation_close">Fechar convite</string>
+    <string name="live_dj_invitation_from_host">%1$s convidou você para ser DJ na sala ao vivo que está apresentando.</string>
+    <string name="live_dj_invitation_from_codj">%1$s convidou você para ser DJ em uma sala ao vivo.</string>
+    <string name="live_dj_invitation_host_fallback">Anfitrião</string>
+    <string name="live_dj_invitation_join">Entrar como DJ</string>
+    <string name="live_dj_invitation_joining">Entrando…</string>
+    <string name="live_dj_invitation_decline">Recusar</string>
+    <string name="live_dj_invitation_other_room">Saia da sala atual antes de entrar como DJ.</string>
+    <string name="live_dj_invitation_unavailable">Este convite para ser DJ não está mais disponível.</string>
+    <string name="live_dj_invitation_open_error">Não foi possível abrir o convite para ser DJ. Tente novamente.</string>
+    <string name="live_dj_invitation_join_error">Não foi possível entrar como DJ. Tente novamente.</string>
+</resources>
