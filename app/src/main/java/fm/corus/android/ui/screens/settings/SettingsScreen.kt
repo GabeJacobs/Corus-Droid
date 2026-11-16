@@ -416,6 +416,7 @@ fun SettingsScreen(
             ) {
                 buildList {
                     add(MusicService.SPOTIFY)
+                    add(MusicService.APPLE_MUSIC)
                     // TIDAL / YouTube Music / Deezer only appear when their Remote
                     // Config gates are on. YouTube Music sits below TIDAL, above Deezer.
                     if (settingsViewModel.tidalEnabled) add(MusicService.TIDAL)
@@ -423,8 +424,6 @@ fun SettingsScreen(
                     if (settingsViewModel.qobuzEnabled) add(MusicService.QOBUZ)
                     if (settingsViewModel.deezerEnabled) add(MusicService.DEEZER)
                     if (settingsViewModel.audiomackStreamingEnabled) add(MusicService.AUDIOMACK)
-                    // Apple Music is intentionally last on Android.
-                    add(MusicService.APPLE_MUSIC)
                 }
             }
             val audiomackScope = androidx.compose.runtime.rememberCoroutineScope()

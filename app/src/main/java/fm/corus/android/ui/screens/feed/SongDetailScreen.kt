@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
@@ -130,6 +131,7 @@ fun SongDetailScreen(
     /** Album page (artist_pages_enabled) — null while the flag is off, which
      *  keeps the album line as plain text. */
     onNavigateToAlbum: ((fm.corus.android.ui.navigation.AlbumPageRoute) -> Unit)? = null,
+    inSheet: Boolean = false,
 ) {
     val posts by viewModel.posts.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -448,7 +450,7 @@ fun SongDetailScreen(
     // whenever we have — or are still loading — cover art. Falls back to the plain
     // centered header + solid TopAppBar otherwise.
     val listState = rememberLazyListState()
-    val immersive = viewModel.immersiveHeaderEnabled && (artUrl != null || isLoading)
+    val immersive = !inSheet && viewModel.immersiveHeaderEnabled && (artUrl != null || isLoading)
     val hazeState = remember { HazeState() }
     val statusBarTopPx = currentStatusBarTopPx()
     val extendUnderStatusBar = immersive && ImmersiveExtendUnderStatusBar && statusBarTopPx > 0
@@ -489,8 +491,9 @@ fun SongDetailScreen(
                 navigationIcon = {
                     CorusHeaderIconButton(
                         onClick = onBack,
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
+                        imageVector = if (inSheet) Icons.Filled.Close else Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(if (inSheet) R.string.full_screen_cd_close
+                            else fm.corus.android.localization.CorusStrings.common_back),
                     )
                 },
                 actions = {

@@ -36,13 +36,12 @@ class ReviewPromptManagerTest {
     }
 
     @Test
-    fun `three distinct active days and a publication are required`() {
+    fun `two distinct active days and a publication are required`() {
         val manager = manager()
-        repeat(3) { manager.beginVisit(user, today - 2 * day) }
-        manager.recordPublishedPost(user, false, today - 2 * day)
+        repeat(3) { manager.beginVisit(user, today - day) }
+        manager.recordPublishedPost(user, false, today - day)
         assertNull(manager.readyUserId.value)
 
-        manager.beginVisit(user, today - day)
         manager.beginVisit(user, today)
         assertNull(manager.readyUserId.value)
 
@@ -53,7 +52,6 @@ class ReviewPromptManagerTest {
     @Test
     fun `deferred post survives until a later visit without starting cooldown`() {
         val manager = manager()
-        manager.beginVisit(user, today - 2 * day)
         manager.beginVisit(user, today - day)
         manager.recordPublishedPost(user, true, today)
         assertNull(manager.readyUserId.value)
@@ -67,7 +65,6 @@ class ReviewPromptManagerTest {
     @Test
     fun `a request starts a thirty day device cooldown`() {
         val manager = manager()
-        manager.beginVisit(user, today - 2 * day)
         manager.beginVisit(user, today - day)
         manager.recordPublishedPost(user, false, today)
         assertTrue(manager.consumeRequest(user, today))
@@ -82,7 +79,6 @@ class ReviewPromptManagerTest {
     @Test
     fun `pending publication is scoped to the account and survives recreation`() {
         val manager = manager()
-        manager.beginVisit(user, today - 2 * day)
         manager.beginVisit(user, today - day)
         manager.recordPublishedPost(user, true, today)
 
@@ -96,7 +92,6 @@ class ReviewPromptManagerTest {
     @Test
     fun `remote config off prevents a request`() {
         val manager = manager(enabled = false)
-        manager.beginVisit(user, today - 2 * day)
         manager.beginVisit(user, today - day)
         manager.recordPublishedPost(user, false, today)
         assertFalse(manager.consumeRequest(user, today))

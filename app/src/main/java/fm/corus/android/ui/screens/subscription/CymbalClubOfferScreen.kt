@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.outlined.Circle
@@ -58,6 +59,8 @@ import fm.corus.android.ui.theme.CorusSpacing
 import fm.corus.android.ui.theme.bottomSheetMaxHeight
 import fm.corus.android.domain.PlaylistTrialField
 import kotlinx.coroutines.delay
+import java.text.NumberFormat
+import java.util.Currency
 
 internal object ClubOnboardingPaywallContract {
     val vinylSize = 112.dp
@@ -154,6 +157,23 @@ private fun yearlyDetailText(context: Context, pkg: Package?, price: String, mon
     val trial = trialDurationText(context, pkg)
     return if (trial != null) context.getString(R.string.club_yearly_detail_trial_format, trial, price)
     else context.getString(R.string.club_yearly_detail_only_format, monthlyEquivalent)
+}
+
+private fun liveHostYearlyDetailText(context: Context, pkg: Package?): String {
+    val price = pkg?.product?.price ?: return context.getString(R.string.club_live_host_plan_unavailable)
+    val trial = trialDurationText(context, pkg)
+    if (trial != null) return context.getString(R.string.club_yearly_detail_trial_format, trial, price.formatted)
+
+    val equivalent = runCatching {
+        val billingCurrency = Currency.getInstance(price.currencyCode)
+        NumberFormat.getCurrencyInstance(context.resources.configuration.locales[0]).apply {
+            currency = billingCurrency
+            minimumFractionDigits = billingCurrency.defaultFractionDigits.coerceAtLeast(0)
+            maximumFractionDigits = minimumFractionDigits
+        }.format(price.amountMicros / 12_000_000.0)
+    }.getOrNull()
+    return if (equivalent == null) context.getString(R.string.club_live_host_yearly_billed)
+    else context.getString(R.string.club_live_host_yearly_equivalent, equivalent)
 }
 
 private fun onboardingPlanDetailText(context: Context, pkg: Package?, noTrialText: String): String {
@@ -407,10 +427,15 @@ fun CymbalClubOfferScreen(
 
                 Spacer(modifier = Modifier.height(CorusSpacing.sm))
 
-                val subtitleText = if (source == PaywallSource.POST_LIMIT && trial != null)
-                    context.getString(R.string.club_subtitle_post_limit_trial_format, trial)
-                else
-                    if (isOnboarding) stringResource(fm.corus.android.localization.CorusStrings.club_onboarding_subtitle) else if (source == PaywallSource.STAY_CLOSE || source == PaywallSource.STAY_CLOSE_BANNER) stringResource(R.string.for_you_stay_close_club_subtitle) else source.subtitle
+                val subtitleText = when {
+                    source == PaywallSource.LIVE_HOST -> stringResource(R.string.club_live_host_subtitle)
+                    source == PaywallSource.POST_LIMIT && trial != null ->
+                        context.getString(R.string.club_subtitle_post_limit_trial_format, trial)
+                    isOnboarding -> stringResource(fm.corus.android.localization.CorusStrings.club_onboarding_subtitle)
+                    source == PaywallSource.STAY_CLOSE || source == PaywallSource.STAY_CLOSE_BANNER ->
+                        stringResource(R.string.for_you_stay_close_club_subtitle)
+                    else -> source.subtitle
+                }
 
                 Text(
                     text = subtitleText,
@@ -677,6 +702,7 @@ fun CymbalClubOfferSheet(
      *  server calls made from the callback see the member status. */
     onPurchaseSuccess: () -> Unit = {},
 ) {
+    val isLiveHost = source == PaywallSource.LIVE_HOST
     val packages by viewModel.packages.collectAsState()
     val isPurchasing by viewModel.isPurchasing.collectAsState()
     val purchaseResult by viewModel.purchaseResult.collectAsState()
@@ -866,7 +892,11 @@ fun CymbalClubOfferSheet(
             }
 
             Text(
-                text = stringResource(fm.corus.android.localization.CorusStrings.settings_row_join_club),
+                text = stringResource(
+                    if (isLiveHost) R.string.club_live_host_title
+                    else fm.corus.android.localization.CorusStrings.settings_row_join_club
+                ),
+                textAlign = if (isLiveHost) TextAlign.Center else TextAlign.Unspecified,
                 style = CorusFont.appTitle,
                 color = CorusColors.Text,
             )
@@ -877,6 +907,7 @@ fun CymbalClubOfferSheet(
             // otherwise the source's default subtitle ("Remove posting limits").
             val trial = trialDurationText(context, selectedPackage)
             val subtitleText = when {
+                isLiveHost -> stringResource(R.string.club_live_host_subtitle)
                 source == PaywallSource.TASTE_DISCOVERY -> stringResource(fm.corus.android.localization.CorusStrings.taste_discovery_subtitle)
                 source == PaywallSource.GIFT -> stringResource(fm.corus.android.localization.CorusStrings.club_subtitle_gift)
                 source == PaywallSource.POST_LIMIT && trial != null ->
@@ -910,6 +941,9 @@ fun CymbalClubOfferSheet(
             ) {
                 // Source-specific perk leads when present, since it's the reason the
                 // user opened the paywall (e.g. the favorites cap).
+                if (isLiveHost) {
+                    FeatureRow(icon = Icons.Filled.Sensors, text = stringResource(R.string.club_live_host_perk))
+                }
                 if (source == PaywallSource.TASTE_DISCOVERY) {
                     FeatureRow(text = stringResource(fm.corus.android.localization.CorusStrings.taste_discovery_perk)) {
                         VennDiagramIcon(size = 20.dp, color = CorusColors.Accent, shadedIntersection = true)
@@ -935,7 +969,9 @@ fun CymbalClubOfferSheet(
                 if (musicService != fm.corus.android.data.model.MusicService.YOUTUBE_MUSIC) {
                     FeatureRow(icon = Icons.Filled.QueueMusic, text = stringResource(fm.corus.android.localization.CorusStrings.parity_3a03d227b2f2))
                 }
-                FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(fm.corus.android.localization.CorusStrings.club_feature_support))
+                if (!isLiveHost) {
+                    FeatureRow(icon = Icons.Filled.Favorite, text = stringResource(fm.corus.android.localization.CorusStrings.club_feature_support))
+                }
                 // Drop the badge line on the favorites or Taste Matches paywalls
                 // to keep the list compact on phones (room is tight).
                 if (source != PaywallSource.FAVORITE_LIMIT && !tasteMatchesEnabled) {
@@ -948,7 +984,10 @@ fun CymbalClubOfferSheet(
 
             if (source != PaywallSource.ONBOARDING && disclaimerFits) {
                 Text(
-                    text = stringResource(fm.corus.android.localization.CorusStrings.club_disclaimer),
+                    text = stringResource(
+                        if (isLiveHost) R.string.club_live_host_disclaimer
+                        else fm.corus.android.localization.CorusStrings.club_disclaimer
+                    ),
                     style = CorusFont.caption,
                     color = CorusColors.Secondary,
                     textAlign = TextAlign.Center,
@@ -968,33 +1007,48 @@ fun CymbalClubOfferSheet(
                 .onSizeChanged { purchaseControlsHeightPx = it.height },
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = CorusSpacing.xl),
-                horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
-            ) {
-                val monthlyPrice = monthlyPackage?.product?.price?.formatted ?: stringResource(fm.corus.android.localization.CorusStrings.club_plan_monthly_default_price)
-                val yearlyPrice = yearlyPackage?.product?.price?.formatted ?: stringResource(fm.corus.android.localization.CorusStrings.club_plan_yearly_default_price)
-                val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 29.99) / 12)}"
+            if (isLiveHost && packages.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.club_live_host_loading_plans),
+                    style = CorusFont.caption,
+                    color = CorusColors.Secondary,
+                )
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = CorusSpacing.xl),
+                    horizontalArrangement = Arrangement.spacedBy(CorusSpacing.md),
+                ) {
+                    val monthlyPrice = monthlyPackage?.product?.price?.formatted
+                        ?: if (isLiveHost) "—" else stringResource(fm.corus.android.localization.CorusStrings.club_plan_monthly_default_price)
+                    val yearlyPrice = yearlyPackage?.product?.price?.formatted
+                        ?: if (isLiveHost) "—" else stringResource(fm.corus.android.localization.CorusStrings.club_plan_yearly_default_price)
+                    val yearlyMonthly = "${"$"}${String.format("%.2f", (yearlyPackage?.product?.price?.amountMicros?.let { it / 1_000_000.0 } ?: 29.99) / 12)}"
 
-                PlanCard(
-                    label = stringResource(fm.corus.android.localization.CorusStrings.club_plan_monthly),
-                    price = stringResource(R.string.club_plan_monthly_price_format, monthlyPrice),
-                    detail = monthlyDetailText(context, monthlyPackage, monthlyPrice),
-                    isSelected = selectedPlan == "monthly",
-                    onClick = { selectedPlan = "monthly" },
-                    modifier = Modifier.weight(1f),
-                )
-                PlanCard(
-                    label = stringResource(fm.corus.android.localization.CorusStrings.club_plan_yearly),
-                    price = stringResource(R.string.club_plan_yearly_price_format, yearlyPrice),
-                    detail = yearlyDetailText(context, yearlyPackage, yearlyPrice, yearlyMonthly),
-                    isSelected = selectedPlan == "yearly",
-                    onClick = { selectedPlan = "yearly" },
-                    modifier = Modifier.weight(1f),
-                    badge = savingsBadge(monthlyPackage, yearlyPackage),
-                )
+                    PlanCard(
+                        label = stringResource(fm.corus.android.localization.CorusStrings.club_plan_monthly),
+                        price = stringResource(R.string.club_plan_monthly_price_format, monthlyPrice),
+                        detail = if (isLiveHost && monthlyPackage == null) {
+                            stringResource(R.string.club_live_host_plan_unavailable)
+                        } else monthlyDetailText(context, monthlyPackage, monthlyPrice),
+                        isSelected = selectedPlan == "monthly",
+                        onClick = { selectedPlan = "monthly" },
+                        modifier = Modifier.weight(1f),
+                        detailMaxLines = if (isLiveHost) 2 else 1,
+                    )
+                    PlanCard(
+                        label = stringResource(fm.corus.android.localization.CorusStrings.club_plan_yearly),
+                        price = if (isLiveHost) yearlyPrice else stringResource(R.string.club_plan_yearly_price_format, yearlyPrice),
+                        detail = if (isLiveHost) liveHostYearlyDetailText(context, yearlyPackage)
+                            else yearlyDetailText(context, yearlyPackage, yearlyPrice, yearlyMonthly),
+                        isSelected = selectedPlan == "yearly",
+                        onClick = { selectedPlan = "yearly" },
+                        modifier = Modifier.weight(1f),
+                        detailMaxLines = if (isLiveHost) 2 else 1,
+                        badge = savingsBadge(monthlyPackage, yearlyPackage),
+                    )
+                }
             }
 
             // Inline purchase error (rare) renders only when present, so it
@@ -1187,6 +1241,7 @@ private fun PlanCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     badge: String? = null,
+    detailMaxLines: Int = 1,
 ) {
     val borderWidth = if (isSelected) 2.dp else 1.dp
     val borderColor = if (isSelected) CorusColors.Accent else CorusColors.Secondary.copy(alpha = 0.2f)
@@ -1220,8 +1275,9 @@ private fun PlanCard(
                 text = detail,
                 style = CorusFont.caption.copy(fontSize = androidx.compose.ui.unit.TextUnit(10f, androidx.compose.ui.unit.TextUnitType.Sp)),
                 color = CorusColors.Secondary,
-                maxLines = 1,
-                softWrap = false,
+                minLines = detailMaxLines,
+                maxLines = detailMaxLines,
+                softWrap = detailMaxLines > 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }

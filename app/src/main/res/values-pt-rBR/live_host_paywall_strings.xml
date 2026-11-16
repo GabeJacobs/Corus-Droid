@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="club_live_host_title">Entre ao vivo com o Corus Club</string>
+    <string name="club_live_host_subtitle">Toque suas músicas favoritas ao vivo. Seus amigos podem ouvir de graça.</string>
+    <string name="club_live_host_perk">Apresente salas ao vivo</string>
+    <string name="club_live_host_yearly_equivalent">Cobrança anual · equivalente a %1$s/mês</string>
+    <string name="club_live_host_yearly_billed">Cobrança anual</string>
+    <string name="club_live_host_plan_unavailable">Indisponível</string>
+    <string name="club_live_host_disclaimer">O Corus tem orgulho de não ter anúncios. Os membros do Club ajudam a manter o Corus independente e sustentável.</string>
+    <string name="club_live_host_loading_plans">Carregando planos…</string>
+</resources>

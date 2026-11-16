@@ -164,6 +164,19 @@ internal data class LiveRoom(val id: String, private val fields: LiveFields) {
         return uid != null && uid != (currentDJ?.uid ?: track.playedBy?.uid ?: host.uid)
     }
 
+    fun remoteHeartsSince(previous: LiveRoom, ownSender: String): Long {
+        if (fields["heartReactions"] !is Number) {
+            return if (revision == previous.revision) (likes - previous.likes).coerceAtLeast(0) else 0
+        }
+        val ownHearts = fields.rows("recentHeartBatches").sumOf { batch ->
+            if (batch.text("sender") != ownSender) return@sumOf 0L
+            val total = batch.number("total")
+            val batchStart = total - batch.number("count")
+            (minOf(hearts, total) - maxOf(previous.hearts, batchStart)).coerceAtLeast(0)
+        }
+        return (hearts - previous.hearts - ownHearts).coerceAtLeast(0)
+    }
+
     val setlist get() = recent.asReversed() + listOfNotNull(current?.copy(playedBy = currentDJ ?: host))
 
     fun musicShouldPlay(now: Long): Boolean =
@@ -184,6 +197,7 @@ internal data class LiveMessage(
 ) {
     val text = fields.text("text")
     val kind = fields.text("kind")
+    val isSongLikeNotice get() = kind == "songLiked"
     val gifUrl = fields["gifURL"] as? String
     val createdAt = fields.number("createdAt")
     val requestedTrack = fields["requestedTrack"].liveFields()?.let(LiveTrack::parse)
@@ -223,7 +237,9 @@ internal data class LiveSetup(
     val micTested: Boolean = false,
     val welcome: LiveRecording? = null,
     val loadingFirstSong: Boolean = false,
-)
+) {
+    val firstSongArtwork: String? get() = queue.firstOrNull()?.song?.liveDisplayArtwork
+}
 
 internal data class LiveSuggestions(
     val recent: List<LiveTrack> = emptyList(),

@@ -1,0 +1,5 @@
+<resources>
+    <string name="live_end_room_title">라이브 룸을 종료할까요?</string>
+    <string name="live_end_room_message">모든 참여자의 룸이 종료돼요.</string>
+    <string name="live_keep_hosting">라이브 계속하기</string>
+</resources>

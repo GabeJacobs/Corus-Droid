@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="club_live_host_title">Corus Clubでライブ配信</string>
+    <string name="club_live_host_subtitle">お気に入りの曲をライブで流しましょう。友達は無料で聴けます。</string>
+    <string name="club_live_host_perk">ライブルームを主催</string>
+    <string name="club_live_host_yearly_equivalent">年払い · 月額%1$s相当</string>
+    <string name="club_live_host_yearly_billed">年払い</string>
+    <string name="club_live_host_plan_unavailable">利用不可</string>
+    <string name="club_live_host_disclaimer">Corusは広告がないことを誇りにしています。Club メンバーは、Corusが自立し持続できるよう支えています。</string>
+    <string name="club_live_host_loading_plans">予定を読み込み中…</string>
+</resources>

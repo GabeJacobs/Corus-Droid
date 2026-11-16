@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="club_live_host_title">Transmite en directo con Corus Club</string>
+    <string name="club_live_host_subtitle">Pon tus canciones favoritas en directo. Tus amigos pueden escuchar gratis.</string>
+    <string name="club_live_host_perk">Organiza salas en directo</string>
+    <string name="club_live_host_yearly_equivalent">Facturación anual · equivale a %1$s al mes</string>
+    <string name="club_live_host_yearly_billed">Facturación anual</string>
+    <string name="club_live_host_plan_unavailable">No disponible</string>
+    <string name="club_live_host_disclaimer">Corus se enorgullece de no tener anuncios. Los miembros del Club ayudan a mantener Corus independiente y sostenible.</string>
+    <string name="club_live_host_loading_plans">Cargando planes…</string>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="club_live_host_title">使用 Corus Club 开启直播</string>
+    <string name="club_live_host_subtitle">在直播中播放你最喜欢的歌曲。好友可以免费收听。</string>
+    <string name="club_live_host_perk">主持直播房间</string>
+    <string name="club_live_host_yearly_equivalent">按年计费 · 相当于每月%1$s</string>
+    <string name="club_live_host_yearly_billed">按年计费</string>
+    <string name="club_live_host_plan_unavailable">不可用</string>
+    <string name="club_live_host_disclaimer">Corus 自豪地坚持无广告。会员帮助 Corus 保持独立和可持续。</string>
+    <string name="club_live_host_loading_plans">正在加载计划…</string>
+</resources>

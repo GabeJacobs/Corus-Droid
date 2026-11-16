@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -71,7 +72,7 @@ private fun LiveHeader(
         } else if (close != null) {
             IconButton(onClick = close, modifier = Modifier.align(Alignment.CenterEnd)) {
                 Box(Modifier.size(44.dp).background(CorusColors.CardBackground, CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Close, stringResource(fm.corus.android.R.string.live_dj_invitation_close), tint = CorusColors.Secondary)
+                    Icon(Icons.Default.Close, stringResource(CorusStrings.corus_live_close), tint = CorusColors.Secondary)
                 }
             }
         }
@@ -103,18 +104,29 @@ internal fun LiveIconButton(
 }
 
 @Composable
-internal fun LivePrimary(title: String, enabled: Boolean = true, onClick: () -> Unit) {
+internal fun LivePrimary(
+    title: String,
+    enabled: Boolean = true,
+    destructive: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val actionColor = if (destructive) LiveRed else CorusColors.Accent
+    val labelColor = if (destructive) actionColor else Color.White
     Button(
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
-            containerColor = CorusColors.Accent,
-            disabledContainerColor = CorusColors.Accent.copy(alpha = .19f),
+            containerColor = actionColor.copy(alpha = if (destructive) .12f else 1f),
+            disabledContainerColor = actionColor.copy(alpha = if (destructive) .06f else .19f),
         ),
     ) {
-        LiveText(title, CorusFont.body.copy(fontWeight = FontWeight.Bold), Color.White.copy(alpha = if (enabled) 1f else .4f))
+        LiveText(
+            title,
+            CorusFont.body.copy(fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+            labelColor.copy(alpha = if (enabled) 1f else .4f),
+        )
     }
 }
 

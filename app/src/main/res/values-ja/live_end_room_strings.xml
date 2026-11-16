@@ -1,0 +1,5 @@
+<resources>
+    <string name="live_end_room_title">ライブルームを終了しますか？</string>
+    <string name="live_end_room_message">すべての参加者のルームが終了します。</string>
+    <string name="live_keep_hosting">配信を続ける</string>
+</resources>

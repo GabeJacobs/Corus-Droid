@@ -278,7 +278,7 @@ internal fun LiveHostSetup(
                                     CircularProgressIndicator(Modifier.size(24.dp), color = CorusColors.Accent, strokeWidth = 2.dp)
                                 }
                             } else {
-                                LiveArtwork(first?.song?.albumArtURL, 64.dp)
+                                LiveArtwork(setup.firstSongArtwork, 64.dp)
                             }
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 if (first != null) LiveText(stringResource(CorusStrings.corus_live_first_song), CorusFont.caption, CorusColors.Secondary)
@@ -559,7 +559,7 @@ private fun LiveSetupQueueEditor(
                 item {
                     val tint = if (LocalCorusDarkTheme.current) Color(0xFF98BAFF) else Color(0xFF3A6BB9)
                     Row(
-                        rowPadding.fillMaxWidth().padding(vertical = 18.dp).clip(CircleShape)
+                        rowPadding.fillMaxWidth().padding(top = 18.dp).clip(CircleShape)
                             .background(CorusColors.Accent.copy(alpha = .13f)).clickable { importing = true }
                             .heightIn(min = 44.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
@@ -568,7 +568,6 @@ private fun LiveSetupQueueEditor(
                         Icon(Icons.Default.Link, null, tint = tint, modifier = Modifier.size(18.dp))
                         LiveText("Import playlist", CorusFont.body.copy(fontWeight = FontWeight.Bold), tint)
                     }
-                    HorizontalDivider(rowPadding.padding(start = 144.dp), color = CorusColors.Divider)
                 }
             }
             item {

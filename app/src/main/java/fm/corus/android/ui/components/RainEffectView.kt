@@ -15,7 +15,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.math.tan
 import kotlin.random.Random
 
 internal enum class RainLayer { FOREGROUND, BACKGROUND }
@@ -38,21 +37,18 @@ internal data class Splash(
     val maxSpread: Float,
 )
 
-private const val WIND_ANGLE = 15f // degrees
-private val WIND_RAD = Math.toRadians(WIND_ANGLE.toDouble()).toFloat()
-private val WIND_DX = sin(WIND_RAD)
-private val WIND_DY = cos(WIND_RAD)
 private const val SPLASH_LIFETIME_TICKS = 18 // ~0.3s at 60fps
 
 @Composable
 fun RainEffectView(
     intensity: RainIntensity,
     modifier: Modifier = Modifier,
+    windAngleDegrees: Float = 15f,
 ) {
     if (intensity == RainIntensity.OFF) return
 
     Box(modifier = modifier.fillMaxSize()) {
-        RainCanvas(intensity = intensity, modifier = Modifier.fillMaxSize())
+        RainCanvas(intensity, windAngleDegrees, Modifier.fillMaxSize())
         if (intensity == RainIntensity.HEAVY) {
             LightningFlashOverlay(subtle = false)
         }
@@ -62,8 +58,12 @@ fun RainEffectView(
 @Composable
 private fun RainCanvas(
     intensity: RainIntensity,
+    windAngleDegrees: Float,
     modifier: Modifier = Modifier,
 ) {
+    val windRadians = Math.toRadians(windAngleDegrees.toDouble()).toFloat()
+    val windDx = sin(windRadians)
+    val windDy = cos(windRadians)
     var drops by remember(intensity) {
         mutableStateOf(
             List(intensity.dropCount) { createRaindrop(1f, 1f, intensity) }
@@ -100,8 +100,8 @@ private fun RainCanvas(
         val newSplashes = mutableListOf<Splash>()
 
         val updated = drops.map { drop ->
-            var newX = drop.x + WIND_DX * drop.speed * dt
-            var newY = drop.y + WIND_DY * drop.speed * dt
+            var newX = drop.x + windDx * drop.speed * dt
+            val newY = drop.y + windDy * drop.speed * dt
 
             if (newY > h + 10f) {
                 // Spawn splash with 30% chance
@@ -133,8 +133,8 @@ private fun RainCanvas(
         updated.filter { it.layer == RainLayer.BACKGROUND }.forEach { drop ->
             val alpha = drop.opacity * 0.5f * topFade(drop.y)
             val length = drop.length * 0.7f
-            val dx = WIND_DX * length
-            val dy = WIND_DY * length
+            val dx = windDx * length
+            val dy = windDy * length
 
             drawLine(
                 color = Color.White.copy(alpha = alpha),
@@ -146,8 +146,8 @@ private fun RainCanvas(
 
         // Draw foreground drops
         updated.filter { it.layer == RainLayer.FOREGROUND }.forEach { drop ->
-            val dx = WIND_DX * drop.length
-            val dy = WIND_DY * drop.length
+            val dx = windDx * drop.length
+            val dy = windDy * drop.length
 
             drawLine(
                 color = Color.White.copy(alpha = drop.opacity * topFade(drop.y)),

@@ -1,0 +1,5 @@
+<resources>
+    <string name="live_end_room_title">Terminare la stanza in diretta?</string>
+    <string name="live_end_room_message">La stanza verrà chiusa per tutti.</string>
+    <string name="live_keep_hosting">Continua la diretta</string>
+</resources>

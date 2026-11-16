@@ -1633,9 +1633,15 @@
     <string name="live_song_in_queue">In queue</string>
     <string name="live_remove_queue_song">Remove song</string>
     <string name="live_remove_dj_invite">Remove %1$s from DJ invites</string>
+    <string name="live_make_host">Make host</string>
+    <string name="live_remove_dj">Remove DJ</string>
+    <string name="live_dj_request_cooldown">DJ request declined. You can request again shortly.</string>
     <string name="live_starting_spotify">Starting Spotify…</string>
     <string name="live_starting_apple_music">Starting Apple Music…</string>
     <string name="live_connecting_spotify">Connecting…</string>
+    <string name="live_host_provider_title">Connect a music service</string>
+    <string name="live_host_provider_body">Connect Spotify Premium or an Apple Music subscription to go live. Corus will switch to the service you connect.</string>
+    <string name="live_host_provider_spotify_body">Connect Spotify Premium to go live. Corus will switch your music service to Spotify.</string>
     <string name="live_edit_room_title">Edit room title</string>
     <string name="live_room_title_field">Room title</string>
     <string name="live_save_room_title">Save changes</string>
@@ -1676,6 +1682,12 @@
     <string name="live_save_no_back_cover">No back cover is available for this song.</string>
     <string name="live_next_up">Next up</string>
     <string name="live_request_to_talk">Request to Talk</string>
+    <string name="live_mic_is_muted">Mic is muted</string>
+    <string name="live_djs_talking">DJs talking</string>
+    <string name="live_dj_is_talking">%1$s is talking</string>
+    <string name="live_audio_muted">Muted</string>
+    <string name="live_music_paused">Music paused</string>
+    <string name="live_listening_live">Listening live</string>
     <string name="live_cancel_talk_request">Cancel Talk request</string>
     <string name="live_talk_request">Talk request</string>
     <string name="live_talk_request_message">%1$s wants to switch the room to Talk mode.</string>
@@ -1710,8 +1722,6 @@
     <string name="live_request_queued">Added to queue</string>
     <string name="live_request_cancelled">Cancelled</string>
     <string name="live_request_dismissed">Dismissed</string>
-    <string name="live_request_add">Add</string>
-    <string name="live_request_queued_action">Add to queue</string>
     <string name="live_request_accept">Accept</string>
     <string name="live_request_approve">Approve</string>
     <string name="live_request_decline">Decline</string>

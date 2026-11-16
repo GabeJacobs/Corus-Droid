@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="club_live_host_title">Go Live with Corus Club</string>
+    <string name="club_live_host_subtitle">Play your favorite songs live. Friends can tune in for free.</string>
+    <string name="club_live_host_perk">Host live rooms</string>
+    <string name="club_live_host_yearly_equivalent">Billed yearly · %1$s/mo equivalent</string>
+    <string name="club_live_host_yearly_billed">Billed yearly</string>
+    <string name="club_live_host_plan_unavailable">Unavailable</string>
+    <string name="club_live_host_disclaimer">Corus is proudly ad-free. Club members help keep Corus independent and sustainable.</string>
+    <string name="club_live_host_loading_plans">Loading plans…</string>
+</resources>

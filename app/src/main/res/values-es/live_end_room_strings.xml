@@ -1,0 +1,5 @@
+<resources>
+    <string name="live_end_room_title">¿Terminar la sala en directo?</string>
+    <string name="live_end_room_message">Esto cierra la sala para todos.</string>
+    <string name="live_keep_hosting">Seguir en directo</string>
+</resources>

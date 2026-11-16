@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
@@ -61,6 +62,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import androidx.compose.ui.platform.LocalDensity
@@ -70,6 +73,7 @@ import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.components.ExpandedPhoto
 import fm.corus.android.ui.components.FullScreenPhotoViewer
 import fm.corus.android.ui.components.ChromeLoadingHud
+import fm.corus.android.ui.components.CorusModalBottomSheet
 import fm.corus.android.ui.components.MiniPlayerBar
 import fm.corus.android.ui.components.LocalBottomBarHeight
 import fm.corus.android.ui.components.LocalMapCitySheetPresented
@@ -152,7 +156,6 @@ fun MainTabScreen(
         access = liveState.access,
         roomCoversFeed = liveState.coversFeed,
         discovery = liveState.discovery,
-        discoveryCounts = liveState.discoveryCounts,
         showGoLive = liveState.uid != null && (liveShowGoLiveOnLaunch || liveState.cachedMenuAccess),
         canOpenSetup = liveState.setup == null && liveState.progress == null && (liveState.room == null || liveState.hosting),
         mixedSaves = liveState.mixedSaves,
@@ -183,13 +186,15 @@ fun MainTabScreen(
     // white-over-hero icons leak onto a light Feed/Profile as invisible
     // white-on-white. The active immersive page (if any) re-applies its own
     // override right after, keyed on its tab becoming selected again.
-    val darkTheme = LocalCorusDarkTheme.current || (!liveState.minimized && liveState.usesDarkRoomAppearance)
+    val darkTheme = LocalCorusDarkTheme.current
+    val forceDarkRoom = !liveState.minimized && liveState.usesDarkRoomAppearance
     val rootView = LocalView.current
-    LaunchedEffect(selectedTab, darkTheme) {
+    LaunchedEffect(selectedTab, darkTheme, forceDarkRoom) {
         (rootView.context as? Activity)?.window?.let { window ->
             val controller = WindowInsetsControllerCompat(window, window.decorView)
-            controller.isAppearanceLightStatusBars = !darkTheme
-            controller.isAppearanceLightNavigationBars = !darkTheme
+            val lightBars = !darkTheme && !forceDarkRoom
+            controller.isAppearanceLightStatusBars = lightBars
+            controller.isAppearanceLightNavigationBars = lightBars
         }
     }
     val musicService by viewModel.musicServicePreference.current.collectAsState()
@@ -1189,6 +1194,41 @@ fun MainTabScreen(
         liveState, liveViewModel,
         openProfile = { uid -> navControllers[selectedTab]?.navigate(OtherProfileRoute(uid)) },
         openSong = { track -> navControllers[selectedTab]?.navigate(track.toSongDetailRoute()) },
+        nowPlayingDetails = { track, close ->
+            val songNav = rememberNavController()
+            fun leaveSheetFor(action: () -> Unit) {
+                close()
+                liveViewModel.minimize()
+                action()
+            }
+            CorusModalBottomSheet(
+                onDismissRequest = close,
+                sheetState = rememberGuardedSheetState(skipPartiallyExpanded = true),
+            ) {
+                NavHost(songNav, startDestination = track.toSongDetailRoute(), modifier = Modifier.fillMaxHeight(.94f)) {
+                    composable<SongDetailRoute> { entry ->
+                        SongDetailDestination(
+                            route = entry.toRoute<SongDetailRoute>(),
+                            onBack = close,
+                            onNavigateToUser = { uid ->
+                                leaveSheetFor { navControllers[selectedTab]?.navigate(OtherProfileRoute(uid)) }
+                            },
+                            onNavigateToPost = { id ->
+                                leaveSheetFor { navControllers[selectedTab]?.navigate(PostDetailRoute(id)) }
+                            },
+                            onNavigateToCompose = { song -> leaveSheetFor { viewModel.setPreSelectedTrack(song) } },
+                            onNavigateToArtist = if (artistPagesEnabled) { route ->
+                                leaveSheetFor { navControllers[selectedTab]?.navigate(route) }
+                            } else null,
+                            onNavigateToAlbum = if (artistPagesEnabled) { route ->
+                                leaveSheetFor { navControllers[selectedTab]?.navigate(route) }
+                            } else null,
+                            inSheet = true,
+                        )
+                    }
+                }
+            }
+        },
     )
 
     // Save cap toast/snackbar host (overlay above content, inside outer Box).

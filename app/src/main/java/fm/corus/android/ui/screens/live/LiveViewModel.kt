@@ -75,7 +75,6 @@ internal data class LiveUiState(
     val accessResolved: Boolean = false,
     val cachedMenuAccess: Boolean = false,
     val discovery: List<LiveRoom> = emptyList(),
-    val discoveryCounts: Map<String, Int> = emptyMap(),
     val invites: List<LiveFields> = emptyList(),
     val shownInvite: LiveFields? = null,
     val seenInviteKeys: Set<Pair<String, Long>> = emptySet(),
@@ -100,6 +99,7 @@ internal data class LiveUiState(
     val joiningRoom: LiveRoom? = null,
     val joinReady: Boolean = false,
     val listenerCount: Int = 0,
+    val incomingHearts: Long = 0,
     val messages: List<LiveMessage> = emptyList(),
     val membership: LiveFields = emptyMap(),
     val savedIds: Set<String> = emptySet(),
@@ -386,7 +386,7 @@ internal class LiveViewModel @Inject constructor(
             room.id !in hiddenRooms && room.active(now) && (room.pausedAt != null || room.deadline > now) && room.host.uid != state.value.uid
         }
         if (!state.value.access?.listenerCounts.orFalse() || rooms.isEmpty()) {
-            update { copy(discovery = rooms, discoveryCounts = emptyMap()) }
+            update { copy(discovery = rooms) }
             return
         }
         val counts = try {
@@ -398,12 +398,8 @@ internal class LiveViewModel @Inject constructor(
             update { copy(discovery = rooms) }
             return
         }
-        update {
-            copy(
-                discovery = rooms.filter { it.id in counts },
-                discoveryCounts = counts.mapValues { (_, count) -> (count as? Number)?.toInt() ?: 0 },
-            )
-        }
+        // The server omits rooms that are no longer live or whose host is blocked.
+        update { copy(discovery = rooms.filter { it.id in counts }) }
     }
 
     fun openSetup() {
@@ -1163,19 +1159,22 @@ internal class LiveViewModel @Inject constructor(
     }
 
     fun heart() {
-        val room = state.value.room?.takeIf { it.status == "playing" && it.current != null } ?: return
+        val current = state.value
+        val room = current.room?.takeIf { it.status == "playing" && it.current != null } ?: return
+        if (current.hosting && !room.canLikeFromMiniPlayer(current.uid, now)) return
         if (heartRevision != room.revision) {
             heartJob?.cancel()
             heartsPending = 0
             heartRevision = room.revision
         }
-        heartsPending++
+        heartsPending = (heartsPending + 1).coerceAtMost(12)
         if (heartJob?.isActive == true) return
         heartJob = viewModelScope.launch {
-            delay(240)
             while (heartsPending > 0 && state.value.room?.id == room.id && state.value.room?.revision == room.revision) {
-                val count = heartsPending.coerceAtMost(12)
-                heartsPending -= count
+                delay(1_000)
+                if (state.value.room?.id != room.id || state.value.room?.revision != room.revision) break
+                val count = heartsPending
+                heartsPending = 0
                 try {
                     command("like", room.id, mapOf("revision" to room.revision, "heartCount" to count, "heartSender" to heartSender))
                 } catch (error: CancellationException) {
@@ -1385,8 +1384,14 @@ internal class LiveViewModel @Inject constructor(
     suspend fun recentPeople() = state.value.uid?.let { repository.recentPeople(it, state.value.room?.id) }.orEmpty()
     suspend fun spotifyPlaylist(id: String) = repository.spotifyPlaylist(id)
     suspend fun gifs(query: String) = repository.gifs(query)
-    suspend fun share(id: String, setup: Boolean): String =
-        if (setup) command("reserveShareLink", id).text("shareUrl") else "https://corus.fm/live/$id"
+    suspend fun share(id: String, setup: Boolean): String = try {
+        command(
+            "reserveShareLink", id, mapOf("shortLink" to true, "existingRoomOnly" to !setup)
+        ).text("shareUrl")
+    } catch (error: Exception) {
+        if (setup || error is CancellationException) throw error
+        "https://corus.fm/live/$id"
+    }
 
     private fun mount(room: LiveRoom) {
         roomJobs.forEach(Job::cancel)
@@ -1398,6 +1403,7 @@ internal class LiveViewModel @Inject constructor(
             copy(
                 room = room, ended = null, minimized = false, pendingChatEnabled = null, recoverableHostRoom = null, muted = false, messages = emptyList(),
                 listenerCount = 0, membership = emptyMap(), audioError = null, queueUpdating = false,
+                incomingHearts = 0,
                 effectSelection = LiveEffectSelection(),
             )
         }
@@ -1423,6 +1429,7 @@ internal class LiveViewModel @Inject constructor(
                 update {
                     copy(
                         room = next,
+                        incomingHearts = incomingHearts + (previous?.let { next.remoteHeartsSince(it, heartSender) } ?: 0),
                         effectSelection = if (stillHosting) effectSelection.observe(next.effect) else LiveEffectSelection(),
                     )
                 }
@@ -1449,7 +1456,7 @@ internal class LiveViewModel @Inject constructor(
                 }
                 update { copy(messages = withAvatars()) }
                 val missing = messages.asSequence()
-                    .filter { it.kind != "listenerJoined" }
+                    .filter { it.kind != "listenerJoined" && !it.isSongLikeNotice }
                     .map { it.author.uid }
                     .filter { it.isNotBlank() && it !in knownAuthors }
                     .distinct()
@@ -1997,6 +2004,7 @@ internal class LiveViewModel @Inject constructor(
         update {
             copy(room = null, ended = ended, minimized = false, pendingChatEnabled = null, messages = emptyList(),
                 audioReady = false, audioError = null, micEnabled = false, voiceLevels = emptyMap(), membership = emptyMap(),
+                incomingHearts = 0,
                 pendingDJs = emptyList(), djRequests = emptyList(), myDJRequest = emptyMap(),
                 mySongRequest = emptyMap(), requestBusy = false, queueUpdating = false,
                 effectSelection = LiveEffectSelection())

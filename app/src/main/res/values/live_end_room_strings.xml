@@ -1,0 +1,5 @@
+<resources>
+    <string name="live_end_room_title">End live room?</string>
+    <string name="live_end_room_message">This ends the room for everyone.</string>
+    <string name="live_keep_hosting">Keep hosting</string>
+</resources>

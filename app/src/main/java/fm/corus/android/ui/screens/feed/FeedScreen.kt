@@ -1305,11 +1305,14 @@ fun FeedScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = chromeTop),
                 ) {
-                    val prefix = when {
-                        isSelected -> selectedFeedPrefix
-                        includeHeader -> listOf(FeedPrefixItem.Header)
-                        else -> emptyList()
-                    }
+                    // Keep Live discovery in the offscreen list so the first
+                    // post doesn't replace it as the scroll anchor on tab switch.
+                    val prefix = feedPrefixItems(
+                        includeHeader = includeHeader,
+                        feedMode = pageMode,
+                        showDailyHashtag = isSelected && dailyHashtagBanner.candidate != null,
+                        showTasteMatchesTrial = isSelected && showTasteMatchesTrialBanner,
+                    )
                     for (row in prefix) {
                         when (row) {
                             FeedPrefixItem.Header -> item { header() }
@@ -1318,8 +1321,8 @@ fun FeedScreen(
                             }
                             FeedPrefixItem.LiveDiscovery -> item(key = "corus_live_discovery") {
                                 LiveDiscovery(
-                                    source = if (feedMode == "following") "following" else "your_mix",
-                                    following = liveFollowingIds.takeIf { feedMode == "following" },
+                                    source = if (pageMode == "following") "following" else "your_mix",
+                                    following = liveFollowingIds.takeIf { pageMode == "following" },
                                 )
                             }
                             FeedPrefixItem.ReferralInvite -> item(key = "referral_feed_banner") {

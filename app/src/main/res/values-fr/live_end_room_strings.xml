@@ -1,0 +1,5 @@
+<resources>
+    <string name="live_end_room_title">Terminer le salon en direct ?</string>
+    <string name="live_end_room_message">Le salon sera fermé pour tout le monde.</string>
+    <string name="live_keep_hosting">Rester en direct</string>
+</resources>

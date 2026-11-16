@@ -147,6 +147,7 @@ import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.screens.feed.ModeTabBar
 import fm.corus.android.ui.screens.feed.PagerMidpointHaptic
+import fm.corus.android.ui.screens.live.LiveDiscovery
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.CorusMotion
@@ -1301,6 +1302,18 @@ private fun RecentHashtagMedia() {
     }
 }
 
+private fun LazyListScope.searchBrowseHeader(onNavigateToMap: () -> Unit) {
+    item(key = "search_browse_header") {
+        // Keep a measured first item so late Live results appear at the top instead
+        // of being inserted above whichever item the list anchored to while loading.
+        Column(Modifier.fillMaxWidth().heightIn(min = 1.dp)) {
+            LiveDiscovery("search_users", inSearch = true)
+            fm.corus.android.ui.components.ReferralInviteBanner("search")
+            fm.corus.android.ui.screens.map.MapPreviewEntry(onNavigateToMap)
+        }
+    }
+}
+
 @Composable
 private fun SuggestedUsersContent(
     onNavigateToMap: () -> Unit,
@@ -1355,11 +1368,7 @@ private fun SuggestedUsersContent(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(0.dp),
     ) {
-        item(key = "corus_live_discovery") {
-            fm.corus.android.ui.screens.live.LiveDiscovery("search_users", inSearch = true)
-        }
-        item(key = "referral_search_banner") { fm.corus.android.ui.components.ReferralInviteBanner("search") }
-        item(key = "corus_map_preview") { fm.corus.android.ui.screens.map.MapPreviewEntry(onNavigateToMap) }
+        searchBrowseHeader(onNavigateToMap)
         contactsSections(
             contactsSyncStatus = contactsSyncStatus,
             isSyncingContacts = isSyncingContacts,
@@ -2468,8 +2477,7 @@ private fun UnifiedZeroStateContent(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(0.dp),
     ) {
-        item(key = "referral_search_banner") { fm.corus.android.ui.components.ReferralInviteBanner("search") }
-        item(key = "corus_map_preview") { fm.corus.android.ui.screens.map.MapPreviewEntry(onNavigateToMap) }
+        searchBrowseHeader(onNavigateToMap)
         contactsSections(
             contactsSyncStatus = contactsSyncStatus,
             isSyncingContacts = isSyncingContacts,

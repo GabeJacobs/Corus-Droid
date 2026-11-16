@@ -1,0 +1,5 @@
+<resources>
+    <string name="live_end_room_title">结束直播间？</string>
+    <string name="live_end_room_message">这将结束所有人的直播间。</string>
+    <string name="live_keep_hosting">继续直播</string>
+</resources>

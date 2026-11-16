@@ -35,7 +35,7 @@ class ReviewPromptManager @Inject constructor(
         now: Long = System.currentTimeMillis(),
     ) {
         recordActiveDay(userId, now)
-        if (!remoteConfig.reviewPromptEnabled || prefs.getInt("days.$userId", 0) < 3 ||
+        if (!remoteConfig.reviewPromptEnabled || prefs.getInt("days.$userId", 0) < REQUIRED_ACTIVE_DAYS ||
             !cooldownElapsed(now)
         ) return
 
@@ -87,8 +87,11 @@ class ReviewPromptManager @Inject constructor(
         val today = now / DAY_MS
         if (today <= prefs.getLong("last_day.$userId", 0)) return
         val count = prefs.getInt("days.$userId", 0)
-        prefs.edit().putLong("last_day.$userId", today)
-            .putInt("days.$userId", (count + 1).coerceAtMost(3)).apply()
+        val edit = prefs.edit().putLong("last_day.$userId", today)
+        if (count < REQUIRED_ACTIVE_DAYS) {
+            edit.putInt("days.$userId", count + 1)
+        }
+        edit.apply()
     }
 
     private fun cooldownElapsed(now: Long): Boolean =
@@ -96,6 +99,7 @@ class ReviewPromptManager @Inject constructor(
 
     private companion object {
         const val KEY_LAST_REQUEST = "last_prompt_date"
+        const val REQUIRED_ACTIVE_DAYS = 2
         const val DAY_MS = 86_400_000L
     }
 }

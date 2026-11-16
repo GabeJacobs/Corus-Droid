@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="club_live_host_title">Corus Club으로 라이브 시작하기</string>
+    <string name="club_live_host_subtitle">좋아하는 곡을 라이브로 틀어 보세요. 친구들은 무료로 들을 수 있어요.</string>
+    <string name="club_live_host_perk">라이브 룸 진행하기</string>
+    <string name="club_live_host_yearly_equivalent">연간 결제 · 월 %1$s에 해당</string>
+    <string name="club_live_host_yearly_billed">연간 결제</string>
+    <string name="club_live_host_plan_unavailable">이용 불가</string>
+    <string name="club_live_host_disclaimer">Corus는 광고가 없는 것을 자랑스럽게 생각해요. Club 멤버는 Corus가 독립적이고 지속 가능하도록 도와줘요.</string>
+    <string name="club_live_host_loading_plans">계획 불러오는 중…</string>
+</resources>

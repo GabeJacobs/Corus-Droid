@@ -15,7 +15,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -44,7 +43,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.BookmarkBorder
-import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
@@ -63,7 +61,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -112,6 +109,8 @@ internal fun LiveRoomScreen(
     vm: LiveViewModel,
     openProfile: (String) -> Unit,
     openSong: (CymbalTrack) -> Unit,
+    openNowPlaying: (CymbalTrack) -> Unit,
+    showingNowPlaying: Boolean,
 ) {
     var panel by remember(room.id) { mutableStateOf<RoomPanel?>(null) }
     var chatFocused by remember { mutableStateOf(false) }
@@ -125,8 +124,9 @@ internal fun LiveRoomScreen(
         keyboardWasVisible = keyboardVisible
     }
     val close = { panel = null }
-    LaunchedEffect(room.allowSongRequests) {
-        if (!room.allowSongRequests && panel == RoomPanel.REQUEST_SONG) close()
+    val canRequestSong = room.chatEnabled && room.allowSongRequests
+    LaunchedEffect(canRequestSong) {
+        if (!canRequestSong && panel == RoomPanel.REQUEST_SONG) close()
     }
     val canControl = state.hosting || state.dj != null
     LaunchedEffect(vm, state.uid, canControl) {
@@ -138,6 +138,10 @@ internal fun LiveRoomScreen(
     val listenRoster = remember { mutableStateOf<List<LiveFields>?>(null) }
     var selectedMessage by remember { mutableStateOf<LiveMessage?>(null) }
     var selectedSong by remember { mutableStateOf<LiveTrack?>(null) }
+    val visitSong: (LiveTrack) -> Unit = { track ->
+        vm.minimize()
+        openSong(track.song.withLiveDisplayArtwork())
+    }
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     var text by remember { mutableStateOf("") }
     var gif by remember { mutableStateOf<String?>(null) }
@@ -233,7 +237,7 @@ internal fun LiveRoomScreen(
 
     val visibleEffect = state.effectSelection.visible(room.effect)
     Box(Modifier.fillMaxSize().background(CorusColors.Background)) {
-        LiveRoomEffects(visibleEffect, room.hearts, !canControl || pager.currentPage == 1)
+        LiveRoomEffects(visibleEffect)
         Column(
             Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()
                 .widthIn(max = 650.dp).align(Alignment.TopCenter).padding(start = 16.dp, end = 16.dp, top = 4.dp),
@@ -291,6 +295,7 @@ internal fun LiveRoomScreen(
                 }
             }
             Spacer(Modifier.height(8.dp))
+            val audibleDJs = liveAudibleDJs(room, state)
             val playerCard: @Composable () -> Unit = {
                 AnimatedVisibility(!chatFocused) {
                     Column(
@@ -301,7 +306,30 @@ internal fun LiveRoomScreen(
                         if (activeWelcome != null) {
                             RoomWelcomeMessageCard(room, welcomeProgress)
                         } else {
-                            RoomPlayerCard(room, state, vm, { selectedSong = it }, { show(RoomPanel.HISTORY) })
+                            RoomPlayerCard(
+                                room, state, vm, audibleDJs,
+                                { openNowPlaying(it.song.withLiveDisplayArtwork()) },
+                                { show(RoomPanel.HISTORY) },
+                            )
+                        }
+                    }
+                }
+                if (chatFocused && room.voiceMode == "talk") {
+                    val speaker = audibleDJs.firstOrNull()
+                    val meter = if (state.micEnabled) state.voiceLevels[state.uid] ?: 0f
+                        else speaker?.let { state.voiceLevels[it.uid] }
+                    if (meter != null) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            LiveText(
+                                stringResource(if (state.micEnabled) CorusStrings.corus_live_mic_is_on
+                                    else R.string.live_listening_live),
+                                CorusFont.captionMedium,
+                            )
+                            LiveVoiceMeter(meter)
                         }
                     }
                 }
@@ -310,21 +338,36 @@ internal fun LiveRoomScreen(
             }
             val chatRows = remember(state.messages, state.djRequests, state.hosting) { state.chatRows }
             val chat: @Composable ColumnScope.() -> Unit = {
+                val retryAt = state.myDJRequest.number("declinedAt").takeIf {
+                    it > 0 && state.myDJRequest.text("status") == "declined"
+                }?.plus(60_000)
+                var coolingDown by remember(room.id, retryAt) {
+                    mutableStateOf(retryAt != null && vm.serverTime() < retryAt)
+                }
+                LaunchedEffect(room.id, retryAt) {
+                    if (retryAt != null) delay((retryAt - vm.serverTime()).coerceAtLeast(0))
+                    coolingDown = false
+                }
                 RoomChat(chatRows, state, vm, openDJSpots, visitProfile, { selectedMessage = it }, Modifier.weight(1f))
+                if (room.chatEnabled && !state.hosting && state.dj == null && coolingDown &&
+                    state.invites.none { it.text("roomId") == room.id && it.number("expiresAt") > vm.serverTime() }
+                ) {
+                    LiveText(stringResource(R.string.live_dj_request_cooldown), CorusFont.caption, CorusColors.Secondary)
+                }
                 ChatComposer(
                     text, { text = it.take(500) }, gif, { gif = null },
                     { vm.send(text, gif) { text = ""; gif = null } }, vm::heart,
                     room.revision > 0 && state.membership.number("likedRevision") == room.revision, { chatFocused = it },
-                    showHeart = state.audioReady && !state.hosting && room.current != null,
+                    showHeart = !state.hosting && state.audioReady && room.miniPlayerTrack(vm.serverTime()) != null,
                     chatEnabled = room.chatEnabled,
                 ) {
-                    ChatActions(room, state, vm, { show(RoomPanel.REQUEST_SONG) }, { show(RoomPanel.GIF) })
+                    ChatActions(room, state, vm, coolingDown, { show(RoomPanel.REQUEST_SONG) }, { show(RoomPanel.GIF) })
                 }
             }
             playerCard()
             if (canControl) {
                 val latestChat = chatRows.lastOrNull {
-                    it.author.uid != state.uid && it.kind != "listenerLeft"
+                    it.author.uid != state.uid && it.kind != "listenerLeft" && !it.isSongLikeNotice
                 }
                 var lastReadMessage by remember(room.id) { mutableStateOf<String?>(null) }
                 LaunchedEffect(pager.currentPage, latestChat?.id) {
@@ -357,6 +400,12 @@ internal fun LiveRoomScreen(
                 }
             } else chat()
         }
+        val hostControlsVisible = canControl && pager.currentPage == 0
+        LiveHeartBurst(
+            state.incomingHearts,
+            Modifier.align(Alignment.BottomStart).navigationBarsPadding()
+                .padding(start = if (hostControlsVisible) 16.dp else 36.dp, bottom = if (hostControlsVisible) 24.dp else 72.dp),
+        )
     }
 
     when (panel) {
@@ -400,11 +449,6 @@ internal fun LiveRoomScreen(
                             if (fields.number("likedRevision") == room.revision) {
                                 Icon(Icons.Default.Favorite, "Liked this song", tint = LiveRed, modifier = Modifier.size(15.dp))
                             }
-                            if (state.hosting) LiveIconButton(Icons.Default.PersonRemove, stringResource(CorusStrings.corus_live_remove_listener), {
-                                vm.action("removeListener", mapOf("targetUid" to person.uid)) {
-                                    listenRoster.value = listenRoster.value?.filterNot { it.text("uid") == person.uid }
-                                }
-                            })
                         }
                     }
                 }
@@ -451,7 +495,9 @@ internal fun LiveRoomScreen(
                     selected = visibleEffect,
                     toggle = vm::toggleRoomEffect,
                 )
-                if (state.hosting || room.collaborative) {
+                val canSetRequestPermissions = state.hosting && room.collaborative &&
+                    (state.pendingChatEnabled ?: room.chatEnabled)
+                if (state.hosting) {
                     HorizontalDivider(Modifier.padding(top = 12.dp), color = CorusColors.Divider)
                 }
                 if (state.hosting) {
@@ -462,7 +508,7 @@ internal fun LiveRoomScreen(
                         onChange = vm::setChatEnabled,
                     )
                 }
-                if (room.collaborative) {
+                if (canSetRequestPermissions) {
                     RoomSwitch("Allow DJ requests", room.allowDJRequests) {
                         vm.action("setRequestPermission", mapOf("type" to "dj", "allowed" to it))
                     }
@@ -494,7 +540,7 @@ internal fun LiveRoomScreen(
             invite = ({ panel = RoomPanel.PICK_DJS }).takeIf { openDJSpots > 0 },
         )
         RoomPanel.QUEUE -> RoomQueueEditor(room, state, vm, close)
-        RoomPanel.REQUEST_SONG -> {
+        RoomPanel.REQUEST_SONG -> if (canRequestSong) {
             val request = state.mySongRequest
             val track = request["track"].liveFields()?.let(LiveTrack::parse)
             if (track != null && request.text("status") == "pending") {
@@ -534,15 +580,29 @@ internal fun LiveRoomScreen(
                     candidates = (result["eligibleDJIds"] as? List<*>)?.filterIsInstance<String>().orEmpty()
                 }
             }
-            LiveSheet(stringResource(CorusStrings.corus_live_end_live), close) {
-                LiveText(stringResource(CorusStrings.corus_live_this_will_end_the_room_for_everyone), color = CorusColors.Secondary)
+            LiveSheet(stringResource(R.string.live_end_room_title), close) {
+                Text(
+                    stringResource(R.string.live_end_room_message),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                    style = CorusFont.body,
+                    color = CorusColors.Secondary,
+                    textAlign = TextAlign.Center,
+                )
                 room.djs.firstOrNull { it.text("uid") == candidates.firstOrNull() }?.let { dj ->
                     LiveRow(stringResource(CorusStrings.corus_live_step_down), Icons.Default.SwitchAccount, LivePerson.parse(dj).username) {
                         vm.action("stepDown", mapOf("targetUid" to dj.text("uid"))) { close() }
                     }
                 }
-                LivePrimary(stringResource(CorusStrings.corus_live_end_live)) { close(); vm.end() }
-                TextButton(onClick = close, modifier = Modifier.align(Alignment.CenterHorizontally)) { LiveText(stringResource(CorusStrings.common_cancel)) }
+                LivePrimary(stringResource(CorusStrings.corus_live_end_live), destructive = true) {
+                    close()
+                    vm.end()
+                }
+                TextButton(onClick = close, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                    LiveText(
+                        stringResource(R.string.live_keep_hosting),
+                        CorusFont.bodyMedium.copy(textAlign = TextAlign.Center),
+                    )
+                }
             }
         }
         null -> Unit
@@ -573,8 +633,7 @@ internal fun LiveRoomScreen(
             LiveTrackRow(track)
             LiveRow(stringResource(CorusStrings.native_84b771e51b43), Icons.Default.MusicNote) {
                 selectedSong = null
-                vm.minimize()
-                openSong(track.song.withLiveDisplayArtwork())
+                visitSong(track)
             }
             LiveRow("Save song", Icons.Outlined.BookmarkBorder) { vm.save(track); selectedSong = null }
         }
@@ -583,7 +642,7 @@ internal fun LiveRoomScreen(
         room = room,
         vm = vm,
         showRequest = state.hosting && !state.minimized && lifecycle.isAtLeast(Lifecycle.State.RESUMED) &&
-            panel == null && selectedMessage == null && selectedSong == null,
+            panel == null && selectedMessage == null && selectedSong == null && !showingNowPlaying,
         onApproved = { if (!state.micEnabled) micClick() },
     )
 }
@@ -887,9 +946,17 @@ private fun RoomWelcomeMessageCard(room: LiveRoom, progress: Float?) {
     }
 }
 
+private fun liveAudibleDJs(room: LiveRoom, state: LiveUiState): List<LivePerson> {
+    if (state.muted || room.voiceMode != "talk") return emptyList()
+    return (listOf(room.host) + room.djs.map(LivePerson::parse)).filter {
+        it.uid != state.uid && (state.voiceLevels[it.uid] ?: 0f) > 0f
+    }
+}
+
 @Composable
 private fun RoomPlayerCard(
-    room: LiveRoom, state: LiveUiState, vm: LiveViewModel, song: (LiveTrack) -> Unit, history: () -> Unit,
+    room: LiveRoom, state: LiveUiState, vm: LiveViewModel, audibleDJs: List<LivePerson>,
+    song: (LiveTrack) -> Unit, history: () -> Unit,
 ) {
     val context = LocalContext.current
     val hostWaitStartsAt = room.hostWaitStartsAt
@@ -910,17 +977,24 @@ private fun RoomPlayerCard(
         when {
             waitingForHost -> RoomWaitingTrack(room, vm, waitingForHost = true, countdown = false)
             room.voiceMode == "talk" && room.pendingSkip == null -> {
+                val canUseMic = state.hosting || state.dj != null
+                val micMuted = canUseMic && !state.micEnabled
                 Row(Modifier.heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Icon(if (state.micEnabled) Icons.Default.Mic else Icons.Default.MicOff, null, tint = CorusColors.Accent)
-                    val level = if (state.micEnabled) state.voiceLevels[state.uid] ?: 0f
-                        else state.voiceLevels.values.maxOrNull() ?: 0f
+                    Icon(if (micMuted) Icons.Default.MicOff else Icons.Default.Mic, null, tint = CorusColors.Accent)
                     LiveText(
-                        if (state.micEnabled) stringResource(CorusStrings.corus_live_mic_is_on)
-                        else if (state.hosting) "Mic is muted" else "Listening live",
-                        CorusFont.songTitle, modifier = Modifier.weight(1f),
+                        when {
+                            state.micEnabled -> stringResource(CorusStrings.corus_live_mic_is_on)
+                            micMuted -> stringResource(R.string.live_mic_is_muted)
+                            audibleDJs.size > 1 -> stringResource(R.string.live_djs_talking)
+                            audibleDJs.size == 1 -> stringResource(
+                                R.string.live_dj_is_talking, "@${audibleDJs.single().username.trimStart('@')}",
+                            )
+                            state.muted -> stringResource(R.string.live_audio_muted)
+                            else -> stringResource(R.string.live_music_paused)
+                        },
+                        CorusFont.songTitle,
                     )
-                    LiveVoiceMeter(level)
                 }
             }
             track == null || room.status == "waiting" -> {
@@ -951,7 +1025,6 @@ private fun RoomPlayerCard(
                                 when {
                                     room.pendingSkip != null -> "Switching songs…"
                                     !state.hosting && !state.audioReady -> stringResource(CorusStrings.corus_live_tuning_in)
-                                    !state.hosting && !state.muted -> "Now playing · Listening live"
                                     else -> stringResource(CorusStrings.full_player_queue_now_playing)
                                 },
                                 CorusFont.caption, CorusColors.Secondary, lines = 1,
@@ -1030,7 +1103,6 @@ private fun RoomWaitingTrack(
                     delay((remaining - 1) % 1_000L + 1)
                 } while (true)
             }
-            HorizontalDivider()
             LiveText(
                 stringResource(R.string.live_seconds_to_add_song, seconds),
                 CorusFont.bodyMedium.copy(fontFeatureSettings = "tnum"), accent,
@@ -1391,13 +1463,19 @@ private fun RoomChat(
         verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom),
     ) {
         items(rows, key = { it.id }) { message ->
-            if (message.kind == "listenerJoined") {
+            if (message.kind == "listenerJoined" || message.isSongLikeNotice) {
                 Row(
                     Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Default.PersonAdd, null, tint = CorusColors.Secondary, modifier = Modifier.size(14.dp))
-                    LiveText("@${message.author.username.removePrefix("@")} joined the room", CorusFont.caption, CorusColors.Secondary)
+                    Icon(
+                        if (message.isSongLikeNotice) Icons.Default.Favorite else Icons.Default.PersonAdd,
+                        null, tint = CorusColors.Secondary, modifier = Modifier.size(14.dp),
+                    )
+                    LiveText(
+                        if (message.isSongLikeNotice) message.text else "@${message.author.username.removePrefix("@")} joined the room",
+                        CorusFont.caption.copy(textAlign = TextAlign.Center), CorusColors.Secondary,
+                    )
                 }
             } else {
                 Row(
@@ -1456,11 +1534,9 @@ private fun ChatRequestCard(message: LiveMessage, state: LiveUiState, vm: LiveVi
                     status?.let { LiveText(stringResource(it), CorusFont.caption, CorusColors.Secondary) }
                 }
                 if (pending && (state.hosting || state.dj != null)) {
-                    val addToQueue = stringResource(R.string.live_request_queued_action)
-                    ChatRequestButton(
-                        stringResource(R.string.live_request_add), primary = true, enabled = !state.requestBusy,
-                        accessibilityLabel = addToQueue,
-                    ) { vm.requestAction("queueSongRequest", message.requestTarget()) }
+                    ChatRequestButton(stringResource(R.string.post_menu_add_to_queue), primary = true, enabled = !state.requestBusy) {
+                        vm.requestAction("queueSongRequest", message.requestTarget())
+                    }
                 }
             }
         } else {
@@ -1486,7 +1562,7 @@ private fun ChatRequestCard(message: LiveMessage, state: LiveUiState, vm: LiveVi
                         ) { vm.requestAction("declineDJRequest", message.requestTarget()) }
                     }
                 } else if (pending && !djRequest && (state.hosting || state.dj != null)) {
-                    ChatRequestButton(stringResource(R.string.live_request_add), primary = true, enabled = !state.requestBusy) {
+                    ChatRequestButton(stringResource(R.string.post_menu_add_to_queue), primary = true, enabled = !state.requestBusy) {
                         vm.requestAction("queueSongRequest", message.requestTarget())
                     }
                 }
@@ -1499,12 +1575,11 @@ private fun ChatRequestCard(message: LiveMessage, state: LiveUiState, vm: LiveVi
 
 @Composable
 private fun ChatRequestButton(
-    title: String, enabled: Boolean, primary: Boolean = false, accessibilityLabel: String = title,
+    title: String, enabled: Boolean, primary: Boolean = false,
     onClick: () -> Unit,
 ) {
     Box(
         Modifier.heightIn(min = 44.dp).clip(CircleShape)
-            .semantics { if (accessibilityLabel != title) contentDescription = accessibilityLabel }
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .alpha(if (enabled) 1f else .5f),
         contentAlignment = Alignment.Center,
@@ -1512,6 +1587,7 @@ private fun ChatRequestButton(
         Box(
             Modifier.heightIn(min = 32.dp)
                 .background(if (primary) CorusColors.Accent else CorusColors.SheetControlBackground, CircleShape)
+                .then(if (primary) Modifier else Modifier.border(1.dp, CorusColors.Secondary, CircleShape))
                 .padding(horizontal = 12.dp),
             contentAlignment = Alignment.Center,
         ) {
@@ -1539,11 +1615,7 @@ private fun ChatComposer(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        if (showHeart) LiveIconButton(
-            if (liked) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
-            stringResource(CorusStrings.corus_live_like_song), heart,
-            tint = if (liked) LiveRed else CorusColors.Text, touchSize = 44.dp, glyphSize = 25.dp,
-        )
+        if (showHeart) LiveLikeButton(liked, glyphSize = 25.dp, onLike = heart)
         Row(
             Modifier.weight(1f).clip(CircleShape).background(CorusColors.CardBackground)
                 .border(1.dp, CorusColors.Secondary.copy(alpha = .22f), CircleShape).padding(start = 12.dp),
@@ -1551,9 +1623,13 @@ private fun ChatComposer(
         ) {
             if (chatEnabled) {
                 BasicTextField(
-                    text, onText, Modifier.weight(1f).onFocusChanged { focus(it.isFocused) },
+                    text,
+                    { onText(it.lineSequence().joinToString(" ")) },
+                    Modifier.weight(1f).onFocusChanged { focus(it.isFocused) },
                     textStyle = CorusFont.body.copy(color = CorusColors.Text),
-                    cursorBrush = SolidColor(CorusColors.Accent), maxLines = 3,
+                    cursorBrush = SolidColor(CorusColors.Accent),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     decorationBox = { input -> Box { if (text.isEmpty()) LiveText(stringResource(CorusStrings.corus_live_say_something), color = CorusColors.Secondary); input() } },
                 )
             } else {
@@ -1586,26 +1662,37 @@ private fun ChatActions(
     room: LiveRoom,
     state: LiveUiState,
     vm: LiveViewModel,
+    djRequestCoolingDown: Boolean,
     requestSong: () -> Unit,
     pickGif: () -> Unit,
 ) {
-    var expanded by remember(room.id) { mutableStateOf(false) }
     val focus = LocalFocusManager.current
     val now = vm.serverTime()
     val invited = state.invites.any { it.text("roomId") == room.id && it.number("expiresAt") > now }
     val requested = state.myDJRequest.text("status") == "pending"
     val lineupFull = room.djs.size + state.pendingDJs.count { it.number("expiresAt") > now } >= LIVE_MAX_GUEST_DJS
-    val hasRequestActions = room.collaborative && !state.hosting && state.dj == null &&
-        (room.allowSongRequests || (!invited && (requested || room.allowDJRequests)))
-    if (!room.chatEnabled && !hasRequestActions) return
+    val pendingSong = state.mySongRequest.text("status") == "pending"
+    val canManageRequests = room.collaborative && !state.hosting && state.dj == null
+    val hasRequestToCancel = canManageRequests && (pendingSong || (!invited && requested))
+    if (!room.chatEnabled && !hasRequestToCancel) return
+    var expanded by remember(room.id) { mutableStateOf(false) }
     Box {
         LiveIconButton(Icons.Default.Add, "More chat actions", { expanded = true }, touchSize = 44.dp, glyphSize = 18.dp)
         DropdownMenu(expanded, { expanded = false }, containerColor = CorusColors.CardBackground) {
-            if (room.collaborative && !state.hosting && state.dj == null) {
-                if (room.allowSongRequests) DropdownMenuItem(
+            if (canManageRequests) {
+                if (room.chatEnabled && room.allowSongRequests) DropdownMenuItem(
                     text = { LiveText(stringResource(R.string.live_request_song)) },
                     leadingIcon = { Icon(Icons.Default.MusicNote, null) },
                     onClick = { expanded = false; requestSong() },
+                )
+                if (!room.chatEnabled && pendingSong) DropdownMenuItem(
+                    text = { LiveText(stringResource(R.string.live_cancel_song_request)) },
+                    leadingIcon = { Icon(Icons.Default.Close, null) },
+                    enabled = !state.requestBusy,
+                    onClick = {
+                        expanded = false
+                        vm.requestAction("cancelSongRequest", mapOf("requestMessageId" to state.mySongRequest.text("chatMessageId")))
+                    },
                 )
                 if (!invited && requested) DropdownMenuItem(
                     text = { LiveText("Cancel DJ request") },
@@ -1613,10 +1700,10 @@ private fun ChatActions(
                     enabled = !state.requestBusy,
                     onClick = { expanded = false; vm.requestAction("cancelDJRequest") },
                 )
-                if (!invited && !requested && room.allowDJRequests) DropdownMenuItem(
+                if (room.chatEnabled && !invited && !requested && room.allowDJRequests) DropdownMenuItem(
                     text = { LiveText(if (lineupFull) "DJ spots full" else "Request to DJ") },
                     leadingIcon = { Icon(Icons.Default.PersonAdd, null) },
-                    enabled = !lineupFull && !state.requestBusy,
+                    enabled = !lineupFull && !state.requestBusy && !djRequestCoolingDown,
                     onClick = { expanded = false; focus.clearFocus(); vm.requestAction("requestDJ") },
                 )
             }
@@ -1652,15 +1739,15 @@ private fun LiveLineupSheet(
                             LiveIconButton(Icons.Default.MoreHoriz, "DJ options", { menu = true })
                             DropdownMenu(menu, { menu = false }) {
                                 if (dj.uid in handoff) DropdownMenuItem(
-                                    text = { LiveText("Offer hosting") },
+                                    text = { LiveText(stringResource(R.string.live_make_host)) },
+                                    leadingIcon = { Icon(Icons.Default.VpnKey, null, tint = CorusColors.Accent) },
                                     onClick = { vm.action("offerHost", mapOf("targetUid" to dj.uid)); menu = false },
                                 )
-                                DropdownMenuItem(text = { LiveText("Move to listeners") }, onClick = {
-                                    vm.action("moveDJToListeners", mapOf("targetUid" to dj.uid)); menu = false
-                                })
-                                DropdownMenuItem(text = { LiveText("Remove from room") }, onClick = {
-                                    vm.action("removeParticipant", mapOf("targetUid" to dj.uid)); menu = false
-                                })
+                                DropdownMenuItem(
+                                    text = { LiveText(stringResource(R.string.live_remove_dj)) },
+                                    leadingIcon = { Icon(Icons.Default.PersonRemove, null) },
+                                    onClick = { vm.action("moveDJToListeners", mapOf("targetUid" to dj.uid)); menu = false },
+                                )
                             }
                         }
                     }
@@ -1835,19 +1922,10 @@ private fun LiveReportSheet(close: () -> Unit, report: (String, String) -> Unit)
 }
 
 @Composable
-private fun LiveRoomEffects(effect: String, hearts: Long, showHearts: Boolean) {
-    val animation = remember { Animatable(1f) }
-    var lastHeart by remember { mutableLongStateOf(hearts) }
-    LaunchedEffect(hearts) {
-        if (hearts > lastHeart && showHearts) {
-            animation.snapTo(0f)
-            animation.animateTo(1f, tween(850))
-        }
-        lastHeart = hearts
-    }
+private fun LiveRoomEffects(effect: String) {
     Box(Modifier.fillMaxSize()) {
         when (effect) {
-            "rain" -> RainEffectView(RainIntensity.LIGHT, Modifier.alpha(.8f))
+            "rain" -> RainEffectView(RainIntensity.MEDIUM, Modifier.alpha(.8f), windAngleDegrees = 5f)
             "snow" -> SnowEffectView(SnowIntensity.HEAVY)
             "slow", "disco", "party" -> {
                 val intensity = when (effect) {
@@ -1858,13 +1936,6 @@ private fun LiveRoomEffects(effect: String, hearts: Long, showHearts: Boolean) {
                 DiscoScrim(intensity, Modifier.fillMaxSize())
                 DiscoEffectView(intensity, Modifier.fillMaxSize())
             }
-        }
-        if (showHearts && animation.value < 1f) {
-            Icon(
-                Icons.Default.Favorite, null, tint = LiveRed,
-                modifier = Modifier.align(Alignment.BottomStart).padding(start = 29.dp, bottom = (72 + animation.value * 112).dp)
-                    .alpha(1f - animation.value),
-            )
         }
     }
 }

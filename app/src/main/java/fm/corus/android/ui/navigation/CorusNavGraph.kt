@@ -698,37 +698,12 @@ internal fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     }
 
     composable<SongDetailRoute> { backStackEntry ->
-        val route = backStackEntry.toRoute<SongDetailRoute>()
-        SongDetailScreen(
-            trackId = route.trackId,
-            albumArtURL = route.albumArtURL,
-            albumArtLargeURL = route.albumArtLargeURL,
-            songName = route.songName,
-            artistName = route.artistName,
-            spotifyURI = route.spotifyURI,
-            spotifyWebURL = route.spotifyWebURL,
-            previewUrl = route.previewUrl,
-            source = route.source,
-            soundcloudId = route.soundcloudId,
-            soundcloudPermalinkUrl = route.soundcloudPermalinkUrl,
-            audiomackUrl = route.audiomackUrl,
-            bandcampUrl = route.bandcampUrl,
-            tidalURL = route.tidalURL,
-            deezerURL = route.deezerURL,
-            isrc = route.isrc,
-            artistId = route.artistId,
-            artistIdCount = route.artistIdCount,
-            albumId = route.albumId,
-            releaseDate = route.releaseDate,
-            releaseDatePrecision = route.releaseDatePrecision,
-            albumName = route.albumName,
-            durationMs = route.durationMs,
+        SongDetailDestination(
+            route = backStackEntry.toRoute<SongDetailRoute>(),
             onBack = { navController.safePopBackStack() },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
-            onNavigateToCompose = { track ->
-                mainTabViewModel.setPreSelectedTrack(track)
-            },
+            onNavigateToCompose = { track -> mainTabViewModel.setPreSelectedTrack(track) },
             onNavigateToArtist = navigateToArtist,
             onNavigateToAlbum = navigateToAlbum,
         )
@@ -1288,4 +1263,50 @@ internal fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         )
     }
 
+}
+
+
+@Composable
+internal fun SongDetailDestination(
+    route: SongDetailRoute,
+    onBack: () -> Unit,
+    onNavigateToUser: (String) -> Unit,
+    onNavigateToPost: (String) -> Unit,
+    onNavigateToCompose: (CymbalTrack) -> Unit,
+    onNavigateToArtist: ((ArtistPageRoute) -> Unit)? = null,
+    onNavigateToAlbum: ((AlbumPageRoute) -> Unit)? = null,
+    inSheet: Boolean = false,
+) {
+    SongDetailScreen(
+        trackId = route.trackId,
+        albumArtURL = route.albumArtURL,
+        albumArtLargeURL = route.albumArtLargeURL,
+        songName = route.songName,
+        artistName = route.artistName,
+        spotifyURI = route.spotifyURI,
+        spotifyWebURL = route.spotifyWebURL,
+        previewUrl = route.previewUrl,
+        source = route.source,
+        soundcloudId = route.soundcloudId,
+        soundcloudPermalinkUrl = route.soundcloudPermalinkUrl,
+        audiomackUrl = route.audiomackUrl,
+        bandcampUrl = route.bandcampUrl,
+        tidalURL = route.tidalURL,
+        deezerURL = route.deezerURL,
+        isrc = route.isrc,
+        artistId = route.artistId,
+        artistIdCount = route.artistIdCount,
+        albumId = route.albumId,
+        releaseDate = route.releaseDate,
+        releaseDatePrecision = route.releaseDatePrecision,
+        albumName = route.albumName,
+        durationMs = route.durationMs,
+        onBack = onBack,
+        onNavigateToUser = onNavigateToUser,
+        onNavigateToPost = onNavigateToPost,
+        onNavigateToCompose = onNavigateToCompose,
+        onNavigateToArtist = onNavigateToArtist,
+        onNavigateToAlbum = onNavigateToAlbum,
+        inSheet = inSheet,
+    )
 }
