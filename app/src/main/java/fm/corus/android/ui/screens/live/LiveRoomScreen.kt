@@ -93,6 +93,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import java.util.Date
 import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.sin
@@ -657,7 +658,7 @@ private fun HostTalkRequest(
     var handledRequests by remember(room.id) { mutableStateOf(emptySet<String>()) }
     var resolving by remember(room.id) { mutableStateOf(false) }
     val latestRequests by rememberUpdatedState(room.talkRequests)
-    if (!showRequest || room.voiceMode == "talk" || room.status == "ended") return
+    if (!showRequest || room.voiceMode == "talk" || room.status == "ended" || room.talkLimitReached(vm.serverTime())) return
     val request = room.talkRequests
         .filter { request ->
             val id = request.text("id")
@@ -993,8 +994,9 @@ private fun RoomPlayerCard(
                             state.muted -> stringResource(R.string.live_audio_muted)
                             else -> stringResource(R.string.live_music_paused)
                         },
-                        CorusFont.songTitle,
+                        CorusFont.songTitle, modifier = Modifier.weight(1f),
                     )
+                    if (state.hosting) room.talkDeadline?.let { TalkCountdown(it, vm) }
                 }
             }
             track == null || room.status == "waiting" -> {
@@ -1148,6 +1150,22 @@ private fun LivePill(text: String, action: () -> Unit, showPeople: Boolean = fal
 }
 
 @Composable
+private fun TalkCountdown(deadline: Long, vm: LiveViewModel) {
+    val seconds by produceState(301L, deadline) {
+        delay((deadline - vm.serverTime() - 300_000).coerceAtLeast(0))
+        do {
+            val remaining = (deadline - vm.serverTime()).coerceAtLeast(0)
+            value = (remaining + 999) / 1_000
+            if (remaining > 0) delay((remaining % 1_000).takeIf { it > 0 } ?: 1_000)
+        } while (remaining > 0)
+    }
+    if (seconds <= 300) {
+        val duration = String.format(Locale.getDefault(), "%d:%02d", seconds / 60, seconds % 60)
+        LiveText(stringResource(CorusStrings.live_talk_time_left, duration), CorusFont.captionMedium, CorusColors.Accent)
+    }
+}
+
+@Composable
 private fun HostControls(
     room: LiveRoom, state: LiveUiState, vm: LiveViewModel, micClick: () -> Unit, queueEditor: () -> Unit,
     chat: () -> Unit, unreadChat: LiveMessage?, modifier: Modifier = Modifier,
@@ -1162,21 +1180,31 @@ private fun HostControls(
     val editingEnabled = room.pendingSkip == null && !state.queueUpdating
     val canPlay = state.hosting && room.djs.isEmpty() && room.pausedAt == null
     val canSkip = state.canSkipTrack(room, queue)
+    val resetAt = room.talkDailyResetAt
+    val dailyLimitReached by produceState(resetAt != null && resetAt > vm.serverTime(), resetAt) {
+        value = resetAt != null && resetAt > vm.serverTime()
+        if (value && resetAt != null) {
+            delay((resetAt - vm.serverTime()).coerceAtLeast(0))
+            value = false
+        }
+    }
+    val talkDisabled = room.talkRoomLimitReached || dailyLimitReached
     val accentText = if (LocalCorusDarkTheme.current) Color(0xFF98BAFF) else Color(0xFF3A6BB9)
     Column(modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (state.hosting) {
             Row(Modifier.fillMaxWidth().clip(CircleShape).background(CorusColors.Secondary.copy(alpha = .10f)).padding(2.dp)) {
                 listOf("talk" to stringResource(CorusStrings.corus_live_talk), "music" to stringResource(CorusStrings.search_tab_music)).forEach { (mode, label) ->
+                    val blocked = mode == "talk" && talkDisabled
                     val selected = mode == (room.voiceMode.ifBlank { "music" })
                     Box(
                         Modifier.weight(1f).height(44.dp).clip(CircleShape)
                             .background(if (selected) CorusColors.Accent else Color.Transparent)
-                            .clickable(enabled = !selected && room.pendingSkip == null) {
+                            .clickable(enabled = !selected && !blocked && room.pendingSkip == null) {
                                 vm.action("voiceMode", mapOf("mode" to mode)) { if (mode == "talk" && !state.micEnabled) micClick() }
                             },
                         contentAlignment = Alignment.Center,
                     ) {
-                        val tint = if (selected) Color.White else CorusColors.Text.copy(alpha = .76f)
+                        val tint = if (selected) Color.White else CorusColors.Text.copy(alpha = if (blocked) .35f else .76f)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(if (mode == "talk") Icons.Default.Mic else Icons.Default.MusicNote, null,
                                 tint = tint, modifier = Modifier.size(16.dp))
@@ -1190,10 +1218,19 @@ private fun HostControls(
             RoomVoiceButton(
                 stringResource(if (requested) R.string.live_cancel_talk_request else R.string.live_request_to_talk),
                 Icons.Default.Mic,
-                enabled = room.pendingSkip == null,
+                enabled = room.pendingSkip == null && !talkDisabled,
             ) {
                 vm.action(if (requested) "cancelTalkRequest" else "requestTalk")
             }
+        }
+        if (talkDisabled && room.voiceMode != "talk") {
+            val message = if (room.talkRoomLimitReached) {
+                stringResource(CorusStrings.live_talk_room_limit)
+            } else {
+                val format = android.text.format.DateFormat.getTimeFormat(LocalContext.current)
+                stringResource(CorusStrings.live_talk_daily_limit, format.format(Date(requireNotNull(resetAt))))
+            }
+            LiveText(message, CorusFont.caption, CorusColors.Secondary)
         }
         if (room.voiceMode == "talk") {
             RoomVoiceButton(

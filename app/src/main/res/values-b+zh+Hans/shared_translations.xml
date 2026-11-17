@@ -422,4 +422,7 @@
     <string name="corus_native_909cb81127c5">"书"</string>
     <string name="corus_native_c275c265cabd">"GIF"</string>
     <string name="corus_native_e4bb77af4bc5">"搜索用户"</string>
+    <string name="corus_live_talk_daily_limit">"你已达到每日语音聊天时限。%1$s 后可再次使用语音聊天。"</string>
+    <string name="corus_live_talk_room_limit">"此房间已用完 20 分钟的语音聊天时间。"</string>
+    <string name="corus_live_talk_time_left">"还剩 %1$s"</string>
 </resources>

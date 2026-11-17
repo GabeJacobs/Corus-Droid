@@ -422,4 +422,7 @@
     <string name="corus_native_909cb81127c5">"Libro"</string>
     <string name="corus_native_c275c265cabd">"GIF"</string>
     <string name="corus_native_e4bb77af4bc5">"Cerca utenti"</string>
+    <string name="corus_live_talk_daily_limit">"Hai raggiunto il limite giornaliero. Potrai parlare di nuovo alle %1$s."</string>
+    <string name="corus_live_talk_room_limit">"Questa stanza ha esaurito i 20 minuti per parlare."</string>
+    <string name="corus_live_talk_time_left">"Restano %1$s"</string>
 </resources>

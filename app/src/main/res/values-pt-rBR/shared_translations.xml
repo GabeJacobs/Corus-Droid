@@ -354,4 +354,7 @@
     <string name="corus_native_909cb81127c5">"Livro"</string>
     <string name="corus_native_c275c265cabd">"GIFs"</string>
     <string name="corus_native_e4bb77af4bc5">"Buscar usuários"</string>
+    <string name="corus_live_talk_daily_limit">"Você atingiu o limite diário de conversa. Você pode voltar a falar às %1$s."</string>
+    <string name="corus_live_talk_room_limit">"Esta sala já usou os 20 minutos de conversa."</string>
+    <string name="corus_live_talk_time_left">"%1$s restantes"</string>
 </resources>

@@ -801,6 +801,9 @@ object CorusStrings {
     @StringRes val language_section_title: Int = R.string.language_section_title
     @StringRes val likes_empty_no_likes: Int = R.string.likes_empty_no_likes
     @StringRes val likes_title: Int = R.string.parity_e9f009d9df80
+    @StringRes val live_talk_daily_limit: Int = R.string.corus_live_talk_daily_limit
+    @StringRes val live_talk_room_limit: Int = R.string.corus_live_talk_room_limit
+    @StringRes val live_talk_time_left: Int = R.string.corus_live_talk_time_left
     @StringRes val map_all_communities: Int = R.string.parity_5e15b15b4fa5
     @StringRes val map_cd_catalog: Int = R.string.map_cd_catalog
     @StringRes val map_cd_clear_search: Int = R.string.map_cd_clear_search

@@ -142,6 +142,11 @@ internal data class LiveRoom(val id: String, private val fields: LiveFields) {
     val effect = fields.text("effect")
     val voiceEnabled = fields.flag("voiceEnabled")
     val voiceMode = fields.text("voiceMode")
+    val talkDeadline = fields.number("talkDeadline").takeIf { it > 0 }
+    val talkRoomLimitReached = fields.flag("talkRoomLimitReached")
+    val talkDailyResetAt = fields.number("talkDailyResetAt").takeIf { it > 0 }
+
+    fun talkLimitReached(now: Long): Boolean = talkRoomLimitReached || (talkDailyResetAt ?: 0) > now
     val voiceSession = fields["voiceSession"] as? String
     val djs = fields.rows("djs")
     val collaborative = fields["djs"] is List<*>
