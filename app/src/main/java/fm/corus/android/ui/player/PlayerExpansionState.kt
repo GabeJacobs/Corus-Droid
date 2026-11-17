@@ -22,6 +22,9 @@ import androidx.compose.ui.unit.dp
  */
 enum class PlayerSheetValue { Collapsed, Expanded }
 
+internal val PlayerSwipeVelocityThreshold = 550.dp
+internal const val PlayerSwipeDistanceFraction = 0.45f
+
 /**
  * Continuous 0…1 expansion for the now-playing sheet.
  *
@@ -121,7 +124,7 @@ fun rememberPlayerExpansionState(
     // Match iOS PlayerSlideContainer: velocity snap at 550 pt/s; close at/under
     // ~50% expansion (iOS `shouldOpen = projected > 0.5`). Use 0.45 so a slow
     // drag that reaches visual halfway still dismisses instead of springing open.
-    val velocityThresholdPx = with(density) { 550.dp.toPx() }
+    val velocityThresholdPx = with(density) { PlayerSwipeVelocityThreshold.toPx() }
     val decay = rememberSplineBasedDecay<Float>()
     val draggable = remember {
         AnchoredDraggableState(
@@ -130,7 +133,7 @@ fun rememberPlayerExpansionState(
             } else {
                 PlayerSheetValue.Collapsed
             },
-            positionalThreshold = { distance -> distance * 0.45f },
+            positionalThreshold = { distance -> distance * PlayerSwipeDistanceFraction },
             velocityThreshold = { velocityThresholdPx },
             // iOS settle: dampingRatio 0.90, ~0.44s.
             snapAnimationSpec = spring(

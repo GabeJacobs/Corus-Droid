@@ -32,7 +32,8 @@
         <package android:name="com.spotify.music" />
     </queries>
 
-    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID" tools:node="remove" />
     <application
         android:name=".CorusApplication"
         android:allowBackup="true"
@@ -46,6 +47,10 @@
         android:localeConfig="@xml/locales_config"
         tools:targetApi="35"
         tools:replace="android:fullBackupContent,android:dataExtractionRules">
+
+        <meta-data
+            android:name="google_analytics_adid_collection_enabled"
+            android:value="false" />
 
         <!-- Share target: post a song to Corus from another app's share sheet
              (Spotify / Apple Music / SoundCloud / Deezer links as text/plain).

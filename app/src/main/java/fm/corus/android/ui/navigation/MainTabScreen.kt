@@ -38,6 +38,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -519,10 +520,15 @@ fun MainTabScreen(
         }
     }
 
-    val livePlayerExpansion = if (showsMiniPlayer) playerExpansion.liveExpansion() else 0f
+    val liveRoomExpansion = key(liveState.room?.id) { rememberPlayerExpansionState() }
+    val tabBarExpansion = when {
+        liveState.room != null -> liveRoomExpansion.liveExpansion()
+        showsMiniPlayer -> playerExpansion.liveExpansion()
+        else -> 0f
+    }
     val bottomChromeHeight = with(density) {
         if (citySheetOpen) 0.dp else tabBarHeightPx.toDp() +
-            if (showLiveMini) LiveMiniPlayerHeight else if (showsMiniPlayer && playerSurfaceReady) miniHeightPx.toDp() else 0.dp
+            if (showLiveMini || liveState.room != null) LiveMiniPlayerHeight else if (showsMiniPlayer && playerSurfaceReady) miniHeightPx.toDp() else 0.dp
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -847,17 +853,14 @@ fun MainTabScreen(
         )
     }
 
-    if (showLiveMini && !citySheetOpen) {
+    // A recovered room opens setup before it can be expanded as a mounted Live room.
+    if (showLiveMini && liveState.room == null && !citySheetOpen) {
         LiveMiniPlayer(
             liveState, liveViewModel,
             Modifier.align(Alignment.BottomCenter)
                 .padding(bottom = with(density) { tabBarHeightPx.toDp() })
                 .zIndex(2f)
-                .then(if (FrostedBottomBar) Modifier.hazeEffect(state = bottomHaze) {
-                    blurRadius = 30.dp
-                    backgroundColor = bottomFrost
-                    tints = listOf(HazeTint(bottomFrost.copy(alpha = 0.88f)))
-                } else Modifier.background(CorusColors.CardBackground)),
+                .background(CorusColors.Background),
         )
     }
 
@@ -866,11 +869,11 @@ fun MainTabScreen(
         modifier = Modifier
             .align(Alignment.BottomCenter)
             .fillMaxWidth()
-            .zIndex(2f)
+            .zIndex(if (liveState.room != null && tabBarExpansion > 0f) 9.5f else 2f)
             .offset {
                 IntOffset(
                     0,
-                    (livePlayerExpansion.coerceIn(0f, 1f) * tabBarHeightPx.coerceAtLeast(0f))
+                    (tabBarExpansion * tabBarHeightPx.coerceAtLeast(0f))
                         .roundToInt(),
                 )
             }
@@ -1046,7 +1049,7 @@ fun MainTabScreen(
         !showMilestonePaywall && !showClubOffer && !showPlayerQueue && !citySheetOpen &&
         commentPostId == null && playerLikesPostId == null && playerSharePost == null &&
         expandedPhoto == null && notificationDestination == null &&
-        playbackModePending == null && livePlayerExpansion < 0.01f
+        playbackModePending == null && tabBarExpansion < 0.01f && !liveState.coversFeed
     val reviewCanPresentNow by rememberUpdatedState(canRequestReview)
     LaunchedEffect(showMilestonePaywall, showClubOffer) {
         if ((showMilestonePaywall || showClubOffer) && reviewPrompt.readyUserId.value != null) {
@@ -1192,6 +1195,9 @@ fun MainTabScreen(
 
     LivePresentation(
         liveState, liveViewModel,
+        roomExpansion = liveRoomExpansion,
+        parkInsetPx = if (citySheetOpen) 0f else tabBarHeightPx,
+        showMini = !citySheetOpen,
         openProfile = { uid -> navControllers[selectedTab]?.navigate(OtherProfileRoute(uid)) },
         openSong = { track -> navControllers[selectedTab]?.navigate(track.toSongDetailRoute()) },
         nowPlayingDetails = { track, close ->

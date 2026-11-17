@@ -14,6 +14,7 @@ import fm.corus.android.data.model.RainIntensity
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -44,11 +45,13 @@ fun RainEffectView(
     intensity: RainIntensity,
     modifier: Modifier = Modifier,
     windAngleDegrees: Float = 15f,
+    particleDensity: Float = 1f,
+    fallSpeedScale: Float = 1f,
 ) {
     if (intensity == RainIntensity.OFF) return
 
     Box(modifier = modifier.fillMaxSize()) {
-        RainCanvas(intensity, windAngleDegrees, Modifier.fillMaxSize())
+        RainCanvas(intensity, windAngleDegrees, particleDensity, fallSpeedScale, Modifier.fillMaxSize())
         if (intensity == RainIntensity.HEAVY) {
             LightningFlashOverlay(subtle = false)
         }
@@ -59,20 +62,23 @@ fun RainEffectView(
 private fun RainCanvas(
     intensity: RainIntensity,
     windAngleDegrees: Float,
+    particleDensity: Float,
+    fallSpeedScale: Float,
     modifier: Modifier = Modifier,
 ) {
     val windRadians = Math.toRadians(windAngleDegrees.toDouble()).toFloat()
     val windDx = sin(windRadians)
     val windDy = cos(windRadians)
-    var drops by remember(intensity) {
+    val dropCount = (intensity.dropCount * particleDensity).roundToInt()
+    var drops by remember(intensity, dropCount) {
         mutableStateOf(
-            List(intensity.dropCount) { createRaindrop(1f, 1f, intensity) }
+            List(dropCount) { createRaindrop(1f, 1f, intensity) }
         )
     }
-    var splashes by remember(intensity) { mutableStateOf(listOf<Splash>()) }
-    var tick by remember(intensity) { mutableIntStateOf(0) }
+    var splashes by remember(intensity, dropCount) { mutableStateOf(listOf<Splash>()) }
+    var tick by remember(intensity, dropCount) { mutableIntStateOf(0) }
 
-    LaunchedEffect(intensity) {
+    LaunchedEffect(intensity, dropCount) {
         while (true) {
             delay(16) // ~60fps
             tick++
@@ -93,10 +99,10 @@ private fun RainCanvas(
             if (y >= fadeBand) 1f else (y / fadeBand).coerceIn(0f, 1f)
 
         if (tick == 1) {
-            drops = List(intensity.dropCount) { createRaindrop(w, h, intensity, scale) }
+            drops = List(dropCount) { createRaindrop(w, h, intensity, scale) }
         }
 
-        val dt = 1f / 60f
+        val dt = fallSpeedScale / 60f
         val newSplashes = mutableListOf<Splash>()
 
         val updated = drops.map { drop ->

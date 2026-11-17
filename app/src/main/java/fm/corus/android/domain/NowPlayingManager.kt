@@ -405,6 +405,11 @@ class NowPlayingManager @Inject constructor(
     private val queueAfterLive = mutableListOf<QueuedTrack>()
     internal var livePlaybackExit: (suspend () -> Boolean)? = null
 
+    internal suspend fun canStartNonLivePlayback(userInitiated: Boolean = true): Boolean {
+        if (!userInitiated && !liveOwnsSpotify) return true
+        return livePlaybackExit?.invoke() ?: !liveOwnsSpotify
+    }
+
     internal suspend fun beginLiveSpotifyPlayback() {
         if (liveOwnsSpotify) return
         liveOwnsSpotify = true
@@ -1933,7 +1938,7 @@ class NowPlayingManager @Inject constructor(
         forceSwitch: Boolean = false,
         preferFullSong: Boolean = false,
     ) {
-        if (liveOwnsSpotify && livePlaybackExit?.invoke() != true) return
+        if (!canStartNonLivePlayback()) return
         if (!mapOwned) MapPlaybackOwner.yield()
         queueOrderPinnedByUser = false
         val preserved = if (previewOnly || !preserveUserQueue) emptyList() else snapshotUserQueuedUpNext()
@@ -2083,7 +2088,7 @@ class NowPlayingManager @Inject constructor(
         notOnSpotify: Boolean = false,
         bandcampUrl: String? = null,
     ) {
-        if (liveOwnsSpotify && livePlaybackExit?.invoke() != true) return
+        if (!canStartNonLivePlayback()) return
         MapPlaybackOwner.yield()
         // Single-track path: clear any queued context so hasNext is false.
         queue = emptyList()
@@ -2120,7 +2125,7 @@ class NowPlayingManager @Inject constructor(
         preferFullSong: Boolean = false,
         showTrackWhileLoading: Boolean = false,
     ) {
-        if (liveOwnsSpotify && livePlaybackExit?.invoke() != true) return
+        if (!canStartNonLivePlayback(userInitiated)) return
         val trackId = track.trackId
         val wantsApple = !previewOnly && ::appleMusicPlayback.isInitialized && AppleMusicPlayback.isAvailable() &&
             SongPlayRouting.wantsFullSong(

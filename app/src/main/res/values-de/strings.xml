@@ -280,6 +280,9 @@
     <string name="comments_dialog_block_message">"Sie können dein Profil und deine Beiträge nicht mehr sehen, und du ihre nicht."</string>
     <string name="comments_dialog_block_confirm">"Blockieren"</string>
     <string name="comments_menu_copy">"Kopieren"</string>
+    <string name="live_copy_text">"Text kopieren"</string>
+    <string name="live_edit_message">"Nachricht bearbeiten"</string>
+    <string name="live_delete_message">"Nachricht löschen"</string>
     <string name="comments_menu_report">"Melden"</string>
     <string name="comments_menu_block">"Blockieren"</string>
     <string name="comments_menu_edit">"Bearbeiten"</string>
@@ -1526,4 +1529,5 @@
     <string name="profile_shuffle_no_songs">Noch keine Songs zum Abspielen</string>
     <string name="profile_shuffle_failed">Die Songs dieses Profils konnten nicht geladen werden. Bitte versuche es erneut.</string>
     <string name="profile_shuffle_loading">Profil wird gemischt…</string>
+    <string name="live_kick_user_from_room">"Aus dem Raum entfernen"</string>
 </resources>

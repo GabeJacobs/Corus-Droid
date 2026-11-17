@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.live
 
+import com.google.firebase.functions.FirebaseFunctionsException
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import fm.corus.android.localization.CorusStrings
 import android.content.ActivityNotFoundException
@@ -11,13 +13,14 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.alpha
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.anchoredDraggable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -59,6 +62,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -74,13 +78,18 @@ import fm.corus.android.ui.components.rememberReducedMotion
 import fm.corus.android.ui.components.parityCopy
 import fm.corus.android.data.model.FlairStyle
 import fm.corus.android.ui.components.blockTouchPassthrough
+import fm.corus.android.ui.player.PlayerExpansionState
+import fm.corus.android.ui.player.PlayerSheetValue
+import fm.corus.android.ui.player.miniOpacity
 import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusContentTheme
 import fm.corus.android.ui.theme.CorusFont
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 internal data class LiveNavigation(
     val state: LiveNavigationState,
@@ -147,7 +156,7 @@ internal fun LiveCreateButton(onDefault: () -> Unit, modifier: Modifier = Modifi
 @Composable
 internal fun LiveDiscovery(source: String, following: Set<String>? = null, inSearch: Boolean = false) {
     val live = LocalLiveNavigation.current ?: return
-    val rooms = live.state.discovery.filter { following == null || it.host.uid in following }
+    val rooms = live.state.discovery.filter { it.matchesFollowing(following) }
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val artworkUrls = if (lifecycle.isAtLeast(Lifecycle.State.RESUMED) && !live.state.roomCoversFeed) {
         rooms.take(3).mapNotNull { it.current?.loadingArtworkUrl }.distinct()
@@ -180,8 +189,8 @@ internal fun LiveDiscovery(source: String, following: Set<String>? = null, inSea
         }
     }
     hide?.let { room ->
-        LiveSheet("Live room", { hide = null }) {
-            LiveRow("Hide room", Icons.Default.VisibilityOff) {
+        LiveSheet(stringResource(R.string.live_live_room), { hide = null }) {
+            LiveRow(stringResource(R.string.live_hide_room), Icons.Default.VisibilityOff) {
                 live.viewModel.event("discovery_hidden", source = "room_pill")
                 live.viewModel.dismissDiscoveryRoom(room.id)
                 hide = null
@@ -303,8 +312,13 @@ internal fun LiveProfileAvatar(uid: String, avatar: @Composable () -> Unit) {
 internal val LiveMiniPlayerHeight = 56.dp
 
 @Composable
-internal fun LiveMiniPlayer(state: LiveUiState, vm: LiveViewModel, modifier: Modifier = Modifier) {
-    val room = state.miniPlayerRoom ?: return
+internal fun LiveMiniPlayer(
+    state: LiveUiState,
+    vm: LiveViewModel,
+    modifier: Modifier = Modifier,
+    room: LiveRoom? = state.miniPlayerRoom,
+) {
+    if (room == null) return
     val mounted = state.room?.id == room.id
     val isHost = room.host.uid == state.uid
     val localProfile by vm.profile.collectAsState()
@@ -340,7 +354,11 @@ internal fun LiveMiniPlayer(state: LiveUiState, vm: LiveViewModel, modifier: Mod
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
-                Modifier.weight(1f).fillMaxHeight().clickable(onClick = vm::openMiniPlayer),
+                Modifier.weight(1f).fillMaxHeight().clickable(
+                    interactionSource = null,
+                    indication = null,
+                    onClick = vm::openMiniPlayer,
+                ),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -387,10 +405,10 @@ internal fun LiveMiniPlayer(state: LiveUiState, vm: LiveViewModel, modifier: Mod
                     }
                     LiveText(
                         when {
-                            room.hostWaitStartsAt?.let { now >= it } == true -> parityCopy("Waiting for host")
-                            room.status == "waiting" && room.pausedAt != null -> parityCopy("Talk mode")
+                            room.hostWaitStartsAt?.let { now >= it } == true -> parityCopy(stringResource(R.string.live_waiting_for_host))
+                            room.status == "waiting" && room.pausedAt != null -> parityCopy(stringResource(R.string.live_talk_mode))
                             track == null -> stringResource(CorusStrings.corus_live_waiting_for_the_next_song)
-                            !ready -> parityCopy("Connect a streaming provider")
+                            !ready -> parityCopy(stringResource(R.string.live_connect_a_streaming_provider))
                             else -> "${track.song.name} · ${track.song.artistName}"
                         },
                         CorusFont.caption, CorusColors.Secondary, lines = 1,
@@ -429,6 +447,85 @@ internal fun LiveMiniPlayer(state: LiveUiState, vm: LiveViewModel, modifier: Mod
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun LiveRoomSheet(
+    room: LiveRoom,
+    state: LiveUiState,
+    vm: LiveViewModel,
+    expansion: PlayerExpansionState,
+    parkInsetPx: Float,
+    showMini: Boolean,
+    openProfile: (String) -> Unit,
+    openSong: (CymbalTrack) -> Unit,
+    openNowPlaying: (CymbalTrack) -> Unit,
+    showingNowPlaying: Boolean,
+) {
+    val dragState = expansion.draggableState
+    val scope = rememberCoroutineScope()
+    BackHandler(enabled = !showingNowPlaying && dragState.targetValue == PlayerSheetValue.Expanded) {
+        scope.launch { expansion.collapse() }
+    }
+
+    BoxWithConstraints(Modifier.fillMaxSize().zIndex(9f)) {
+        val miniHeightPx = with(LocalDensity.current) { LiveMiniPlayerHeight.toPx() }
+        val travel = (constraints.maxHeight.toFloat() - parkInsetPx - miniHeightPx).coerceAtLeast(1f)
+        LaunchedEffect(travel, state.minimized) {
+            expansion.updateTravel(travel)
+            if (state.minimized) expansion.collapse() else expansion.expand()
+        }
+        LaunchedEffect(dragState, vm) {
+            // Keep the room mounted through a drag and publish its mode once it reaches an anchor.
+            snapshotFlow { dragState.settledValue }.drop(1).collect { value ->
+                if (value == PlayerSheetValue.Collapsed) vm.minimize() else vm.expand()
+            }
+        }
+
+        val fraction = expansion.expansionFraction(travel)
+        val settled = dragState.settledValue
+        val miniAlpha = miniOpacity(fraction, travel)
+        val showFullRoom = fraction > 0f || settled == PlayerSheetValue.Expanded
+        Box(
+            Modifier.fillMaxSize().offset {
+                val offset = dragState.offset
+                IntOffset(0, (if (offset.isNaN()) travel else offset.coerceIn(0f, travel)).roundToInt())
+            },
+        ) {
+            if (showMini && !showFullRoom) {
+                Box(Modifier.fillMaxWidth().height(LiveMiniPlayerHeight).background(CorusColors.Background))
+            }
+            // The surface where the drag started must stay mounted until release at either anchor.
+            if (showMini && (fraction < 1f || settled == PlayerSheetValue.Collapsed)) {
+                LiveMiniPlayer(
+                    state, vm,
+                    Modifier.alpha(miniAlpha)
+                        .zIndex(if (miniAlpha > 0f) 1f else 0f)
+                        .anchoredDraggable(dragState, Orientation.Vertical, startDragImmediately = false),
+                    room = room,
+                )
+            }
+            if (showFullRoom) {
+                CorusContentTheme(LocalCorusDarkTheme.current || state.usesDarkRoomAppearance) {
+                    Box(Modifier.fillMaxSize().blockTouchPassthrough()) {
+                        LiveRoomScreen(
+                            room, state, vm, openProfile, openSong, openNowPlaying, showingNowPlaying,
+                            headerAlpha = 1f - miniAlpha,
+                            // Chat and its horizontal pager sit outside this drag target.
+                            minimizeDrag = Modifier.anchoredDraggable(
+                                state = dragState,
+                                orientation = Orientation.Vertical,
+                                enabled = !showingNowPlaying,
+                                startDragImmediately = false,
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun BoxScope.LivePresentation(
     state: LiveUiState,
@@ -436,34 +533,20 @@ internal fun BoxScope.LivePresentation(
     openProfile: (String) -> Unit,
     openSong: (CymbalTrack) -> Unit,
     nowPlayingDetails: @Composable (CymbalTrack, () -> Unit) -> Unit,
+    roomExpansion: PlayerExpansionState,
+    parkInsetPx: Float,
+    showMini: Boolean = true,
 ) {
     val profile by vm.profile.collectAsState()
     val context = LocalContext.current
     val expandedRoom = state.room?.takeUnless { state.minimized }
-    var visibleRoomState by remember { mutableStateOf<LiveUiState?>(null) }
-    SideEffect { if (expandedRoom != null) visibleRoomState = state }
-    val reduceMotion = rememberReducedMotion()
     var nowPlayingSong by remember(state.uid) { mutableStateOf<CymbalTrack?>(null) }
-    BackHandler(enabled = expandedRoom != null && nowPlayingSong == null, onBack = vm::minimize)
-    AnimatedVisibility(
-        visible = expandedRoom != null,
-        modifier = Modifier.fillMaxSize().zIndex(9f),
-        enter = EnterTransition.None,
-        exit = if (reduceMotion) ExitTransition.None else slideOutVertically(tween(240)) { it },
-    ) {
-        val screenState = if (expandedRoom != null) state else visibleRoomState
-        screenState?.room?.let { room ->
-            CorusContentTheme(LocalCorusDarkTheme.current || screenState.usesDarkRoomAppearance) {
-                Box(Modifier.fillMaxSize().background(CorusColors.Background).blockTouchPassthrough()) {
-                    key(room.id) {
-                        LiveRoomScreen(
-                            room, screenState, vm, openProfile, openSong,
-                            openNowPlaying = { nowPlayingSong = it },
-                            showingNowPlaying = nowPlayingSong != null,
-                        )
-                    }
-                }
-            }
+    state.room?.let { room ->
+        key(room.id) {
+            LiveRoomSheet(
+                room, state, vm, roomExpansion, parkInsetPx, showMini,
+                openProfile, openSong, { nowPlayingSong = it }, nowPlayingSong != null,
+            )
         }
     }
     val setupTransition = remember { MutableTransitionState(false) }
@@ -499,11 +582,11 @@ internal fun BoxScope.LivePresentation(
     state.openSavedSetlist?.let { savedRoom ->
         LiveEndedSheets(savedRoom, vm, openSong, vm::closeSavedSetlist, startInSetlist = true)
     }
-    if (state.confirmPlaybackExit) {
+    state.playbackExitEndsShow?.let { endsRoom ->
         LiveConfirmation(
-            if (state.hosting) stringResource(CorusStrings.corus_live_end_live) else stringResource(CorusStrings.corus_live_leave_live_room),
-            if (state.hosting) stringResource(CorusStrings.corus_live_this_will_end_the_room_for_everyone) else stringResource(CorusStrings.corus_live_leave_the_room_to_play_this_song),
-            if (state.hosting) "End and play" else stringResource(CorusStrings.corus_live_leave_and_play),
+            if (endsRoom) stringResource(CorusStrings.corus_live_end_live) else stringResource(CorusStrings.corus_live_leave_live_room),
+            if (endsRoom) stringResource(CorusStrings.corus_live_this_will_end_the_room_for_everyone) else stringResource(CorusStrings.corus_live_leave_the_room_to_play_this_song),
+            if (endsRoom) stringResource(R.string.live_end_and_play) else stringResource(CorusStrings.corus_live_leave_and_play),
             { vm.confirmPlaybackExit(false) }, { vm.confirmPlaybackExit(true) },
         )
     }
@@ -531,7 +614,7 @@ internal fun BoxScope.LivePresentation(
     if (state.linkUpcoming) {
         AlertDialog(
             onDismissRequest = vm::clearError,
-            title = { LiveText("This room hasn’t started yet", CorusFont.songTitle) },
+            title = { LiveText(stringResource(R.string.live_this_room_hasnt_started_yet), CorusFont.songTitle) },
             confirmButton = { TextButton(onClick = vm::clearError) { LiveText(stringResource(CorusStrings.common_ok)) } },
         )
     }
@@ -598,12 +681,13 @@ private fun LiveEndedSheets(
             }
             LiveText(room.title, CorusFont.username, modifier = Modifier.align(Alignment.CenterHorizontally))
             LiveText(
-                if (tracks.isEmpty()) stringResource(CorusStrings.corus_live_no_songs_played_yet) else "${tracks.size} songs played",
+                if (tracks.isEmpty()) stringResource(CorusStrings.corus_live_no_songs_played_yet) else pluralStringResource(R.plurals.live_songs_played, tracks.size, tracks.size),
                 CorusFont.caption, CorusColors.Secondary, Modifier.align(Alignment.CenterHorizontally),
             )
             if (tracks.isNotEmpty()) LivePrimary(stringResource(CorusStrings.corus_live_view_setlist)) { showSetlist = true }
         }
     } else LiveSheet(stringResource(CorusStrings.corus_live_live_setlist), close, large = true) {
+        LaunchedEffect(room.id) { vm.event("setlist_viewed", source = "setlist", roomId = room.id) }
         LiveText(room.title, CorusFont.songTitleLarge)
         val djs = tracks.mapNotNull { it.playedBy }.distinctBy { it.uid }
         if (djs.size > 1) {
@@ -615,7 +699,7 @@ private fun LiveEndedSheets(
             java.util.Date(room.endedAt.takeIf { it > 0 } ?: System.currentTimeMillis()),
         ), CorusFont.caption, CorusColors.Secondary)
         if (room.recent.size == 30) LiveText(stringResource(CorusStrings.corus_live_showing_the_most_recent_songs), CorusFont.caption, CorusColors.Secondary)
-        LivePrimary(if (exporting) "Exporting…" else stringResource(CorusStrings.corus_live_export_playlist), !exporting) {
+        LivePrimary(if (exporting) stringResource(R.string.live_exporting) else stringResource(CorusStrings.corus_live_export_playlist), !exporting) {
             scope.launch {
                 exporting = true
                 try {
@@ -624,7 +708,9 @@ private fun LiveEndedSheets(
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (failure: Exception) {
-                    error = failure.localizedMessage ?: "Couldn’t export playlist."
+                    val reason = (failure as? FirebaseFunctionsException)?.details.liveFields()?.text("reason")
+                    error = context.getString(if (reason == "no_spotify_tracks") R.string.live_no_spotify_tracks
+                        else R.string.live_couldnt_export_playlist)
                 } finally {
                     exporting = false
                 }
@@ -639,7 +725,7 @@ private fun LiveEndedSheets(
     error?.let { message ->
         AlertDialog(
             onDismissRequest = { error = null },
-            title = { LiveText("Couldn’t export playlist", CorusFont.songTitle) },
+            title = { LiveText(stringResource(R.string.live_couldnt_export_playlist), CorusFont.songTitle) },
             text = { LiveText(message) },
             confirmButton = { TextButton(onClick = { error = null }) { LiveText(stringResource(CorusStrings.common_ok)) } },
         )

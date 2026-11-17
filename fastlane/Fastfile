@@ -64,13 +64,24 @@ platform :android do
         release_status: "completed",
         aab: aab_path,
         metadata_path: metadata_path,
+        # Supply can retry a rejected commit without this flag by default.
+        changes_not_sent_for_review: true,
+        rescue_changes_not_sent_for_review: false,
         skip_upload_apk: true,
+        skip_upload_metadata: true,
         skip_upload_images: true,
         skip_upload_screenshots: true
       )
     end
 
     UI.success("Uploaded Corus #{version_name} (#{version_code}) to internal testing")
+  rescue FastlaneCore::Interface::FastlaneError => error
+    raise unless error.message.include?("The query parameter changesNotSentForReview must not be set")
+
+    UI.user_error!(
+      "Google Play rejected the no-review commit for Internal Testing. " \
+      "The lane stopped before retrying. Signed bundle: #{aab_path}"
+    )
   end
 
   desc "Update localized notes for the current internal release"

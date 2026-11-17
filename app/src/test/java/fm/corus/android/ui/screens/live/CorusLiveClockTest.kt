@@ -56,7 +56,7 @@ class CorusLiveClockTest {
         assertEquals(null, LiveRoom("room", lineup - "djs").nextDJUid)
     }
 
-    @Test fun playingDjTracksCollaborativePlayback() {
+    @Test fun playingDjTracksSoloAndCollaborativePlayback() {
         val lineup = fields + mapOf(
             "djs" to listOf(mapOf("uid" to "guest")),
             "currentDJ" to mapOf("uid" to "guest"),
@@ -66,7 +66,9 @@ class CorusLiveClockTest {
         assertEquals(null, LiveRoom("room", lineup + ("voiceMode" to "talk")).playingDJUid)
         assertEquals(null, LiveRoom("room", lineup + ("pausedAt" to 6_000L)).playingDJUid)
         assertEquals(null, LiveRoom("room", lineup + ("pendingSkip" to mapOf("id" to "skip"))).playingDJUid)
-        assertEquals(null, LiveRoom("room", fields).playingDJUid)
+        assertEquals("host", LiveRoom("room", fields).playingDJUid)
+        assertEquals("host", LiveRoom("room", fields + ("djs" to emptyList<LiveFields>())).playingDJUid)
+        assertEquals(null, LiveRoom("room", fields + ("pausedAt" to 6_000L)).playingDJUid)
     }
 
     @Test fun expiredEndedAndEmptyRoomsCannotPlayMusic() {

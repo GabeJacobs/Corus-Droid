@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.live
 
+import fm.corus.android.R
 import android.Manifest
 import android.content.pm.PackageManager
 import android.media.AudioFormat
@@ -171,10 +172,10 @@ internal fun LiveMicrophone(
     ) {
         LiveText(
             when {
-                welcome -> "Record a short greeting for listeners. Up to 30 seconds."
-                sampling && recorder.hasRecording -> "Listen back to check how you sound."
-                sampling -> "Speak for a few seconds to hear a sample."
-                else -> "Speak normally and watch the microphone level."
+                welcome -> stringResource(R.string.live_record_a_short_greeting_for_listeners_up_to_30_seconds)
+                sampling && recorder.hasRecording -> stringResource(R.string.live_listen_back_to_check_how_you_sound)
+                sampling -> stringResource(R.string.live_speak_for_a_few_seconds_to_hear_a_sample)
+                else -> stringResource(R.string.live_speak_normally_and_watch_the_microphone_level)
             },
             CorusFont.body, CorusColors.Secondary, Modifier.align(Alignment.CenterHorizontally),
         )
@@ -185,11 +186,11 @@ internal fun LiveMicrophone(
             if (!sampling) {
                 LiveText(
                     when {
-                        !monitor -> "Microphone paused"
-                        microphoneMeterLevel(level) > LoudMicMeterLevel -> "Too loud · Move back"
-                        level > GoodMicLevel -> "Good level"
-                        detectedSound -> "Too quiet · Move closer"
-                        else -> "Speak to test"
+                        !monitor -> stringResource(R.string.live_microphone_paused)
+                        microphoneMeterLevel(level) > LoudMicMeterLevel -> stringResource(R.string.live_too_loud_move_back)
+                        level > GoodMicLevel -> stringResource(R.string.live_good_level)
+                        detectedSound -> stringResource(R.string.live_too_quiet_move_closer)
+                        else -> stringResource(R.string.live_speak_to_test)
                     },
                     CorusFont.username,
                 )
@@ -201,7 +202,7 @@ internal fun LiveMicrophone(
                 ) {
                     if (recorder.hasRecording) {
                         LiveIconButton(if (recorder.isPreviewing) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            if (recorder.isPreviewing) "Pause playback" else "Play sample", { recorder.togglePreview(context) },
+                            if (recorder.isPreviewing) stringResource(R.string.live_pause_playback) else stringResource(R.string.live_play_sample), { recorder.togglePreview(context) },
                             tint = CorusColors.Accent)
                     } else Icon(Icons.Default.Mic, null, tint = CorusColors.Accent, modifier = Modifier.size(24.dp))
                     val duration = recorder.recordingDuration.toInt().coerceAtLeast(0)
@@ -209,14 +210,14 @@ internal fun LiveMicrophone(
                     LiveText(
                         when {
                             recorder.hasRecording -> "0:${position.toString().padStart(2, '0')} / 0:${duration.toString().padStart(2, '0')}"
-                            recorder.isRecording -> if (welcome) "Recording…" else "Speak now"
-                            else -> "Ready to record"
+                            recorder.isRecording -> if (welcome) stringResource(R.string.live_recording) else stringResource(R.string.live_speak_now)
+                            else -> stringResource(R.string.live_ready_to_record)
                         },
                         modifier = Modifier.weight(1f).padding(horizontal = 6.dp),
                     )
                     if (recorder.hasRecording) {
-                        LiveIconButton(Icons.Default.Replay, "Record again", { request(true) })
-                        if (welcome) LiveIconButton(Icons.Default.DeleteOutline, "Remove welcome message", { recorder.deleteRecording() })
+                        LiveIconButton(Icons.Default.Replay, stringResource(R.string.live_record_again), { request(true) })
+                        if (welcome) LiveIconButton(Icons.Default.DeleteOutline, stringResource(R.string.live_remove_welcome_message), { recorder.deleteRecording() })
                     } else if (recorder.isRecording) {
                         LiveText(
                             "0:${duration.toString().padStart(2, '0')}",
@@ -247,10 +248,10 @@ internal fun LiveMicrophone(
             }
         }
         when {
-            recorder.isRecording -> LivePrimary("Stop recording", onClick = recorder::stopRecording)
+            recorder.isRecording -> LivePrimary(stringResource(R.string.live_stop_recording), onClick = recorder::stopRecording)
             recorder.hasRecording -> LivePrimary(stringResource(CorusStrings.common_done), onClick = ::finish)
-            welcome -> LivePrimary("Record welcome message") { request(true) }
-            monitor -> LivePrimary("Record a sample") { request(true) }
+            welcome -> LivePrimary(stringResource(R.string.live_record_welcome_message)) { request(true) }
+            monitor -> LivePrimary(stringResource(R.string.live_record_a_sample)) { request(true) }
             else -> LivePrimary(stringResource(CorusStrings.corus_live_test_microphone)) { request(false) }
         }
     }
@@ -258,7 +259,7 @@ internal fun LiveMicrophone(
         val clear = { denied = false; failed = false }
         AlertDialog(
             onDismissRequest = clear,
-            title = { LiveText(if (denied) "Microphone access is off" else "Couldn’t complete the microphone test. Please try again.") },
+            title = { LiveText(if (denied) stringResource(R.string.live_microphone_access_is_off) else stringResource(R.string.live_couldnt_complete_the_microphone_test_please_try_again)) },
             confirmButton = { TextButton(onClick = clear) { LiveText(stringResource(CorusStrings.common_ok)) } },
         )
     }
@@ -266,10 +267,11 @@ internal fun LiveMicrophone(
 
 @Composable
 private fun LiveMicrophoneMeter(amplitude: Float) {
+    val levelDescription = stringResource(R.string.live_microphone_level)
     val level = microphoneMeterLevel(amplitude)
     Row(
         Modifier.fillMaxWidth().semantics {
-            contentDescription = "Microphone level"
+            contentDescription = levelDescription
             progressBarRangeInfo = ProgressBarRangeInfo(level, 0f..1f)
         },
         horizontalArrangement = Arrangement.spacedBy(3.dp),

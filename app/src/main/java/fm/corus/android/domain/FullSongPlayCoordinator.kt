@@ -16,6 +16,7 @@ object FullSongPlayCoordinator {
         HandledByExperiment,
         TogglePause,
         CancelLoading,
+        CancelledByLive,
         NeedsPlaybackModeChoice,
     }
 
@@ -32,6 +33,7 @@ object FullSongPlayCoordinator {
         preferFullSong: Boolean = false,
         forcePlay: Boolean = false,
     ): PlayTapOutcome {
+        if (!nowPlaying.canStartNonLivePlayback()) return PlayTapOutcome.CancelledByLive
         remoteConfig.awaitInitialFetch()
         if (playbackModePromptManager.shouldPrompt(
                 track = track,
@@ -162,7 +164,7 @@ object FullSongPlayCoordinator {
             }
             PlayTapOutcome.UsePreview -> scope.launch { onPreview() }
             PlayTapOutcome.CancelLoading -> nowPlaying.cancelLoading()
-            PlayTapOutcome.HandledByExperiment, PlayTapOutcome.TogglePause -> Unit
+            PlayTapOutcome.HandledByExperiment, PlayTapOutcome.TogglePause, PlayTapOutcome.CancelledByLive -> Unit
         }
     }
 }
