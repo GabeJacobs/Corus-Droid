@@ -639,4 +639,10 @@
     <string name="live_talk_now">"立即讲话"</string>
     <string name="live_talk_queued">"已安排语音聊天"</string>
     <string name="live_talk_starts_after_song">"这首歌结束后将开启语音聊天。"</string>
+    <string name="corus_style_weather_blizzard">"暴风雪"</string>
+    <string name="corus_style_weather_downpour">"倾盆大雨"</string>
+    <string name="corus_style_weather_light_drizzle">"毛毛雨"</string>
+    <string name="corus_style_weather_light_flurry">"零星小雪"</string>
+    <string name="corus_style_weather_snowfall">"降雪"</string>
+    <string name="corus_style_weather_steady_rain">"持续降雨"</string>
 </resources>

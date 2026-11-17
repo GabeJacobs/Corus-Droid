@@ -571,4 +571,10 @@
     <string name="live_talk_now">"Falar agora"</string>
     <string name="live_talk_queued">"Conversa agendada"</string>
     <string name="live_talk_starts_after_song">"O modo de conversa começa depois desta música."</string>
+    <string name="corus_style_weather_blizzard">"Nevasca"</string>
+    <string name="corus_style_weather_downpour">"Temporal"</string>
+    <string name="corus_style_weather_light_drizzle">"Garoa leve"</string>
+    <string name="corus_style_weather_light_flurry">"Flocos leves"</string>
+    <string name="corus_style_weather_snowfall">"Neve"</string>
+    <string name="corus_style_weather_steady_rain">"Chuva constante"</string>
 </resources>

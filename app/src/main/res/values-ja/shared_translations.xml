@@ -639,4 +639,10 @@
     <string name="live_talk_now">"今すぐトーク"</string>
     <string name="live_talk_queued">"トークを予約済み"</string>
     <string name="live_talk_starts_after_song">"この曲が終わるとトークモードが始まります。"</string>
+    <string name="corus_style_weather_blizzard">"吹雪"</string>
+    <string name="corus_style_weather_downpour">"土砂降り"</string>
+    <string name="corus_style_weather_light_drizzle">"小雨"</string>
+    <string name="corus_style_weather_light_flurry">"小雪"</string>
+    <string name="corus_style_weather_snowfall">"降雪"</string>
+    <string name="corus_style_weather_steady_rain">"降り続く雨"</string>
 </resources>

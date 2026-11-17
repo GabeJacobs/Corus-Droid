@@ -639,4 +639,10 @@
     <string name="live_talk_now">"Hablar ahora"</string>
     <string name="live_talk_queued">"Modo de voz programado"</string>
     <string name="live_talk_starts_after_song">"El modo de voz comenzará después de esta canción."</string>
+    <string name="corus_style_weather_blizzard">"Ventisca"</string>
+    <string name="corus_style_weather_downpour">"Aguacero"</string>
+    <string name="corus_style_weather_light_drizzle">"Llovizna ligera"</string>
+    <string name="corus_style_weather_light_flurry">"Copos ligeros"</string>
+    <string name="corus_style_weather_snowfall">"Nevada"</string>
+    <string name="corus_style_weather_steady_rain">"Lluvia constante"</string>
 </resources>

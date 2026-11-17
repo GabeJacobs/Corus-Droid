@@ -639,4 +639,10 @@
     <string name="live_talk_now">"지금 대화하기"</string>
     <string name="live_talk_queued">"대화 예약됨"</string>
     <string name="live_talk_starts_after_song">"이 곡이 끝나면 대화 모드가 시작돼요."</string>
+    <string name="corus_style_weather_blizzard">"눈보라"</string>
+    <string name="corus_style_weather_downpour">"폭우"</string>
+    <string name="corus_style_weather_light_drizzle">"가벼운 이슬비"</string>
+    <string name="corus_style_weather_light_flurry">"가볍게 날리는 눈"</string>
+    <string name="corus_style_weather_snowfall">"내리는 눈"</string>
+    <string name="corus_style_weather_steady_rain">"꾸준히 내리는 비"</string>
 </resources>

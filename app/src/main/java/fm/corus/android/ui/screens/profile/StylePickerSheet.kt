@@ -69,6 +69,7 @@ import fm.corus.android.data.model.FrameStyle
 import fm.corus.android.data.model.RainIntensity
 import fm.corus.android.data.model.SnowIntensity
 import fm.corus.android.data.model.VinylStyle
+import fm.corus.android.localization.CorusStrings
 import fm.corus.android.ui.components.DiscoEffectView
 import fm.corus.android.ui.components.RainEffectView
 import fm.corus.android.ui.components.SnowEffectView
@@ -341,7 +342,7 @@ fun StylePickerSheet(
                             draft.copy(rainEffect = newValue)
                         }
                     },
-                    labelOf = { it.displayName },
+                    labelOf = { it.localizedLabel() },
                     vinylStyle = draft.vinylColor,
                     latestTrackPost = latestTrackPost,
                     effectOverlay = { intensity, modifier ->
@@ -365,7 +366,7 @@ fun StylePickerSheet(
                             draft.copy(snowEffect = newValue)
                         }
                     },
-                    labelOf = { it.displayName },
+                    labelOf = { it.localizedLabel() },
                     vinylStyle = draft.vinylColor,
                     latestTrackPost = latestTrackPost,
                     effectOverlay = { intensity, modifier ->
@@ -1296,16 +1297,35 @@ private fun FrameStyle.localizedLabel(): String =
     }
 
 @Composable
-private fun DiscoIntensity.localizedLabel(): String {
-    val res = when (this) {
-        DiscoIntensity.LIGHT -> fm.corus.android.localization.CorusStrings.style_disco_slow_dance
-        DiscoIntensity.DISCO_BALL -> fm.corus.android.localization.CorusStrings.style_disco_disco_ball
-        DiscoIntensity.DANCE_PARTY -> fm.corus.android.localization.CorusStrings.style_disco_dance_party
-        DiscoIntensity.SPOTIFLIGHT -> fm.corus.android.localization.CorusStrings.style_disco_spotiflight_0460c7ff
-        else -> null
-    }
-    return if (res != null) stringResource(res) else displayName
-}
+private fun DiscoIntensity.localizedLabel(): String = stringResource(
+    when (this) {
+        DiscoIntensity.OFF -> CorusStrings.profile_share_effect_off
+        DiscoIntensity.LIGHT -> CorusStrings.style_disco_slow_dance
+        DiscoIntensity.DISCO_BALL -> CorusStrings.style_disco_disco_ball
+        DiscoIntensity.DANCE_PARTY -> CorusStrings.style_disco_dance_party
+        DiscoIntensity.SPOTIFLIGHT -> CorusStrings.style_disco_spotiflight_0460c7ff
+    },
+)
+
+@Composable
+private fun RainIntensity.localizedLabel(): String = stringResource(
+    when (this) {
+        RainIntensity.OFF -> CorusStrings.profile_share_effect_off
+        RainIntensity.LIGHT -> CorusStrings.style_weather_light_drizzle
+        RainIntensity.MEDIUM -> CorusStrings.style_weather_steady_rain
+        RainIntensity.HEAVY -> CorusStrings.style_weather_downpour
+    },
+)
+
+@Composable
+private fun SnowIntensity.localizedLabel(): String = stringResource(
+    when (this) {
+        SnowIntensity.OFF -> CorusStrings.profile_share_effect_off
+        SnowIntensity.LIGHT -> CorusStrings.style_weather_light_flurry
+        SnowIntensity.MEDIUM -> CorusStrings.style_weather_snowfall
+        SnowIntensity.HEAVY -> CorusStrings.style_weather_blizzard
+    },
+)
 
 private fun vinylDrawableRes(style: VinylStyle): Int = when (style) {
     VinylStyle.BLACK -> R.drawable.vinyl_black

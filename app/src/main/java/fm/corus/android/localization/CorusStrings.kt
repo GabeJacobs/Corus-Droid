@@ -1947,6 +1947,12 @@ object CorusStrings {
     @StringRes val style_vinyl_pink: Int = R.string.parity_54076359fdc7
     @StringRes val style_vinyl_purple_tie_dye: Int = R.string.parity_4da96e42bf43
     @StringRes val style_vinyl_yellow: Int = R.string.parity_3526f607bcd4
+    @StringRes val style_weather_blizzard: Int = R.string.corus_style_weather_blizzard
+    @StringRes val style_weather_downpour: Int = R.string.corus_style_weather_downpour
+    @StringRes val style_weather_light_drizzle: Int = R.string.corus_style_weather_light_drizzle
+    @StringRes val style_weather_light_flurry: Int = R.string.corus_style_weather_light_flurry
+    @StringRes val style_weather_snowfall: Int = R.string.corus_style_weather_snowfall
+    @StringRes val style_weather_steady_rain: Int = R.string.corus_style_weather_steady_rain
     @StringRes val suggested_users_empty: Int = R.string.suggested_users_empty
     @StringRes val suggested_users_followed_all_taste_matches: Int = R.string.suggested_users_followed_all_taste_matches
     @StringRes val suggested_users_joined_format: Int = R.string.suggested_users_joined_format

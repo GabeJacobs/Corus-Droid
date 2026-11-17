@@ -387,4 +387,10 @@
     <string name="corus_live_emoji_smileys">"Smileys and emotion"</string>
     <string name="corus_live_emoji_symbols">"Symbols"</string>
     <string name="corus_live_emoji_travel">"Travel and places"</string>
+    <string name="corus_style_weather_blizzard">"Blizzard"</string>
+    <string name="corus_style_weather_downpour">"Downpour"</string>
+    <string name="corus_style_weather_light_drizzle">"Light Drizzle"</string>
+    <string name="corus_style_weather_light_flurry">"Light Flurry"</string>
+    <string name="corus_style_weather_snowfall">"Snowfall"</string>
+    <string name="corus_style_weather_steady_rain">"Steady Rain"</string>
 </resources>

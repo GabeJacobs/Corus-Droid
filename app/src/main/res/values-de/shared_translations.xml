@@ -639,4 +639,10 @@
     <string name="live_talk_now">"Jetzt sprechen"</string>
     <string name="live_talk_queued">"Sprechen eingeplant"</string>
     <string name="live_talk_starts_after_song">"Nach diesem Song startet der Sprachmodus."</string>
+    <string name="corus_style_weather_blizzard">"Schneesturm"</string>
+    <string name="corus_style_weather_downpour">"Platzregen"</string>
+    <string name="corus_style_weather_light_drizzle">"Leichter Nieselregen"</string>
+    <string name="corus_style_weather_light_flurry">"Leichtes Schneegestöber"</string>
+    <string name="corus_style_weather_snowfall">"Schneefall"</string>
+    <string name="corus_style_weather_steady_rain">"Gleichmäßiger Regen"</string>
 </resources>
