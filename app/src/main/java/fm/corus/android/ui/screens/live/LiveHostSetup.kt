@@ -226,7 +226,7 @@ internal fun LiveHostSetup(
                                 contentAlignment = Alignment.Center) {
                                 Icon(Icons.Default.Add, null, tint = CorusColors.Secondary, modifier = Modifier.size(21.dp))
                             }
-                            LiveText("Invite DJ", CorusFont.usernameLarge, CorusColors.Secondary, lines = 1)
+                            LiveText(stringResource(R.string.live_invite_dj), CorusFont.usernameLarge, CorusColors.Secondary, lines = 1)
                         }
                     }
                 }
@@ -236,7 +236,7 @@ internal fun LiveHostSetup(
                     enter = fadeIn(tween(250)) + expandVertically(tween(250)),
                     exit = fadeOut(tween(250)) + shrinkVertically(tween(250)),
                 ) {
-                    LiveText("DJ Invites will send when you go live", CorusFont.caption, CorusColors.Secondary,
+                    LiveText(stringResource(R.string.live_dj_invites_will_send_when_you_go_live), CorusFont.caption, CorusColors.Secondary,
                         Modifier.padding(top = 7.dp))
                 }
                 Spacer(Modifier.height(24.dp))
@@ -249,7 +249,7 @@ internal fun LiveHostSetup(
                     keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }),
                     decorationBox = { input ->
                         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
-                            if (setup.title.isEmpty()) LiveText("Room title", CorusFont.songTitleLarge, CorusColors.Secondary.copy(alpha = .52f))
+                            if (setup.title.isEmpty()) LiveText(stringResource(R.string.live_room_title_field), CorusFont.songTitleLarge, CorusColors.Secondary.copy(alpha = .52f))
                             input()
                         }
                     },
@@ -566,7 +566,7 @@ private fun LiveSetupQueueEditor(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(Icons.Default.Link, null, tint = tint, modifier = Modifier.size(18.dp))
-                        LiveText("Import playlist", CorusFont.body.copy(fontWeight = FontWeight.Bold), tint)
+                        LiveText(stringResource(R.string.live_import_playlist), CorusFont.body.copy(fontWeight = FontWeight.Bold), tint)
                     }
                 }
             }
@@ -696,7 +696,7 @@ internal fun LiveSongPicker(
                             modifier = Modifier.padding(top = 16.dp, bottom = 12.dp),
                         )
                         if (editableQueue.isEmpty()) {
-                            LiveText("Add songs to your queue.", color = CorusColors.Secondary)
+                            LiveText(stringResource(R.string.live_add_songs_to_your_queue), color = CorusColors.Secondary)
                         }
                     }
                 }
@@ -719,6 +719,9 @@ internal fun ColumnScope.LiveSongPickerContent(
     afterSearch: @Composable (String) -> Unit = {},
     queueContent: LazyListScope.() -> Unit = {},
 ) {
+    val songsLoadFailedText = stringResource(R.string.live_couldnt_load_songs_try_again)
+    val unavailableTrackText = stringResource(R.string.live_this_track_is_unavailable_for_live)
+    val previewFailedText = stringResource(R.string.live_couldnt_preview_this_song)
     var query by remember { mutableStateOf("") }
     var tracks by remember { mutableStateOf<List<LiveTrack>>(emptyList()) }
     val state by vm.state.collectAsState()
@@ -760,7 +763,7 @@ internal fun ColumnScope.LiveSongPickerContent(
                     override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                         if (preview === audio) {
                             stopPreview()
-                            trackError = "Couldn’t preview this song."
+                            trackError = previewFailedText
                         }
                     }
                 })
@@ -776,7 +779,7 @@ internal fun ColumnScope.LiveSongPickerContent(
                 throw cancelled
             } catch (_: Exception) {
                 stopPreview()
-                trackError = "Couldn’t preview this song."
+                trackError = previewFailedText
             }
         }
     }
@@ -797,7 +800,7 @@ internal fun ColumnScope.LiveSongPickerContent(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                trackError = "This track is unavailable for Live."
+                trackError = unavailableTrackText
             } finally {
                 adding = null
             }
@@ -869,7 +872,7 @@ internal fun ColumnScope.LiveSongPickerContent(
             item {
                 if (loading) SongPickerLoadingIndicator()
                 else LiveText(
-                    if (failed) "Couldn’t load songs. Try again." else stringResource(CorusStrings.search_no_songs_found),
+                    if (failed) songsLoadFailedText else stringResource(CorusStrings.search_no_songs_found),
                     color = CorusColors.Secondary,
                     modifier = contentPadding,
                 )
@@ -1086,7 +1089,7 @@ internal fun LivePersonPicker(
     }
 
     LiveSheet(
-        "Invite DJs", close,
+        stringResource(R.string.live_invite_djs), close,
         large = true, done = close.takeIf { setup }, sheetToolbar = true,
         dismissKeyboardFromHeader = setup,
         fixedTopGap = 28.dp,
@@ -1129,7 +1132,7 @@ internal fun LivePersonPicker(
                 items(selection, key = { it.uid }) { person ->
                     Row(
                         Modifier.clip(CircleShape).background(CorusColors.CardBackground)
-                            .clickable(onClickLabel = "Remove ${person.username}") { toggle(person) }
+                            .clickable(onClickLabel = stringResource(R.string.live_remove_dj_invite, person.username)) { toggle(person) }
                             .heightIn(min = 44.dp).padding(horizontal = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -1149,9 +1152,9 @@ internal fun LivePersonPicker(
                 if (loading) CircularProgressIndicator(color = CorusColors.Accent)
                 else LiveText(
                     when {
-                        searchQuery.isEmpty() -> "Search for someone to invite."
-                        failed -> "Couldn’t search for people. Try another search."
-                        else -> "No people found"
+                        searchQuery.isEmpty() -> stringResource(R.string.live_search_for_someone_to_invite)
+                        failed -> stringResource(R.string.live_couldnt_search_for_people_try_another_search)
+                        else -> stringResource(R.string.live_no_people_found)
                     },
                     color = CorusColors.Secondary,
                 )
@@ -1217,7 +1220,7 @@ internal fun LivePersonPicker(
             }
         }
         if (!setup && selection.isNotEmpty()) {
-            LivePrimary("Send invite") {
+            LivePrimary(stringResource(R.string.live_send_invite)) {
                 sheetFocus.clearFocus()
                 onSelection(selection)
             }

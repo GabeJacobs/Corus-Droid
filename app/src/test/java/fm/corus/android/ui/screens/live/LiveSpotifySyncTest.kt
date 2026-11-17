@@ -39,10 +39,43 @@ class LiveSpotifySyncTest {
 
     @Test fun confirmedDriftStillSeeksToRoomPosition() = runTest {
         prepareSnapshot(positionMs = 27_000L)
+        val first = spotify.refreshState()
+        prepareSnapshot(positionMs = 27_400L)
+        val second = spotify.refreshState()
+        whenever(spotify.refreshState(any())).thenReturn(first, second)
 
         assertEquals(true, spotify.syncLiveTrack(uri, false, { 30_000L }) {})
 
         verify(spotify).seek(30.0)
+    }
+
+    @Test fun sustainedGapJustOverOneSecondSeeks() = runTest {
+        prepareSnapshot(positionMs = 28_850L)
+        val first = spotify.refreshState()
+        prepareSnapshot(positionMs = 29_250L)
+        val second = spotify.refreshState()
+        whenever(spotify.refreshState(any())).thenReturn(first, second)
+        var now = 30_000L
+
+        assertEquals(true, spotify.syncLiveTrack(uri, false, { now.also { now = 30_400L } }) {})
+
+        verify(spotify).seek(30.4)
+    }
+
+    @Test fun frozenProviderPositionDoesNotSeek() = runTest {
+        prepareSnapshot(positionMs = 0)
+
+        assertEquals(true, spotify.syncLiveTrack(uri, false, { 30_000L }) {})
+
+        verify(spotify, never()).seek(any())
+    }
+
+    @Test fun exactlyOneSecondDoesNotSeek() = runTest {
+        prepareSnapshot(positionMs = 29_000L)
+
+        assertEquals(true, spotify.syncLiveTrack(uri, false, { 30_000L }) {})
+
+        verify(spotify, never()).seek(any())
     }
 
     @Test fun missingSnapshotDefersCorrection() = runTest {

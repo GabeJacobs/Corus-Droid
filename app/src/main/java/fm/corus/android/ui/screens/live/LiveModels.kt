@@ -140,6 +140,7 @@ internal data class LiveRoom(val id: String, private val fields: LiveFields) {
     val likes = fields.number("likes")
     val hearts = fields.number("heartReactions")
     val effect = fields.text("effect")
+    val talkAfterSongArmed = (fields["talkAfterSongRevision"] as? Number)?.toLong() == revision
     val voiceEnabled = fields.flag("voiceEnabled")
     val voiceMode = fields.text("voiceMode")
     val talkDeadline = fields.number("talkDeadline").takeIf { it > 0 }
@@ -158,6 +159,9 @@ internal data class LiveRoom(val id: String, private val fields: LiveFields) {
     val hostWaitStartsAt get() = hostBackgroundUntil.takeIf { it > 0L }?.let {
         if (current == null || pausedAt != null) 0L else deadline
     }
+
+    fun matchesFollowing(following: Set<String>?): Boolean =
+        following == null || host.uid in following || djs.any { it.text("uid") in following }
 
     fun miniPlayerTrack(now: Long): LiveTrack? = current?.takeIf {
         status == "playing" && hostWaitStartsAt?.let { now >= it } != true &&
@@ -203,8 +207,15 @@ internal data class LiveMessage(
     val text = fields.text("text")
     val kind = fields.text("kind")
     val isSongLikeNotice get() = kind == "songLiked"
+    val likeNoticeHandle get() = fields.text("displayName").takeIf { it.startsWith("@") && text.startsWith("$it ") }
     val gifUrl = fields["gifURL"] as? String
+    val supportsReactions get() = kind.isEmpty() && (text.isNotEmpty() || gifUrl != null)
+    val chatReactionEmojis: Set<String>
+        get() = fields["chatReactions"].liveFields()?.keys.orEmpty()
+    fun reactionUsers(emoji: String): List<String> =
+        (fields["chatReactions"].liveFields()?.get(emoji) as? List<*>)?.filterIsInstance<String>().orEmpty()
     val createdAt = fields.number("createdAt")
+    val isEdited get() = fields.number("editedAt") > 0
     val requestedTrack = fields["requestedTrack"].liveFields()?.let(LiveTrack::parse)
     val requestStatus = fields.text("requestStatus").ifBlank {
         if (kind == "songRequest" || kind == "djRequest") "pending" else ""
@@ -216,6 +227,14 @@ internal data class LiveMessage(
     } else {
         mapOf("targetUid" to author.uid, "requestMessageId" to id)
     }
+}
+
+internal data class PendingLiveLikeNotice(val message: LiveMessage, val batchId: String? = null) {
+    fun matches(published: LiveMessage): Boolean =
+        published.isSongLikeNotice &&
+            published.fields.number("revision") == message.fields.number("revision") &&
+            (published.author.uid == message.author.uid ||
+                batchId != null && (published.fields["reactionBatchIds"] as? List<*>)?.contains(batchId) == true)
 }
 
 internal data class LiveAccess(

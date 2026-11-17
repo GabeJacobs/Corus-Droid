@@ -49,5 +49,17 @@
 -dontwarn com.fasterxml.jackson.databind.ser.std.StdSerializer
 -dontwarn com.spotify.base.annotations.NotNull
 
+# MusicKit bundles JavaCPP's optional desktop JMX diagnostics. Pointer only
+# loads the diagnostics when org.bytedeco.javacpp.mxbean is explicitly enabled.
+-dontwarn java.lang.management.BufferPoolMXBean
+-dontwarn java.lang.management.ManagementFactory
+-dontwarn javax.management.InstanceAlreadyExistsException
+-dontwarn javax.management.MBeanRegistrationException
+-dontwarn javax.management.MBeanServer
+-dontwarn javax.management.MalformedObjectNameException
+-dontwarn javax.management.NotCompliantMBeanException
+-dontwarn javax.management.ObjectInstance
+-dontwarn javax.management.ObjectName
+
 # AppsFlyer SDK 7 requires the separately supplied Play Install Referrer.
 -keep public class com.android.installreferrer.** { *; }

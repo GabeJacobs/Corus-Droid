@@ -280,6 +280,9 @@
     <string name="comments_dialog_block_message">"Ils ne pourront voir ni ton profil ni tes publications, et tu ne verras pas les leurs."</string>
     <string name="comments_dialog_block_confirm">"Bloquer"</string>
     <string name="comments_menu_copy">"Copier"</string>
+    <string name="live_copy_text">"Copier le texte"</string>
+    <string name="live_edit_message">"Modifier le message"</string>
+    <string name="live_delete_message">"Supprimer le message"</string>
     <string name="comments_menu_report">"Signaler"</string>
     <string name="comments_menu_block">"Bloquer"</string>
     <string name="comments_menu_edit">"Modifier"</string>
@@ -1526,4 +1529,5 @@
     <string name="profile_shuffle_no_songs">Aucune chanson à lire pour l’instant</string>
     <string name="profile_shuffle_failed">Impossible de charger les morceaux de ce profil. Réessayez.</string>
     <string name="profile_shuffle_loading">Lecture aléatoire du profil…</string>
+    <string name="live_kick_user_from_room">"Retirer du salon"</string>
 </resources>

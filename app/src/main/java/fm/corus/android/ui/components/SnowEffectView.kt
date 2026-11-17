@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.Color
 import fm.corus.android.data.model.SnowIntensity
 import kotlinx.coroutines.delay
 import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -32,20 +33,22 @@ internal data class Snowflake(
 fun SnowEffectView(
     intensity: SnowIntensity,
     modifier: Modifier = Modifier,
+    particleDensity: Float = 1f,
 ) {
     if (intensity == SnowIntensity.OFF) return
 
     val isBlizzard = intensity == SnowIntensity.HEAVY
+    val flakeCount = (intensity.flakeCount * particleDensity).roundToInt()
 
-    var flakes by remember(intensity) {
+    var flakes by remember(intensity, flakeCount) {
         mutableStateOf(
-            List(intensity.flakeCount) { createSnowflake(1f, 1f, isBlizzard) }
+            List(flakeCount) { createSnowflake(1f, 1f, isBlizzard) }
         )
     }
-    var tick by remember(intensity) { mutableIntStateOf(0) }
-    var time by remember(intensity) { mutableFloatStateOf(0f) }
+    var tick by remember(intensity, flakeCount) { mutableIntStateOf(0) }
+    var time by remember(intensity, flakeCount) { mutableFloatStateOf(0f) }
 
-    LaunchedEffect(intensity) {
+    LaunchedEffect(intensity, flakeCount) {
         while (true) {
             delay(16)
             tick++
@@ -67,7 +70,7 @@ fun SnowEffectView(
             if (y >= fadeBand) 1f else (y / fadeBand).coerceIn(0f, 1f)
 
         if (tick == 1) {
-            flakes = List(intensity.flakeCount) { createSnowflake(w, h, isBlizzard, scale) }
+            flakes = List(flakeCount) { createSnowflake(w, h, isBlizzard, scale) }
         }
 
         val dt = 1f / 60f

@@ -10,6 +10,8 @@ import android.media.MediaPlayer
 import android.media.MediaRouter2
 import android.os.Build
 import android.provider.Settings
+import android.view.HapticFeedbackConstants
+import android.view.View
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -25,7 +27,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitVerticalDragOrCancellation
+import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.lazy.LazyColumn
@@ -41,9 +48,15 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Reply
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.AddReaction
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.PersonRemove
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -52,22 +65,48 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.input.pointer.util.addPointerInputChange
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -76,6 +115,8 @@ import androidx.lifecycle.compose.currentStateAsState
 import coil3.compose.AsyncImage
 import com.valentinilk.shimmer.shimmer
 import fm.corus.android.R
+import fm.corus.android.ui.player.PlayerSwipeDistanceFraction
+import fm.corus.android.ui.player.PlayerSwipeVelocityThreshold
 import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.DiscoIntensity
@@ -86,14 +127,20 @@ import fm.corus.android.ui.components.DiscoScrim
 import fm.corus.android.ui.components.RainEffectView
 import fm.corus.android.ui.components.SnowEffectView
 import fm.corus.android.ui.components.ShimmerAsyncImage
+import fm.corus.android.ui.screens.messaging.REACTION_EMOJIS
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.Date
+import fm.corus.android.data.model.CymbalUser
+import fm.corus.android.ui.components.MentionSuggestionsList
+import fm.corus.android.ui.components.applyMention
+import fm.corus.android.ui.components.parseMentionQuery
 import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.sin
@@ -118,6 +165,9 @@ internal fun LiveRoomScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val focus = LocalFocusManager.current
+    val hapticView = LocalView.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val composerFocus = remember { FocusRequester() }
     val keyboardVisible = WindowInsets.isImeVisible
     var keyboardWasVisible by remember { mutableStateOf(false) }
     LaunchedEffect(keyboardVisible) {
@@ -137,15 +187,71 @@ internal fun LiveRoomScreen(
         state.pendingDJs.count { it.number("expiresAt") > vm.serverTime() }).coerceAtLeast(0)
     val pager = rememberPagerState { 2 }
     val listenRoster = remember { mutableStateOf<List<LiveFields>?>(null) }
-    var selectedMessage by remember { mutableStateOf<LiveMessage?>(null) }
+    var selectedMessageId by remember(room.id) { mutableStateOf<String?>(null) }
+    var reactionDetails by remember(room.id) { mutableStateOf<Pair<String, String>?>(null) }
+    var showingChatEmojiPicker by remember(room.id) { mutableStateOf(false) }
+    fun hasMessageOptions(message: LiveMessage): Boolean =
+        message.supportsReactions || state.hosting || message.author.uid != state.uid
+    val selectedMessage = if (selectedMessageId == null) null else state.chatRows.find {
+        it.id == selectedMessageId && hasMessageOptions(it)
+    }
+    LaunchedEffect(selectedMessage?.id) {
+        if (selectedMessage == null) selectedMessageId = null
+    }
     var selectedSong by remember { mutableStateOf<LiveTrack?>(null) }
     val visitSong: (LiveTrack) -> Unit = { track ->
         vm.minimize()
         openSong(track.song.withLiveDisplayArtwork())
     }
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
-    var text by remember { mutableStateOf("") }
+    var draft by remember(room.id) { mutableStateOf(TextFieldValue()) }
+    var editingMessage by remember(room.id) { mutableStateOf<LiveMessage?>(null) }
+    var draftBeforeEdit by remember(room.id) { mutableStateOf(TextFieldValue()) }
+    var savingMessageEdit by remember(room.id) { mutableStateOf(false) }
+    var messageToDelete by remember(room.id) { mutableStateOf<String?>(null) }
+    val clipboard = LocalClipboardManager.current
+    fun finishEditingMessage() {
+        focus.clearFocus()
+        keyboard?.hide()
+        editingMessage = null
+        draft = draftBeforeEdit
+        draftBeforeEdit = TextFieldValue()
+    }
+    LaunchedEffect(room.chatEnabled, savingMessageEdit) {
+        if (!room.chatEnabled && editingMessage != null && !savingMessageEdit) finishEditingMessage()
+    }
+    val mentionPrefix = if (chatFocused && room.chatEnabled && !state.minimized && draft.selection.collapsed) {
+        parseMentionQuery(draft.text, draft.selection.start)?.takeIf { liveMentionHandle.matches(it) }
+    } else null
+    var mentionSuggestions by remember(room.id, mentionPrefix) { mutableStateOf(emptyList<CymbalUser>()) }
+    LaunchedEffect(room.id, state.uid, mentionPrefix) {
+        if (mentionPrefix == null) return@LaunchedEffect
+        delay(200)
+        while (isActive) {
+            mentionSuggestions = try {
+                vm.chatMentions(room.id, mentionPrefix).map { person ->
+                    CymbalUser(person.text("id"), person.text("username"), person.text("displayName"),
+                        avatarURL = person["avatarURL"] as? String)
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                emptyList()
+            }
+            delay(8_000)
+        }
+    }
     var gif by remember { mutableStateOf<String?>(null) }
+    var focusAfterMessageOptions by remember(room.id) { mutableStateOf(false) }
+    LaunchedEffect(selectedMessageId, focusAfterMessageOptions) {
+        if (selectedMessageId == null && focusAfterMessageOptions) {
+            focusAfterMessageOptions = false
+            if (room.chatEnabled && (!canControl || pager.currentPage == 1)) {
+                composerFocus.requestFocus()
+                keyboard?.show()
+            }
+        }
+    }
     LaunchedEffect(room.chatEnabled) {
         if (!room.chatEnabled) {
             if (chatFocused) focus.clearFocus()
@@ -237,20 +343,42 @@ internal fun LiveRoomScreen(
     }
 
     val visibleEffect = state.effectSelection.visible(room.effect)
-    Box(Modifier.fillMaxSize().background(CorusColors.Background)) {
+    var roomHeight by remember { mutableIntStateOf(0) }
+    val swipeVelocityThreshold = with(LocalDensity.current) { PlayerSwipeVelocityThreshold.toPx() }
+    Box(Modifier.fillMaxSize().onSizeChanged { roomHeight = it.height }.background(CorusColors.Background)) {
         LiveRoomEffects(visibleEffect)
         Column(
             Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()
                 .widthIn(max = 650.dp).align(Alignment.TopCenter).padding(start = 16.dp, end = 16.dp, top = 4.dp),
         ) {
             Row(
-                Modifier.fillMaxWidth().heightIn(min = 44.dp).pointerInput(room.id) {
-                    var drag = 0f
-                    detectVerticalDragGestures(
-                        onDragStart = { drag = 0f },
-                        onVerticalDrag = { change, delta -> change.consume(); drag += delta },
-                        onDragEnd = { if (drag > 95f) vm.minimize() },
-                    )
+                Modifier.fillMaxWidth().heightIn(min = 44.dp).pointerInput(room.id, swipeVelocityThreshold) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        var distance = 0f
+                        val start = awaitVerticalTouchSlopOrCancellation(down.id) { change, overSlop ->
+                            distance = overSlop
+                            change.consume()
+                        } ?: return@awaitEachGesture
+                        val tracker = VelocityTracker()
+                        tracker.addPointerInputChange(down)
+                        tracker.addPointerInputChange(start)
+                        var pointerId = start.id
+                        while (true) {
+                            val change = awaitVerticalDragOrCancellation(pointerId) ?: break
+                            tracker.addPointerInputChange(change)
+                            if (!change.pressed) {
+                                val velocity = tracker.calculateVelocity().y
+                                if (shouldMinimizeLiveRoom(distance, velocity, roomHeight.toFloat(), swipeVelocityThreshold)) {
+                                    vm.minimize()
+                                }
+                                break
+                            }
+                            distance += change.positionChange().y
+                            pointerId = change.id
+                            change.consume()
+                        }
+                    }
                 },
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -303,7 +431,9 @@ internal fun LiveRoomScreen(
                         Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        RoomLineup(room, state.hosting, state.voiceLevels, visitProfile) { show(RoomPanel.LINEUP) }
+                        RoomLineup(room, state.hosting, state.voiceLevels, state.unmutedMicrophoneIDs, visitProfile) {
+                            show(RoomPanel.LINEUP)
+                        }
                         if (activeWelcome != null) {
                             RoomWelcomeMessageCard(room, welcomeProgress)
                         } else {
@@ -337,7 +467,9 @@ internal fun LiveRoomScreen(
                 RoomStatus(state.listenerCount, room.collaborative,
                     { show(RoomPanel.LISTENERS) }, { show(RoomPanel.LINEUP) })
             }
-            val chatRows = remember(state.messages, state.djRequests, state.hosting) { state.chatRows }
+            val chatRows = remember(state.messages, state.djRequests, state.hosting, state.pendingLikeNotice, room.revision, room.chatEnabled) {
+                state.chatRows
+            }
             val chat: @Composable ColumnScope.() -> Unit = {
                 val retryAt = state.myDJRequest.number("declinedAt").takeIf {
                     it > 0 && state.myDJRequest.text("status") == "declined"
@@ -349,18 +481,73 @@ internal fun LiveRoomScreen(
                     if (retryAt != null) delay((retryAt - vm.serverTime()).coerceAtLeast(0))
                     coolingDown = false
                 }
-                RoomChat(chatRows, state, vm, openDJSpots, visitProfile, { selectedMessage = it }, Modifier.weight(1f))
-                if (room.chatEnabled && !state.hosting && state.dj == null && coolingDown &&
+                RoomChat(chatRows, state, vm, openDJSpots, visitProfile, { message, showEmojiPicker ->
+                    if (hasMessageOptions(message)) {
+                        focus.clearFocus()
+                        keyboard?.hide()
+                        showingChatEmojiPicker = showEmojiPicker
+                        selectedMessageId = message.id
+                    }
+                }, Modifier.weight(1f), inspectReaction = { message, emoji ->
+                    hapticView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    focus.clearFocus()
+                    keyboard?.hide()
+                    reactionDetails = message.id to emoji
+                })
+                if (!state.hosting && state.dj == null &&
                     state.invites.none { it.text("roomId") == room.id && it.number("expiresAt") > vm.serverTime() }
                 ) {
-                    LiveText(stringResource(R.string.live_dj_request_cooldown), CorusFont.caption, CorusColors.Secondary)
+                    DJRequestStatus(state, room.chatEnabled && coolingDown) {
+                        vm.requestAction("cancelDJRequest", mapOf("requestCreatedAt" to state.myDJRequest.number("createdAt")))
+                    }
+                }
+                MentionSuggestionsList(users = mentionSuggestions, onSelect = { user ->
+                    val caret = draft.selection.start
+                    if (parseMentionQuery(draft.text, caret) != mentionPrefix) return@MentionSuggestionsList
+                    val suffix = draft.text.drop(caret).takeWhile { liveMentionHandle.matches(it.toString()) }
+                    val completed = applyMention(draft.copy(selection = TextRange(caret + suffix.length)), user.username)
+                    if (completed.text.length <= 500) draft = completed
+                })
+                val now = vm.serverTime()
+                if (editingMessage != null && room.chatEnabled) {
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                            .background(CorusColors.CardBackground).padding(start = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        LiveText(stringResource(CorusStrings.comments_editing_comment), CorusFont.caption,
+                            CorusColors.Secondary, Modifier.weight(1f))
+                        IconButton(onClick = ::finishEditingMessage, enabled = !savingMessageEdit, modifier = Modifier.size(44.dp)) {
+                            Icon(Icons.Default.Close, stringResource(CorusStrings.comments_cd_cancel_edit),
+                                tint = CorusColors.Secondary, modifier = Modifier.size(16.dp))
+                        }
+                    }
                 }
                 ChatComposer(
-                    text, { text = it.take(500) }, gif, { gif = null },
-                    { vm.send(text, gif) { text = ""; gif = null } }, vm::heart,
-                    room.revision > 0 && state.membership.number("likedRevision") == room.revision, { chatFocused = it },
-                    showHeart = !state.hosting && state.audioReady && room.miniPlayerTrack(vm.serverTime()) != null,
+                    draft, { draft = it.copy(text = it.text.take(500)) }, gif, { gif = null },
+                    {
+                        val editing = editingMessage
+                        if (editing == null) {
+                            vm.send(draft.text, gif) { if (editingMessage == null) { draft = TextFieldValue(); gif = null } }
+                        } else if (!savingMessageEdit) {
+                            val text = draft.text.trim()
+                            savingMessageEdit = true
+                            scope.launch {
+                                try {
+                                    if (vm.editMessage(room.id, editing.id, text)) finishEditingMessage()
+                                } finally {
+                                    savingMessageEdit = false
+                                }
+                            }
+                        }
+                    }, vm::heart,
+                    state.hasLikedCurrentSong, { chatFocused = it },
+                    showHeart = if (state.hosting) room.canLikeFromMiniPlayer(state.uid, now)
+                        else state.audioReady && room.miniPlayerTrack(now) != null,
                     chatEnabled = room.chatEnabled,
+                    composerFocus = composerFocus,
+                    originalText = editingMessage?.text,
+                    savingEdit = savingMessageEdit,
                 ) {
                     ChatActions(room, state, vm, coolingDown, { show(RoomPanel.REQUEST_SONG) }, { show(RoomPanel.GIF) })
                 }
@@ -430,7 +617,7 @@ internal fun LiveRoomScreen(
                     val saveIcon = if (LiveViewModel.saveId(track) in state.savedIds) Icons.Default.Bookmark else Icons.Outlined.BookmarkBorder
                     LiveTrackRow(
                         track, saveIcon.takeIf { state.access?.saves == true },
-                        "Save song", { vm.save(track) }, onTrack = { close(); selectedSong = track },
+                        stringResource(R.string.live_save_song), { vm.save(track) }, onTrack = { close(); selectedSong = track },
                     )
                 }
             }
@@ -448,7 +635,7 @@ internal fun LiveRoomScreen(
                         val person = LivePerson.parse(fields)
                         PersonRow(person, { visitProfile(person.uid) }) {
                             if (fields.number("likedRevision") == room.revision) {
-                                Icon(Icons.Default.Favorite, "Liked this song", tint = LiveRed, modifier = Modifier.size(15.dp))
+                                Icon(Icons.Default.Favorite, stringResource(R.string.live_liked_this_song), tint = LiveRed, modifier = Modifier.size(15.dp))
                             }
                         }
                     }
@@ -510,10 +697,10 @@ internal fun LiveRoomScreen(
                     )
                 }
                 if (canSetRequestPermissions) {
-                    RoomSwitch("Allow DJ requests", room.allowDJRequests) {
+                    RoomSwitch(stringResource(R.string.live_allow_dj_requests), room.allowDJRequests) {
                         vm.action("setRequestPermission", mapOf("type" to "dj", "allowed" to it))
                     }
-                    RoomSwitch("Allow song requests", room.allowSongRequests) {
+                    RoomSwitch(stringResource(R.string.live_allow_song_requests), room.allowSongRequests) {
                         vm.action("setRequestPermission", mapOf("type" to "song", "allowed" to it))
                     }
                 }
@@ -525,7 +712,7 @@ internal fun LiveRoomScreen(
             onSave = { title -> vm.renameRoom(room.id, title) },
         )
         RoomPanel.INVITE -> LiveSheet(stringResource(CorusStrings.native_1fd9ae1607aa), close) {
-            if (openDJSpots > 0) LiveRow("Invite a DJ", Icons.Default.PersonAdd) { panel = RoomPanel.PICK_DJS }
+            if (openDJSpots > 0) LiveRow(stringResource(R.string.live_invite_dj), Icons.Default.PersonAdd) { panel = RoomPanel.PICK_DJS }
             LiveRow(stringResource(CorusStrings.corus_live_share_room), Icons.Default.IosShare) { close(); share() }
         }
         RoomPanel.PICK_DJS -> LivePersonPicker(
@@ -610,23 +797,150 @@ internal fun LiveRoomScreen(
     }
     state.membership["hostHandoff"].liveFields()?.let { offer ->
         val decline = { vm.action("declineHost", mapOf("offerId" to offer.text("id"))); Unit }
-        LiveSheet("Take over as host?", decline) {
-            LiveText("@${room.host.username} wants you to host this live room.")
-            LivePrimary("Accept") { vm.action("acceptHost", mapOf("offerId" to offer.text("id"))) }
-            TextButton(onClick = decline) { LiveText("Decline") }
+        LiveSheet(stringResource(R.string.live_take_over_as_host), decline) {
+            LiveText(stringResource(R.string.live_handoff_invite, "@${room.host.username}"))
+            LivePrimary(stringResource(R.string.live_request_accept)) { vm.action("acceptHost", mapOf("offerId" to offer.text("id"))) }
+            TextButton(onClick = decline) { LiveText(stringResource(R.string.live_decline_talk_request)) }
         }
     }
     selectedMessage?.let { message ->
-        LiveSheet("Message options", { selectedMessage = null }) {
-            if (state.hosting) {
-                LiveRow(stringResource(CorusStrings.corus_live_remove_message), Icons.Default.DeleteOutline) {
-                    vm.action("removeMessage", mapOf("messageId" to message.id)); selectedMessage = null
+        val dismissOptions = { selectedMessageId = null }
+        val isMine = message.author.uid == state.uid
+        val pickingEmoji = showingChatEmojiPicker && message.supportsReactions && room.chatEnabled
+        LiveSheet(
+            title = if (message.supportsReactions) null else stringResource(R.string.live_message_options),
+            close = dismissOptions,
+            large = pickingEmoji,
+            startsHalfExpanded = pickingEmoji,
+            horizontalContentPadding = if (message.supportsReactions && !pickingEmoji) 4.dp else 20.dp,
+        ) {
+            if (pickingEmoji) {
+                val selected = state.reactionEmojis(message).filterTo(mutableSetOf()) { emoji ->
+                    val uid = state.uid
+                    uid != null && uid in state.reactionUsers(message, emoji)
                 }
-            } else if (message.author.uid != state.uid) {
-                LiveRow(stringResource(CorusStrings.corus_live_report_message), Icons.Outlined.Flag) {
-                    vm.action("report", mapOf("messageId" to message.id)); selectedMessage = null
+                val pending = state.pendingChatReactions.keys.filter { it.first == message.id }.mapTo(mutableSetOf()) { it.second }
+                LiveEmojiPicker(selected, pending) { emoji ->
+                    reactToChatMessage(vm, hapticView, message.id, emoji)
+                    dismissOptions()
+                }
+            } else Column(
+                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (message.supportsReactions && room.chatEnabled) {
+                    BoxWithConstraints(
+                        Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        val spacing = ((maxWidth - 44.dp * (REACTION_EMOJIS.size + 1)) / REACTION_EMOJIS.size)
+                            .coerceIn(0.dp, 4.dp)
+                        Row(
+                            Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(spacing),
+                        ) {
+                            REACTION_EMOJIS.forEach { emoji ->
+                                ChatReactionButton(message, emoji, state, showsCount = false) {
+                                    reactToChatMessage(vm, hapticView, message.id, emoji)
+                                    dismissOptions()
+                                }
+                            }
+                            IconButton(
+                                onClick = { showingChatEmojiPicker = true },
+                                modifier = Modifier.size(44.dp),
+                            ) {
+                                Box(
+                                    Modifier.size(38.dp).background(CorusColors.Secondary.copy(alpha = .08f), CircleShape),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(Icons.Outlined.AddReaction, stringResource(R.string.notifications_row_reactions),
+                                        tint = CorusColors.Secondary, modifier = Modifier.size(21.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+                Column(
+                    Modifier.padding(horizontal = if (message.supportsReactions) 16.dp else 0.dp),
+                ) {
+                    if (isMine && message.supportsReactions && message.text.isNotBlank() &&
+                        room.chatEnabled && !savingMessageEdit) {
+                        LiveChatAction(stringResource(R.string.live_edit_message), Icons.Outlined.Edit) {
+                            if (editingMessage == null) draftBeforeEdit = draft
+                            editingMessage = message
+                            draft = TextFieldValue(message.text, TextRange(message.text.length))
+                            focusAfterMessageOptions = true
+                            dismissOptions()
+                        }
+                    }
+                    val canReply = room.chatEnabled && !isMine && editingMessage == null
+                    if (canReply) {
+                        LiveChatAction(stringResource(R.string.comments_reply), Icons.AutoMirrored.Outlined.Reply) {
+                            draft = liveChatReplyDraft(draft, message.author.username)
+                            focusAfterMessageOptions = true
+                            dismissOptions()
+                        }
+                    }
+                    if (message.text.isNotBlank()) {
+                        LiveChatAction(stringResource(R.string.live_copy_text), Icons.Outlined.ContentCopy) {
+                            clipboard.setText(AnnotatedString(message.text))
+                            dismissOptions()
+                        }
+                    }
+                    if ((message.text.isNotBlank() || canReply) && (!isMine || message.supportsReactions)) {
+                        HorizontalDivider(Modifier.padding(vertical = 3.dp), thickness = Dp.Hairline,
+                            color = CorusColors.Text.copy(alpha = .12f))
+                    }
+                    if (isMine && message.supportsReactions) {
+                        LiveChatAction(stringResource(R.string.live_delete_message), Icons.Outlined.Delete, destructive = true) {
+                            messageToDelete = message.id
+                            dismissOptions()
+                        }
+                    }
+                    if (state.hosting && !isMine) {
+                        LiveChatAction(stringResource(R.string.live_delete_message), Icons.Outlined.Delete, destructive = true) {
+                            vm.action("removeMessage", mapOf("messageId" to message.id))
+                            dismissOptions()
+                        }
+                        LiveChatAction(stringResource(R.string.live_kick_user_from_room), Icons.Outlined.PersonRemove, destructive = true) {
+                            vm.action("removeListener", mapOf("messageId" to message.id))
+                            dismissOptions()
+                        }
+                    } else if (!isMine) {
+                        LiveChatAction(stringResource(CorusStrings.corus_live_report_message), Icons.Outlined.Flag, destructive = true) {
+                            vm.action("report", mapOf("messageId" to message.id))
+                            dismissOptions()
+                        }
+                    }
                 }
             }
+        }
+    }
+    messageToDelete?.let { messageId ->
+        AlertDialog(
+            onDismissRequest = { messageToDelete = null },
+            title = { Text(stringResource(CorusStrings.comments_dialog_delete_title)) },
+            text = { Text(stringResource(CorusStrings.comments_dialog_delete_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    messageToDelete = null
+                    vm.action("deleteOwnMessage", mapOf("messageId" to messageId))
+                }) { Text(stringResource(R.string.comments_menu_delete), color = CorusColors.Error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { messageToDelete = null }) { Text(stringResource(R.string.common_cancel)) }
+            },
+        )
+    }
+    reactionDetails?.let { (messageId, emoji) ->
+        val message = state.chatRows.firstOrNull { it.id == messageId }
+        val groups = message?.let { row ->
+            orderedChatReactionEmojis(state, row).associateWith { state.reactionUsers(row, it).distinct() }
+        }.orEmpty()
+        if (groups.isEmpty()) {
+            LaunchedEffect(messageId) { reactionDetails = null }
+        } else {
+            LiveChatReactionDetails(groups, emoji, vm::chatReactionPeople) { reactionDetails = null }
         }
     }
     selectedSong?.let { track ->
@@ -636,16 +950,22 @@ internal fun LiveRoomScreen(
                 selectedSong = null
                 visitSong(track)
             }
-            LiveRow("Save song", Icons.Outlined.BookmarkBorder) { vm.save(track); selectedSong = null }
+            LiveRow(stringResource(R.string.live_save_song), Icons.Outlined.BookmarkBorder) { vm.save(track); selectedSong = null }
         }
     }
     HostTalkRequest(
         room = room,
         vm = vm,
         showRequest = state.hosting && !state.minimized && lifecycle.isAtLeast(Lifecycle.State.RESUMED) &&
-            panel == null && selectedMessage == null && selectedSong == null && !showingNowPlaying,
+            panel == null && selectedMessage == null && reactionDetails == null && selectedSong == null && !showingNowPlaying,
         onApproved = { if (!state.micEnabled) micClick() },
     )
+}
+
+internal fun shouldMinimizeLiveRoom(distance: Float, velocity: Float, travel: Float, velocityThreshold: Float): Boolean {
+    if (travel <= 0f || distance <= 0f) return false
+    if (velocity >= velocityThreshold) return true
+    return velocity > -velocityThreshold && distance >= travel * PlayerSwipeDistanceFraction
 }
 
 @Composable
@@ -693,8 +1013,15 @@ private fun HostTalkRequest(
         dismissEnabled = false,
     ) {
         LiveAvatar(dj, 48.dp, modifier = Modifier.align(Alignment.CenterHorizontally))
+        val message = stringResource(R.string.live_talk_request_message, handle)
         Text(
-            stringResource(R.string.live_talk_request_message, handle),
+            buildAnnotatedString {
+                append(message)
+                val handleStart = message.indexOf(handle)
+                if (handleStart >= 0) {
+                    addStyle(SpanStyle(fontWeight = FontWeight.ExtraBold), handleStart, handleStart + handle.length)
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
             style = CorusFont.body,
             color = CorusColors.Text,
@@ -801,7 +1128,7 @@ private fun EditRoomTitleSheet(initialTitle: String, onDismiss: () -> Unit, onSa
 
 @Composable
 private fun RoomIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    LiveIconButton(icon, label, onClick, tint = CorusColors.Text, touchSize = 44.dp, glyphSize = 17.dp)
+    LiveIconButton(icon, label, onClick, tint = CorusColors.Text, touchSize = 48.dp, glyphSize = 20.dp)
 }
 
 @Composable
@@ -822,6 +1149,7 @@ private fun RoomLineup(
     room: LiveRoom,
     hosting: Boolean,
     voiceLevels: Map<String, Float>,
+    unmutedMicrophoneIDs: Set<String>,
     openProfile: (String) -> Unit,
     openLineup: () -> Unit,
 ) {
@@ -840,6 +1168,7 @@ private fun RoomLineup(
             val playing = playingDJUid == person.uid
             val showLiveBadge = playing || (isHost && !talking && room.djs.isEmpty())
             val showNextBadge = !showLiveBadge && nextDJUid == person.uid
+            val micUnmuted = talking && person.uid in unmutedMicrophoneIDs
             val openPerson = if (isHost) ({ openProfile(person.uid) }) else openLineup
             Column(
                 slot.clickable(enabled = !isHost || !hosting, onClick = openPerson),
@@ -847,10 +1176,15 @@ private fun RoomLineup(
             ) {
                 Box(Modifier.size(56.dp), contentAlignment = Alignment.Center) {
                     DJPlaybackWaves(playing, Modifier.matchParentSize())
-                    LiveAvatar(person, 48.dp, ring = isHost || (voiceLevels[person.uid] ?: 0f) > .03f)
+                    LiveAvatar(
+                        person, 48.dp,
+                        ring = showLiveBadge || showNextBadge || micUnmuted,
+                        ringWidth = 2.5.dp,
+                        ringColor = if (showLiveBadge) CorusColors.Accent else CorusColors.Secondary.copy(alpha = .55f),
+                    )
                     if (showLiveBadge || showNextBadge) {
                         LiveText(
-                            if (showLiveBadge) "LIVE" else stringResource(R.string.live_next_up).uppercase(),
+                            if (showLiveBadge) stringResource(CorusStrings.corus_live_live).uppercase() else stringResource(R.string.live_next_up).uppercase(),
                             CorusFont.captionMedium.copy(fontWeight = FontWeight.Black, fontSize = 10.sp, letterSpacing = .3.sp),
                             Color.White,
                             Modifier.align(Alignment.BottomCenter).offset(y = 4.dp)
@@ -1003,8 +1337,8 @@ private fun RoomPlayerCard(
                 RoomWaitingTrack(room, vm, waitingForHost = false, countdown = state.hosting)
             }
             !state.audioReady && (state.audioError != null || state.connectingProvider != null) -> {
-                LiveText("Connect a streaming provider", CorusFont.songTitle)
-                LiveText("Requires Apple Music or Spotify Premium.", color = CorusColors.Secondary)
+                LiveText(stringResource(R.string.live_connect_a_streaming_provider), CorusFont.songTitle)
+                LiveText(stringResource(R.string.live_requires_apple_music_or_spotify_premium), color = CorusColors.Secondary)
                 state.audioError?.let { LiveText(it, color = CorusColors.Secondary) }
                 if (fm.corus.android.domain.AppleMusicPlayback.isAvailable()) {
                     LiveProviderButton("Apple Music", MusicService.APPLE_MUSIC, state.connectingProvider) {
@@ -1025,7 +1359,7 @@ private fun RoomPlayerCard(
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             LiveText(
                                 when {
-                                    room.pendingSkip != null -> "Switching songs…"
+                                    room.pendingSkip != null -> stringResource(R.string.live_switching_songs)
                                     !state.hosting && !state.audioReady -> stringResource(CorusStrings.corus_live_tuning_in)
                                     else -> stringResource(CorusStrings.full_player_queue_now_playing)
                                 },
@@ -1040,15 +1374,11 @@ private fun RoomPlayerCard(
                                     LiveText(room.likes.toString(), CorusFont.caption, CorusColors.Secondary)
                                 }
                             }
-                            if (room.djs.isNotEmpty() || room.currentDJ != null) {
-                                val picker = room.currentDJ ?: room.host
-                                LiveText("Picked by @${picker.username.trim('@')}", CorusFont.caption, CorusColors.Secondary, lines = 1)
-                            }
                         }
                     }
                     if (state.access?.saves == true) RoomIconButton(
                         if (LiveViewModel.saveId(track) in state.savedIds) Icons.Default.Bookmark else Icons.Outlined.BookmarkBorder,
-                        "Save song", { vm.save(track) },
+                        stringResource(R.string.live_save_song), { vm.save(track) },
                     )
                 }
             }
@@ -1116,10 +1446,11 @@ private fun RoomWaitingTrack(
 
 @Composable
 internal fun LiveVoiceMeter(level: Float) {
+    val activeBars = liveVoiceMeterBars(level)
     Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-        repeat(8) { index ->
+        repeat(LiveVoiceMeterSegmentCount) { index ->
             Box(Modifier.width(5.dp).height(6.dp).clip(CircleShape).background(
-                if (level * 8f >= index + 1) CorusColors.Accent else CorusColors.Secondary.copy(alpha = .20f),
+                if (index < activeBars) CorusColors.Accent else CorusColors.Secondary.copy(alpha = .20f),
             ))
         }
     }
@@ -1131,7 +1462,7 @@ private fun RoomStatus(count: Int, collaboration: Boolean, listeners: () -> Unit
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         HorizontalDivider(Modifier.weight(1f), color = CorusColors.Secondary.copy(alpha = .25f))
         LivePill(count.toString(), listeners, showPeople = true)
-        if (collaboration) LivePill("DJs", lineup)
+        if (collaboration) LivePill(stringResource(R.string.live_djs), lineup)
         HorizontalDivider(Modifier.weight(1f), color = CorusColors.Secondary.copy(alpha = .25f))
     }
 }
@@ -1143,12 +1474,13 @@ private fun LivePill(text: String, action: () -> Unit, showPeople: Boolean = fal
             Modifier.border(1.dp, CorusColors.Divider, CircleShape).padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (showPeople) Icon(Icons.Default.People, "Listeners", tint = CorusColors.Secondary, modifier = Modifier.size(14.dp))
+            if (showPeople) Icon(Icons.Default.People, stringResource(R.string.corus_live_listeners), tint = CorusColors.Secondary, modifier = Modifier.size(14.dp))
             LiveText(text, CorusFont.captionMedium, CorusColors.Secondary)
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TalkCountdown(deadline: Long, vm: LiveViewModel) {
     val seconds by produceState(301L, deadline) {
@@ -1165,6 +1497,7 @@ private fun TalkCountdown(deadline: Long, vm: LiveViewModel) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun HostControls(
     room: LiveRoom, state: LiveUiState, vm: LiveViewModel, micClick: () -> Unit, queueEditor: () -> Unit,
@@ -1178,7 +1511,7 @@ private fun HostControls(
     val queue = pendingOrder.value ?: serverQueue
     val dragPreview = remember(pendingOrder) { mutableStateOf<LiveQueueDrag?>(null) }
     val editingEnabled = room.pendingSkip == null && !state.queueUpdating
-    val canPlay = state.hosting && room.djs.isEmpty() && room.pausedAt == null
+    val canPlay = state.hosting && room.djs.isEmpty() && room.pausedAt == null && !room.talkAfterSongArmed
     val canSkip = state.canSkipTrack(room, queue)
     val resetAt = room.talkDailyResetAt
     val dailyLimitReached by produceState(resetAt != null && resetAt > vm.serverTime(), resetAt) {
@@ -1189,26 +1522,52 @@ private fun HostControls(
         }
     }
     val talkDisabled = room.talkRoomLimitReached || dailyLimitReached
+    val nextDJHandle = room.nextDJUid?.let { uid ->
+        if (uid == room.host.uid) room.hostHandle
+        else room.djs.firstOrNull { it.text("uid") == uid }?.let(LivePerson::parse)?.username
+            ?.trim()?.trimStart('@')?.takeIf { it.isNotEmpty() }?.let { "@$it" }
+    }
     val accentText = if (LocalCorusDarkTheme.current) Color(0xFF98BAFF) else Color(0xFF3A6BB9)
     Column(modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (state.hosting) {
-            Row(Modifier.fillMaxWidth().clip(CircleShape).background(CorusColors.Secondary.copy(alpha = .10f)).padding(2.dp)) {
-                listOf("talk" to stringResource(CorusStrings.corus_live_talk), "music" to stringResource(CorusStrings.search_tab_music)).forEach { (mode, label) ->
-                    val blocked = mode == "talk" && talkDisabled
-                    val selected = mode == (room.voiceMode.ifBlank { "music" })
-                    Box(
-                        Modifier.weight(1f).height(44.dp).clip(CircleShape)
-                            .background(if (selected) CorusColors.Accent else Color.Transparent)
-                            .clickable(enabled = !selected && !blocked && room.pendingSkip == null) {
-                                vm.action("voiceMode", mapOf("mode" to mode)) { if (mode == "talk" && !state.micEnabled) micClick() }
-                            },
-                        contentAlignment = Alignment.Center,
+            Column {
+                Row(Modifier.fillMaxWidth().clip(CircleShape).background(CorusColors.Secondary.copy(alpha = .10f)).padding(2.dp)) {
+                    listOf("talk" to stringResource(CorusStrings.corus_live_talk), "music" to stringResource(CorusStrings.search_tab_music)).forEach { (mode, label) ->
+                        val blocked = mode == "talk" && talkDisabled
+                        val selected = mode == (room.voiceMode.ifBlank { "music" })
+                        Box(
+                            Modifier.weight(1f).height(44.dp).clip(CircleShape)
+                                .background(if (selected) CorusColors.Accent else Color.Transparent)
+                                .clickable(enabled = !selected && !blocked && room.pendingSkip == null) {
+                                    vm.action("voiceMode", mapOf("mode" to mode)) { if (mode == "talk" && !state.micEnabled) micClick() }
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            val tint = if (selected) Color.White else CorusColors.Text.copy(alpha = if (blocked) .35f else .76f)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(if (mode == "talk") Icons.Default.Mic else Icons.Default.MusicNote, null,
+                                    tint = tint, modifier = Modifier.size(16.dp))
+                                LiveText(label, CorusFont.bodyMedium, tint)
+                            }
+                        }
+                    }
+                }
+                if (room.voiceEnabled && room.status == "playing" && room.pausedAt == null &&
+                    (!talkDisabled || room.talkAfterSongArmed)
+                ) {
+                    val queued = room.talkAfterSongArmed
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 44.dp)
+                            .clickable(enabled = room.pendingSkip == null, onClick = vm::scheduleTalkAfterSong)
+                            .padding(horizontal = 8.dp),
+                        horizontalArrangement = if (queued) Arrangement.SpaceBetween else Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        val tint = if (selected) Color.White else CorusColors.Text.copy(alpha = if (blocked) .35f else .76f)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(if (mode == "talk") Icons.Default.Mic else Icons.Default.MusicNote, null,
-                                tint = tint, modifier = Modifier.size(16.dp))
-                            LiveText(label, CorusFont.bodyMedium, tint)
+                        if (queued) {
+                            LiveText(stringResource(R.string.live_talk_queued), CorusFont.bodyMedium, CorusColors.Secondary)
+                            LiveText(stringResource(CorusStrings.common_cancel), CorusFont.bodyMedium, accentText)
+                        } else {
+                            LiveText(stringResource(R.string.live_talk_after_this_song), CorusFont.bodyMedium, accentText)
                         }
                     }
                 }
@@ -1243,12 +1602,32 @@ private fun HostControls(
             Modifier.weight(1f).fillMaxWidth().padding(start = 4.dp, top = 8.dp, end = 4.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            FlowRow(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 LiveText(
-                    if (guest != null || room.djs.isNotEmpty()) "My queue" else stringResource(CorusStrings.full_player_queue_title),
+                    if (guest != null || room.djs.isNotEmpty()) stringResource(R.string.live_my_queue) else stringResource(CorusStrings.full_player_queue_title),
                     CorusFont.username,
+                    modifier = Modifier.align(Alignment.CenterVertically),
                 )
-                LiveText(queue.size.toString(), CorusFont.caption, CorusColors.Secondary)
+                if (nextDJHandle != null) {
+                    val label = stringResource(R.string.live_next_up)
+                    val handleColor = CorusColors.Text
+                    Text(
+                        buildAnnotatedString {
+                            append(label)
+                            append(" · ")
+                            val handleStart = length
+                            append(nextDJHandle)
+                            addStyle(SpanStyle(color = handleColor, fontWeight = FontWeight.SemiBold), handleStart, length)
+                        },
+                        modifier = Modifier.align(Alignment.CenterVertically).padding(start = 8.dp),
+                        color = CorusColors.Secondary,
+                        style = CorusFont.caption,
+                    )
+                }
             }
             if (queue.isEmpty()) {
                 Column(
@@ -1258,10 +1637,10 @@ private fun HostControls(
                 ) {
                     Icon(Icons.Default.QueueMusic, null, tint = CorusColors.Secondary, modifier = Modifier.size(25.dp))
                     if (state.hosting && room.current != null && room.djs.none { it.rows("queue").isNotEmpty() }) {
-                        LiveText("Your queue is empty", CorusFont.bodyMedium, modifier = Modifier.align(Alignment.CenterHorizontally))
-                        Text("Add music to keep the room going.", style = CorusFont.caption, color = CorusColors.Secondary, textAlign = TextAlign.Center)
+                        LiveText(stringResource(R.string.live_your_queue_is_empty), CorusFont.bodyMedium, modifier = Modifier.align(Alignment.CenterHorizontally))
+                        Text(stringResource(R.string.live_add_music_to_keep_the_room_going), style = CorusFont.caption, color = CorusColors.Secondary, textAlign = TextAlign.Center)
                     } else {
-                        Text("Add songs to your queue.", style = CorusFont.body, color = CorusColors.Secondary, textAlign = TextAlign.Center)
+                        Text(stringResource(R.string.live_add_songs_to_your_queue), style = CorusFont.body, color = CorusColors.Secondary, textAlign = TextAlign.Center)
                     }
                 }
             } else {
@@ -1308,9 +1687,9 @@ private fun HostControls(
             Icon(if (join == null) Icons.Default.ChatBubbleOutline else Icons.Default.PersonAdd, null, tint = chatTint, modifier = Modifier.size(14.dp))
             LiveText(
                 when {
-                    join != null -> "@${join.author.username.removePrefix("@")} joined the room"
+                    join != null -> stringResource(R.string.live_listener_joined, "@${join.author.username.removePrefix("@")}")
                     unreadChat != null -> stringResource(CorusStrings.new_message_action)
-                    else -> "Swipe left for chat"
+                    else -> stringResource(R.string.live_swipe_left_for_chat)
                 },
                 CorusFont.caption, chatTint, lines = 1,
             )
@@ -1362,7 +1741,7 @@ private fun RoomQueueEditor(room: LiveRoom, state: LiveUiState, vm: LiveViewMode
         close()
     }
     LiveSheet(
-        if (hosting) stringResource(CorusStrings.full_player_queue_title) else "My queue",
+        if (hosting) stringResource(CorusStrings.full_player_queue_title) else stringResource(R.string.live_my_queue),
         done, large = true, done = done, sheetToolbar = true, dismissKeyboardFromHeader = true,
     ) {
         LiveSongPickerContent(
@@ -1377,7 +1756,7 @@ private fun RoomQueueEditor(room: LiveRoom, state: LiveUiState, vm: LiveViewMode
             canAdd = queue.size < limit,
             afterSearch = { query ->
                 if (query.isBlank() && queue.size < limit) {
-                    LiveRow("Import playlist", Icons.Default.Link) { importing = true }
+                    LiveRow(stringResource(R.string.live_import_playlist), Icons.Default.Link) { importing = true }
                 }
             },
         ) {
@@ -1399,7 +1778,7 @@ private fun RoomQueueEditor(room: LiveRoom, state: LiveUiState, vm: LiveViewMode
                     "${stringResource(CorusStrings.full_player_queue_title)} · ${queue.size}"
                 )
                 if (queue.isEmpty()) {
-                    LiveText("Add songs to your queue.", color = CorusColors.Secondary, modifier = Modifier.padding(vertical = 16.dp))
+                    LiveText(stringResource(R.string.live_add_songs_to_your_queue), color = CorusColors.Secondary, modifier = Modifier.padding(vertical = 16.dp))
                     HorizontalDivider(color = CorusColors.Divider)
                 }
             }
@@ -1478,15 +1857,22 @@ private fun HostQueueRow(
     }
 }
 
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
-private fun RoomChat(
+internal fun RoomChat(
     rows: List<LiveMessage>, state: LiveUiState, vm: LiveViewModel, openDJSpots: Int,
-    openProfile: (String) -> Unit, options: (LiveMessage) -> Unit, modifier: Modifier,
+    openProfile: (String) -> Unit, options: (LiveMessage, Boolean) -> Unit, modifier: Modifier,
+    inspectReaction: ((LiveMessage, String) -> Unit)? = null,
 ) {
     val list = rememberLazyListState()
-    LaunchedEffect(rows.lastOrNull()?.id) {
-        if (rows.isNotEmpty()) list.scrollToItem(rows.lastIndex)
+    val haptics = LocalHapticFeedback.current
+    val hapticView = LocalView.current
+    val openOptions by rememberUpdatedState(options)
+    val canReact = state.room?.chatEnabled == true
+    val reactionsLabel = stringResource(R.string.notifications_row_reactions)
+    val likeLabel = stringResource(R.string.comments_cd_like)
+    LaunchedEffect(rows.lastOrNull()?.id, rows.lastOrNull { it.supportsReactions }?.id) {
+        if (rows.isNotEmpty()) list.scrollToItem(0)
     }
     if (rows.isEmpty()) {
         Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(7.dp, Alignment.CenterVertically),
@@ -1495,30 +1881,62 @@ private fun RoomChat(
             LiveText(stringResource(CorusStrings.corus_live_be_the_first_to_comment), CorusFont.body, CorusColors.Secondary)
         }
     } else LazyColumn(
-        modifier.fillMaxWidth(), state = list,
+        modifier.fillMaxWidth(), state = list, reverseLayout = true,
         contentPadding = PaddingValues(bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom),
     ) {
-        items(rows, key = { it.id }) { message ->
-            if (message.kind == "listenerJoined" || message.isSongLikeNotice) {
+        items(rows.asReversed(), key = { it.id }) { message ->
+            if (message.kind == "listenerJoined" || message.kind == "roomTitleChanged" || message.isSongLikeNotice) {
                 Row(
-                    Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(
+                        if (message.isSongLikeNotice) 6.dp else 8.dp, Alignment.CenterHorizontally,
+                    ),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        if (message.isSongLikeNotice) Icons.Default.Favorite else Icons.Default.PersonAdd,
+                        when {
+                            message.isSongLikeNotice -> Icons.Default.Favorite
+                            message.kind == "roomTitleChanged" -> Icons.Default.Edit
+                            else -> Icons.Default.PersonAdd
+                        },
                         null, tint = CorusColors.Secondary, modifier = Modifier.size(14.dp),
                     )
-                    LiveText(
-                        if (message.isSongLikeNotice) message.text else "@${message.author.username.removePrefix("@")} joined the room",
-                        CorusFont.caption.copy(textAlign = TextAlign.Center), CorusColors.Secondary,
-                    )
+                    if (message.isSongLikeNotice || message.kind == "listenerJoined") {
+                        val handle = if (message.isSongLikeNotice) {
+                            message.fields.text("displayName").takeIf { it.startsWith("@") }
+                        } else {
+                            "@${message.author.username.removePrefix("@")}"
+                        }
+                        val notice = when {
+                            handle == null -> stringResource(R.string.live_song_liked)
+                            message.isSongLikeNotice -> stringResource(R.string.live_user_liked_song, handle)
+                            else -> stringResource(R.string.live_listener_joined, handle)
+                        }
+                        Text(
+                            buildAnnotatedString {
+                                append(notice)
+                                if (handle != null) {
+                                    val start = notice.indexOf(handle)
+                                    if (start >= 0) addStyle(SpanStyle(fontWeight = FontWeight.ExtraBold), start, start + handle.length)
+                                }
+                            },
+                            style = CorusFont.caption,
+                            textAlign = TextAlign.Center,
+                            color = CorusColors.Secondary,
+                        )
+                    } else {
+                        val title = message.fields.text("roomTitle")
+                        val notice = if (title.isBlank()) stringResource(R.string.live_room_title_cleared)
+                            else stringResource(R.string.live_room_title_changed, title)
+                        LiveText(notice, CorusFont.caption.copy(textAlign = TextAlign.Center), CorusColors.Secondary)
+                    }
                 }
             } else {
                 Row(
                     Modifier.fillMaxWidth().then(
-                        if (message.isPrivateDJRequest) Modifier
-                        else Modifier.combinedClickable(onClick = {}, onLongClick = { options(message) }),
+                        if (message.isPrivateDJRequest || message.supportsReactions) Modifier
+                        else Modifier.combinedClickable(onClick = {}, onLongClick = { options(message, false) }),
                     ),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
@@ -1528,13 +1946,143 @@ private fun RoomChat(
                         if (message.kind == "songRequest" || message.kind == "djRequest") {
                             ChatRequestCard(message, state, vm, openDJSpots)
                         } else {
-                            if (message.text.isNotBlank()) LiveText(message.text)
-                            message.gifUrl?.let {
-                                AsyncImage(it, null, Modifier.width(170.dp).heightIn(max = 170.dp).clip(RoundedCornerShape(9.dp)))
+                            val opensOptions = message.supportsReactions
+                            Column(
+                                Modifier.fillMaxWidth().then(if (!opensOptions) Modifier else Modifier
+                                    .pointerInput(message.id, canReact, haptics, hapticView) {
+                                        detectTapGestures(
+                                            onDoubleTap = if (canReact) {
+                                                { reactToChatMessage(vm, hapticView, message.id, "❤️", addOnly = true) }
+                                            } else null,
+                                            onLongPress = {
+                                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                openOptions(message, false)
+                                            },
+                                        )
+                                    }
+                                    .semantics(mergeDescendants = true) {
+                                        onClick(label = reactionsLabel) { openOptions(message, false); true }
+                                        if (canReact) {
+                                            customActions = listOf(CustomAccessibilityAction(likeLabel) {
+                                                reactToChatMessage(vm, hapticView, message.id, "❤️", addOnly = true)
+                                                true
+                                            })
+                                        }
+                                    }),
+                            ) {
+                                if (message.text.isNotBlank()) LiveText(message.text)
+                                if (message.isEdited) {
+                                    LiveText(stringResource(CorusStrings.comment_edited_badge), CorusFont.caption, CorusColors.Secondary)
+                                }
+                                message.gifUrl?.let {
+                                    AsyncImage(it, "GIF", Modifier.width(170.dp).heightIn(max = 170.dp).clip(RoundedCornerShape(9.dp)))
+                                }
+                            }
+                            val emojis = orderedChatReactionEmojis(state, message)
+                            if (emojis.isNotEmpty()) {
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    emojis.forEach { emoji ->
+                                        ChatReactionButton(
+                                            message, emoji, state, showsCount = true,
+                                            inspect = inspectReaction?.let { action -> { action(message, emoji) } },
+                                        ) {
+                                            reactToChatMessage(vm, hapticView, message.id, emoji)
+                                        }
+                                    }
+                                    if (canReact) {
+                                        LiveIconButton(
+                                            Icons.Default.AddReaction, reactionsLabel, { openOptions(message, true) },
+                                            touchSize = 44.dp, glyphSize = 18.dp,
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+private fun orderedChatReactionEmojis(state: LiveUiState, message: LiveMessage): List<String> {
+    val used = state.reactionEmojis(message).filter { state.reactionUsers(message, it).isNotEmpty() }
+    return REACTION_EMOJIS.filter { it in used } + used.filterNot { it in REACTION_EMOJIS }.sorted()
+}
+
+private fun reactToChatMessage(vm: LiveViewModel, view: View, messageId: String, emoji: String, addOnly: Boolean = false) {
+    if (vm.setChatReaction(messageId, emoji, addOnly)) {
+        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+    }
+}
+
+@Composable
+private fun LiveChatAction(label: String, icon: ImageVector, destructive: Boolean = false, onClick: () -> Unit) {
+    val color = if (destructive) CorusColors.Error else CorusColors.Text
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button, onClick = onClick)
+            .heightIn(min = 48.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
+        Text(label, color = color, style = CorusFont.body.copy(fontSize = 14.sp))
+    }
+}
+
+@Composable
+private fun ChatReactionButton(
+    message: LiveMessage, emoji: String, state: LiveUiState, showsCount: Boolean,
+    inspect: (() -> Unit)? = null, onClick: () -> Unit,
+) {
+    val users = state.reactionUsers(message, emoji)
+    val reacted = state.uid != null && state.uid in users
+    val accentText = if (LocalCorusDarkTheme.current) Color(0xFF98BAFF) else Color(0xFF3A6BB9)
+    val tint = if (reacted) accentText else CorusColors.Secondary
+    val enabled = state.room?.chatEnabled == true && state.uid != null
+    val reactionsLabel = stringResource(R.string.notifications_row_reactions)
+    val currentInspect by rememberUpdatedState(inspect)
+    val currentClick by rememberUpdatedState(onClick)
+    val interaction = if (inspect == null) {
+        Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+    } else {
+        Modifier.pointerInput(message.id, emoji, enabled) {
+            detectTapGestures(
+                onTap = if (enabled) ({ currentClick() }) else null,
+                onLongPress = { currentInspect?.invoke() },
+            )
+        }.semantics(mergeDescendants = true) {
+            role = Role.Button
+            onClick(action = {
+                if (enabled) currentClick() else currentInspect?.invoke()
+                true
+            })
+            onLongClick(label = reactionsLabel) {
+                currentInspect?.invoke()
+                true
+            }
+        }
+    }
+    Box(
+        Modifier.sizeIn(minWidth = 44.dp, minHeight = 44.dp)
+            .clip(CircleShape)
+            .then(interaction)
+            .semantics { selected = reacted },
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            Modifier.background(tint.copy(alpha = if (reacted) .15f else .08f), CircleShape)
+                .then(if (reacted) Modifier.border(1.dp, tint, CircleShape) else Modifier)
+                .padding(horizontal = 8.dp, vertical = if (showsCount) 4.dp else 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(emoji, fontSize = if (showsCount) 16.sp else 22.sp)
+            if (showsCount) {
+                LiveText(
+                    java.text.NumberFormat.getIntegerInstance().format(users.size),
+                    CorusFont.caption.copy(fontWeight = FontWeight.SemiBold), tint,
+                )
             }
         }
     }
@@ -1633,41 +2181,67 @@ private fun ChatRequestButton(
     }
 }
 
+private val liveMentionHandle = Regex("[a-zA-Z0-9_.]{1,32}")
+
+internal fun liveChatReplyDraft(draft: TextFieldValue, username: String): TextFieldValue {
+    val mention = "@${username.trim().trim('@')} "
+    val reply = if (draft.text.startsWith(mention)) draft.text else (mention + draft.text).take(500)
+    return TextFieldValue(reply, selection = TextRange(mention.length.coerceAtMost(reply.length)))
+}
+
 @Composable
 private fun ChatComposer(
-    text: String, onText: (String) -> Unit, gif: String?, clearGif: () -> Unit, send: () -> Unit,
+    draft: TextFieldValue, onText: (TextFieldValue) -> Unit, gif: String?, clearGif: () -> Unit, send: () -> Unit,
     heart: () -> Unit, liked: Boolean, focus: (Boolean) -> Unit, showHeart: Boolean,
-    chatEnabled: Boolean,
+    chatEnabled: Boolean, composerFocus: FocusRequester,
+    originalText: String?, savingEdit: Boolean,
     actions: @Composable () -> Unit,
 ) {
-    if (chatEnabled && gif != null) {
+    val text = draft.text
+    val editing = originalText != null
+    if (chatEnabled && !editing && gif != null) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AsyncImage(gif, null, Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)))
             LiveIconButton(Icons.Default.Close, stringResource(CorusStrings.corus_live_remove_gif), clearGif)
         }
     }
-    val canSend = text.isNotBlank() || gif != null
+    val canSend = !savingEdit && if (editing) text.isNotBlank() && text.trim() != originalText
+        else text.isNotBlank() || gif != null
+    val cursorTint = if (LocalCorusDarkTheme.current) Color(0xFF98BAFF) else Color(0xFF315EA8)
     Row(
         Modifier.fillMaxWidth().padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        if (showHeart) LiveLikeButton(liked, glyphSize = 25.dp, onLike = heart)
+        if (showHeart && !editing) LiveLikeButton(liked, glyphSize = 25.dp, onLike = heart)
         Row(
-            Modifier.weight(1f).clip(CircleShape).background(CorusColors.CardBackground)
-                .border(1.dp, CorusColors.Secondary.copy(alpha = .22f), CircleShape).padding(start = 12.dp),
+            Modifier.weight(1f).heightIn(min = 44.dp).clip(CircleShape)
+                .background(CorusColors.CardBackground.copy(alpha = if (chatEnabled) .6f else 1f))
+                .border(1.dp, CorusColors.Secondary.copy(alpha = .22f), CircleShape)
+                .padding(start = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (chatEnabled) {
                 BasicTextField(
-                    text,
-                    { onText(it.lineSequence().joinToString(" ")) },
-                    Modifier.weight(1f).onFocusChanged { focus(it.isFocused) },
+                    draft,
+                    { onText(it.copy(text = it.text.replace('\n', ' ').replace('\r', ' '))) },
+                    Modifier.weight(1f).focusRequester(composerFocus).onFocusChanged { focus(it.isFocused) },
+                    readOnly = savingEdit,
                     textStyle = CorusFont.body.copy(color = CorusColors.Text),
-                    cursorBrush = SolidColor(CorusColors.Accent),
+                    cursorBrush = SolidColor(cursorTint),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    decorationBox = { input -> Box { if (text.isEmpty()) LiveText(stringResource(CorusStrings.corus_live_say_something), color = CorusColors.Secondary); input() } },
+                    decorationBox = { input ->
+                        Box {
+                            if (text.isEmpty()) {
+                                LiveText(
+                                    stringResource(if (editing) CorusStrings.comment_edit_placeholder else CorusStrings.corus_live_say_something),
+                                    color = CorusColors.Text.copy(alpha = .75f),
+                                )
+                            }
+                            input()
+                        }
+                    },
                 )
             } else {
                 LiveText(
@@ -1676,7 +2250,7 @@ private fun ChatComposer(
                     modifier = Modifier.weight(1f).padding(vertical = 12.dp, horizontal = 4.dp),
                 )
             }
-            actions()
+            if (!editing) actions()
         }
         if (chatEnabled) {
             IconButton(onClick = send, enabled = canSend, modifier = Modifier.size(44.dp)) {
@@ -1686,7 +2260,7 @@ private fun ChatComposer(
                     ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Default.ArrowUpward, stringResource(CorusStrings.thread_send_aria),
+                    Icon(Icons.Default.ArrowUpward, stringResource(if (editing) R.string.common_save else CorusStrings.thread_send_aria),
                         tint = if (canSend) Color.White else CorusColors.Secondary, modifier = Modifier.size(18.dp))
                 }
             }
@@ -1714,7 +2288,11 @@ private fun ChatActions(
     if (!room.chatEnabled && !hasRequestToCancel) return
     var expanded by remember(room.id) { mutableStateOf(false) }
     Box {
-        LiveIconButton(Icons.Default.Add, "More chat actions", { expanded = true }, touchSize = 44.dp, glyphSize = 18.dp)
+        LiveIconButton(
+            Icons.Default.Add, stringResource(R.string.live_more_chat_actions), { expanded = true },
+            tint = if (room.chatEnabled) CorusColors.Text.copy(alpha = .75f) else CorusColors.Secondary,
+            touchSize = 44.dp, glyphSize = 18.dp,
+        )
         DropdownMenu(expanded, { expanded = false }, containerColor = CorusColors.CardBackground) {
             if (canManageRequests) {
                 if (room.chatEnabled && room.allowSongRequests) DropdownMenuItem(
@@ -1732,15 +2310,16 @@ private fun ChatActions(
                     },
                 )
                 if (!invited && requested) DropdownMenuItem(
-                    text = { LiveText("Cancel DJ request") },
+                    text = { LiveText(stringResource(R.string.live_cancel_dj_request)) },
                     leadingIcon = { Icon(Icons.Default.Close, null) },
                     enabled = !state.requestBusy,
                     onClick = { expanded = false; vm.requestAction("cancelDJRequest") },
                 )
                 if (room.chatEnabled && !invited && !requested && room.allowDJRequests) DropdownMenuItem(
-                    text = { LiveText(if (lineupFull) "DJ spots full" else "Request to DJ") },
+                    text = { LiveText(if (lineupFull) stringResource(R.string.live_dj_spots_full) else stringResource(R.string.live_request_to_dj)) },
                     leadingIcon = { Icon(Icons.Default.PersonAdd, null) },
-                    enabled = !lineupFull && !state.requestBusy && !djRequestCoolingDown,
+                    enabled = !lineupFull && !state.requestBusy && !djRequestCoolingDown &&
+                        state.djRequestFeedback != LiveDJRequestFeedback.SENT,
                     onClick = { expanded = false; focus.clearFocus(); vm.requestAction("requestDJ") },
                 )
             }
@@ -1749,6 +2328,33 @@ private fun ChatActions(
                 leadingIcon = { Icon(Icons.Default.Photo, null) },
                 onClick = { expanded = false; pickGif() },
             )
+        }
+    }
+}
+
+@Composable
+private fun DJRequestStatus(state: LiveUiState, coolingDown: Boolean, cancel: () -> Unit) {
+    val pending = state.myDJRequest.text("status") == "pending"
+    val label = when {
+        pending || state.djRequestFeedback == LiveDJRequestFeedback.SENT -> CorusStrings.corus_live_dj_request_sent
+        state.djRequestFeedback == LiveDJRequestFeedback.SENDING -> CorusStrings.corus_live_dj_request_sending
+        state.djRequestFeedback == LiveDJRequestFeedback.FAILED -> CorusStrings.corus_live_dj_request_failed
+        coolingDown -> R.string.live_dj_request_cooldown
+        else -> return
+    }
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(
+            Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Default.PersonAdd, null, tint = CorusColors.Secondary, modifier = Modifier.size(14.dp))
+            LiveText(stringResource(label), CorusFont.caption.copy(textAlign = TextAlign.Center), CorusColors.Secondary)
+        }
+        if (pending) {
+            TextButton(onClick = cancel, enabled = !state.requestBusy) {
+                Text(stringResource(R.string.live_cancel_dj_request), style = CorusFont.caption)
+            }
         }
     }
 }
@@ -1764,16 +2370,16 @@ private fun LiveLineupSheet(
             handoff = (it["eligibleDJIds"] as? List<*>)?.filterIsInstance<String>().orEmpty()
         }
     }
-    LiveSheet("DJs", close, large = room.djs.size + state.djRequests.size > 3) {
+    LiveSheet(stringResource(R.string.live_djs), close, large = room.djs.size + state.djRequests.size > 3) {
         Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
-            PersonRow(room.host, { openProfile(room.host.uid) }) { LiveText("Host", CorusFont.caption, CorusColors.Secondary) }
+            PersonRow(room.host, { openProfile(room.host.uid) }) { LiveText(stringResource(R.string.live_host), CorusFont.caption, CorusColors.Secondary) }
             room.djs.forEach { raw ->
                 val dj = LivePerson.parse(raw)
                 var menu by remember(dj.uid) { mutableStateOf(false) }
                 PersonRow(dj, { openProfile(dj.uid) }) {
                     if (state.hosting) {
                         Box {
-                            LiveIconButton(Icons.Default.MoreHoriz, "DJ options", { menu = true })
+                            LiveIconButton(Icons.Default.MoreHoriz, stringResource(R.string.live_dj_options), { menu = true })
                             DropdownMenu(menu, { menu = false }) {
                                 if (dj.uid in handoff) DropdownMenuItem(
                                     text = { LiveText(stringResource(R.string.live_make_host)) },
@@ -1816,7 +2422,7 @@ private fun LiveLineupSheet(
                 }
                 state.pendingDJs.forEach { raw ->
                     val person = LivePerson.parse(raw)
-                    PersonRow(person, { openProfile(person.uid) }, subtitle = "Invited") {
+                    PersonRow(person, { openProfile(person.uid) }, subtitle = stringResource(R.string.live_invited)) {
                         TextButton(
                             enabled = !state.requestBusy,
                             onClick = { vm.requestAction("cancelDJInvite", mapOf("targetUid" to person.uid)) },
@@ -1828,7 +2434,7 @@ private fun LiveLineupSheet(
             }
         }
         if (invite != null && (state.hosting || state.dj != null)) {
-            LiveRow("Invite a DJ", Icons.Default.PersonAdd, onClick = invite)
+            LiveRow(stringResource(R.string.live_invite_dj), Icons.Default.PersonAdd, onClick = invite)
         }
         if (!state.hosting && state.dj == null && state.myDJRequest.text("status") == "declined") {
             LiveText(stringResource(R.string.live_dj_request_declined), CorusFont.caption, CorusColors.Secondary)
@@ -1940,21 +2546,29 @@ private fun LiveGifPicker(vm: LiveViewModel, close: () -> Unit, choose: (String)
 
 @Composable
 private fun LiveReportSheet(close: () -> Unit, report: (String, String) -> Unit) {
-    val reasons = listOf("Spam or scam", "Harassment or bullying", "Hate speech", "Nudity or sexual content",
-        "Violence or threats", "False information", "Intellectual property violation", "Other")
+    val reasons = listOf(
+        "Spam or scam" to CorusStrings.report_reason_spam,
+        "Harassment or bullying" to CorusStrings.report_reason_harassment,
+        "Hate speech" to CorusStrings.report_reason_hate,
+        "Nudity or sexual content" to CorusStrings.report_reason_nudity,
+        "Violence or threats" to CorusStrings.report_reason_violence,
+        "False information" to CorusStrings.report_reason_false_info,
+        "Intellectual property violation" to CorusStrings.report_reason_ip_violation,
+        "Other" to CorusStrings.report_reason_other,
+    )
     var reason by remember { mutableStateOf("") }
     var details by remember { mutableStateOf("") }
     LiveSheet(stringResource(CorusStrings.corus_live_report_room), close, large = true) {
         Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
-            reasons.forEach { option ->
+            reasons.forEach { (option, label) ->
                 Row(Modifier.fillMaxWidth().clickable { reason = option }, verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(reason == option, { reason = option })
-                    LiveText(option)
+                    LiveText(stringResource(label))
                 }
             }
-            LiveSearchField(details, "Additional details") { details = limitLiveCharacters(it, 500) }
+            LiveSearchField(details, stringResource(R.string.live_additional_details)) { details = limitLiveCharacters(it, 500) }
         }
-        LivePrimary("Submit report", reason.isNotEmpty()) { report(reason, details) }
+        LivePrimary(stringResource(R.string.live_submit_report), reason.isNotEmpty()) { report(reason, details) }
     }
 }
 
@@ -1962,8 +2576,11 @@ private fun LiveReportSheet(close: () -> Unit, report: (String, String) -> Unit)
 private fun LiveRoomEffects(effect: String) {
     Box(Modifier.fillMaxSize()) {
         when (effect) {
-            "rain" -> RainEffectView(RainIntensity.MEDIUM, Modifier.alpha(.8f), windAngleDegrees = 5f)
-            "snow" -> SnowEffectView(SnowIntensity.HEAVY)
+            "rain" -> RainEffectView(
+                RainIntensity.MEDIUM, Modifier.alpha(0.56f), windAngleDegrees = 5f, particleDensity = 0.6f,
+                fallSpeedScale = 0.9f,
+            )
+            "snow" -> SnowEffectView(SnowIntensity.HEAVY, particleDensity = 0.8f)
             "slow", "disco", "party" -> {
                 val intensity = when (effect) {
                     "slow" -> DiscoIntensity.LIGHT

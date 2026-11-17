@@ -84,28 +84,35 @@ internal class LiveRepository @Inject constructor(
         awaitClose { registration.remove() }
     }
 
-    suspend fun hostedRoom(uid: String): LiveRoom? = coroutineScope {
-        val owned = rooms.whereEqualTo("hostId", uid)
-        val playing = async { owned.whereEqualTo("status", "playing").get(Source.SERVER).await().documents }
-        val waiting = async { owned.whereEqualTo("status", "waiting").get(Source.SERVER).await().documents }
-        val candidates = (playing.await() + waiting.await()).mapNotNull { it.toRoom() }.sortedByDescending { it.leaseUntil }
-        for (room in candidates) {
-            try {
-                call("inspect", room.id)
-                return@coroutineScope room
-            } catch (error: FirebaseFunctionsException) {
-                if (error.code !in setOf(FirebaseFunctionsException.Code.FAILED_PRECONDITION, FirebaseFunctionsException.Code.NOT_FOUND)) throw error
-            }
+    suspend fun hostedRoom(uid: String): LiveRoom? {
+        val id = call("activeHostedRoom").text("roomId").takeIf(String::isNotBlank) ?: return null
+        val room = room(id)?.takeIf { it.host.uid == uid && it.status in setOf("playing", "waiting") }
+            ?: return null
+        try {
+            call("inspect", id)
+        } catch (error: FirebaseFunctionsException) {
+            if (error.code == FirebaseFunctionsException.Code.FAILED_PRECONDITION ||
+                error.code == FirebaseFunctionsException.Code.NOT_FOUND
+            ) return null
+            throw error
         }
-        null
+        return room
     }
 
     fun messages(id: String): Flow<List<LiveMessage>> = rooms.document(id).collection("messages")
         .orderBy("createdAt", Query.Direction.DESCENDING).limit(100)
         .snapshots { documents -> documents.asReversed().mapNotNull { doc -> doc.data?.let { LiveMessage(doc.id, it) } } }
 
+    suspend fun sentMessage(roomId: String, messageId: String): LiveMessage? {
+        val snapshot = rooms.document(roomId).collection("messages").document(messageId).get(Source.SERVER).await()
+        return snapshot.data?.let { LiveMessage(snapshot.id, it) }
+    }
+
     suspend fun chatAuthors(ids: List<String>): Map<String, LivePerson> =
         users.fetchUsersByIdsBatched(ids).associate { it.id to it.toLivePerson() }
+
+    suspend fun chatReactionPeople(ids: List<String>): Map<String, LivePerson> =
+        chatAuthors(ids.filterNot { users.isUserHidden(it) || users.isUserBannedLocally(it) })
 
     fun invites(uid: String): Flow<List<LiveFields>> =
         database.collection("corusLiveDJInboxes").document(uid).collection("invites")
@@ -142,7 +149,7 @@ internal class LiveRepository @Inject constructor(
     }
 
     suspend fun exportSetlist(id: String): String {
-        val result = functions.getHttpsCallable("exportLiveSetlist").call(mapOf("roomId" to id))
+        val result = functions.getHttpsCallable("exportLiveSetlist").call(mapOf("roomId" to id, "clientPlatform" to "android"))
             .await().getData().liveFields().orEmpty()
         return result.text("playlistWebURL").ifBlank { error("Couldn’t export playlist.") }
     }

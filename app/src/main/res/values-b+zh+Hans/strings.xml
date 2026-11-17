@@ -280,6 +280,9 @@
     <string name="comments_dialog_block_message">"他们将无法看到你的资料或内容，你也看不到他们的。"</string>
     <string name="comments_dialog_block_confirm">"屏蔽"</string>
     <string name="comments_menu_copy">"复制"</string>
+    <string name="live_copy_text">"复制文本"</string>
+    <string name="live_edit_message">"编辑消息"</string>
+    <string name="live_delete_message">"删除消息"</string>
     <string name="comments_menu_report">"举报"</string>
     <string name="comments_menu_block">"屏蔽"</string>
     <string name="comments_menu_edit">"编辑"</string>
@@ -1516,4 +1519,5 @@
     <string name="profile_shuffle_no_songs">暂无可播放的歌曲</string>
     <string name="profile_shuffle_failed">无法加载此主页的歌曲。请重试。</string>
     <string name="profile_shuffle_loading">正在随机播放主页…</string>
+    <string name="live_kick_user_from_room">"移出直播间"</string>
 </resources>

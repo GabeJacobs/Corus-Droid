@@ -280,6 +280,9 @@
     <string name="comments_dialog_block_message">"그 사람은 회원님의 프로필이나 게시물을 볼 수 없고, 회원님도 그 사람의 것을 볼 수 없어요."</string>
     <string name="comments_dialog_block_confirm">"차단"</string>
     <string name="comments_menu_copy">"복사"</string>
+    <string name="live_copy_text">"텍스트 복사"</string>
+    <string name="live_edit_message">"메시지 수정"</string>
+    <string name="live_delete_message">"메시지 삭제"</string>
     <string name="comments_menu_report">"신고"</string>
     <string name="comments_menu_block">"차단"</string>
     <string name="comments_menu_edit">"편집"</string>
@@ -1516,4 +1519,5 @@
     <string name="profile_shuffle_no_songs">재생할 곡이 아직 없습니다</string>
     <string name="profile_shuffle_failed">이 프로필의 곡을 불러오지 못했습니다. 다시 시도해 주세요.</string>
     <string name="profile_shuffle_loading">프로필을 셔플하는 중…</string>
+    <string name="live_kick_user_from_room">"룸에서 내보내기"</string>
 </resources>

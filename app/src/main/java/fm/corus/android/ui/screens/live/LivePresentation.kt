@@ -1,5 +1,7 @@
 package fm.corus.android.ui.screens.live
 
+import com.google.firebase.functions.FirebaseFunctionsException
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import fm.corus.android.localization.CorusStrings
 import android.content.ActivityNotFoundException
@@ -147,7 +149,7 @@ internal fun LiveCreateButton(onDefault: () -> Unit, modifier: Modifier = Modifi
 @Composable
 internal fun LiveDiscovery(source: String, following: Set<String>? = null, inSearch: Boolean = false) {
     val live = LocalLiveNavigation.current ?: return
-    val rooms = live.state.discovery.filter { following == null || it.host.uid in following }
+    val rooms = live.state.discovery.filter { it.matchesFollowing(following) }
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val artworkUrls = if (lifecycle.isAtLeast(Lifecycle.State.RESUMED) && !live.state.roomCoversFeed) {
         rooms.take(3).mapNotNull { it.current?.loadingArtworkUrl }.distinct()
@@ -180,8 +182,8 @@ internal fun LiveDiscovery(source: String, following: Set<String>? = null, inSea
         }
     }
     hide?.let { room ->
-        LiveSheet("Live room", { hide = null }) {
-            LiveRow("Hide room", Icons.Default.VisibilityOff) {
+        LiveSheet(stringResource(R.string.live_live_room), { hide = null }) {
+            LiveRow(stringResource(R.string.live_hide_room), Icons.Default.VisibilityOff) {
                 live.viewModel.event("discovery_hidden", source = "room_pill")
                 live.viewModel.dismissDiscoveryRoom(room.id)
                 hide = null
@@ -387,10 +389,10 @@ internal fun LiveMiniPlayer(state: LiveUiState, vm: LiveViewModel, modifier: Mod
                     }
                     LiveText(
                         when {
-                            room.hostWaitStartsAt?.let { now >= it } == true -> parityCopy("Waiting for host")
-                            room.status == "waiting" && room.pausedAt != null -> parityCopy("Talk mode")
+                            room.hostWaitStartsAt?.let { now >= it } == true -> parityCopy(stringResource(R.string.live_waiting_for_host))
+                            room.status == "waiting" && room.pausedAt != null -> parityCopy(stringResource(R.string.live_talk_mode))
                             track == null -> stringResource(CorusStrings.corus_live_waiting_for_the_next_song)
-                            !ready -> parityCopy("Connect a streaming provider")
+                            !ready -> parityCopy(stringResource(R.string.live_connect_a_streaming_provider))
                             else -> "${track.song.name} · ${track.song.artistName}"
                         },
                         CorusFont.caption, CorusColors.Secondary, lines = 1,
@@ -499,11 +501,11 @@ internal fun BoxScope.LivePresentation(
     state.openSavedSetlist?.let { savedRoom ->
         LiveEndedSheets(savedRoom, vm, openSong, vm::closeSavedSetlist, startInSetlist = true)
     }
-    if (state.confirmPlaybackExit) {
+    state.playbackExitEndsShow?.let { endsRoom ->
         LiveConfirmation(
-            if (state.hosting) stringResource(CorusStrings.corus_live_end_live) else stringResource(CorusStrings.corus_live_leave_live_room),
-            if (state.hosting) stringResource(CorusStrings.corus_live_this_will_end_the_room_for_everyone) else stringResource(CorusStrings.corus_live_leave_the_room_to_play_this_song),
-            if (state.hosting) "End and play" else stringResource(CorusStrings.corus_live_leave_and_play),
+            if (endsRoom) stringResource(CorusStrings.corus_live_end_live) else stringResource(CorusStrings.corus_live_leave_live_room),
+            if (endsRoom) stringResource(CorusStrings.corus_live_this_will_end_the_room_for_everyone) else stringResource(CorusStrings.corus_live_leave_the_room_to_play_this_song),
+            if (endsRoom) stringResource(R.string.live_end_and_play) else stringResource(CorusStrings.corus_live_leave_and_play),
             { vm.confirmPlaybackExit(false) }, { vm.confirmPlaybackExit(true) },
         )
     }
@@ -531,7 +533,7 @@ internal fun BoxScope.LivePresentation(
     if (state.linkUpcoming) {
         AlertDialog(
             onDismissRequest = vm::clearError,
-            title = { LiveText("This room hasn’t started yet", CorusFont.songTitle) },
+            title = { LiveText(stringResource(R.string.live_this_room_hasnt_started_yet), CorusFont.songTitle) },
             confirmButton = { TextButton(onClick = vm::clearError) { LiveText(stringResource(CorusStrings.common_ok)) } },
         )
     }
@@ -598,12 +600,13 @@ private fun LiveEndedSheets(
             }
             LiveText(room.title, CorusFont.username, modifier = Modifier.align(Alignment.CenterHorizontally))
             LiveText(
-                if (tracks.isEmpty()) stringResource(CorusStrings.corus_live_no_songs_played_yet) else "${tracks.size} songs played",
+                if (tracks.isEmpty()) stringResource(CorusStrings.corus_live_no_songs_played_yet) else pluralStringResource(R.plurals.live_songs_played, tracks.size, tracks.size),
                 CorusFont.caption, CorusColors.Secondary, Modifier.align(Alignment.CenterHorizontally),
             )
             if (tracks.isNotEmpty()) LivePrimary(stringResource(CorusStrings.corus_live_view_setlist)) { showSetlist = true }
         }
     } else LiveSheet(stringResource(CorusStrings.corus_live_live_setlist), close, large = true) {
+        LaunchedEffect(room.id) { vm.event("setlist_viewed", source = "setlist", roomId = room.id) }
         LiveText(room.title, CorusFont.songTitleLarge)
         val djs = tracks.mapNotNull { it.playedBy }.distinctBy { it.uid }
         if (djs.size > 1) {
@@ -615,7 +618,7 @@ private fun LiveEndedSheets(
             java.util.Date(room.endedAt.takeIf { it > 0 } ?: System.currentTimeMillis()),
         ), CorusFont.caption, CorusColors.Secondary)
         if (room.recent.size == 30) LiveText(stringResource(CorusStrings.corus_live_showing_the_most_recent_songs), CorusFont.caption, CorusColors.Secondary)
-        LivePrimary(if (exporting) "Exporting…" else stringResource(CorusStrings.corus_live_export_playlist), !exporting) {
+        LivePrimary(if (exporting) stringResource(R.string.live_exporting) else stringResource(CorusStrings.corus_live_export_playlist), !exporting) {
             scope.launch {
                 exporting = true
                 try {
@@ -624,7 +627,9 @@ private fun LiveEndedSheets(
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (failure: Exception) {
-                    error = failure.localizedMessage ?: "Couldn’t export playlist."
+                    val reason = (failure as? FirebaseFunctionsException)?.details.liveFields()?.text("reason")
+                    error = context.getString(if (reason == "no_spotify_tracks") R.string.live_no_spotify_tracks
+                        else R.string.live_couldnt_export_playlist)
                 } finally {
                     exporting = false
                 }
@@ -639,7 +644,7 @@ private fun LiveEndedSheets(
     error?.let { message ->
         AlertDialog(
             onDismissRequest = { error = null },
-            title = { LiveText("Couldn’t export playlist", CorusFont.songTitle) },
+            title = { LiveText(stringResource(R.string.live_couldnt_export_playlist), CorusFont.songTitle) },
             text = { LiveText(message) },
             confirmButton = { TextButton(onClick = { error = null }) { LiveText(stringResource(CorusStrings.common_ok)) } },
         )

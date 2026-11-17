@@ -177,9 +177,10 @@ internal fun LiveAvatar(
     ringPadding: Dp = 4.dp,
     ringWidth: Dp = 2.dp,
     modifier: Modifier = Modifier,
+    ringColor: Color = CorusColors.Accent,
 ) {
     Box(
-        modifier.then(if (ring) Modifier.border(ringWidth, CorusColors.Accent, CircleShape).padding(ringPadding) else Modifier),
+        modifier.then(if (ring) Modifier.border(ringWidth, ringColor, CircleShape).padding(ringPadding) else Modifier),
         contentAlignment = Alignment.Center,
     ) {
         UserAvatarView(person.avatar, displayName = person.username, size = size, usesSolidLoadingPlaceholder = true)
@@ -189,7 +190,7 @@ internal fun LiveAvatar(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun LiveSheet(
-    title: String,
+    title: String?,
     close: () -> Unit,
     large: Boolean = false,
     done: (() -> Unit)? = null,
@@ -220,11 +221,13 @@ internal fun LiveSheet(
         containerColor = CorusColors.SheetBackground,
     ) {
         Column(Modifier.fillMaxWidth().then(if (large) Modifier.fillMaxHeight(largeHeightFraction) else Modifier)) {
-            LiveHeader(
-                title, done, sheetToolbar,
-                close = if (showCloseButton) ({ if (canDismiss) close() }) else null,
-                modifier = if (dismissKeyboardFromHeader) Modifier.dismissKeyboardOnDownwardDrag() else Modifier,
-            )
+            if (title != null) {
+                LiveHeader(
+                    title, done, sheetToolbar,
+                    close = if (showCloseButton) ({ if (canDismiss) close() }) else null,
+                    modifier = if (dismissKeyboardFromHeader) Modifier.dismissKeyboardOnDownwardDrag() else Modifier,
+                )
+            }
             Column(
                 Modifier.fillMaxWidth().then(if (large) Modifier.weight(1f) else Modifier)
                     .padding(horizontal = horizontalContentPadding).padding(bottom = 16.dp),

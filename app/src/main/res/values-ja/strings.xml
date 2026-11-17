@@ -253,6 +253,9 @@
     <string name="comments_dialog_block_message">"相手はあなたのプロフィールや投稿を見られなくなり、あなたも相手のものを見られなくなります。"</string>
     <string name="comments_dialog_block_confirm">"ブロック"</string>
     <string name="comments_menu_copy">"コピー"</string>
+    <string name="live_copy_text">"テキストをコピー"</string>
+    <string name="live_edit_message">"メッセージを編集"</string>
+    <string name="live_delete_message">"メッセージを削除"</string>
     <string name="comments_menu_report">"報告"</string>
     <string name="comments_menu_block">"ブロック"</string>
     <string name="comments_menu_edit">"編集"</string>
@@ -1389,4 +1392,5 @@
     <string name="profile_shuffle_no_songs">再生できる曲はまだありません</string>
     <string name="profile_shuffle_failed">このプロフィールの曲を読み込めませんでした。もう一度お試しください。</string>
     <string name="profile_shuffle_loading">プロフィールをシャッフル中…</string>
+    <string name="live_kick_user_from_room">"ルームから退出させる"</string>
 </resources>

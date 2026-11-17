@@ -280,6 +280,9 @@
     <string name="comments_dialog_block_message">"No podrán ver tu perfil ni tus publicaciones, y tú no verás los suyos."</string>
     <string name="comments_dialog_block_confirm">"Bloquear"</string>
     <string name="comments_menu_copy">"Copiar"</string>
+    <string name="live_copy_text">"Copiar texto"</string>
+    <string name="live_edit_message">"Editar mensaje"</string>
+    <string name="live_delete_message">"Eliminar mensaje"</string>
     <string name="comments_menu_report">"Denunciar"</string>
     <string name="comments_menu_block">"Bloquear"</string>
     <string name="comments_menu_edit">"Editar"</string>
@@ -1526,4 +1529,5 @@
     <string name="profile_shuffle_no_songs">Aún no hay canciones para reproducir</string>
     <string name="profile_shuffle_failed">No se pudieron cargar las canciones de este perfil. Inténtalo de nuevo.</string>
     <string name="profile_shuffle_loading">Mezclando perfil…</string>
+    <string name="live_kick_user_from_room">"Expulsar de la sala"</string>
 </resources>
