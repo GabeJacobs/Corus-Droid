@@ -1214,7 +1214,8 @@ internal class LiveViewModel @Inject constructor(
         val current = state.value
         val room = current.room ?: return
         if (!current.hosting || current.hostTalkStarting || current.talkScheduleChange != null ||
-            room.id != roomId || room.revision != revision || room.talkAfterSongArmed == enabled
+            room.id != roomId || room.revision != revision || room.talkAfterSongArmed == enabled ||
+            (enabled && room.talkLimitReached(serverTime()))
         ) return
         val change = LiveTalkScheduleChange(roomId, revision, enabled)
         update { copy(talkScheduleChange = change) }
@@ -1245,7 +1246,8 @@ internal class LiveViewModel @Inject constructor(
 
     private fun startHostTalk(room: LiveRoom, skip: Boolean) {
         if (!foreground || !hasMicrophonePermission() || !state.value.hosting || state.value.hostTalkStarting ||
-            state.value.talkScheduleChange != null || room.voiceMode == "talk" || room.pendingSkip != null
+            state.value.talkScheduleChange != null || room.voiceMode == "talk" || room.pendingSkip != null ||
+            room.talkLimitReached(serverTime())
         ) return
         update { copy(hostTalkStarting = true) }
         hostTalkJob = viewModelScope.launch {

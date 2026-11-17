@@ -422,6 +422,9 @@
     <string name="corus_native_909cb81127c5">"책"</string>
     <string name="corus_native_c275c265cabd">"GIF"</string>
     <string name="corus_native_e4bb77af4bc5">"사용자 검색"</string>
+    <string name="corus_live_talk_daily_limit">"일일 음성 대화 한도에 도달했어요. %1$s부터 다시 사용할 수 있어요."</string>
+    <string name="corus_live_talk_room_limit">"이 방의 음성 대화 20분을 모두 사용했어요."</string>
+    <string name="corus_live_talk_time_left">"%1$s 남음"</string>
     <string name="live_add_music_to_keep_the_room_going">"음악을 추가해 라이브를 계속하세요."</string>
     <string name="live_add_song">"곡 추가"</string>
     <string name="live_add_songs_to_your_queue">"대기열에 곡을 추가하세요."</string>

@@ -422,6 +422,9 @@
     <string name="corus_native_909cb81127c5">"本"</string>
     <string name="corus_native_c275c265cabd">"GIF"</string>
     <string name="corus_native_e4bb77af4bc5">"ユーザーを検索"</string>
+    <string name="corus_live_talk_daily_limit">"今日のトーク上限に達しました。%1$sから再びトークできます。"</string>
+    <string name="corus_live_talk_room_limit">"このルームではトークの上限20分に達しました。"</string>
+    <string name="corus_live_talk_time_left">"残り%1$s"</string>
     <string name="live_add_music_to_keep_the_room_going">"曲を追加して配信を続けましょう。"</string>
     <string name="live_add_song">"曲を追加"</string>
     <string name="live_add_songs_to_your_queue">"キューに曲を追加してください。"</string>

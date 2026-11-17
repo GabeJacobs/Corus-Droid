@@ -422,6 +422,9 @@
     <string name="corus_native_909cb81127c5">"Buch"</string>
     <string name="corus_native_c275c265cabd">"GIFs"</string>
     <string name="corus_native_e4bb77af4bc5">"Nutzer suchen"</string>
+    <string name="corus_live_talk_daily_limit">"Du hast dein Tageslimit erreicht. Ab %1$s kannst du wieder sprechen."</string>
+    <string name="corus_live_talk_room_limit">"Dieser Raum hat alle 20 Minuten Sprechzeit verbraucht."</string>
+    <string name="corus_live_talk_time_left">"Noch %1$s"</string>
     <string name="live_add_music_to_keep_the_room_going">"Füge Musik hinzu, damit der Raum live bleibt."</string>
     <string name="live_add_song">"Song hinzufügen"</string>
     <string name="live_add_songs_to_your_queue">"Füge Songs zur Warteschlange hinzu."</string>
