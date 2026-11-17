@@ -700,7 +700,12 @@ internal fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     composable<SongDetailRoute> { backStackEntry ->
         SongDetailDestination(
             route = backStackEntry.toRoute<SongDetailRoute>(),
-            onBack = { navController.safePopBackStack() },
+            onBack = {
+                // A setlist can open over another song page with the same destination ID.
+                if (navController.currentBackStackEntry == backStackEntry && navController.previousBackStackEntry != null) {
+                    navController.popBackStack()
+                }
+            },
             onNavigateToUser = { userId -> navController.navigate(OtherProfileRoute(userId)) },
             onNavigateToPost = { postId -> navController.navigate(PostDetailRoute(postId)) },
             onNavigateToCompose = { track -> mainTabViewModel.setPreSelectedTrack(track) },

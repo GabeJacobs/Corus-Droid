@@ -27,7 +27,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
@@ -130,6 +133,7 @@ import kotlinx.coroutines.launch
 import fm.corus.android.data.model.CymbalUser
 import fm.corus.android.ui.components.MentionSuggestionsList
 import fm.corus.android.ui.components.applyMention
+import fm.corus.android.ui.components.buildMentionAnnotatedString
 import fm.corus.android.ui.components.parseMentionQuery
 import java.util.Date
 import java.util.Locale
@@ -401,7 +405,7 @@ internal fun LiveRoomScreen(
                     focus.clearFocus()
                     keyboard?.hide()
                     reactionDetails = message.id to emoji
-                })
+                }, dismissKeyboardOnScroll = chatFocused && keyboardVisible)
                 if (!state.hosting && state.dj == null &&
                     state.invites.none { it.text("roomId") == room.id && it.number("expiresAt") > vm.serverTime() }
                 ) {
@@ -423,7 +427,7 @@ internal fun LiveRoomScreen(
                             .background(CorusColors.CardBackground).padding(start = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        LiveText(stringResource(CorusStrings.comments_editing_comment), CorusFont.caption,
+                        LiveText(stringResource(CorusStrings.messaging_thread_editing), CorusFont.caption,
                             CorusColors.Secondary, Modifier.weight(1f))
                         IconButton(onClick = ::finishEditingMessage, enabled = !savingMessageEdit, modifier = Modifier.size(44.dp)) {
                             Icon(Icons.Default.Close, stringResource(CorusStrings.comments_cd_cancel_edit),
@@ -772,7 +776,7 @@ internal fun LiveRoomScreen(
                 ) {
                     if (isMine && message.supportsReactions && message.text.isNotBlank() &&
                         room.chatEnabled && !savingMessageEdit) {
-                        LiveChatAction(stringResource(R.string.live_edit_message), Icons.Outlined.Edit) {
+                        LiveChatAction(stringResource(CorusStrings.live_edit_message), Icons.Outlined.Edit) {
                             if (editingMessage == null) draftBeforeEdit = draft
                             editingMessage = message
                             draft = TextFieldValue(message.text, TextRange(message.text.length))
@@ -826,8 +830,8 @@ internal fun LiveRoomScreen(
     messageToDelete?.let { messageId ->
         AlertDialog(
             onDismissRequest = { messageToDelete = null },
-            title = { Text(stringResource(CorusStrings.comments_dialog_delete_title)) },
-            text = { Text(stringResource(CorusStrings.comments_dialog_delete_message)) },
+            title = { Text(stringResource(CorusStrings.live_confirm_delete_message)) },
+            text = { Text(stringResource(CorusStrings.live_delete_message_confirmation_body)) },
             confirmButton = {
                 TextButton(onClick = {
                     messageToDelete = null
@@ -1411,7 +1415,7 @@ private fun HostTalkModeControl(
     val talkNow = { withMicrophonePermission { vm.startHostTalk(room.id, room.revision) } }
     Row(Modifier.fillMaxWidth().clip(CircleShape).background(CorusColors.Secondary.copy(alpha = .10f)).padding(2.dp)) {
         Box(Modifier.weight(1f)) {
-            val label = if (queued) stringResource(R.string.live_talk_queued) else stringResource(CorusStrings.corus_live_talk)
+            val label = if (queued) stringResource(CorusStrings.live_talk_queued) else stringResource(CorusStrings.corus_live_talk)
             LiveAudioModeButton(
                 label, if (queued) Icons.Default.Schedule else Icons.Default.Mic,
                 talking, !busy && !talking && room.voiceEnabled && (!talkDisabled || (queued && offersTiming)),
@@ -1425,21 +1429,21 @@ private fun HostTalkModeControl(
                 containerColor = CorusColors.CardBackground,
             ) {
                 DropdownMenuItem(
-                    text = { LiveText(stringResource(R.string.live_talk_now)) },
+                    text = { LiveText(stringResource(CorusStrings.live_talk_now)) },
                     leadingIcon = { Icon(Icons.Default.Mic, null) },
                     enabled = !talkDisabled,
                     onClick = { menuOpen = false; talkNow() },
                 )
                 DropdownMenuItem(
                     text = {
-                        LiveText(stringResource(if (queued) R.string.live_cancel_scheduled_talk else R.string.live_talk_after_this_song))
+                        LiveText(stringResource(if (queued) CorusStrings.live_cancel_scheduled_talk else CorusStrings.live_talk_after_this_song))
                     },
                     leadingIcon = { Icon(Icons.Default.Schedule, null) },
                     enabled = !talkDisabled || queued,
                     onClick = {
                         menuOpen = false
                         vm.setTalkAfterSong(room.id, room.revision, enabled = !queued) {
-                            Toast.makeText(context, R.string.live_talk_starts_after_song, Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, CorusStrings.live_talk_starts_after_song, Toast.LENGTH_SHORT).show()
                         }
                     },
                 )
@@ -1623,7 +1627,7 @@ private fun HostControls(
                 )
                 if (guest != null || (state.hosting && room.current != null)) {
                     HostQueueButton(
-                        if (state.hosting && talkQueued) stringResource(R.string.live_skip_to_talk)
+                        if (state.hosting && talkQueued) stringResource(CorusStrings.live_skip_to_talk)
                         else stringResource(CorusStrings.corus_live_skip_song),
                         Icons.Default.SkipNext, Modifier.weight(1f),
                         CorusColors.Text, CorusColors.Secondary.copy(alpha = .13f), canSkip,
@@ -1820,6 +1824,7 @@ internal fun RoomChat(
     rows: List<LiveMessage>, state: LiveUiState, vm: LiveViewModel, openDJSpots: Int,
     openProfile: (String) -> Unit, options: (LiveMessage, Boolean) -> Unit, modifier: Modifier,
     inspectReaction: ((LiveMessage, String) -> Unit)? = null,
+    dismissKeyboardOnScroll: Boolean = false,
 ) {
     val list = rememberLazyListState()
     val haptics = LocalHapticFeedback.current
@@ -1831,14 +1836,20 @@ internal fun RoomChat(
     LaunchedEffect(rows.lastOrNull()?.id, rows.lastOrNull { it.supportsReactions }?.id) {
         if (rows.isNotEmpty()) list.scrollToItem(0)
     }
+    val chatModifier = modifier.fillMaxWidth().then(
+        if (dismissKeyboardOnScroll) Modifier.imeNestedScroll() else Modifier,
+    )
     if (rows.isEmpty()) {
-        Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(7.dp, Alignment.CenterVertically),
+        val emptyChatModifier = if (dismissKeyboardOnScroll) {
+            chatModifier.scrollable(rememberScrollableState { 0f }, Orientation.Vertical)
+        } else chatModifier
+        Column(emptyChatModifier, verticalArrangement = Arrangement.spacedBy(7.dp, Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Default.ChatBubbleOutline, null, tint = CorusColors.Secondary, modifier = Modifier.size(22.dp))
             LiveText(stringResource(CorusStrings.corus_live_be_the_first_to_comment), CorusFont.body, CorusColors.Secondary)
         }
     } else LazyColumn(
-        modifier.fillMaxWidth(), state = list, reverseLayout = true,
+        chatModifier, state = list, reverseLayout = true,
         contentPadding = PaddingValues(bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom),
     ) {
@@ -1927,12 +1938,17 @@ internal fun RoomChat(
                                         }
                                     }),
                             ) {
-                                if (message.text.isNotBlank()) LiveText(message.text)
+                                if (message.text.isNotBlank()) {
+                                    val text = remember(message.text) {
+                                        buildMentionAnnotatedString(message.text, linkColor = Color.Unspecified)
+                                    }
+                                    Text(text, style = CorusFont.body, color = CorusColors.Text)
+                                }
                                 if (message.isEdited) {
                                     LiveText(stringResource(CorusStrings.comment_edited_badge), CorusFont.caption, CorusColors.Secondary)
                                 }
                                 message.gifUrl?.let {
-                                    AsyncImage(it, "GIF", Modifier.width(170.dp).heightIn(max = 170.dp).clip(RoundedCornerShape(9.dp)))
+                                    AsyncImage(it, stringResource(CorusStrings.comments_cd_gif), Modifier.width(170.dp).heightIn(max = 170.dp).clip(RoundedCornerShape(9.dp)))
                                 }
                             }
                             val emojis = orderedChatReactionEmojis(state, message)
@@ -2192,7 +2208,7 @@ private fun ChatComposer(
                         Box {
                             if (text.isEmpty()) {
                                 LiveText(
-                                    stringResource(if (editing) CorusStrings.comment_edit_placeholder else CorusStrings.corus_live_say_something),
+                                    stringResource(if (editing) CorusStrings.live_edit_message_placeholder else CorusStrings.corus_live_say_something),
                                     color = CorusColors.Text.copy(alpha = .75f),
                                 )
                             }

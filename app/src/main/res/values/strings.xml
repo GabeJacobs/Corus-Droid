@@ -1735,10 +1735,10 @@
     <string name="live_dj_request_declined">"The host declined your DJ request."</string>
     <string name="live_wants_to_dj">"Wants to DJ"</string>
     <string name="live_kick_user_from_room">"Kick user from room"</string>
-    <string name="live_talk_now">Talk now</string>
-    <string name="live_talk_queued">Talk queued</string>
-    <string name="live_talk_after_this_song">Talk after this song</string>
-    <string name="live_cancel_scheduled_talk">Cancel scheduled Talk</string>
-    <string name="live_talk_starts_after_song">Talk mode will start after this song.</string>
-    <string name="live_skip_to_talk">Skip to Talk</string>
+    <string name="live_talk_now">"Talk now"</string>
+    <string name="live_talk_queued">"Talk queued"</string>
+    <string name="live_talk_after_this_song">"Talk after this song"</string>
+    <string name="live_cancel_scheduled_talk">"Cancel scheduled Talk"</string>
+    <string name="live_talk_starts_after_song">"Talk mode will start after this song."</string>
+    <string name="live_skip_to_talk">"Skip to Talk"</string>
 </resources>

@@ -15,6 +15,8 @@
          backgrounded. Required for the MediaSessionService below. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- Corus uses LiveKit for voice only. Do not request its screen-sharing permission. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" tools:node="remove" />
 
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
@@ -47,6 +49,10 @@
         android:localeConfig="@xml/locales_config"
         tools:targetApi="35"
         tools:replace="android:fullBackupContent,android:dataExtractionRules">
+
+        <service
+            android:name="io.livekit.android.room.track.screencapture.ScreenCaptureService"
+            tools:node="remove" />
 
         <meta-data
             android:name="google_analytics_adid_collection_enabled"

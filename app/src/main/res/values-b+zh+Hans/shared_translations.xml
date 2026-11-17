@@ -483,7 +483,7 @@
     <string name="live_more_chat_actions">"更多聊天操作"</string>
     <string name="live_music_paused">"音乐已暂停"</string>
     <string name="live_my_queue">"我的队列"</string>
-    <string name="live_next_up">"下一首"</string>
+    <string name="live_next_up">"接下来"</string>
     <string name="live_no_people_found">"未找到用户"</string>
     <string name="live_pause_playback">"暂停播放"</string>
     <string name="live_picked_by">"由 %1$s 选曲"</string>
@@ -621,4 +621,22 @@
     <string name="corus_live_dj_request_failed">"无法发送你的 DJ 申请。请重试。"</string>
     <string name="corus_live_dj_request_sending">"正在发送你的 DJ 申请…"</string>
     <string name="corus_live_dj_request_sent">"DJ 申请已发送，正在等待主持人回复。"</string>
+    <string name="corus_live_confirm_delete_message">"要删除这条消息吗？"</string>
+    <string name="corus_live_delete_message_confirmation_body">"这条消息将被永久删除。"</string>
+    <string name="corus_live_edit_message_placeholder">"编辑你的消息…"</string>
+    <string name="corus_live_emoji_activities">"活动"</string>
+    <string name="corus_live_emoji_animals">"动物和自然"</string>
+    <string name="corus_live_emoji_flags">"旗帜"</string>
+    <string name="corus_live_emoji_food">"食物和饮料"</string>
+    <string name="corus_live_emoji_objects">"物品"</string>
+    <string name="corus_live_emoji_people">"人物和身体"</string>
+    <string name="corus_live_emoji_smileys">"笑脸和情感"</string>
+    <string name="corus_live_emoji_symbols">"符号"</string>
+    <string name="corus_live_emoji_travel">"旅行和地点"</string>
+    <string name="live_cancel_scheduled_talk">"取消已安排的语音聊天"</string>
+    <string name="live_skip_to_talk">"跳过歌曲并开始讲话"</string>
+    <string name="live_talk_after_this_song">"这首歌结束后讲话"</string>
+    <string name="live_talk_now">"立即讲话"</string>
+    <string name="live_talk_queued">"已安排语音聊天"</string>
+    <string name="live_talk_starts_after_song">"这首歌结束后将开启语音聊天。"</string>
 </resources>

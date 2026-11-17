@@ -35,6 +35,7 @@ import fm.corus.android.ui.components.UserAvatarView
 import fm.corus.android.ui.components.dismissKeyboardOnDownwardDrag
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
+import fm.corus.android.ui.theme.CorusSpacing
 
 @Composable
 internal fun LiveText(
@@ -108,10 +109,11 @@ internal fun LivePrimary(
     title: String,
     enabled: Boolean = true,
     destructive: Boolean = false,
+    leadingIcon: ImageVector? = null,
     onClick: () -> Unit,
 ) {
     val actionColor = if (destructive) LiveRed else CorusColors.Accent
-    val labelColor = if (destructive) actionColor else Color.White
+    val labelColor = (if (destructive) actionColor else Color.White).copy(alpha = if (enabled) 1f else .4f)
     Button(
         onClick = onClick,
         enabled = enabled,
@@ -122,10 +124,14 @@ internal fun LivePrimary(
             disabledContainerColor = actionColor.copy(alpha = if (destructive) .06f else .19f),
         ),
     ) {
+        if (leadingIcon != null) {
+            Icon(leadingIcon, contentDescription = null, tint = labelColor, modifier = Modifier.size(CorusSpacing.feedPlaylistIcon))
+            Spacer(Modifier.width(8.dp))
+        }
         LiveText(
             title,
             CorusFont.body.copy(fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
-            labelColor.copy(alpha = if (enabled) 1f else .4f),
+            labelColor,
         )
     }
 }

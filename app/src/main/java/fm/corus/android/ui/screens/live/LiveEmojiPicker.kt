@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -28,15 +29,19 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fm.corus.android.R
+import fm.corus.android.localization.CorusStrings
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import kotlinx.coroutines.launch
 
 private val emojiCategories = listOf(
-    "😀" to "Smileys and emotion", "👋" to "People and body", "🐻" to "Animals and nature",
-    "🍕" to "Food and drink", "🚗" to "Travel and places", "⚽" to "Activities",
-    "💡" to "Objects", "❤️" to "Symbols", "🏳️" to "Flags",
+    "😀" to CorusStrings.live_emoji_smileys, "👋" to CorusStrings.live_emoji_people, "🐻" to CorusStrings.live_emoji_animals,
+    "🍕" to CorusStrings.live_emoji_food, "🚗" to CorusStrings.live_emoji_travel, "⚽" to CorusStrings.live_emoji_activities,
+    "💡" to CorusStrings.live_emoji_objects, "❤️" to CorusStrings.live_emoji_symbols, "🏳️" to CorusStrings.live_emoji_flags,
 )
+
+// Column order in corus_live_emoji.tsv after the five base fields.
+private val annotationLanguages = listOf("de", "es", "fr", "it", "ja", "ko", "pt", "zh")
 
 private data class LiveEmoji(val category: Int, val emoji: String, val name: String, val searchText: String, val base: String)
 
@@ -47,13 +52,16 @@ internal fun LiveEmojiPicker(
     choose: (String) -> Unit,
 ) {
     val assets = LocalContext.current.assets
-    val catalog = remember(assets) {
+    val language = LocalConfiguration.current.locales[0].language
+    val nameColumn = annotationLanguages.indexOf(language).takeIf { it >= 0 }?.plus(5)
+    val catalog = remember(assets, nameColumn) {
         assets.open("emoji/corus_live_emoji.tsv").bufferedReader().useLines { lines ->
             lines.mapNotNull { line ->
-                val fields = line.split('\t', limit = 5)
+                val fields = line.split('\t')
                 val category = fields.firstOrNull()?.toIntOrNull()
-                if (fields.size == 5 && category != null) {
-                    LiveEmoji(category, fields[1], fields[2], "${fields[1]} ${fields[2]} ${fields[3]}", fields[4])
+                if (fields.size >= 5 && category != null) {
+                    val name = nameColumn?.let(fields::getOrNull) ?: fields[2]
+                    LiveEmoji(category, fields[1], name, "${fields[1]} $name ${fields[2]} ${fields[3]}", fields[4])
                 } else null
             }.toList()
         }
@@ -84,8 +92,8 @@ internal fun LiveEmojiPicker(
         LiveSearchField(search, stringResource(R.string.likes_search_placeholder), showSearchIcon = true) { search = it }
         if (browsing) {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                emojiCategories.forEachIndexed { index, (icon, name) ->
-                    LiveEmojiCell(icon, name, active = false, size = 19) {
+                emojiCategories.forEachIndexed { index, (icon, label) ->
+                    LiveEmojiCell(icon, stringResource(label), active = false, size = 19) {
                         scope.launch { grid.scrollToItem(groupOffsets[index]) }
                     }
                 }
@@ -107,7 +115,7 @@ internal fun LiveEmojiPicker(
                     groups.forEachIndexed { index, group ->
                         item(key = "category-$index", span = { GridItemSpan(maxLineSpan) }) {
                             LiveText(
-                                emojiCategories[index].second,
+                                stringResource(emojiCategories[index].second),
                                 CorusFont.caption,
                                 CorusColors.Secondary,
                                 Modifier.padding(horizontal = 8.dp, vertical = 6.dp).semantics { heading() },

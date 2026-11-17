@@ -74,6 +74,19 @@ class LiveChatReactionsTest {
     }
 
     @Test
+    @Config(qualifiers = "fr-rFR")
+    fun emojiPickerUsesLocalizedNamesForSearchAndAccessibility() {
+        val chosen = mutableListOf<String>()
+        compose.setContent {
+            LiveEmojiPicker(selected = emptySet(), pending = emptySet()) { chosen.add(it) }
+        }
+        compose.onNodeWithText("Smileys et émotions").assertIsDisplayed()
+        compose.onNodeWithText("Rechercher").performTextInput("cotillons")
+        compose.onNodeWithContentDescription("cotillons").assertIsDisplayed().performClick()
+        assertEquals(listOf("🎉"), chosen)
+    }
+
+    @Test
     fun skinToneVariantsAppearOnlyAfterHoldingTheDefaultEmoji() {
         val chosen = mutableListOf<String>()
         compose.setContent {

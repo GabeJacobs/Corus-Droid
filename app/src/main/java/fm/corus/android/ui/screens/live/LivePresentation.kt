@@ -29,12 +29,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -56,6 +58,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
 import androidx.compose.ui.text.SpanStyle
@@ -467,7 +472,10 @@ private fun LiveRoomSheet(
         scope.launch { expansion.collapse() }
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize().zIndex(9f)) {
+    // Park under the tab bar and app sheets, like the regular miniplayer.
+    // The room moves above app content as soon as it starts expanding.
+    val roomLayer = if (expansion.expansionFraction() > 0f) 9f else 1f
+    BoxWithConstraints(Modifier.fillMaxSize().zIndex(roomLayer)) {
         val miniHeightPx = with(LocalDensity.current) { LiveMiniPlayerHeight.toPx() }
         val travel = (constraints.maxHeight.toFloat() - parkInsetPx - miniHeightPx).coerceAtLeast(1f)
         LaunchedEffect(travel, state.minimized) {
@@ -532,6 +540,7 @@ internal fun BoxScope.LivePresentation(
     vm: LiveViewModel,
     openProfile: (String) -> Unit,
     openSong: (CymbalTrack) -> Unit,
+    setlistNavController: NavHostController? = null,
     nowPlayingDetails: @Composable (CymbalTrack, () -> Unit) -> Unit,
     roomExpansion: PlayerExpansionState,
     parkInsetPx: Float,
@@ -577,10 +586,12 @@ internal fun BoxScope.LivePresentation(
         nowPlayingDetails(track) { nowPlayingSong = null }
     }
     state.ended?.takeIf { nowPlayingSong == null }?.let { ended ->
-        LiveEndedSheets(ended, vm, openSong, vm::clearEnded)
+        key(ended.id) { LiveEndedSheets(ended, vm, setlistNavController, vm::clearEnded) }
     }
     state.openSavedSetlist?.let { savedRoom ->
-        LiveEndedSheets(savedRoom, vm, openSong, vm::closeSavedSetlist, startInSetlist = true)
+        key(savedRoom.id) {
+            LiveEndedSheets(savedRoom, vm, setlistNavController, vm::closeSavedSetlist, startInSetlist = true)
+        }
     }
     state.playbackExitEndsShow?.let { endsRoom ->
         LiveConfirmation(
@@ -660,7 +671,10 @@ private fun LiveConfirmation(title: String, message: String, confirm: String, ca
 
 @Composable
 private fun LiveEndedSheets(
-    room: LiveRoom, vm: LiveViewModel, openSong: (CymbalTrack) -> Unit, close: () -> Unit,
+    room: LiveRoom,
+    vm: LiveViewModel,
+    navController: NavHostController?,
+    close: () -> Unit,
     startInSetlist: Boolean = false,
 ) {
     var showSetlist by remember(room.id, startInSetlist) { mutableStateOf(startInSetlist) }
@@ -669,6 +683,23 @@ private fun LiveEndedSheets(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val tracks = room.setlist
+    val listState = rememberLazyListState()
+    var returnEntry by remember { mutableStateOf<NavBackStackEntry?>(null) }
+    val origin = returnEntry
+    val currentEntry = key(navController) { navController?.currentBackStackEntryAsState()?.value }
+
+    if (showSetlist) {
+        LaunchedEffect(room.id) { vm.event("setlist_viewed", source = "setlist", roomId = room.id) }
+    }
+    if (origin != null) {
+        val originLifecycle by origin.lifecycle.currentStateAsState()
+        LaunchedEffect(originLifecycle) {
+            if (originLifecycle == Lifecycle.State.DESTROYED) close()
+        }
+        // Keep the setlist state while the song (or a page opened from it) is above its origin.
+        if (currentEntry != origin) return
+    }
+
     if (!showSetlist) {
         LiveSheet(stringResource(CorusStrings.corus_live_live_room_ended), close) {
             if (tracks.isNotEmpty()) {
@@ -687,7 +718,6 @@ private fun LiveEndedSheets(
             if (tracks.isNotEmpty()) LivePrimary(stringResource(CorusStrings.corus_live_view_setlist)) { showSetlist = true }
         }
     } else LiveSheet(stringResource(CorusStrings.corus_live_live_setlist), close, large = true) {
-        LaunchedEffect(room.id) { vm.event("setlist_viewed", source = "setlist", roomId = room.id) }
         LiveText(room.title, CorusFont.songTitleLarge)
         val djs = tracks.mapNotNull { it.playedBy }.distinctBy { it.uid }
         if (djs.size > 1) {
@@ -699,7 +729,11 @@ private fun LiveEndedSheets(
             java.util.Date(room.endedAt.takeIf { it > 0 } ?: System.currentTimeMillis()),
         ), CorusFont.caption, CorusColors.Secondary)
         if (room.recent.size == 30) LiveText(stringResource(CorusStrings.corus_live_showing_the_most_recent_songs), CorusFont.caption, CorusColors.Secondary)
-        LivePrimary(if (exporting) stringResource(R.string.live_exporting) else stringResource(CorusStrings.corus_live_export_playlist), !exporting) {
+        LivePrimary(
+            title = stringResource(if (exporting) R.string.live_exporting else CorusStrings.corus_live_export_playlist),
+            enabled = !exporting,
+            leadingIcon = if (exporting) null else Icons.AutoMirrored.Filled.QueueMusic,
+        ) {
             scope.launch {
                 exporting = true
                 try {
@@ -716,9 +750,15 @@ private fun LiveEndedSheets(
                 }
             }
         }
-        LazyColumn(Modifier.weight(1f)) {
+        LazyColumn(Modifier.weight(1f), state = listState) {
             items(tracks) { track ->
-                LiveTrackRow(track, onTrack = { close(); openSong(track.song.withLiveDisplayArtwork()) })
+                LiveTrackRow(track, onTrack = {
+                    val entry = navController?.currentBackStackEntry
+                    if (entry != null && entry == currentEntry) {
+                        returnEntry = entry
+                        navController.navigate(track.song.withLiveDisplayArtwork().toSongDetailRoute())
+                    }
+                })
             }
         }
     }

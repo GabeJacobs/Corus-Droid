@@ -1200,6 +1200,7 @@ fun MainTabScreen(
         showMini = !citySheetOpen,
         openProfile = { uid -> navControllers[selectedTab]?.navigate(OtherProfileRoute(uid)) },
         openSong = { track -> navControllers[selectedTab]?.navigate(track.toSongDetailRoute()) },
+        setlistNavController = navControllers[selectedTab],
         nowPlayingDetails = { track, close ->
             val songNav = rememberNavController()
             fun leaveSheetFor(action: () -> Unit) {

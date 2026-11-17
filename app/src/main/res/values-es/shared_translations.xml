@@ -621,4 +621,22 @@
     <string name="corus_live_dj_request_failed">"No se pudo enviar tu solicitud para ser DJ. Inténtalo de nuevo."</string>
     <string name="corus_live_dj_request_sending">"Enviando tu solicitud para ser DJ…"</string>
     <string name="corus_live_dj_request_sent">"Solicitud enviada. Esperando al anfitrión."</string>
+    <string name="corus_live_confirm_delete_message">"¿Eliminar el mensaje?"</string>
+    <string name="corus_live_delete_message_confirmation_body">"Este mensaje se eliminará de forma definitiva."</string>
+    <string name="corus_live_edit_message_placeholder">"Edita tu mensaje…"</string>
+    <string name="corus_live_emoji_activities">"Actividades"</string>
+    <string name="corus_live_emoji_animals">"Animales y naturaleza"</string>
+    <string name="corus_live_emoji_flags">"Banderas"</string>
+    <string name="corus_live_emoji_food">"Comida y bebida"</string>
+    <string name="corus_live_emoji_objects">"Objetos"</string>
+    <string name="corus_live_emoji_people">"Personas y cuerpo"</string>
+    <string name="corus_live_emoji_smileys">"Caras y emociones"</string>
+    <string name="corus_live_emoji_symbols">"Símbolos"</string>
+    <string name="corus_live_emoji_travel">"Viajes y lugares"</string>
+    <string name="live_cancel_scheduled_talk">"Cancelar el modo de voz programado"</string>
+    <string name="live_skip_to_talk">"Pasar al modo de voz"</string>
+    <string name="live_talk_after_this_song">"Hablar después de esta canción"</string>
+    <string name="live_talk_now">"Hablar ahora"</string>
+    <string name="live_talk_queued">"Modo de voz programado"</string>
+    <string name="live_talk_starts_after_song">"El modo de voz comenzará después de esta canción."</string>
 </resources>

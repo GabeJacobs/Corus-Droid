@@ -483,7 +483,7 @@
     <string name="live_more_chat_actions">"Altre azioni della chat"</string>
     <string name="live_music_paused">"Musica in pausa"</string>
     <string name="live_my_queue">"La mia coda"</string>
-    <string name="live_next_up">"Prossimo brano"</string>
+    <string name="live_next_up">"A seguire"</string>
     <string name="live_no_people_found">"Nessuna persona trovata"</string>
     <string name="live_pause_playback">"Metti in pausa"</string>
     <string name="live_picked_by">"Scelto da %1$s"</string>
@@ -621,4 +621,22 @@
     <string name="corus_live_dj_request_failed">"Impossibile inviare la richiesta per fare il DJ. Riprova."</string>
     <string name="corus_live_dj_request_sending">"Invio della richiesta per fare il DJ…"</string>
     <string name="corus_live_dj_request_sent">"Richiesta inviata. In attesa della risposta dell’host."</string>
+    <string name="corus_live_confirm_delete_message">"Eliminare il messaggio?"</string>
+    <string name="corus_live_delete_message_confirmation_body">"Questo messaggio verrà eliminato definitivamente."</string>
+    <string name="corus_live_edit_message_placeholder">"Modifica il messaggio…"</string>
+    <string name="corus_live_emoji_activities">"Attività"</string>
+    <string name="corus_live_emoji_animals">"Animali e natura"</string>
+    <string name="corus_live_emoji_flags">"Bandiere"</string>
+    <string name="corus_live_emoji_food">"Cibo e bevande"</string>
+    <string name="corus_live_emoji_objects">"Oggetti"</string>
+    <string name="corus_live_emoji_people">"Persone e corpo"</string>
+    <string name="corus_live_emoji_smileys">"Faccine ed emozioni"</string>
+    <string name="corus_live_emoji_symbols">"Simboli"</string>
+    <string name="corus_live_emoji_travel">"Viaggi e luoghi"</string>
+    <string name="live_cancel_scheduled_talk">"Annulla la modalità voce programmata"</string>
+    <string name="live_skip_to_talk">"Passa alla modalità voce"</string>
+    <string name="live_talk_after_this_song">"Parla dopo questo brano"</string>
+    <string name="live_talk_now">"Parla ora"</string>
+    <string name="live_talk_queued">"Modalità voce programmata"</string>
+    <string name="live_talk_starts_after_song">"La modalità voce inizierà dopo questo brano."</string>
 </resources>

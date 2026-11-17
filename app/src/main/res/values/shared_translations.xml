@@ -375,4 +375,16 @@
     <string name="corus_live_dj_request_failed">"Couldn’t send your DJ request. Try again."</string>
     <string name="corus_live_dj_request_sending">"Sending your DJ request…"</string>
     <string name="corus_live_dj_request_sent">"DJ request sent. Waiting for the host."</string>
+    <string name="corus_live_confirm_delete_message">"Delete message?"</string>
+    <string name="corus_live_delete_message_confirmation_body">"This message will be permanently deleted."</string>
+    <string name="corus_live_edit_message_placeholder">"Edit your message…"</string>
+    <string name="corus_live_emoji_activities">"Activities"</string>
+    <string name="corus_live_emoji_animals">"Animals and nature"</string>
+    <string name="corus_live_emoji_flags">"Flags"</string>
+    <string name="corus_live_emoji_food">"Food and drink"</string>
+    <string name="corus_live_emoji_objects">"Objects"</string>
+    <string name="corus_live_emoji_people">"People and body"</string>
+    <string name="corus_live_emoji_smileys">"Smileys and emotion"</string>
+    <string name="corus_live_emoji_symbols">"Symbols"</string>
+    <string name="corus_live_emoji_travel">"Travel and places"</string>
 </resources>

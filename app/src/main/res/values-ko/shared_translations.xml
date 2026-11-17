@@ -483,7 +483,7 @@
     <string name="live_more_chat_actions">"채팅 작업 더 보기"</string>
     <string name="live_music_paused">"음악 일시정지"</string>
     <string name="live_my_queue">"내 대기열"</string>
-    <string name="live_next_up">"다음 곡"</string>
+    <string name="live_next_up">"다음"</string>
     <string name="live_no_people_found">"사용자를 찾지 못했어요"</string>
     <string name="live_pause_playback">"재생 일시 정지"</string>
     <string name="live_picked_by">"%1$s 님의 선곡"</string>
@@ -621,4 +621,22 @@
     <string name="corus_live_dj_request_failed">"DJ 요청을 보내지 못했습니다. 다시 시도해 주세요."</string>
     <string name="corus_live_dj_request_sending">"DJ 요청을 보내는 중…"</string>
     <string name="corus_live_dj_request_sent">"DJ 요청을 보냈습니다. 호스트의 응답을 기다리는 중입니다."</string>
+    <string name="corus_live_confirm_delete_message">"메시지를 삭제할까요?"</string>
+    <string name="corus_live_delete_message_confirmation_body">"이 메시지는 영구적으로 삭제돼요."</string>
+    <string name="corus_live_edit_message_placeholder">"메시지 수정…"</string>
+    <string name="corus_live_emoji_activities">"활동"</string>
+    <string name="corus_live_emoji_animals">"동물과 자연"</string>
+    <string name="corus_live_emoji_flags">"깃발"</string>
+    <string name="corus_live_emoji_food">"음식과 음료"</string>
+    <string name="corus_live_emoji_objects">"사물"</string>
+    <string name="corus_live_emoji_people">"사람과 신체"</string>
+    <string name="corus_live_emoji_smileys">"얼굴과 감정"</string>
+    <string name="corus_live_emoji_symbols">"기호"</string>
+    <string name="corus_live_emoji_travel">"여행과 장소"</string>
+    <string name="live_cancel_scheduled_talk">"대화 예약 취소"</string>
+    <string name="live_skip_to_talk">"건너뛰고 대화하기"</string>
+    <string name="live_talk_after_this_song">"이 곡이 끝나면 대화하기"</string>
+    <string name="live_talk_now">"지금 대화하기"</string>
+    <string name="live_talk_queued">"대화 예약됨"</string>
+    <string name="live_talk_starts_after_song">"이 곡이 끝나면 대화 모드가 시작돼요."</string>
 </resources>
