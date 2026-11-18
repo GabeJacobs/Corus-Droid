@@ -2198,8 +2198,8 @@ internal class LiveViewModel @Inject constructor(
             track.playsFromSource -> sourcePlayer?.takeIf { sourceTrackId == track.id && it.isPlaying }?.currentPosition
             liveProvider == MusicService.APPLE_MUSIC -> applePlayer
                 ?.takeIf { appleTrackKey == track.appleKey && it.isPlaying }?.currentPosition
-            else -> expectedUri?.takeIf { spotify.isPlaying.value && matchesSpotifyUri(it) }
-                ?.let { (spotify.positionSeconds.value * 1_000).toLong() }
+            // Spotify can start its own queued track as soon as this one ends.
+            else -> null
         } ?: return false
         return position in 0 until track.duration.toLong()
     }
@@ -2226,6 +2226,7 @@ internal class LiveViewModel @Inject constructor(
                     }
                     val changingSong = outgoing?.revision != null && outgoing.revision != room.revision
                     val natural = uninterrupted && room.naturalAdvance && changingSong &&
+                        supportsLiveListenerGrace(liveProvider, outgoing?.current?.playsFromSource, track?.playsFromSource) &&
                         outgoing?.revision == room.revision - 1 && outgoing.id == room.id &&
                         outgoing.host.uid == room.host.uid && !outgoing.talkAfterSongArmed
                     if (natural && outgoing != null) {
@@ -2337,7 +2338,6 @@ internal class LiveViewModel @Inject constructor(
                         prepareTrack(
                             track, ::startupPosition, uri,
                             forceSpotifyPlay = !hosting && changingSong && outgoing?.current?.id == track.id,
-                            preservePlayingIntro = { protectIntro },
                         )
                     } else {
                         val sameTrack = spotify.syncLiveTrack(uri, force, targetPosition = {
@@ -2405,7 +2405,6 @@ internal class LiveViewModel @Inject constructor(
         position: () -> Long,
         knownUri: String? = null,
         forceSpotifyPlay: Boolean = false,
-        preservePlayingIntro: () -> Boolean = { false },
         onStartingProvider: () -> Unit = {},
     ) {
         if (track.playsFromSource) {
@@ -2429,7 +2428,7 @@ internal class LiveViewModel @Inject constructor(
         }
         val target = position().coerceIn(0, track.duration.toLong() - 1)
         val observed = spotify.positionSeconds.value * 1_000
-        if (target > 250 || (observed > 750 && !preservePlayingIntro())) {
+        if (target > 250 || observed > 750) {
             check(spotify.seek(target / 1_000.0)) { context.getString(R.string.live_provider_sync_failed, "Spotify") }
         }
     }
@@ -2839,6 +2838,13 @@ internal class LiveViewModel @Inject constructor(
             .joinToString("") { "%02x".format(it.toInt() and 255) }
     }
 }
+
+internal fun supportsLiveListenerGrace(
+    provider: MusicService?,
+    outgoingPlaysFromSource: Boolean?,
+    incomingPlaysFromSource: Boolean?,
+): Boolean = provider != MusicService.SPOTIFY ||
+    (outgoingPlaysFromSource != false && incomingPlaysFromSource != false)
 
 private const val LIVE_LISTENER_GRACE_MS = 3_000L
 

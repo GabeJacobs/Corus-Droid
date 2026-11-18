@@ -3,6 +3,7 @@ package fm.corus.android.ui.screens.live
 import com.spotify.protocol.types.PlayerState
 import com.spotify.protocol.types.Track
 import fm.corus.android.domain.SpotifyPlaybackService
+import fm.corus.android.data.model.MusicService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -62,18 +63,13 @@ class LiveSpotifySyncTest {
         verify(spotify).seek(30.4)
     }
 
-    @Test fun naturalAdvanceAllowsTwoSecondsOfListenerLag() = runTest {
-        prepareSnapshot(positionMs = 28_000L)
-        val first = spotify.refreshState()
-        prepareSnapshot(positionMs = 28_400L)
-        val second = spotify.refreshState()
-        whenever(spotify.refreshState(any())).thenReturn(first, second)
-        var now = 30_000L
-
-        assertEquals(true, spotify.syncLiveTrack(uri, false, { now.also { now = 30_400L } },
-            maximumLag = 3_000) {})
-
-        verify(spotify, never()).seek(any())
+    @Test fun spotifyCatalogTransitionsDoNotAllowListenerLag() = runTest {
+        assertEquals(false, supportsLiveListenerGrace(MusicService.SPOTIFY, false, false))
+        assertEquals(false, supportsLiveListenerGrace(MusicService.SPOTIFY, false, null))
+        assertEquals(false, supportsLiveListenerGrace(MusicService.SPOTIFY, true, false))
+        assertEquals(false, supportsLiveListenerGrace(MusicService.SPOTIFY, false, true))
+        assertEquals(true, supportsLiveListenerGrace(MusicService.SPOTIFY, true, true))
+        assertEquals(true, supportsLiveListenerGrace(MusicService.APPLE_MUSIC, false, false))
     }
 
     @Test fun frozenProviderPositionDoesNotSeek() = runTest {
