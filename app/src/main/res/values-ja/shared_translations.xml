@@ -491,13 +491,13 @@
     <string name="live_playlist_add">"キューに追加"</string>
     <string name="live_playlist_add_count">"%1$d曲をキューに追加"</string>
     <string name="live_playlist_clear_selection">"選択を解除"</string>
-    <string name="live_playlist_import_instructions">"Spotifyでプレイリストを開き、「共有」から「リンクをコピー」を選びます。リンクを下に貼り付けてください。"</string>
-    <string name="live_playlist_invalid_link">"公開されているSpotifyプレイリストのリンクを貼り付けてください。"</string>
+    <string name="live_playlist_import_instructions">"SpotifyまたはApple Musicでプレイリストを開き、「共有」、「リンクをコピー」の順にタップします。下にリンクを貼り付けてください。"</string>
+    <string name="live_playlist_invalid_link">"SpotifyまたはApple Musicのプレイリストのリンクを貼り付けてください。"</string>
     <string name="live_playlist_link">"プレイリストのリンク"</string>
     <string name="live_playlist_load_failed">"このプレイリストを読み込めませんでした。リンクを確認してもう一度お試しください。"</string>
     <string name="live_playlist_loading">"プレイリストを読み込み中…"</string>
     <string name="live_playlist_no_new_songs">"このプレイリストから追加できる新しい曲はありません。"</string>
-    <string name="live_playlist_public_link_hint">"一般公開されているSpotifyプレイリストのリンクを使ってください。"</string>
+    <string name="live_playlist_public_link_hint">"SpotifyまたはApple Musicで公開されているプレイリストのリンクを使ってください。"</string>
     <string name="live_playlist_queue_full">"キューがいっぱいです。"</string>
     <string name="live_playlist_select_all">"すべて選択"</string>
     <string name="live_ready_to_record">"録音できます"</string>
@@ -589,6 +589,8 @@
     <string name="live_record_a_sample">"サンプルを録音"</string>
     <string name="live_recording">"録音中…"</string>
     <string name="live_something_went_wrong_try_again">"問題が発生しました。もう一度お試しください。"</string>
+    <string name="live_song_unavailable">"曲を利用できません"</string>
+    <string name="live_connecting_your_player">"プレーヤーに接続中…"</string>
     <string name="live_song_unavailable_on_provider">"この曲は%1$sでは再生できません。"</string>
     <string name="live_spotify_is_required_to_use_live">"ライブにはSpotifyが必要です。"</string>
     <string name="live_the_queue_changed_try_again">"キューが変更されました。もう一度お試しください。"</string>
@@ -645,4 +647,5 @@
     <string name="corus_style_weather_light_flurry">"小雪"</string>
     <string name="corus_style_weather_snowfall">"降雪"</string>
     <string name="corus_style_weather_steady_rain">"降り続く雨"</string>
+    <string name="corus_live_listener_rejoined">"%1$sがルームに戻ってきました"</string>
 </resources>

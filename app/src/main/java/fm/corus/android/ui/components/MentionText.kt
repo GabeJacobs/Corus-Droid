@@ -90,6 +90,7 @@ fun buildMentionAnnotatedString(
     text: String,
     baseStyle: SpanStyle = SpanStyle(),
     linkColor: Color = CorusColors.Accent,
+    mentionColor: Color = linkColor,
 ): AnnotatedString {
     val regex = Regex("(@[\\w.]+)|(#\\w+)")
     return buildAnnotatedString {
@@ -107,7 +108,7 @@ fun buildMentionAnnotatedString(
                     pushStringAnnotation(tag = MENTION_TAG, annotation = handle)
                     withStyle(
                         baseStyle.copy(
-                            color = linkColor,
+                            color = mentionColor,
                             fontWeight = FontWeight.ExtraBold,
                         )
                     ) {

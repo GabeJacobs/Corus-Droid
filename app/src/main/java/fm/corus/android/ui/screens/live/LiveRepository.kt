@@ -39,6 +39,7 @@ internal class LiveRepository @Inject constructor(
     private val explore: fm.corus.android.data.repository.ExploreRepository,
     private val bandcamp: BandcampPlaybackService,
     private val remoteConfig: RemoteConfigService,
+    private val appleMusicPlaylists: LiveAppleMusicPlaylists,
 ) {
     private val rooms get() = database.collection("corusLiveRooms")
 
@@ -110,6 +111,20 @@ internal class LiveRepository @Inject constructor(
 
     suspend fun chatAuthors(ids: List<String>): Map<String, LivePerson> =
         users.fetchUsersByIdsBatched(ids).associate { it.id to it.toLivePerson() }
+
+    val followingIds get() = users.followingIds
+
+    suspend fun listenerFollowerIds(uid: String, ids: List<String>): Set<String> = coroutineScope {
+        val reconciliation = async { users.reconcileFollowingStatus(uid, ids) }
+        val followers = users.checkFollowerStatusBatch(uid, ids)
+        reconciliation.await()
+        followers
+    }
+
+    suspend fun toggleListenerFollow(uid: String, targetId: String) {
+        if (users.isFollowing(targetId)) users.unfollowUser(uid, targetId)
+        else users.followUser(uid, targetId)
+    }
 
     suspend fun chatReactionPeople(ids: List<String>): Map<String, LivePerson> =
         chatAuthors(ids.filterNot { users.isUserHidden(it) || users.isUserBannedLocally(it) })
@@ -240,7 +255,12 @@ internal class LiveRepository @Inject constructor(
         LiveSuggestions(latest, savedSongs, trending)
     }
 
-    suspend fun spotifyPlaylist(id: String): Pair<String, List<LiveTrack>> {
+    suspend fun playlist(link: LivePlaylistLink): Pair<String, List<LiveTrack>> = when (link) {
+        is LivePlaylistLink.Spotify -> spotifyPlaylist(link.id)
+        is LivePlaylistLink.AppleMusic -> appleMusicPlaylists.load(link)
+    }
+
+    private suspend fun spotifyPlaylist(id: String): Pair<String, List<LiveTrack>> {
         val data = functions.getHttpsCallable("corusLiveSpotifyPlaylist").call(mapOf(
             "playlistId" to id, "market" to Locale.getDefault().country.ifBlank { "US" },
         )).await().getData().liveFields().orEmpty()
@@ -263,10 +283,15 @@ internal class LiveRepository @Inject constructor(
     }
 
     suspend fun spotifyUri(track: LiveTrack): String? = track.spotifyUri ?: track.song.let { song ->
-        val result = cloud.spotifyTrackLookup(song.name, song.artistName, song.isrc, song.appleMusicId)
+        val result = cloud.spotifyTrackLookup(
+            song.name, song.artistName, song.isrc, song.appleMusicId,
+            albumName = song.albumName, durationMs = track.duration,
+        )
+        if (!result.found) return@let null
         result.spotifyUri?.takeIf { it.matches(Regex("spotify:track:[A-Za-z0-9]{22}")) }
             ?: result.webUrl?.substringAfter("/track/", "")?.substringBefore('?')
                 ?.takeIf { it.matches(Regex("[A-Za-z0-9]{22}")) }?.let { "spotify:track:$it" }
+            ?: error("Invalid Spotify track link")
     }
 
     suspend fun recentPeople(uid: String, roomId: String?): List<LivePerson> = coroutineScope {

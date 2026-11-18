@@ -101,6 +101,7 @@ import fm.corus.android.ui.screens.live.LiveMiniPlayerHeight
 import fm.corus.android.ui.screens.live.LiveNavigation
 import fm.corus.android.ui.screens.live.LiveNavigationState
 import fm.corus.android.ui.screens.live.LivePresentation
+import fm.corus.android.ui.screens.live.rememberLiveRoomExpansion
 import fm.corus.android.ui.screens.live.LiveViewModel
 import fm.corus.android.ui.screens.live.LocalLiveNavigation
 import fm.corus.android.ui.screens.subscription.CymbalClubOfferSheet
@@ -153,10 +154,12 @@ fun MainTabScreen(
     val remoteConfig = viewModel.remoteConfigService
     val remoteConfigRevision by remoteConfig.revision.collectAsState()
     val liveShowGoLiveOnLaunch = remember(remoteConfig, remoteConfigRevision) { remoteConfig.liveShowGoLiveOnLaunch }
+    val liveTrendingMinListeners = remember(remoteConfig, remoteConfigRevision) { remoteConfig.liveTrendingMinListeners }
     val liveNavigationState = LiveNavigationState(
         access = liveState.access,
         roomCoversFeed = liveState.coversFeed,
         discovery = liveState.discovery,
+        trendingRoom = liveState.trendingRoom(liveTrendingMinListeners),
         showGoLive = liveState.uid != null && (liveShowGoLiveOnLaunch || liveState.cachedMenuAccess),
         canOpenSetup = liveState.setup == null && liveState.progress == null && (liveState.room == null || liveState.hosting),
         mixedSaves = liveState.mixedSaves,
@@ -520,7 +523,7 @@ fun MainTabScreen(
         }
     }
 
-    val liveRoomExpansion = key(liveState.room?.id) { rememberPlayerExpansionState() }
+    val liveRoomExpansion = rememberLiveRoomExpansion(liveState)
     val tabBarExpansion = when {
         liveState.room != null -> liveRoomExpansion.liveExpansion()
         showsMiniPlayer -> playerExpansion.liveExpansion()

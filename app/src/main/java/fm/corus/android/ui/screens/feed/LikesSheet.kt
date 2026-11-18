@@ -102,36 +102,9 @@ private fun LikesSheetContent(
             modifier = Modifier.padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
         )
 
-        // Search bar — only show when 10+ likers (matching iOS)
-        if (likers.size >= 10) TextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
-            placeholder = { Text(stringResource(fm.corus.android.localization.CorusStrings.nav_search), style = CorusFont.body, color = CorusColors.Tertiary) },
-            leadingIcon = {
-                Icon(Icons.Filled.Search, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.nav_search), tint = CorusColors.Tertiary, modifier = Modifier.size(15.dp))
-            },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { searchQuery = "" }) {
-                        Icon(Icons.Filled.Close, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.search_clear_aria), tint = CorusColors.Tertiary, modifier = Modifier.size(14.dp))
-                    }
-                }
-            },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            shape = RoundedCornerShape(CorusSpacing.cornerRadius),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = CorusColors.CardBackground,
-                unfocusedContainerColor = CorusColors.CardBackground,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                cursorColor = CorusColors.Accent,
-            ),
-            textStyle = CorusFont.body.copy(color = CorusColors.Text),
-        )
+        if (likers.size >= 10) {
+            CorusUserListSearchField(searchQuery) { searchQuery = it }
+        }
 
         HorizontalDivider(color = CorusColors.Divider, thickness = 0.5.dp)
 
@@ -178,16 +151,15 @@ private fun LikesSheetContent(
                     val isFollowing = followingIds.contains(user.id)
                     val isFollower = followerIds.contains(user.id)
 
-                    LikerRow(
+                    CorusUserListRow(
                         user = user,
                         isFollowing = isFollowing,
                         isFollower = isFollower,
-                        isSelf = isSelf,
                         onUserTap = {
                             onNavigateToUser(user.id)
                             onDismiss()
                         },
-                        onFollowTap = { viewModel.toggleFollow(user.id) },
+                        onFollowTap = if (isSelf) null else ({ viewModel.toggleFollow(user.id) }),
                     )
 
                     if (user.id == filteredLikers.lastOrNull()?.id && searchQuery.isEmpty()) {
@@ -225,13 +197,47 @@ private fun LikesSheetContent(
 }
 
 @Composable
-private fun LikerRow(
+internal fun CorusUserListSearchField(query: String, onQueryChange: (String) -> Unit) {
+    TextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+        placeholder = { Text(stringResource(fm.corus.android.localization.CorusStrings.nav_search), style = CorusFont.body, color = CorusColors.Tertiary) },
+        leadingIcon = {
+            Icon(Icons.Filled.Search, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.nav_search), tint = CorusColors.Tertiary, modifier = Modifier.size(15.dp))
+        },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(Icons.Filled.Close, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.search_clear_aria), tint = CorusColors.Tertiary, modifier = Modifier.size(14.dp))
+                }
+            }
+        },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        shape = RoundedCornerShape(CorusSpacing.cornerRadius),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = CorusColors.CardBackground,
+            unfocusedContainerColor = CorusColors.CardBackground,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            cursorColor = CorusColors.Accent,
+        ),
+        textStyle = CorusFont.body.copy(color = CorusColors.Text),
+    )
+}
+
+@Composable
+internal fun CorusUserListRow(
     user: CymbalUser,
     isFollowing: Boolean,
     isFollower: Boolean,
-    isSelf: Boolean,
     onUserTap: () -> Unit,
-    onFollowTap: () -> Unit,
+    onFollowTap: (() -> Unit)?,
+    followPending: Boolean = false,
+    accessory: @Composable () -> Unit = {},
 ) {
     Row(
         modifier = Modifier
@@ -240,7 +246,11 @@ private fun LikerRow(
             .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        UserAvatarView(avatarURL = user.avatarURL, displayName = user.displayName, size = CorusSpacing.avatarMedium + 8.dp)
+        UserAvatarView(
+            avatarURL = user.avatarThumbURL ?: user.avatarURL,
+            displayName = user.displayName.ifBlank { user.username },
+            size = CorusSpacing.avatarMedium + 8.dp,
+        )
 
         Spacer(modifier = Modifier.width(CorusSpacing.md))
 
@@ -254,16 +264,20 @@ private fun LikerRow(
                     isBot = user.isBot,
                 )
             }
-            Text(
-                text = user.displayName,
-                style = CorusFont.body,
-                color = CorusColors.Secondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            if (user.displayName.isNotBlank()) {
+                Text(
+                    text = user.displayName,
+                    style = CorusFont.body,
+                    color = CorusColors.Secondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
 
-        if (!isSelf) {
+        accessory()
+
+        if (onFollowTap != null) {
             Spacer(modifier = Modifier.width(CorusSpacing.sm))
 
             val buttonText = when {
@@ -274,6 +288,7 @@ private fun LikerRow(
 
             Button(
                 onClick = onFollowTap,
+                enabled = !followPending,
                 shape = RoundedCornerShape(CorusSpacing.pillCornerRadius),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (isFollowing) CorusColors.Divider else CorusColors.Accent,

@@ -407,7 +407,7 @@ fun MiniPlayerBar(
 }
 
 private val knobSize = 10.dp
-private val lineHeight = 2.5.dp
+internal val MiniPlayerProgressHeight = 2.5.dp
 /** Invisible touch target — visual strip stays [knobSize] tall. Mirrors iOS. */
 private val scrubTouchHeight = 32.dp
 private val scrubDragMin = 6.dp
@@ -697,7 +697,7 @@ private fun ScrubberOverlay(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(lineHeight)
+                    .height(MiniPlayerProgressHeight)
                     .clip(CircleShape)
                     .background(CorusColors.Divider),
             )
@@ -706,7 +706,7 @@ private fun ScrubberOverlay(
             Box(
                 modifier = Modifier
                     .width(with(density) { fillWidthPx.toDp() })
-                    .height(lineHeight)
+                    .height(MiniPlayerProgressHeight)
                     .clip(CircleShape)
                     .background(CorusColors.Secondary),
             )

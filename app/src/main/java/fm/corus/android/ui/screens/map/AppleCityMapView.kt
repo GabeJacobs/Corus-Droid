@@ -8,10 +8,12 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import android.util.Log
 import android.util.Base64
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
+import fm.corus.android.ui.components.RendererSafeWebViewClient
+import fm.corus.android.ui.components.rendererGone
 import androidx.compose.ui.platform.LocalContext
 import fm.corus.android.R
 import androidx.compose.runtime.Composable
@@ -50,12 +52,17 @@ import org.json.JSONObject
  * Search uses this for the compact preview; the full Map uses it so opening a
  * profile does not reload MapKit JS and tiles on the way back.
  */
-private object MapPreviewWebViewCache {
+internal object MapPreviewWebViewCache {
     private val views = mutableMapOf<String, WebView>()
 
-    fun take(cacheKey: String): WebView? = views.remove(cacheKey)
+    fun take(cacheKey: String): WebView? = views.remove(cacheKey)?.takeUnless { it.rendererGone }
+
+    fun remove(view: WebView) {
+        views.entries.removeAll { it.value === view }
+    }
 
     fun put(cacheKey: String, replacement: WebView) {
+        if (replacement.rendererGone) return
         val prefix = cacheKey.substringBefore(':')
         views.keys.filter { it.startsWith("$prefix:") && it != cacheKey }.toList().forEach { stale ->
             views.remove(stale)?.destroy()
@@ -138,7 +145,8 @@ internal fun AppleCityMapView(
     }
     val dark = LocalCorusDarkTheme.current
     val previewCacheKey = "${if (compact) "preview" else "full"}:$token:$dark"
-    val retainedPreviewWebView = remember(previewCacheKey) {
+    var retryAttempt by remember(token) { mutableStateOf(0) }
+    val retainedPreviewWebView = remember(previewCacheKey, retryAttempt) {
         MapPreviewWebViewCache.take(previewCacheKey)
     }
     val currentCities by rememberUpdatedState(cities)
@@ -152,7 +160,6 @@ internal fun AppleCityMapView(
     var hasRenderedMarkers by remember(token) { mutableStateOf(retainedPreviewWebView != null) }
     var mapReady by remember(token) { mutableStateOf(retainedPreviewWebView != null) }
     var loadError by remember(token) { mutableStateOf<String?>(null) }
-    var retryAttempt by remember(token) { mutableStateOf(0) }
     var loadStartedAt by remember(token) { mutableStateOf(android.os.SystemClock.elapsedRealtime()) }
     val documentKey = "$token:$retryAttempt"
     var transitionSnapshot by remember(previewCacheKey) { mutableStateOf<Bitmap?>(null) }
@@ -216,6 +223,7 @@ internal fun AppleCityMapView(
     val currentPayload by rememberUpdatedState(payload)
     val currentDocumentKey by rememberUpdatedState(documentKey)
     fun sendPayload(webView: WebView, data: String, force: Boolean = false) {
+        if (webView.rendererGone) return
         val bridge = webView.getTag(APPLE_MAP_JS_BRIDGE_TAG) as? AppleMapJsBridge ?: return
         if (bridge.payloadGate.shouldSend(currentDocumentKey, data, force)) {
             webView.evaluateJavascript("window.CorusAppleMap&&window.CorusAppleMap.update($data)", null)
@@ -244,6 +252,7 @@ internal fun AppleCityMapView(
     }
 
     Box(modifier) {
+    key(retryAttempt) {
     AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { context ->
@@ -266,7 +275,12 @@ internal fun AppleCityMapView(
                         return true
                     }
                 }
-                webViewClient = object : WebViewClient() {
+                webViewClient = object : RendererSafeWebViewClient({ failedView ->
+                    MapPreviewWebViewCache.remove(failedView)
+                    mapReady = false
+                    hasRenderedMarkers = false
+                    reportLoadState("renderer_gone")
+                }) {
                     override fun onPageFinished(view: WebView, url: String) {
                         super.onPageFinished(view, url)
                         // AndroidView can receive a Compose update before the
@@ -291,6 +305,7 @@ internal fun AppleCityMapView(
             }
         },
         update = { webView ->
+            if (webView.rendererGone) return@AndroidView
             bindAppleMapHandlers(webView)
             // Reload only for a token rotation or an explicit retry. Normal
             // filter, avatar, count, and theme updates use the warm surface.
@@ -316,6 +331,7 @@ internal fun AppleCityMapView(
             sendPayload(webView, payload)
         },
         onRelease = { webView ->
+            if (webView.rendererGone) return@AndroidView
             (webView.getTag(APPLE_MAP_JS_BRIDGE_TAG) as? AppleMapJsBridge)?.let { bridge ->
                 bridge.onSelectCity = {}
                 bridge.onCameraSettled = { _, _, _ -> }
@@ -328,6 +344,7 @@ internal fun AppleCityMapView(
             else webView.destroy()
         },
     )
+    }
     transitionSnapshot?.let { snapshot ->
         Image(
             bitmap = snapshot.asImageBitmap(),

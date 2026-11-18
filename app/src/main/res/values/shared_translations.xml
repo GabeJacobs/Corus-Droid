@@ -358,6 +358,8 @@
     <string name="live_record_a_sample">"Record a sample"</string>
     <string name="live_recording">"Recording…"</string>
     <string name="live_something_went_wrong_try_again">"Something went wrong. Try again."</string>
+    <string name="live_song_unavailable">"Song unavailable"</string>
+    <string name="live_connecting_your_player">"Connecting your player…"</string>
     <string name="live_song_unavailable_on_provider">"This song is unavailable on %1$s."</string>
     <string name="live_spotify_is_required_to_use_live">"Spotify is required to use Live."</string>
     <string name="live_the_queue_changed_try_again">"The queue changed. Try again."</string>
@@ -393,4 +395,5 @@
     <string name="corus_style_weather_light_flurry">"Light Flurry"</string>
     <string name="corus_style_weather_snowfall">"Snowfall"</string>
     <string name="corus_style_weather_steady_rain">"Steady Rain"</string>
+    <string name="corus_live_listener_rejoined">"%1$s rejoined the room"</string>
 </resources>

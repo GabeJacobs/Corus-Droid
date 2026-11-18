@@ -428,6 +428,7 @@ object CorusStrings {
     @StringRes val corus_live_liked_this_song: Int = R.string.live_liked_this_song
     @StringRes val corus_live_listen_back_to_check_how_you_sound: Int = R.string.live_listen_back_to_check_how_you_sound
     @StringRes val corus_live_listener_joined: Int = R.string.live_listener_joined
+    @StringRes val corus_live_listener_rejoined: Int = R.string.corus_live_listener_rejoined
     @StringRes val corus_live_listeners: Int = R.string.corus_live_listeners
     @StringRes val corus_live_listening_live: Int = R.string.live_listening_live
     @StringRes val corus_live_live: Int = R.string.corus_live_live

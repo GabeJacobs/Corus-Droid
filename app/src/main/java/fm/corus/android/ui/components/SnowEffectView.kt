@@ -34,21 +34,22 @@ fun SnowEffectView(
     intensity: SnowIntensity,
     modifier: Modifier = Modifier,
     particleDensity: Float = 1f,
+    startsFilled: Boolean = false,
 ) {
     if (intensity == SnowIntensity.OFF) return
 
     val isBlizzard = intensity == SnowIntensity.HEAVY
     val flakeCount = (intensity.flakeCount * particleDensity).roundToInt()
 
-    var flakes by remember(intensity, flakeCount) {
+    var flakes by remember(intensity, flakeCount, startsFilled) {
         mutableStateOf(
             List(flakeCount) { createSnowflake(1f, 1f, isBlizzard) }
         )
     }
-    var tick by remember(intensity, flakeCount) { mutableIntStateOf(0) }
-    var time by remember(intensity, flakeCount) { mutableFloatStateOf(0f) }
+    var tick by remember(intensity, flakeCount, startsFilled) { mutableIntStateOf(0) }
+    var time by remember(intensity, flakeCount, startsFilled) { mutableFloatStateOf(0f) }
 
-    LaunchedEffect(intensity, flakeCount) {
+    LaunchedEffect(intensity, flakeCount, startsFilled) {
         while (true) {
             delay(16)
             tick++
@@ -70,7 +71,7 @@ fun SnowEffectView(
             if (y >= fadeBand) 1f else (y / fadeBand).coerceIn(0f, 1f)
 
         if (tick == 1) {
-            flakes = List(flakeCount) { createSnowflake(w, h, isBlizzard, scale) }
+            flakes = List(flakeCount) { createSnowflake(w, h, isBlizzard, scale, startsFilled = startsFilled) }
         }
 
         val dt = 1f / 60f
@@ -80,7 +81,7 @@ fun SnowEffectView(
             var newX = flake.x + flake.driftX * dt
 
             if (newY > h + flake.radius + 10f) {
-                return@map createSnowflake(w, h, isBlizzard, scale, fullHeight = false)
+                return@map createSnowflake(w, h, isBlizzard, scale, fullHeight = false, startsFilled = startsFilled)
             }
             // Wrap horizontally
             if (newX < -15f) newX = w + 10f
@@ -168,6 +169,7 @@ internal fun createSnowflake(
     isBlizzard: Boolean,
     scale: Float = 1f,
     fullHeight: Boolean = true,
+    startsFilled: Boolean = false,
 ): Snowflake {
     val isForeground = Random.nextFloat() > 0.4f
     val layer = if (isForeground) SnowLayer.FOREGROUND else SnowLayer.BACKGROUND
@@ -190,13 +192,15 @@ internal fun createSnowflake(
     }
 
     val x = Random.nextFloat() * (width + 20f) - 10f
-    val y = if (fullHeight) {
-        Random.nextFloat() * height * 1.5f - height * 0.5f
-    } else {
+    val y = when {
+        fullHeight && startsFilled -> Random.nextFloat() * height
+        fullHeight -> Random.nextFloat() * height * 1.5f - height * 0.5f
+        // Keep filled overlays populated by recycling just above the viewport.
+        startsFilled -> (-40f + Random.nextFloat() * 35f) * scale
         // Spawn well above the canvas so flakes drip in over time instead
         // of clustering at the top edge — pairs with the topFade band so
         // they fade in smoothly as they descend into view.
-        Random.nextFloat() * -130f - 20f
+        else -> Random.nextFloat() * -130f - 20f
     }
 
     val driftX = if (isBlizzard) Random.nextFloat() * 8f + 7f else Random.nextFloat() * 12f - 6f  // -6..6 or 7-15

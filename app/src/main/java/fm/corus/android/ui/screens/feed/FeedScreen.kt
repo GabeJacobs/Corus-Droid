@@ -126,6 +126,7 @@ import fm.corus.android.domain.toQueuedTrack
 import fm.corus.android.ui.LocalHapticManager
 import fm.corus.android.ui.screens.live.LiveCreateButton
 import fm.corus.android.ui.screens.live.LiveDiscovery
+import fm.corus.android.ui.screens.live.LocalLiveNavigation
 import fm.corus.android.ui.components.FrostedStatusStrip
 import fm.corus.android.ui.components.LocalContainingTabSelected
 import fm.corus.android.ui.components.contentHazeSource
@@ -430,7 +431,9 @@ fun FeedScreen(
     val immersive = viewModel.remoteConfig.immersiveArtistHeaderEnabled
     val frost = rememberImmersiveHeaderState(immersive)
     val chromeCollapse = remember { FeedChromeCollapse() }
-    val liveRoomCoversFeed = fm.corus.android.ui.screens.live.LocalLiveNavigation.current?.state?.roomCoversFeed == true
+    val liveNavigation = LocalLiveNavigation.current
+    val liveRoomCoversFeed = liveNavigation?.state?.roomCoversFeed == true
+    val hasTrendingLiveRoom = liveNavigation?.state?.trendingRoom != null
     var wasCoveredByLiveRoom by remember { mutableStateOf(false) }
     LaunchedEffect(liveRoomCoversFeed) {
         if (wasCoveredByLiveRoom && !liveRoomCoversFeed) chromeCollapse.reveal()
@@ -471,6 +474,7 @@ fun FeedScreen(
         feedMode = feedMode,
         showDailyHashtag = dailyHashtagBanner.candidate != null,
         showTasteMatchesTrial = showTasteMatchesTrialBanner,
+        showTrendingLive = hasTrendingLiveRoom,
     )
     val currentPrefixForRouter by rememberUpdatedState(selectedFeedPrefix.size)
     val routerScope = scope
@@ -754,6 +758,11 @@ fun FeedScreen(
         fun ChromeInset() {
             if (chromeTop > 0.dp) Spacer(Modifier.fillMaxWidth().height(chromeTop))
         }
+        @Composable
+        fun EmptyPageHeader() {
+            if (includeHeader) header()
+            if (pageMode == "trending") LiveDiscovery("trending")
+        }
         Box(Modifier.fillMaxSize()) {
         when {
             // Peeked tab with no snapshot yet. Keep this off the selected-mode
@@ -779,7 +788,7 @@ fun FeedScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = chromeTop),
                 ) {
-                    if (includeHeader) item { header() }
+                    if (includeHeader || (pageMode == "trending" && hasTrendingLiveRoom)) item { EmptyPageHeader() }
                     items(2) {
                         SkeletonPostCard()
                         if (it < 1) {
@@ -944,7 +953,7 @@ fun FeedScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     ChromeInset()
-                    if (includeHeader) header()
+                    EmptyPageHeader()
                     Spacer(modifier = Modifier.height(60.dp))
                     Icon(
                         imageVector = if (isConnected) Icons.Filled.CloudOff else Icons.Filled.WifiOff,
@@ -993,7 +1002,7 @@ fun FeedScreen(
             isSelected && posts.isEmpty() && hasLoaded && !isLoading && !isRefreshing && feedEnergy != null -> {
                 Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
                     ChromeInset()
-                    if (includeHeader) header()
+                    EmptyPageHeader()
                     FeedEnergyEmptyState(energy = feedEnergy!!, mode = feedMode, onClear = { viewModel.setFeedEnergy(null, trackTap = false) })
                 }
             }
@@ -1087,7 +1096,7 @@ fun FeedScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     ChromeInset()
-                    if (includeHeader) header()
+                    EmptyPageHeader()
                     Spacer(modifier = Modifier.height(60.dp))
                     Icon(
                         imageVector = Icons.Filled.LocalFireDepartment,
@@ -1220,7 +1229,7 @@ fun FeedScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     ChromeInset()
-                    if (includeHeader) header()
+                    EmptyPageHeader()
                     FeedDecadeEmptyState(
                         decade = feedDecade,
                         onShowAllDecades = {
@@ -1243,7 +1252,7 @@ fun FeedScreen(
                         modifier = Modifier.weight(1f),
                         scrollingHeader = {
                             ChromeInset()
-                            if (includeHeader) header()
+                            EmptyPageHeader()
                             TrendingHashtagBanner(dailyHashtagBanner, onNavigateToHashtag, trackHashtagBanner, isAtRoot)
                             if (feedMode == "following") {
                                 LiveDiscovery("following", liveFollowingIds)
@@ -1312,6 +1321,7 @@ fun FeedScreen(
                         feedMode = pageMode,
                         showDailyHashtag = isSelected && dailyHashtagBanner.candidate != null,
                         showTasteMatchesTrial = isSelected && showTasteMatchesTrialBanner,
+                        showTrendingLive = hasTrendingLiveRoom,
                     )
                     for (row in prefix) {
                         when (row) {
@@ -1321,7 +1331,7 @@ fun FeedScreen(
                             }
                             FeedPrefixItem.LiveDiscovery -> item(key = "corus_live_discovery") {
                                 LiveDiscovery(
-                                    source = if (pageMode == "following") "following" else "your_mix",
+                                    source = if (pageMode == "tasteMatches") "your_mix" else pageMode,
                                     following = liveFollowingIds.takeIf { pageMode == "following" },
                                 )
                             }

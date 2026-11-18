@@ -60,15 +60,19 @@ fun DraftsSheetContent(
     onDelete: (PostDraft) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(fm.corus.android.localization.CorusStrings.compose_drafts_title),
-            style = CorusFont.displayName,
-            color = CorusColors.Text,
-            modifier = Modifier.padding(
-                horizontal = CorusSpacing.lg,
-                vertical = CorusSpacing.md,
-            ),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = CorusSpacing.lg),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(fm.corus.android.localization.CorusStrings.compose_drafts_title),
+                style = CorusFont.displayName,
+                color = CorusColors.Text,
+                modifier = Modifier.weight(1f).padding(
+                    vertical = CorusSpacing.md,
+                ),
+            )
+        }
         if (drafts.isEmpty()) {
             Text(
                 text = stringResource(fm.corus.android.localization.CorusStrings.compose_drafts_empty),

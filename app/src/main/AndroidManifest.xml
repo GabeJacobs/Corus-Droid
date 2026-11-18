@@ -232,6 +232,12 @@
             </intent-filter>
         </service>
 
+        <service
+            android:name=".service.LiveListeningService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback"
+            android:stopWithTask="true" />
+
         <!-- FileProvider for sharing images (Instagram Stories, etc.) -->
         <provider
             android:name="androidx.core.content.FileProvider"

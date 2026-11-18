@@ -107,6 +107,17 @@ class LiveSpotifySyncTest {
         verify(spotify, never()).seek(any())
     }
 
+    @Test fun intentionalTrackEndPauseIsNotResumedBySynchronization() = runTest {
+        prepareSnapshot(positionMs = 179_700, paused = true)
+        whenever(spotify.liveListenerEndHeld).thenReturn(true)
+        whenever(spotify.liveListenerTrackUri).thenReturn(uri)
+
+        assertNull(spotify.syncLiveTrack(uri, false, { 179_700 }) {})
+
+        verify(spotify, never()).resume()
+        verify(spotify, never()).seek(any())
+    }
+
     @Test fun differentTrackRequestsRecoveryWithoutSeekingIt() = runTest {
         prepareSnapshot(positionMs = 0, trackUri = "spotify:track:another")
 

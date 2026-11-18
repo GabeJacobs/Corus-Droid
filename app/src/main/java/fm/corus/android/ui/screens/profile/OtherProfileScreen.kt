@@ -954,12 +954,11 @@ fun OtherProfileScreen(
                             .padding(top = CorusSpacing.sm),
                         verticalAlignment = if (hasCity) Alignment.Top else Alignment.CenterVertically,
                     ) {
-                        fm.corus.android.ui.screens.live.LiveProfileAvatar(currentProfile.id) {
+                        fm.corus.android.ui.screens.live.LiveProfileAvatar(currentProfile.id, showPhoto = { showAvatarFullScreen = true }) {
                             UserAvatarView(
                                 avatarURL = currentProfile.avatarURL,
                                 displayName = currentProfile.displayName,
                                 size = headerAvatarSize,
-                                modifier = Modifier.clickable { showAvatarFullScreen = true },
                             )
                         }
 

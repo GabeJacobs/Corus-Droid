@@ -13,6 +13,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
@@ -178,6 +179,60 @@ class SpotifyPlaybackService @Inject constructor(
     @Volatile
     private var fastPathAppRemote: SpotifyAppRemote? = null
 
+    @Volatile
+    internal var liveListenerTrackUri: String? = null
+        set(value) {
+            if (field != value) resetLiveEndPause()
+            field = value
+        }
+
+    private var liveEndPauseJob: Job? = null
+    private var liveListenerRevision: Long? = null
+    internal var liveListenerEndHeld = false
+        private set
+
+    internal fun followLiveListenerTrack(uri: String, revision: Long) {
+        liveListenerTrackUri = uri
+        if (liveListenerRevision != revision) {
+            resetLiveEndPause()
+            liveListenerRevision = revision
+        }
+    }
+
+    private fun resetLiveEndPause() {
+        liveEndPauseJob?.cancel()
+        liveEndPauseJob = null
+        liveListenerEndHeld = false
+        liveListenerRevision = null
+    }
+
+    private fun scheduleLiveEndPause(state: PlayerState) {
+        liveEndPauseJob?.cancel()
+        liveEndPauseJob = null
+        val expected = liveListenerTrackUri ?: return
+        val track = state.track ?: return
+        val remote = appRemote ?: return
+        if (liveListenerEndHeld || state.isPaused || track.duration <= 0 ||
+            !spotifyURIsMatch(track.uri.orEmpty(), expected)
+        ) return
+        // Use the native duration/position rather than the room deadline: a
+        // listener may be finishing slightly behind the host. Leave only 300ms
+        // for the pause IPC before Spotify can advance its unrelated queue.
+        val remaining = track.duration - state.playbackPosition
+        val waitMs = (remaining - 300L).coerceAtLeast(0)
+        val pauseAt = android.os.SystemClock.elapsedRealtime() + waitMs
+        liveEndPauseJob = scope.launch {
+            delay(waitMs)
+            if (appRemote !== remote || !remote.isConnected || playInFlight ||
+                liveListenerTrackUri != expected || !_isPlaying.value
+            ) return@launch
+            liveListenerEndHeld = true
+            pauseImmediately()
+            val lateMs = (android.os.SystemClock.elapsedRealtime() - pauseAt).coerceAtLeast(0)
+            android.util.Log.i("LiveSpotifyPlayback", "Held Live track end (300ms window, timerLateMs=$lateMs)")
+        }
+    }
+
     /**
      * When true, a misrouted skip is replaced with play(expected) on the
      * callback thread (lock screen). When false, only reconcile may decide —
@@ -308,6 +363,7 @@ class SpotifyPlaybackService @Inject constructor(
      * Keeps last position/duration/uri so callers can seed local scrubber math.
      */
     fun disconnectPreservingPlayback() {
+        resetLiveEndPause()
         clearFastPathPlaybackGuard()
         suppressProactiveReconnect()
         proactiveReconnectJob?.cancel()
@@ -407,10 +463,11 @@ class SpotifyPlaybackService @Inject constructor(
         replaceQueue: Boolean = true,
         queueSessionId: Int? = null,
         confirmPlayback: Boolean = false,
+        allowInteractiveRecovery: suspend () -> Boolean = { true },
     ) {
         playInFlight = true
         try {
-            playInternal(spotifyTrackId, uri, replaceQueue, queueSessionId, confirmPlayback)
+            playInternal(spotifyTrackId, uri, replaceQueue, queueSessionId, confirmPlayback, allowInteractiveRecovery)
             analyticsService.logSpotifyFullSongPlayStarted(spotifyTrackId, "spotify")
             analyticsService.setSpotifyFullPlaybackConnected(true)
         } catch (e: CancellationException) {
@@ -432,6 +489,7 @@ class SpotifyPlaybackService @Inject constructor(
         replaceQueue: Boolean,
         queueSessionId: Int?,
         confirmPlayback: Boolean,
+        allowInteractiveRecovery: suspend () -> Boolean,
     ) {
         // External-mirror disconnect suppresses silent reconnect — Corus play
         // must be allowed to open App Remote again.
@@ -450,8 +508,12 @@ class SpotifyPlaybackService @Inject constructor(
             } catch (error: SpotifyPlaybackError) {
                 currentCoroutineContext().ensureActive()
                 if (!SpotifyConnectWake.shouldRecoverConnectedPlay(error)) throw error
-                android.util.Log.w("SpotifyPlayback", "Connected play failed; reopening Spotify")
                 disconnectAppRemotePreservingToken()
+                if (!allowInteractiveRecovery()) {
+                    if (playWithSilentConnectRetries(trackUri, queueSessionId, confirmPlayback)) return
+                    throw error
+                }
+                android.util.Log.w("SpotifyPlayback", "Connected play failed; reopening Spotify")
                 wakeSpotifyAndPlay(trackUri, queueSessionId, confirmPlayback)
                 return
             }
@@ -490,6 +552,7 @@ class SpotifyPlaybackService @Inject constructor(
         // Auth opens/wakes Spotify. Do not share the 15s play timeout with that
         // trip — leftover budget is too short for App Remote after a cold start,
         // which is what produced a false "No preview available".
+        if (!allowInteractiveRecovery()) throw SpotifyPlaybackError.NotConnected()
         wakeSpotifyAndPlay(trackUri, queueSessionId, confirmPlayback)
     }
 
@@ -574,6 +637,7 @@ class SpotifyPlaybackService @Inject constructor(
     }
 
     private fun disconnectAppRemotePreservingToken() {
+        resetLiveEndPause()
         val remote = appRemote
         if (remote != null) {
             runCatching {
@@ -802,15 +866,28 @@ class SpotifyPlaybackService @Inject constructor(
         val remote = appRemote ?: return
         cancelSubscription(playerStateSubscription)
         playerStateSubscription = remote.playerApi.subscribeToPlayerState().setEventCallback { state ->
+            if (fastPathAppRemote !== remote) return@setEventCallback
+            val liveUri = liveListenerTrackUri
+            if (liveUri != null && !playInFlight &&
+                pauseUnexpectedLiveTrack(remote, state, liveUri)
+            ) return@setEventCallback
             // Pause + play(expected) on this thread. Don't reconcile the wrong
             // URI — that would pauseImmediately the redirect we just issued.
-            if (attemptFastPathMisroutePause(state)) return@setEventCallback
+            if (liveUri == null && attemptFastPathMisroutePause(state)) return@setEventCallback
             scope.launch {
                 runCatching { applyPlayerState(state) }.onFailure { error ->
                     android.util.Log.w("SpotifyPlayback", "applyPlayerState failed: ${error.message}")
                 }
             }
         }
+    }
+
+    internal fun pauseUnexpectedLiveTrack(remote: SpotifyAppRemote, state: PlayerState, expectedUri: String): Boolean {
+        val uri = state.track?.uri?.takeIf(String::isNotBlank) ?: return false
+        if (state.isPaused || spotifyURIsMatch(uri, expectedUri)) return false
+        remote.playerApi.pause().setResultCallback { }
+        android.util.Log.i("LiveSpotifyPlayback", "Paused Spotify queue playback while following a Live room")
+        return true
     }
 
     /**
@@ -888,6 +965,7 @@ class SpotifyPlaybackService @Inject constructor(
     private fun applyPlayerState(state: PlayerState) {
         val track = state.track
         if (track == null) {
+            scheduleLiveEndPause(state)
             // Spotify emits empty player state during connect/handoff/disconnect.
             _isPlaying.value = !state.isPaused
             _positionSeconds.value = state.playbackPosition / 1000.0
@@ -941,6 +1019,7 @@ class SpotifyPlaybackService @Inject constructor(
         _positionSeconds.value = newPosition
         _durationSeconds.value = newDuration
         _currentTrackUri.value = uri.takeIf { it.isNotEmpty() }
+        scheduleLiveEndPause(state)
 
         onPlayerStateUpdated?.invoke()
 
@@ -1059,6 +1138,8 @@ class SpotifyPlaybackService @Inject constructor(
     }
 
     fun stop() {
+        liveListenerTrackUri = null
+        resetLiveEndPause()
         clearFastPathPlaybackGuard()
         proactiveReconnectJob?.cancel()
         seekJob?.cancel()

@@ -183,7 +183,6 @@ internal fun LiveRoomScreen(
     val openDJSpots = (LIVE_MAX_GUEST_DJS - room.djs.size -
         state.pendingDJs.count { it.number("expiresAt") > vm.serverTime() }).coerceAtLeast(0)
     val pager = rememberPagerState { 2 }
-    val listenRoster = remember { mutableStateOf<List<LiveFields>?>(null) }
     var selectedMessageId by remember(room.id) { mutableStateOf<String?>(null) }
     var reactionDetails by remember(room.id) { mutableStateOf<Pair<String, String>?>(null) }
     var showingChatEmojiPicker by remember(room.id) { mutableStateOf(false) }
@@ -358,6 +357,7 @@ internal fun LiveRoomScreen(
                     }
                 }
                 if (chatFocused && room.voiceMode == "talk") {
+                    val micOn = liveMicrophoneIsOn(state)
                     val speaker = audibleDJs.firstOrNull()
                     val meter = if (state.micEnabled) state.voiceLevels[state.uid] ?: 0f
                         else speaker?.let { state.voiceLevels[it.uid] }
@@ -368,8 +368,13 @@ internal fun LiveRoomScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             LiveText(
-                                stringResource(if (state.micEnabled) CorusStrings.corus_live_mic_is_on
-                                    else R.string.live_listening_live),
+                                stringResource(when {
+                                    state.muted -> R.string.live_audio_muted
+                                    state.voiceFailed -> R.string.live_couldnt_connect_to_live_voice
+                                    micOn -> CorusStrings.corus_live_mic_is_on
+                                    state.micEnabled -> R.string.live_connecting_microphone
+                                    else -> R.string.live_listening_live
+                                }),
                                 CorusFont.captionMedium,
                             )
                             LiveVoiceMeter(meter)
@@ -393,54 +398,72 @@ internal fun LiveRoomScreen(
                     if (retryAt != null) delay((retryAt - vm.serverTime()).coerceAtLeast(0))
                     coolingDown = false
                 }
-                RoomChat(chatRows, state, vm, openDJSpots, visitProfile, { message, showEmojiPicker ->
-                    if (hasMessageOptions(message)) {
-                        focus.clearFocus()
-                        keyboard?.hide()
-                        showingChatEmojiPicker = showEmojiPicker
-                        selectedMessageId = message.id
-                    }
-                }, Modifier.weight(1f), inspectReaction = { message, emoji ->
-                    hapticView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                    focus.clearFocus()
-                    keyboard?.hide()
-                    reactionDetails = message.id to emoji
-                }, dismissKeyboardOnScroll = chatFocused && keyboardVisible)
-                if (!state.hosting && state.dj == null &&
-                    state.invites.none { it.text("roomId") == room.id && it.number("expiresAt") > vm.serverTime() }
-                ) {
-                    DJRequestStatus(state, room.chatEnabled && coolingDown) {
-                        vm.requestAction("cancelDJRequest", mapOf("requestCreatedAt" to state.myDJRequest.number("createdAt")))
-                    }
-                }
-                MentionSuggestionsList(users = mentionSuggestions, onSelect = { user ->
-                    val caret = draft.selection.start
-                    if (parseMentionQuery(draft.text, caret) != mentionPrefix) return@MentionSuggestionsList
-                    val suffix = draft.text.drop(caret).takeWhile { liveMentionHandle.matches(it.toString()) }
-                    val completed = applyMention(draft.copy(selection = TextRange(caret + suffix.length)), user.username)
-                    if (completed.text.length <= 500) draft = completed
-                })
                 val now = vm.serverTime()
-                if (editingMessage != null && room.chatEnabled) {
-                    Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-                            .background(CorusColors.CardBackground).padding(start = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        LiveText(stringResource(CorusStrings.messaging_thread_editing), CorusFont.caption,
-                            CorusColors.Secondary, Modifier.weight(1f))
-                        IconButton(onClick = ::finishEditingMessage, enabled = !savingMessageEdit, modifier = Modifier.size(44.dp)) {
-                            Icon(Icons.Default.Close, stringResource(CorusStrings.comments_cd_cancel_edit),
-                                tint = CorusColors.Secondary, modifier = Modifier.size(16.dp))
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    Column(Modifier.fillMaxSize()) {
+                        RoomChat(chatRows, state, vm, openDJSpots, visitProfile, { message, showEmojiPicker ->
+                            if (hasMessageOptions(message)) {
+                                focus.clearFocus()
+                                keyboard?.hide()
+                                showingChatEmojiPicker = showEmojiPicker
+                                selectedMessageId = message.id
+                            }
+                        }, Modifier.weight(1f), inspectReaction = { message, emoji ->
+                            hapticView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                            focus.clearFocus()
+                            keyboard?.hide()
+                            reactionDetails = message.id to emoji
+                        }, dismissKeyboardOnScroll = chatFocused && keyboardVisible)
+                        if (!state.hosting && state.dj == null &&
+                            state.invites.none { it.text("roomId") == room.id && it.number("expiresAt") > vm.serverTime() }
+                        ) {
+                            DJRequestStatus(state, room.chatEnabled && coolingDown) {
+                                vm.requestAction("cancelDJRequest", mapOf("requestCreatedAt" to state.myDJRequest.number("createdAt")))
+                            }
+                        }
+                        if (editingMessage != null && room.chatEnabled) {
+                            Row(
+                                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                                    .background(CorusColors.CardBackground).padding(start = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                LiveText(stringResource(CorusStrings.messaging_thread_editing), CorusFont.caption,
+                                    CorusColors.Secondary, Modifier.weight(1f))
+                                IconButton(onClick = ::finishEditingMessage, enabled = !savingMessageEdit, modifier = Modifier.size(44.dp)) {
+                                    Icon(Icons.Default.Close, stringResource(CorusStrings.comments_cd_cancel_edit),
+                                        tint = CorusColors.Secondary, modifier = Modifier.size(16.dp))
+                                }
+                            }
                         }
                     }
+                    MentionSuggestionsList(
+                        users = mentionSuggestions,
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                            .fillMaxWidth().background(CorusColors.Background),
+                        onSelect = { user ->
+                            val caret = draft.selection.start
+                            if (parseMentionQuery(draft.text, caret) != mentionPrefix) return@MentionSuggestionsList
+                            val suffix = draft.text.drop(caret).takeWhile { liveMentionHandle.matches(it.toString()) }
+                            val completed = applyMention(draft.copy(selection = TextRange(caret + suffix.length)), user.username)
+                            if (completed.text.length <= 500) draft = completed
+                        },
+                    )
                 }
                 ChatComposer(
                     draft, { draft = it.copy(text = it.text.take(500)) }, gif, { gif = null },
                     {
                         val editing = editingMessage
                         if (editing == null) {
-                            vm.send(draft.text, gif) { if (editingMessage == null) { draft = TextFieldValue(); gif = null } }
+                            val sentText = draft.text
+                            val sentGif = gif
+                            vm.send(sentText, sentGif) {
+                                if (editingMessage == null) {
+                                    if (draft.text == sentText) draft = TextFieldValue()
+                                } else if (draftBeforeEdit.text == sentText) {
+                                    draftBeforeEdit = TextFieldValue()
+                                }
+                                if (gif == sentGif) gif = null
+                            }
                         } else if (!savingMessageEdit) {
                             val text = draft.text.trim()
                             savingMessageEdit = true
@@ -460,6 +483,7 @@ internal fun LiveRoomScreen(
                     composerFocus = composerFocus,
                     originalText = editingMessage?.text,
                     savingEdit = savingMessageEdit,
+                    sending = room.id in state.pendingChatSends,
                 ) {
                     ChatActions(room, state, vm, coolingDown, { show(RoomPanel.REQUEST_SONG) }, { show(RoomPanel.GIF) })
                 }
@@ -533,26 +557,7 @@ internal fun LiveRoomScreen(
                 }
             }
         }
-        RoomPanel.LISTENERS -> {
-            LaunchedEffect(room.id, room.revision, room.likes, state.listenerCount) {
-                vm.action("listeners") { data -> listenRoster.value = data.rows("listeners") }
-            }
-            LiveSheet(stringResource(CorusStrings.corus_live_listeners), close, large = state.listenerCount > 7) {
-                val roster = listenRoster.value
-                if (roster == null) CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
-                else if (roster.isEmpty()) LiveText(stringResource(CorusStrings.corus_live_no_listeners_yet), color = CorusColors.Secondary)
-                LazyColumn(Modifier.weight(1f, fill = false)) {
-                    items(roster.orEmpty(), key = { it.text("uid") }) { fields ->
-                        val person = LivePerson.parse(fields)
-                        PersonRow(person, { visitProfile(person.uid) }) {
-                            if (fields.number("likedRevision") == room.revision) {
-                                Icon(Icons.Default.Favorite, stringResource(R.string.live_liked_this_song), tint = LiveRed, modifier = Modifier.size(15.dp))
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        RoomPanel.LISTENERS -> LiveListenersSheet(vm, room, state.listenerCount, state.uid, close, visitProfile)
         RoomPanel.OPTIONS -> LiveSheet(stringResource(CorusStrings.corus_live_room_options), close) {
             Column(
                 Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()),
@@ -1186,6 +1191,10 @@ private fun RoomWelcomeMessageCard(room: LiveRoom, progress: Float?) {
     }
 }
 
+private fun liveMicrophoneIsOn(state: LiveUiState): Boolean =
+    (state.hosting || state.dj != null) && state.micEnabled && state.voiceConnected &&
+        !state.muted && !state.voiceFailed && state.uid in state.unmutedMicrophoneIDs
+
 private fun liveAudibleDJs(room: LiveRoom, state: LiveUiState): List<LivePerson> {
     if (state.muted || room.voiceMode != "talk") return emptyList()
     return (listOf(room.host) + room.djs.map(LivePerson::parse)).filter {
@@ -1209,29 +1218,45 @@ private fun RoomPlayerCard(
             waitingForHost = true
         }
     }
+    val track = room.current
+    val showingTalk = room.voiceMode == "talk" && room.pendingSkip == null
+    val songUnavailable = state.isSpotifySongUnavailable
+    if (!state.hosting && !waitingForHost && !showingTalk && track != null && room.status != "waiting" &&
+        !songUnavailable && (state.connectingProvider != null || (!state.audioReady && state.audioError != null))
+    ) {
+        RoomConnectMusicCard(state, vm)
+        return
+    }
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(17.dp)).background(CorusColors.CardBackground).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        val track = room.current
         when {
             waitingForHost -> RoomWaitingTrack(room, vm, waitingForHost = true, countdown = false)
-            room.voiceMode == "talk" && room.pendingSkip == null -> {
+            showingTalk -> {
                 val canUseMic = state.hosting || state.dj != null
+                // micEnabled is the requested state; LiveKit confirms publication separately.
+                val micOn = liveMicrophoneIsOn(state)
                 val micMuted = canUseMic && !state.micEnabled
+                val speakerHandle = (audibleDJs.singleOrNull()?.uid ?: room.talkSpeakerUid
+                    ?.takeIf { it in state.unmutedMicrophoneIDs }
+                    ?: state.lastTalkSpeakerUid?.takeIf { state.holdingTalkPresentation })
+                    ?.takeUnless { it == state.uid }?.let(room::djHandle)
                 Row(Modifier.heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Icon(if (micMuted) Icons.Default.MicOff else Icons.Default.Mic, null, tint = CorusColors.Accent)
                     LiveText(
                         when {
-                            state.micEnabled -> stringResource(CorusStrings.corus_live_mic_is_on)
-                            micMuted -> stringResource(R.string.live_mic_is_muted)
-                            audibleDJs.size > 1 -> stringResource(R.string.live_djs_talking)
-                            audibleDJs.size == 1 -> stringResource(
-                                R.string.live_dj_is_talking, "@${audibleDJs.single().username.trimStart('@')}",
-                            )
                             state.muted -> stringResource(R.string.live_audio_muted)
-                            else -> stringResource(R.string.live_music_paused)
+                            state.voiceFailed -> stringResource(R.string.live_couldnt_connect_to_live_voice)
+                            micOn -> stringResource(CorusStrings.corus_live_mic_is_on)
+                            canUseMic && state.micEnabled -> stringResource(R.string.live_connecting_microphone)
+                            state.voiceReconnecting || (!state.voiceConnected && !state.hasReceivedRemoteMicrophone) ||
+                                (!canUseMic && state.waitingForRemoteMicrophone) -> stringResource(R.string.live_connecting_audio)
+                            audibleDJs.size > 1 -> stringResource(R.string.live_djs_talking)
+                            speakerHandle != null -> stringResource(R.string.live_dj_is_talking, speakerHandle)
+                            micMuted -> stringResource(R.string.live_mic_is_muted)
+                            else -> stringResource(CorusStrings.corus_live_talk_mode)
                         },
                         CorusFont.songTitle, modifier = Modifier.weight(1f),
                     )
@@ -1240,19 +1265,6 @@ private fun RoomPlayerCard(
             }
             track == null || room.status == "waiting" -> {
                 RoomWaitingTrack(room, vm, waitingForHost = false, countdown = state.hosting)
-            }
-            !state.audioReady && (state.audioError != null || state.connectingProvider != null) -> {
-                LiveText(stringResource(R.string.live_connect_a_streaming_provider), CorusFont.songTitle)
-                LiveText(stringResource(R.string.live_requires_apple_music_or_spotify_premium), color = CorusColors.Secondary)
-                state.audioError?.let { LiveText(it, color = CorusColors.Secondary) }
-                if (fm.corus.android.domain.AppleMusicPlayback.isAvailable()) {
-                    LiveProviderButton("Apple Music", MusicService.APPLE_MUSIC, state.connectingProvider) {
-                        vm.connectListenerProvider(MusicService.APPLE_MUSIC)
-                    }
-                }
-                LiveProviderButton("Spotify", MusicService.SPOTIFY, state.connectingProvider) {
-                    vm.connectListenerProvider(MusicService.SPOTIFY)
-                }
             }
             else -> {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1265,6 +1277,7 @@ private fun RoomPlayerCard(
                             LiveText(
                                 when {
                                     room.pendingSkip != null -> stringResource(R.string.live_switching_songs)
+                                    songUnavailable -> stringResource(R.string.live_song_unavailable)
                                     !state.hosting && !state.audioReady -> stringResource(CorusStrings.corus_live_tuning_in)
                                     else -> stringResource(CorusStrings.full_player_queue_now_playing)
                                 },
@@ -1303,6 +1316,48 @@ private fun RoomPlayerCard(
             )
         }
         state.audioError?.let { LiveText(it, CorusFont.caption, CorusColors.Secondary) }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RoomConnectMusicCard(state: LiveUiState, vm: LiveViewModel) {
+    val appleAvailable = fm.corus.android.domain.AppleMusicPlayback.isAvailable()
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(17.dp)).background(CorusColors.CardBackground).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            LiveText(stringResource(R.string.live_connect_a_streaming_provider),
+                CorusFont.songTitle.copy(textAlign = TextAlign.Center), modifier = Modifier.semantics { heading() })
+            LiveText(stringResource(R.string.live_requires_apple_music_or_spotify_premium),
+                CorusFont.caption.copy(textAlign = TextAlign.Center), CorusColors.Secondary)
+        }
+        FlowRow(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (appleAvailable) {
+                LiveProviderButton("Apple Music", R.drawable.apple_music_logo, Modifier.weight(1f),
+                    enabled = state.connectingProvider == null && !state.muted,
+                    busy = state.connectingProvider == MusicService.APPLE_MUSIC,
+                ) { vm.connectListenerProvider(MusicService.APPLE_MUSIC) }
+            }
+            LiveProviderButton("Spotify", R.drawable.spotify_logo, Modifier.weight(1f),
+                enabled = state.connectingProvider == null && !state.muted,
+                busy = state.connectingProvider == MusicService.SPOTIFY,
+            ) { vm.connectListenerProvider(MusicService.SPOTIFY) }
+        }
+        if (state.muted) RoomIconButton(Icons.Default.VolumeOff,
+            stringResource(CorusStrings.corus_live_unmute_audio), vm::toggleMute)
+        val message = if (state.connectingProvider != null) stringResource(R.string.live_connecting_your_player)
+            else state.audioError
+        message?.let { LiveText(it, CorusFont.caption.copy(textAlign = TextAlign.Center), CorusColors.Secondary) }
     }
 }
 
@@ -1647,7 +1702,7 @@ private fun HostControls(
             Icon(if (join == null) Icons.Default.ChatBubbleOutline else Icons.Default.PersonAdd, null, tint = chatTint, modifier = Modifier.size(14.dp))
             LiveText(
                 when {
-                    join != null -> stringResource(R.string.live_listener_joined, "@${join.author.username.removePrefix("@")}")
+                    join != null -> stringResource(join.joinNoticeStringRes, "@${join.author.username.removePrefix("@")}")
                     unreadChat != null -> stringResource(CorusStrings.new_message_action)
                     else -> stringResource(R.string.live_swipe_left_for_chat)
                 },
@@ -1714,6 +1769,7 @@ private fun RoomQueueEditor(room: LiveRoom, state: LiveUiState, vm: LiveViewMode
             },
             queued = queue.toList(),
             canAdd = queue.size < limit,
+            prepareBeforeChoosing = false,
             afterSearch = { query ->
                 if (query.isBlank() && queue.size < limit) {
                     LiveRow(stringResource(R.string.live_import_playlist), Icons.Default.Link) { importing = true }
@@ -1818,6 +1874,9 @@ private fun HostQueueRow(
     }
 }
 
+private val LiveMessage.joinNoticeStringRes: Int
+    get() = if (fields["rejoined"] == true) CorusStrings.corus_live_listener_rejoined else R.string.live_listener_joined
+
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun RoomChat(
@@ -1831,6 +1890,7 @@ internal fun RoomChat(
     val hapticView = LocalView.current
     val openOptions by rememberUpdatedState(options)
     val canReact = state.room?.chatEnabled == true
+    val mentionColor = CorusColors.Accent
     val reactionsLabel = stringResource(R.string.notifications_row_reactions)
     val likeLabel = stringResource(R.string.comments_cd_like)
     LaunchedEffect(rows.lastOrNull()?.id, rows.lastOrNull { it.supportsReactions }?.id) {
@@ -1872,14 +1932,17 @@ internal fun RoomChat(
                     )
                     if (message.isSongLikeNotice || message.kind == "listenerJoined") {
                         val handle = if (message.isSongLikeNotice) {
-                            message.fields.text("displayName").takeIf { it.startsWith("@") }
+                            message.likeNoticeHandle
                         } else {
                             "@${message.author.username.removePrefix("@")}"
                         }
-                        val notice = when {
-                            handle == null -> stringResource(R.string.live_song_liked)
-                            message.isSongLikeNotice -> stringResource(R.string.live_user_liked_song, handle)
-                            else -> stringResource(R.string.live_listener_joined, handle)
+                        val notice = if (message.isSongLikeNotice) {
+                            message.likeNoticeText { liker ->
+                                if (liker == null) stringResource(R.string.live_song_liked)
+                                else stringResource(R.string.live_user_liked_song, liker)
+                            }
+                        } else {
+                            stringResource(message.joinNoticeStringRes, handle.orEmpty())
                         }
                         Text(
                             buildAnnotatedString {
@@ -1939,10 +2002,21 @@ internal fun RoomChat(
                                     }),
                             ) {
                                 if (message.text.isNotBlank()) {
-                                    val text = remember(message.text) {
-                                        buildMentionAnnotatedString(message.text, linkColor = Color.Unspecified)
+                                    val emojiOnly = remember(message.text, message.gifUrl) {
+                                        message.gifUrl == null && liveEmojiPattern.replace(message.text, "").isBlank()
                                     }
-                                    Text(text, style = CorusFont.body, color = CorusColors.Text)
+                                    if (emojiOnly) {
+                                        Text(message.text.trim(), fontSize = 32.sp, lineHeight = 38.sp)
+                                    } else {
+                                        val text = remember(message.text, mentionColor) {
+                                            buildMentionAnnotatedString(
+                                                message.text,
+                                                linkColor = Color.Unspecified,
+                                                mentionColor = mentionColor,
+                                            )
+                                        }
+                                        Text(text, style = CorusFont.body, color = CorusColors.Text)
+                                    }
                                 }
                                 if (message.isEdited) {
                                     LiveText(stringResource(CorusStrings.comment_edited_badge), CorusFont.caption, CorusColors.Secondary)
@@ -1976,6 +2050,12 @@ internal fun RoomChat(
             }
         }
     }
+}
+
+// Android's ICU regex engine supplies the Unicode emoji properties.
+private val liveEmojiPattern by lazy {
+    val glyph = """(?:[#*0-9]\x{FE0F}?\x{20E3}|(?:\p{Emoji_Presentation}|(?![#*0-9])\p{Emoji}(?=\x{FE0F}|\p{Emoji_Modifier}))\x{FE0F}?\p{Emoji_Modifier}?(?:[\x{E0020}-\x{E007E}]+\x{E007F})?)"""
+    Regex("""$glyph(?:\x{200D}$glyph)*""")
 }
 
 private fun orderedChatReactionEmojis(state: LiveUiState, message: LiveMessage): List<String> {
@@ -2167,7 +2247,7 @@ private fun ChatComposer(
     draft: TextFieldValue, onText: (TextFieldValue) -> Unit, gif: String?, clearGif: () -> Unit, send: () -> Unit,
     heart: () -> Unit, liked: Boolean, focus: (Boolean) -> Unit, showHeart: Boolean,
     chatEnabled: Boolean, composerFocus: FocusRequester,
-    originalText: String?, savingEdit: Boolean,
+    originalText: String?, savingEdit: Boolean, sending: Boolean,
     actions: @Composable () -> Unit,
 ) {
     val text = draft.text
@@ -2179,8 +2259,11 @@ private fun ChatComposer(
         }
     }
     val canSend = !savingEdit && if (editing) text.isNotBlank() && text.trim() != originalText
-        else text.isNotBlank() || gif != null
+        else !sending && (text.isNotBlank() || gif != null)
     val cursorTint = if (LocalCorusDarkTheme.current) Color(0xFF98BAFF) else Color(0xFF315EA8)
+    var wrappedLines by remember { mutableIntStateOf(1) }
+    val multiline = '\n' in text || wrappedLines > 1
+    val composerShape = RoundedCornerShape(if (multiline) 18.dp else 22.dp)
     Row(
         Modifier.fillMaxWidth().padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -2188,22 +2271,26 @@ private fun ChatComposer(
     ) {
         if (showHeart && !editing) LiveLikeButton(liked, glyphSize = 25.dp, onLike = heart)
         Row(
-            Modifier.weight(1f).heightIn(min = 44.dp).clip(CircleShape)
+            Modifier.weight(1f).heightIn(min = 44.dp).clip(composerShape)
                 .background(CorusColors.CardBackground.copy(alpha = if (chatEnabled) .6f else 1f))
-                .border(1.dp, CorusColors.Secondary.copy(alpha = .22f), CircleShape)
+                .border(1.dp, CorusColors.Secondary.copy(alpha = .22f), composerShape)
                 .padding(start = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (chatEnabled) {
                 BasicTextField(
                     draft,
-                    { onText(it.copy(text = it.text.replace('\n', ' ').replace('\r', ' '))) },
-                    Modifier.weight(1f).focusRequester(composerFocus).onFocusChanged { focus(it.isFocused) },
+                    onText,
+                    Modifier.weight(1f).padding(vertical = 8.dp).padding(end = if (editing) 12.dp else 0.dp)
+                        .focusRequester(composerFocus).onFocusChanged { focus(it.isFocused) },
                     readOnly = savingEdit,
                     textStyle = CorusFont.body.copy(color = CorusColors.Text),
                     cursorBrush = SolidColor(cursorTint),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    singleLine = false,
+                    minLines = 1,
+                    maxLines = 3,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
+                    onTextLayout = { wrappedLines = it.lineCount },
                     decorationBox = { input ->
                         Box {
                             if (text.isEmpty()) {
@@ -2550,10 +2637,10 @@ private fun LiveRoomEffects(effect: String) {
     Box(Modifier.fillMaxSize()) {
         when (effect) {
             "rain" -> RainEffectView(
-                RainIntensity.MEDIUM, Modifier.alpha(0.56f), windAngleDegrees = 5f, particleDensity = 0.6f,
-                fallSpeedScale = 0.9f,
+                RainIntensity.MEDIUM, Modifier.alpha(0.5f), windAngleDegrees = 5f, particleDensity = 0.6875f,
+                fallSpeedScale = 0.91f, startsFilled = true,
             )
-            "snow" -> SnowEffectView(SnowIntensity.HEAVY, particleDensity = 0.8f)
+            "snow" -> SnowEffectView(SnowIntensity.MEDIUM, Modifier.alpha(0.8f), startsFilled = true)
             "slow", "disco", "party" -> {
                 val intensity = when (effect) {
                     "slow" -> DiscoIntensity.LIGHT

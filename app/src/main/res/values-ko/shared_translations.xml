@@ -491,13 +491,13 @@
     <string name="live_playlist_add">"대기열에 추가"</string>
     <string name="live_playlist_add_count">"%1$d곡을 대기열에 추가"</string>
     <string name="live_playlist_clear_selection">"선택 해제"</string>
-    <string name="live_playlist_import_instructions">"Spotify에서 플레이리스트를 열고 공유, 링크 복사를 차례로 누르세요. 아래에 링크를 붙여넣으세요."</string>
-    <string name="live_playlist_invalid_link">"공개 Spotify 플레이리스트 링크를 붙여넣으세요."</string>
+    <string name="live_playlist_import_instructions">"Spotify 또는 Apple Music에서 플레이리스트를 열고 ‘공유’, ‘링크 복사’를 차례로 누르세요. 아래에 링크를 붙여넣으세요."</string>
+    <string name="live_playlist_invalid_link">"Spotify 또는 Apple Music 플레이리스트 링크를 붙여넣으세요."</string>
     <string name="live_playlist_link">"플레이리스트 링크"</string>
     <string name="live_playlist_load_failed">"이 플레이리스트를 불러오지 못했어요. 링크를 확인하고 다시 시도해 주세요."</string>
     <string name="live_playlist_loading">"플레이리스트 불러오는 중…"</string>
     <string name="live_playlist_no_new_songs">"이 플레이리스트에 새로 추가할 곡이 없어요."</string>
-    <string name="live_playlist_public_link_hint">"공개로 공유된 Spotify 플레이리스트 링크를 사용하세요."</string>
+    <string name="live_playlist_public_link_hint">"Spotify 또는 Apple Music에서 공개로 공유된 플레이리스트 링크를 사용하세요."</string>
     <string name="live_playlist_queue_full">"대기열이 꽉 찼어요."</string>
     <string name="live_playlist_select_all">"모두 선택"</string>
     <string name="live_ready_to_record">"녹음 준비 완료"</string>
@@ -589,6 +589,8 @@
     <string name="live_record_a_sample">"샘플 녹음"</string>
     <string name="live_recording">"녹음 중…"</string>
     <string name="live_something_went_wrong_try_again">"문제가 발생했습니다. 다시 시도해 주세요."</string>
+    <string name="live_song_unavailable">"곡을 재생할 수 없어요"</string>
+    <string name="live_connecting_your_player">"플레이어 연결 중…"</string>
     <string name="live_song_unavailable_on_provider">"이 곡은 %1$s에서 재생할 수 없어요."</string>
     <string name="live_spotify_is_required_to_use_live">"라이브를 이용하려면 Spotify가 필요해요."</string>
     <string name="live_the_queue_changed_try_again">"대기열이 바뀌었어요. 다시 시도하세요."</string>
@@ -645,4 +647,5 @@
     <string name="corus_style_weather_light_flurry">"가볍게 날리는 눈"</string>
     <string name="corus_style_weather_snowfall">"내리는 눈"</string>
     <string name="corus_style_weather_steady_rain">"꾸준히 내리는 비"</string>
+    <string name="corus_live_listener_rejoined">"%1$s님이 룸에 다시 들어왔어요"</string>
 </resources>

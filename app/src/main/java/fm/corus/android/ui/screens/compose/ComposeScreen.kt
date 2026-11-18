@@ -52,6 +52,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -169,6 +170,7 @@ fun ComposeScreen(
 
     val hasSelection = selectedTrack != null || selectedMovie != null || isLoadingPreSelection
     val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val density = LocalDensity.current
@@ -181,6 +183,9 @@ fun ComposeScreen(
     // mid-screen. If no keyboard is up the inset is already 0 and [reveal] runs
     // immediately. Shared by the exit-confirm sheet and the drafts sheet.
     fun dismissKeyboardThen(reveal: () -> Unit) {
+        // Hiding the IME alone leaves Search focused, so closing a sheet can
+        // restore the keyboard while the composer is being dismissed.
+        focusManager.clearFocus(force = true)
         keyboardController?.hide()
         scope.launch {
             withTimeoutOrNull(500) {
@@ -260,9 +265,16 @@ fun ComposeScreen(
     val canSaveDraft = !isRepost && hasSelectionForDraft && isDirty &&
         preSelectedTrackId == null && preSelectedMovieId == null
 
-    // Drafts entry count — hidden while reposting or pre-selected (no drafts UI
-    // in those flows), otherwise the live count.
-    val draftsCount = if (isRepost || preSelectedTrackId != null || preSelectedMovieId != null) 0 else drafts.size
+    // Scope both the entry count and sheet to the active picker type.
+    val activeDraftMediaType = if (unifiedPicker) {
+        when (unifiedFilter) {
+            ComposeUnifiedFilter.ALL -> null
+            ComposeUnifiedFilter.SONGS -> MediaType.TRACK
+            ComposeUnifiedFilter.FILMS -> MediaType.MOVIE
+        }
+    } else mediaType
+    val visibleDrafts = draftsForMediaType(drafts, activeDraftMediaType)
+    val draftsCount = if (isRepost || preSelectedTrackId != null || preSelectedMovieId != null) 0 else visibleDrafts.size
     val draftsEntryAccessibilityLabel =
         "${stringResource(fm.corus.android.localization.CorusStrings.compose_drafts_title)} ($draftsCount)"
 
@@ -296,6 +308,8 @@ fun ComposeScreen(
     // when there's a keepable draft, confirm; Discard/Save DISMISSES the
     // composer. Otherwise dismiss silently. Mirrors iOS's Cancel routing.
     fun handleCancel() {
+        focusManager.clearFocus(force = true)
+        keyboardController?.hide()
         if (canSaveDraft) {
             exitToPicker = false
             dismissKeyboardThen { showExitSheet = true }
@@ -673,7 +687,10 @@ fun ComposeScreen(
 
     // ── Drafts list sheet ──
     if (showDraftsSheet) {
-        val draftsSheetState = rememberGuardedSheetState()
+        // This short, read-only sheet should use Material's distance/velocity
+        // thresholds. The guarded state's screen-sized threshold can exceed
+        // the sheet's entire height and veto the final dismissal callback.
+        val draftsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         CorusModalBottomSheet(
             onDismissRequest = { showDraftsSheet = false },
             sheetState = draftsSheetState,
@@ -681,8 +698,9 @@ fun ComposeScreen(
         ) {
             CorusSystemBars()
             DraftsSheetContent(
-                drafts = drafts,
+                drafts = visibleDrafts,
                 onResume = { draft ->
+                    if (visibleDrafts.none { it.id == draft.id }) return@DraftsSheetContent
                     // Clear any live recording first so the resumed note replaces it.
                     voiceRecorderState.deleteRecording()
                     val resumed = viewModel.resumeDraft(draft)

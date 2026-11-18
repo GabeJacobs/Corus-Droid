@@ -60,6 +60,7 @@ fun InlineYouTubePlayer(
             container.setBackgroundColor(android.graphics.Color.BLACK)
 
             val webView = WebView(context).apply {
+                webViewClient = RendererSafeWebViewClient { currentOnEnded() }
                 settings.javaScriptEnabled = true
                 settings.mediaPlaybackRequiresUserGesture = false
                 settings.cacheMode = WebSettings.LOAD_DEFAULT
@@ -153,6 +154,7 @@ fun InlineYouTubePlayer(
             // Stop playback + free the WebView when the card scrolls off or the
             // user closes the trailer.
             (container.getChildAt(0) as? WebView)?.apply {
+                container.removeView(this)
                 loadUrl("about:blank")
                 destroy()
             }

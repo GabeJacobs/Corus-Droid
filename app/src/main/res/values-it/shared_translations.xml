@@ -491,13 +491,13 @@
     <string name="live_playlist_add">"Aggiungi alla coda"</string>
     <string name="live_playlist_add_count">"Aggiungi %1$d alla coda"</string>
     <string name="live_playlist_clear_selection">"Deseleziona tutto"</string>
-    <string name="live_playlist_import_instructions">"Apri una playlist su Spotify, tocca Condividi e poi Copia link. Incolla il link qui sotto."</string>
-    <string name="live_playlist_invalid_link">"Incolla il link di una playlist pubblica di Spotify."</string>
+    <string name="live_playlist_import_instructions">"Apri una playlist in Spotify o Apple Music, tocca Condividi, poi Copia link. Incolla il link qui sotto."</string>
+    <string name="live_playlist_invalid_link">"Incolla il link a una playlist Spotify o Apple Music."</string>
     <string name="live_playlist_link">"Link alla playlist"</string>
     <string name="live_playlist_load_failed">"Impossibile caricare questa playlist. Controlla il link e riprova."</string>
     <string name="live_playlist_loading">"Caricamento della playlist…"</string>
     <string name="live_playlist_no_new_songs">"Non ci sono nuovi brani da aggiungere da questa playlist."</string>
-    <string name="live_playlist_public_link_hint">"Usa il link di una playlist Spotify condivisa pubblicamente."</string>
+    <string name="live_playlist_public_link_hint">"Usa il link pubblico di una playlist Spotify o Apple Music."</string>
     <string name="live_playlist_queue_full">"La tua coda è piena."</string>
     <string name="live_playlist_select_all">"Seleziona tutto"</string>
     <string name="live_ready_to_record">"Pronto per registrare"</string>
@@ -589,6 +589,8 @@
     <string name="live_record_a_sample">"Registra una prova"</string>
     <string name="live_recording">"Registrazione…"</string>
     <string name="live_something_went_wrong_try_again">"Qualcosa è andato storto. Riprova."</string>
+    <string name="live_song_unavailable">"Brano non disponibile"</string>
+    <string name="live_connecting_your_player">"Connessione al lettore…"</string>
     <string name="live_song_unavailable_on_provider">"Questo brano non è disponibile su %1$s."</string>
     <string name="live_spotify_is_required_to_use_live">"Spotify è necessario per la diretta."</string>
     <string name="live_the_queue_changed_try_again">"La coda è cambiata. Riprova."</string>
@@ -645,4 +647,5 @@
     <string name="corus_style_weather_light_flurry">"Qualche fiocco"</string>
     <string name="corus_style_weather_snowfall">"Nevicata"</string>
     <string name="corus_style_weather_steady_rain">"Pioggia continua"</string>
+    <string name="corus_live_listener_rejoined">"%1$s ha fatto ritorno nella stanza"</string>
 </resources>

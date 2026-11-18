@@ -47,11 +47,12 @@ fun RainEffectView(
     windAngleDegrees: Float = 15f,
     particleDensity: Float = 1f,
     fallSpeedScale: Float = 1f,
+    startsFilled: Boolean = false,
 ) {
     if (intensity == RainIntensity.OFF) return
 
     Box(modifier = modifier.fillMaxSize()) {
-        RainCanvas(intensity, windAngleDegrees, particleDensity, fallSpeedScale, Modifier.fillMaxSize())
+        RainCanvas(intensity, windAngleDegrees, particleDensity, fallSpeedScale, startsFilled, Modifier.fillMaxSize())
         if (intensity == RainIntensity.HEAVY) {
             LightningFlashOverlay(subtle = false)
         }
@@ -64,21 +65,22 @@ private fun RainCanvas(
     windAngleDegrees: Float,
     particleDensity: Float,
     fallSpeedScale: Float,
+    startsFilled: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val windRadians = Math.toRadians(windAngleDegrees.toDouble()).toFloat()
     val windDx = sin(windRadians)
     val windDy = cos(windRadians)
     val dropCount = (intensity.dropCount * particleDensity).roundToInt()
-    var drops by remember(intensity, dropCount) {
+    var drops by remember(intensity, dropCount, startsFilled) {
         mutableStateOf(
             List(dropCount) { createRaindrop(1f, 1f, intensity) }
         )
     }
-    var splashes by remember(intensity, dropCount) { mutableStateOf(listOf<Splash>()) }
-    var tick by remember(intensity, dropCount) { mutableIntStateOf(0) }
+    var splashes by remember(intensity, dropCount, startsFilled) { mutableStateOf(listOf<Splash>()) }
+    var tick by remember(intensity, dropCount, startsFilled) { mutableIntStateOf(0) }
 
-    LaunchedEffect(intensity, dropCount) {
+    LaunchedEffect(intensity, dropCount, startsFilled) {
         while (true) {
             delay(16) // ~60fps
             tick++
@@ -99,7 +101,7 @@ private fun RainCanvas(
             if (y >= fadeBand) 1f else (y / fadeBand).coerceIn(0f, 1f)
 
         if (tick == 1) {
-            drops = List(dropCount) { createRaindrop(w, h, intensity, scale) }
+            drops = List(dropCount) { createRaindrop(w, h, intensity, scale, startsFilled = startsFilled) }
         }
 
         val dt = fallSpeedScale / 60f
@@ -123,7 +125,7 @@ private fun RainCanvas(
                         )
                     )
                 }
-                return@map createRaindrop(w, h, intensity, scale, fullHeight = false)
+                return@map createRaindrop(w, h, intensity, scale, fullHeight = false, startsFilled = startsFilled)
             }
             if (newX > w + 10f) newX -= w + 20f
             if (newX < -10f) newX += w + 20f
@@ -234,6 +236,7 @@ internal fun createRaindrop(
     intensity: RainIntensity,
     scale: Float = 1f,
     fullHeight: Boolean = true,
+    startsFilled: Boolean = false,
 ): Raindrop {
     val isForeground = Random.nextFloat() > 0.35f
     val layer = if (isForeground) RainLayer.FOREGROUND else RainLayer.BACKGROUND
@@ -276,13 +279,15 @@ internal fun createRaindrop(
     }
 
     val x = Random.nextFloat() * (width + 40f) - 20f
-    val y = if (fullHeight) {
-        Random.nextFloat() * height * 1.5f - height * 0.5f
-    } else {
+    val y = when {
+        fullHeight && startsFilled -> Random.nextFloat() * height
+        fullHeight -> Random.nextFloat() * height * 1.5f - height * 0.5f
+        // Keep filled overlays populated by recycling just above the viewport.
+        startsFilled -> (-60f + Random.nextFloat() * 50f) * scale
         // Spawn well above the canvas so drops stagger in over time instead
         // of clustering at the top edge — pairs with the topFade band so
         // they fade in smoothly as they descend into view.
-        Random.nextFloat() * -210f - 40f
+        else -> Random.nextFloat() * -210f - 40f
     }
 
     return Raindrop(

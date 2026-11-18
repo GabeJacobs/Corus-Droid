@@ -491,13 +491,13 @@
     <string name="live_playlist_add">"Zur Warteschlange hinzufügen"</string>
     <string name="live_playlist_add_count">"%1$d zur Warteschlange hinzufügen"</string>
     <string name="live_playlist_clear_selection">"Auswahl aufheben"</string>
-    <string name="live_playlist_import_instructions">"Öffne eine Playlist in Spotify und tippe auf Teilen, dann auf Link kopieren. Füge den Link unten ein."</string>
-    <string name="live_playlist_invalid_link">"Füge den Link zu einer öffentlichen Spotify-Playlist ein."</string>
+    <string name="live_playlist_import_instructions">"Öffne eine Playlist in Spotify oder Apple Music, tippe auf „Teilen“ und dann auf „Link kopieren“. Füge den Link unten ein."</string>
+    <string name="live_playlist_invalid_link">"Füge einen Spotify- oder Apple Music-Playlist-Link ein."</string>
     <string name="live_playlist_link">"Playlist-Link"</string>
     <string name="live_playlist_load_failed">"Diese Playlist konnte nicht geladen werden. Prüfe den Link und versuch es erneut."</string>
     <string name="live_playlist_loading">"Playlist wird geladen …"</string>
     <string name="live_playlist_no_new_songs">"Diese Playlist enthält keine neuen Songs zum Hinzufügen."</string>
-    <string name="live_playlist_public_link_hint">"Verwende den öffentlichen Link zu einer Spotify-Playlist."</string>
+    <string name="live_playlist_public_link_hint">"Verwende einen öffentlich geteilten Playlist-Link von Spotify oder Apple Music."</string>
     <string name="live_playlist_queue_full">"Deine Warteschlange ist voll."</string>
     <string name="live_playlist_select_all">"Alle auswählen"</string>
     <string name="live_ready_to_record">"Bereit zur Aufnahme"</string>
@@ -589,6 +589,8 @@
     <string name="live_record_a_sample">"Probe aufnehmen"</string>
     <string name="live_recording">"Aufnahme läuft…"</string>
     <string name="live_something_went_wrong_try_again">"Etwas ist schiefgelaufen. Versuch es erneut."</string>
+    <string name="live_song_unavailable">"Song nicht verfügbar"</string>
+    <string name="live_connecting_your_player">"Player wird verbunden …"</string>
     <string name="live_song_unavailable_on_provider">"Dieser Song ist auf %1$s nicht verfügbar."</string>
     <string name="live_spotify_is_required_to_use_live">"Für Live ist Spotify erforderlich."</string>
     <string name="live_the_queue_changed_try_again">"Die Warteschlange wurde geändert. Versuche es erneut."</string>
@@ -645,4 +647,5 @@
     <string name="corus_style_weather_light_flurry">"Leichtes Schneegestöber"</string>
     <string name="corus_style_weather_snowfall">"Schneefall"</string>
     <string name="corus_style_weather_steady_rain">"Gleichmäßiger Regen"</string>
+    <string name="corus_live_listener_rejoined">"%1$s ist dem Raum erneut beigetreten"</string>
 </resources>

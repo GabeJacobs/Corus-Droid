@@ -43,6 +43,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -78,12 +80,14 @@ import fm.corus.android.domain.AppleMusicPlayback
 import fm.corus.android.domain.SpotifyPlaybackService
 import fm.corus.android.service.DeepLinkDestination
 import fm.corus.android.ui.components.ComposePlusButton
+import fm.corus.android.ui.components.MiniPlayerProgressHeight
 import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.components.rememberReducedMotion
 import fm.corus.android.ui.components.parityCopy
 import fm.corus.android.data.model.FlairStyle
 import fm.corus.android.ui.components.blockTouchPassthrough
 import fm.corus.android.ui.player.PlayerExpansionState
+import fm.corus.android.ui.player.rememberPlayerExpansionState
 import fm.corus.android.ui.player.PlayerSheetValue
 import fm.corus.android.ui.player.miniOpacity
 import fm.corus.android.ui.theme.LocalCorusDarkTheme
@@ -107,6 +111,7 @@ internal data class LiveNavigationState(
     val access: LiveAccess?,
     val roomCoversFeed: Boolean,
     val discovery: List<LiveRoom>,
+    val trendingRoom: LiveRoom?,
     val showGoLive: Boolean,
     val canOpenSetup: Boolean,
     val mixedSaves: List<LiveSaveItem>?,
@@ -116,6 +121,14 @@ internal data class LiveNavigationState(
 )
 
 internal val LocalLiveNavigation = compositionLocalOf<LiveNavigation?> { null }
+
+@Composable
+internal fun rememberLiveRoomExpansion(state: LiveUiState): PlayerExpansionState = key(state.room?.id) {
+    // The entrance already covers the feed. Replace it with a full room on the
+    // first frame, rather than exposing the feed while a collapsed panel opens.
+    // Only a different room resets this state; reopening a minimized room still animates.
+    rememberPlayerExpansionState(initiallyExpanded = state.room != null && !state.minimized)
+}
 
 @Composable
 internal fun LiveCreateButton(onDefault: () -> Unit, modifier: Modifier = Modifier) {
@@ -161,7 +174,8 @@ internal fun LiveCreateButton(onDefault: () -> Unit, modifier: Modifier = Modifi
 @Composable
 internal fun LiveDiscovery(source: String, following: Set<String>? = null, inSearch: Boolean = false) {
     val live = LocalLiveNavigation.current ?: return
-    val rooms = live.state.discovery.filter { it.matchesFollowing(following) }
+    val rooms = if (source == "trending") listOfNotNull(live.state.trendingRoom)
+    else live.state.discovery.filter { it.matchesFollowing(following) }
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val artworkUrls = if (lifecycle.isAtLeast(Lifecycle.State.RESUMED) && !live.state.roomCoversFeed) {
         rooms.take(3).mapNotNull { it.current?.loadingArtworkUrl }.distinct()
@@ -296,21 +310,35 @@ private fun LiveMiniAvatarStack(host: LivePerson, djs: List<LivePerson>) {
 }
 
 @Composable
-internal fun LiveProfileAvatar(uid: String, avatar: @Composable () -> Unit) {
+internal fun LiveProfileAvatar(uid: String, showPhoto: () -> Unit, avatar: @Composable () -> Unit) {
     val live = LocalLiveNavigation.current
     val room = live?.state?.discovery?.firstOrNull { it.host.uid == uid || it.djs.any { dj -> dj.text("uid") == uid } }
     if (room == null || live == null) {
-        avatar()
+        Box(Modifier.clickable(onClick = showPhoto)) { avatar() }
         return
     }
-    Box {
-        avatar()
-        Box(Modifier.matchParentSize().clip(CircleShape).clickable {
+    Box(
+        Modifier.drawBehind {
+            // iOS strokes an 8-point larger circle inside its bounds, without
+            // changing the profile photo's size or the header's layout.
+            val stroke = 2.5.dp.toPx()
+            drawCircle(CorusColors.Accent, radius = size.minDimension / 2 + 4.dp.toPx() - stroke / 2,
+                style = Stroke(stroke))
+        }.clickable(role = Role.Button, onClickLabel = stringResource(R.string.live_join_room)) {
             live.viewModel.event("discovery_opened", source = "profile_avatar")
             live.viewModel.join(room.id)
-        })
-        LiveText(stringResource(CorusStrings.corus_live_live), CorusFont.sectionHeader, LiveRed,
-            Modifier.align(Alignment.BottomCenter).clip(CircleShape).background(CorusColors.Background).padding(horizontal = 5.dp))
+        },
+    ) {
+        avatar()
+        Box(Modifier.align(Alignment.BottomCenter).offset(y = 4.dp).width(58.dp), contentAlignment = Alignment.Center) {
+            LiveText(
+                stringResource(CorusStrings.corus_live_live).uppercase(),
+                CorusFont.custom(weight = 900, size = 10).copy(letterSpacing = 0.3.sp), Color.White,
+                Modifier.clearAndSetSemantics {}.clip(CircleShape).background(Color(0xFF4774CA))
+                    .border(1.dp, CorusColors.Background, CircleShape).padding(horizontal = 6.dp, vertical = 2.dp),
+                lines = 1,
+            )
+        }
     }
 }
 
@@ -349,7 +377,11 @@ internal fun LiveMiniPlayer(
     val djs = remember(room.djs) { room.djs.map(LivePerson::parse).filter { it.uid.isNotBlank() } }
     val ready = state.audioReady || isHost
     val canLike = mounted && state.audioReady && room.canLikeFromMiniPlayer(state.uid, now)
-    val canSkip = mounted && track != null && state.canSkipTrack(room)
+    val transitioning = room.pendingSkip != null
+    val hasNextSong = room.nextTrack != null
+    val canMute = track != null || transitioning || hasNextSong
+    val canAdvance = transitioning || hasNextSong
+    val showsNext = mounted && (isHost || room.currentDJ?.uid == state.uid)
     val reducedMotion = rememberReducedMotion()
     val artwork = track?.song?.takeIf { room.pausedAt == null }?.liveDisplayArtwork
 
@@ -428,9 +460,20 @@ internal fun LiveMiniPlayer(
                 LiveIconButton(Icons.Default.Close, stringResource(CorusStrings.corus_live_leave_room), vm::leave,
                     tint = CorusColors.Text, touchSize = 44.dp, glyphSize = 20.dp)
             }
-            if (canSkip) {
+            if (mounted && isHost) {
+                LiveIconButton(
+                    if (state.muted) Icons.Default.VolumeOff else Icons.Default.VolumeUp,
+                    if (state.muted) stringResource(CorusStrings.corus_live_unmute_audio)
+                        else stringResource(CorusStrings.corus_live_mute_audio),
+                    { if (!transitioning) vm.toggleMute() },
+                    enabled = canMute,
+                    tint = CorusColors.Text, touchSize = 44.dp, glyphSize = 20.dp,
+                )
+            }
+            if (showsNext) {
                 LiveIconButton(Icons.Default.SkipNext, stringResource(CorusStrings.corus_live_skip_song),
                     { vm.skipFromMiniPlayer(room.id, room.revision) },
+                    enabled = canAdvance,
                     tint = CorusColors.Text, touchSize = 44.dp, glyphSize = 24.dp)
             }
         }
@@ -442,7 +485,10 @@ internal fun LiveMiniPlayer(
                     label = "Live playback progress",
                 )
                 Box(
-                    Modifier.align(Alignment.TopCenter).fillMaxWidth().height(2.5.dp).background(CorusColors.Divider)
+                    // Straddle the surface edge like the regular player's scrubber,
+                    // covering the pixel seam where the sheet's position is rounded.
+                    Modifier.align(Alignment.TopCenter).offset(y = -MiniPlayerProgressHeight / 2)
+                        .fillMaxWidth().height(MiniPlayerProgressHeight).background(CorusColors.Divider)
                         .semantics { progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f) },
                 ) {
                     Box(Modifier.fillMaxWidth(displayed.coerceIn(0f, 1f)).fillMaxHeight().background(CorusColors.Secondary))
@@ -496,7 +542,8 @@ private fun LiveRoomSheet(
         Box(
             Modifier.fillMaxSize().offset {
                 val offset = dragState.offset
-                IntOffset(0, (if (offset.isNaN()) travel else offset.coerceIn(0f, travel)).roundToInt())
+                val initialOffset = if (dragState.currentValue == PlayerSheetValue.Expanded) 0f else travel
+                IntOffset(0, (if (offset.isNaN()) initialOffset else offset.coerceIn(0f, travel)).roundToInt())
             },
         ) {
             if (showMini && !showFullRoom) {
@@ -548,9 +595,10 @@ internal fun BoxScope.LivePresentation(
 ) {
     val profile by vm.profile.collectAsState()
     val context = LocalContext.current
-    val expandedRoom = state.room?.takeUnless { state.minimized }
+    val visibleRoom = state.presentedRoom
+    val expandedRoom = visibleRoom?.takeUnless { state.minimized }
     var nowPlayingSong by remember(state.uid) { mutableStateOf<CymbalTrack?>(null) }
-    state.room?.let { room ->
+    visibleRoom?.let { room ->
         key(room.id) {
             LiveRoomSheet(
                 room, state, vm, roomExpansion, parkInsetPx, showMini,
@@ -856,22 +904,28 @@ private fun HostProviderRow(label: String, logo: Int, enabled: Boolean, busy: Bo
 @Composable
 internal fun LiveProviderButton(
     label: String,
-    provider: MusicService,
-    connecting: MusicService?,
+    logo: Int,
+    modifier: Modifier,
+    enabled: Boolean,
+    busy: Boolean,
     onClick: () -> Unit,
 ) {
-    TextButton(enabled = connecting == null, onClick = onClick) {
-        if (connecting == provider) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(14.dp),
-                color = CorusColors.Accent,
-                strokeWidth = 2.dp,
-            )
-            Spacer(Modifier.width(8.dp))
-            LiveText(stringResource(R.string.live_connecting_spotify))
-        } else {
-            LiveText(label)
+    Row(
+        modifier.alpha(if (enabled || busy) 1f else .55f)
+            .clip(CircleShape)
+            .background(CorusColors.Background)
+            .border(.5.dp, CorusColors.Divider, CircleShape)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .heightIn(min = 50.dp)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(23.dp), contentAlignment = Alignment.Center) {
+            if (busy) CircularProgressIndicator(Modifier.size(18.dp), color = CorusColors.Accent, strokeWidth = 2.dp)
+            else Image(painterResource(logo), contentDescription = null, modifier = Modifier.fillMaxSize())
         }
+        LiveText(label, CorusFont.bodyMedium)
     }
 }
 

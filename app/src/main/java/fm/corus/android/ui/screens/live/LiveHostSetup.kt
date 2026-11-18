@@ -3,7 +3,6 @@ package fm.corus.android.ui.screens.live
 import androidx.compose.ui.res.stringResource
 import fm.corus.android.R
 import fm.corus.android.localization.CorusStrings
-import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -441,7 +440,11 @@ internal fun LiveLoading(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterVertically),
     ) {
-        LiveArtwork(track?.loadingArtworkUrl, LiveLoadingArtworkSize, showPlaceholderWhileLoading = true)
+        if (tuning) {
+            LiveJoiningRecordArtwork(track?.loadingArtworkUrl)
+        } else {
+            LiveArtwork(track?.loadingArtworkUrl, LiveLoadingArtworkSize, showPlaceholderWhileLoading = true)
+        }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(if (tuning) 5.dp else 7.dp),
@@ -716,6 +719,7 @@ internal fun ColumnScope.LiveSongPickerContent(
     queued: List<LiveTrack> = emptyList(),
     canAdd: Boolean = true,
     horizontalPadding: Dp = 0.dp,
+    prepareBeforeChoosing: Boolean = true,
     afterSearch: @Composable (String) -> Unit = {},
     queueContent: LazyListScope.() -> Unit = {},
 ) {
@@ -786,7 +790,7 @@ internal fun ColumnScope.LiveSongPickerContent(
     val latestChoose by rememberUpdatedState(choose)
     val latestCanAdd by rememberUpdatedState(canAdd)
     fun addTrack(track: LiveTrack) {
-        if (!track.playsFromSource) {
+        if (!prepareBeforeChoosing || !track.playsFromSource) {
             latestChoose(track)
             return
         }
@@ -1248,11 +1252,11 @@ internal fun LivePlaylistPicker(
     vm: LiveViewModel, existing: List<LiveTrack>, slots: Int, close: () -> Unit, add: (List<LiveTrack>) -> Unit,
 ) {
     var link by remember { mutableStateOf("") }
-    val playlistId = remember(link) { spotifyPlaylistId(link) }
-    var playlist by remember(playlistId) { mutableStateOf<Pair<String, List<LiveTrack>>?>(null) }
-    var retry by remember(playlistId) { mutableIntStateOf(0) }
-    var failed by remember(playlistId) { mutableStateOf(false) }
-    var selected by remember(playlistId) { mutableStateOf<Set<String>>(emptySet()) }
+    val playlistLink = remember(link) { LivePlaylistLink.parse(link) }
+    var playlist by remember(playlistLink) { mutableStateOf<Pair<String, List<LiveTrack>>?>(null) }
+    var retry by remember(playlistLink) { mutableIntStateOf(0) }
+    var failed by remember(playlistLink) { mutableStateOf(false) }
+    var selected by remember(playlistLink) { mutableStateOf<Set<String>>(emptySet()) }
     val tracks = remember(playlist, existing) {
         val ids = existing.mapTo(mutableSetOf()) { it.id }
         val isrcs = existing.mapNotNullTo(mutableSetOf()) { it.song.isrc }
@@ -1267,12 +1271,12 @@ internal fun LivePlaylistPicker(
     ) {
         val focus = LocalFocusManager.current
         val keyboard = LocalSoftwareKeyboardController.current
-        LaunchedEffect(playlistId, retry, slots > 0) {
-            if (playlistId == null || slots <= 0) return@LaunchedEffect
+        LaunchedEffect(playlistLink, retry, slots > 0) {
+            if (playlistLink == null || slots <= 0) return@LaunchedEffect
             failed = false
             delay(400)
             try {
-                val result = vm.spotifyPlaylist(playlistId)
+                val result = vm.playlist(playlistLink)
                 currentCoroutineContext().ensureActive()
                 focus.clearFocus()
                 keyboard?.hide()
@@ -1289,8 +1293,8 @@ internal fun LivePlaylistPicker(
         ) {
             item {
                 Column(Modifier.padding(top = 12.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    LiveText(stringResource(R.string.live_playlist_import_instructions), color = CorusColors.Secondary)
-                    LiveText(stringResource(R.string.live_playlist_public_link_hint), CorusFont.captionMedium, CorusColors.Secondary)
+                    LiveText(stringResource(CorusStrings.corus_live_playlist_import_instructions), color = CorusColors.Secondary)
+                    LiveText(stringResource(CorusStrings.corus_live_playlist_public_link_hint), CorusFont.captionMedium, CorusColors.Secondary)
                     if (slots <= 0) {
                         LiveText(stringResource(R.string.live_playlist_queue_full), CorusFont.username)
                     } else {
@@ -1329,11 +1333,11 @@ internal fun LivePlaylistPicker(
                             LiveText(stringResource(CorusStrings.gift_try_again), color = CorusColors.PlayerLink)
                         }
                     }
-                    playlistId != null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    playlistLink != null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         CircularProgressIndicator(Modifier.size(18.dp), color = CorusColors.Accent, strokeWidth = 2.dp)
                         LiveText(stringResource(R.string.live_playlist_loading), CorusFont.caption, CorusColors.Secondary)
                     }
-                    link.isNotBlank() -> LiveText(stringResource(R.string.live_playlist_invalid_link), CorusFont.caption, CorusColors.Secondary)
+                    link.isNotBlank() -> LiveText(stringResource(CorusStrings.corus_live_playlist_invalid_link), CorusFont.caption, CorusColors.Secondary)
                 }
             }
             playlist?.let { (name, _) ->
@@ -1388,19 +1392,6 @@ internal fun LivePlaylistPicker(
         }
     }
 }
-
-private val SpotifyPlaylistIdPattern = Regex("[A-Za-z0-9]{22}")
-
-private fun spotifyPlaylistId(link: String): String? {
-    val uri = Uri.parse(link.trim())
-    if (!uri.scheme.equals("https", ignoreCase = true) ||
-        !uri.host.equals("open.spotify.com", ignoreCase = true)
-    ) return null
-    val segments = uri.pathSegments
-    if (segments.getOrNull(segments.size - 2) != "playlist") return null
-    return segments.lastOrNull()?.takeIf(SpotifyPlaylistIdPattern::matches)
-}
-
 
 @Composable
 private fun LiveSetupOption(

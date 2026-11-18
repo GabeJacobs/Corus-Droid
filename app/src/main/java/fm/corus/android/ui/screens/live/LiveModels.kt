@@ -151,6 +151,17 @@ internal data class LiveRoom(val id: String, private val fields: LiveFields) {
     fun talkLimitReached(now: Long): Boolean = talkRoomLimitReached || (talkDailyResetAt ?: 0) > now
     val voiceSession = fields["voiceSession"] as? String
     val djs = fields.rows("djs")
+    val talkSpeakerUid: String?
+        get() {
+            if (voiceMode != "talk") return null
+            return (fields["talkStartedBy"] as? String)
+                ?: host.uid.takeIf { fields.number("voiceProtocol") != 2L || djs.isEmpty() }
+        }
+    fun djHandle(uid: String): String? {
+        if (uid == host.uid) return hostHandle
+        return djs.firstOrNull { it.text("uid") == uid }?.let(LivePerson::parse)
+            ?.username?.trimStart('@')?.takeIf { it.isNotBlank() }?.let { "@$it" }
+    }
     val collaborative = fields["djs"] is List<*>
     val welcomeUrl = fields["welcomeMessage"].liveFields()?.get("url") as? String
     val pendingSkip = fields["pendingSkip"].liveFields()?.text("id")
@@ -208,7 +219,9 @@ internal data class LiveMessage(
     val text = fields.text("text")
     val kind = fields.text("kind")
     val isSongLikeNotice get() = kind == "songLiked"
-    val likeNoticeHandle get() = fields.text("displayName").takeIf { it.startsWith("@") && text.startsWith("$it ") }
+    val likeNoticeHandle get() = fields.text("displayName").takeIf { it.startsWith("@") }
+    inline fun likeNoticeText(localized: (String?) -> String): String =
+        if (fields.number("likeCount") > 1 && text.isNotEmpty()) text else localized(likeNoticeHandle)
     val gifUrl = fields["gifURL"] as? String
     val supportsReactions get() = kind.isEmpty() && (text.isNotEmpty() || gifUrl != null)
     val chatReactionEmojis: Set<String>

@@ -4,6 +4,7 @@ import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.livekit.android.LiveKit
 import io.livekit.android.room.Room
+import io.livekit.android.room.track.Track
 import javax.inject.Inject
 import kotlin.math.ceil
 import kotlin.math.log10
@@ -26,6 +27,7 @@ internal class LiveVoice @Inject constructor(
 ) {
     private var room: Room? = null
     private var session: String? = null
+    private var receivedRemoteMicrophone = false
 
     suspend fun connect(roomId: String, session: String, publish: Boolean) {
         if (this.session != session || room == null) {
@@ -43,6 +45,39 @@ internal class LiveVoice @Inject constructor(
         val participant = room?.localParticipant ?: return
         val enabled = participant.setMicrophoneEnabled(publish)
         check(!publish || enabled) { "The microphone could not start." }
+    }
+
+    fun isConnected(session: String): Boolean =
+        this.session == session && room?.state == Room.State.CONNECTED
+
+    fun isReconnecting(session: String): Boolean =
+        this.session == session && room?.state == Room.State.RECONNECTING
+
+    fun hasReceivedRemoteMicrophone(session: String): Boolean =
+        this.session == session && receivedRemoteMicrophone
+
+    fun waitingForRemoteMicrophone(session: String): Boolean {
+        val connection = room ?: return false
+        if (!isConnected(session)) return false
+        val microphones = connection.remoteParticipants.values.mapNotNull {
+            it.getTrackPublication(Track.Source.MICROPHONE)
+        }
+        // A room connection can precede microphone publication and subscription.
+        // Intentionally muted publications are settled, rather than loading.
+        if (microphones.any { !it.muted && it.track != null }) receivedRemoteMicrophone = true
+        return !receivedRemoteMicrophone &&
+            (microphones.isEmpty() || microphones.any { !it.muted })
+    }
+
+    fun holdingTalkPresentation(session: String): Boolean {
+        if (!hasReceivedRemoteMicrophone(session) || isReconnecting(session)) return false
+        if (!isConnected(session)) return true
+        val microphones = room?.remoteParticipants?.values.orEmpty().mapNotNull {
+            it.getTrackPublication(Track.Source.MICROPHONE)
+        }
+        // Keep the established label across mic teardown until the room's Music snapshot.
+        // A microphone that is explicitly muted still uses the normal muted presentation.
+        return microphones.isEmpty() || microphones.any { !it.muted && it.track == null }
     }
 
     fun levels(): Map<String, Float> {
@@ -63,6 +98,7 @@ internal class LiveVoice @Inject constructor(
     }
 
     fun disconnect() {
+        receivedRemoteMicrophone = false
         room?.disconnect()
         room?.release()
         room = null

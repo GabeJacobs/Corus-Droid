@@ -6,6 +6,21 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LiveHeartReactionsTest {
+    @Test fun likeNoticesPreserveTheGroupedTextAndLocalizeSingles() {
+        fun notice(text: String, likeCount: Long? = null) = LiveMessage(
+            "like",
+            mapOf("kind" to "songLiked", "displayName" to "@gulches", "text" to text, "likeCount" to likeCount),
+        )
+        val oneOther = "@gulches and 1 other liked this song"
+        val twoOthers = "@gulches and 2 others liked this song"
+        val localized: (String?) -> String = { "$it curtiu esta música" }
+
+        assertEquals(oneOther, notice(oneOther, 2).likeNoticeText(localized))
+        assertEquals(twoOthers, notice(twoOthers, 3).likeNoticeText(localized))
+        assertEquals("@gulches curtiu esta música", notice("@gulches liked this song", 1).likeNoticeText(localized))
+        assertEquals("@gulches curtiu esta música", notice("@gulches liked this song").likeNoticeText(localized))
+    }
+
     @Test fun firstLikeShowsBeforeMembershipUpdatesAndAppliesOnlyToThatSong() {
         val playing = LiveUiState(room = room("revision" to 1L))
         assertFalse(playing.hasLikedCurrentSong)

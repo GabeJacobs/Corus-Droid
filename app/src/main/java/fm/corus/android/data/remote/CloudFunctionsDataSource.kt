@@ -2599,13 +2599,25 @@ class CloudFunctionsDataSource @Inject constructor(
      *  common call costs zero Spotify quota. Backs the mini-player "open in
      *  Spotify" tap under Apple-primary search. */
     @Suppress("UNCHECKED_CAST")
-    suspend fun spotifyTrackLookup(name: String, artist: String, isrc: String?, appleTrackId: String?): SpotifyLookupResult {
-        val result = functions.getHttpsCallable("spotifyTrackLookup").call(linkOutParams(name, artist, isrc, appleTrackId)).await()
-        val data = result.getData() as? Map<String, Any?> ?: return SpotifyLookupResult(false, null)
+    suspend fun spotifyTrackLookup(
+        name: String,
+        artist: String,
+        isrc: String?,
+        appleTrackId: String?,
+        albumName: String? = null,
+        durationMs: Int? = null,
+    ): SpotifyLookupResult {
+        val payload = linkOutParams(name, artist, isrc, appleTrackId).toMutableMap()
+        if (!albumName.isNullOrBlank()) payload["albumName"] = albumName
+        if (durationMs != null && durationMs > 0) payload["durationMs"] = durationMs
+        val result = functions.getHttpsCallable("spotifyTrackLookup").call(payload).await()
+        val data = result.getData() as? Map<String, Any?> ?: error("Invalid Spotify lookup response")
+        val found = data["found"] as? Boolean ?: error("Missing Spotify lookup status")
+        if (!found) return SpotifyLookupResult(false, null)
         val webUrl = (data["spotifyWebURL"] as? String)?.ifEmpty { null }
         val spotifyUri = (data["spotifyURI"] as? String)?.ifEmpty { null }
-        val found = (data["found"] as? Boolean ?: false) && (webUrl != null || spotifyUri != null)
-        return SpotifyLookupResult(found, webUrl, spotifyUri)
+        check(webUrl != null || spotifyUri != null) { "Missing Spotify track link" }
+        return SpotifyLookupResult(true, webUrl, spotifyUri)
     }
 
     @Suppress("UNCHECKED_CAST")

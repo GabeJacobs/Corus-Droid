@@ -12,14 +12,23 @@ import com.spotify.android.appremote.api.PlayerApi
 import com.spotify.android.appremote.api.SpotifyAppRemote
 import com.spotify.protocol.client.CallResult
 import com.spotify.protocol.client.ErrorCallback
+import com.spotify.protocol.types.Empty
+import com.spotify.protocol.types.PlayerState
+import com.spotify.protocol.types.Track
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -52,6 +61,7 @@ import javax.inject.Provider
  * behind a mini-player spinner.
  */
 @RunWith(RobolectricTestRunner::class)
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 // Vanilla Application so Robolectric doesn't boot CorusApplication, which
 // initializes RevenueCat/Firebase in onCreate.
 @Config(sdk = [34], application = Application::class)
@@ -121,6 +131,29 @@ class SpotifyPlaybackConnectOrderTest {
     @Test
     fun `unresponsive connected player disconnects before trying to wake Spotify`() = runTest {
         val service = service()
+        val remote = attachUnresponsivePlayer(service)
+
+        val failure = runCatching { service.play("4cOdK2wGLETKBW3PvgPWqT", null, replaceQueue = false) }.exceptionOrNull()
+
+        appRemoteStatic.verify { SpotifyAppRemote.disconnect(remote) }
+        // This test has no foreground Activity to present Spotify authorization.
+        assertEquals(SpotifyPlaybackError.NotConnected::class.java, failure?.javaClass)
+    }
+
+    @Test
+    fun `locked playback attempts silent reconnect after the current connection drops`() = runTest {
+        val service = service()
+        val remote = attachUnresponsivePlayer(service)
+
+        runCatching {
+            service.play("4cOdK2wGLETKBW3PvgPWqT", null, replaceQueue = false, allowInteractiveRecovery = { false })
+        }
+
+        appRemoteStatic.verify { SpotifyAppRemote.disconnect(remote) }
+        assertTrue("Background recovery must reconnect without opening Spotify authorization", connectAttempts.isNotEmpty())
+    }
+
+    private fun attachUnresponsivePlayer(service: SpotifyPlaybackService): SpotifyAppRemote {
         val remote = mock<SpotifyAppRemote>()
         val player = mock<PlayerApi>()
         val play = mock<CallResult<com.spotify.protocol.types.Empty>>()
@@ -136,11 +169,126 @@ class SpotifyPlaybackConnectOrderTest {
             set(service, remote)
         }
 
-        val failure = runCatching { service.play("4cOdK2wGLETKBW3PvgPWqT", null, replaceQueue = false) }.exceptionOrNull()
+        return remote
+    }
 
-        appRemoteStatic.verify { SpotifyAppRemote.disconnect(remote) }
-        // This test has no foreground Activity to present Spotify authorization.
-        assertEquals(SpotifyPlaybackError.NotConnected::class.java, failure?.javaClass)
+    @Test
+    fun `Live pauses Spotify queue playback and permits the room track`() {
+        val service = service()
+        val remote = mock<SpotifyAppRemote>()
+        val player = mock<PlayerApi>()
+        whenever(remote.playerApi).thenReturn(player)
+        whenever(player.pause()).thenReturn(mock<CallResult<Empty>>())
+        val roomUri = "spotify:track:4cOdK2wGLETKBW3PvgPWqT"
+        val queueUri = "spotify:track:2takcwOaAZWiXQijPHIx7B"
+
+        assertFalse(service.pauseUnexpectedLiveTrack(remote, playingState(roomUri), roomUri))
+        assertTrue(service.pauseUnexpectedLiveTrack(remote, playingState(queueUri), roomUri))
+
+        Mockito.verify(player).pause()
+        Mockito.verifyNoMoreInteractions(player)
+    }
+
+    private fun playingState(uri: String): PlayerState = PlayerState(
+        Track(null, emptyList(), null, 180_000, "Track", uri, null, false, false),
+        false, 1f, 0, null, null,
+    )
+
+    @Test
+    fun `Live pauses before Spotify can advance its own queue`() = runTest(testDispatcher) {
+        val service = service()
+        val player = attachLivePlayer(service)
+        val uri = "spotify:track:4cOdK2wGLETKBW3PvgPWqT"
+        service.liveListenerTrackUri = uri
+        applyPlayback(service, playingState(uri))
+        runCurrent()
+
+        advanceTimeBy(179_699)
+        runCurrent()
+        Mockito.verify(player, Mockito.never()).pause()
+        advanceTimeBy(1)
+        runCurrent()
+
+        Mockito.verify(player).pause()
+        assertTrue(service.liveListenerEndHeld)
+    }
+
+    @Test
+    fun `leaving Live cancels the pending end pause`() = runTest(testDispatcher) {
+        val service = service()
+        val player = attachLivePlayer(service)
+        val uri = "spotify:track:4cOdK2wGLETKBW3PvgPWqT"
+        service.liveListenerTrackUri = uri
+        applyPlayback(service, playingState(uri))
+        runCurrent()
+        advanceTimeBy(1_000)
+        service.liveListenerTrackUri = null
+        advanceTimeBy(180_000)
+        runCurrent()
+        Mockito.verify(player, Mockito.never()).pause()
+        assertFalse(service.liveListenerEndHeld)
+    }
+
+    @Test
+    fun `a paused or unrelated track never arms the Live end timer`() = runTest(testDispatcher) {
+        val service = service()
+        val player = attachLivePlayer(service)
+        val uri = "spotify:track:4cOdK2wGLETKBW3PvgPWqT"
+        service.liveListenerTrackUri = uri
+        applyPlayback(service, PlayerState(playingState(uri).track, true, 1f, 179_900, null, null))
+        runCurrent()
+        advanceTimeBy(180_000)
+        applyPlayback(service, playingState("spotify:track:2takcwOaAZWiXQijPHIx7B"))
+        runCurrent()
+        advanceTimeBy(180_000)
+        runCurrent()
+        Mockito.verify(player, Mockito.never()).pause()
+    }
+
+    @Test
+    fun `updated Spotify position reschedules the pause and repeated room songs release the hold`() = runTest(testDispatcher) {
+        val service = service()
+        val player = attachLivePlayer(service)
+        val uri = "spotify:track:4cOdK2wGLETKBW3PvgPWqT"
+        service.followLiveListenerTrack(uri, 1)
+        applyPlayback(service, playingState(uri))
+        runCurrent()
+        advanceTimeBy(1_000)
+        applyPlayback(service, PlayerState(playingState(uri).track, false, 1f, 179_500, null, null))
+        runCurrent()
+        advanceTimeBy(200)
+        runCurrent()
+        Mockito.verify(player).pause()
+        assertTrue(service.liveListenerEndHeld)
+        service.followLiveListenerTrack(uri, 1)
+        assertTrue(service.liveListenerEndHeld)
+        service.followLiveListenerTrack(uri, 2)
+        assertFalse(service.liveListenerEndHeld)
+        applyPlayback(service, playingState(uri))
+        runCurrent()
+        advanceTimeBy(179_700)
+        runCurrent()
+        Mockito.verify(player, Mockito.times(2)).pause()
+    }
+
+    private fun attachLivePlayer(service: SpotifyPlaybackService): PlayerApi {
+        val remote = mock<SpotifyAppRemote>()
+        val player = mock<PlayerApi>()
+        whenever(remote.isConnected).thenReturn(true)
+        whenever(remote.playerApi).thenReturn(player)
+        whenever(player.pause()).thenReturn(mock<CallResult<Empty>>())
+        SpotifyPlaybackService::class.java.getDeclaredField("appRemote").apply {
+            isAccessible = true
+            set(service, remote)
+        }
+        return player
+    }
+
+    private fun applyPlayback(service: SpotifyPlaybackService, state: PlayerState) {
+        SpotifyPlaybackService::class.java.getDeclaredMethod("applyPlayerState", PlayerState::class.java).apply {
+            isAccessible = true
+            invoke(service, state)
+        }
     }
 
     private suspend fun playOnce() {
@@ -213,6 +361,26 @@ class SpotifyPlaybackConnectOrderTest {
             "A never-linked install must not wait on silent App Remote before Spotify's Agree page",
             connectAttempts.isEmpty(),
         )
+    }
+
+    @Test
+    fun `interactive fallback waits for the caller to permit the Spotify handoff`() = runTest {
+        val roomVisible = CompletableDeferred<Boolean>()
+        val playback = async(start = CoroutineStart.UNDISPATCHED) {
+            runCatching {
+                service().play(
+                    spotifyTrackId = "4cOdK2wGLETKBW3PvgPWqT",
+                    uri = null,
+                    replaceQueue = false,
+                    allowInteractiveRecovery = { roomVisible.await() },
+                )
+            }
+        }
+
+        assertTrue(playback.isActive)
+
+        roomVisible.complete(false)
+        assertEquals(SpotifyPlaybackError.NotConnected::class.java, playback.await().exceptionOrNull()?.javaClass)
     }
 
     /** A live token still starts with a silent connect (may retry IPC after idle). */

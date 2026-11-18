@@ -10,10 +10,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
-import fm.corus.android.ui.player.rememberPlayerExpansionState
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -48,11 +48,47 @@ class LiveRoomSwipeReleaseTest {
             Box(Modifier.fillMaxSize()) {
                 LivePresentation(
                     state.value, vm, openProfile = {}, openSong = {}, nowPlayingDetails = { _, _ -> },
-                    roomExpansion = rememberPlayerExpansionState(initiallyExpanded = !minimized),
+                    roomExpansion = rememberLiveRoomExpansion(state.value),
                     parkInsetPx = 80f,
                 )
             }
         }
+    }
+
+    @Test
+    fun joiningReplacesLoadingWithTheFullyExpandedRoomOnTheFirstFrame() {
+        state.value = LiveUiState(uid = "host", progress = LiveProgress.TUNING)
+        whenever(vm.profile).thenReturn(MutableStateFlow(null))
+        compose.setContent {
+            Box(Modifier.fillMaxSize()) {
+                LivePresentation(
+                    state.value, vm, openProfile = {}, openSong = {}, nowPlayingDetails = { _, _ -> },
+                    roomExpansion = rememberLiveRoomExpansion(state.value),
+                    parkInsetPx = 80f,
+                )
+            }
+        }
+        // Spotify can mount the room behind the entrance before loading finishes.
+        compose.runOnIdle { state.value = state.value.copy(room = room) }
+        compose.onNodeWithText("Tuning in…").assertIsDisplayed()
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle { state.value = state.value.copy(progress = null) }
+        // Advance through recomposition of the loading state, stopping on the
+        // first frame where the entrance has actually been replaced.
+        val loading = compose.onNodeWithText("Tuning in…")
+        repeat(5) {
+            if (compose.onAllNodesWithText("Tuning in…").fetchSemanticsNodes().isNotEmpty()) {
+                compose.mainClock.advanceTimeByFrame()
+                compose.waitForIdle()
+            }
+        }
+        loading.assertDoesNotExist()
+        val title = compose.onNodeWithText("Test Live Set", useUnmergedTree = true)
+        title.assertIsDisplayed()
+        val entryTop = title.getUnclippedBoundsInRoot().top
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        assertEquals("The first room frame must already cover the feed", title.getUnclippedBoundsInRoot().top, entryTop)
     }
 
     @Test

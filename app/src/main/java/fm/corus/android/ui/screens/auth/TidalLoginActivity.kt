@@ -5,7 +5,8 @@ import android.net.Uri
 import android.os.Bundle
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
-import android.webkit.WebViewClient
+import android.view.ViewGroup
+import fm.corus.android.ui.components.RendererSafeWebViewClient
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
@@ -26,6 +27,7 @@ class TidalLoginActivity : ComponentActivity() {
     @Inject lateinit var tidalAuth: TidalAuthService
 
     private var handled = false
+    private var loginWebView: WebView? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,7 +42,10 @@ class TidalLoginActivity : ComponentActivity() {
         val webView = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
-            webViewClient = object : WebViewClient() {
+            webViewClient = object : RendererSafeWebViewClient({
+                loginWebView = null
+                finish()
+            }) {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
                     maybeHandleRedirect(request.url)
 
@@ -50,6 +55,7 @@ class TidalLoginActivity : ComponentActivity() {
                     maybeHandleRedirect(Uri.parse(url))
             }
         }
+        loginWebView = webView
         setContentView(webView)
         webView.loadUrl(loginUrl)
     }
@@ -65,6 +71,11 @@ class TidalLoginActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        loginWebView?.let { view ->
+            (view.parent as? ViewGroup)?.removeView(view)
+            view.destroy()
+        }
+        loginWebView = null
         // Closed without capturing a redirect (back press / dismissed) → release
         // the suspended login() so the caller stops waiting.
         if (!handled) tidalAuth.cancelPendingLogin()

@@ -1,10 +1,22 @@
 package fm.corus.android.ui.screens.live
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LiveEffectSelectionTest {
+    @Test
+    fun darkRoomAppearanceStartsAfterTuningIn() {
+        val tuning = LiveUiState(
+            room = LiveRoom("room", mapOf("effect" to "snow")),
+            progress = LiveProgress.TUNING,
+        )
+        assertFalse(tuning.usesDarkRoomAppearance)
+        assertTrue(tuning.copy(progress = null).usesDarkRoomAppearance)
+    }
+
     @Test
     fun tapShowsEffectBeforeSaveOrRoomUpdate() {
         val selection = LiveEffectSelection().toggle("rain", observed = "off")

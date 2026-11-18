@@ -491,13 +491,13 @@
     <string name="live_playlist_add">"加入队列"</string>
     <string name="live_playlist_add_count">"将 %1$d 首歌曲加入队列"</string>
     <string name="live_playlist_clear_selection">"清除选择"</string>
-    <string name="live_playlist_import_instructions">"在 Spotify 中打开歌单，点按「分享」，再点按「复制链接」。将链接粘贴到下方。"</string>
-    <string name="live_playlist_invalid_link">"粘贴 Spotify 公开歌单的链接。"</string>
+    <string name="live_playlist_import_instructions">"在 Spotify 或 Apple Music 中打开歌单，依次点击“分享”和“复制链接”，然后将链接粘贴到下方。"</string>
+    <string name="live_playlist_invalid_link">"粘贴 Spotify 或 Apple Music 的歌单链接。"</string>
     <string name="live_playlist_link">"歌单链接"</string>
     <string name="live_playlist_load_failed">"无法加载这份歌单。请检查链接后重试。"</string>
     <string name="live_playlist_loading">"正在加载歌单…"</string>
     <string name="live_playlist_no_new_songs">"此歌单没有可添加的新歌曲。"</string>
-    <string name="live_playlist_public_link_hint">"使用公开分享的 Spotify 歌单链接。"</string>
+    <string name="live_playlist_public_link_hint">"请使用公开分享的 Spotify 或 Apple Music 歌单链接。"</string>
     <string name="live_playlist_queue_full">"你的队列已满。"</string>
     <string name="live_playlist_select_all">"全选"</string>
     <string name="live_ready_to_record">"可以录音"</string>
@@ -589,6 +589,8 @@
     <string name="live_record_a_sample">"录制样本"</string>
     <string name="live_recording">"正在录音…"</string>
     <string name="live_something_went_wrong_try_again">"出了点问题。请重试。"</string>
+    <string name="live_song_unavailable">"歌曲不可用"</string>
+    <string name="live_connecting_your_player">"正在连接播放器…"</string>
     <string name="live_song_unavailable_on_provider">"此歌曲在 %1$s 上不可用。"</string>
     <string name="live_spotify_is_required_to_use_live">"使用直播需要 Spotify。"</string>
     <string name="live_the_queue_changed_try_again">"队列已更改。请重试。"</string>
@@ -645,4 +647,5 @@
     <string name="corus_style_weather_light_flurry">"零星小雪"</string>
     <string name="corus_style_weather_snowfall">"降雪"</string>
     <string name="corus_style_weather_steady_rain">"持续降雨"</string>
+    <string name="corus_live_listener_rejoined">"%1$s 已重新加入直播间"</string>
 </resources>
