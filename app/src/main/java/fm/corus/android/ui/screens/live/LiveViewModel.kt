@@ -303,6 +303,8 @@ internal class LiveViewModel @Inject constructor(
     private var shelfLookup: Job? = null
     private var shelfCursor: LiveFields? = null
     private var confirmedRevision: Long? = null
+    private var lastListenerSong: LiveRoom? = null
+    private var introProtectedRevision: Long? = null
     private var initialTrackRevision: Long? = null
     private var expiredRevision: Long? = null
     private var offset = 0L
@@ -1933,7 +1935,8 @@ internal class LiveViewModel @Inject constructor(
                 if (previous?.revision != next.revision) refreshSaves(listOfNotNull(next.current))
                 if (previous?.revision != next.revision || previous.status != next.status ||
                     previous.pausedAt != next.pausedAt || previous.startedAt != next.startedAt ||
-                    previous.pendingSkip != next.pendingSkip
+                    previous.pendingSkip != next.pendingSkip || previous.voiceMode != next.voiceMode ||
+                    previous.host.uid != next.host.uid
                 ) synchronize(next)
                 if (enableMic || previous?.voiceSession != next.voiceSession || previous?.voiceMode != next.voiceMode ||
                     previous?.host?.uid != next.host.uid || previous?.djs != next.djs
@@ -2014,8 +2017,12 @@ internal class LiveViewModel @Inject constructor(
                     delay(250)
                     continue
                 }
+                val listenerFinishing = !state.value.hosting && lastListenerSong?.revision == room.revision &&
+                    !state.value.muted && !state.value.welcomePlaying && !auditionPlaying &&
+                    room.pendingSkip == null && room.voiceMode != "talk" && !holdingNextSongForTalk(room) &&
+                    serverNow < room.deadline + LIVE_LISTENER_GRACE_MS && isFinishingListenerSong(room)
                 if (room.status == "playing" && room.pausedAt == null && room.deadline <= serverNow &&
-                    expiredRevision != room.revision
+                    expiredRevision != room.revision && !listenerFinishing
                 ) {
                     expiredRevision = room.revision
                     if (room.pendingSkip == null) {
@@ -2031,7 +2038,11 @@ internal class LiveViewModel @Inject constructor(
                     lastTick = serverNow
                     maintain(room, "tick", mapOf("hostActivity" to "foreground"))
                 }
-                delay(if (holdSpotify && room.deadline - serverNow <= 2_000) 100 else 500)
+                val nearDeadline = (holdSpotify || listenerFinishing) && room.deadline - serverNow <= 2_000
+                val delayMs = if (listenerFinishing && serverNow >= room.deadline) {
+                    minOf(100, room.deadline + LIVE_LISTENER_GRACE_MS - serverNow)
+                } else if (nearDeadline) 100 else 500
+                delay(delayMs)
             }
         }
         roomJobs += viewModelScope.launch {
@@ -2181,6 +2192,18 @@ internal class LiveViewModel @Inject constructor(
         event("playback_started", source = source, roomId = roomId)
     }
 
+    private fun isFinishingListenerSong(room: LiveRoom): Boolean {
+        val track = room.current ?: return false
+        val position = when {
+            track.playsFromSource -> sourcePlayer?.takeIf { sourceTrackId == track.id && it.isPlaying }?.currentPosition
+            liveProvider == MusicService.APPLE_MUSIC -> applePlayer
+                ?.takeIf { appleTrackKey == track.appleKey && it.isPlaying }?.currentPosition
+            else -> expectedUri?.takeIf { spotify.isPlaying.value && matchesSpotifyUri(it) }
+                ?.let { (spotify.positionSeconds.value * 1_000).toLong() }
+        } ?: return false
+        return position in 0 until track.duration.toLong()
+    }
+
     private fun synchronize(room: LiveRoom, force: Boolean = false): Job? {
         if (state.value.room?.id != room.id || (room.pendingSkip != null && state.value.hosting)) return null
         playbackJob?.cancel()
@@ -2188,22 +2211,72 @@ internal class LiveViewModel @Inject constructor(
             try {
                 playbackLock.withLock {
                     val track = room.current
+                    val current = state.value
                     val staged = appleQueueTarget(room)
                     if (staged != null && now < room.deadline + APPLE_QUEUE_GRACE_MS &&
                         staged.player.stagedPosition(staged.track.id, staged.revision) != null
                     ) return@withLock
-                    if (state.value.muted || state.value.welcomePlaying || auditionPlaying || track == null || !room.musicShouldPlay(now)) {
+                    val outgoing = lastListenerSong
+                    val uninterrupted = !current.hosting && !current.muted && !current.welcomePlaying &&
+                        !auditionPlaying && room.pausedAt == null && room.pendingSkip == null &&
+                        room.voiceMode != "talk" && room.active(now)
+                    if (!uninterrupted) {
+                        lastListenerSong = null
+                        introProtectedRevision = null
+                    }
+                    val changingSong = outgoing?.revision != null && outgoing.revision != room.revision
+                    val natural = uninterrupted && room.naturalAdvance && changingSong &&
+                        outgoing?.revision == room.revision - 1 && outgoing.id == room.id &&
+                        outgoing.host.uid == room.host.uid && !outgoing.talkAfterSongArmed
+                    if (natural && outgoing != null) {
+                        val incomingLimit = if (track == null) Long.MAX_VALUE else room.startedAt + LIVE_LISTENER_GRACE_MS
+                        val limit = minOf(outgoing.deadline + LIVE_LISTENER_GRACE_MS, incomingLimit)
+                        while (now < limit && isFinishingListenerSong(outgoing)) {
+                            delay(minOf(100, (limit - now).coerceAtLeast(1)))
+                        }
+                    }
+                    val playing = room.musicShouldPlay(now)
+                    if (uninterrupted && !playing && !changingSong && outgoing?.revision == room.revision &&
+                        !holdingNextSongForTalk(room) && now < room.deadline + LIVE_LISTENER_GRACE_MS &&
+                        isFinishingListenerSong(outgoing)
+                    ) return@withLock
+                    if (current.muted || current.welcomePlaying || auditionPlaying || track == null || !playing ||
+                        (!current.hosting && room.pendingSkip != null) || (!current.hosting && changingSong)) {
                         sourcePlayer?.pause()
                         applePlayer?.pause()
-                        if (expectedUri != null) spotify.pause()
-                        return@withLock
+                        if (expectedUri != null) spotify.pauseImmediately()
+                        if (current.muted || current.welcomePlaying || auditionPlaying || track == null || !playing ||
+                            (!current.hosting && room.pendingSkip != null)
+                        ) return@withLock
                     }
+                    var protectIntro = false
+                    fun startupPosition(): Long {
+                        val position = room.position(now)
+                        protectIntro = natural && position <= LIVE_LISTENER_GRACE_MS
+                        return if (protectIntro) 0 else position
+                    }
+                    fun confirmListenerSong() {
+                        if (!uninterrupted) return
+                        lastListenerSong = room
+                        if (changingSong) introProtectedRevision = room.revision.takeIf { protectIntro }
+                    }
+                    val introProtected = uninterrupted && introProtectedRevision == room.revision
+                    val maximumLag = if (introProtected) LIVE_LISTENER_GRACE_MS else 1_000L
                     if (track.playsFromSource) {
                         val alreadyStarted = initialTrackRevision == room.revision &&
                             sourceTrackId == track.id && sourcePlayer?.isPlaying == true
                         if (alreadyStarted) initialTrackRevision = null
-                        else playSourceTrack(track, { room.position(now) }, force || confirmedRevision != room.revision)
+                        else playSourceTrack(track, {
+                            if (confirmedRevision != room.revision) startupPosition()
+                            else {
+                                val target = room.position(now)
+                                val position = sourcePlayer?.currentPosition
+                                if (introProtected && position != null && target - position in 0..LIVE_LISTENER_GRACE_MS) position
+                                else target
+                            }
+                        }, force || confirmedRevision != room.revision)
                         confirmedRevision = room.revision
+                        confirmListenerSong()
                         recordListenerPlayback(room.id, track.song.source.raw)
                         update { copy(audioReady = true, audioError = null) }
                         return@withLock
@@ -2228,12 +2301,15 @@ internal class LiveViewModel @Inject constructor(
                             if (startedHere) initialTrackRevision = null
                             else if (applePlayer?.playbackState != Player.STATE_ENDED || confirmedRevision != room.revision || force) {
                                 playAppleTrack(
-                                    track, { room.position(now) },
+                                    track, ::startupPosition,
                                     forceSeek = confirmedRevision != room.revision || (hosting && force),
+                                    restart = !hosting && changingSong && outgoing?.current?.appleKey == track.appleKey,
                                     listenerTarget = if (!hosting && confirmedRevision == room.revision) ::listenerTarget else null,
+                                    maximumLag = maximumLag,
                                 )
                             }
                             confirmedRevision = room.revision
+                            confirmListenerSong()
                             recordListenerPlayback(room.id, MusicService.APPLE_MUSIC.value)
                             update { copy(audioReady = true, audioError = null) }
                             return@withLock
@@ -2258,7 +2334,11 @@ internal class LiveViewModel @Inject constructor(
                     if (initialTrackRevision == room.revision && expectedUri == uri) {
                         initialTrackRevision = null
                     } else if (confirmedRevision != room.revision || (hosting && !spotify.isConnected)) {
-                        prepareTrack(track, { room.position(now) }, uri)
+                        prepareTrack(
+                            track, ::startupPosition, uri,
+                            forceSpotifyPlay = !hosting && changingSong && outgoing?.current?.id == track.id,
+                            preservePlayingIntro = { protectIntro },
+                        )
                     } else {
                         val sameTrack = spotify.syncLiveTrack(uri, force, targetPosition = {
                             val latest = state.value.room
@@ -2267,7 +2347,7 @@ internal class LiveViewModel @Inject constructor(
                                 !(latest.pendingSkip != null && state.value.hosting) &&
                                 !state.value.muted && !state.value.welcomePlaying && !auditionPlaying && latest.musicShouldPlay(now)
                             ) latest.position(now) else null
-                        }, confirmDrift = !hosting, onCorrectionFailed = { gap ->
+                        }, confirmDrift = !hosting, maximumLag = maximumLag, onCorrectionFailed = { gap ->
                             recordDriftCorrection("spotify", room.id, gap, false)
                         }) { gap ->
                             recordDriftCorrection("spotify", room.id, gap, true)
@@ -2275,6 +2355,7 @@ internal class LiveViewModel @Inject constructor(
                         if (!sameTrack) prepareTrack(track, { room.position(now) }, uri, forceSpotifyPlay = true)
                     }
                     confirmedRevision = room.revision
+                    confirmListenerSong()
                     recordListenerPlayback(room.id, MusicService.SPOTIFY.value)
                     update { copy(audioReady = true, audioError = null) }
                 }
@@ -2324,6 +2405,7 @@ internal class LiveViewModel @Inject constructor(
         position: () -> Long,
         knownUri: String? = null,
         forceSpotifyPlay: Boolean = false,
+        preservePlayingIntro: () -> Boolean = { false },
         onStartingProvider: () -> Unit = {},
     ) {
         if (track.playsFromSource) {
@@ -2347,7 +2429,7 @@ internal class LiveViewModel @Inject constructor(
         }
         val target = position().coerceIn(0, track.duration.toLong() - 1)
         val observed = spotify.positionSeconds.value * 1_000
-        if (target > 250 || observed > 750) {
+        if (target > 250 || (observed > 750 && !preservePlayingIntro())) {
             check(spotify.seek(target / 1_000.0)) { context.getString(R.string.live_provider_sync_failed, "Spotify") }
         }
     }
@@ -2376,6 +2458,7 @@ internal class LiveViewModel @Inject constructor(
         forceSeek: Boolean,
         restart: Boolean = false,
         listenerTarget: (() -> Long?)? = null,
+        maximumLag: Long = 1_000,
     ) {
         claimLivePlayback()
         pauseLiveSpotify()
@@ -2415,7 +2498,7 @@ internal class LiveViewModel @Inject constructor(
                 return LiveDriftSample(position, target)
             }
             val first = sample() ?: return
-            val correction = confirmLiveListenerDrift(first, ::sample) ?: return
+            val correction = confirmLiveListenerDrift(first, maximumLag, ::sample) ?: return
             if (!audio.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)) return
             audio.seekTo(correction.target)
             val succeeded = withTimeoutOrNull(3_000L) {
@@ -2681,6 +2764,8 @@ internal class LiveViewModel @Inject constructor(
         liveProvider = null
         expectedUri = null
         confirmedRevision = null
+        lastListenerSong = null
+        introProtectedRevision = null
         initialTrackRevision = null
         expiredRevision = null
     }
@@ -2755,6 +2840,8 @@ internal class LiveViewModel @Inject constructor(
     }
 }
 
+private const val LIVE_LISTENER_GRACE_MS = 3_000L
+
 private fun Boolean?.orFalse(): Boolean = this == true
 
 internal data class LiveDriftSample(val position: Long, val target: Long) {
@@ -2763,13 +2850,15 @@ internal data class LiveDriftSample(val position: Long, val target: Long) {
 
 internal suspend fun confirmLiveListenerDrift(
     first: LiveDriftSample,
+    maximumLag: Long = 1_000,
     sample: suspend () -> LiveDriftSample?,
 ): LiveDriftSample? {
-    if (first.position < 0 || kotlin.math.abs(first.gap) <= 1_000L) return null
+    fun needsCorrection(gap: Long) = gap > maximumLag || gap < -1_000
+    if (first.position < 0 || !needsCorrection(first.gap)) return null
     delay(400)
     val second = sample() ?: return null
     return second.takeIf {
-        it.position > first.position && kotlin.math.abs(it.gap) > 1_000L &&
+        it.position > first.position && needsCorrection(it.gap) &&
             (it.gap > 0) == (first.gap > 0)
     }
 }
@@ -2780,6 +2869,7 @@ internal suspend fun SpotifyPlaybackService.syncLiveTrack(
     force: Boolean,
     targetPosition: () -> Long?,
     confirmDrift: Boolean = true,
+    maximumLag: Long = 1_000,
     onCorrectionFailed: (Long) -> Unit = {},
     onDriftCorrected: (Long) -> Unit,
 ): Boolean? {
@@ -2797,7 +2887,7 @@ internal suspend fun SpotifyPlaybackService.syncLiveTrack(
     if (snapshot.isPaused) check(resume()) { "Couldn’t resume Spotify." }
     if (confirmDrift) {
         if (snapshot.isPaused) return true
-        val correction = confirmLiveListenerDrift(LiveDriftSample(snapshot.playbackPosition, target)) {
+        val correction = confirmLiveListenerDrift(LiveDriftSample(snapshot.playbackPosition, target), maximumLag) {
             val latest = try {
                 refreshState()
             } catch (_: SpotifyPlaybackError.ApiError) {

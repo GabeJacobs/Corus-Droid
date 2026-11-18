@@ -135,6 +135,7 @@ internal data class LiveRoom(val id: String, private val fields: LiveFields) {
     val endedAt = fields.number("endedAt")
     val deadline = fields.number("deadline")
     val leaseUntil = fields.number("leaseUntil")
+    val naturalAdvance = fields.flag("naturalAdvance")
     val startedAt = fields.number("startedAt")
     val pausedAt = (fields["pausedAt"] as? Number)?.toLong()
     val likes = fields.number("likes")

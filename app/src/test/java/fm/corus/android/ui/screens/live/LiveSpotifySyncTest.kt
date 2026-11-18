@@ -62,6 +62,20 @@ class LiveSpotifySyncTest {
         verify(spotify).seek(30.4)
     }
 
+    @Test fun naturalAdvanceAllowsTwoSecondsOfListenerLag() = runTest {
+        prepareSnapshot(positionMs = 28_000L)
+        val first = spotify.refreshState()
+        prepareSnapshot(positionMs = 28_400L)
+        val second = spotify.refreshState()
+        whenever(spotify.refreshState(any())).thenReturn(first, second)
+        var now = 30_000L
+
+        assertEquals(true, spotify.syncLiveTrack(uri, false, { now.also { now = 30_400L } },
+            maximumLag = 3_000) {})
+
+        verify(spotify, never()).seek(any())
+    }
+
     @Test fun frozenProviderPositionDoesNotSeek() = runTest {
         prepareSnapshot(positionMs = 0)
 
