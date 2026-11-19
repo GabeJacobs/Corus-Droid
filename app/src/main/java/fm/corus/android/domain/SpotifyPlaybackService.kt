@@ -868,9 +868,7 @@ class SpotifyPlaybackService @Inject constructor(
         playerStateSubscription = remote.playerApi.subscribeToPlayerState().setEventCallback { state ->
             if (fastPathAppRemote !== remote) return@setEventCallback
             val liveUri = liveListenerTrackUri
-            if (liveUri != null && !playInFlight &&
-                pauseUnexpectedLiveTrack(remote, state, liveUri)
-            ) return@setEventCallback
+            if (pauseUnexpectedLiveTrack(remote, state)) return@setEventCallback
             // Pause + play(expected) on this thread. Don't reconcile the wrong
             // URI — that would pauseImmediately the redirect we just issued.
             if (liveUri == null && attemptFastPathMisroutePause(state)) return@setEventCallback
@@ -882,11 +880,18 @@ class SpotifyPlaybackService @Inject constructor(
         }
     }
 
-    internal fun pauseUnexpectedLiveTrack(remote: SpotifyAppRemote, state: PlayerState, expectedUri: String): Boolean {
+    internal fun pauseUnexpectedLiveTrack(remote: SpotifyAppRemote, state: PlayerState): Boolean {
+        val expectedUri = liveListenerTrackUri ?: return false
         val uri = state.track?.uri?.takeIf(String::isNotBlank) ?: return false
-        if (state.isPaused || spotifyURIsMatch(uri, expectedUri)) return false
-        remote.playerApi.pause().setResultCallback { }
-        android.util.Log.i("LiveSpotifyPlayback", "Paused Spotify queue playback while following a Live room")
+        if (spotifyURIsMatch(uri, expectedUri)) return false
+        // Keep rejecting stale queue tracks throughout play/confirmation. A play
+        // request can take time to replace Spotify's native queue playback.
+        // Ignore its pause acknowledgement too: ingesting it can cancel the
+        // room track's end timer or overwrite the new track's playback state.
+        if (!state.isPaused) {
+            remote.playerApi.pause().setResultCallback { }
+            android.util.Log.i("LiveSpotifyPlayback", "Paused Spotify queue playback while following a Live room")
+        }
         return true
     }
 

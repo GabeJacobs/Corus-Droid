@@ -1541,4 +1541,6 @@
     <string name="profile_shuffle_failed">Não foi possível carregar as músicas deste perfil. Tente novamente.</string>
     <string name="profile_shuffle_loading">Embaralhando perfil…</string>
     <string name="live_kick_user_from_room">"Remover da sala"</string>
+    <string name="club_feature_gifts_daily">"3 presentes para enviar por dia"</string>
+    <string name="gift_club_offer_body_daily">"Entre para o Corus Club e envie 3 presentes por dia."</string>
 </resources>

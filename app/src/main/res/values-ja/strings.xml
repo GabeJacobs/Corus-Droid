@@ -1393,4 +1393,6 @@
     <string name="profile_shuffle_failed">このプロフィールの曲を読み込めませんでした。もう一度お試しください。</string>
     <string name="profile_shuffle_loading">プロフィールをシャッフル中…</string>
     <string name="live_kick_user_from_room">"ルームから退出させる"</string>
+    <string name="club_feature_gifts_daily">"毎日3個のギフト"</string>
+    <string name="gift_club_offer_body_daily">"Corus Clubに参加すると、毎日3個のギフトがもらえます。"</string>
 </resources>

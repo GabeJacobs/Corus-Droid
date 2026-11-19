@@ -92,6 +92,7 @@ object CorusStrings {
     @StringRes val club_error_no_subscription: Int = R.string.club_error_no_subscription
     @StringRes val club_feature_favorites: Int = R.string.club_feature_favorites
     @StringRes val club_feature_gifts: Int = R.string.club_feature_gifts
+    @StringRes val club_feature_gifts_daily: Int = R.string.club_feature_gifts_daily
     @StringRes val club_feature_see_whos_nearby: Int = R.string.club_feature_see_whos_nearby
     @StringRes val club_feature_support: Int = R.string.club_feature_support
     @StringRes val club_feature_unlimited_playlists: Int = R.string.club_feature_unlimited_playlists
@@ -864,10 +865,12 @@ object CorusStrings {
     @StringRes val gift_available_many: Int = R.string.gift_available_many
     @StringRes val gift_available_one: Int = R.string.gift_available_one
     @StringRes val gift_club_offer_body: Int = R.string.gift_club_offer_body
+    @StringRes val gift_club_offer_body_daily: Int = R.string.gift_club_offer_body_daily
     @StringRes val gift_club_offer_cta_standard: Int = R.string.gift_club_offer_cta_standard
     @StringRes val gift_club_offer_cta_trial: Int = R.string.gift_club_offer_cta_trial
     @StringRes val gift_club_offer_title: Int = R.string.gift_club_offer_title
     @StringRes val gift_club_slots: Int = R.string.gift_club_slots
+    @StringRes val gift_club_slots_daily: Int = R.string.gift_club_slots_daily
     @StringRes val gift_context_generic: Int = R.string.gift_context_generic
     @StringRes val gift_context_sharing: Int = R.string.gift_context_sharing
     @StringRes val gift_count: Int = R.string.gift_count

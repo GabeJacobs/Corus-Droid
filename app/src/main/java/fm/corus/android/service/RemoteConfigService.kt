@@ -371,6 +371,10 @@ class RemoteConfigService @Inject constructor(
     val concertsEnabled: Boolean
         get() = feedFlag("concerts_enabled")
 
+    /** Global policy; keep this parameter free of audience overrides. */
+    val giftRefillPeriod: String
+        get() = if (remoteConfig.getString("gift_refill_period") == "daily") "daily" else "weekly"
+
     /** Remote Config controls the Android release audience (1.5.9+). */
     val giftsEnabledForCurrentUser: Boolean
         get() = feedFlag("gifts_enabled") && auth.currentUser != null
@@ -1128,6 +1132,7 @@ class RemoteConfigService @Inject constructor(
             "concerts_enabled" to false,
             "concert_calendar_enabled" to false,
             "gifts_enabled" to false,
+            "gift_refill_period" to "weekly",
             "map_enabled" to false,
             "mapkit_js_token" to "",
             "artist_merch_enabled" to false,

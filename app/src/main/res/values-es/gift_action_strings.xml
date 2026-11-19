@@ -3,4 +3,5 @@
     <string name="gift_picker_intro">"Envía un regalo a %1$s como agradecimiento especial."</string>
     <string name="gift_picker_empty_intro">"Ya usaste todos tus regalos por ahora."</string>
     <string name="gift_club_slots">"Tu regalo se restablece cada domingo."</string>
+    <string name="gift_club_slots_daily">"Tu regalo se renueva cada día."</string>
 </resources>

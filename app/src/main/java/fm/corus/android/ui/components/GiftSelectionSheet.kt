@@ -313,7 +313,7 @@ fun GiftSelectionSheet(
                                     color = CorusColors.Text,
                                 )
                                 Text(
-                                    stringResource(fm.corus.android.localization.CorusStrings.gift_club_offer_body),
+                                    stringResource(if (inventory.refillPeriod == "daily") fm.corus.android.localization.CorusStrings.gift_club_offer_body_daily else fm.corus.android.localization.CorusStrings.gift_club_offer_body),
                                     style = CorusFont.body,
                                     color = CorusColors.Secondary,
                                     textAlign = TextAlign.Center,
@@ -572,7 +572,7 @@ private fun InventorySection(inventory: GiftInventory) {
         )
     }
     if (inventory.capacity <= 1 && !inventory.isEmpty) {
-        Text(stringResource(fm.corus.android.localization.CorusStrings.gift_club_slots), style = CorusFont.caption, color = CorusColors.Secondary)
+        Text(stringResource(if (inventory.refillPeriod == "daily") fm.corus.android.localization.CorusStrings.gift_club_slots_daily else fm.corus.android.localization.CorusStrings.gift_club_slots), style = CorusFont.caption, color = CorusColors.Secondary)
     }
 }
 

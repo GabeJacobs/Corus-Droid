@@ -703,6 +703,8 @@ fun CymbalClubOfferSheet(
     onPurchaseSuccess: () -> Unit = {},
 ) {
     val isLiveHost = source == PaywallSource.LIVE_HOST
+    val giftConfigRevision by viewModel.remoteConfig.revision.collectAsState()
+    val giftRefillPeriod = remember(giftConfigRevision) { viewModel.remoteConfig.giftRefillPeriod }
     val packages by viewModel.packages.collectAsState()
     val isPurchasing by viewModel.isPurchasing.collectAsState()
     val purchaseResult by viewModel.purchaseResult.collectAsState()
@@ -953,7 +955,7 @@ fun CymbalClubOfferSheet(
                     FeatureRow(icon = Icons.Filled.Star, text = stringResource(fm.corus.android.localization.CorusStrings.club_feature_favorites))
                 }
                 if (source == PaywallSource.GIFT) {
-                    FeatureRow(icon = Icons.Filled.CardGiftcard, text = stringResource(fm.corus.android.localization.CorusStrings.club_feature_gifts))
+                    FeatureRow(icon = Icons.Filled.CardGiftcard, text = stringResource(if (giftRefillPeriod == "daily") fm.corus.android.localization.CorusStrings.club_feature_gifts_daily else fm.corus.android.localization.CorusStrings.club_feature_gifts))
                 }
                 if (source != PaywallSource.TASTE_DISCOVERY && tasteMatchesEnabled) {
                     FeatureRow(text = stringResource(fm.corus.android.localization.CorusStrings.parity_f035d9bdea71)) {

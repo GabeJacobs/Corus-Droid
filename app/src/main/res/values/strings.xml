@@ -1741,4 +1741,6 @@
     <string name="live_cancel_scheduled_talk">"Cancel scheduled Talk"</string>
     <string name="live_talk_starts_after_song">"Talk mode will start after this song."</string>
     <string name="live_skip_to_talk">"Skip to Talk"</string>
+    <string name="club_feature_gifts_daily">"3 Gifts every day"</string>
+    <string name="gift_club_offer_body_daily">"Join Corus Club and get 3 Gifts every day."</string>
 </resources>

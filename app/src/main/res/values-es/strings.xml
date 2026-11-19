@@ -1530,4 +1530,6 @@
     <string name="profile_shuffle_failed">No se pudieron cargar las canciones de este perfil. Inténtalo de nuevo.</string>
     <string name="profile_shuffle_loading">Mezclando perfil…</string>
     <string name="live_kick_user_from_room">"Expulsar de la sala"</string>
+    <string name="club_feature_gifts_daily">"3 regalos cada día"</string>
+    <string name="gift_club_offer_body_daily">"Únete a Corus Club y recibe 3 regalos cada día."</string>
 </resources>

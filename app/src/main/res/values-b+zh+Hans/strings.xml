@@ -1520,4 +1520,6 @@
     <string name="profile_shuffle_failed">无法加载此主页的歌曲。请重试。</string>
     <string name="profile_shuffle_loading">正在随机播放主页…</string>
     <string name="live_kick_user_from_room">"移出直播间"</string>
+    <string name="club_feature_gifts_daily">"每天3份礼物"</string>
+    <string name="gift_club_offer_body_daily">"加入 Corus Club，每天获得3份礼物。"</string>
 </resources>

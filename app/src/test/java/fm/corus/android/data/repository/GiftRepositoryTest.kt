@@ -54,6 +54,13 @@ class GiftRepositoryTest {
         assertEquals(1234L, result.recentGifts.single().sentAtMs)
     }
 
+    @Test fun `server refill period defaults weekly and accepts daily`() {
+        val raw = mapOf("capacity" to 1, "available" to 1)
+        assertEquals("weekly", parseGiftInventory(raw)?.refillPeriod)
+        assertEquals("weekly", parseGiftInventory(raw + ("refillPeriod" to "invalid"))?.refillPeriod)
+        assertEquals("daily", parseGiftInventory(raw + ("refillPeriod" to "daily"))?.refillPeriod)
+    }
+
     @Test fun `malformed responses fail closed`() {
         assertNull(parseGiftInventory(mapOf("available" to 1)))
         assertNull(parseGiftSendResult(mapOf("giftType" to "flowers")))

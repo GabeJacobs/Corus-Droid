@@ -1520,4 +1520,6 @@
     <string name="profile_shuffle_failed">이 프로필의 곡을 불러오지 못했습니다. 다시 시도해 주세요.</string>
     <string name="profile_shuffle_loading">프로필을 셔플하는 중…</string>
     <string name="live_kick_user_from_room">"룸에서 내보내기"</string>
+    <string name="club_feature_gifts_daily">"매일 선물 3개"</string>
+    <string name="gift_club_offer_body_daily">"Corus Club에 가입하고 매일 선물 3개를 받으세요."</string>
 </resources>

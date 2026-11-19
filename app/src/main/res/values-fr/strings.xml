@@ -1530,4 +1530,6 @@
     <string name="profile_shuffle_failed">Impossible de charger les morceaux de ce profil. Réessayez.</string>
     <string name="profile_shuffle_loading">Lecture aléatoire du profil…</string>
     <string name="live_kick_user_from_room">"Retirer du salon"</string>
+    <string name="club_feature_gifts_daily">"3 cadeaux chaque jour"</string>
+    <string name="gift_club_offer_body_daily">"Rejoignez Corus Club et recevez 3 cadeaux chaque jour."</string>
 </resources>

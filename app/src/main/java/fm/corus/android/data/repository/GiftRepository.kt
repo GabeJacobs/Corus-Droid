@@ -23,6 +23,7 @@ data class GiftInventory(
     val available: Int,
     val used: Int,
     val nextRefillAtMs: Long?,
+    val refillPeriod: String = "weekly",
 ) {
     val isEmpty: Boolean get() = available <= 0
 }
@@ -59,6 +60,7 @@ internal fun parseGiftInventory(raw: Map<*, *>?): GiftInventory? {
     val capacity = (raw?.get("capacity") as? Number)?.toInt() ?: return null
     val available = (raw["available"] as? Number)?.toInt() ?: return null
     return GiftInventory(
+        refillPeriod = if (raw["refillPeriod"] == "daily") "daily" else "weekly",
         capacity = capacity.coerceAtLeast(0),
         available = available.coerceAtLeast(0),
         used = ((raw["used"] as? Number)?.toInt() ?: (capacity - available)).coerceAtLeast(0),

@@ -59,4 +59,5 @@
     <string name="gift_attribution_latest">"%1$s · mais recente de %2$s"</string>
     <string name="gift_sent_named">"Presente enviado: %1$s"</string>
     <string name="gift_send_error">"Não foi possível enviar o presente. Tente novamente."</string>
+    <string name="gift_club_slots_daily">"Seu presente renova todos os dias."</string>
 </resources>

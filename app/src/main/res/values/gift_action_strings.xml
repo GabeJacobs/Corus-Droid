@@ -59,4 +59,5 @@
     <string name="gift_attribution_latest">"%1$s · latest from %2$s"</string>
     <string name="gift_sent_named">"%1$s sent"</string>
     <string name="gift_send_error">"Gift couldn’t be sent. Please try again."</string>
+    <string name="gift_club_slots_daily">"Your Gift resets every day."</string>
 </resources>

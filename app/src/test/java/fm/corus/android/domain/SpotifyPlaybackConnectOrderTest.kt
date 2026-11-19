@@ -182,10 +182,37 @@ class SpotifyPlaybackConnectOrderTest {
         val roomUri = "spotify:track:4cOdK2wGLETKBW3PvgPWqT"
         val queueUri = "spotify:track:2takcwOaAZWiXQijPHIx7B"
 
-        assertFalse(service.pauseUnexpectedLiveTrack(remote, playingState(roomUri), roomUri))
-        assertTrue(service.pauseUnexpectedLiveTrack(remote, playingState(queueUri), roomUri))
+        service.followLiveListenerTrack(roomUri, 1)
+        assertFalse(service.pauseUnexpectedLiveTrack(remote, playingState(roomUri)))
+        assertTrue(service.pauseUnexpectedLiveTrack(remote, playingState(queueUri)))
 
         Mockito.verify(player).pause()
+        Mockito.verifyNoMoreInteractions(player)
+    }
+
+    @Test
+    fun `Live guard remains active during next song startup and ignores rejected pause acknowledgements`() {
+        val service = service()
+        val remote = mock<SpotifyAppRemote>()
+        val player = mock<PlayerApi>()
+        whenever(remote.playerApi).thenReturn(player)
+        whenever(player.pause()).thenReturn(mock<CallResult<Empty>>())
+        val nextUri = "spotify:track:4cOdK2wGLETKBW3PvgPWqT"
+        val stale = playingState("spotify:track:2takcwOaAZWiXQijPHIx7B")
+        service.followLiveListenerTrack(nextUri, 2)
+        SpotifyPlaybackService::class.java.getDeclaredField("playInFlight").apply {
+            isAccessible = true
+            setBoolean(service, true)
+        }
+
+        assertTrue(service.pauseUnexpectedLiveTrack(remote, stale))
+        assertTrue(service.pauseUnexpectedLiveTrack(remote,
+            PlayerState(stale.track, true, 1f, 0, null, null)))
+        assertFalse(service.pauseUnexpectedLiveTrack(remote, playingState(nextUri)))
+        Mockito.verify(player).pause()
+
+        service.liveListenerTrackUri = null
+        assertFalse(service.pauseUnexpectedLiveTrack(remote, stale))
         Mockito.verifyNoMoreInteractions(player)
     }
 
