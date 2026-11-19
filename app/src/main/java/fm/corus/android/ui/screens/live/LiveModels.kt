@@ -18,6 +18,7 @@ internal data class LiveTrack(
     val song: CymbalTrack,
     val playRevision: Long = 0,
     val playedBy: LivePerson? = null,
+    val likes: Long? = null,
 ) {
     val id get() = song.id
     val duration get() = song.durationMs
@@ -74,6 +75,7 @@ internal data class LiveTrack(
                 ),
                 fields.number("playRevision"),
                 fields["playedBy"].liveFields()?.let(LivePerson::parse),
+                (fields["likes"] as? Number)?.toLong(),
             )
         }
     }

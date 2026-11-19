@@ -553,6 +553,7 @@ internal fun LiveRoomScreen(
                     LiveTrackRow(
                         track, saveIcon.takeIf { state.access?.saves == true },
                         stringResource(R.string.live_save_song), { vm.save(track) }, onTrack = { close(); selectedSong = track },
+                        showLikes = true,
                     )
                 }
             }

@@ -657,6 +657,7 @@ internal fun LiveTrackRow(
     modifier: Modifier = Modifier,
     artworkSize: Dp = 44.dp,
     itemSpacing: Dp = 10.dp,
+    showLikes: Boolean = false,
 ) {
     Row(
         modifier.fillMaxWidth().heightIn(min = if (queueStyle) 70.dp else 57.dp)
@@ -667,6 +668,19 @@ internal fun LiveTrackRow(
         Column(Modifier.weight(1f)) {
             LiveText(track.song.name, if (queueStyle) CorusFont.body else CorusFont.songTitle, lines = 1)
             LiveText(track.song.artistName, CorusFont.caption, CorusColors.Secondary, lines = 1)
+        }
+        if (showLikes) {
+            track.likes?.let { likes ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.semantics(mergeDescendants = true) {},
+                ) {
+                    Icon(Icons.Default.Favorite, stringResource(R.string.likes_title),
+                        tint = CorusColors.Secondary, modifier = Modifier.size(11.dp))
+                    LiveText(likes.toString(), CorusFont.caption, CorusColors.Secondary)
+                }
+            }
         }
         if (icon != null || handle != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
