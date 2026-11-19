@@ -3848,6 +3848,14 @@ class NowPlayingManager @Inject constructor(
 
     private fun reconcileSpotifyQueuePosition(uri: String) {
         if (!isSpotifyConnectPlaying || _isResolvingSpotify.value) return
+        // Android does not reliably send a new context for a Spotify song tap.
+        // An unlocked external track change must win over our speculative skip
+        // recovery, including after Corus has been swiped out of Recents.
+        if (shouldReleaseForUnlockedSpotifyPick(uri)) {
+            android.util.Log.i("NowPlaying", "Releasing Corus queue for unlocked Spotify playback")
+            relinquishSpotifyToExternalPlayback(uri)
+            return
+        }
         if (shouldIgnoreSpotifyReconcileDuringCorusHandoff(uri)) return
         // A podcast / audiobook / local file is proof the user picked it in the
         // Spotify app — Corus has no such content to skip to or reclaim. Release
@@ -3888,6 +3896,24 @@ class NowPlayingManager @Inject constructor(
             return
         }
         reclaimSpotifyQueueAfterExternalSkip(uri)
+    }
+
+    private fun shouldReleaseForUnlockedSpotifyPick(uri: String): Boolean {
+        if (spotifyDeviceLockedForQueueDriving || !corusAppIsAwayFromForeground()) return false
+        val current = currentQueueIndex?.let { queue.getOrNull(it) } ?: return false
+        if (spotifyURIMatchesTrack(uri, current)) return false
+        // Keep natural queue progression and stale callbacks from an unfinished
+        // Corus play/Next handoff. Once confirmed and settled, the eight-second
+        // intent window must not prevent the user switching back to Spotify.
+        if (spotifyOutgoingChangeWasNaturalFeedTrackEnd()) return false
+        if (spotifyCorusPlayIntentInFlight() &&
+            (!spotifyRequestedTrackConfirmed ||
+                spotifyRequestedTrackConfirmedForMs() < SpotifyConnectWake.HANDOFF_NEXT_SETTLE_MS)
+        ) return false
+        if (spotifyFeedSkipRequestedUntil?.let { System.currentTimeMillis() < it } == true &&
+            !spotifyRequestedTrackConfirmed
+        ) return false
+        return true
     }
 
     private fun reclaimSpotifyQueueAfterExternalSkip(reporting: String) {
@@ -4319,6 +4345,7 @@ class NowPlayingManager @Inject constructor(
         clearSpotifyHandoffFailureSuppression()
         spotifyPlaybackService.clearFastPathPlaybackGuard()
         spotifyConnectPlayJob?.cancel()
+        cancelSpotifyNaturalEndAdvanceJob()
         cancelDebouncedSpotifyRelinquish()
         spotifyPlaybackService.onPlayerTrackChanged = null
         spotifyPlaybackService.onTrackEnded = null
@@ -4341,6 +4368,10 @@ class NowPlayingManager @Inject constructor(
         resetSpotifyScrubAnchor()
         pauseSpotifyConnectTimePolling()
         stopSpotifyConnectKeepAlive(restoreAudioFocus = false)
+        if (foregroundServiceStarted) {
+            context.stopService(Intent(context, CorusPlaybackService::class.java))
+            foregroundServiceStarted = false
+        }
         spotifyPlaybackService.resumeImmediately()
         spotifyScrubberHoldAtZero = false
         spotifyScrubberHoldUntilTrackChangeFromUri = null

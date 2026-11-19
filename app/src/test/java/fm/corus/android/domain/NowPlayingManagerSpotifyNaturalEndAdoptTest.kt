@@ -323,11 +323,12 @@ class NowPlayingManagerSpotifyNaturalEndAdoptTest {
     }
 
     @Test
-    fun afterHandoffWindowAdoptsNextWhenSpotifyLandedThere() = runTest(testDispatcher) {
+    fun lockedAfterHandoffWindowAdoptsNextWhenSpotifyLandedThere() = runTest(testDispatcher) {
         val manager = newManager()
         val ladies = track("ladies-late", "Ladies")
         val unluck = track("unluck-late", "Unluck")
         seedConnect(manager, listOf(ladies, unluck), ladies)
+        manager.testingSetSpotifyDeviceLockedForQueueDriving(true)
         currentTrackUri.value = unluck.spotifyURI
         isPlaying.value = true
 
@@ -339,11 +340,13 @@ class NowPlayingManagerSpotifyNaturalEndAdoptTest {
     }
 
     @Test
-    fun controlCenterNextAdoptsAfterRequestedTrackSettled() = runTest(testDispatcher) {
+    fun lockedNextAdoptsAfterRequestedTrackSettled() = runTest(testDispatcher) {
         val manager = newManager()
         val ladies = track("ladies-cc", "Ladies")
         val unluck = track("unluck-cc", "Unluck")
         seedConnect(manager, listOf(ladies, unluck), ladies)
+        manager.setCorusWindowFocused(false)
+        manager.testingSetSpotifyDeviceLockedForQueueDriving(true)
         currentTrackUri.value = unluck.spotifyURI
         isPlaying.value = true
         manager.testingArmCorusPlayIntent(ladies.spotifyURI!!)
@@ -390,6 +393,103 @@ class NowPlayingManagerSpotifyNaturalEndAdoptTest {
 
         assertEquals(medicine.trackId, manager.state.value.trackId)
         assertEquals("Medicine for Horses", manager.state.value.trackName)
+        manager.stop()
+    }
+
+    @Test
+    fun spotifyPickWhileAwayReleasesControlWithoutContextAfterConfirmedHandoff() = runTest(testDispatcher) {
+        val manager = newManager()
+        val a = track("takeover-a")
+        val b = track("takeover-b")
+        seedConnect(manager, listOf(a, b), a)
+        manager.setCorusWindowFocused(false)
+        manager.testingArmCorusPlayIntent(a.spotifyURI!!)
+        manager.testingMarkRequestedTrackConfirmed(settled = true)
+        currentTrackUri.value = "spotify:track:user-choice"
+        isPlaying.value = true
+
+        manager.testingReconcileSpotifyQueuePosition(currentTrackUri.value!!)
+
+        assertFalse(manager.isSpotifyConnectPlaying)
+        verify(spotifyPlaybackService).clearFastPathPlaybackGuard()
+        verify(spotifyPlaybackService, never()).pauseImmediately()
+        assertEquals(a.trackId, manager.state.value.trackId)
+        assertFalse(manager.testingSpotifyNaturalEndAdvanceJobActive())
+        manager.stop()
+    }
+
+    @Test
+    fun spotifyPickOfNextFeedSongWhileAwayAlsoReleasesControl() = runTest(testDispatcher) {
+        val manager = newManager()
+        val a = track("takeover-next-a")
+        val b = track("takeover-next-b")
+        seedConnect(manager, listOf(a, b), a)
+        manager.setCorusWindowFocused(false)
+        currentTrackUri.value = b.spotifyURI
+        isPlaying.value = true
+
+        manager.testingReconcileSpotifyQueuePosition(b.spotifyURI!!)
+
+        assertFalse(manager.isSpotifyConnectPlaying)
+        verify(spotifyPlaybackService).clearFastPathPlaybackGuard()
+        assertEquals(a.trackId, manager.state.value.trackId)
+        manager.stop()
+    }
+
+    @Test
+    fun unlockedSpotifyChangeDoesNotInterruptUnconfirmedCorusHandoff() = runTest(testDispatcher) {
+        val manager = newManager()
+        val a = track("handoff-away-a")
+        val b = track("handoff-away-b")
+        seedConnect(manager, listOf(a, b), a)
+        manager.setCorusWindowFocused(false)
+        manager.testingArmCorusPlayIntent(a.spotifyURI!!)
+        currentTrackUri.value = b.spotifyURI
+        isPlaying.value = true
+
+        manager.testingReconcileSpotifyQueuePosition(b.spotifyURI!!)
+
+        assertTrue(manager.isSpotifyConnectPlaying)
+        assertEquals(a.trackId, manager.state.value.trackId)
+        manager.stop()
+    }
+
+    @Test
+    fun naturalNextWhileAwayStillUsesCorusQueue() = runTest(testDispatcher) {
+        val manager = newManager()
+        val a = track("natural-away-a")
+        val b = track("natural-away-b")
+        seedConnect(manager, listOf(a, b), a)
+        manager.setCorusWindowFocused(false)
+        whenever(spotifyPlaybackService.lastOutgoingTrackUri).thenReturn(a.spotifyURI)
+        whenever(spotifyPlaybackService.lastOutgoingDuration).thenReturn(180.0)
+        whenever(spotifyPlaybackService.lastOutgoingPlaybackPosition).thenReturn(179.5)
+        currentTrackUri.value = b.spotifyURI
+        isPlaying.value = true
+
+        manager.testingReconcileSpotifyQueuePosition(b.spotifyURI!!)
+
+        assertTrue(manager.isSpotifyConnectPlaying)
+        assertEquals(b.trackId, manager.state.value.trackId)
+        manager.stop()
+    }
+
+    @Test
+    fun lockedNextKeepsCorusQueueAfterLeavingApp() = runTest(testDispatcher) {
+        val manager = newManager()
+        val a = track("locked-next-a")
+        val b = track("locked-next-b")
+        seedConnect(manager, listOf(a, b), a)
+        manager.setCorusWindowFocused(false)
+        manager.testingSetSpotifyDeviceLockedForQueueDriving(true)
+        currentTrackUri.value = b.spotifyURI
+        isPlaying.value = true
+
+        manager.testingReconcileSpotifyQueuePosition(b.spotifyURI!!)
+
+        assertTrue(manager.isSpotifyConnectPlaying)
+        assertEquals(b.trackId, manager.state.value.trackId)
+        assertTrue(manager.shouldKeepPlaybackServiceAfterTaskRemoved())
         manager.stop()
     }
 

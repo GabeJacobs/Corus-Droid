@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="live_connecting_audio">라이브 오디오 연결 중…</string>
+    <string name="live_connecting_microphone">마이크 연결 중…</string>
+</resources>
