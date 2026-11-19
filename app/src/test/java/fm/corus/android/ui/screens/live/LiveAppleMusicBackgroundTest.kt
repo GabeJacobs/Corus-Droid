@@ -64,7 +64,7 @@ class LiveAppleMusicBackgroundTest {
                 on { stagedPosition("next", 4L) } doReturn null
             }
             whenever(appleMusic.resolveConnectedSong(any())).thenReturn("apple-next")
-            whenever(repository.discovery()).thenReturn(emptyFlow())
+            whenever(repository.discovery(any())).thenReturn(emptyFlow())
             whenever(repository.observeRoom(room.id)).thenReturn(emptyFlow())
             whenever(repository.messages(room.id)).thenReturn(emptyFlow())
             whenever(repository.membership(room.id, "host")).thenReturn(emptyFlow())

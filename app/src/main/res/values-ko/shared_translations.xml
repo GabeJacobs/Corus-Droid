@@ -527,7 +527,7 @@
     <string name="live_retry_loading_songs">"곡 다시 불러오기"</string>
     <string name="live_room_effects">"효과"</string>
     <string name="live_room_timer_ends_room">"타이머가 끝나면 룸이 종료돼요."</string>
-    <string name="live_room_title_field">"룸 제목"</string>
+    <string name="live_room_title_field">"방 이름"</string>
     <string name="live_room_weather">"날씨"</string>
     <string name="live_save_room_title">"변경 사항 저장"</string>
     <string name="live_save_song">"곡 저장"</string>

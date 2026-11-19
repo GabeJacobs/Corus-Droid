@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="live_go_live_privately">"开始私人直播"</string>
+    <string name="live_private_notify_followers_description">"你的关注者将收到此私人房间的链接。"</string>
+    <string name="live_private_room">"私人房间"</string>
+    <string name="live_private_room_description">"只有拥有链接的人才能加入。"</string>
+</resources>

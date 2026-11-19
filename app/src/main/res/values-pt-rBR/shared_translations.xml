@@ -459,7 +459,7 @@
     <string name="live_retry_loading_songs">"Tentar carregar as músicas novamente"</string>
     <string name="live_room_effects">"Efeitos"</string>
     <string name="live_room_timer_ends_room">"A sala será encerrada quando a contagem terminar."</string>
-    <string name="live_room_title_field">"Título da sala"</string>
+    <string name="live_room_title_field">"Nome da sala"</string>
     <string name="live_room_weather">"Clima"</string>
     <string name="live_save_room_title">"Salvar alterações"</string>
     <string name="live_save_song">"Salvar música"</string>

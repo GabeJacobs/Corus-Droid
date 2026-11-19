@@ -159,6 +159,7 @@ fun MainTabScreen(
         access = liveState.access,
         roomCoversFeed = liveState.coversFeed,
         discovery = liveState.discovery,
+        discoveryListenerCounts = liveState.discoveryListenerCounts,
         trendingRoom = liveState.trendingRoom(liveTrendingMinListeners),
         showGoLive = liveState.uid != null && (liveShowGoLiveOnLaunch || liveState.cachedMenuAccess),
         canOpenSetup = liveState.setup == null && liveState.progress == null && (liveState.room == null || liveState.hosting),

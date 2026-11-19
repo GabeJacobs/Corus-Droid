@@ -527,7 +527,7 @@
     <string name="live_retry_loading_songs">"曲を再読み込み"</string>
     <string name="live_room_effects">"エフェクト"</string>
     <string name="live_room_timer_ends_room">"タイマーが切れるとルームは終了します。"</string>
-    <string name="live_room_title_field">"ルームのタイトル"</string>
+    <string name="live_room_title_field">"ルーム名"</string>
     <string name="live_room_weather">"天気"</string>
     <string name="live_save_room_title">"変更を保存"</string>
     <string name="live_save_song">"曲を保存"</string>

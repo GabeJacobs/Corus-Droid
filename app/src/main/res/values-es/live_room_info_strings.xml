@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="live_room_info">"Información de la sala"</string>
+    <string name="live_room_info_button">"Info"</string>
+    <string name="live_room_info_description">"Descripción"</string>
+    <string name="live_room_info_description_placeholder">"¿Qué vas a poner? ¿Aceptas peticiones? ¿Hay reglas en la sala?"</string>
+    <string name="live_room_info_discard">"Descartar cambios"</string>
+    <string name="live_room_info_discard_question">"¿Descartar los cambios?"</string>
+    <string name="live_room_info_empty">"El anfitrión aún no ha añadido una descripción."</string>
+    <string name="live_room_info_hint">"Cuéntales a los oyentes un poco sobre tu sala."</string>
+    <string name="live_room_info_keep_editing">"Seguir editando"</string>
+    <string name="live_room_info_name">"Nombre de la sala"</string>
+    <string name="live_room_info_name_placeholder">"Ponle nombre a tu sala"</string>
+    <string name="live_room_info_optional">"Opcional"</string>
+    <string name="live_room_info_save">"Guardar cambios"</string>
+    <string name="live_room_info_save_error">"No se pudo actualizar la sala. Inténtalo de nuevo."</string>
+    <string name="live_room_info_saving">"Guardando…"</string>
+    <string name="live_room_info_settings_detail">"Nombre y descripción"</string>
+</resources>

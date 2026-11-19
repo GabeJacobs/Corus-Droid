@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="live_room_info">"Rauminformationen"</string>
+    <string name="live_room_info_button">"Info"</string>
+    <string name="live_room_info_description">"Beschreibung"</string>
+    <string name="live_room_info_description_placeholder">"Was spielst du? Gibt es Musikwünsche oder Raumregeln?"</string>
+    <string name="live_room_info_discard">"Änderungen verwerfen"</string>
+    <string name="live_room_info_discard_question">"Änderungen verwerfen?"</string>
+    <string name="live_room_info_empty">"Der Host hat noch keine Beschreibung hinzugefügt."</string>
+    <string name="live_room_info_hint">"Erzähle den Zuhörern etwas über deinen Raum."</string>
+    <string name="live_room_info_keep_editing">"Weiter bearbeiten"</string>
+    <string name="live_room_info_name">"Raumname"</string>
+    <string name="live_room_info_name_placeholder">"Benenne deinen Raum"</string>
+    <string name="live_room_info_optional">"Optional"</string>
+    <string name="live_room_info_save">"Änderungen speichern"</string>
+    <string name="live_room_info_save_error">"Der Raum konnte nicht aktualisiert werden. Versuche es erneut."</string>
+    <string name="live_room_info_saving">"Wird gespeichert …"</string>
+    <string name="live_room_info_settings_detail">"Name und Beschreibung"</string>
+</resources>

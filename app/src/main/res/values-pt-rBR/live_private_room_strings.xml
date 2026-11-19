@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="live_go_live_privately">"Iniciar sala privada"</string>
+    <string name="live_private_notify_followers_description">"Seus seguidores receberão um link para esta sala privada."</string>
+    <string name="live_private_room">"Sala privada"</string>
+    <string name="live_private_room_description">"Só quem tem o link pode entrar."</string>
+</resources>

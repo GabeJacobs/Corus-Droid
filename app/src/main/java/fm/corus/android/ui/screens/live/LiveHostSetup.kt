@@ -1,5 +1,6 @@
 package fm.corus.android.ui.screens.live
 
+import android.os.SystemClock
 import androidx.compose.ui.res.stringResource
 import fm.corus.android.R
 import fm.corus.android.localization.CorusStrings
@@ -48,8 +49,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.NotificationsNone
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -92,8 +95,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import kotlin.math.exp
 
-private enum class SetupPanel { QUEUE, INVITE, WELCOME, MIC, NOTIFY }
+private enum class SetupPanel { INFO, QUEUE, INVITE, WELCOME, MIC, NOTIFY }
 
 @Composable
 internal fun LiveHostSetup(
@@ -104,6 +108,7 @@ internal fun LiveHostSetup(
     checkingAccess: Boolean,
     roomOpened: Boolean,
     visible: Boolean,
+    privateRoomsAvailable: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     var panel by remember(setup.id) { mutableStateOf<SetupPanel?>(null) }
@@ -293,16 +298,49 @@ internal fun LiveHostSetup(
                         modifier = Modifier.align(Alignment.CenterEnd).size(16.dp))
                 }
                 Spacer(Modifier.height(24.dp))
+                LiveSetupOption(stringResource(R.string.live_room_info), Icons.Outlined.Info, setup.roomDescription.isNotBlank()) {
+                    focus.clearFocus(); panel = SetupPanel.INFO
+                }
+                HorizontalDivider(Modifier.padding(start = 40.dp), color = CorusColors.Secondary.copy(alpha = .25f))
                 LiveSetupOption(stringResource(CorusStrings.corus_live_welcome_message), Icons.Default.GraphicEq, setup.welcome != null) {
                     focus.clearFocus(); panel = SetupPanel.WELCOME
                 }
                 HorizontalDivider(Modifier.padding(start = 40.dp), color = CorusColors.Secondary.copy(alpha = .25f))
-                LiveSetupOption(stringResource(CorusStrings.corus_live_test_microphone), Icons.Outlined.Mic, setup.micTested) {
-                    focus.clearFocus(); panel = SetupPanel.MIC
-                }
-                HorizontalDivider(Modifier.padding(start = 40.dp), color = CorusColors.Secondary.copy(alpha = .25f))
                 LiveSetupOption(stringResource(CorusStrings.corus_live_notify_followers), Icons.Outlined.NotificationsNone, setup.notifyFollowers) {
                     focus.clearFocus(); panel = SetupPanel.NOTIFY
+                }
+                if (privateRoomsAvailable) {
+                    val privateRoomLabel = stringResource(R.string.live_private_room)
+                    HorizontalDivider(Modifier.padding(start = 40.dp), color = CorusColors.Secondary.copy(alpha = .25f))
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Outlined.Lock, null, tint = CorusColors.Secondary, modifier = Modifier.size(19.dp))
+                        }
+                        Column(Modifier.weight(1f)) {
+                            LiveText(privateRoomLabel, CorusFont.bodyMedium)
+                            LiveText(stringResource(R.string.live_private_room_description), CorusFont.caption, CorusColors.Secondary)
+                        }
+                        Switch(
+                            modifier = Modifier.semantics { contentDescription = privateRoomLabel },
+                            checked = setup.isPrivate,
+                            onCheckedChange = { value -> vm.editSetup { withPrivacy(value) } },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = CorusColors.Background,
+                                checkedTrackColor = CorusColors.Accent,
+                                uncheckedThumbColor = CorusColors.Background,
+                                uncheckedTrackColor = CorusColors.Tertiary,
+                                uncheckedBorderColor = CorusColors.Tertiary,
+                            ),
+                        )
+                    }
+                }
+                HorizontalDivider(Modifier.padding(start = 40.dp), color = CorusColors.Secondary.copy(alpha = .25f))
+                LiveSetupOption(stringResource(CorusStrings.corus_live_test_microphone), Icons.Outlined.Mic, setup.micTested) {
+                    focus.clearFocus(); panel = SetupPanel.MIC
                 }
             }
             Box(
@@ -319,6 +357,9 @@ internal fun LiveHostSetup(
 
     val closePanel = { panel = null }
     when (panel.takeIf { visible }) {
+        SetupPanel.INFO -> LiveRoomInfoSheet(
+            setup.title, setup.roomDescription, "", true, closePanel,
+        ) { title, description -> vm.editSetup { copy(title = title, roomDescription = description) } }
         SetupPanel.QUEUE -> LiveSetupQueueEditor(
             initial = setup.queue,
             onDone = { tracks -> vm.editSetup { copy(queue = tracks) }; closePanel() },
@@ -352,7 +393,7 @@ internal fun LiveHostSetup(
                 )
             }
             LiveText(
-                stringResource(R.string.live_notify_followers_description),
+                stringResource(if (setup.isPrivate && setup.notifyFollowers) R.string.live_private_notify_followers_description else R.string.live_notify_followers_description),
                 CorusFont.caption, CorusColors.Secondary,
             )
             Column(
@@ -428,8 +469,21 @@ internal fun LiveLoading(
 ) {
     val tuning = progress == LiveProgress.TUNING
     val titleTravel = with(LocalDensity.current) { 6.dp.roundToPx() }
+    var startupTarget by remember { mutableFloatStateOf(if (progress == LiveProgress.PREPARING) .2f else .7f) }
+    LaunchedEffect(progress) {
+        startupTarget = if (progress == LiveProgress.PREPARING) .2f else maxOf(startupTarget, .7f)
+        if (progress == LiveProgress.STARTING_SPOTIFY || progress == LiveProgress.STARTING_APPLE_MUSIC) {
+            // Keep the playback wait moving without implying startup has finished.
+            val began = SystemClock.elapsedRealtime()
+            while (true) {
+                delay(100)
+                val elapsedSeconds = (SystemClock.elapsedRealtime() - began) / 1000.0
+                startupTarget = maxOf(startupTarget, (.7 + .24 * (1 - exp(-elapsedSeconds / 3))).toFloat())
+            }
+        }
+    }
     val progressFraction by animateFloatAsState(
-        targetValue = if (progress == LiveProgress.PREPARING) .2f else .7f,
+        targetValue = startupTarget,
         animationSpec = tween(220),
         label = "Live startup progress",
     )
@@ -670,7 +724,7 @@ internal fun LiveTrackRow(
             LiveText(track.song.artistName, CorusFont.caption, CorusColors.Secondary, lines = 1)
         }
         if (showLikes) {
-            track.likes?.let { likes ->
+            track.likes?.takeIf { it > 0 }?.let { likes ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),

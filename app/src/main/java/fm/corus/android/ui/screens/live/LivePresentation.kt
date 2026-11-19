@@ -111,6 +111,7 @@ internal data class LiveNavigationState(
     val access: LiveAccess?,
     val roomCoversFeed: Boolean,
     val discovery: List<LiveRoom>,
+    val discoveryListenerCounts: Map<String, Int>,
     val trendingRoom: LiveRoom?,
     val showGoLive: Boolean,
     val canOpenSetup: Boolean,
@@ -174,8 +175,9 @@ internal fun LiveCreateButton(onDefault: () -> Unit, modifier: Modifier = Modifi
 @Composable
 internal fun LiveDiscovery(source: String, following: Set<String>? = null, inSearch: Boolean = false) {
     val live = LocalLiveNavigation.current ?: return
-    val rooms = if (source == "trending") listOfNotNull(live.state.trendingRoom)
+    val candidates = if (source == "trending") listOfNotNull(live.state.trendingRoom)
     else live.state.discovery.filter { it.matchesFollowing(following) }
+    val rooms = roomsWithDiscoveryCounts(candidates, live.state.discoveryListenerCounts)
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val artworkUrls = if (lifecycle.isAtLeast(Lifecycle.State.RESUMED) && !live.state.roomCoversFeed) {
         rooms.take(3).mapNotNull { it.current?.loadingArtworkUrl }.distinct()
@@ -201,6 +203,7 @@ internal fun LiveDiscovery(source: String, following: Set<String>? = null, inSea
             items(rooms, key = { it.id }) { room ->
                 LiveDiscoveryPill(
                     room,
+                    listenerCount = live.state.discoveryListenerCounts[room.id],
                     open = { live.viewModel.event("discovery_opened", source = source); live.viewModel.join(room.id) },
                     hide = { hide = room },
                 )
@@ -220,7 +223,7 @@ internal fun LiveDiscovery(source: String, following: Set<String>? = null, inSea
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun LiveDiscoveryPill(room: LiveRoom, open: () -> Unit, hide: () -> Unit) {
+private fun LiveDiscoveryPill(room: LiveRoom, listenerCount: Int?, open: () -> Unit, hide: () -> Unit) {
     val djs = remember(room.djs) { room.djs.map(LivePerson::parse).filter { it.uid.isNotBlank() } }
     val customTitle = room.customTitle.trim()
     val hasNamedLineup = customTitle.isNotEmpty() && djs.isNotEmpty()
@@ -238,19 +241,48 @@ private fun LiveDiscoveryPill(room: LiveRoom, open: () -> Unit, hide: () -> Unit
         LiveBadgedArtwork {
             LiveMiniAvatarStack(room.host, djs)
         }
-        Column(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            if (djs.isEmpty() || hasNamedLineup) {
-                LiveText(customTitle.ifEmpty { handles.first() }, CorusFont.username, lines = 1)
+        Row(
+            Modifier.weight(1f, fill = false),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Column(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                if (djs.isEmpty() || hasNamedLineup) {
+                    LiveText(customTitle.ifEmpty { handles.first() }, CorusFont.username, lines = 1)
+                }
+                if (djs.isNotEmpty()) {
+                    LiveDiscoveryDJNames(
+                        handles,
+                        if (hasNamedLineup) CorusFont.caption else CorusFont.username,
+                        if (hasNamedLineup) CorusColors.Secondary else CorusColors.Text,
+                    )
+                }
+                if (!hasNamedLineup) room.current?.let { track ->
+                    val subtitle = listOf(track.song.name, track.song.artistName).filter { it.isNotBlank() }.joinToString(" · ")
+                    LiveText(subtitle, CorusFont.caption, CorusColors.Secondary, lines = 1)
+                }
             }
-            if (djs.isNotEmpty()) {
-                val style = if (hasNamedLineup) CorusFont.caption else CorusFont.username
-                val color = if (hasNamedLineup) CorusColors.Secondary else CorusColors.Text
-                LiveDiscoveryDJNames(handles, style, color)
-            }
-            if (!hasNamedLineup) room.current?.let { track ->
-                val subtitle = listOf(track.song.name, track.song.artistName).filter { it.isNotBlank() }.joinToString(" · ")
-                LiveText(subtitle, CorusFont.caption, CorusColors.Secondary, lines = 1)
-            }
+            LiveDiscoveryPeopleCount(listenerCount?.let { it + 1 + djs.size })
+        }
+    }
+}
+
+@Composable
+private fun LiveDiscoveryPeopleCount(people: Int?) {
+    people?.let {
+        val count = java.text.NumberFormat.getIntegerInstance().format(it)
+        val peopleLabel = stringResource(R.string.search_trending_people)
+        val dark = LocalCorusDarkTheme.current
+        val foreground = if (dark) Color(0xFFB0B0B6) else Color(0xFF74747C)
+        Row(
+            Modifier.background(CorusColors.Accent.copy(alpha = if (dark) .16f else .09f), CircleShape)
+                .padding(horizontal = 5.dp, vertical = 2.dp)
+                .clearAndSetSemantics { contentDescription = "$count $peopleLabel" },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Icon(Icons.Default.Person, null, Modifier.size(14.dp), tint = foreground)
+            LiveText(count, CorusFont.caption.copy(fontWeight = FontWeight.Medium), foreground, lines = 1)
         }
     }
 }
@@ -621,7 +653,7 @@ internal fun BoxScope.LivePresentation(
         (latest ?: exitingSetup)?.let {
             LiveHostSetup(
                 it, profile, vm, state.progress, state.checkingSetupAccess, roomOpened = state.hosting,
-                visible = latest != null, modifier = Modifier.blockTouchPassthrough(),
+                visible = latest != null, privateRoomsAvailable = state.access?.privateRooms == true, modifier = Modifier.blockTouchPassthrough(),
             )
         }
     }

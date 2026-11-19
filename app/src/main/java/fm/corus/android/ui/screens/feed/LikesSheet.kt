@@ -237,13 +237,14 @@ internal fun CorusUserListRow(
     onUserTap: () -> Unit,
     onFollowTap: (() -> Unit)?,
     followPending: Boolean = false,
+    contentPadding: PaddingValues = PaddingValues(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
     accessory: @Composable () -> Unit = {},
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onUserTap)
-            .padding(horizontal = CorusSpacing.lg, vertical = CorusSpacing.sm),
+            .padding(contentPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         UserAvatarView(

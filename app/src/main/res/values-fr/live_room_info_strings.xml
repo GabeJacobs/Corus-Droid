@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="live_room_info">"Infos du salon"</string>
+    <string name="live_room_info_button">"Infos"</string>
+    <string name="live_room_info_description">"Description"</string>
+    <string name="live_room_info_description_placeholder">"Quelle musique passez-vous ? Des demandes ou des règles à préciser ?"</string>
+    <string name="live_room_info_discard">"Abandonner les modifications"</string>
+    <string name="live_room_info_discard_question">"Abandonner les modifications ?"</string>
+    <string name="live_room_info_empty">"L’hôte n’a pas encore ajouté de description."</string>
+    <string name="live_room_info_hint">"Présentez votre salon aux auditeurs."</string>
+    <string name="live_room_info_keep_editing">"Continuer à modifier"</string>
+    <string name="live_room_info_name">"Nom du salon"</string>
+    <string name="live_room_info_name_placeholder">"Nommez votre salon"</string>
+    <string name="live_room_info_optional">"Facultatif"</string>
+    <string name="live_room_info_save">"Enregistrer les modifications"</string>
+    <string name="live_room_info_save_error">"Impossible de mettre à jour le salon. Réessayez."</string>
+    <string name="live_room_info_saving">"Enregistrement…"</string>
+    <string name="live_room_info_settings_detail">"Nom et description"</string>
+</resources>

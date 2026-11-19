@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="live_go_live_privately">"Lancer un salon privé"</string>
+    <string name="live_private_notify_followers_description">"Vos abonnés recevront un lien vers ce salon privé."</string>
+    <string name="live_private_room">"Salon privé"</string>
+    <string name="live_private_room_description">"Seules les personnes ayant le lien peuvent rejoindre."</string>
+</resources>

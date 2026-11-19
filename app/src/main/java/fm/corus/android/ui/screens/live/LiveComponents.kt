@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import fm.corus.android.ui.components.CorusModalBottomSheet
 import fm.corus.android.ui.components.UserAvatarView
+import fm.corus.android.ui.components.closeSheetOnHeaderPull
 import fm.corus.android.ui.components.dismissKeyboardOnDownwardDrag
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
@@ -207,6 +208,8 @@ internal fun LiveSheet(
     fixedTopGap: Dp? = null,
     dismissEnabled: Boolean = true,
     showCloseButton: Boolean = false,
+    allowSwipeDismiss: Boolean = true,
+    onHeaderPull: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val largeHeightFraction = when {
@@ -215,14 +218,21 @@ internal fun LiveSheet(
         else -> .96f
     }
     val canDismiss by rememberUpdatedState(dismissEnabled)
+    val canSwipeDismiss by rememberUpdatedState(allowSwipeDismiss)
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = !startsHalfExpanded) {
-        it != SheetValue.Hidden || canDismiss
+        it != SheetValue.Hidden || (canDismiss && canSwipeDismiss)
     }
     CorusModalBottomSheet(
         onDismissRequest = { if (canDismiss) close() },
         modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
-            .padding(top = fixedTopGap ?: 0.dp),
+            .padding(top = fixedTopGap ?: 0.dp)
+            .then(if (dismissKeyboardFromHeader) Modifier.dismissKeyboardOnDownwardDrag() else Modifier),
         sheetState = sheetState,
+        dragHandle = {
+            Box(if (onHeaderPull != null) Modifier.fillMaxWidth().closeSheetOnHeaderPull(onHeaderPull) else Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                BottomSheetDefaults.DragHandle()
+            }
+        },
         shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
         containerColor = CorusColors.SheetBackground,
     ) {
@@ -231,7 +241,8 @@ internal fun LiveSheet(
                 LiveHeader(
                     title, done, sheetToolbar,
                     close = if (showCloseButton) ({ if (canDismiss) close() }) else null,
-                    modifier = if (dismissKeyboardFromHeader) Modifier.dismissKeyboardOnDownwardDrag() else Modifier,
+                    modifier = if (onHeaderPull != null) Modifier.closeSheetOnHeaderPull(onHeaderPull)
+                        else if (dismissKeyboardFromHeader) Modifier.dismissKeyboardOnDownwardDrag() else Modifier,
                 )
             }
             Column(

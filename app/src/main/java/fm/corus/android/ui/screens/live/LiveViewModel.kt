@@ -93,6 +93,7 @@ internal data class LiveUiState(
     val cachedMenuAccess: Boolean = false,
     val discovery: List<LiveRoom> = emptyList(),
     val discoveryListenerCounts: Map<String, Int> = emptyMap(),
+    val discoveryCountsUpdatedAt: Long = 0,
     val invites: List<LiveFields> = emptyList(),
     val shownInvite: LiveFields? = null,
     val seenInviteKeys: Set<Pair<String, Long>> = emptySet(),
@@ -425,7 +426,7 @@ internal class LiveViewModel @Inject constructor(
                 if (uid == null || access == null) return@collectLatest
                 coroutineScope {
                     launch {
-                        repository.discovery().catch { error -> showError(error) }.collectLatest { rooms ->
+                        repository.discovery(access.privacyMetadataSupported).catch { error -> showError(error) }.collectLatest { rooms ->
                             discoverySource = rooms
                             refreshDiscovery()
                         }
@@ -548,9 +549,11 @@ internal class LiveViewModel @Inject constructor(
         if (uid != state.value.uid || roomSource !== discoverySource) return@withLock
         // The server omits rooms that are no longer live or whose host is blocked.
         update {
+            val readyCounts = counts ?: freshDiscoveryCounts(discoveryListenerCounts, discoveryCountsUpdatedAt, now)
             copy(
-                discovery = rooms.filter { eligible(it) && (counts == null || it.id in counts) },
-                discoveryListenerCounts = counts.orEmpty(),
+                discovery = roomsWithDiscoveryCounts(rooms.filter(::eligible), readyCounts),
+                discoveryListenerCounts = readyCounts,
+                discoveryCountsUpdatedAt = if (counts != null) now else discoveryCountsUpdatedAt,
             )
         }
     }
@@ -754,6 +757,7 @@ internal class LiveViewModel @Inject constructor(
                     put("musicService", provider.value)
                     put("queue", setup.queue.map(LiveTrack::fields))
                     put("notifyFollowers", setup.notifyFollowers)
+                    put("isPrivate", setup.isPrivate)
                     put("voiceProtocol", 2)
                     put("hostMonetizationProtocol", 1)
                     put("locale", LiveRepository.locale())
@@ -763,6 +767,7 @@ internal class LiveViewModel @Inject constructor(
                         if (state.value.access?.talkRequests == true) put("djTalkRequestProtocol", 1)
                     }
                     setup.title.trim().replace(Regex("\\s+"), " ").takeIf(String::isNotEmpty)?.let { put("title", it) }
+                    setup.roomDescription.trim().takeIf(String::isNotEmpty)?.let { put("roomDescription", it) }
                     setup.notificationMessage.trim().takeIf(String::isNotEmpty)?.let { put("notificationMessage", it) }
                     setup.welcome?.let { put("welcomeMessage", repository.uploadWelcome(uid, setup.id, it)) }
                 }
@@ -1363,6 +1368,16 @@ internal class LiveViewModel @Inject constructor(
         action("voiceMode", mapOf("mode" to "music"))
     }
 
+    fun setRoomPrivacy(roomId: String, isPrivate: Boolean, completed: () -> Unit) {
+        if (state.value.room?.id != roomId || !state.value.hosting) { completed(); return }
+        viewModelScope.launch {
+            try { command("setRoomPrivacy", roomId, mapOf("isPrivate" to isPrivate)) }
+            catch (error: CancellationException) { throw error }
+            catch (error: Exception) { if (state.value.room?.id == roomId) showError(error) }
+            finally { completed() }
+        }
+    }
+
     fun action(name: String, fields: LiveFields = emptyMap(), done: ((LiveFields) -> Unit)? = null) {
         val room = state.value.room ?: return
         viewModelScope.launch {
@@ -1612,6 +1627,15 @@ internal class LiveViewModel @Inject constructor(
                     throw error
                 } catch (_: Exception) { }
             }
+        }
+    }
+
+    suspend fun updateRoomInfo(roomId: String, title: String, description: String) {
+        require(state.value.room?.id == roomId && state.value.hosting)
+        command("updateRoomInfo", roomId, mapOf("title" to title, "roomDescription" to description))
+        withTimeoutOrNull(3_000) {
+            state.first { it.room?.id != roomId ||
+                (it.room.customTitle == title && it.room.roomDescription == description) }
         }
     }
 
@@ -3021,7 +3045,7 @@ internal class LiveViewModel @Inject constructor(
     companion object {
         private val measuredActions = setOf(
             "join", "leave", "end", "chat", "like", "effect", "voiceMode", "queue", "skip",
-            "completeSkip", "playQueuedTrack", "renameRoom", "saveLiveTrack", "unsaveLiveTrack",
+            "completeSkip", "playQueuedTrack", "renameRoom", "updateRoomInfo", "saveLiveTrack", "unsaveLiveTrack",
             "reserveShareLink", "reportRoom", "report", "removeMessage", "removeListener", "setChatReaction",
             "inviteDJs", "cancelDJInvite", "acceptDJInvite", "declineDJInvite", "requestDJ",
             "cancelDJRequest", "approveDJRequest", "declineDJRequest", "djQueue", "stopDJing",

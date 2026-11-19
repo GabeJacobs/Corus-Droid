@@ -138,6 +138,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.core:core-splashscreen:1.2.0")
     if (hasAppleMusicSdk) {
         implementation(files(appleMusicSdk))
         implementation("androidx.media:media:1.7.0")

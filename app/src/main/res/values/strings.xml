@@ -1646,7 +1646,7 @@
     <string name="live_host_provider_body">"Connect Spotify Premium or an Apple Music subscription to go live. Corus will switch to the service you connect."</string>
     <string name="live_host_provider_spotify_body">"Connect Spotify Premium to go live. Corus will switch your music service to Spotify."</string>
     <string name="live_edit_room_title">"Edit room title"</string>
-    <string name="live_room_title_field">"Room title"</string>
+    <string name="live_room_title_field">"Room name"</string>
     <string name="live_save_room_title">"Save changes"</string>
     <string name="live_enable_chat">"Enable chat"</string>
     <string name="live_chat_disabled">"Chat is turned off."</string>

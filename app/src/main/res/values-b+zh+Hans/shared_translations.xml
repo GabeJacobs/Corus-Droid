@@ -527,7 +527,7 @@
     <string name="live_retry_loading_songs">"重新加载歌曲"</string>
     <string name="live_room_effects">"特效"</string>
     <string name="live_room_timer_ends_room">"倒计时结束后，直播间将关闭。"</string>
-    <string name="live_room_title_field">"直播间标题"</string>
+    <string name="live_room_title_field">"房间名称"</string>
     <string name="live_room_weather">"天气"</string>
     <string name="live_save_room_title">"保存更改"</string>
     <string name="live_save_song">"收藏歌曲"</string>

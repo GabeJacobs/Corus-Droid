@@ -97,6 +97,7 @@ internal data class LivePerson(
 }
 
 internal data class LiveRoom(val id: String, private val fields: LiveFields) {
+    val isPrivate = fields.flag("isPrivate")
     val host = LivePerson(
         fields.text("hostId"),
         fields.text("hostUsername").ifBlank { fields.text("hostName") },
@@ -104,6 +105,7 @@ internal data class LiveRoom(val id: String, private val fields: LiveFields) {
     )
     val hostHandle = fields.text("hostUsername").trim().removePrefix("@")
         .takeUnless { it.isBlank() || it == "…" }?.let { "@$it" }
+    val roomDescription = fields.text("roomDescription")
     val customTitle = fields.text("title")
     val title = customTitle.ifBlank { "@${host.username.removePrefix("@")}" }
     val chatEnabled = fields["chatEnabled"] != false
@@ -263,6 +265,8 @@ internal data class LiveAccess(
     val sourceTracks: Boolean,
     val appleMusicHostAutoplay: Boolean = false,
     val appleMusicHostEarlyAdvance: Boolean = false,
+    val privateRooms: Boolean = false,
+    val privacyMetadataSupported: Boolean = false,
 )
 
 internal data class LiveSearchPage(val tracks: List<LiveTrack>, val nextOffset: Int?)
@@ -270,14 +274,21 @@ internal data class LiveSearchPage(val tracks: List<LiveTrack>, val nextOffset: 
 internal data class LiveSetup(
     val id: String,
     val title: String = "",
+    val roomDescription: String = "",
     val queue: List<LiveTrack> = emptyList(),
     val invitees: List<LivePerson> = emptyList(),
-    val notifyFollowers: Boolean = false,
+    val notifyFollowers: Boolean = true,
+    val isPrivate: Boolean = false,
+    val publicNotifyFollowers: Boolean = true,
     val notificationMessage: String = "",
     val micTested: Boolean = false,
     val welcome: LiveRecording? = null,
     val loadingFirstSong: Boolean = false,
 ) {
+    fun withPrivacy(value: Boolean): LiveSetup = if (value == isPrivate) this else if (value) {
+        copy(isPrivate = true, publicNotifyFollowers = notifyFollowers, notifyFollowers = false)
+    } else copy(isPrivate = false, notifyFollowers = publicNotifyFollowers)
+
     val firstSongArtwork: String? get() = queue.firstOrNull()?.song?.liveDisplayArtwork
 }
 

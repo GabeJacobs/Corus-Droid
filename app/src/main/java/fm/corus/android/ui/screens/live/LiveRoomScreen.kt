@@ -48,6 +48,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.Reply
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.BookmarkBorder
@@ -82,6 +83,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -140,7 +142,7 @@ import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.sin
 
-private enum class RoomPanel { HISTORY, LISTENERS, OPTIONS, INVITE, LINEUP, PICK_DJS, EDIT_TITLE, QUEUE, REQUEST_SONG, GIF, REPORT, END }
+private enum class RoomPanel { HISTORY, LISTENERS, OPTIONS, INVITE, LINEUP, PICK_DJS, INFO, QUEUE, REQUEST_SONG, GIF, REPORT, END }
 
 private data class QueuePlaySelection(val track: LiveTrack, val index: Int, val version: Long, val revision: Long)
 
@@ -158,6 +160,21 @@ internal fun LiveRoomScreen(
     minimizeDrag: Modifier,
 ) {
     var panel by remember(room.id) { mutableStateOf<RoomPanel?>(null) }
+    // Resolve the host as the room appears, so opening Info reuses the ready profile.
+    val infoHostProfile by produceState(room.host.profile, room.host.uid, state.hosting) {
+        if (!state.hosting) {
+            value = try {
+                vm.miniPlayerHostProfile(room.host.uid)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                room.host.profile
+            }
+        }
+    }
+    LaunchedEffect(room.roomDescription, state.hosting) {
+        if (!state.hosting && room.roomDescription.isBlank() && panel == RoomPanel.INFO) panel = null
+    }
     var chatFocused by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -382,7 +399,8 @@ internal fun LiveRoomScreen(
                     }
                 }
                 RoomStatus(state.listenerCount, room.collaborative,
-                    { show(RoomPanel.LISTENERS) }, { show(RoomPanel.LINEUP) })
+                    { show(RoomPanel.LISTENERS) }, { show(RoomPanel.LINEUP) },
+                    if (state.hosting || room.roomDescription.isNotBlank()) ({ show(RoomPanel.INFO) }) else null)
             }
             val chatRows = remember(state.messages, state.djRequests, state.hosting, state.pendingLikeNotice, room.revision, room.chatEnabled) {
                 state.chatRows
@@ -566,17 +584,17 @@ internal fun LiveRoomScreen(
             ) {
                 Row(
                     Modifier.fillMaxWidth()
-                        .clickable(role = Role.Button) { panel = RoomPanel.EDIT_TITLE }
+                        .clickable(role = Role.Button) { panel = RoomPanel.INFO }
                         .heightIn(min = 56.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        LiveText(stringResource(R.string.live_room_title_field), CorusFont.username)
-                        LiveText(room.title, color = CorusColors.Secondary, lines = 1)
+                        LiveText(stringResource(R.string.live_room_info), CorusFont.username)
+                        LiveText(stringResource(R.string.live_room_info_settings_detail), CorusFont.caption, CorusColors.Secondary, lines = 1)
                     }
-                    Icon(Icons.Default.Edit, stringResource(R.string.live_edit_room_title),
-                        tint = CorusColors.Accent, modifier = Modifier.size(20.dp))
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null,
+                        tint = CorusColors.Secondary, modifier = Modifier.size(20.dp))
                 }
                 HorizontalDivider(color = CorusColors.Divider)
                 LiveText(stringResource(R.string.live_room_effects), CorusFont.username,
@@ -606,6 +624,26 @@ internal fun LiveRoomScreen(
                     HorizontalDivider(Modifier.padding(top = 12.dp), color = CorusColors.Divider)
                 }
                 if (state.hosting) {
+                    if (state.access?.privateRooms == true || room.isPrivate) {
+                        val label = stringResource(R.string.live_private_room)
+                        var savingPrivacy by remember(room.id) { mutableStateOf(false) }
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                LiveText(label, CorusFont.username)
+                                LiveText(stringResource(R.string.live_private_room_description), CorusFont.caption, CorusColors.Secondary)
+                            }
+                            Switch(
+                                checked = room.isPrivate,
+                                enabled = !savingPrivacy,
+                                modifier = Modifier.semantics { contentDescription = label },
+                                onCheckedChange = { value ->
+                                    savingPrivacy = true
+                                    vm.setRoomPrivacy(room.id, value) { savingPrivacy = false }
+                                },
+                                colors = SwitchDefaults.colors(checkedTrackColor = CorusColors.Accent),
+                            )
+                        }
+                    }
                     RoomSwitch(
                         stringResource(R.string.live_enable_chat),
                         state.pendingChatEnabled ?: room.chatEnabled,
@@ -623,10 +661,16 @@ internal fun LiveRoomScreen(
                 }
             }
         }
-        RoomPanel.EDIT_TITLE -> EditRoomTitleSheet(
-            room.customTitle,
-            onDismiss = { panel = RoomPanel.OPTIONS },
-            onSave = { title -> vm.renameRoom(room.id, title) },
+        RoomPanel.INFO -> LiveRoomInfoSheet(
+            room.customTitle, room.roomDescription, room.title, state.hosting,
+            onDismiss = close,
+            onSave = { title, description -> vm.updateRoomInfo(room.id, title, description) },
+            hostContent = if (state.hosting) null else ({
+                LiveRoomInfoHost(room.host, infoHostProfile) {
+                    close()
+                    visitProfile(room.host.uid)
+                }
+            }),
         )
         RoomPanel.INVITE -> LiveSheet(stringResource(CorusStrings.native_1fd9ae1607aa), close) {
             if (openDJSpots > 0) LiveRow(stringResource(R.string.live_invite_dj), Icons.Default.PersonAdd) { panel = RoomPanel.PICK_DJS }
@@ -981,59 +1025,6 @@ private fun RoomEffectSection(
                 if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
-    }
-}
-
-@Composable
-private fun EditRoomTitleSheet(initialTitle: String, onDismiss: () -> Unit, onSave: suspend (String) -> Unit) {
-    val originalTitle = remember { initialTitle }
-    var title by remember { mutableStateOf(originalTitle) }
-    var saving by remember { mutableStateOf(false) }
-    var failed by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    val focus = LocalFocusManager.current
-    val editedTitle = title.trim().replace(Regex("[\\s\\p{Z}]+"), " ")
-    val canSave = !saving && editedTitle != originalTitle
-    val save: () -> Unit = {
-        if (canSave) {
-            saving = true
-            failed = false
-            focus.clearFocus()
-            scope.launch {
-                try {
-                    onSave(editedTitle)
-                    onDismiss()
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (_: Exception) {
-                    failed = true
-                } finally {
-                    saving = false
-                }
-            }
-        }
-    }
-
-    LiveSheet(stringResource(R.string.live_edit_room_title), onDismiss, dismissEnabled = !saving) {
-        OutlinedTextField(
-            value = title,
-            onValueChange = { title = limitLiveCharacters(it, LIVE_ROOM_TITLE_LIMIT) },
-            modifier = Modifier.fillMaxWidth(),
-            label = { LiveText(stringResource(R.string.live_room_title_field)) },
-            textStyle = CorusFont.body,
-            singleLine = true,
-            enabled = !saving,
-            keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { save() }),
-        )
-        if (failed) {
-            LiveText(stringResource(R.string.edit_profile_save_error), CorusFont.caption, CorusColors.Secondary)
-        }
-        LivePrimary(
-            stringResource(if (saving) CorusStrings.compose_draft_saving else R.string.live_save_room_title),
-            enabled = canSave,
-            onClick = save,
-        )
     }
 }
 
@@ -1418,12 +1409,13 @@ internal fun LiveVoiceMeter(level: Float) {
 }
 
 @Composable
-private fun RoomStatus(count: Int, collaboration: Boolean, listeners: () -> Unit, lineup: () -> Unit) {
+private fun RoomStatus(count: Int, collaboration: Boolean, listeners: () -> Unit, lineup: () -> Unit, info: (() -> Unit)?) {
     Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         HorizontalDivider(Modifier.weight(1f), color = CorusColors.Secondary.copy(alpha = .25f))
         LivePill(count.toString(), listeners, showPeople = true)
         if (collaboration) LivePill(stringResource(R.string.live_djs), lineup)
+        if (info != null) LivePill(stringResource(R.string.live_room_info_button), info)
         HorizontalDivider(Modifier.weight(1f), color = CorusColors.Secondary.copy(alpha = .25f))
     }
 }

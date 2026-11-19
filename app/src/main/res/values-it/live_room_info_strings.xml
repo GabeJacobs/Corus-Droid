@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="live_room_info">"Info stanza"</string>
+    <string name="live_room_info_button">"Info"</string>
+    <string name="live_room_info_description">"Descrizione"</string>
+    <string name="live_room_info_description_placeholder">"Che musica metti? Accetti richieste? Ci sono regole nella stanza?"</string>
+    <string name="live_room_info_discard">"Scarta modifiche"</string>
+    <string name="live_room_info_discard_question">"Scartare le modifiche?"</string>
+    <string name="live_room_info_empty">"L’host non ha ancora aggiunto una descrizione."</string>
+    <string name="live_room_info_hint">"Racconta agli ascoltatori qualcosa sulla tua stanza."</string>
+    <string name="live_room_info_keep_editing">"Continua a modificare"</string>
+    <string name="live_room_info_name">"Nome della stanza"</string>
+    <string name="live_room_info_name_placeholder">"Dai un nome alla tua stanza"</string>
+    <string name="live_room_info_optional">"Facoltativo"</string>
+    <string name="live_room_info_save">"Salva modifiche"</string>
+    <string name="live_room_info_save_error">"Impossibile aggiornare la stanza. Riprova."</string>
+    <string name="live_room_info_saving">"Salvataggio…"</string>
+    <string name="live_room_info_settings_detail">"Nome e descrizione"</string>
+</resources>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="live_room_info">"Room info"</string>
+    <string name="live_room_info_button">"Info"</string>
+    <string name="live_room_info_description">"Description"</string>
+    <string name="live_room_info_description_placeholder">"What are you playing? Any requests or room rules?"</string>
+    <string name="live_room_info_discard">"Discard changes"</string>
+    <string name="live_room_info_discard_question">"Discard changes?"</string>
+    <string name="live_room_info_empty">"The host hasn’t added a description yet."</string>
+    <string name="live_room_info_hint">"Give listeners a little context about your room."</string>
+    <string name="live_room_info_keep_editing">"Keep editing"</string>
+    <string name="live_room_info_name">"Room name"</string>
+    <string name="live_room_info_name_placeholder">"Name your room"</string>
+    <string name="live_room_info_optional">"Optional"</string>
+    <string name="live_room_info_save">"Save changes"</string>
+    <string name="live_room_info_save_error">"Couldn’t update the room. Try again."</string>
+    <string name="live_room_info_saving">"Saving…"</string>
+    <string name="live_room_info_settings_detail">"Name and description"</string>
+</resources>

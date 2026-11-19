@@ -66,6 +66,8 @@ internal class LiveRepository @Inject constructor(
             fields.flag("sourceTracksAvailable"),
             fields.flag("appleMusicHostAutoplayAvailable"),
             fields.flag("appleMusicHostEarlyAdvanceAvailable"),
+            fields.flag("privateRoomsAvailable"),
+            fields["privateRoomsAvailable"] is Boolean,
         )
     }
 
@@ -75,8 +77,13 @@ internal class LiveRepository @Inject constructor(
 
     suspend fun room(id: String): LiveRoom? = rooms.document(id).get(Source.SERVER).await().toRoom()
 
-    fun discovery(): Flow<List<LiveRoom>> =
-        rooms.whereEqualTo("status", "playing").limit(25).snapshots { it.mapNotNull(DocumentSnapshot::toLiveRoom) }
+    fun discovery(privacyMetadataSupported: Boolean): Flow<List<LiveRoom>> {
+        val playing = rooms.whereEqualTo("status", "playing")
+        val query = if (privacyMetadataSupported) playing.whereEqualTo("isPrivate", false) else playing
+        return query.limit(25).snapshots { documents ->
+            documents.mapNotNull(DocumentSnapshot::toLiveRoom).filterNot { it.isPrivate }
+        }
+    }
 
     fun observeRoom(id: String): Flow<LiveRoom?> = callbackFlow {
         val registration = rooms.document(id).addSnapshotListener { snapshot, error ->
@@ -101,7 +108,7 @@ internal class LiveRepository @Inject constructor(
     }
 
     fun messages(id: String): Flow<List<LiveMessage>> = rooms.document(id).collection("messages")
-        .orderBy("createdAt", Query.Direction.DESCENDING).limit(100)
+        .orderBy("createdAt", Query.Direction.DESCENDING).limit(50)
         .snapshots { documents -> documents.asReversed().mapNotNull { doc -> doc.data?.let { LiveMessage(doc.id, it) } } }
 
     suspend fun sentMessage(roomId: String, messageId: String): LiveMessage? {

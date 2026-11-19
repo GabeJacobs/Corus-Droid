@@ -527,7 +527,7 @@
     <string name="live_retry_loading_songs">"Réessayer de charger les titres"</string>
     <string name="live_room_effects">"Effets"</string>
     <string name="live_room_timer_ends_room">"Le salon se fermera à la fin du compte à rebours."</string>
-    <string name="live_room_title_field">"Titre du salon"</string>
+    <string name="live_room_title_field">"Nom du salon"</string>
     <string name="live_room_weather">"Météo"</string>
     <string name="live_save_room_title">"Enregistrer les modifications"</string>
     <string name="live_save_song">"Enregistrer le titre"</string>

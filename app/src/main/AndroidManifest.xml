@@ -92,7 +92,7 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.Corus"
+            android:theme="@style/Theme.Corus.Starting"
             android:windowSoftInputMode="adjustResize">
 
             <!-- Deep link: corus:// -->
@@ -175,7 +175,7 @@
             android:exported="false"
             android:noHistory="true"
             android:relinquishTaskIdentity="true"
-            android:theme="@android:style/Theme.NoDisplay" />
+            android:theme="@style/Theme.Corus.Starting" />
 
         <activity-alias
             android:name=".DefaultLauncher"

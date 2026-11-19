@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from Corus-Web/translations. Do not edit shared entries here. -->
+<resources>
+    <string name="live_go_live_privately">"비공개 라이브 시작"</string>
+    <string name="live_private_notify_followers_description">"팔로워에게 이 비공개 방의 링크가 전송돼요."</string>
+    <string name="live_private_room">"비공개 방"</string>
+    <string name="live_private_room_description">"링크가 있는 사람만 참여할 수 있어요."</string>
+</resources>
