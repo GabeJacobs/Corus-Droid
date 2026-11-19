@@ -129,7 +129,10 @@ fun ComposeScreen(
     val isLoadingTrending by viewModel.isLoadingTrending.collectAsState()
     // Unified picker (compose_unified_search_enabled). Read once per screen so
     // the layout can't swap under the user if the flag activates mid-session.
-    val unifiedPicker = remember(singleMediaPicker) { viewModel.composeUnifiedSearchEnabled && !singleMediaPicker }
+    // Cancel resets singleMediaPicker while AnimatedVisibility retains this
+    // screen for its exit. Recomputing here would mount the unified search
+    // field and request focus again, flashing the keyboard during dismissal.
+    val unifiedPicker = remember { viewModel.composeUnifiedSearchEnabled && !singleMediaPicker }
     val unifiedFilter by viewModel.unifiedFilter.collectAsState()
     val unifiedSongResults by viewModel.unifiedSongResults.collectAsState()
     val settledQueries by viewModel.settledQueries.collectAsState()
