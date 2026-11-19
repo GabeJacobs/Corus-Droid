@@ -1,0 +1,40 @@
+{
+  "releases": [
+    {
+      "name": "1.6.8",
+      "release_notes": [
+        {
+          "language": "en-US",
+          "text": "Bug fixes and improvements.\n"
+        },
+        {
+          "language": "pt-BR",
+          "text": "Correções de bugs e melhorias.\n"
+        }
+      ],
+      "status": "inProgress",
+      "user_fraction": 0.01,
+      "version_codes": [
+        "153"
+      ]
+    },
+    {
+      "name": "1.6.8",
+      "release_notes": [
+        {
+          "language": "pt-BR",
+          "text": "Corrigimos as traduções dos efeitos do perfil.\n"
+        },
+        {
+          "language": "en-US",
+          "text": "Fixed translations for profile effects.\n"
+        }
+      ],
+      "status": "completed",
+      "version_codes": [
+        "147"
+      ]
+    }
+  ],
+  "track": "production"
+}
