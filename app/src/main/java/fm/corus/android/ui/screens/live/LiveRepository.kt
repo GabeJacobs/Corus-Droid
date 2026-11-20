@@ -51,6 +51,7 @@ internal class LiveRepository @Inject constructor(
 
     suspend fun access(): LiveAccess? {
         val fields = call("availability", fields = mapOf(
+            "clientProtocol" to 1,
             "savesProtocol" to 1, "djTalkRequestProtocol" to 1, "hostMonetizationProtocol" to 1,
             "appleMusicHostProtocol" to 1, "appleMusicHostEarlyAdvanceProtocol" to 1,
         ))

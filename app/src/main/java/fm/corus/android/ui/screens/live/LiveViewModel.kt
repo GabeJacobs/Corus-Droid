@@ -426,13 +426,13 @@ internal class LiveViewModel @Inject constructor(
                 if (uid == null || access == null) return@collectLatest
                 coroutineScope {
                     launch {
-                        repository.discovery(access.privacyMetadataSupported).catch { error -> showError(error) }.collectLatest { rooms ->
+                        repository.discovery(access.privacyMetadataSupported).retryLiveBackground("discovery").collectLatest { rooms ->
                             discoverySource = rooms
                             refreshDiscovery()
                         }
                     }
                     if (access.collaboration) launch {
-                        repository.invites(uid).catch { error -> showError(error) }.collectLatest { invites ->
+                        repository.invites(uid).retryLiveBackground("invites").collectLatest { invites ->
                             val currentInvites = invites.filter { it.number("expiresAt") > now }
                             update {
                                 val shown = shownInvite
