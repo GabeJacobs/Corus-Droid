@@ -112,6 +112,10 @@ internal class LiveRepository @Inject constructor(
         .orderBy("createdAt", Query.Direction.DESCENDING).limit(50)
         .snapshots { documents -> documents.asReversed().mapNotNull { doc -> doc.data?.let { LiveMessage(doc.id, it) } } }
 
+    fun staffMessages(id: String): Flow<List<LiveMessage>> = rooms.document(id).collection("staffMessages")
+        .orderBy("createdAt", Query.Direction.DESCENDING).limit(50)
+        .snapshots { documents -> documents.asReversed().mapNotNull { doc -> doc.data?.let { LiveMessage(doc.id, it) } } }
+
     suspend fun sentMessage(roomId: String, messageId: String): LiveMessage? {
         val snapshot = rooms.document(roomId).collection("messages").document(messageId).get(Source.SERVER).await()
         return snapshot.data?.let { LiveMessage(snapshot.id, it) }

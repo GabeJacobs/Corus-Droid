@@ -380,7 +380,7 @@
     <string name="corus_live_mute_audio">"음소거"</string>
     <string name="corus_live_mute_microphone">"마이크 끄기"</string>
     <string name="corus_live_no_listeners_yet">"아직 청취자가 없어요"</string>
-    <string name="corus_live_no_songs_played_yet">"아직 재생된 곡이 없어요"</string>
+    <string name="corus_live_no_songs_played_yet">"이전에 재생된 곡이 아직 없어요"</string>
     <string name="corus_live_notify_followers">"팔로워에게 알림"</string>
     <string name="corus_live_off">"끔"</string>
     <string name="corus_live_pick_your_first_song">"첫 곡을 선택하세요"</string>
@@ -651,4 +651,10 @@
     <string name="corus_live_not_available_on_spotify">"Spotify에서 재생할 수 없음"</string>
     <string name="corus_live_continue_anyway">"계속 진행"</string>
     <string name="corus_live_apple_music_listeners_may_hear">"Apple Music 청취자는 이 노래를 들을 수 있을 수도 있습니다."</string>
+    <string name="corus_live_end_and_join">"라이브 종료 후 참여"</string>
+    <string name="corus_live_switch_room_ends_show">"다른 방에 참여하면 모든 사람에게 이 방이 종료됩니다."</string>
+    <string name="corus_live_song_save_count">"저장 수: %1$s"</string>
+    <string name="corus_live_song_saved_by">"%1$s 님이 이 곡을 저장했어요"</string>
+    <string name="corus_live_song_saved_by_many">"%1$s 님 외 %2$s명이 이 곡을 저장했어요"</string>
+    <string name="corus_live_song_saved_by_two">"%1$s 님 외 1명이 이 곡을 저장했어요"</string>
 </resources>

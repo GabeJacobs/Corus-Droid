@@ -712,6 +712,7 @@ internal fun LiveTrackRow(
     artworkSize: Dp = 44.dp,
     itemSpacing: Dp = 10.dp,
     showLikes: Boolean = false,
+    saveCount: Int = 0,
 ) {
     Row(
         modifier.fillMaxWidth().heightIn(min = if (queueStyle) 70.dp else 57.dp)
@@ -734,6 +735,17 @@ internal fun LiveTrackRow(
                         tint = CorusColors.Secondary, modifier = Modifier.size(11.dp))
                     LiveText(likes.toString(), CorusFont.caption, CorusColors.Secondary)
                 }
+            }
+        }
+        if (saveCount > 0) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.semantics(mergeDescendants = true) {},
+            ) {
+                Icon(Icons.Default.Bookmark, stringResource(CorusStrings.live_song_save_count, saveCount.toString()),
+                    tint = CorusColors.Secondary, modifier = Modifier.size(11.dp))
+                LiveText(saveCount.toString(), CorusFont.caption, CorusColors.Secondary)
             }
         }
         if (icon != null || handle != null) {

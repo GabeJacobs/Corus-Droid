@@ -98,6 +98,7 @@ internal data class LivePerson(
 
 internal data class LiveRoom(val id: String, private val fields: LiveFields) {
     val isPrivate = fields.flag("isPrivate")
+    val saves = (fields["saveCounts"].liveFields()?.get(fields.number("revision").toString()) as? Number)?.toInt() ?: 0
     val host = LivePerson(
         fields.text("hostId"),
         fields.text("hostUsername").ifBlank { fields.text("hostName") },
@@ -144,6 +145,7 @@ internal data class LiveRoom(val id: String, private val fields: LiveFields) {
     val pausedAt = (fields["pausedAt"] as? Number)?.toLong()
     val likes = fields.number("likes")
     val hearts = fields.number("heartReactions")
+    val reactionEvents = fields.rows("recentReactionEvents")
     val effect = fields.text("effect")
     val talkAfterSongArmed = (fields["talkAfterSongRevision"] as? Number)?.toLong() == revision
     val voiceEnabled = fields.flag("voiceEnabled")
@@ -193,16 +195,23 @@ internal data class LiveRoom(val id: String, private val fields: LiveFields) {
         if (fields["heartReactions"] !is Number) {
             return if (revision == previous.revision) (likes - previous.likes).coerceAtLeast(0) else 0
         }
+        return remoteHeartsBetween(previous.hearts, hearts, ownSender)
+    }
+
+    fun remoteHeartsBetween(from: Long, through: Long, ownSender: String): Long {
         val ownHearts = fields.rows("recentHeartBatches").sumOf { batch ->
             if (batch.text("sender") != ownSender) return@sumOf 0L
             val total = batch.number("total")
             val batchStart = total - batch.number("count")
-            (minOf(hearts, total) - maxOf(previous.hearts, batchStart)).coerceAtLeast(0)
+            (minOf(through, total) - maxOf(from, batchStart)).coerceAtLeast(0)
         }
-        return (hearts - previous.hearts - ownHearts).coerceAtLeast(0)
+        return (through - from - ownHearts).coerceAtLeast(0)
     }
 
-    val setlist get() = recent.asReversed() + listOfNotNull(current?.copy(playedBy = currentDJ ?: host))
+    fun savesFor(playRevision: Long): Int =
+        (fields["saveCounts"].liveFields()?.get(playRevision.toString()) as? Number)?.toInt() ?: 0
+
+    val setlist get() = recent.asReversed() + listOfNotNull(current?.copy(playedBy = currentDJ ?: host, likes = likes, playRevision = revision))
 
     fun musicShouldPlay(now: Long): Boolean =
         active(now) && status == "playing" && current != null &&

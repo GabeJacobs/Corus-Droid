@@ -380,7 +380,7 @@
     <string name="corus_live_mute_audio">"音声をミュート"</string>
     <string name="corus_live_mute_microphone">"マイクをミュート"</string>
     <string name="corus_live_no_listeners_yet">"まだリスナーはいません"</string>
-    <string name="corus_live_no_songs_played_yet">"まだ再生された曲はありません"</string>
+    <string name="corus_live_no_songs_played_yet">"前に再生された曲はまだありません"</string>
     <string name="corus_live_notify_followers">"フォロワーに通知"</string>
     <string name="corus_live_off">"オフ"</string>
     <string name="corus_live_pick_your_first_song">"最初の曲を選ぶ"</string>
@@ -651,4 +651,10 @@
     <string name="corus_live_not_available_on_spotify">"Spotifyでは再生できません"</string>
     <string name="corus_live_continue_anyway">"そのまま続ける"</string>
     <string name="corus_live_apple_music_listeners_may_hear">"Apple Musicのリスナーは、この曲を聴ける場合があります。"</string>
+    <string name="corus_live_end_and_join">"ライブを終了して参加"</string>
+    <string name="corus_live_switch_room_ends_show">"別のルームに参加すると、このルームは全員に対して終了します。"</string>
+    <string name="corus_live_song_save_count">"保存数：%1$s"</string>
+    <string name="corus_live_song_saved_by">"%1$sがこの曲を保存しました"</string>
+    <string name="corus_live_song_saved_by_many">"%1$sと他%2$s人がこの曲を保存しました"</string>
+    <string name="corus_live_song_saved_by_two">"%1$sと他1人がこの曲を保存しました"</string>
 </resources>

@@ -147,6 +147,48 @@ class NowPlayingManagerSpotifyNaturalEndAdoptTest {
             manager.stop()
         }
 
+    @Test
+    fun feedPreviewTakesTransportAndScrubberOwnershipFromExternalSpotify() = runTest(testDispatcher) {
+        val manager = newManager()
+        whenever(preferencesDataStore.effectivePlayFullSongsSync()).thenReturn(false)
+        whenever(spotifyPlaybackService.appRemoteDisplayMetadata()).thenReturn(
+            SpotifyPlaybackService.AppRemoteDisplayMetadata(
+                name = "External Song", artistName = "Artist", albumName = "Album", albumArtURL = null,
+            ),
+        )
+        manager.testingAdoptExternalSpotifyPlayback("spotify:track:external", playerStateIsFresh = true)
+        assertTrue(manager.isExternalSpotifyListening)
+
+        val previewPlayer = mock<androidx.media3.exoplayer.ExoPlayer> {
+            on { this.isPlaying } doReturn true
+            on { mediaItemCount } doReturn 1
+        }
+        NowPlayingManager::class.java.getDeclaredField("player").apply {
+            isAccessible = true
+            set(manager, previewPlayer)
+        }
+        assertFalse("An idle preview engine must not classify the external session as a preview", manager.isPreviewMode)
+        manager.startForegroundServiceAction = { }
+        val preview = track("feed-preview").copy(previewUrl = "https://example.com/preview.m4a")
+        try {
+            manager.play(preview, listOf(preview), previewOnly = true)
+
+            assertFalse(manager.isExternalSpotifyListening)
+            assertTrue(manager.isPreviewMode)
+            assertEquals(preview.trackId, manager.currentTrackId)
+            assertEquals(null, NowPlayingManager::class.java.getDeclaredField("externalSpotifyPositionJob").apply {
+                isAccessible = true
+            }.get(manager))
+
+            manager.togglePlayPause()
+
+            verify(previewPlayer).pause()
+            assertFalse(manager.isPlaying)
+        } finally {
+            manager.stop()
+        }
+    }
+
     private fun track(id: String, name: String = id) = QueuedTrack(
         trackId = id,
         trackName = name,

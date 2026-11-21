@@ -312,7 +312,7 @@
     <string name="corus_live_mute_audio">"Silenciar áudio"</string>
     <string name="corus_live_mute_microphone">"Silenciar microfone"</string>
     <string name="corus_live_no_listeners_yet">"Ainda não há ouvintes"</string>
-    <string name="corus_live_no_songs_played_yet">"Nenhuma música tocada ainda"</string>
+    <string name="corus_live_no_songs_played_yet">"Ainda não há músicas anteriores"</string>
     <string name="corus_live_notify_followers">"Avisar seguidores"</string>
     <string name="corus_live_off">"Desligado"</string>
     <string name="corus_live_pick_your_first_song">"Escolha sua primeira música"</string>
@@ -583,4 +583,10 @@
     <string name="corus_live_not_available_on_spotify">"Indisponível no Spotify"</string>
     <string name="corus_live_continue_anyway">"Continuar mesmo assim"</string>
     <string name="corus_live_apple_music_listeners_may_hear">"Quem usa o Apple Music talvez ainda consiga ouvir esta música."</string>
+    <string name="corus_live_end_and_join">"Encerrar a live e entrar"</string>
+    <string name="corus_live_switch_room_ends_show">"Entrar em outra sala encerrará esta sala para todos."</string>
+    <string name="corus_live_song_save_count">"Salvamentos: %1$s"</string>
+    <string name="corus_live_song_saved_by">"%1$s salvou esta música"</string>
+    <string name="corus_live_song_saved_by_many">"%1$s e mais %2$s pessoas salvaram esta música"</string>
+    <string name="corus_live_song_saved_by_two">"%1$s e mais 1 pessoa salvaram esta música"</string>
 </resources>

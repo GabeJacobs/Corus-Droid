@@ -42,6 +42,18 @@ class LazyListScrollTest {
     }
 
     @Test
+    fun `Trending keeps a Live slot so it can collapse without changing post indices`() {
+        val prefix = feedPrefixItems(
+            includeHeader = true,
+            feedMode = "trending",
+            showDailyHashtag = true,
+            showTasteMatchesTrial = false,
+        )
+        assertEquals(listOf(FeedPrefixItem.Header, FeedPrefixItem.LiveDiscovery, FeedPrefixItem.DailyHashtag), prefix)
+        assertEquals(3, feedPostLazyIndex(postIndex = 0, prefixItemCount = prefix.size))
+    }
+
+    @Test
     fun `delta leaves room for the status-bar inset so the username stays visible`() {
         assertEquals(1720, scrollDeltaToAlignItemTop(itemOffset = 1800, topInsetPx = 80))
         assertEquals(0, scrollDeltaToAlignItemTop(itemOffset = 80, topInsetPx = 80))

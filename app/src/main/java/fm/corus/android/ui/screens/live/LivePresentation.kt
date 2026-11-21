@@ -8,6 +8,10 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -173,7 +177,12 @@ internal fun LiveCreateButton(onDefault: () -> Unit, modifier: Modifier = Modifi
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun LiveDiscovery(source: String, following: Set<String>? = null, inSearch: Boolean = false) {
+internal fun LiveDiscovery(
+    source: String,
+    following: Set<String>? = null,
+    inSearch: Boolean = false,
+    isActive: Boolean = true,
+) {
     val live = LocalLiveNavigation.current ?: return
     val candidates = if (source == "trending") listOfNotNull(live.state.trendingRoom)
     else live.state.discovery.filter { it.matchesFollowing(following) }
@@ -190,23 +199,41 @@ internal fun LiveDiscovery(source: String, following: Set<String>? = null, inSea
             loader.enqueue(ImageRequest.Builder(context).data(url).size(artworkSize).build())
         }
     }
-    if (rooms.isEmpty()) return
+    val reduceMotion = rememberReducedMotion()
+    val duration = if (inSearch || reduceMotion || !isActive) 0 else 250
+    // Seed each feed activation with its current visibility. Only changes
+    // after activation should expand/collapse; switching tabs is immediate.
+    val visibility = remember(source, isActive, following) {
+        MutableTransitionState(rooms.isNotEmpty())
+    }
+    visibility.targetState = rooms.isNotEmpty()
+    // Keep the last contents mounted during exit; an empty LazyRow would
+    // lose its natural height before AnimatedVisibility can collapse it.
+    var lastRooms by remember(source) { mutableStateOf(rooms) }
+    SideEffect { if (rooms.isNotEmpty()) lastRooms = rooms }
+    val displayedRooms = rooms.ifEmpty { lastRooms }
     var hide by remember { mutableStateOf<LiveRoom?>(null) }
-    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (inSearch && rooms.isNotEmpty()) {
-            LiveText(stringResource(CorusStrings.corus_live_live_now), CorusFont.sectionHeader, CorusColors.Secondary, Modifier.padding(horizontal = 16.dp))
-        }
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = if (inSearch) 16.dp else 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(rooms, key = { it.id }) { room ->
-                LiveDiscoveryPill(
-                    room,
-                    listenerCount = live.state.discoveryListenerCounts[room.id],
-                    open = { live.viewModel.event("discovery_opened", source = source); live.viewModel.join(room.id) },
-                    hide = { hide = room },
-                )
+    AnimatedVisibility(
+        visibleState = visibility,
+        enter = expandVertically(tween(duration), expandFrom = Alignment.Top) + fadeIn(tween(duration)),
+        exit = shrinkVertically(tween(duration), shrinkTowards = Alignment.Top) + fadeOut(tween(duration)),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (inSearch) {
+                LiveText(stringResource(CorusStrings.corus_live_live_now), CorusFont.sectionHeader, CorusColors.Secondary, Modifier.padding(horizontal = 16.dp))
+            }
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = if (inSearch) 16.dp else 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(displayedRooms, key = { it.id }) { room ->
+                    LiveDiscoveryPill(
+                        room,
+                        listenerCount = live.state.discoveryListenerCounts[room.id],
+                        open = { live.viewModel.event("discovery_opened", source = source); live.viewModel.join(room.id) },
+                        hide = { hide = room },
+                    )
+                }
             }
         }
     }
@@ -676,8 +703,10 @@ internal fun BoxScope.LivePresentation(
     state.playbackExitEndsShow?.let { endsRoom ->
         LiveConfirmation(
             if (endsRoom) stringResource(CorusStrings.corus_live_end_live) else stringResource(CorusStrings.corus_live_leave_live_room),
-            if (endsRoom) stringResource(CorusStrings.corus_live_this_will_end_the_room_for_everyone) else stringResource(CorusStrings.corus_live_leave_the_room_to_play_this_song),
-            if (endsRoom) stringResource(R.string.live_end_and_play) else stringResource(CorusStrings.corus_live_leave_and_play),
+            if (state.roomSwitchConfirmation) stringResource(CorusStrings.corus_live_switch_room_ends_show)
+            else if (endsRoom) stringResource(CorusStrings.corus_live_this_will_end_the_room_for_everyone) else stringResource(CorusStrings.corus_live_leave_the_room_to_play_this_song),
+            if (state.roomSwitchConfirmation) stringResource(CorusStrings.corus_live_end_and_join)
+            else if (endsRoom) stringResource(R.string.live_end_and_play) else stringResource(CorusStrings.corus_live_leave_and_play),
             { vm.confirmPlaybackExit(false) }, { vm.confirmPlaybackExit(true) },
         )
     }
@@ -832,7 +861,7 @@ private fun LiveEndedSheets(
         }
         LazyColumn(Modifier.weight(1f), state = listState) {
             items(tracks) { track ->
-                LiveTrackRow(track, onTrack = {
+                LiveTrackRow(track, showLikes = true, saveCount = room.savesFor(track.playRevision), onTrack = {
                     val entry = navController?.currentBackStackEntry
                     if (entry != null && entry == currentEntry) {
                         returnEntry = entry
@@ -962,7 +991,7 @@ internal fun LiveProviderButton(
 }
 
 @Composable
-private fun LiveRoomJoinSheet(
+internal fun LiveRoomJoinSheet(
     prompt: DeepLinkDestination.LiveRoom,
     room: LiveRoom?,
     close: () -> Unit,
@@ -976,11 +1005,19 @@ private fun LiveRoomJoinSheet(
         showCloseButton = true,
         horizontalContentPadding = 16.dp,
     ) {
-        LiveAvatar(
-            host.copy(username = host.username.removePrefix("@")),
-            56.dp,
-            modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 12.dp),
-        )
+        val avatarModifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 12.dp)
+        if (room != null) {
+            LiveAvatar(
+                host.copy(username = host.username.removePrefix("@")),
+                56.dp,
+                modifier = avatarModifier,
+            )
+        } else {
+            // A share link can arrive before discovery has the host metadata.
+            // Match LiveAvatar's image-loading circle until the room is known.
+            Box(avatarModifier.size(56.dp).clip(CircleShape)
+                .background(CorusColors.Text.copy(alpha = 0.16f)))
+        }
         if (hostName.isNotBlank() && room?.status != "ended") {
             LiveInviteMessage(stringResource(R.string.live_notification_preview_title, hostName), hostName)
         }

@@ -595,7 +595,7 @@ class NowPlayingManager @Inject constructor(
 
     private var isAudiomackFullPlayback = false
     val isPreviewMode: Boolean
-        get() = _state.value.hasActiveTrack && !isSpotifyConnectPlaying && !isAudiomackFullPlayback && !isAppleMusicFullPlayback && player != null
+        get() = _state.value.hasActiveTrack && !isExternalSpotifyListening && !isSpotifyConnectPlaying && !isAudiomackFullPlayback && !isAppleMusicFullPlayback && player != null
 
     /** Upgrade the current feed preview to in-app full playback (mini-player toggle). */
     suspend fun upgradeCurrentPreviewToFullSong() {
@@ -2162,6 +2162,11 @@ class NowPlayingManager @Inject constructor(
         // Cancel any in-flight load for a different track. Keep a staged Next
         // pill armed for [track] — that target is the song we're about to load.
         cancelLoading(clearStagedSkipPill = false)
+
+        // A feed preview takes ownership from the external Spotify mirror.
+        // Otherwise transport still targets Spotify and its timer competes
+        // with ExoPlayer for ScrubberClock while the preview remains audible.
+        clearExternalSpotifyListening()
 
         if (isSpotifyConnectPlaying) {
             silentlyHaltSpotifyForPreview()
@@ -4599,6 +4604,7 @@ class NowPlayingManager @Inject constructor(
         if (liveOwnsSpotify || spotifyCorusPlayIntentInFlight()) return
 
         val svc = spotifyPlaybackService
+        val generation = playGeneration
 
         // External mirror intentionally drops App Remote after adopt. Briefly
         // reconnect on foreground so a song started in Spotify replaces Corus
@@ -4606,6 +4612,7 @@ class NowPlayingManager @Inject constructor(
         if (isExternalSpotifyListening && !svc.isConnected) {
             withBriefExternalSpotifyConnection { remote ->
                 remote.refreshState()
+                if (generation != playGeneration) return@withBriefExternalSpotifyConnection true
                 val uri = remote.currentTrackUri.value?.takeIf { it.isNotEmpty() }
                     ?: return@withBriefExternalSpotifyConnection true
                 if (shouldSuppressExternalAdoption(uri)) {
@@ -4628,6 +4635,7 @@ class NowPlayingManager @Inject constructor(
             svc.refreshState()
         }
 
+        if (generation != playGeneration) return
         val uri = svc.currentTrackUri.value?.takeIf { it.isNotEmpty() } ?: run {
             if (isExternalSpotifyListening) {
                 _state.value = _state.value.copy(isPlaying = false)

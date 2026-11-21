@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
@@ -33,7 +34,24 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 @Composable
-internal fun LiveLikeButton(liked: Boolean, glyphSize: Dp, onLike: () -> Unit) {
+internal fun LiveComposerHeart(
+    room: LiveRoom, state: LiveUiState, now: Long, editing: Boolean, onLike: () -> Unit,
+) {
+    var hasSeenCurrentSong by remember(room.id) { mutableStateOf(room.current != null) }
+    LaunchedEffect(room.id, room.current != null) {
+        if (room.current != null) hasSeenCurrentSong = true
+    }
+    val playingDJUid = room.currentDJ?.uid ?: room.current?.playedBy?.uid ?: room.host.uid
+    val showHeart = (room.current != null || hasSeenCurrentSong) &&
+        (!state.hosting || (state.uid != null && state.uid != playingDJUid))
+    val canLikeSong = room.miniPlayerTrack(now) != null
+    if (showHeart && !editing) {
+        LiveLikeButton(state.hasLikedCurrentSong, 25.dp, enabled = canLikeSong, onLike = onLike)
+    }
+}
+
+@Composable
+internal fun LiveLikeButton(liked: Boolean, glyphSize: Dp, enabled: Boolean = true, onLike: () -> Unit) {
     var reactions by remember { mutableLongStateOf(0) }
     Box(contentAlignment = Alignment.Center) {
         LiveIconButton(
@@ -44,6 +62,7 @@ internal fun LiveLikeButton(liked: Boolean, glyphSize: Dp, onLike: () -> Unit) {
                 onLike()
             },
             tint = if (liked) CorusColors.Like else CorusColors.Text,
+            enabled = enabled,
             touchSize = 44.dp,
             glyphSize = glyphSize,
         )

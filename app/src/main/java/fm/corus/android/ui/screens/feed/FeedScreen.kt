@@ -433,7 +433,6 @@ fun FeedScreen(
     val chromeCollapse = remember { FeedChromeCollapse() }
     val liveNavigation = LocalLiveNavigation.current
     val liveRoomCoversFeed = liveNavigation?.state?.roomCoversFeed == true
-    val hasTrendingLiveRoom = liveNavigation?.state?.trendingRoom != null
     var wasCoveredByLiveRoom by remember { mutableStateOf(false) }
     LaunchedEffect(liveRoomCoversFeed) {
         if (wasCoveredByLiveRoom && !liveRoomCoversFeed) chromeCollapse.reveal()
@@ -474,7 +473,6 @@ fun FeedScreen(
         feedMode = feedMode,
         showDailyHashtag = dailyHashtagBanner.candidate != null,
         showTasteMatchesTrial = showTasteMatchesTrialBanner,
-        showTrendingLive = hasTrendingLiveRoom,
     )
     val currentPrefixForRouter by rememberUpdatedState(selectedFeedPrefix.size)
     val routerScope = scope
@@ -761,7 +759,7 @@ fun FeedScreen(
         @Composable
         fun EmptyPageHeader() {
             if (includeHeader) header()
-            if (pageMode == "trending") LiveDiscovery("trending")
+            if (pageMode == "trending") LiveDiscovery("trending", isActive = isSelected)
         }
         Box(Modifier.fillMaxSize()) {
         when {
@@ -788,7 +786,7 @@ fun FeedScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = chromeTop),
                 ) {
-                    if (includeHeader || (pageMode == "trending" && hasTrendingLiveRoom)) item { EmptyPageHeader() }
+                    if (includeHeader || pageMode == "trending") item { EmptyPageHeader() }
                     items(2) {
                         SkeletonPostCard()
                         if (it < 1) {
@@ -1255,7 +1253,7 @@ fun FeedScreen(
                             EmptyPageHeader()
                             TrendingHashtagBanner(dailyHashtagBanner, onNavigateToHashtag, trackHashtagBanner, isAtRoot)
                             if (feedMode == "following") {
-                                LiveDiscovery("following", liveFollowingIds)
+                                LiveDiscovery("following", liveFollowingIds, isActive = isSelected)
                                 fm.corus.android.ui.components.ReferralInviteBanner("feed")
                             }
                         },
@@ -1321,7 +1319,6 @@ fun FeedScreen(
                         feedMode = pageMode,
                         showDailyHashtag = isSelected && dailyHashtagBanner.candidate != null,
                         showTasteMatchesTrial = isSelected && showTasteMatchesTrialBanner,
-                        showTrendingLive = hasTrendingLiveRoom,
                     )
                     for (row in prefix) {
                         when (row) {
@@ -1333,6 +1330,7 @@ fun FeedScreen(
                                 LiveDiscovery(
                                     source = if (pageMode == "tasteMatches") "your_mix" else pageMode,
                                     following = liveFollowingIds.takeIf { pageMode == "following" },
+                                    isActive = isSelected,
                                 )
                             }
                             FeedPrefixItem.ReferralInvite -> item(key = "referral_feed_banner") {

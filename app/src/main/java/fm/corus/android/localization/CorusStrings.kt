@@ -399,6 +399,7 @@ object CorusStrings {
     @StringRes val corus_live_done: Int = R.string.corus_live_done
     @StringRes val corus_live_edit_room_title: Int = R.string.live_edit_room_title
     @StringRes val corus_live_enable_chat: Int = R.string.live_enable_chat
+    @StringRes val corus_live_end_and_join: Int = R.string.corus_live_end_and_join
     @StringRes val corus_live_end_and_play: Int = R.string.live_end_and_play
     @StringRes val corus_live_end_live: Int = R.string.corus_live_end_live
     @StringRes val corus_live_export_playlist: Int = R.string.corus_live_export_playlist
@@ -571,6 +572,7 @@ object CorusStrings {
     @StringRes val corus_live_stop_song_preview: Int = R.string.live_stop_song_preview
     @StringRes val corus_live_submit_report: Int = R.string.live_submit_report
     @StringRes val corus_live_swipe_left_for_chat: Int = R.string.live_swipe_left_for_chat
+    @StringRes val corus_live_switch_room_ends_show: Int = R.string.corus_live_switch_room_ends_show
     @StringRes val corus_live_switch_to_talk: Int = R.string.live_switch_to_talk
     @StringRes val corus_live_switching_songs: Int = R.string.live_switching_songs
     @StringRes val corus_live_take_over_as_host: Int = R.string.live_take_over_as_host
@@ -1039,6 +1041,10 @@ object CorusStrings {
     @StringRes val live_room_info_saving: Int = R.string.live_room_info_saving
     @StringRes val live_room_info_settings_detail: Int = R.string.live_room_info_settings_detail
     @StringRes val live_skip_to_talk: Int = R.string.live_skip_to_talk
+    @StringRes val live_song_save_count: Int = R.string.corus_live_song_save_count
+    @StringRes val live_song_saved_by: Int = R.string.corus_live_song_saved_by
+    @StringRes val live_song_saved_by_many: Int = R.string.corus_live_song_saved_by_many
+    @StringRes val live_song_saved_by_two: Int = R.string.corus_live_song_saved_by_two
     @StringRes val live_talk_after_this_song: Int = R.string.live_talk_after_this_song
     @StringRes val live_talk_daily_limit: Int = R.string.corus_live_talk_daily_limit
     @StringRes val live_talk_now: Int = R.string.live_talk_now

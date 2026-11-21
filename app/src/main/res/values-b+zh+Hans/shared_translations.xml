@@ -380,7 +380,7 @@
     <string name="corus_live_mute_audio">"静音"</string>
     <string name="corus_live_mute_microphone">"关闭麦克风"</string>
     <string name="corus_live_no_listeners_yet">"还没有听众"</string>
-    <string name="corus_live_no_songs_played_yet">"还没有播放歌曲"</string>
+    <string name="corus_live_no_songs_played_yet">"暂无之前播放的歌曲"</string>
     <string name="corus_live_notify_followers">"通知关注者"</string>
     <string name="corus_live_off">"关闭"</string>
     <string name="corus_live_pick_your_first_song">"选择第一首歌"</string>
@@ -651,4 +651,10 @@
     <string name="corus_live_not_available_on_spotify">"Spotify 上不可用"</string>
     <string name="corus_live_continue_anyway">"仍然继续"</string>
     <string name="corus_live_apple_music_listeners_may_hear">"Apple Music 听众可能仍能收听这首歌。"</string>
+    <string name="corus_live_end_and_join">"结束直播并加入"</string>
+    <string name="corus_live_switch_room_ends_show">"加入其他房间将为所有人结束此房间。"</string>
+    <string name="corus_live_song_save_count">"收藏数：%1$s"</string>
+    <string name="corus_live_song_saved_by">"%1$s收藏了这首歌"</string>
+    <string name="corus_live_song_saved_by_many">"%1$s和另外%2$s人收藏了这首歌"</string>
+    <string name="corus_live_song_saved_by_two">"%1$s和另外1人收藏了这首歌"</string>
 </resources>

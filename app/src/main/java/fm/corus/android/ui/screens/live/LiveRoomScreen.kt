@@ -493,10 +493,9 @@ internal fun LiveRoomScreen(
                                 }
                             }
                         }
-                    }, vm::heart,
-                    state.hasLikedCurrentSong, { chatFocused = it },
-                    showHeart = if (state.hosting) room.canLikeFromMiniPlayer(state.uid, now)
-                        else state.audioReady && room.miniPlayerTrack(now) != null,
+                    },
+                    heart = { editing -> LiveComposerHeart(room, state, now, editing, vm::heart) },
+                    focus = { chatFocused = it },
                     chatEnabled = room.chatEnabled,
                     composerFocus = composerFocus,
                     originalText = editingMessage?.text,
@@ -554,7 +553,6 @@ internal fun LiveRoomScreen(
             stringResource(CorusStrings.corus_live_recently_played), close,
             large = true, sheetToolbar = true, startsHalfExpanded = true,
         ) {
-            LaunchedEffect(room.recent) { vm.refreshSaves(room.recent) }
             if (room.recent.isEmpty()) {
                 Column(
                     Modifier.fillMaxWidth().padding(top = 56.dp),
@@ -567,11 +565,10 @@ internal fun LiveRoomScreen(
             }
             LazyColumn(Modifier.weight(1f, fill = false)) {
                 items(room.recent, key = { it.playRevision to it.id }) { track ->
-                    val saveIcon = if (LiveViewModel.saveId(track) in state.savedIds) Icons.Default.Bookmark else Icons.Outlined.BookmarkBorder
                     LiveTrackRow(
-                        track, saveIcon.takeIf { state.access?.saves == true },
-                        stringResource(R.string.live_save_song), { vm.save(track) }, onTrack = { close(); selectedSong = track },
+                        track, onTrack = { close(); selectedSong = track },
                         showLikes = true,
+                        saveCount = room.savesFor(track.playRevision),
                     )
                 }
             }
@@ -1311,6 +1308,11 @@ private fun RoomPlayerCard(
                                     Icon(Icons.Default.Favorite, null, tint = CorusColors.Secondary, modifier = Modifier.size(11.dp))
                                     LiveText(room.likes.toString(), CorusFont.caption, CorusColors.Secondary)
                                 }
+                                if (room.saves > 0) {
+                                    if (room.likes == 0L) LiveText("·", CorusFont.caption, CorusColors.Secondary)
+                                    Icon(Icons.Default.Bookmark, stringResource(CorusStrings.live_song_save_count, room.saves.toString()), tint = CorusColors.Secondary, modifier = Modifier.size(11.dp))
+                                    LiveText(room.saves.toString(), CorusFont.caption, CorusColors.Secondary)
+                                }
                             }
                         }
                     }
@@ -1518,9 +1520,12 @@ private fun HostTalkModeControl(
                     enabled = !talkDisabled || queued,
                     onClick = {
                         menuOpen = false
-                        vm.setTalkAfterSong(room.id, room.revision, enabled = !queued) {
-                            Toast.makeText(context, CorusStrings.live_talk_starts_after_song, Toast.LENGTH_SHORT).show()
+                        val schedule = {
+                            vm.setTalkAfterSong(room.id, room.revision, enabled = !queued) {
+                                Toast.makeText(context, CorusStrings.live_talk_starts_after_song, Toast.LENGTH_SHORT).show()
+                            }
                         }
+                        if (queued) schedule() else withMicrophonePermission(schedule)
                     },
                 )
             }
@@ -1935,29 +1940,37 @@ internal fun RoomChat(
         verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom),
     ) {
         items(rows.asReversed(), key = { it.id }) { message ->
-            if (message.kind == "listenerJoined" || message.kind == "roomTitleChanged" || message.isSongLikeNotice) {
+            if (message.kind == "listenerJoined" || message.kind == "roomTitleChanged" || message.isSongLikeNotice || message.kind == "songSaved") {
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(
-                        if (message.isSongLikeNotice) 6.dp else 8.dp, Alignment.CenterHorizontally,
+                        if (message.isSongLikeNotice) 5.dp else 8.dp, Alignment.CenterHorizontally,
                     ),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
                         when {
+                            message.kind == "songSaved" -> Icons.Default.Bookmark
                             message.isSongLikeNotice -> Icons.Default.Favorite
                             message.kind == "roomTitleChanged" -> Icons.Default.Edit
                             else -> Icons.Default.PersonAdd
                         },
                         null, tint = CorusColors.Secondary, modifier = Modifier.size(14.dp),
                     )
-                    if (message.isSongLikeNotice || message.kind == "listenerJoined") {
+                    if (message.isSongLikeNotice || message.kind == "listenerJoined" || message.kind == "songSaved") {
                         val handle = if (message.isSongLikeNotice) {
                             message.likeNoticeHandle
                         } else {
                             "@${message.author.username.removePrefix("@")}"
                         }
-                        val notice = if (message.isSongLikeNotice) {
+                        val notice = if (message.kind == "songSaved") {
+                            val count = message.fields.number("saveCount")
+                            when {
+                                count > 2 -> stringResource(CorusStrings.live_song_saved_by_many, handle.orEmpty(), (count - 1).toString())
+                                count == 2L -> stringResource(CorusStrings.live_song_saved_by_two, handle.orEmpty())
+                                else -> stringResource(CorusStrings.live_song_saved_by, handle.orEmpty())
+                            }
+                        } else if (message.isSongLikeNotice) {
                             message.likeNoticeText { liker ->
                                 if (liker == null) stringResource(R.string.live_song_liked)
                                 else stringResource(R.string.live_user_liked_song, liker)
@@ -2266,7 +2279,7 @@ internal fun liveChatReplyDraft(draft: TextFieldValue, username: String): TextFi
 @Composable
 private fun ChatComposer(
     draft: TextFieldValue, onText: (TextFieldValue) -> Unit, gif: String?, clearGif: () -> Unit, send: () -> Unit,
-    heart: () -> Unit, liked: Boolean, focus: (Boolean) -> Unit, showHeart: Boolean,
+    heart: @Composable (Boolean) -> Unit, focus: (Boolean) -> Unit,
     chatEnabled: Boolean, composerFocus: FocusRequester,
     originalText: String?, savingEdit: Boolean, sending: Boolean,
     actions: @Composable () -> Unit,
@@ -2290,7 +2303,7 @@ private fun ChatComposer(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        if (showHeart && !editing) LiveLikeButton(liked, glyphSize = 25.dp, onLike = heart)
+        heart(editing)
         Row(
             Modifier.weight(1f).heightIn(min = 44.dp).clip(composerShape)
                 .background(CorusColors.CardBackground.copy(alpha = if (chatEnabled) .6f else 1f))

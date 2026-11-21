@@ -128,6 +128,7 @@ internal data class LiveUiState(
     val listenerCount: Int = 0,
     val incomingHearts: Long = 0,
     val messages: List<LiveMessage> = emptyList(),
+    val staffMessages: List<LiveMessage> = emptyList(),
     val pendingLikeNotice: PendingLiveLikeNotice? = null,
     val optimisticLikedRevision: Long? = null,
     val membership: LiveFields = emptyMap(),
@@ -165,6 +166,7 @@ internal data class LiveUiState(
     val hostProviderHint: String? = null,
     val linkUpcoming: Boolean = false,
     val playbackExitEndsShow: Boolean? = null,
+    val roomSwitchConfirmation: Boolean = false,
 ) {
     val isSpotifySongUnavailable: Boolean
         get() = spotifyUnavailableRevision != null && spotifyUnavailableRevision == room?.revision
@@ -191,6 +193,7 @@ internal data class LiveUiState(
 
     val chatRows: List<LiveMessage>
         get() {
+            val messages = (this.messages + (if (hosting || dj != null) staffMessages else emptyList())).sortedBy { it.createdAt }
             if (!hosting) {
                 val rows = messages.filterNot { it.kind == "djRequest" }
                 val pending = pendingLikeNotice ?: return rows
@@ -361,6 +364,7 @@ internal class LiveViewModel @Inject constructor(
     private var djRequestFeedbackExpiry: Job? = null
     private var playbackExit: CompletableDeferred<Boolean>? = null
     private var playbackRelease: Job? = null
+    private val pendingListenerLeaves = mutableMapOf<String, Job>()
     private val hiddenRooms = mutableSetOf<String>()
     private var discoverySource: List<LiveRoom> = emptyList()
     private var heartJob: Job? = null
@@ -368,6 +372,10 @@ internal class LiveViewModel @Inject constructor(
     private var heartRevision = 0L
     private var confirmedHeartRevision = 0L
     private val heartSender = UUID.randomUUID().toString()
+    private var reactionPresentation = LiveReactionPresentation()
+    private var receivedMessages = emptyList<LiveMessage>()
+    private var reactionFallback: Job? = null
+
     private val uriCache = mutableMapOf<Pair<String, String>, String>()
     private var songSuggestionsJob: Job? = null
     private var songSuggestionsFreshUntil = 0L
@@ -392,6 +400,8 @@ internal class LiveViewModel @Inject constructor(
         viewModelScope.launch {
             auth.currentUser.map { it?.uid }.distinctUntilChanged().collectLatest { uid ->
                 operation?.cancel()
+                pendingListenerLeaves.values.toList().forEach(Job::cancel)
+                pendingListenerLeaves.clear()
                 shelfLookup?.cancel()
                 songSuggestionsJob?.cancel()
                 songSuggestionsJob = null
@@ -895,6 +905,13 @@ internal class LiveViewModel @Inject constructor(
                 if (invite == null) showError(error) else showInviteJoinError(error)
             },
         ) {
+            if (invite == null && state.value.room != null) {
+                if (state.value.hosting) {
+                    if (!requestRoomExit(joiningAnotherRoom = true)) return@runOperation
+                } else {
+                    leaveListenerForRoomSwitch()
+                }
+            }
             if (link) {
                 when (repository.call("resolveShareLink", id).text("status")) {
                     "upcoming" -> {
@@ -1167,7 +1184,9 @@ internal class LiveViewModel @Inject constructor(
         }
     }
 
-    private suspend fun requestPlaybackExit(): Boolean {
+    private suspend fun requestPlaybackExit(): Boolean = requestRoomExit(joiningAnotherRoom = false)
+
+    private suspend fun requestRoomExit(joiningAnotherRoom: Boolean): Boolean {
         if (playbackExit != null) return false
         val current = state.value
         val recovered = current.recoverableHostRoom?.takeIf { current.room == null && it.host.uid == current.uid }
@@ -1179,7 +1198,7 @@ internal class LiveViewModel @Inject constructor(
         val end = recovered != null || current.hosting
         val answer = CompletableDeferred<Boolean>()
         playbackExit = answer
-        update { copy(playbackExitEndsShow = end) }
+        update { copy(playbackExitEndsShow = end, roomSwitchConfirmation = joiningAnotherRoom) }
         try {
             if (!answer.await() || state.value.uid != current.uid || auth.currentUserId != current.uid) return false
             if (recovered != null) {
@@ -1208,12 +1227,36 @@ internal class LiveViewModel @Inject constructor(
         } finally {
             if (playbackExit === answer) {
                 playbackExit = null
-                update { copy(playbackExitEndsShow = null) }
+                update { copy(playbackExitEndsShow = null, roomSwitchConfirmation = false) }
             }
         }
     }
 
     fun confirmPlaybackExit(leave: Boolean) { playbackExit?.complete(leave) }
+
+    private fun leaveListenerForRoomSwitch() {
+        val room = state.value.room ?: return
+        check(!state.value.hosting)
+        // Release this room's audio, microphone and observers before opening another.
+        // The server leave must not block a different room or touch its playback/clock.
+        closeRoom(null)
+        val cleanup = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            try {
+                command("leave", room.id, updateClock = false)
+                event("listener_left", roomId = room.id)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // Presence expires if the leave could not reach the server.
+            } finally {
+                if (pendingListenerLeaves[room.id] === currentCoroutineContext()[Job]) {
+                    pendingListenerLeaves.remove(room.id)
+                }
+            }
+        }
+        pendingListenerLeaves[room.id] = cleanup
+        cleanup.start()
+    }
 
     fun leave() = runOperation {
         val room = state.value.room ?: return@runOperation
@@ -2040,6 +2083,8 @@ internal class LiveViewModel @Inject constructor(
         heartRevision = 0
         confirmedHeartRevision = 0
         heartsPending = 0
+        reactionFallback?.cancel()
+        receivedMessages = emptyList()
         roomJobs.forEach(Job::cancel)
         roomJobs.clear()
         queueUpdateJob?.cancel()
@@ -2049,7 +2094,7 @@ internal class LiveViewModel @Inject constructor(
         update {
             copy(
                 room = room, ended = null, minimized = false, pendingChatEnabled = null, pendingChatReactions = emptyMap(),
-                recoverableHostRoom = null, muted = false, messages = emptyList(),
+                recoverableHostRoom = null, muted = false, messages = emptyList(), staffMessages = emptyList(),
                 listenerCount = 0, membership = emptyMap(), audioError = null, spotifyUnavailableRevision = null,
                 queueUpdating = false,
                 welcomePlaying = welcome != null, welcomeProgress = null,
@@ -2069,8 +2114,40 @@ internal class LiveViewModel @Inject constructor(
         }
     }
 
+    private fun refreshReactionPresentation(id: String) {
+        if (state.value.room?.id != id) return
+        reactionFallback?.cancel()
+        val now = SystemClock.elapsedRealtime()
+        fun receipts(message: LiveMessage) = (message.fields["reactionBatchIds"] as? List<*>)?.filterIsInstance<String>().orEmpty()
+        reactionPresentation.messageGroups(receivedMessages.filter { it.isSongLikeNotice }.map(::receipts), now)
+        val hearts = reactionPresentation.flush(now)
+        val old = state.value.messages.associateBy { it.id }
+        val visible = receivedMessages.mapNotNull { message ->
+            if (!message.isSongLikeNotice || reactionPresentation.allows(receipts(message))) message else old[message.id]
+        }
+        update { copy(messages = visible, incomingHearts = incomingHearts + hearts) }
+        reactionPresentation.deadline?.let { deadline ->
+            reactionFallback = viewModelScope.launch {
+                delay((deadline - now).coerceAtLeast(1))
+                refreshReactionPresentation(id)
+            }
+        }
+    }
+
     private fun observe(id: String) {
+        reactionPresentation = LiveReactionPresentation()
+        reactionPresentation.baseline(state.value.room?.reactionEvents.orEmpty().map { it.text("id") })
+        receivedMessages = emptyList()
+        reactionFallback?.cancel()
         val uid = state.value.uid ?: return
+        roomJobs += viewModelScope.launch {
+            state.map { it.room?.id == id && (it.hosting || it.dj != null) }.distinctUntilChanged().collectLatest { allowed ->
+                update { copy(staffMessages = emptyList()) }
+                if (allowed) repository.staffMessages(id).catch { emit(emptyList()) }.collect { rows ->
+                    if (state.value.room?.id == id) update { copy(staffMessages = rows) }
+                }
+            }
+        }
         val initialHost = state.value.hosting
         roomJobs += viewModelScope.launch {
             repository.observeRoom(id).catch { error -> showError(error) }.collect { next ->
@@ -2082,7 +2159,19 @@ internal class LiveViewModel @Inject constructor(
                 val previous = state.value.room
                 val stillHosting = next.host.uid == uid
                 if (!stillHosting && previous?.host?.uid == uid) cancelEffectSaves()
-                val enableMic = consumeHostTalkMicIntent(next)
+                val queuedTalkMic = foreground && hasMicrophonePermission() && next.startsQueuedTalkAfter(previous, state.value.uid)
+                val enableMic = consumeHostTalkMicIntent(next) || queuedTalkMic
+                var pairedHearts = 0L
+                if (previous != null) {
+                    for (event in next.reactionEvents) {
+                        val total = event.number("total")
+                        if (total <= previous.hearts || total > next.hearts) continue
+                        val count = next.remoteHeartsBetween(maxOf(previous.hearts, total - event.number("count")), total, heartSender)
+                        pairedHearts += count
+                        reactionPresentation.reaction(event.text("id"), count, event.text("noticeId").isNotEmpty(), SystemClock.elapsedRealtime())
+                    }
+                }
+                val legacyHearts = ((previous?.let { next.remoteHeartsSince(it, heartSender) } ?: 0) - pairedHearts).coerceAtLeast(0)
                 update {
                     copy(
                         room = next,
@@ -2090,10 +2179,11 @@ internal class LiveViewModel @Inject constructor(
                         talkScheduleChange = talkScheduleChange?.takeIf {
                             stillHosting && it.appliesTo(next) && next.talkAfterSongArmed != it.enabled
                         },
-                        incomingHearts = incomingHearts + (previous?.let { next.remoteHeartsSince(it, heartSender) } ?: 0),
+                        incomingHearts = incomingHearts + legacyHearts,
                         effectSelection = if (stillHosting) effectSelection.observe(next.effect) else LiveEffectSelection(),
                     )
                 }
+                refreshReactionPresentation(id)
                 if (previous?.host?.uid != next.host.uid) observeHostRecords(next, uid)
                 if (previous?.revision != next.revision) refreshSaves(listOfNotNull(next.current))
                 if (previous?.revision != next.revision || previous.status != next.status ||
@@ -2116,7 +2206,8 @@ internal class LiveViewModel @Inject constructor(
                     val avatar = profile?.avatar ?: sender.avatar
                     if (avatar == sender.avatar) message else message.copy(author = sender.copy(avatar = avatar))
                 }
-                update { copy(messages = withAvatars(messages)) }
+                receivedMessages = withAvatars(messages)
+                refreshReactionPresentation(id)
                 val missing = messages.asSequence()
                     .filter { it.kind != "listenerJoined" && !it.isSongLikeNotice }
                     .map { it.author.uid }
@@ -2127,7 +2218,10 @@ internal class LiveViewModel @Inject constructor(
                 try {
                     val profiles = repository.chatAuthors(missing)
                     missing.forEach { knownAuthors[it] = profiles[it] }
-                    if (state.value.room?.id == id) update { copy(messages = withAvatars(this.messages)) }
+                    if (state.value.room?.id == id) {
+                        receivedMessages = withAvatars(receivedMessages)
+                        refreshReactionPresentation(id)
+                    }
                 } catch (error: CancellationException) {
                     throw error
                 } catch (_: Exception) {
@@ -2883,7 +2977,11 @@ internal class LiveViewModel @Inject constructor(
         }
     }
 
-    private suspend fun command(action: String, id: String, fields: LiveFields = emptyMap()): LiveFields {
+    private suspend fun command(
+        action: String, id: String, fields: LiveFields = emptyMap(), updateClock: Boolean = true,
+    ): LiveFields {
+        // A delayed leave must never arrive after a fresh join to the same room.
+        if (action == "join") pendingListenerLeaves[id]?.join()
         val before = System.currentTimeMillis()
         val started = SystemClock.elapsedRealtime()
         fun record(outcome: String) {
@@ -2904,7 +3002,7 @@ internal class LiveViewModel @Inject constructor(
         }
         val elapsed = System.currentTimeMillis() - before
         val server = result.number("serverNow")
-        if (server > 0 && elapsed in 0..5_000) offset = server - (before + elapsed / 2)
+        if (updateClock && server > 0 && elapsed in 0..5_000) offset = server - (before + elapsed / 2)
         return result
     }
 
@@ -2956,7 +3054,7 @@ internal class LiveViewModel @Inject constructor(
         listeningSession = null
         resetRoom()
         update {
-            copy(room = null, ended = ended, minimized = false, pendingChatEnabled = null, pendingChatReactions = emptyMap(), messages = emptyList(),
+            copy(room = null, ended = ended, minimized = false, pendingChatEnabled = null, pendingChatReactions = emptyMap(), messages = emptyList(), staffMessages = emptyList(),
                 audioReady = false, audioError = null, spotifyUnavailableRevision = null,
                 welcomePlaying = false, welcomeProgress = null,
                 micEnabled = false, voiceLevels = emptyMap(),

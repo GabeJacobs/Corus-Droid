@@ -45,10 +45,10 @@ internal fun feedPrefixItems(
     feedMode: String,
     showDailyHashtag: Boolean,
     showTasteMatchesTrial: Boolean,
-    showTrendingLive: Boolean = false,
 ): List<FeedPrefixItem> = buildList {
     if (includeHeader) add(FeedPrefixItem.Header)
-    if (feedMode == "trending" && showTrendingLive) add(FeedPrefixItem.LiveDiscovery)
+    // Keep the zero-height slot mounted so Live can animate out and post indices stay stable.
+    if (feedMode == "trending") add(FeedPrefixItem.LiveDiscovery)
     if (showDailyHashtag) add(FeedPrefixItem.DailyHashtag)
     if (feedMode == "following" || feedMode == "tasteMatches") add(FeedPrefixItem.LiveDiscovery)
     if (feedMode == "following") add(FeedPrefixItem.ReferralInvite)
