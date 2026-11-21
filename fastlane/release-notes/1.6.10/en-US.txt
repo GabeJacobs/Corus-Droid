@@ -1,0 +1,1 @@
+Improved feed scrolling and music playback reliability.

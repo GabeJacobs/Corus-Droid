@@ -1,0 +1,31 @@
+{
+  "verified_at": "2026-11-21T22:01:03.745436+00:00",
+  "version_name": "1.6.10",
+  "version_code": 155,
+  "source_commit": "c69d93bee2908331a7b16f513f7a122d55e64741",
+  "track": {
+    "releases": [
+      {
+        "name": "1.6.10",
+        "release_notes": [
+          {
+            "language": "pt-BR",
+            "text": "Melhoramos a rolagem do feed e a estabilidade da reprodução de músicas.\n"
+          },
+          {
+            "language": "en-US",
+            "text": "Improved feed scrolling and music playback reliability.\n"
+          }
+        ],
+        "status": "completed",
+        "version_codes": [
+          "155"
+        ]
+      }
+    ],
+    "track": "production"
+  },
+  "managed_publishing": false,
+  "console_state": "Changes in review; running quick checks; Start full rollout",
+  "rollout_fraction": 1.0
+}
