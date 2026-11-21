@@ -294,6 +294,7 @@ internal class LiveRepository @Inject constructor(
         val result = cloud.spotifyTrackLookup(
             song.name, song.artistName, song.isrc, song.appleMusicId,
             albumName = song.albumName, durationMs = track.duration,
+            confirmAvailability = true,
         )
         if (!result.found) return@let null
         result.spotifyUri?.takeIf { it.matches(Regex("spotify:track:[A-Za-z0-9]{22}")) }

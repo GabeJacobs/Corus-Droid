@@ -914,12 +914,40 @@ internal fun LiveRoomScreen(
             LiveRow(stringResource(R.string.live_save_song), Icons.Outlined.BookmarkBorder) { vm.save(track); selectedSong = null }
         }
     }
+    HostUnavailableSongChoice(
+        state = state,
+        showRequest = lifecycle.isAtLeast(Lifecycle.State.RESUMED) && panel == null &&
+            selectedMessage == null && reactionDetails == null && selectedSong == null && !showingNowPlaying,
+        onSkip = vm::skip,
+    )
     HostTalkRequest(
         room = room,
         vm = vm,
-        showRequest = state.hosting && !state.minimized && lifecycle.isAtLeast(Lifecycle.State.RESUMED) &&
+        showRequest = state.unavailableHostSongRevision == null && state.hosting && !state.minimized && lifecycle.isAtLeast(Lifecycle.State.RESUMED) &&
             panel == null && selectedMessage == null && reactionDetails == null && selectedSong == null && !showingNowPlaying,
         onApproved = { if (!state.micEnabled) micClick() },
+    )
+}
+
+@Composable
+internal fun HostUnavailableSongChoice(state: LiveUiState, showRequest: Boolean, onSkip: (String, Long) -> Unit) {
+    val room = state.room ?: return
+    var dismissed by remember(room.id) { mutableStateOf(emptySet<Long>()) }
+    val revision = state.unavailableHostSongRevision
+    if (!showRequest || revision == null || revision in dismissed) return
+    fun dismiss() { dismissed = dismissed + revision }
+    AlertDialog(
+        onDismissRequest = ::dismiss,
+        title = { Text(stringResource(CorusStrings.live_not_available_on_spotify)) },
+        text = { Text(room.current?.song?.name.orEmpty() + "\n\n" + stringResource(CorusStrings.live_apple_music_listeners_may_hear)) },
+        confirmButton = {
+            TextButton(onClick = { dismiss(); onSkip(room.id, revision) }, enabled = state.canSkipTrack(room)) {
+                Text(stringResource(CorusStrings.corus_live_skip_song))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = ::dismiss) { Text(stringResource(CorusStrings.live_continue_anyway)) }
+        },
     )
 }
 
@@ -1269,7 +1297,7 @@ private fun RoomPlayerCard(
                             LiveText(
                                 when {
                                     room.pendingSkip != null -> stringResource(R.string.live_switching_songs)
-                                    songUnavailable -> stringResource(R.string.live_song_unavailable)
+                                    songUnavailable -> stringResource(CorusStrings.live_not_available_on_spotify)
                                     !state.hosting && !state.audioReady -> stringResource(CorusStrings.corus_live_tuning_in)
                                     else -> stringResource(CorusStrings.full_player_queue_now_playing)
                                 },

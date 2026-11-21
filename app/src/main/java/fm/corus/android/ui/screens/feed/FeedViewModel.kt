@@ -510,6 +510,7 @@ class FeedViewModel @Inject constructor(
     private val feedPageCache = mutableMapOf<String, FeedModePageSnapshot>()
     private val feedPageExpiryJobs = mutableMapOf<String, Job>()
     private var appliedFeedSignature: String = ""
+    private var feedRequestGeneration: Long = 0
     private val _pageCacheRevision = MutableStateFlow(0)
     val pageCacheRevision: StateFlow<Int> = _pageCacheRevision.asStateFlow()
 
@@ -523,8 +524,12 @@ class FeedViewModel @Inject constructor(
 
     private fun applyFeedSignatureChange(from: String, to: String) {
         if (from == to && appliedFeedSignature == to) return
+        // Invalidate even when restoring a cached destination. Returning to
+        // the same signature must not revive a response from its last visit.
+        feedRequestGeneration++
         evictExpiredFeedPages()
         stashFeedPage(from)
+        _isLoading.value = false
         if (restoreFeedPage(to)) {
             appliedFeedSignature = to
             lastLoadedMode = to.substringBefore('|')
@@ -647,11 +652,9 @@ class FeedViewModel @Inject constructor(
     fun postsForTabPage(mode: String): List<CymbalPost> {
         val cached = freshCachedPosts(mode)
         if (mode != feedMode.value) return cached
-        // `appliedFeedSignature` is empty until the first mode/filter change,
-        // so first paint still shows whatever loadFeed / restore already wrote.
-        if (appliedFeedSignature.isEmpty() || appliedFeedSignature == feedRequestSignature(mode)) {
-            if (cached.isEmpty()) return _posts.value.filter { effectiveFeedEnergy()?.matches(it) != false }
-            if (_posts.value.any { live -> cached.any { it.id == live.id } }) return _posts.value.filter { effectiveFeedEnergy()?.matches(it) != false }
+        // Live posts must have an explicit owner, including first paint.
+        if (appliedFeedSignature == feedRequestSignature(mode)) {
+            return _posts.value.filter { effectiveFeedEnergy()?.matches(it) != false }
         }
         return cached
     }
@@ -998,10 +1001,12 @@ class FeedViewModel @Inject constructor(
         val userId = authRepository.currentUserId ?: return
 
         if (refresh) {
+            feedRequestGeneration++
+            _isLoading.value = false
             _isRefreshing.value = true
             lastTimestamp = null
         } else {
-            if (_isLoading.value) return
+            if (_isLoading.value || _isRefreshing.value) return
             _isLoading.value = true
         }
 
@@ -1013,6 +1018,9 @@ class FeedViewModel @Inject constructor(
         // ranked feed. A ranked mode can only have been persisted while its
         // flag was on.
         val requestSignature = feedRequestSignature()
+        val requestGeneration = feedRequestGeneration
+        fun isCurrentRequest() = authRepository.currentUserId == userId &&
+            feedRequestSignature() == requestSignature && feedRequestGeneration == requestGeneration
         appliedFeedSignature = requestSignature
         val requestedEnergy = effectiveFeedEnergy()
         val mode = feedMode.value
@@ -1067,7 +1075,7 @@ class FeedViewModel @Inject constructor(
                     prototypeMode = prototypeMode,
                     viewedPostIds = if (prototypeMode != null) forYouPrototype.viewedPostIds(userId) else emptyList(),
                 )
-                if (prototypeMode != null && feedRequestSignature() == requestSignature) {
+                if (prototypeMode != null && isCurrentRequest()) {
                     forYouPrototype.updateStayCloseProgress(forYouPage.stayCloseProgress, userId)
                     if (forYouPage.gated == "stayCloseLocked" || forYouPage.gated == "forYouLocked" || forYouPage.gated == "stayClosePaywall" || forYouPage.gated == "forYouPaywall") return
                 }
@@ -1080,7 +1088,7 @@ class FeedViewModel @Inject constructor(
                 // with that Taste Matches cursor and splice its posts in. The
                 // posts-level guard further down is too late for these writes, so
                 // bail here before touching any shared ranked state. Mirrors iOS.
-                if (feedRequestSignature() != requestSignature) return
+                if (!isCurrentRequest()) return
                 // Taste Matches gate: a {gated:...} response carries no posts and
                 // drives the cold-start / paywall screen instead of the feed.
                 if (mode == "tasteMatches") {
@@ -1103,7 +1111,7 @@ class FeedViewModel @Inject constructor(
                     if (forYouPage.gated != null) {
                         // Gated → no live feed. Paywall may carry teaser posts
                         // for the frosted lock overlay; other gates stay empty.
-                        if (feedRequestSignature() != requestSignature) return
+                        if (!isCurrentRequest()) return
                         _posts.value = if (forYouPage.gated == "paywall") forYouPage.posts else emptyList()
                         _hasMore.value = false
                         _tasteMatchesTrial.value = null
@@ -1201,7 +1209,7 @@ class FeedViewModel @Inject constructor(
             // the UI now — applying these posts would flash the wrong feed
             // (e.g. show Following posts while Trending is selected). The newer
             // task resets the loading flags on its own completion.
-            if (feedRequestSignature() != requestSignature) return
+            if (!isCurrentRequest()) return
 
             if (refresh) {
                 _posts.value = newPosts
@@ -1226,6 +1234,7 @@ class FeedViewModel @Inject constructor(
             // Check actual like status from Firestore (backend doesn't return isLiked)
             engagementManager.checkLikeStatuses(newPosts.map { it.id }, userId)
             engagementManager.checkSaveStatuses(newPosts.map { it.id }, userId)
+            if (!isCurrentRequest()) return
             _lastLoadFailed.value = false
             appliedFeedSignature = feedRequestSignature(mode)
         } catch (e: CancellationException) {
@@ -1235,7 +1244,7 @@ class FeedViewModel @Inject constructor(
             // false-error class of bug we fixed in search. Always rethrow.
             throw e
         } catch (e: Exception) {
-            if (feedRequestSignature() != requestSignature) return
+            if (!isCurrentRequest()) return
             // android.util.Log is not mocked in JVM unit tests; never let
             // diagnostics abort the retry / error-surface path.
             runCatching {
@@ -1259,10 +1268,12 @@ class FeedViewModel @Inject constructor(
                 _posts.value.isEmpty()
             ) {
                 delay(FEED_TRANSIENT_RETRY_BACKOFF_MS * (attempt + 1))
+                if (!isCurrentRequest()) return
                 loadFeedSuspending(
                     refresh = true,
                     attempt = attempt + 1,
                     retryWave = retryWave,
+                    explicitRefresh = explicitRefresh,
                 )
                 return
             }
@@ -1275,10 +1286,12 @@ class FeedViewModel @Inject constructor(
                     // existing retry panel. Connectivity can be associated
                     // while DNS is unusable, so never retry without a bound.
                     delay(FEED_ONLINE_RETRY_WAVE_GAP_MS)
+                    if (!isCurrentRequest()) return
                     loadFeedSuspending(
                         refresh = true,
                         attempt = 0,
                         retryWave = retryWave + 1,
+                        explicitRefresh = explicitRefresh,
                     )
                     return
                 }
@@ -1293,7 +1306,7 @@ class FeedViewModel @Inject constructor(
             }
         }
 
-        if (feedRequestSignature() != requestSignature) return
+        if (!isCurrentRequest()) return
         _isLoading.value = false
         _isRefreshing.value = false
         _hasLoaded.value = true

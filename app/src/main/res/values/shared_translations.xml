@@ -396,4 +396,7 @@
     <string name="corus_style_weather_snowfall">"Snowfall"</string>
     <string name="corus_style_weather_steady_rain">"Steady Rain"</string>
     <string name="corus_live_listener_rejoined">"%1$s rejoined the room"</string>
+    <string name="corus_live_not_available_on_spotify">"Not available on Spotify"</string>
+    <string name="corus_live_continue_anyway">"Continue anyway"</string>
+    <string name="corus_live_apple_music_listeners_may_hear">"Apple Music listeners may still hear this song."</string>
 </resources>

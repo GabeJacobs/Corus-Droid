@@ -648,4 +648,7 @@
     <string name="corus_style_weather_snowfall">"내리는 눈"</string>
     <string name="corus_style_weather_steady_rain">"꾸준히 내리는 비"</string>
     <string name="corus_live_listener_rejoined">"%1$s님이 룸에 다시 들어왔어요"</string>
+    <string name="corus_live_not_available_on_spotify">"Spotify에서 재생할 수 없음"</string>
+    <string name="corus_live_continue_anyway">"계속 진행"</string>
+    <string name="corus_live_apple_music_listeners_may_hear">"Apple Music 청취자는 이 노래를 들을 수 있을 수도 있습니다."</string>
 </resources>

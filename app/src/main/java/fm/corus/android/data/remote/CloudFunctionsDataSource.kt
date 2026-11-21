@@ -2606,14 +2606,19 @@ class CloudFunctionsDataSource @Inject constructor(
         appleTrackId: String?,
         albumName: String? = null,
         durationMs: Int? = null,
+        confirmAvailability: Boolean = false,
     ): SpotifyLookupResult {
         val payload = linkOutParams(name, artist, isrc, appleTrackId).toMutableMap()
         if (!albumName.isNullOrBlank()) payload["albumName"] = albumName
         if (durationMs != null && durationMs > 0) payload["durationMs"] = durationMs
+        if (confirmAvailability) payload["confirmAvailability"] = true
         val result = functions.getHttpsCallable("spotifyTrackLookup").call(payload).await()
         val data = result.getData() as? Map<String, Any?> ?: error("Invalid Spotify lookup response")
         val found = data["found"] as? Boolean ?: error("Missing Spotify lookup status")
-        if (!found) return SpotifyLookupResult(false, null)
+        if (!found) {
+            check(!confirmAvailability || data["availabilityConfirmed"] == true) { "Spotify availability was not confirmed" }
+            return SpotifyLookupResult(false, null)
+        }
         val webUrl = (data["spotifyWebURL"] as? String)?.ifEmpty { null }
         val spotifyUri = (data["spotifyURI"] as? String)?.ifEmpty { null }
         check(webUrl != null || spotifyUri != null) { "Missing Spotify track link" }

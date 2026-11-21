@@ -648,4 +648,7 @@
     <string name="corus_style_weather_snowfall">"Nevicata"</string>
     <string name="corus_style_weather_steady_rain">"Pioggia continua"</string>
     <string name="corus_live_listener_rejoined">"%1$s ha fatto ritorno nella stanza"</string>
+    <string name="corus_live_not_available_on_spotify">"Non disponibile su Spotify"</string>
+    <string name="corus_live_continue_anyway">"Continua comunque"</string>
+    <string name="corus_live_apple_music_listeners_may_hear">"Chi usa Apple Music potrebbe comunque riuscire ad ascoltare questo brano."</string>
 </resources>

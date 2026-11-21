@@ -84,6 +84,8 @@ internal data class LiveTalkScheduleChange(val roomId: String, val revision: Lon
     fun appliesTo(room: LiveRoom) = room.id == roomId && room.revision == revision && room.voiceMode != "talk"
 }
 
+private class LiveSpotifyTrackUnavailable(message: String) : IllegalStateException(message)
+
 internal class PendingLiveChatReaction(val active: Boolean)
 
 internal data class LiveUiState(
@@ -165,7 +167,14 @@ internal data class LiveUiState(
     val playbackExitEndsShow: Boolean? = null,
 ) {
     val isSpotifySongUnavailable: Boolean
-        get() = !hosting && spotifyUnavailableRevision != null && spotifyUnavailableRevision == room?.revision
+        get() = spotifyUnavailableRevision != null && spotifyUnavailableRevision == room?.revision
+
+    val unavailableHostSongRevision: Long?
+        get() = room?.takeIf {
+            hosting && !minimized && !muted && !welcomePlaying && isSpotifySongUnavailable &&
+                it.status == "playing" && it.current != null && !it.current.playsFromSource &&
+                it.pausedAt == null && it.pendingSkip == null && it.voiceMode != "talk"
+        }?.revision
 
     fun trendingRoom(minListeners: Int): LiveRoom? =
         discovery.asSequence()
@@ -1917,13 +1926,25 @@ internal class LiveViewModel @Inject constructor(
             val id = UUID.randomUUID().toString()
             command("beginSkip", room.id, mapOf("skipId" to id, "revision" to room.revision, "queueVersion" to room.queueVersion))
             try {
-                playbackLock.withLock { prepareTrack(next, { 0L }) }
-                val position = livePlaybackPosition(next)
-                initialTrackRevision = room.revision + 1
+                val position = try {
+                    playbackLock.withLock { prepareTrack(next, { 0L }) }
+                    livePlaybackPosition(next).also { initialTrackRevision = room.revision + 1 }
+                } catch (_: LiveSpotifyTrackUnavailable) {
+                    // The room clock belongs to everyone, including listeners
+                    // whose provider can play this song.
+                    spotify.pause()
+                    expectedUri = null
+                    initialTrackRevision = null
+                    update { copy(audioReady = false, audioError = null, spotifyUnavailableRevision = room.revision + 1) }
+                    0L
+                }
                 command("completeSkip", room.id, mapOf("skipId" to id, "positionMs" to position))
                 event("host_skipped", source = "host")
             } catch (error: Exception) {
                 initialTrackRevision = null
+                update {
+                    if (spotifyUnavailableRevision == room.revision + 1) copy(spotifyUnavailableRevision = null) else this
+                }
                 if (error !is CancellationException) {
                     try { command("cancelSkip", room.id, mapOf("skipId" to id)) } catch (_: Exception) { }
                     state.value.room?.let { synchronize(it, force = true) }
@@ -2481,6 +2502,7 @@ internal class LiveViewModel @Inject constructor(
                         return@withLock
                     }
                     if (!foreground && !spotify.isConnected && !liveListeningServiceStarted) return@withLock
+                    if (current.isSpotifySongUnavailable && !force) return@withLock
                     val uri = resolve(track)
                     currentCoroutineContext().ensureActive()
                     if (uri == null) {
@@ -2491,8 +2513,8 @@ internal class LiveViewModel @Inject constructor(
                             if (this.room?.id != room.id || this.room.revision != room.revision) this
                             else copy(
                                 audioReady = false,
-                                spotifyUnavailableRevision = room.revision.takeUnless { hosting },
-                                audioError = if (hosting) context.getString(R.string.live_song_unavailable_on_provider, "Spotify") else null,
+                                spotifyUnavailableRevision = room.revision,
+                                audioError = null,
                             )
                         }
                         return@withLock
@@ -2593,7 +2615,9 @@ internal class LiveViewModel @Inject constructor(
         }
         releaseApplePlayer()
         requireSpotify()
-        val uri = knownUri ?: resolve(track) ?: error(context.getString(R.string.live_song_unavailable_on_provider, "Spotify"))
+        val uri = knownUri ?: resolve(track) ?: throw LiveSpotifyTrackUnavailable(
+            context.getString(R.string.live_song_unavailable_on_provider, "Spotify"),
+        )
         claimLivePlayback()
         expectedUri = uri
         if (forceSpotifyPlay || !spotify.isConnected || !matchesSpotifyUri(uri) || !spotify.isPlaying.value) {

@@ -24,6 +24,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -172,7 +173,7 @@ class FeedModeStaleResponseRaceTest {
             wheneverBlocking {
                 postRepository.getForYouFeed(
                     any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
-                    energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any(),
+                    energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any(), spaceRepeatedSongs = any(),
             )
             }.doReturn(CloudFunctionsDataSource.ForYouFeedPage(trendingPosts, false, "tok", false))
 
@@ -202,6 +203,70 @@ class FeedModeStaleResponseRaceTest {
                 viewModel.posts.value.map { it.id },
             )
         }
+
+    @Test
+    fun `returning to a tab does not revive its obsolete first request`() = runTest(testDispatcher) {
+        whenever(remoteConfig.trendingFeedEnabled).doReturn(true)
+        val oldRequest = CompletableDeferred<Unit>()
+        var followingRequests = 0
+        wheneverBlocking {
+            postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull())
+        }.doSuspendableAnswer {
+            followingRequests++
+            if (followingRequests == 1) {
+                oldRequest.await()
+                CloudFunctionsDataSource.FeedPage(listOf(post("obsolete")), false)
+            } else {
+                CloudFunctionsDataSource.FeedPage(listOf(post("fresh")), false)
+            }
+        }
+        wheneverBlocking {
+            postRepository.getForYouFeed(
+                any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
+                energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any(), spaceRepeatedSongs = any(),
+            )
+        }.doReturn(CloudFunctionsDataSource.ForYouFeedPage(listOf(post("trending")), false, "tr-token", false))
+        val viewModel = vm()
+        advanceUntilIdle()
+        viewModel.loadFeed()
+        advanceUntilIdle()
+        modeFlow.value = "trending"
+        advanceUntilIdle()
+        modeFlow.value = "following"
+        advanceUntilIdle()
+        assertEquals(listOf("fresh"), viewModel.posts.value.map { it.id })
+        oldRequest.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(listOf("fresh"), viewModel.posts.value.map { it.id })
+    }
+
+    @Test
+    fun `following retry cannot refresh trending after backoff`() = runTest(testDispatcher) {
+        whenever(remoteConfig.trendingFeedEnabled).doReturn(true)
+        wheneverBlocking {
+            postRepository.getFeedPage(any(), any(), anyOrNull(), any(), anyOrNull(), any(), energyLevel = anyOrNull())
+        }.doSuspendableAnswer { throw IllegalStateException("Temporary connection failure") }
+        var trendingRequests = 0
+        wheneverBlocking {
+            postRepository.getForYouFeed(
+                any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
+                energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any(), spaceRepeatedSongs = any(),
+            )
+        }.doSuspendableAnswer {
+            trendingRequests++
+            CloudFunctionsDataSource.ForYouFeedPage(listOf(post("trending")), false, "tr-token", false)
+        }
+        val viewModel = vm()
+        runCurrent()
+        viewModel.loadFeed()
+        runCurrent() // Following fails and enters its retry backoff.
+        modeFlow.value = "trending"
+        runCurrent()
+        assertEquals(listOf("trending"), viewModel.posts.value.map { it.id })
+        advanceUntilIdle()
+        assertEquals(1, trendingRequests)
+        assertEquals(false, viewModel.lastLoadFailed.value)
+    }
 
     /**
      * The subtler ranked→ranked variant. Trending and Taste Matches SHARE the
@@ -234,7 +299,7 @@ class FeedModeStaleResponseRaceTest {
             wheneverBlocking {
                 postRepository.getForYouFeed(
                     any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(),
-                    energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any(),
+                    energyLevel = anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any(), spaceRepeatedSongs = any(),
             )
             }.doSuspendableAnswer {
                 val sessionToken = it.getArgument<String?>(2)
@@ -297,7 +362,7 @@ class FeedModeStaleResponseRaceTest {
         val low = post("low").copy(energyLevel = "low")
         val low2 = post("low2").copy(energyLevel = "low")
         wheneverBlocking {
-            postRepository.getForYouFeed(any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(), anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any(),
+            postRepository.getForYouFeed(any(), any(), anyOrNull(), any(), any(), anyOrNull(), any(), any(), any(), anyOrNull(), anyOrNull(), prototypeMode = anyOrNull(), viewedPostIds = any(), spaceRepeatedSongs = any(),
             )
         }.doSuspendableAnswer {
             val energy = it.getArgument<String?>(10)
@@ -313,17 +378,18 @@ class FeedModeStaleResponseRaceTest {
             }
         }
         val viewModel = vm()
+        val filtered = viewModel.filteredPosts // Start the lazy flow before draining the dispatcher.
         advanceUntilIdle()
         viewModel.setFeedEnergy(fm.corus.android.data.model.FeedEnergy.HIGH)
         advanceUntilIdle()
         viewModel.setFeedEnergy(fm.corus.android.data.model.FeedEnergy.LOW)
         advanceUntilIdle()
-        assertEquals(listOf("low"), viewModel.filteredPosts.value.map { it.id })
+        assertEquals(listOf("low"), filtered.value.map { it.id })
         pendingHigh.complete(Unit)
         advanceUntilIdle()
         viewModel.loadFeed()
         advanceUntilIdle()
-        assertEquals(listOf("low", "low2"), viewModel.filteredPosts.value.map { it.id })
+        assertEquals(listOf("low", "low2"), filtered.value.map { it.id })
     }
 
 }

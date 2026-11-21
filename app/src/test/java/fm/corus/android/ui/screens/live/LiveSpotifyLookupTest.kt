@@ -8,6 +8,8 @@ import com.google.firebase.functions.HttpsCallableResult
 import fm.corus.android.data.remote.CloudFunctionsDataSource
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.kotlin.any
@@ -20,6 +22,26 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
 class LiveSpotifyLookupTest {
+    @Test fun onlyExplicitNotFoundIsAnUnavailableSong() = runTest {
+        val track = requireNotNull(LiveTrack.parse(mapOf("id" to "am:123", "source" to "applemusic",
+            "title" to "Gamma Knife", "artist" to "King Gizzard", "durationMs" to 180_000)))
+        val call = mock<HttpsCallableReference>()
+        val functions = mock<FirebaseFunctions> { on { getHttpsCallable("spotifyTrackLookup") } doReturn call }
+        val repository = LiveRepository(mock(), functions, mock(), CloudFunctionsDataSource(functions, mock(), mock()),
+            mock(), mock(), mock(), mock(), mock(), mock(), mock(),
+        )
+        for (data in listOf(emptyMap(), mapOf("found" to false), mapOf("found" to true), mapOf("found" to true, "spotifyURI" to "invalid"))) {
+            val response = mock<HttpsCallableResult> { on { getData() } doReturn data }
+            whenever(call.call(any())).thenReturn(Tasks.forResult(response))
+            assertTrue("Malformed response is unknown, never a confirmed absence", runCatching { repository.spotifyUri(track) }.isFailure)
+        }
+        whenever(call.call(any())).thenReturn(Tasks.forException(IllegalStateException("Timed out")))
+        assertTrue(runCatching { repository.spotifyUri(track) }.isFailure)
+        val confirmedMissing = mock<HttpsCallableResult> { on { getData() } doReturn mapOf("found" to false, "availabilityConfirmed" to true) }
+        whenever(call.call(any())).thenReturn(Tasks.forResult(confirmedMissing))
+        assertNull(repository.spotifyUri(track))
+    }
+
     @Test fun crossCatalogLookupCanMatchAnAlternatePressingUsingAlbumAndDuration() = runTest {
         val album = "The Bootleg Series Vol. 4: Live 1966"
         val duration = 532_467

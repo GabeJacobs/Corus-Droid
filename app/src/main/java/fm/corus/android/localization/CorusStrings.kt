@@ -1001,8 +1001,10 @@ object CorusStrings {
     @StringRes val language_section_title: Int = R.string.language_section_title
     @StringRes val likes_empty_no_likes: Int = R.string.likes_empty_no_likes
     @StringRes val likes_title: Int = R.string.parity_e9f009d9df80
+    @StringRes val live_apple_music_listeners_may_hear: Int = R.string.corus_live_apple_music_listeners_may_hear
     @StringRes val live_cancel_scheduled_talk: Int = R.string.live_cancel_scheduled_talk
     @StringRes val live_confirm_delete_message: Int = R.string.corus_live_confirm_delete_message
+    @StringRes val live_continue_anyway: Int = R.string.corus_live_continue_anyway
     @StringRes val live_delete_message_confirmation_body: Int = R.string.corus_live_delete_message_confirmation_body
     @StringRes val live_edit_message: Int = R.string.live_edit_message
     @StringRes val live_edit_message_placeholder: Int = R.string.corus_live_edit_message_placeholder
@@ -1016,6 +1018,7 @@ object CorusStrings {
     @StringRes val live_emoji_symbols: Int = R.string.corus_live_emoji_symbols
     @StringRes val live_emoji_travel: Int = R.string.corus_live_emoji_travel
     @StringRes val live_go_live_privately: Int = R.string.live_go_live_privately
+    @StringRes val live_not_available_on_spotify: Int = R.string.corus_live_not_available_on_spotify
     @StringRes val live_private_notify_followers_description: Int = R.string.live_private_notify_followers_description
     @StringRes val live_private_room: Int = R.string.live_private_room
     @StringRes val live_private_room_description: Int = R.string.live_private_room_description
