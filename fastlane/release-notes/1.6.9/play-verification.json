@@ -1,0 +1,28 @@
+{
+  "verified_at": "2026-11-21T16:33:06Z",
+  "version_name": "1.6.9",
+  "version_code": 154,
+  "track": {
+    "releases": [
+      {
+        "name": "1.6.9",
+        "release_notes": [
+          {
+            "language": "pt-BR",
+            "text": "Melhoramos o carregamento do feed e a estabilidade ao alternar entre feeds.\n"
+          },
+          {
+            "language": "en-US",
+            "text": "Improved feed loading and reliability when switching feeds.\n"
+          }
+        ],
+        "status": "completed",
+        "version_codes": [
+          "154"
+        ]
+      }
+    ],
+    "track": "production"
+  },
+  "source_commit": "ce0a94791dfb0eae592830acb5b1a085a46f2fe9"
+}

@@ -1,0 +1,1 @@
+Improved feed loading and reliability when switching feeds.

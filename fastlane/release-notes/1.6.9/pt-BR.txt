@@ -1,0 +1,1 @@
+Melhoramos o carregamento do feed e a estabilidade ao alternar entre feeds.
