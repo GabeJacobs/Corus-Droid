@@ -3,8 +3,8 @@ package fm.corus.android.domain
 import java.time.Instant
 import java.time.ZoneOffset
 
-data class DailyHashtagBannerCandidate(val name: String, val day: String, val updatedAtMillis: Long) {
-    fun isCurrent(now: Long): Boolean = day == utcDay(now) && now - updatedAtMillis < 7_200_000L
+data class DailyHashtagBannerCandidate(val name: String, val day: String, val updatedAtMillis: Long, val expiresAtMillis: Long) {
+    fun isCurrent(now: Long): Boolean = day == utcDay(now) && now - updatedAtMillis < 7_200_000L && now < expiresAtMillis
 }
 
 fun utcDay(now: Long): String = Instant.ofEpochMilli(now).atOffset(ZoneOffset.UTC).toLocalDate().toString()
@@ -17,5 +17,7 @@ fun parseDailyHashtagBanner(
     val name = (item["name"] as? String)?.takeIf { it.isNotBlank() } ?: return null
     val people = (item["distinctAuthors"] as? Number)?.toDouble() ?: return null
     if (!people.isFinite() || people < 7) return null
-    return DailyHashtagBannerCandidate(name, day, updatedAt)
+    val expiresAt = (item["expiresAt"] as? Number)?.toDouble() ?: return null
+    if (!expiresAt.isFinite() || expiresAt <= now) return null
+    return DailyHashtagBannerCandidate(name, day, updatedAt, expiresAt.toLong())
 }
