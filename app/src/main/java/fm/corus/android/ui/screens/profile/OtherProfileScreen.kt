@@ -562,7 +562,7 @@ fun OtherProfileScreen(
                             )
                         }
                     },
-                    actions = { if (!isBlocked && !profileUnavailable) profileActions() },
+                    actions = { if (!isOwnProfile && !isBlocked && !profileUnavailable) profileActions() },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = CorusColors.Background),
                     windowInsets = WindowInsets(0, 0, 0, 0),
                 )
@@ -1558,7 +1558,7 @@ fun OtherProfileScreen(
                 topInset = frost.statusBarPadding,
                 titleContent = otherProfileTitle,
                 dismissesSheet = dismissesSheet,
-                actions = { if (!isBlocked && !profileUnavailable) profileActions() },
+                actions = { if (!isOwnProfile && !isBlocked && !profileUnavailable) profileActions() },
             )
         }
         }

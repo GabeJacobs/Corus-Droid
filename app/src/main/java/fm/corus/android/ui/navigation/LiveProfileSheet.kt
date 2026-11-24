@@ -63,6 +63,8 @@ internal fun LiveProfileSheet(
     CorusModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        // Keep the ordinary profile palette, including its distinct featured-post colors.
+        useSheetTheme = false,
         // Let the profile grid draw behind the transparent gesture navigation area.
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
     ) {

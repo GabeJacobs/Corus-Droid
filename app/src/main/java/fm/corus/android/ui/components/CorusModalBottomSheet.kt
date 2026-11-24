@@ -23,7 +23,11 @@ import fm.corus.android.ui.theme.LocalCorusPalette
 
 /** Shared surface hierarchy for both Material sheets and the custom comments sheet. */
 @Composable
-internal fun CorusSheetTheme(content: @Composable () -> Unit) {
+internal fun CorusSheetTheme(enabled: Boolean = true, content: @Composable () -> Unit) {
+    if (!enabled) {
+        content()
+        return
+    }
     val palette = LocalCorusPalette.current
     val scheme = MaterialTheme.colorScheme
     val background = CorusColors.SheetBackground
@@ -72,9 +76,10 @@ fun CorusModalBottomSheet(
     contentWindowInsets: @Composable () -> WindowInsets = { BottomSheetDefaults.windowInsets },
     properties: ModalBottomSheetProperties = ModalBottomSheetDefaults.properties,
     containerColor: Color = CorusColors.Background,
+    useSheetTheme: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    CorusSheetTheme {
+    CorusSheetTheme(enabled = useSheetTheme) {
         ModalBottomSheet(
             onDismissRequest = onDismissRequest,
             modifier = modifier,
