@@ -1780,7 +1780,7 @@ internal class LiveViewModel @Inject constructor(
     fun heart() {
         val current = state.value
         val room = current.room?.takeIf { it.status == "playing" && it.current != null } ?: return
-        if (current.hosting && !room.canLikeFromMiniPlayer(current.uid, now)) return
+        if (!room.canLikeFromMiniPlayer(current.uid, now)) return
         if (heartRevision != room.revision) {
             heartJob?.cancel()
             heartsPending = 0
@@ -1790,7 +1790,7 @@ internal class LiveViewModel @Inject constructor(
         if (heartJob?.isActive == true) return
         var confirmed = confirmedHeartRevision == room.revision || current.membership.number("likedRevision") == room.revision
         if (!confirmed) update { copy(optimisticLikedRevision = room.revision) }
-        if (!confirmed && !current.hosting && room.chatEnabled && current.uid != null) {
+        if (!confirmed && room.chatEnabled && current.uid != null) {
             val username = profile.value?.takeIf { it.id == current.uid }?.username.orEmpty().trimStart('@')
             val handle = username.takeIf { it.isNotEmpty() }?.let { "@$it" }.orEmpty()
             val id = "pending-like:${UUID.randomUUID()}"

@@ -43,7 +43,7 @@ internal fun LiveComposerHeart(
     }
     val playingDJUid = room.currentDJ?.uid ?: room.current?.playedBy?.uid ?: room.host.uid
     val showHeart = (room.current != null || hasSeenCurrentSong) &&
-        (!state.hosting || (state.uid != null && state.uid != playingDJUid))
+        (state.uid != null && state.uid != playingDJUid)
     val canLikeSong = room.miniPlayerTrack(now) != null
     if (showHeart && !editing) {
         LiveLikeButton(state.hasLikedCurrentSong, 25.dp, enabled = canLikeSong, onLike = onLike)
