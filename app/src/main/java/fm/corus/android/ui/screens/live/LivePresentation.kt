@@ -230,7 +230,10 @@ internal fun LiveDiscovery(
         enter = expandVertically(tween(duration), expandFrom = Alignment.Top) + fadeIn(tween(duration)),
         exit = shrinkVertically(tween(duration), shrinkTowards = Alignment.Top) + fadeOut(tween(duration)),
     ) {
-        Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(
+            Modifier.fillMaxWidth().padding(top = 6.dp, bottom = if (inSearch) 6.dp else 0.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             if (inSearch) {
                 Row(
                     Modifier.padding(horizontal = 16.dp),
