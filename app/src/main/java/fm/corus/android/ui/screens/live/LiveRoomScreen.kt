@@ -2390,7 +2390,7 @@ private fun ChatComposer(
                     Modifier.weight(1f).padding(vertical = 8.dp).padding(end = if (editing) 12.dp else 0.dp)
                         .focusRequester(composerFocus).onFocusChanged { focus(it.isFocused) },
                     readOnly = savingEdit,
-                    textStyle = CorusFont.body.copy(color = CorusColors.Text),
+                    textStyle = CorusFont.body.copy(color = if (LocalCorusDarkTheme.current) Color.White else CorusColors.Text),
                     cursorBrush = SolidColor(cursorTint),
                     singleLine = false,
                     minLines = 1,
@@ -2402,7 +2402,7 @@ private fun ChatComposer(
                             if (text.isEmpty()) {
                                 LiveText(
                                     stringResource(if (editing) CorusStrings.live_edit_message_placeholder else CorusStrings.corus_live_say_something),
-                                    color = CorusColors.Text.copy(alpha = .75f),
+                                    color = CorusColors.Secondary,
                                 )
                             }
                             input()
@@ -2530,6 +2530,7 @@ private fun LiveLineupSheet(
     room: LiveRoom, state: LiveUiState, vm: LiveViewModel, close: () -> Unit,
     openProfile: (String) -> Unit, invite: (() -> Unit)?,
 ) {
+    val context = LocalContext.current
     var handoff by remember { mutableStateOf<List<String>>(emptyList()) }
     LaunchedEffect(room.id, room.djs) {
         if (state.hosting && room.djs.isNotEmpty()) vm.action("hostHandoffOptions") {
@@ -2550,7 +2551,13 @@ private fun LiveLineupSheet(
                                 if (dj.uid in handoff) DropdownMenuItem(
                                     text = { LiveText(stringResource(R.string.live_make_host)) },
                                     leadingIcon = { Icon(Icons.Default.VpnKey, null, tint = CorusColors.Accent) },
-                                    onClick = { vm.action("offerHost", mapOf("targetUid" to dj.uid)); menu = false },
+                                    onClick = {
+                                        menu = false
+                                        vm.action("offerHost", mapOf("targetUid" to dj.uid)) {
+                                            close()
+                                            Toast.makeText(context, CorusStrings.corus_live_host_invitation_sent, Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
                                 )
                                 DropdownMenuItem(
                                     text = { LiveText(stringResource(R.string.live_remove_dj)) },
