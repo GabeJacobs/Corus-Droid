@@ -70,7 +70,7 @@ class LiveUnavailableSongTest {
         if (transportFailure) whenever(repository.spotifyUri(any())).thenThrow(IllegalStateException("Offline"))
         else whenever(repository.spotifyUri(any())).thenReturn(null)
         val auth = mock<AuthRepository> { on { currentUser } doReturn MutableStateFlow(null) }
-        val vm = LiveViewModel(context, repository, auth, mock(), mock(), mock(), mock(), mock(), mock(), mock(), SaveChangedEvent())
+        val vm = LiveViewModel(context, repository, auth, mock(), mock(), mock(), mock(), mock(), mock(), mock(), SaveChangedEvent(), spotifySaveAutoAdd = mock(), appleMusicSaveAutoAdd = mock())
         try {
             runCurrent()
             val song = mapOf("id" to "am:123", "source" to "applemusic", "title" to "Robot Stop", "durationMs" to 180_000)

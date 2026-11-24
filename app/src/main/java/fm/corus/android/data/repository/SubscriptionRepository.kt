@@ -1,5 +1,6 @@
 package fm.corus.android.data.repository
 
+import fm.corus.android.BuildConfig
 import com.revenuecat.purchases.CustomerInfo
 import com.revenuecat.purchases.Package
 import com.revenuecat.purchases.Offering
@@ -389,6 +390,7 @@ class SubscriptionRepository @Inject constructor(
     }
 
     suspend fun loginUser(uid: String) {
+        if (BuildConfig.CORUS_STAGING) return
         if (runCatching { Purchases.sharedInstance.appUserID }.getOrNull() != uid) {
             clearOfferingContext()
             _hasStoreSubscription.value = null
@@ -408,7 +410,7 @@ class SubscriptionRepository @Inject constructor(
 
     /** Suspend wrapper around `Purchases.logIn`. Resolves null on error. */
     private suspend fun awaitLogIn(uid: String): CustomerInfo? =
-        if (TestEnvironment.isActive) null else suspendCancellableCoroutine { cont ->
+        if (TestEnvironment.isActive || BuildConfig.CORUS_STAGING) null else suspendCancellableCoroutine { cont ->
             Purchases.sharedInstance.logIn(
                 uid,
                 object : com.revenuecat.purchases.interfaces.LogInCallback {
@@ -433,6 +435,7 @@ class SubscriptionRepository @Inject constructor(
      * No-op when already aliased.
      */
     suspend fun ensureIdentified() {
+        if (BuildConfig.CORUS_STAGING) return
         val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: return
         val current = runCatching { Purchases.sharedInstance.appUserID }.getOrNull()
         if (current == uid) return
@@ -485,6 +488,7 @@ class SubscriptionRepository @Inject constructor(
 
     /** Resolves after the Club packages (and therefore [hasClubIntroTrial]) are current. */
     suspend fun awaitOfferings() = suspendCancellableCoroutine<Unit> { cont ->
+        if (BuildConfig.CORUS_STAGING) { cont.resume(Unit); return@suspendCancellableCoroutine }
         val generation = offeringGeneration.get()
         try {
             val owner = Purchases.sharedInstance.appUserID
@@ -528,6 +532,7 @@ class SubscriptionRepository @Inject constructor(
         paywallSource: String,
         onResult: (PurchaseOutcome) -> Unit,
     ) {
+        if (BuildConfig.CORUS_STAGING) { onResult(PurchaseOutcome.Cancelled); return }
         // Attribute the sale to the paywall that drove it, so the subscription
         // record (not just the GA4 event) carries the source. Fail-quiet — an
         // attribute hiccup must never block the purchase.
@@ -573,6 +578,7 @@ class SubscriptionRepository @Inject constructor(
     }
 
     fun restorePurchases(onResult: (Boolean) -> Unit) {
+        if (BuildConfig.CORUS_STAGING) { onResult(false); return }
         Purchases.sharedInstance.restorePurchasesWith(
             onError = { onResult(false) },
             onSuccess = { customerInfo ->
@@ -591,6 +597,7 @@ class SubscriptionRepository @Inject constructor(
     }
 
     suspend fun checkStatus() {
+        if (BuildConfig.CORUS_STAGING) return
         try {
             val customerInfo = suspendCancellableCoroutine { cont ->
                 Purchases.sharedInstance.getCustomerInfo(
@@ -625,6 +632,7 @@ class SubscriptionRepository @Inject constructor(
     }
 
     private fun syncClubStatusToFirestore() {
+        if (BuildConfig.CORUS_STAGING) return
         val userId = Purchases.sharedInstance.appUserID
         scope.launch {
             try {

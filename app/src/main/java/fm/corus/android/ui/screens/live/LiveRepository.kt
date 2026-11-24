@@ -80,7 +80,9 @@ internal class LiveRepository @Inject constructor(
         database.collection("corusLiveDJInboxes").document(uid).collection("invites")
             .document(roomId).get(Source.SERVER).await().data?.plus("roomId" to roomId)
 
-    suspend fun room(id: String): LiveRoom? = rooms.document(id).get(Source.SERVER).await().toRoom()
+    suspend fun room(id: String): LiveRoom? = rooms.document(id).get(Source.SERVER).await().toRoom().also {
+        if (fm.corus.android.BuildConfig.DEBUG) android.util.Log.d("LiveQueueTrace", "server read v=${it?.queueVersion} n=${it?.queue?.size}")
+    }
 
     fun discovery(privacyMetadataSupported: Boolean): Flow<List<LiveRoom>> {
         val playing = rooms.whereEqualTo("status", "playing")
@@ -128,6 +130,9 @@ internal class LiveRepository @Inject constructor(
     suspend fun chatAuthors(ids: List<String>): Map<String, LivePerson> =
         users.fetchUsersByIdsBatched(ids).associate { it.id to it.toLivePerson() }
 
+    suspend fun chatMentionUserId(username: String): String? =
+        users.fetchUserByUsername(username)?.id
+
     val followingIds get() = users.followingIds
 
     suspend fun listenerFollowerIds(uid: String, ids: List<String>): Set<String> = coroutineScope {
@@ -144,6 +149,11 @@ internal class LiveRepository @Inject constructor(
 
     suspend fun chatReactionPeople(ids: List<String>): Map<String, LivePerson> =
         chatAuthors(ids.filterNot { users.isUserHidden(it) || users.isUserBannedLocally(it) })
+
+    fun cachedChatReactionPeople(ids: List<String>): Map<String, LivePerson> =
+        ids.distinct().filterNot { users.isUserHidden(it) || users.isUserBannedLocally(it) }
+            .mapNotNull { users.cachedUserProfile(it)?.toLivePerson() }
+            .associateBy { it.uid }
 
     fun invites(uid: String): Flow<List<LiveFields>> =
         database.collection("corusLiveDJInboxes").document(uid).collection("invites")
@@ -336,6 +346,8 @@ internal class LiveRepository @Inject constructor(
             .filter { it.id != uid }.distinctBy { it.id }.map { it.toLivePerson() }
 
     private fun CymbalUser.toLivePerson() = LivePerson(id, username, avatarThumbURL ?: avatarURL, this)
+
+    suspend fun uploadRoomImage(uid: String, bytes: ByteArray): String = storage.uploadLiveRoomImage(uid, bytes)
 
     suspend fun uploadWelcome(uid: String, id: String, recording: LiveRecording): Map<String, Any> = mapOf(
         "url" to storage.uploadVoiceNote(uid, id, recording.bytes),

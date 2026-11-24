@@ -31,7 +31,7 @@ object ReferralAttribution {
     fun updateEnabled(value: Boolean) {
         if (!::app.isInitialized) return
         enabled =
-            value &&
+            value && !BuildConfig.CORUS_STAGING &&
                 BuildConfig.APPSFLYER_DEV_KEY.isNotBlank() &&
                 !fm.corus.android.TestEnvironment.isActive
         if (!enabled) {

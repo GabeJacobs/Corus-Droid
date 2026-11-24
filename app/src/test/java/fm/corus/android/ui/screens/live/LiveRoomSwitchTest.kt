@@ -44,7 +44,7 @@ class LiveRoomSwitchTest {
             on { current } doReturn MutableStateFlow(MusicService.SPOTIFY)
         }
         val vm = LiveViewModel(ApplicationProvider.getApplicationContext(), repository, auth, mock(),
-            mock(), mock(), music, voice, mock(), mock(), SaveChangedEvent())
+            mock(), mock(), music, voice, mock(), mock(), SaveChangedEvent(), spotifySaveAutoAdd = mock(), appleMusicSaveAutoAdd = mock())
         @Suppress("UNCHECKED_CAST")
         val state = LiveViewModel::class.java.getDeclaredField("_state").apply { isAccessible = true }
             .get(vm) as MutableStateFlow<LiveUiState>
@@ -204,4 +204,35 @@ class LiveRoomSwitchTest {
             assertEquals(1, calls.count { it == "join" to "B" })
         } finally { f.close() }
     }
+    @Test fun steppedDownHostLeavesWithoutEndingEvenBeforeTheRoomSnapshotUpdates() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val calls = mutableListOf<Pair<String, String>>()
+        val repository = mock<LiveRepository> {
+            onBlocking { room(any()) } doSuspendableAnswer { room(it.getArgument(0)) }
+            onBlocking { call(any(), any(), any()) } doSuspendableAnswer {
+                calls += it.getArgument<String>(0) to it.getArgument<String>(1)
+                emptyMap()
+            }
+            on { observeRoom(any()) } doReturn emptyFlow()
+            on { messages(any()) } doReturn emptyFlow()
+            on { membership(any(), any()) } doReturn emptyFlow()
+            on { ownRequest(any(), any(), any()) } doReturn emptyFlow()
+        }
+        val f = Fixture(repository)
+        try {
+            runCurrent()
+            f.seed(room("A"), host = true)
+            f.vm.join("B")
+            runCurrent()
+            f.vm.transferHostForExit("A", "dj", continuingPlayback = true)
+            f.vm.confirmPlaybackExit(true)
+            runCurrent()
+            advanceTimeBy(LiveJoinMinimumMs.toLong() + 1)
+            runCurrent()
+            assertEquals("B", f.vm.state.value.room?.id)
+            assertFalse("The original room must never be ended", calls.any { it.first == "end" })
+            assertTrue(calls.indexOf("stepDown" to "A") < calls.indexOf("leave" to "A"))
+        } finally { f.close() }
+    }
+
 }

@@ -85,10 +85,8 @@ import fm.corus.android.domain.SpotifyPlaybackService
 import fm.corus.android.service.DeepLinkDestination
 import fm.corus.android.ui.components.ComposePlusButton
 import fm.corus.android.ui.components.MiniPlayerProgressHeight
-import fm.corus.android.ui.components.UsernameWithFlair
 import fm.corus.android.ui.components.rememberReducedMotion
 import fm.corus.android.ui.components.parityCopy
-import fm.corus.android.data.model.FlairStyle
 import fm.corus.android.ui.components.blockTouchPassthrough
 import fm.corus.android.ui.player.PlayerExpansionState
 import fm.corus.android.ui.player.rememberPlayerExpansionState
@@ -123,6 +121,7 @@ internal data class LiveNavigationState(
     val mixedSavesLoading: Boolean,
     val mixedSavesHasMore: Boolean,
     val mixedSavesFailed: Boolean,
+    val ownPrivateRoomPreview: LiveRoom? = null,
 )
 
 internal val LocalLiveNavigation = compositionLocalOf<LiveNavigation?> { null }
@@ -186,7 +185,8 @@ internal fun LiveDiscovery(
     val live = LocalLiveNavigation.current ?: return
     val candidates = if (source == "trending") listOfNotNull(live.state.trendingRoom)
     else live.state.discovery.filter { it.matchesFollowing(following) }
-    val rooms = roomsWithDiscoveryCounts(candidates, live.state.discoveryListenerCounts)
+    val rooms = roomsWithDiscoveryCounts(candidates, live.state.discoveryListenerCounts) +
+        listOfNotNull(live.state.ownPrivateRoomPreview.takeIf { inSearch })
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val artworkUrls = if (lifecycle.isAtLeast(Lifecycle.State.RESUMED) && !live.state.roomCoversFeed) {
         rooms.take(3).mapNotNull { it.current?.loadingArtworkUrl }.distinct()
@@ -200,6 +200,18 @@ internal fun LiveDiscovery(
         }
     }
     val reduceMotion = rememberReducedMotion()
+    var showDJNames by remember(source) { mutableStateOf(false) }
+    val rotateIdentity = isActive && lifecycle.isAtLeast(Lifecycle.State.RESUMED) &&
+        rooms.any { it.customTitle.isNotBlank() }
+    LaunchedEffect(rotateIdentity) {
+        showDJNames = false
+        if (rotateIdentity) {
+            while (true) {
+                kotlinx.coroutines.delay(4500)
+                showDJNames = !showDJNames
+            }
+        }
+    }
     val duration = if (inSearch || reduceMotion || !isActive) 0 else 250
     // Seed each feed activation with its current visibility. Only changes
     // after activation should expand/collapse; switching tabs is immediate.
@@ -220,7 +232,14 @@ internal fun LiveDiscovery(
     ) {
         Column(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (inSearch) {
-                LiveText(stringResource(CorusStrings.corus_live_live_now), CorusFont.sectionHeader, CorusColors.Secondary, Modifier.padding(horizontal = 16.dp))
+                Row(
+                    Modifier.padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Default.Sensors, null, tint = CorusColors.Accent, modifier = Modifier.size(24.dp))
+                    LiveText(stringResource(CorusStrings.corus_live_live_now).uppercase(), CorusFont.sectionHeader, CorusColors.Secondary)
+                }
             }
             LazyRow(
                 contentPadding = PaddingValues(horizontal = if (inSearch) 16.dp else 12.dp),
@@ -230,6 +249,7 @@ internal fun LiveDiscovery(
                     LiveDiscoveryPill(
                         room,
                         listenerCount = live.state.discoveryListenerCounts[room.id],
+                        showDJNames = showDJNames,
                         open = { live.viewModel.event("discovery_opened", source = source); live.viewModel.join(room.id) },
                         hide = { hide = room },
                     )
@@ -250,11 +270,16 @@ internal fun LiveDiscovery(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun LiveDiscoveryPill(room: LiveRoom, listenerCount: Int?, open: () -> Unit, hide: () -> Unit) {
+private fun LiveDiscoveryPill(room: LiveRoom, listenerCount: Int?, showDJNames: Boolean, open: () -> Unit, hide: () -> Unit) {
     val djs = remember(room.djs) { room.djs.map(LivePerson::parse).filter { it.uid.isNotBlank() } }
     val customTitle = room.customTitle.trim()
-    val hasNamedLineup = customTitle.isNotEmpty() && djs.isNotEmpty()
     val handles = (listOf(room.host) + djs).map { "@${it.username.removePrefix("@")}" }
+    val reduceMotion = rememberReducedMotion()
+    val djAlpha by animateFloatAsState(
+        targetValue = if (customTitle.isEmpty() || showDJNames) 1f else 0f,
+        animationSpec = tween(if (reduceMotion) 0 else 300),
+        label = "live discovery identity",
+    )
     val liveLabel = stringResource(CorusStrings.corus_live_live)
     val fill = CorusColors.Accent.copy(alpha = if (LocalCorusDarkTheme.current) .16f else .07f)
     Row(
@@ -266,7 +291,8 @@ private fun LiveDiscoveryPill(room: LiveRoom, listenerCount: Int?, open: () -> U
         horizontalArrangement = Arrangement.spacedBy(9.dp),
     ) {
         LiveBadgedArtwork {
-            LiveMiniAvatarStack(room.host, djs)
+            if (room.roomImageURL != null) LiveAvatar(room.host.copy(avatar = room.roomImageURL), 28.dp, ring = true, ringPadding = 2.dp, ringWidth = 1.5.dp)
+            else LiveMiniAvatarStack(room.host, djs)
         }
         Row(
             Modifier.weight(1f, fill = false),
@@ -274,17 +300,20 @@ private fun LiveDiscoveryPill(room: LiveRoom, listenerCount: Int?, open: () -> U
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Column(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                if (djs.isEmpty() || hasNamedLineup) {
-                    LiveText(customTitle.ifEmpty { handles.first() }, CorusFont.username, lines = 1)
+                // Both identities reserve space so fading cannot resize the pill.
+                Box(Modifier.clearAndSetSemantics {
+                    contentDescription = (listOf(customTitle).filter { it.isNotEmpty() } + handles).joinToString(" · ")
+                }) {
+                    if (customTitle.isNotEmpty()) {
+                        Box(Modifier.alpha(1f - djAlpha)) {
+                            LiveText(customTitle, CorusFont.username, lines = 1)
+                        }
+                    }
+                    Box(Modifier.alpha(djAlpha)) {
+                        LiveDiscoveryDJNames(handles, CorusFont.username, CorusColors.Text)
+                    }
                 }
-                if (djs.isNotEmpty()) {
-                    LiveDiscoveryDJNames(
-                        handles,
-                        if (hasNamedLineup) CorusFont.caption else CorusFont.username,
-                        if (hasNamedLineup) CorusColors.Secondary else CorusColors.Text,
-                    )
-                }
-                if (!hasNamedLineup) room.current?.let { track ->
+                room.current?.let { track ->
                     val subtitle = listOf(track.song.name, track.song.artistName).filter { it.isNotBlank() }.joinToString(" · ")
                     LiveText(subtitle, CorusFont.caption, CorusColors.Secondary, lines = 1)
                 }
@@ -443,6 +472,25 @@ internal fun LiveMiniPlayer(
     val showsNext = mounted && (isHost || room.currentDJ?.uid == state.uid)
     val reducedMotion = rememberReducedMotion()
     val artwork = track?.song?.takeIf { room.pausedAt == null }?.liveDisplayArtwork
+    val roomTitle = room.customTitle.trim()
+    val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    var showDJNames by remember(room.id, roomTitle) { mutableStateOf(false) }
+    val rotateIdentity = roomTitle.isNotEmpty() && lifecycle.isAtLeast(Lifecycle.State.RESUMED)
+    LaunchedEffect(room.id, roomTitle, rotateIdentity) {
+        showDJNames = false
+        if (rotateIdentity) {
+            while (true) {
+                delay(4500)
+                showDJNames = !showDJNames
+            }
+        }
+    }
+    val identityAlpha by animateFloatAsState(
+        if (roomTitle.isEmpty() || showDJNames) 1f else 0f,
+        tween(if (reducedMotion) 0 else 300),
+        label = "Live mini player identity",
+    )
+
 
     Box(modifier.fillMaxWidth().height(LiveMiniPlayerHeight).blockTouchPassthrough()) {
         Row(
@@ -459,7 +507,9 @@ internal fun LiveMiniPlayer(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 LiveBadgedArtwork {
-                    if (djs.isEmpty()) {
+                    if (room.roomImageURL != null) {
+                        LiveAvatar(room.host.copy(avatar = room.roomImageURL), 30.dp, ring = true, ringPadding = 3.dp)
+                    } else if (djs.isEmpty()) {
                         var showArtwork by remember(room.id, artwork, reducedMotion) { mutableStateOf(false) }
                         LaunchedEffect(room.id, artwork, reducedMotion) {
                             if (artwork == null || reducedMotion) return@LaunchedEffect
@@ -481,22 +531,24 @@ internal fun LiveMiniPlayer(
                     } else LiveMiniAvatarStack(room.host, djs)
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                        val nameStyle = CorusFont.custom(weight = 800, size = 12)
-                        UsernameWithFlair(
-                            username = (profile?.username?.takeIf { it.isNotBlank() } ?: room.host.username).removePrefix("@"),
-                            isVerified = profile?.isVerified == true,
-                            isClubMember = profile?.isClubMember == true,
-                            isBot = profile?.isBot == true,
-                            flairStyle = profile?.flairStyle ?: FlairStyle.NONE,
-                            showAtPrefix = true,
-                            style = nameStyle,
-                            flairIconSize = 10.dp,
-                            flairAssetSize = 14.dp,
-                        )
-                        if (djs.isNotEmpty()) {
-                            LiveText(djs.joinToString(separator = " · ", prefix = "· ") { "@${it.username.removePrefix("@")}" },
-                                nameStyle, lines = 1)
+                    Box(Modifier.clearAndSetSemantics {
+                        contentDescription = (listOf(roomTitle).filter { it.isNotEmpty() } +
+                            (listOf(room.host) + djs).map { "@${it.username.removePrefix("@")}" }).joinToString(" · ")
+                    }) {
+                        if (roomTitle.isNotEmpty()) {
+                            LiveText(roomTitle, CorusFont.custom(weight = 800, size = 12),
+                                modifier = Modifier.alpha(1f - identityAlpha), lines = 1)
+                        }
+                        Row(Modifier.alpha(identityAlpha), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                            val nameStyle = CorusFont.custom(weight = 800, size = 12)
+                            LiveText(
+                                "@" + (profile?.username?.takeIf { it.isNotBlank() } ?: room.host.username).removePrefix("@"),
+                                nameStyle, lines = 1,
+                            )
+                            if (djs.isNotEmpty()) {
+                                LiveText(djs.joinToString(separator = " · ", prefix = "· ") { "@${it.username.removePrefix("@")}" },
+                                    nameStyle, lines = 1)
+                            }
                         }
                     }
                     LiveText(
@@ -644,7 +696,7 @@ private fun LiveRoomSheet(
 internal fun BoxScope.LivePresentation(
     state: LiveUiState,
     vm: LiveViewModel,
-    openProfile: (String) -> Unit,
+    profileDetails: @Composable (String, () -> Unit) -> Unit,
     openSong: (CymbalTrack) -> Unit,
     setlistNavController: NavHostController? = null,
     nowPlayingDetails: @Composable (CymbalTrack, () -> Unit) -> Unit,
@@ -657,11 +709,15 @@ internal fun BoxScope.LivePresentation(
     val visibleRoom = state.presentedRoom
     val expandedRoom = visibleRoom?.takeUnless { state.minimized }
     var nowPlayingSong by remember(state.uid) { mutableStateOf<CymbalTrack?>(null) }
+    var profileUserID by remember(state.uid, visibleRoom?.id) { mutableStateOf<String?>(null) }
+    LaunchedEffect(state.minimized) {
+        if (state.minimized) profileUserID = null
+    }
     visibleRoom?.let { room ->
         key(room.id) {
             LiveRoomSheet(
                 room, state, vm, roomExpansion, parkInsetPx, showMini,
-                openProfile, openSong, { nowPlayingSong = it }, nowPlayingSong != null,
+                { profileUserID = it }, openSong, { nowPlayingSong = it }, nowPlayingSong != null,
             )
         }
     }
@@ -689,6 +745,11 @@ internal fun BoxScope.LivePresentation(
             LiveLoading(state.progress, state.joiningRoom?.current, state.joiningRoom?.title, state.joinReady)
         }
     }
+    profileUserID?.takeIf { expandedRoom != null }?.let { userID ->
+        CorusContentTheme(LocalCorusDarkTheme.current || state.usesDarkRoomAppearance) {
+            profileDetails(userID) { profileUserID = null }
+        }
+    }
     nowPlayingSong?.let { track ->
         nowPlayingDetails(track) { nowPlayingSong = null }
     }
@@ -701,6 +762,18 @@ internal fun BoxScope.LivePresentation(
         }
     }
     state.playbackExitEndsShow?.let { endsRoom ->
+        val hostRoom = state.room ?: state.recoverableHostRoom
+        if (endsRoom && hostRoom != null) {
+            LiveHostExitSheet(hostRoom, vm,
+                if (state.roomSwitchConfirmation) LiveHostExitIntent.JOIN else LiveHostExitIntent.PLAY,
+                close = { vm.confirmPlaybackExit(false) },
+                onStepDown = { uid ->
+                    vm.transferHostForExit(hostRoom.id, uid, continuingPlayback = true)
+                    vm.confirmPlaybackExit(true)
+                },
+                onEnd = { vm.confirmPlaybackExit(true) },
+            )
+        } else {
         LiveConfirmation(
             if (endsRoom) stringResource(CorusStrings.corus_live_end_live) else stringResource(CorusStrings.corus_live_leave_live_room),
             if (state.roomSwitchConfirmation) stringResource(CorusStrings.corus_live_switch_room_ends_show)
@@ -709,6 +782,7 @@ internal fun BoxScope.LivePresentation(
             else if (endsRoom) stringResource(R.string.live_end_and_play) else stringResource(CorusStrings.corus_live_leave_and_play),
             { vm.confirmPlaybackExit(false) }, { vm.confirmPlaybackExit(true) },
         )
+        }
     }
     LiveDJInvitation(state, vm)
     state.roomJoinPrompt?.takeIf {

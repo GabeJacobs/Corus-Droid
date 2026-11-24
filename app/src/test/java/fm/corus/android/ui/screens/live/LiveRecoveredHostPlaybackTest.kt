@@ -47,7 +47,7 @@ class LiveRecoveredHostPlaybackTest {
         val room = LiveRoom("room", mapOf("hostId" to user.uid, "status" to "waiting"))
         whenever(repository.hostedRoom("host")).thenThrow(IllegalStateException("Offline")).thenReturn(room, null)
         val vm = LiveViewModel(ApplicationProvider.getApplicationContext(), repository, auth, mock(),
-            mock(), mock(), mock(), mock(), mock(), mock(), SaveChangedEvent())
+            mock(), mock(), mock(), mock(), mock(), mock(), SaveChangedEvent(), spotifySaveAutoAdd = mock(), appleMusicSaveAutoAdd = mock())
         try {
             val lookup = async { vm.refreshHostedRoomPreview("host") }
             runCurrent()
@@ -77,7 +77,7 @@ class LiveRecoveredHostPlaybackTest {
             on { currentUserId } doReturn "host"
         }
         val vm = LiveViewModel(ApplicationProvider.getApplicationContext(), repository, auth, mock(),
-            mock(), player, mock(), mock(), mock(), mock(), SaveChangedEvent())
+            mock(), player, mock(), mock(), mock(), mock(), SaveChangedEvent(), spotifySaveAutoAdd = mock(), appleMusicSaveAutoAdd = mock())
         try {
             runCurrent()
             val room = LiveRoom("room", mapOf("hostId" to user.uid, "status" to "waiting"))

@@ -48,7 +48,7 @@ class LiveWelcomeRejoinTest {
             on { currentUser } doReturn MutableStateFlow(null)
         }
         val vm = LiveViewModel(ApplicationProvider.getApplicationContext(), repository, auth, mock(),
-            mock(), mock(), mock(), mock(), mock(), mock(), SaveChangedEvent())
+            mock(), mock(), mock(), mock(), mock(), mock(), SaveChangedEvent(), spotifySaveAutoAdd = mock(), appleMusicSaveAutoAdd = mock())
         val type = LiveViewModel::class.java
         val mount = type.getDeclaredMethod("mount", LiveRoom::class.java).apply { isAccessible = true }
         val close = type.getDeclaredMethod("closeRoom", LiveRoom::class.java).apply { isAccessible = true }

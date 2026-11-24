@@ -24,7 +24,8 @@ const val corus_live_mic_is_on = "Mic is on"
 const val corus_live_talk_mode = "Talk mode"
 }
 fun stringResource(value: String, vararg args: Any) = value.format(*args)
-data class Person(val uid: String)
+data class Person(val uid: String) { companion object { fun parse(person: Person) = person } }
+typealias LivePerson = Person
 data class State(val hosting: Boolean = false, val dj: Person? = null,
  val micEnabled: Boolean = false, val uid: String = "gabe", val muted: Boolean = false,
  val voiceConnected: Boolean = false, val voiceFailed: Boolean = false,
@@ -33,6 +34,8 @@ data class State(val hosting: Boolean = false, val dj: Person? = null,
  val waitingForRemoteMicrophone: Boolean = false,
  val unmutedMicrophoneIDs: Set<String> = emptySet())
 class Room {
+ val host = Person("clifton")
+ val djs = listOf(Person("anotherDJ"), Person("thirdDJ"))
  val talkSpeakerUid = "clifton"
  fun djHandle(uid: String) = "@" + uid
 }
@@ -63,6 +66,15 @@ fun main() {
  check(label(State(hasReceivedRemoteMicrophone = true)) == "Talk mode") { "Talk ending must not flash Connecting" }
  check(label(State(hasReceivedRemoteMicrophone = true, voiceReconnecting = true)) == "Connecting live audio…")
  check(label(State(voiceConnected = true, unmutedMicrophoneIDs = setOf("clifton"))) == "@clifton is talking")
+ val silent = State(voiceConnected = true, hasReceivedRemoteMicrophone = true, unmutedMicrophoneIDs = setOf("anotherDJ"))
+ check(label(silent) == "@anotherDJ is talking") { "Silent open mic must identify any DJ, not just the initiator" }
+ val multiple = silent.copy(unmutedMicrophoneIDs = setOf("clifton", "anotherDJ", "thirdDJ"))
+ check(label(multiple) == "DJs talking") { "Multiple silent open mics must keep the group label" }
+ check(label(multiple, listOf(Person("anotherDJ"))) == "@anotherDJ is talking")
+ check(label(multiple, listOf(Person("clifton"), Person("anotherDJ"), Person("thirdDJ"))) == "DJs talking")
+ check(label(silent.copy(unmutedMicrophoneIDs = setOf("gabe", "outsider"))) == "Talk mode")
+ check(label(multiple.copy(muted = true)) == "Muted")
+ check(label(multiple.copy(voiceReconnecting = true)) == "Connecting live audio…")
  check(label(State(muted = true)) == "Muted")
  check(label(State(voiceFailed = true)) == "Couldn’t connect live audio")
  println("PASS: Android Talk status waits for audio")

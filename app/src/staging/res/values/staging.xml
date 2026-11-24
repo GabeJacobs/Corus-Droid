@@ -1,0 +1,4 @@
+<resources>
+    <!-- Google sign-in is deliberately unavailable; staging uses synthetic identities. -->
+    <string name="default_web_client_id" translatable="false">staging-google-sign-in-disabled</string>
+</resources>

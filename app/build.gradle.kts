@@ -1,4 +1,5 @@
 import java.util.Properties
+import groovy.json.JsonSlurper
 
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("keystore.properties")
@@ -55,12 +56,19 @@ android {
     sourceSets.getByName("main").java.srcDir(
         if (hasAppleMusicSdk) "src/appleMusic/java" else "src/withoutAppleMusic/java",
     )
+    sourceSets.maybeCreate("staging").java.srcDir("src/debug/java")
     // Rive and MusicKit both ship the Android NDK's shared C++ runtime.
     if (hasAppleMusicSdk) packaging.jniLibs.pickFirsts.add("**/libc++_shared.so")
     namespace = "fm.corus.android"
     compileSdk = 36
 
     signingConfigs {
+        create("staging") {
+            storeFile = file("${System.getProperty("user.home")}/.corus-keys/corus-android-staging.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         create("release") {
             storeFile = file(keystoreProperties["storeFile"] as String)
             storePassword = keystoreProperties["storePassword"] as String
@@ -71,6 +79,12 @@ android {
 
     defaultConfig {
         applicationId = "fm.corus.android"
+        manifestPlaceholders["corusAppLabel"] = "@string/app_name"
+        manifestPlaceholders["corusUrlScheme"] = "corus"
+        buildConfigField("boolean", "CORUS_STAGING", "false")
+        buildConfigField("String", "SPOTIFY_CLIENT_ID", "\"6c95dc15990f43b0a3ed93f71f7d9689\"")
+        buildConfigField("String", "SPOTIFY_REDIRECT_URI", "\"corus://spotify-auth\"")
+        buildConfigField("String", "CORUS_URL_SCHEME", "\"corus\"")
         manifestPlaceholders["appleMusicSdkEnabled"] = hasAppleMusicSdk
         minSdk = 26
         targetSdk = 36
@@ -101,6 +115,23 @@ android {
                 "MAPKIT_JS_TOKEN",
                 "\"$mapKitJsToken\""
             )
+        }
+        create("staging") {
+            initWith(getByName("debug"))
+            matchingFallbacks += listOf("debug")
+            applicationIdSuffix = ".staging"
+            versionNameSuffix = "-staging"
+            signingConfig = signingConfigs.getByName("staging")
+            manifestPlaceholders["corusAppLabel"] = "Corus Staging"
+            manifestPlaceholders["corusUrlScheme"] = "corus-staging"
+            buildConfigField("boolean", "CORUS_STAGING", "true")
+            buildConfigField("String", "SPOTIFY_CLIENT_ID", "\"237e99bc39e14255aae3eb460c748fa9\"")
+            buildConfigField("String", "SPOTIFY_REDIRECT_URI", "\"corus-staging://spotify-auth\"")
+            buildConfigField("String", "CORUS_URL_SCHEME", "\"corus-staging\"")
+            buildConfigField("String", "APP_CHECK_DEBUG_TOKEN", "\"\"")
+            buildConfigField("String", "FIREBASE_EMULATOR_HOST", "\"\"")
+            buildConfigField("String", "MAPKIT_JS_TOKEN", "\"\"")
+            buildConfigField("String", "APPSFLYER_DEV_KEY", "\"\"")
         }
         release {
             isMinifyEnabled = true
@@ -136,6 +167,22 @@ android {
         buildConfig = true
     }
 }
+
+val verifyStagingConfiguration = tasks.register("verifyStagingConfiguration") {
+    val config = file("src/staging/google-services.json")
+    inputs.file(config)
+    doLast {
+        val parsed = JsonSlurper().parse(config) as Map<*, *>
+        check((parsed["project_info"] as Map<*, *>)["project_id"] == "cymbal-remake-staging") {
+            "Staging refuses a non-staging Firebase project"
+        }
+        check((parsed["client"] as List<*>).any { raw ->
+            val info = (raw as Map<*, *>)["client_info"] as Map<*, *>
+            (info["android_client_info"] as Map<*, *>)["package_name"] == "fm.corus.android.staging"
+        }) { "Staging requires its separate package identity" }
+    }
+}
+tasks.matching { it.name == "preStagingBuild" }.configureEach { dependsOn(verifyStagingConfiguration) }
 
 dependencies {
     implementation("androidx.core:core-splashscreen:1.2.0")
@@ -190,6 +237,7 @@ dependencies {
     implementation(libs.firebase.config)
     implementation(libs.firebase.appcheck.playintegrity)
     debugImplementation(libs.firebase.appcheck.debug)
+    add("stagingImplementation", libs.firebase.appcheck.debug)
 
     // reCAPTCHA Enterprise SDK — required for Firebase phone-auth app verification
     // when reCAPTCHA SMS defense (phoneEnforcementState AUDIT/ENFORCE) is enabled.

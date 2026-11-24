@@ -43,7 +43,7 @@
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:label="@string/app_name"
+        android:label="${corusAppLabel}"
         android:supportsRtl="true"
         android:theme="@style/Theme.Corus"
         android:localeConfig="@xml/locales_config"
@@ -112,7 +112,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="corus" />
+                <data android:scheme="${corusUrlScheme}" />
             </intent-filter>
 
             <!-- Spotify App Remote auth callback (corus://spotify-auth). -->
@@ -120,14 +120,14 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="corus" android:host="spotify-auth" />
+                <data android:scheme="${corusUrlScheme}" android:host="spotify-auth" />
             </intent-filter>
 
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="corus" android:host="audiomack-auth" />
+                <data android:scheme="${corusUrlScheme}" android:host="audiomack-auth" />
             </intent-filter>
             <!-- Universal link: https://corus.fm — the public pages, every one of
                  which has a screen in the app (see DeepLinkHandler.parsePublicUrl;
@@ -178,26 +178,26 @@
             android:theme="@style/Theme.Corus.Starting" />
 
         <activity-alias
-            android:name=".DefaultLauncher"
+            android:name="${applicationId}.DefaultLauncher"
             android:targetActivity=".LauncherActivity"
             android:enabled="true"
             android:exported="true"
             android:icon="@mipmap/ic_launcher"
             android:roundIcon="@mipmap/ic_launcher_round"
-            android:label="@string/app_name">
+            android:label="${corusAppLabel}">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity-alias>
         <activity-alias
-            android:name=".CorusBlueLauncher"
+            android:name="${applicationId}.CorusBlueLauncher"
             android:targetActivity=".LauncherActivity"
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_blue"
             android:roundIcon="@mipmap/ic_launcher_blue_round"
-            android:label="@string/app_name">
+            android:label="${corusAppLabel}">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

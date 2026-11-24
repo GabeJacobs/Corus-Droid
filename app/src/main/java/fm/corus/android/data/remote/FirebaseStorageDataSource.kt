@@ -21,6 +21,13 @@ class FirebaseStorageDataSource @Inject constructor(
         private const val AVATAR_MAX_DIMENSION = 512
     }
 
+    suspend fun uploadLiveRoomImage(uid: String, imageData: ByteArray): String {
+        val ref = storage.reference.child("liveRoomImages/$uid/${java.util.UUID.randomUUID()}.jpg")
+        val metadata = StorageMetadata.Builder().setContentType("image/jpeg").build()
+        ref.putBytes(downscaleIfNeeded(imageData), metadata).await()
+        return ref.downloadUrl.await().toString()
+    }
+
     suspend fun uploadAvatar(uid: String, imageData: ByteArray): String {
         val dataToUpload = downscaleIfNeeded(imageData)
         val ref = storage.reference.child("avatars/$uid.jpg")

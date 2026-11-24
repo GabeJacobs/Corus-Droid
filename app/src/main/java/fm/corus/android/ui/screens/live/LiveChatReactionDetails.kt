@@ -46,6 +46,7 @@ internal fun LiveChatReactionDetails(
     groups: Map<String, List<String>>,
     initialEmoji: String,
     loadPeople: suspend (List<String>) -> Map<String, LivePerson>,
+    knownPeople: Map<String, LivePerson> = emptyMap(),
     dismiss: () -> Unit,
 ) {
     var selectedEmoji by remember(initialEmoji) { mutableStateOf(initialEmoji) }
@@ -53,13 +54,19 @@ internal fun LiveChatReactionDetails(
     val activeEmoji = selectedEmoji.takeIf(groups::containsKey) ?: emojis.first()
     val userIds = groups.getValue(activeEmoji)
     val load by rememberUpdatedState(loadPeople)
-    var people by remember(userIds) { mutableStateOf<Map<String, LivePerson>?>(null) }
+    var fetchedPeople by remember { mutableStateOf<Map<String, LivePerson>>(emptyMap()) }
+    var loadedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    val people = knownPeople + fetchedPeople
     var failed by remember(userIds) { mutableStateOf(false) }
     var retry by remember(userIds) { mutableIntStateOf(0) }
     LaunchedEffect(userIds, retry) {
         failed = false
         try {
-            people = load(userIds)
+            val missingIds = userIds.filter { it !in people && it !in loadedIds }
+            if (missingIds.isNotEmpty()) {
+                fetchedPeople = fetchedPeople + load(missingIds)
+                loadedIds = loadedIds + missingIds
+            }
         } catch (error: CancellationException) {
             throw error
         } catch (_: Exception) {
@@ -90,30 +97,30 @@ internal fun LiveChatReactionDetails(
         HorizontalDivider()
         if (failed) {
             TextButton(onClick = { retry++ }) { LiveText(stringResource(R.string.share_try_again)) }
-        } else {
-            LazyColumn(Modifier.fillMaxWidth()) {
-                items(userIds, key = { it }) { id ->
-                    val person = people?.get(id)
-                    val displayName = person?.profile?.displayName.orEmpty()
-                    val handle = person?.username?.removePrefix("@").orEmpty()
-                    Row(
-                        Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        LiveAvatar(person ?: LivePerson("", "", null), 36.dp)
-                        if (people == null) {
-                            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                            }
-                        } else if (person == null || (displayName.isBlank() && handle.isBlank())) {
-                            LiveText(stringResource(R.string.other_profile_unavailable_title), color = CorusColors.Secondary)
-                        } else {
-                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                LiveText(displayName.ifBlank { "@$handle" })
-                                if (displayName.isNotBlank() && handle.isNotBlank()) {
-                                    LiveText("@$handle", CorusFont.caption, CorusColors.Secondary)
-                                }
+        }
+        LazyColumn(Modifier.fillMaxWidth()) {
+            items(userIds, key = { it }) { id ->
+                val person = people[id]
+                if (failed && person == null) return@items
+                val displayName = person?.profile?.displayName.orEmpty()
+                val handle = person?.username?.removePrefix("@").orEmpty()
+                Row(
+                    Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    LiveAvatar(person ?: LivePerson("", "", null), 36.dp)
+                    if (person == null && id !in loadedIds) {
+                        Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                        }
+                    } else if (person == null || (displayName.isBlank() && handle.isBlank())) {
+                        LiveText(stringResource(R.string.other_profile_unavailable_title), color = CorusColors.Secondary)
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            LiveText(displayName.ifBlank { "@$handle" })
+                            if (displayName.isNotBlank() && handle.isNotBlank()) {
+                                LiveText("@$handle", CorusFont.caption, CorusColors.Secondary)
                             }
                         }
                     }

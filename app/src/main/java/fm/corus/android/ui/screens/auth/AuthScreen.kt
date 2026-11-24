@@ -59,6 +59,10 @@ fun AuthScreen(
     viewModel: AuthViewModel = hiltViewModel(),
     finishingSignIn: Boolean = false,
 ) {
+    if (fm.corus.android.BuildConfig.CORUS_STAGING) {
+        CorusStagingAuthScreen(viewModel)
+        return
+    }
     ScreenViewAnalytics("Auth", viewModel.analyticsService)
     val isLoading by viewModel.isLoading.collectAsState()
     val busyProvider by viewModel.busyProvider.collectAsState()

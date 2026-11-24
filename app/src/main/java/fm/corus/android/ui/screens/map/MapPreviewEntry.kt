@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -32,7 +34,9 @@ fun MapPreviewEntry(onOpen: () -> Unit, model: MapPreviewViewModel = hiltViewMod
     }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth().clickable(onClick = onOpen), verticalAlignment = Alignment.CenterVertically) {
-            Text(parityCopy("Corus Map"), Modifier.weight(1f), style = CorusFont.sectionHeader, color = CorusColors.Secondary)
+            Icon(Icons.Default.Public, null, tint = CorusColors.Accent, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(parityCopy("Corus Map").uppercase(), Modifier.weight(1f), style = CorusFont.sectionHeader, color = CorusColors.Secondary)
             Text(parityCopy("View Map"), color = CorusColors.Accent, style = CorusFont.caption)
         }
         Box(Modifier.fillMaxWidth().height(148.dp).clip(RoundedCornerShape(16.dp))) {

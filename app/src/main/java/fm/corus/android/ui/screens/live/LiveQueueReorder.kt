@@ -11,9 +11,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.VerticalAlignTop
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Text
+import fm.corus.android.localization.CorusStrings
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.Snapshot
@@ -217,4 +225,57 @@ internal fun LiveQueueReorderRow(
             }
         }
     }
+}
+
+@Composable
+internal fun LiveQueueActionsMenu(index: Int, enabled: Boolean = true, moveToTop: () -> Unit, remove: () -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        LiveIconButton(
+            Icons.Default.MoreHoriz, stringResource(CorusStrings.live_queue_song_actions),
+            { expanded = true }, enabled = enabled, touchSize = 44.dp, glyphSize = 18.dp,
+        )
+        DropdownMenu(expanded && enabled, { expanded = false }, containerColor = CorusColors.CardBackground) {
+            if (index > 0) DropdownMenuItem(
+                text = { Text(stringResource(CorusStrings.live_queue_move_to_top), color = CorusColors.Text) },
+                leadingIcon = { Icon(Icons.Default.VerticalAlignTop, null, tint = CorusColors.Text) },
+                onClick = { expanded = false; moveToTop() },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(CorusStrings.live_queue_remove), color = CorusColors.Error) },
+                leadingIcon = { Icon(Icons.Default.Close, null, tint = CorusColors.Error) },
+                onClick = { expanded = false; remove() },
+            )
+        }
+    }
+}
+
+// Only deletions animate placement; reordering keeps its existing behavior.
+@Composable
+internal fun rememberLiveQueueRemoval(queue: List<LiveTrack>): Boolean {
+    val keys = liveQueueRowKeys(queue)
+    val previous = remember { arrayOf(keys) }
+    return remember(keys) {
+        val old = previous[0]
+        previous[0] = keys
+        keys.size < old.size && old.filter { it in keys } == keys
+    }
+}
+
+
+@Composable
+internal fun rememberLiveQueueScroll(queueKeys: List<String>): LazyListState {
+    val scroll = rememberLazyListState()
+    val previousKeys = remember { arrayOf(queueKeys) }
+    if (previousKeys[0] != queueKeys) {
+        val wasAtTop = scroll.firstVisibleItemIndex == 0 && scroll.firstVisibleItemScrollOffset == 0
+        SideEffect {
+            // LazyColumn normally follows the old first song's key into slot 2.
+            // When the viewport was at the top, retain slot 1 instead. Leave
+            // ordinary key anchoring intact for someone scrolled farther down.
+            if (wasAtTop) scroll.requestScrollToItem(0)
+            previousKeys[0] = queueKeys
+        }
+    }
+    return scroll
 }

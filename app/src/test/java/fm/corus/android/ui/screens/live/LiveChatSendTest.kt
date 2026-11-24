@@ -45,7 +45,7 @@ class LiveChatSendTest {
             on { currentUser } doReturn MutableStateFlow(null)
         }
         val vm = LiveViewModel(ApplicationProvider.getApplicationContext(), repository, auth, mock(),
-            mock(), mock(), mock(), mock(), mock(), mock(), SaveChangedEvent())
+            mock(), mock(), mock(), mock(), mock(), mock(), SaveChangedEvent(), spotifySaveAutoAdd = mock(), appleMusicSaveAutoAdd = mock())
         try {
             runCurrent()
             val field = LiveViewModel::class.java.getDeclaredField("_state").apply { isAccessible = true }

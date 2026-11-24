@@ -1,5 +1,6 @@
 package fm.corus.android.service
 
+import fm.corus.android.BuildConfig
 import android.content.Intent
 import android.net.Uri
 import kotlinx.serialization.json.Json
@@ -57,7 +58,7 @@ object DeepLinkHandler {
 
     fun parse(uri: Uri): DeepLinkDestination? {
         return when (uri.scheme) {
-            "corus" -> parseCorusScheme(uri)
+            BuildConfig.CORUS_URL_SCHEME -> parseCorusScheme(uri)
             "https" -> when (uri.host) {
                 // corus.fm hosts the public pages, and every one of them has a
                 // screen in the app.

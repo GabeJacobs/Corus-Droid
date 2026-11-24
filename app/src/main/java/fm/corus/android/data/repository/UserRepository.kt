@@ -178,6 +178,10 @@ class UserRepository @Inject constructor(
 
     // ── Profile (with TTL cache, matching iOS) ──
 
+    fun cachedUserProfile(uid: String): CymbalUser? = profileCache[uid]?.let { entry ->
+        entry.value.takeIf { uid == auth.currentUser?.uid || entry.isValid(PROFILE_TTL_MS) }
+    }
+
     suspend fun fetchUserProfile(uid: String): CymbalUser? {
         profileCache[uid]?.let { entry ->
             // Current user's profile never expires from cache (matching iOS) —

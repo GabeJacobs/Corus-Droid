@@ -96,6 +96,7 @@ internal data class LiveUiState(
     val discovery: List<LiveRoom> = emptyList(),
     val discoveryListenerCounts: Map<String, Int> = emptyMap(),
     val discoveryCountsUpdatedAt: Long = 0,
+    val discoveryRoomOrder: List<String> = emptyList(),
     val invites: List<LiveFields> = emptyList(),
     val shownInvite: LiveFields? = null,
     val seenInviteKeys: Set<Pair<String, Long>> = emptySet(),
@@ -111,7 +112,7 @@ internal data class LiveUiState(
     val ended: LiveRoom? = null,
     val minimized: Boolean = false,
     val pendingChatEnabled: Boolean? = null,
-    val pendingChatSends: Map<String, String> = emptyMap(),
+    val chatOutbox: LiveChatOutbox = LiveChatOutbox(),
     val pendingChatReactions: Map<Pair<String, String>, PendingLiveChatReaction> = emptyMap(),
     val recoverableHostRoom: LiveRoom? = null,
     val muted: Boolean = false,
@@ -145,6 +146,8 @@ internal data class LiveUiState(
     val mySongRequest: LiveFields = emptyMap(),
     val requestBusy: Boolean = false,
     val queueUpdating: Boolean = false,
+    val queuePreview: List<LiveTrack>? = null,
+    val queuePreviewVersion: Long? = null,
     val effectSelection: LiveEffectSelection = LiveEffectSelection(),
     val micEnabled: Boolean = false,
     val voiceConnected: Boolean = false,
@@ -193,7 +196,7 @@ internal data class LiveUiState(
 
     val chatRows: List<LiveMessage>
         get() {
-            val messages = (this.messages + (if (hosting || dj != null) staffMessages else emptyList())).sortedBy { it.createdAt }
+            val messages = (chatOutbox.merge(this.messages) + (if (hosting || dj != null) staffMessages else emptyList())).sortedBy { it.createdAt }
             if (!hosting) {
                 val rows = messages.filterNot { it.kind == "djRequest" }
                 val pending = pendingLikeNotice ?: return rows
@@ -296,12 +299,14 @@ internal class LiveViewModel @Inject constructor(
     private val analytics: AnalyticsService,
     private val subscriptions: fm.corus.android.data.repository.SubscriptionRepository,
     private val saveChangedEvent: fm.corus.android.domain.SaveChangedEvent,
+    private val spotifySaveAutoAdd: fm.corus.android.domain.SpotifySaveAutoAdd,
+    private val appleMusicSaveAutoAdd: fm.corus.android.domain.AppleMusicSaveAutoAdd,
 ) : ViewModel(), DefaultLifecycleObserver {
-    private val menuAccessPrefs = context.getSharedPreferences("corus_live_menu_access", Context.MODE_PRIVATE)
-    private val welcomeHistory = context.getSharedPreferences("corus_live_welcome_history", Context.MODE_PRIVATE)
     val blockedAuthors get() = repository.blockedAuthors
     val blockedAuthorsReady get() = repository.blockedAuthorsReady
 
+    private val menuAccessPrefs = context.getSharedPreferences("corus_live_menu_access", Context.MODE_PRIVATE)
+    private val welcomeHistory = context.getSharedPreferences("corus_live_welcome_history", Context.MODE_PRIVATE)
     private val accessLock = Mutex()
     private val discoveryRefreshLock = Mutex()
     private val _state = MutableStateFlow(
@@ -320,6 +325,9 @@ internal class LiveViewModel @Inject constructor(
     private var playbackJob: Job? = null
     private var voiceJob: Job? = null
     private var queueUpdateJob: Job? = null
+    private var queueSaveTail: Deferred<Boolean>? = null
+    private var queueEditToken: UUID? = null
+    private var queueEditEpoch = 0
     private var effectSaveJob: Job? = null
     private var effectConfirmationJob: Job? = null
     private var expectedUri: String? = null
@@ -366,6 +374,7 @@ internal class LiveViewModel @Inject constructor(
     private var requestJob: Job? = null
     private var djRequestFeedbackExpiry: Job? = null
     private var playbackExit: CompletableDeferred<Boolean>? = null
+    private var playbackExitHostTransferred = false
     private var playbackRelease: Job? = null
     private val pendingListenerLeaves = mutableMapOf<String, Job>()
     private val hiddenRooms = mutableSetOf<String>()
@@ -385,6 +394,17 @@ internal class LiveViewModel @Inject constructor(
     private var firstSongLookup: Deferred<LiveTrack?>? = null
     private var firstSongFreshUntil = 0L
     private val now get() = System.currentTimeMillis() + offset
+
+    // Device QA renders the real discovery pill locally; private rooms never
+    // enter the public discovery query or listener-count requests.
+    fun ownPrivateRoomPreview(): LiveRoom? {
+        if (!fm.corus.android.BuildConfig.DEBUG) return null
+        val current = state.value
+        return current.miniPlayerRoom?.takeIf {
+            it.isPrivate && it.host.uid == current.uid && it.status == "playing" &&
+                it.active(now) && it.deadline > (it.pausedAt ?: now)
+        }
+    }
     fun serverTime(): Long = now
 
     init {
@@ -560,8 +580,13 @@ internal class LiveViewModel @Inject constructor(
             return@withLock
         }
         val counts = try {
-            val result = repository.call("discoveryListenerCounts", fields = mapOf("roomIds" to rooms.map { it.id }))
-            result["counts"].liveFields().orEmpty().mapValues { (_, count) -> (count as? Number)?.toInt() ?: 0 }
+            val result = repository.call("discoveryListenerCounts", fields = mapOf(
+                "roomIds" to rooms.map { it.id }, "rankDiscovery" to true,
+                "previousRoomIds" to state.value.discoveryRoomOrder.takeIf { now - state.value.discoveryCountsUpdatedAt < 60_000L }.orEmpty(),
+            ))
+            val counts = result["counts"].liveFields().orEmpty().mapValues { (_, count) -> (count as? Number)?.toInt() ?: 0 }
+            val order = (result["rankedRoomIds"] as? List<*>)?.filterIsInstance<String>().orEmpty()
+            counts to order
         } catch (error: CancellationException) {
             throw error
         } catch (_: Exception) {
@@ -571,9 +596,13 @@ internal class LiveViewModel @Inject constructor(
         if (uid != state.value.uid || roomSource !== discoverySource) return@withLock
         // The server omits rooms that are no longer live or whose host is blocked.
         update {
-            val readyCounts = counts ?: freshDiscoveryCounts(discoveryListenerCounts, discoveryCountsUpdatedAt, now)
+            val readyCounts = counts?.first ?: freshDiscoveryCounts(discoveryListenerCounts, discoveryCountsUpdatedAt, now)
+            val order = counts?.second ?: discoveryRoomOrder
+            val positions = order.withIndex().associate { it.value to it.index }
             copy(
-                discovery = roomsWithDiscoveryCounts(rooms.filter(::eligible), readyCounts),
+                discovery = roomsWithDiscoveryCounts(rooms.filter(::eligible), readyCounts)
+                    .sortedBy { positions[it.id] ?: Int.MAX_VALUE },
+                discoveryRoomOrder = order,
                 discoveryListenerCounts = readyCounts,
                 discoveryCountsUpdatedAt = if (counts != null) now else discoveryCountsUpdatedAt,
             )
@@ -790,6 +819,7 @@ internal class LiveViewModel @Inject constructor(
                     }
                     setup.title.trim().replace(Regex("\\s+"), " ").takeIf(String::isNotEmpty)?.let { put("title", it) }
                     setup.roomDescription.trim().takeIf(String::isNotEmpty)?.let { put("roomDescription", it) }
+                    setup.roomImageURL?.let { put("roomImageURL", it) }
                     setup.notificationMessage.trim().takeIf(String::isNotEmpty)?.let { put("notificationMessage", it) }
                     setup.welcome?.let { put("welcomeMessage", repository.uploadWelcome(uid, setup.id, it)) }
                 }
@@ -1026,6 +1056,7 @@ internal class LiveViewModel @Inject constructor(
 
     suspend fun miniPlayerHostProfile(uid: String) = repository.chatAuthors(listOf(uid))[uid]?.profile
     suspend fun chatReactionPeople(ids: List<String>) = repository.chatReactionPeople(ids)
+    fun cachedChatReactionPeople(ids: List<String>) = repository.cachedChatReactionPeople(ids)
 
     fun heartFromMiniPlayer(roomId: String, revision: Long) {
         val current = state.value
@@ -1201,14 +1232,15 @@ internal class LiveViewModel @Inject constructor(
         val end = recovered != null || current.hosting
         val answer = CompletableDeferred<Boolean>()
         playbackExit = answer
+        playbackExitHostTransferred = false
         update { copy(playbackExitEndsShow = end, roomSwitchConfirmation = joiningAnotherRoom) }
         try {
             if (!answer.await() || state.value.uid != current.uid || auth.currentUserId != current.uid) return false
             if (recovered != null) {
                 if (state.value.room != null || state.value.setup != null) return false
                 try {
-                    command("end", recovered.id)
-                    event("host_ended", source = "host", roomId = recovered.id)
+                    command(if (playbackExitHostTransferred) "leave" else "end", recovered.id)
+                    if (!playbackExitHostTransferred) event("host_ended", source = "host", roomId = recovered.id)
                 } catch (error: FirebaseFunctionsException) {
                     if (error.code != FirebaseFunctionsException.Code.NOT_FOUND) throw error
                 }
@@ -1218,8 +1250,9 @@ internal class LiveViewModel @Inject constructor(
                 }
                 return state.value.room == null && state.value.recoverableHostRoom == null
             }
-            if (state.value.room?.let { it.id != target.id || state.value.hosting != end } == true) return false
-            exitCurrent(end = end, showSetlist = false)
+            if (state.value.room?.let { it.id != target.id || (!playbackExitHostTransferred && state.value.hosting != end) } == true) return false
+            // A successful step-down response may precede the new host snapshot.
+            exitCurrent(end = end && !playbackExitHostTransferred, showSetlist = false)
             playbackRelease?.join()
             return true
         } catch (error: CancellationException) {
@@ -1230,12 +1263,27 @@ internal class LiveViewModel @Inject constructor(
         } finally {
             if (playbackExit === answer) {
                 playbackExit = null
+                playbackExitHostTransferred = false
                 update { copy(playbackExitEndsShow = null, roomSwitchConfirmation = false) }
             }
         }
     }
 
     fun confirmPlaybackExit(leave: Boolean) { playbackExit?.complete(leave) }
+
+    suspend fun hostExitOptions(roomId: String): List<String> =
+        (command("hostHandoffOptions", roomId)["eligibleDJIds"] as? List<*>)?.filterIsInstance<String>().orEmpty()
+
+    suspend fun transferHostForExit(roomId: String, targetUid: String, continuingPlayback: Boolean = false) {
+        command("stepDown", roomId, mapOf("targetUid" to targetUid))
+        if (continuingPlayback && playbackExit != null) playbackExitHostTransferred = true
+    }
+
+    suspend fun endHostRoomForExit(roomId: String) {
+        if (state.value.room?.id != roomId) return
+        exitCurrent(end = true, showSetlist = true)
+    }
+
 
     private fun leaveListenerForRoomSwitch() {
         val room = state.value.room ?: return
@@ -1447,6 +1495,10 @@ internal class LiveViewModel @Inject constructor(
         }
     }
 
+    fun profilePreview(userId: String) = liveProfilePreview(
+        userId, state.value, repository.cachedChatReactionPeople(listOf(userId))[userId],
+    )
+
     suspend fun listenerRoster(roomId: String): List<LiveFields> =
         command("listeners", roomId).rows("listeners")
 
@@ -1475,6 +1527,33 @@ internal class LiveViewModel @Inject constructor(
 
     suspend fun chatMentions(roomId: String, prefix: String): List<LiveFields> =
         repository.call("listeners", roomId, mapOf("mentionPrefix" to prefix)).rows("mentions")
+
+    suspend fun chatMentionUserId(username: String): String? {
+        val current = state.value
+        val room = current.room ?: return null
+        val roomId = room.id
+        // These identities are already loaded for the room UI. Reuse their
+        // cached profiles instead of querying a username we already know.
+        val knownIds = buildList {
+            add(room.host.uid)
+            room.currentDJ?.let { add(it.uid) }
+            room.djs.forEach { add(it.text("uid")) }
+            current.chatRows.forEach { add(it.author.uid) }
+            current.uid?.let { add(it) }
+        }.filter { it.isNotBlank() }.distinct()
+        repository.cachedChatReactionPeople(knownIds).values.firstOrNull {
+            it.username.removePrefix("@").equals(username.removePrefix("@"), ignoreCase = true)
+        }?.let { return it.uid }
+        fun stillInRoom() = state.value.room?.id == roomId && state.value.uid == current.uid
+        return try {
+            repository.chatMentionUserId(username).takeIf { stillInRoom() }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            if (stillInRoom()) showError(error)
+            null
+        }
+    }
 
     suspend fun editMessage(roomId: String, messageId: String, text: String): Boolean {
         if (state.value.room?.id != roomId) return false
@@ -1685,9 +1764,11 @@ internal class LiveViewModel @Inject constructor(
         }
     }
 
-    suspend fun updateRoomInfo(roomId: String, title: String, description: String) {
+    suspend fun uploadRoomImage(bytes: ByteArray): String = repository.uploadRoomImage(requireNotNull(state.value.uid), bytes)
+
+    suspend fun updateRoomInfo(roomId: String, title: String, description: String, imageURL: String?) {
         require(state.value.room?.id == roomId && state.value.hosting)
-        command("updateRoomInfo", roomId, mapOf("title" to title, "roomDescription" to description))
+        command("updateRoomDetails", roomId, mapOf("title" to title, "roomDescription" to description, "roomImageURL" to imageURL))
         withTimeoutOrNull(3_000) {
             state.first { it.room?.id != roomId ||
                 (it.room.customTitle == title && it.room.roomDescription == description) }
@@ -1727,32 +1808,49 @@ internal class LiveViewModel @Inject constructor(
         val current = state.value
         val room = current.room ?: return
         val uid = current.uid ?: return
-        if (!room.chatEnabled || room.id in current.pendingChatSends || (text.isBlank() && gif == null)) return
-        val messageId = UUID.randomUUID().toString()
+        if (!room.chatEnabled || room.status == "ended" || text.trim().length > 500 || (text.isBlank() && gif == null)) return
+        val me = auth.userProfile.value
+        val message = LiveMessage(UUID.randomUUID().toString(), mapOf(
+            "uid" to uid, "displayName" to (me?.username ?: "…"), "avatar" to me?.avatarURL,
+            "text" to text.trim(), "gifURL" to gif,
+            "createdAt" to maxOf(serverTime(), (current.chatOutbox.entries.values.maxOfOrNull { it.message.createdAt } ?: 0L) + 1),
+        ))
+        update { copy(chatOutbox = chatOutbox.insert(message)) }
+        done()
+        transmitChat(room.id, uid, message)
+    }
+
+    fun retryChat(messageId: String) {
+        val current = state.value
+        val room = current.room ?: return
+        val uid = current.uid ?: return
+        if (!room.chatEnabled || room.status == "ended") return
+        val entry = current.chatOutbox.entries[messageId]?.takeIf {
+            it.status == LiveChatOutbox.Status.FAILED && it.message.author.uid == uid
+        } ?: return
+        update { copy(chatOutbox = chatOutbox.retry(messageId)) }
+        transmitChat(room.id, uid, entry.message)
+    }
+
+    private fun transmitChat(roomId: String, uid: String, message: LiveMessage) {
         val fields = buildMap {
-            put("requestId", messageId)
-            put("text", text.trim())
-            gif?.let { put("gifURL", it) }
+            put("requestId", message.id)
+            put("text", message.text)
+            message.gifUrl?.let { put("gifURL", it) }
         }
-        update { copy(pendingChatSends = pendingChatSends + (room.id to messageId)) }
         viewModelScope.launch {
-            fun stillInRoom() = state.value.let { it.room?.id == room.id && it.uid == uid }
+            fun stillInRoom() = state.value.let { it.room?.id == roomId && it.uid == uid }
             try {
-                command("chat", room.id, fields)
+                command("chat", roomId, fields)
                 if (stillInRoom()) {
-                    viewModelScope.launch { recoverSentChatMessage(room.id, uid, messageId) }
-                    done()
+                    update { copy(chatOutbox = chatOutbox.settle(message.id, success = true)) }
+                    viewModelScope.launch { recoverSentChatMessage(roomId, uid, message.id) }
                 }
             } catch (error: CancellationException) {
+                if (stillInRoom()) update { copy(chatOutbox = chatOutbox.settle(message.id, success = false)) }
                 throw error
-            } catch (error: Exception) {
-                if (stillInRoom()) showError(error)
-            } finally {
-                update {
-                    if (pendingChatSends[room.id] == messageId) {
-                        copy(pendingChatSends = pendingChatSends - room.id)
-                    } else this
-                }
+            } catch (_: Exception) {
+                if (stillInRoom()) update { copy(chatOutbox = chatOutbox.settle(message.id, success = false)) }
             }
         }
     }
@@ -1851,6 +1949,8 @@ internal class LiveViewModel @Inject constructor(
                 "playRevision" to (track.playRevision.takeIf { it > 0 } ?: room.revision),
                 "trackId" to track.id, "trackSource" to track.song.source.raw,
             )) {
+                spotifySaveAutoAdd.handleSaved(track.song)
+                state.value.uid?.let { appleMusicSaveAutoAdd.handleSaved(track.song, it) }
                 update { copy(savedIds = savedIds + saveId(track)) }
                 if (state.value.mixedSaves != null) loadMixedSaves(reset = true)
                 event("song_saved", source = if (state.value.hosting) "host" else "listener")
@@ -1911,47 +2011,91 @@ internal class LiveViewModel @Inject constructor(
     }
 
     fun updateQueue(
-        queue: List<LiveTrack>, expectedVersion: Long, expectedHosting: Boolean, onFinished: () -> Unit = {},
+        queue: List<LiveTrack>, expectedVersion: Long, expectedHosting: Boolean,
+        previousQueue: List<LiveTrack>? = null, onFinished: () -> Unit = {},
     ): Boolean {
         val snapshot = state.value
         val room = snapshot.room ?: return false
-        if (queueUpdateJob?.isActive == true) return false
         val dj = snapshot.dj
         val version = dj?.number("version") ?: room.queueVersion
-        if (expectedVersion != version || expectedHosting != snapshot.hosting || (!snapshot.hosting && dj == null)) {
+        val additions = previousQueue?.let { liveQueueAdditions(it, queue) }
+        if ((additions == null && expectedVersion != version) ||
+            expectedHosting != snapshot.hosting || (!snapshot.hosting && dj == null)) {
             update { copy(error = context.getString(R.string.live_the_queue_changed_try_again)) }
             return false
         }
-        val existingQueue = dj?.rows("queue")?.mapNotNull(LiveTrack::parse) ?: room.queue
-        queueUpdateJob = viewModelScope.launch {
-            update { copy(queueUpdating = true) }
+        val previous = previousQueue ?: snapshot.queuePreview ?: dj?.rows("queue")?.mapNotNull(LiveTrack::parse) ?: room.queue
+        val pending = queueSaveTail?.takeIf { it.isActive }
+        val token = UUID.randomUUID()
+        val epoch = queueEditEpoch
+        queueEditToken = token
+        update { copy(queuePreview = queue, queuePreviewVersion = null, queueUpdating = true) }
+        fun sameSession() = queueEditEpoch == epoch && state.value.room?.id == room.id &&
+            state.value.uid == snapshot.uid && state.value.hosting == expectedHosting
+        val save = viewModelScope.async {
+            var succeeded = false
             try {
-                // The picker acknowledges additions immediately. Prepare new source tracks here
-                // so dismissing it cannot cancel validation or lose the chosen songs.
-                val prepared = queue.map { track ->
-                    if (track.playsFromSource && track !in existingQueue) prepareQueueTrack(track) else track
+                if (pending != null && !pending.await()) return@async false
+                if (!sameSession()) return@async false
+                val prepared = (additions ?: queue).map { track ->
+                    if (track.playsFromSource && track !in previous) prepareQueueTrack(track) else track
                 }
-                if (state.value.room?.id != room.id || state.value.uid != snapshot.uid) return@launch
-                val fields = mapOf(
-                    "queue" to prepared.map(LiveTrack::fields),
-                    (if (dj == null) "queueVersion" else "version") to version,
-                )
-                command(if (dj == null) "queue" else "djQueue", room.id, fields)
-                withTimeoutOrNull(3_000) {
-                    state.first { latest ->
-                        latest.room?.id != room.id ||
-                            (if (dj == null) latest.room?.queueVersion else latest.dj?.number("version")) != version
+                var minimumAckVersion = version + 1
+                for (attempt in 0..2) {
+                    val latest = repository.room(room.id) ?: error(context.getString(R.string.live_the_queue_changed_try_again))
+                    val latestDJ = latest.djs.firstOrNull { it.text("uid") == snapshot.uid }
+                    if (!sameSession()) return@async false
+                    check(latest.status != "ended" && (if (expectedHosting) latest.host.uid == snapshot.uid
+                        else latest.host.uid != snapshot.uid && latestDJ != null))
+                    val latestQueue = if (expectedHosting) latest.queue else latestDJ!!.rows("queue").mapNotNull(LiveTrack::parse)
+                    val latestVersion = if (expectedHosting) latest.queueVersion else latestDJ!!.number("version")
+                    val rebased = if (additions != null) prepared else liveRebaseQueue(
+                        prepared, previous, latestQueue, expectedHosting, { "${it.song.source}:${it.id}" },
+                    ) ?: error(context.getString(R.string.live_the_queue_changed_try_again))
+                    val fields = if (additions != null) mapOf(
+                        "queue" to rebased.map(LiveTrack::fields), "append" to true, "requestId" to token.toString(),
+                    ) else mapOf(
+                        "queue" to rebased.map(LiveTrack::fields),
+                        (if (expectedHosting) "queueVersion" else "version") to latestVersion,
+                    )
+                    try {
+                        command(if (expectedHosting) "queue" else "djQueue", room.id, fields)
+                        minimumAckVersion = latestVersion + 1
+                        break
+                    } catch (error: FirebaseFunctionsException) {
+                        if (attempt == 2 || error.code !in setOf(FirebaseFunctionsException.Code.ABORTED, FirebaseFunctionsException.Code.FAILED_PRECONDITION)) throw error
                     }
                 }
+                val acknowledged = repository.room(room.id) ?: error(context.getString(R.string.live_the_queue_changed_try_again))
+                // A Source.SERVER get can briefly reuse the watch target's old snapshot.
+                // A successful queue write increments its version; that older snapshot
+                // must never dismiss the preview before the write reaches the listener.
+                val ackVersion = maxOf(minimumAckVersion, if (expectedHosting) acknowledged.queueVersion
+                    else acknowledged.djs.first { it.text("uid") == snapshot.uid }.number("version"))
+                if (sameSession() && queueEditToken == token) {
+                    update {
+                        val observed = if (expectedHosting) this.room?.queueVersion else this.dj?.number("version")
+                        val caughtUp = observed != null && observed >= ackVersion
+                        copy(queuePreview = if (caughtUp) null else queue, queuePreviewVersion = if (caughtUp) null else ackVersion,
+                            queueUpdating = !caughtUp)
+                    }
+                }
+                succeeded = true
+                true
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                if (state.value.room?.id == room.id) showError(error)
+                if (sameSession()) showError(error)
+                false
             } finally {
-                if (state.value.room?.id == room.id) update { copy(queueUpdating = false) }
+                if (!succeeded && sameSession() && queueEditToken == token) {
+                    update { copy(queueUpdating = false, queuePreview = null, queuePreviewVersion = null) }
+                }
                 onFinished()
             }
         }
+        queueSaveTail = save
+        queueUpdateJob = save
         return true
     }
 
@@ -2090,16 +2234,18 @@ internal class LiveViewModel @Inject constructor(
         receivedMessages = emptyList()
         roomJobs.forEach(Job::cancel)
         roomJobs.clear()
+        queueEditEpoch++
         queueUpdateJob?.cancel()
+        queueSaveTail = null
         cancelEffectSaves()
         lastTick = 0
         val welcome = entryWelcomeUrl(room)
         update {
             copy(
                 room = room, ended = null, minimized = false, pendingChatEnabled = null, pendingChatReactions = emptyMap(),
-                recoverableHostRoom = null, muted = false, messages = emptyList(), staffMessages = emptyList(),
+                recoverableHostRoom = null, muted = false, chatOutbox = LiveChatOutbox(), messages = emptyList(), staffMessages = emptyList(),
                 listenerCount = 0, membership = emptyMap(), audioError = null, spotifyUnavailableRevision = null,
-                queueUpdating = false,
+                queueUpdating = false, queuePreview = null, queuePreviewVersion = null,
                 welcomePlaying = welcome != null, welcomeProgress = null,
                 incomingHearts = 0, pendingLikeNotice = null, optimisticLikedRevision = null,
                 effectSelection = LiveEffectSelection(),
@@ -2128,7 +2274,7 @@ internal class LiveViewModel @Inject constructor(
         val visible = receivedMessages.mapNotNull { message ->
             if (!message.isSongLikeNotice || reactionPresentation.allows(receipts(message))) message else old[message.id]
         }
-        update { copy(messages = visible, incomingHearts = incomingHearts + hearts) }
+        update { copy(messages = visible, chatOutbox = chatOutbox.reconcile(receivedMessages), incomingHearts = incomingHearts + hearts) }
         reactionPresentation.deadline?.let { deadline ->
             reactionFallback = viewModelScope.launch {
                 delay((deadline - now).coerceAtLeast(1))
@@ -2178,6 +2324,14 @@ internal class LiveViewModel @Inject constructor(
                 update {
                     copy(
                         room = next,
+                        queuePreview = queuePreview.takeUnless {
+                            hosting != stillHosting || (queuePreviewVersion?.let { acknowledged ->
+                                (if (stillHosting) next.queueVersion else next.djs.firstOrNull { it.text("uid") == uid }?.number("version") ?: Long.MAX_VALUE) >= acknowledged
+                            } == true)
+                        },
+                        queueUpdating = queueUpdating && hosting == stillHosting && !(queuePreviewVersion?.let { acknowledged ->
+                            (if (stillHosting) next.queueVersion else next.djs.firstOrNull { it.text("uid") == uid }?.number("version") ?: Long.MAX_VALUE) >= acknowledged
+                        } == true),
                         micEnabled = enableMic || micEnabled,
                         talkScheduleChange = talkScheduleChange?.takeIf {
                             stillHosting && it.appliesTo(next) && next.talkAfterSongArmed != it.enabled
@@ -2357,7 +2511,10 @@ internal class LiveViewModel @Inject constructor(
         } catch (error: CancellationException) {
             throw error
         } catch (error: FirebaseFunctionsException) {
-            if (state.value.room?.id == room.id && error.code == FirebaseFunctionsException.Code.PERMISSION_DENIED) {
+            // A host tick may finish after another DJ accepts a handoff. Only
+            // presence rejection establishes that membership was revoked.
+            if (action == "presence" && state.value.room?.id == room.id &&
+                error.code == FirebaseFunctionsException.Code.PERMISSION_DENIED) {
                 closeRoom(null)
                 showError(error)
             }
@@ -2995,8 +3152,13 @@ internal class LiveViewModel @Inject constructor(
                 ))
             }
         }
+        val traceQueue = fm.corus.android.BuildConfig.DEBUG && action in setOf("queue", "djQueue")
+        if (traceQueue) Log.d("LiveQueueTrace", "send action=$action n=${fields.rows("queue").size} append=${fields["append"] == true}")
         val result = try {
-            repository.call(action, id, fields).also { record("success") }
+            repository.call(action, id, fields).also {
+                record("success")
+                if (traceQueue) Log.d("LiveQueueTrace", "call succeeded action=$action")
+            }
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
@@ -3057,14 +3219,14 @@ internal class LiveViewModel @Inject constructor(
         listeningSession = null
         resetRoom()
         update {
-            copy(room = null, ended = ended, minimized = false, pendingChatEnabled = null, pendingChatReactions = emptyMap(), messages = emptyList(), staffMessages = emptyList(),
+            copy(room = null, ended = ended, minimized = false, pendingChatEnabled = null, pendingChatReactions = emptyMap(), chatOutbox = LiveChatOutbox(), messages = emptyList(), staffMessages = emptyList(),
                 audioReady = false, audioError = null, spotifyUnavailableRevision = null,
                 welcomePlaying = false, welcomeProgress = null,
                 micEnabled = false, voiceLevels = emptyMap(),
                 unmutedMicrophoneIDs = emptySet(), membership = emptyMap(),
                 incomingHearts = 0, pendingLikeNotice = null, optimisticLikedRevision = null,
                 pendingDJs = emptyList(), djRequests = emptyList(), myDJRequest = emptyMap(), djRequestFeedback = null,
-                mySongRequest = emptyMap(), requestBusy = false, queueUpdating = false,
+                mySongRequest = emptyMap(), requestBusy = false, queueUpdating = false, queuePreview = null, queuePreviewVersion = null,
                 talkScheduleChange = null, hostTalkStarting = false,
                 effectSelection = LiveEffectSelection())
         }
@@ -3084,7 +3246,9 @@ internal class LiveViewModel @Inject constructor(
         hostRecords?.cancel()
         playbackJob?.cancel()
         voiceJob?.cancel()
+        queueEditEpoch++
         queueUpdateJob?.cancel()
+        queueSaveTail = null
         cancelEffectSaves()
         heartJob?.cancel()
         saveLookup?.cancel()
@@ -3165,12 +3329,22 @@ internal class LiveViewModel @Inject constructor(
     }
 
     private inline fun update(crossinline change: LiveUiState.() -> LiveUiState) =
-        _state.update { it.change() }
+        _state.update { before ->
+            val after = before.change()
+            if (fm.corus.android.BuildConfig.DEBUG && (before.room?.queueVersion != after.room?.queueVersion ||
+                before.room?.queue?.size != after.room?.queue?.size || before.queuePreview?.size != after.queuePreview?.size ||
+                before.queuePreviewVersion != after.queuePreviewVersion || before.queueUpdating != after.queueUpdating ||
+                before.error != after.error)) {
+                Log.d("LiveQueueTrace", "state roomV=${after.room?.queueVersion} roomN=${after.room?.queue?.size} " +
+                    "previewN=${after.queuePreview?.size} ackV=${after.queuePreviewVersion} busy=${after.queueUpdating} error=${after.error != null}")
+            }
+            after
+        }
 
     companion object {
         private val measuredActions = setOf(
             "join", "leave", "end", "chat", "like", "effect", "voiceMode", "queue", "skip",
-            "completeSkip", "playQueuedTrack", "renameRoom", "updateRoomInfo", "saveLiveTrack", "unsaveLiveTrack",
+            "completeSkip", "playQueuedTrack", "renameRoom", "updateRoomInfo", "updateRoomDetails", "saveLiveTrack", "unsaveLiveTrack",
             "reserveShareLink", "reportRoom", "report", "removeMessage", "removeListener", "setChatReaction",
             "inviteDJs", "cancelDJInvite", "acceptDJInvite", "declineDJInvite", "requestDJ",
             "cancelDJRequest", "approveDJRequest", "declineDJRequest", "djQueue", "stopDJing",

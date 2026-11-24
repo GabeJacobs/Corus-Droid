@@ -111,6 +111,7 @@ internal fun LivePrimary(
     enabled: Boolean = true,
     destructive: Boolean = false,
     leadingIcon: ImageVector? = null,
+    loading: Boolean = false,
     onClick: () -> Unit,
 ) {
     val actionColor = if (destructive) LiveRed else CorusColors.Accent
@@ -125,7 +126,10 @@ internal fun LivePrimary(
             disabledContainerColor = actionColor.copy(alpha = if (destructive) .06f else .19f),
         ),
     ) {
-        if (leadingIcon != null) {
+        if (loading) {
+            CircularProgressIndicator(Modifier.size(18.dp), color = labelColor, strokeWidth = 2.dp)
+            Spacer(Modifier.width(8.dp))
+        } else if (leadingIcon != null) {
             Icon(leadingIcon, contentDescription = null, tint = labelColor, modifier = Modifier.size(CorusSpacing.feedPlaylistIcon))
             Spacer(Modifier.width(8.dp))
         }

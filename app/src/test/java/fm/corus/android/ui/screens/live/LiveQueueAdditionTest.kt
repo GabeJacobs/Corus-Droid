@@ -31,8 +31,9 @@ import org.robolectric.annotation.Config
 class LiveQueueAdditionTest {
     @Test fun additionFinishesAfterPickerScopeEnds() = checkAddition(fail = false)
     @Test fun unavailableAdditionReportsRoomErrorWithoutSaving() = checkAddition(fail = true)
+    @Test fun stalePickerAdditionSendsOnlyNewSongsWithoutVersion() = checkAddition(fail = false, stale = true)
 
-    private fun checkAddition(fail: Boolean) = runTest {
+    private fun checkAddition(fail: Boolean, stale: Boolean = false) = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val audio = CompletableDeferred<String?>()
         val track = LiveTrack(CymbalTrack(id = "sc:1", name = "Song", artistName = "Artist",
@@ -48,15 +49,16 @@ class LiveQueueAdditionTest {
         }
         val auth = mock<AuthRepository> { on { currentUser } doReturn MutableStateFlow(null) }
         val vm = LiveViewModel(ApplicationProvider.getApplicationContext(), repository, auth, mock(),
-            mock(), mock(), mock(), mock(), mock(), mock(), SaveChangedEvent())
+            mock(), mock(), mock(), mock(), mock(), mock(), SaveChangedEvent(), spotifySaveAutoAdd = mock(), appleMusicSaveAutoAdd = mock())
         try {
             runCurrent()
             val field = LiveViewModel::class.java.getDeclaredField("_state").apply { isAccessible = true }
             @Suppress("UNCHECKED_CAST")
             val state = field.get(vm) as MutableStateFlow<LiveUiState>
             state.value = state.value.copy(uid = "host",
-                room = LiveRoom("room", mapOf("hostId" to "host", "status" to "playing")))
-            val picker = launch { assertTrue(vm.updateQueue(listOf(track), 0, true)) }
+                room = LiveRoom("room", mapOf("hostId" to "host", "status" to "playing", "queueVersion" to if (stale) 5L else 0L)))
+            val picker = launch { assertTrue(vm.updateQueue(listOf(track), 0, true,
+                previousQueue = if (stale) emptyList() else null)) }
             runCurrent()
             picker.cancel()
             assertTrue("Queue must wait for audio validation", sent.isEmpty())
@@ -69,6 +71,11 @@ class LiveQueueAdditionTest {
                 assertFalse(vm.state.value.queueUpdating)
             } else {
                 assertEquals(listOf(track.fields()), sent.single()["queue"])
+                if (stale) {
+                    assertEquals(true, sent.single()["append"])
+                    assertNotNull(sent.single()["requestId"])
+                    assertFalse(sent.single().containsKey("queueVersion"))
+                }
             }
         } finally {
             vm.viewModelScope.cancel()

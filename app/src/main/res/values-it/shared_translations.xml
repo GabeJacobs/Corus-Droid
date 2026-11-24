@@ -372,7 +372,7 @@
     <string name="corus_live_like_song">"Metti Mi piace al brano"</string>
     <string name="corus_live_listeners">"Ascoltatori"</string>
     <string name="corus_live_live">"IN DIRETTA"</string>
-    <string name="corus_live_live_now">"Ora in diretta"</string>
+    <string name="corus_live_live_now">"Stanze in diretta"</string>
     <string name="corus_live_live_room_ended">"La stanza in diretta è terminata"</string>
     <string name="corus_live_live_setlist">"Scaletta della diretta"</string>
     <string name="corus_live_mic_is_on">"Microfono attivo"</string>
@@ -464,7 +464,7 @@
     <string name="live_host_provider_body">"Collega Spotify Premium o un abbonamento ad Apple Music per andare in diretta. Corus passerà al servizio collegato."</string>
     <string name="live_host_provider_spotify_body">"Collega Spotify Premium per andare in diretta. Corus passerà a Spotify come servizio musicale."</string>
     <string name="live_host_provider_title">"Collega un servizio musicale"</string>
-    <string name="live_import_playlist">"Importa playlist o album"</string>
+    <string name="live_import_playlist">"Importa playlist"</string>
     <string name="live_invite_dj">"Invita un DJ"</string>
     <string name="live_invite_djs">"Invita DJ"</string>
     <string name="live_invited">"Invito inviato"</string>
@@ -658,4 +658,25 @@
     <string name="corus_live_song_saved_by_many">"%1$s e altre %2$s persone hanno salvato questo brano"</string>
     <string name="corus_live_song_saved_by_two">"%1$s e un’altra persona hanno salvato questo brano"</string>
     <string name="corus_live_chat_retry">"Invio non riuscito · Riprova"</string>
+    <string name="corus_live_queue_move_to_top">"Sposta in cima"</string>
+    <string name="corus_live_queue_remove">"Rimuovi dalla coda"</string>
+    <string name="corus_live_queue_song_actions">"Azioni del brano"</string>
+    <string name="corus_live_room_image">"Immagine della stanza"</string>
+    <string name="corus_live_room_image_change">"Scegli immagine"</string>
+    <string name="corus_live_room_image_remove">"Rimuovi immagine"</string>
+    <string name="corus_live_host_exit_changed">"Quel DJ non può più prendere il tuo posto. Sei ancora tu l’host."</string>
+    <string name="corus_live_host_exit_end_all">"Chiudi la stanza per tutti"</string>
+    <string name="corus_live_host_exit_end_failed">"Impossibile chiudere la stanza. Riprova."</string>
+    <string name="corus_live_host_exit_end_message">"Se chiudi la stanza, la trasmissione terminerà per tutti."</string>
+    <string name="corus_live_host_exit_failed">"Impossibile trasferire il ruolo di host. Riprova."</string>
+    <string name="corus_live_host_exit_join">"Un altro DJ prenderà il tuo posto come host e tu entrerai nell’altra stanza."</string>
+    <string name="corus_live_host_exit_keep">"Continua come host"</string>
+    <string name="corus_live_host_exit_next_host">"%1$s prenderà il tuo posto come host."</string>
+    <string name="corus_live_host_exit_play">"Un altro DJ prenderà il tuo posto come host e verrà riprodotto il tuo brano."</string>
+    <string name="corus_live_host_exit_stay">"Un altro DJ prenderà il tuo posto come host e tu resterai come ascoltatore."</string>
+    <string name="corus_live_host_exit_step_down">"Cedi il posto"</string>
+    <string name="corus_live_host_exit_title">"Smettere di fare da host?"</string>
+    <string name="corus_live_host_exit_unavailable">"Nessun altro DJ può prendere il tuo posto al momento. Sei ancora tu l’host."</string>
+    <string name="corus_live_host_exit_working">"Attendi…"</string>
+    <string name="corus_live_host_options">"Opzioni host"</string>
 </resources>

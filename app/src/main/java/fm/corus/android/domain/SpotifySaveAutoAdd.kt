@@ -3,6 +3,7 @@ package fm.corus.android.domain
 import android.util.Log
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MusicService
 import fm.corus.android.data.model.TrackSource
 import fm.corus.android.service.RemoteConfigService
@@ -61,12 +62,16 @@ class SpotifySaveAutoAdd @Inject constructor(
      * fire-and-forget — safe to call from anywhere without awaiting it.
      */
     fun handleSaved(post: CymbalPost) {
+        if (post.isMovie) return
+        handleSaved(post.track)
+    }
+
+    fun handleSaved(track: CymbalTrack) {
         scope.launch {
             try {
-                if (post.isMovie) return@launch
                 if (!isEnabled()) return@launch
 
-                val spotifyTrackId = resolveSpotifyTrackId(post) ?: return@launch
+                val spotifyTrackId = resolveSpotifyTrackId(track) ?: return@launch
                 deliver("spotify:track:$spotifyTrackId")
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to add saved track to Spotify library: ${e.message}")
@@ -163,8 +168,10 @@ class SpotifySaveAutoAdd @Inject constructor(
      *  an ISRC cross-reference through the same resolver the share flow uses.
      *  Null (no ISRC, or no validated match) means "not on Spotify" — silently
      *  skip, no error. */
-    private suspend fun resolveSpotifyTrackId(post: CymbalPost): String? {
-        val track = post.track
+    private suspend fun resolveSpotifyTrackId(track: CymbalTrack): String? {
+        Regex("spotify:track:([A-Za-z0-9]{22})").matchEntire(track.spotifyURI)?.let {
+            return it.groupValues[1]
+        }
         if (track.source == TrackSource.SPOTIFY) {
             return track.id.takeIf { it.isNotBlank() }
         }

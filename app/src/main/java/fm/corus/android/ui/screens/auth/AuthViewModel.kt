@@ -596,6 +596,34 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    fun signInToStaging(displayName: String) {
+        check(fm.corus.android.BuildConfig.CORUS_STAGING)
+        check(com.google.firebase.FirebaseApp.getInstance().options.projectId == "cymbal-remake-staging")
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            didSignInThisSession = true
+            skipListenerForGoogle = true
+            try {
+                appCheckTokenSource.withToken {
+                    val user = firebaseAuth.currentUser?.takeIf { it.isAnonymous }
+                        ?: firebaseAuth.signInAnonymously().await().user
+                        ?: error("Staging identity creation failed")
+                    com.google.firebase.functions.FirebaseFunctions.getInstance()
+                        .getHttpsCallable("stagingEnroll")
+                        .call(mapOf("displayName" to displayName)).await()
+                    user.getIdToken(true).await()
+                    handleAuthUser(user, firebaseIsNewUser = false)
+                }
+            } catch (failure: Exception) {
+                _error.value = failure.localizedMessage
+            } finally {
+                skipListenerForGoogle = false
+                _isLoading.value = false
+            }
+        }
+    }
+
     fun signInWithGoogle(idToken: String) {
         viewModelScope.launch {
             _error.value = null

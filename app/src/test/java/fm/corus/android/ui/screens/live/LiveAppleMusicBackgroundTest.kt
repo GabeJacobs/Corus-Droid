@@ -48,7 +48,7 @@ class LiveAppleMusicBackgroundTest {
             on { currentUser } doReturn MutableStateFlow(null)
         }
         val vm = LiveViewModel(ApplicationProvider.getApplicationContext(), repository, auth, mock(),
-            appleMusic, mock(), mock(), mock(), mock(), mock(), SaveChangedEvent())
+            appleMusic, mock(), mock(), mock(), mock(), mock(), SaveChangedEvent(), spotifySaveAutoAdd = mock(), appleMusicSaveAutoAdd = mock())
         try {
             runCurrent()
             val now = System.currentTimeMillis()

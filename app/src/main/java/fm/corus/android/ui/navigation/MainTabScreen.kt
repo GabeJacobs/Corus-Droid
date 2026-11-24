@@ -167,6 +167,7 @@ fun MainTabScreen(
         mixedSavesLoading = liveState.mixedSavesLoading,
         mixedSavesHasMore = liveState.mixedSavesHasMore,
         mixedSavesFailed = liveState.mixedSavesFailed,
+        ownPrivateRoomPreview = liveViewModel.ownPrivateRoomPreview(),
     )
     val showLiveMini = liveState.miniPlayerRoom != null
     val showMilestonePaywall by viewModel.showMilestonePaywall.collectAsState()
@@ -1202,7 +1203,9 @@ fun MainTabScreen(
         roomExpansion = liveRoomExpansion,
         parkInsetPx = if (citySheetOpen) 0f else tabBarHeightPx,
         showMini = !citySheetOpen,
-        openProfile = { uid -> navControllers[selectedTab]?.navigate(OtherProfileRoute(uid)) },
+        profileDetails = { uid, close ->
+            LiveProfileSheet(userId = uid, initialProfile = liveViewModel.profilePreview(uid), mainTabViewModel = viewModel, onDismiss = close)
+        },
         openSong = { track -> navControllers[selectedTab]?.navigate(track.toSongDetailRoute()) },
         setlistNavController = navControllers[selectedTab],
         nowPlayingDetails = { track, close ->

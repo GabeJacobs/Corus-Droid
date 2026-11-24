@@ -24,7 +24,8 @@ class LiveRoomInfoDismissalTest {
                 if (visible) LiveRoomInfoSheet(
                     initialTitle = "Room", initialDescription = "High chic",
                     fallbackTitle = "clifton", editable = false,
-                    onDismiss = { visible = false }, onSave = { _, _ -> },
+                    onDismiss = { visible = false },
+                    uploadImage = { error("Read-only sheet must not upload") }, onSave = { _, _, _ -> },
                 )
             }
         }

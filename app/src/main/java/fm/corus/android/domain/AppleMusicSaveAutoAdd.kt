@@ -3,6 +3,7 @@ package fm.corus.android.domain
 import android.util.Log
 import fm.corus.android.data.local.PreferencesDataStore
 import fm.corus.android.data.model.CymbalPost
+import fm.corus.android.data.model.CymbalTrack
 import fm.corus.android.data.model.MusicService
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -23,10 +24,15 @@ class AppleMusicSaveAutoAdd @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     fun handleSaved(post: CymbalPost, userId: String) {
-        if (post.isMovie || musicService.current.value != MusicService.APPLE_MUSIC) return
+        if (post.isMovie) return
+        handleSaved(post.track, userId)
+    }
+
+    fun handleSaved(track: CymbalTrack, userId: String) {
+        if (musicService.current.value != MusicService.APPLE_MUSIC) return
         scope.launch {
             try {
-                if (isEnabled()) appleMusic.addToLibrary(post.toQueuedTrack(), userId, ::isEnabled)
+                if (isEnabled()) appleMusic.addToLibrary(track.toQueuedTrack(), userId, ::isEnabled)
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {

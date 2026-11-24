@@ -372,7 +372,7 @@
     <string name="corus_live_like_song">"Aimer le titre"</string>
     <string name="corus_live_listeners">"Auditeurs"</string>
     <string name="corus_live_live">"EN DIRECT"</string>
-    <string name="corus_live_live_now">"En direct"</string>
+    <string name="corus_live_live_now">"Salons en direct"</string>
     <string name="corus_live_live_room_ended">"Le salon en direct est terminé"</string>
     <string name="corus_live_live_setlist">"Setlist du live"</string>
     <string name="corus_live_mic_is_on">"Micro activé"</string>
@@ -464,7 +464,7 @@
     <string name="live_host_provider_body">"Connecte Spotify Premium ou un abonnement Apple Music pour lancer un direct. Corus utilisera le service connecté."</string>
     <string name="live_host_provider_spotify_body">"Connecte Spotify Premium pour lancer un direct. Corus utilisera Spotify comme service de musique."</string>
     <string name="live_host_provider_title">"Connecter un service de musique"</string>
-    <string name="live_import_playlist">"Importer une playlist ou un album"</string>
+    <string name="live_import_playlist">"Importer une playlist"</string>
     <string name="live_invite_dj">"Inviter un DJ"</string>
     <string name="live_invite_djs">"Inviter des DJ"</string>
     <string name="live_invited">"Invitation envoyée"</string>
@@ -658,4 +658,25 @@
     <string name="corus_live_song_saved_by_many">"%1$s et %2$s autres personnes ont enregistré ce titre"</string>
     <string name="corus_live_song_saved_by_two">"%1$s et 1 autre personne ont enregistré ce titre"</string>
     <string name="corus_live_chat_retry">"Échec de l’envoi · Réessayer"</string>
+    <string name="corus_live_queue_move_to_top">"Déplacer en tête"</string>
+    <string name="corus_live_queue_remove">"Retirer de la file d’attente"</string>
+    <string name="corus_live_queue_song_actions">"Actions du morceau"</string>
+    <string name="corus_live_room_image">"Image du salon"</string>
+    <string name="corus_live_room_image_change">"Choisir une image"</string>
+    <string name="corus_live_room_image_remove">"Supprimer l’image"</string>
+    <string name="corus_live_host_exit_changed">"Ce DJ ne peut plus prendre le relais. Vous restez l’hôte."</string>
+    <string name="corus_live_host_exit_end_all">"Terminer le salon pour tous"</string>
+    <string name="corus_live_host_exit_end_failed">"Impossible de terminer le salon. Veuillez réessayer."</string>
+    <string name="corus_live_host_exit_end_message">"Mettre fin au salon arrêtera la diffusion pour tout le monde."</string>
+    <string name="corus_live_host_exit_failed">"Impossible de transférer le rôle d’hôte. Veuillez réessayer."</string>
+    <string name="corus_live_host_exit_join">"Un autre DJ prendra le relais et vous rejoindrez l’autre salon."</string>
+    <string name="corus_live_host_exit_keep">"Continuer à animer"</string>
+    <string name="corus_live_host_exit_next_host">"%1$s prendra le relais en tant qu’hôte."</string>
+    <string name="corus_live_host_exit_play">"Un autre DJ prendra le relais et votre morceau sera lancé."</string>
+    <string name="corus_live_host_exit_stay">"Un autre DJ prendra le relais et vous resterez dans le salon en tant qu’auditeur."</string>
+    <string name="corus_live_host_exit_step_down">"Céder sa place"</string>
+    <string name="corus_live_host_exit_title">"Arrêter d’animer ?"</string>
+    <string name="corus_live_host_exit_unavailable">"Aucun autre DJ ne peut prendre le relais pour le moment. Vous restez l’hôte."</string>
+    <string name="corus_live_host_exit_working">"Veuillez patienter…"</string>
+    <string name="corus_live_host_options">"Options de l’hôte"</string>
 </resources>

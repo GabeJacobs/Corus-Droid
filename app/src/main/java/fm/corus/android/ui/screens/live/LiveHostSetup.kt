@@ -359,7 +359,8 @@ internal fun LiveHostSetup(
     when (panel.takeIf { visible }) {
         SetupPanel.INFO -> LiveRoomInfoSheet(
             setup.title, setup.roomDescription, "", true, closePanel,
-        ) { title, description -> vm.editSetup { copy(title = title, roomDescription = description) } }
+            initialImageURL = setup.roomImageURL, uploadImage = vm::uploadRoomImage,
+        ) { title, description, imageURL -> vm.editSetup { copy(title = title, roomDescription = description, roomImageURL = imageURL) } }
         SetupPanel.QUEUE -> LiveSetupQueueEditor(
             initial = setup.queue,
             onDone = { tracks -> vm.editSetup { copy(queue = tracks) }; closePanel() },
@@ -576,6 +577,7 @@ private fun LiveSetupQueueEditor(
         horizontalContentPadding = 0.dp,
     ) {
         val dragPreview = remember { mutableStateOf<LiveQueueDrag?>(null) }
+        val animateRemoval = rememberLiveQueueRemoval(queue.toList())
         LazyColumn(
             Modifier.weight(1f, fill = false),
             contentPadding = PaddingValues(top = 36.dp),
@@ -607,7 +609,7 @@ private fun LiveSetupQueueEditor(
                 LiveText(stringResource(CorusStrings.full_player_queue_title), CorusFont.username, modifier = rowPadding)
                 Spacer(Modifier.height(16.dp))
             }
-            setupQueueRows(queue, dragPreview)
+            setupQueueRows(queue, dragPreview, animateRemoval)
             if (selection.size < limit) {
                 item {
                     QueueAddMusic(Icons.Default.QueueMusic) { pickSong = false }
@@ -663,17 +665,18 @@ private fun LiveSetupQueueEditor(
     }
 }
 
-private fun LazyListScope.setupQueueRows(queue: SnapshotStateList<LiveTrack>, dragPreview: MutableState<LiveQueueDrag?>) {
+private fun LazyListScope.setupQueueRows(queue: SnapshotStateList<LiveTrack>, dragPreview: MutableState<LiveQueueDrag?>, animateRemoval: Boolean) {
     items(queue.size, key = { "setup-queue:${queue[it].id}" }) { index ->
         LiveQueueReorderRow(
             index, queue.size, 70.dp,
             move = { destination -> queue.add(destination, queue.removeAt(index)) },
-            modifier = Modifier.animateItem(placementSpec = null),
+            modifier = Modifier.animateItem(fadeInSpec = null, placementSpec = if (animateRemoval) tween(180) else null, fadeOutSpec = tween(180)),
             dragPreview = dragPreview,
         ) { handle ->
             LiveTrackRow(
                 queue[index], Icons.Default.Close, stringResource(R.string.live_remove_queue_song),
                 action = { queue.removeAt(index) }, handle = handle, queueStyle = true,
+                queueActions = { LiveQueueActionsMenu(index, moveToTop = { queue.add(0, queue.removeAt(index)) }, remove = { queue.removeAt(index) }) },
                 modifier = Modifier.padding(start = 20.dp, end = 12.dp),
             )
         }
@@ -713,6 +716,7 @@ internal fun LiveTrackRow(
     itemSpacing: Dp = 10.dp,
     showLikes: Boolean = false,
     saveCount: Int = 0,
+    queueActions: @Composable (() -> Unit)? = null,
 ) {
     Row(
         modifier.fillMaxWidth().heightIn(min = if (queueStyle) 70.dp else 57.dp)
@@ -750,7 +754,8 @@ internal fun LiveTrackRow(
         }
         if (icon != null || handle != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (icon != null) LiveIconButton(icon, label, action, glyphSize = if (queueStyle) 18.dp else 24.dp)
+                if (queueActions != null) queueActions()
+                else if (icon != null) LiveIconButton(icon, label, action, glyphSize = if (queueStyle) 18.dp else 24.dp)
                 handle?.invoke()
             }
         }
@@ -769,6 +774,7 @@ internal fun LiveSongPicker(
 ) {
     LiveSheet(title, close, large = true, done = close, dismissKeyboardFromHeader = true, horizontalContentPadding = 0.dp) {
         val dragPreview = remember { mutableStateOf<LiveQueueDrag?>(null) }
+        val animateRemoval = rememberLiveQueueRemoval(editableQueue?.toList() ?: emptyList())
         LiveSongPickerContent(vm, choose, queued = queued, canAdd = canAdd, horizontalPadding = 20.dp) {
             if (editableQueue != null) {
                 item(key = "setup-queue:heading") {
@@ -783,7 +789,7 @@ internal fun LiveSongPicker(
                         }
                     }
                 }
-                setupQueueRows(editableQueue, dragPreview)
+                setupQueueRows(editableQueue, dragPreview, animateRemoval)
             }
         }
     }

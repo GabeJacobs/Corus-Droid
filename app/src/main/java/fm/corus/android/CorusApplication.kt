@@ -34,6 +34,10 @@ class CorusApplication : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         FirebaseApp.initializeApp(this)
+        if (BuildConfig.CORUS_STAGING) {
+            check(FirebaseApp.getInstance().options.projectId == "cymbal-remake-staging")
+            check(packageName == "fm.corus.android.staging")
+        }
         fm.corus.android.service.ReferralAttribution.install(this)
         // Freeze the theme default (Light for existing installs, System for fresh
         // ones) at process start, before onboarding can run, so a brand-new user is
@@ -82,6 +86,7 @@ class CorusApplication : Application(), SingletonImageLoader.Factory {
     }
 
     private fun initRevenueCat() {
+        if (BuildConfig.CORUS_STAGING) return
         Purchases.logLevel = LogLevel.WARN
         Purchases.configure(
             PurchasesConfiguration.Builder(this, "goog_nkYdtPqaMcdBzvPVaQNRqjdIHAz").build()

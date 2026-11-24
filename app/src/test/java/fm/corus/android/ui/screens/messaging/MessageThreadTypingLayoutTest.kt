@@ -2,6 +2,14 @@ package fm.corus.android.ui.screens.messaging
 
 import android.app.Application
 import android.content.Context
+import android.view.View
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
+import androidx.core.graphics.Insets
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import fm.corus.android.ui.components.LocalBottomBarHeight
+import org.junit.Assert.assertEquals
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
@@ -60,7 +68,9 @@ class MessageThreadTypingLayoutTest {
 
     private lateinit var viewModel: MessageThreadViewModel
 
-    private fun render(row: CymbalThread?) {
+    private lateinit var rootView: View
+
+    private fun render(row: CymbalThread?, parentHandlesIme: Boolean = false, reservedChrome: androidx.compose.ui.unit.Dp = 0.dp) {
         val messageRepository = mock<MessageRepository> {
             on { outgoingShares } doReturn kotlinx.coroutines.flow.MutableStateFlow(emptyList())
             on { listenToMessages(any()) } doReturn flowOf((0..30).map { incoming.copy(id = "m$it", text = "Message $it") })
@@ -88,15 +98,66 @@ class MessageThreadTypingLayoutTest {
         )
 
         composeRule.setContent {
-            CompositionLocalProvider(LocalHapticManager provides mock<HapticManager>()) {
-                Box(Modifier.height(viewportHeight.value)) { MessageThreadScreen(
+            rootView = LocalView.current
+            CompositionLocalProvider(
+                LocalHapticManager provides mock<HapticManager>(),
+                LocalBottomBarHeight provides reservedChrome,
+            ) {
+                Box(Modifier.height(viewportHeight.value).testTag("thread-viewport")) { MessageThreadScreen(
                     threadId = "thread1",
                     otherUserId = "other",
                     viewModel = viewModel,
+                    parentHandlesIme = parentHandlesIme,
                 ) }
             }
         }
         composeRule.waitForIdle()
+    }
+
+    private fun composerBottomGap(): Float {
+        val viewport = composeRule.onNodeWithTag("thread-viewport").fetchSemanticsNode().boundsInRoot
+        val composer = composeRule.onNodeWithText(context.getString(R.string.messaging_thread_placeholder))
+            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        return viewport.bottom - composer.bottom
+    }
+
+    private fun dispatchKeyboard(height: androidx.compose.ui.unit.Dp) {
+        val pixels = with(composeRule.density) { height.roundToPx() }
+        composeRule.runOnIdle {
+            ViewCompat.dispatchApplyWindowInsets(rootView,
+                WindowInsetsCompat.Builder()
+                    .setInsets(WindowInsetsCompat.Type.ime(), Insets.of(0, 0, 0, pixels))
+                    .setVisible(WindowInsetsCompat.Type.ime(), pixels > 0)
+                    .build())
+        }
+        composeRule.waitForIdle()
+    }
+
+    @Test
+    @Config(qualifiers = "en-rUS-w393dp-h800dp")
+    fun `sheet resized for keyboard does not lift the conversation a second time`() {
+        viewportHeight.value = 600.dp
+        render(CymbalThread(id = "thread1", otherUserId = "other"), parentHandlesIme = true)
+        val initialGap = composerBottomGap()
+        composeRule.runOnIdle { viewportHeight.value = 360.dp }
+        dispatchKeyboard(240.dp)
+        assertEquals("The sheet already removed keyboard space", initialGap, composerBottomGap(), 1f)
+        dispatchKeyboard(0.dp)
+        composeRule.runOnIdle { viewportHeight.value = 600.dp }
+        assertEquals(initialGap, composerBottomGap(), 1f)
+    }
+
+    @Test
+    @Config(qualifiers = "en-rUS-w393dp-h800dp")
+    fun `messages tab still lifts composer above keyboard minus reserved chrome`() {
+        viewportHeight.value = 600.dp
+        render(CymbalThread(id = "thread1", otherUserId = "other"), reservedChrome = 80.dp)
+        val initialGap = composerBottomGap()
+        dispatchKeyboard(240.dp)
+        val expectedLift = with(composeRule.density) { 160.dp.toPx() }
+        assertEquals(initialGap + expectedLift, composerBottomGap(), 1f)
+        dispatchKeyboard(0.dp)
+        assertEquals(initialGap, composerBottomGap(), 1f)
     }
 
     @Test

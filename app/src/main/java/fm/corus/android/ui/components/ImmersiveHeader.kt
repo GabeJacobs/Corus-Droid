@@ -22,6 +22,7 @@ import coil3.compose.AsyncImage
 import com.valentinilk.shimmer.shimmer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -74,6 +75,9 @@ internal const val ImmersiveExtendUnderStatusBar = true
  * normally.
  */
 val LocalContainingTabSelected = compositionLocalOf { true }
+
+/** A modal sheet already owns its top inset; its headers must stay inside it. */
+internal val LocalImmersiveHeaderInSheet = compositionLocalOf { false }
 
 /** Height of the floating collapsing bar (excludes any status-bar inset). */
 internal val ImmersiveBarHeight = 56.dp
@@ -129,7 +133,8 @@ internal fun currentStatusBarTopPx(): Int {
 internal fun rememberImmersiveHeaderState(immersive: Boolean): ImmersiveHeaderState {
     val hazeState = remember { HazeState() }
     val statusBarTopPx = currentStatusBarTopPx()
-    val extend = immersive && ImmersiveExtendUnderStatusBar && statusBarTopPx > 0
+    val extend = immersive && !LocalImmersiveHeaderInSheet.current &&
+        ImmersiveExtendUnderStatusBar && statusBarTopPx > 0
     val statusBarPadding = if (extend) {
         with(LocalDensity.current) { statusBarTopPx.toDp() }
     } else {
@@ -496,6 +501,7 @@ internal fun ImmersiveFrostedBar(
     modifier: Modifier = Modifier,
     topInset: Dp = 0.dp,
     titleContent: (@Composable () -> Unit)? = null,
+    dismissesSheet: Boolean = false,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val frost = CorusColors.Background
@@ -525,8 +531,8 @@ internal fun ImmersiveFrostedBar(
         ) {
             CorusHeaderIconButton(
                 onClick = onBack,
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back),
+                imageVector = if (dismissesSheet) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = stringResource(if (dismissesSheet) fm.corus.android.localization.CorusStrings.corus_live_close else fm.corus.android.localization.CorusStrings.common_back),
                 tint = CorusColors.Text,
             )
             Box(

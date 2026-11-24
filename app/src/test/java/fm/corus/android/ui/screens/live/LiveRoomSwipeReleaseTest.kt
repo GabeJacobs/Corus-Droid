@@ -12,6 +12,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,7 +48,7 @@ class LiveRoomSwipeReleaseTest {
         compose.setContent {
             Box(Modifier.fillMaxSize()) {
                 LivePresentation(
-                    state.value, vm, openProfile = {}, openSong = {}, nowPlayingDetails = { _, _ -> },
+                    state.value, vm, profileDetails = { _, _ -> }, openSong = {}, nowPlayingDetails = { _, _ -> },
                     roomExpansion = rememberLiveRoomExpansion(state.value),
                     parkInsetPx = 80f,
                 )
@@ -62,7 +63,7 @@ class LiveRoomSwipeReleaseTest {
         compose.setContent {
             Box(Modifier.fillMaxSize()) {
                 LivePresentation(
-                    state.value, vm, openProfile = {}, openSong = {}, nowPlayingDetails = { _, _ -> },
+                    state.value, vm, profileDetails = { _, _ -> }, openSong = {}, nowPlayingDetails = { _, _ -> },
                     roomExpansion = rememberLiveRoomExpansion(state.value),
                     parkInsetPx = 80f,
                 )
@@ -153,6 +154,45 @@ class LiveRoomSwipeReleaseTest {
         }
         compose.onNodeWithText("Recently Played").assertIsDisplayed()
         verify(vm).expand()
+    }
+
+    @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+    @Test
+    fun chatProfileOpensAboveTheRoomAndDismissesBackToChat() {
+        state.value = state.value.copy(messages = listOf(LiveMessage("message", mapOf(
+            "uid" to "isa", "displayName" to "Isa", "text" to "Hello from chat",
+            "gifURL" to "https://example.com/chat.gif",
+        ))))
+        whenever(vm.profile).thenReturn(MutableStateFlow(null))
+        doAnswer { state.value = state.value.copy(minimized = true) }.whenever(vm).minimize()
+        doAnswer { state.value = state.value.copy(minimized = false) }.whenever(vm).expand()
+        compose.setContent {
+            Box(Modifier.fillMaxSize()) {
+                LivePresentation(
+                    state.value, vm,
+                    profileDetails = { userID, close ->
+                        fm.corus.android.ui.components.CorusModalBottomSheet(onDismissRequest = close) {
+                            androidx.compose.material3.Text("Profile for $userID")
+                            androidx.compose.material3.Button(onClick = close) {
+                                androidx.compose.material3.Text("Close profile")
+                            }
+                        }
+                    },
+                    openSong = {}, nowPlayingDetails = { _, _ -> },
+                    roomExpansion = rememberLiveRoomExpansion(state.value), parkInsetPx = 80f,
+                )
+            }
+        }
+        compose.onNodeWithText("New message").performClick()
+        compose.onNodeWithText("Isa").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Profile for isa").assertIsDisplayed()
+        verify(vm, never()).minimize()
+        assertEquals(room, state.value.room)
+        compose.onNodeWithText("Close profile").performClick()
+        compose.onNodeWithText("Profile for isa").assertDoesNotExist()
+        compose.onNodeWithText("Hello from chat").assertIsDisplayed()
+        compose.onNodeWithText("Say something…").assertIsDisplayed()
+        verify(vm, never()).minimize()
     }
 
     @Test

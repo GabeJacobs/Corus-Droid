@@ -372,7 +372,7 @@
     <string name="corus_live_like_song">"曲にいいね"</string>
     <string name="corus_live_listeners">"リスナー"</string>
     <string name="corus_live_live">"ライブ"</string>
-    <string name="corus_live_live_now">"ライブ配信中"</string>
+    <string name="corus_live_live_now">"ライブルーム"</string>
     <string name="corus_live_live_room_ended">"ライブルームが終了しました"</string>
     <string name="corus_live_live_setlist">"ライブのセットリスト"</string>
     <string name="corus_live_mic_is_on">"マイクオン"</string>
@@ -464,7 +464,7 @@
     <string name="live_host_provider_body">"ライブを始めるにはSpotify PremiumまたはApple Musicのサブスクリプションを接続してください。Corusは接続したサービスに切り替わります。"</string>
     <string name="live_host_provider_spotify_body">"ライブを始めるにはSpotify Premiumを接続してください。Corusの音楽サービスがSpotifyに切り替わります。"</string>
     <string name="live_host_provider_title">"音楽サービスを接続"</string>
-    <string name="live_import_playlist">"プレイリスト・アルバムを取り込む"</string>
+    <string name="live_import_playlist">"プレイリストを取り込む"</string>
     <string name="live_invite_dj">"DJを招待"</string>
     <string name="live_invite_djs">"DJを招待"</string>
     <string name="live_invited">"招待済み"</string>
@@ -658,4 +658,25 @@
     <string name="corus_live_song_saved_by_many">"%1$sと他%2$s人がこの曲を保存しました"</string>
     <string name="corus_live_song_saved_by_two">"%1$sと他1人がこの曲を保存しました"</string>
     <string name="corus_live_chat_retry">"送信できませんでした · 再試行"</string>
+    <string name="corus_live_queue_move_to_top">"一番上に移動"</string>
+    <string name="corus_live_queue_remove">"キューから削除"</string>
+    <string name="corus_live_queue_song_actions">"曲の操作"</string>
+    <string name="corus_live_room_image">"ルーム画像"</string>
+    <string name="corus_live_room_image_change">"画像を選択"</string>
+    <string name="corus_live_room_image_remove">"画像を削除"</string>
+    <string name="corus_live_host_exit_changed">"そのDJは現在引き継げません。あなたは引き続きホストです。"</string>
+    <string name="corus_live_host_exit_end_all">"全員のルームを終了"</string>
+    <string name="corus_live_host_exit_end_failed">"ルームを終了できませんでした。もう一度お試しください。"</string>
+    <string name="corus_live_host_exit_end_message">"ルームを終了すると、全員の配信が終了します。"</string>
+    <string name="corus_live_host_exit_failed">"ホストを交代できませんでした。もう一度お試しください。"</string>
+    <string name="corus_live_host_exit_join">"別のDJがホストを引き継ぎ、あなたは別のルームに参加します。"</string>
+    <string name="corus_live_host_exit_keep">"ホストを続ける"</string>
+    <string name="corus_live_host_exit_next_host">"%1$sがホストを引き継ぎます。"</string>
+    <string name="corus_live_host_exit_play">"別のDJがホストを引き継ぎ、選んだ曲が再生されます。"</string>
+    <string name="corus_live_host_exit_stay">"別のDJがホストを引き継ぎ、あなたはリスナーとして残ります。"</string>
+    <string name="corus_live_host_exit_step_down">"ホストを交代"</string>
+    <string name="corus_live_host_exit_title">"ホストを交代しますか？"</string>
+    <string name="corus_live_host_exit_unavailable">"現在、引き継げるDJがいません。あなたは引き続きホストです。"</string>
+    <string name="corus_live_host_exit_working">"お待ちください…"</string>
+    <string name="corus_live_host_options">"ホストのオプション"</string>
 </resources>

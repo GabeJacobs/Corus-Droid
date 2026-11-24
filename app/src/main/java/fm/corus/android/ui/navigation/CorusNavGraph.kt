@@ -569,6 +569,8 @@ internal fun androidx.navigation.NavGraphBuilder.sharedDestinations(
     postNavigationTitle: String? = null,
     onPostLoadState: ((Boolean) -> Unit)? = null,
     collectionPlaybackQueue: fm.corus.android.domain.CollectionPlaybackQueue? = null,
+    // A profile can also be the root of the Live profile sheet's own graph.
+    onProfileSheetDismiss: (() -> Unit)? = null,
 ) {
     // Nullable-when-flag-off navigation callbacks. Screens receive these and
     // keep their names as plain text whenever they're null.
@@ -644,7 +646,14 @@ internal fun androidx.navigation.NavGraphBuilder.sharedDestinations(
             initialIsClubMember = route.initialIsClubMember,
             initialIsFollowing = route.initialIsFollowing,
             expectMapCity = route.expectMapCity,
-            onBack = { navController.safePopBackStack() },
+            dismissesSheet = navController.previousBackStackEntry == null && onProfileSheetDismiss != null,
+            onBack = {
+                if (navController.previousBackStackEntry == null && onProfileSheetDismiss != null) {
+                    onProfileSheetDismiss()
+                } else {
+                    navController.safePopBackStack()
+                }
+            },
             onNavigateToProfileFeed = { userId, username, postId, segment ->
                 navController.navigate(ProfileFeedRoute(userId, username, segment, postId))
             },
@@ -1169,6 +1178,7 @@ internal fun androidx.navigation.NavGraphBuilder.sharedDestinations(
         MessageThreadScreen(
             threadId = route.threadId,
             otherUserId = route.otherUserId,
+            parentHandlesIme = onProfileSheetDismiss != null,
             // A thread kept alive underneath a pushed hashtag/profile/post is
             // not being viewed and must not consume incoming unread messages.
             isVisible = isContainingTabSelected && currentBackStackEntry == backStackEntry,

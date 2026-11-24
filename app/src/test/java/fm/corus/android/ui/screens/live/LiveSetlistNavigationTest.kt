@@ -56,7 +56,7 @@ class LiveSetlistNavigationTest {
                 LivePresentation(
                     state = LiveUiState(ended = room),
                     vm = vm,
-                    openProfile = {},
+                    profileDetails = { _, _ -> },
                     openSong = {},
                     setlistNavController = navController,
                     nowPlayingDetails = { _, _ -> },

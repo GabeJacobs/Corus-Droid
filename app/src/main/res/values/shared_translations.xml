@@ -219,7 +219,7 @@
     <string name="corus_live_like_song">"Like song"</string>
     <string name="corus_live_listeners">"Listeners"</string>
     <string name="corus_live_live">"LIVE"</string>
-    <string name="corus_live_live_now">"Live now"</string>
+    <string name="corus_live_live_now">"Live Rooms"</string>
     <string name="corus_live_live_room_ended">"Live room ended"</string>
     <string name="corus_live_live_setlist">"Live setlist"</string>
     <string name="corus_live_mic_is_on">"Mic is on"</string>
@@ -406,4 +406,25 @@
     <string name="corus_live_song_saved_by_many">"%1$s and %2$s others saved this song"</string>
     <string name="corus_live_song_saved_by_two">"%1$s and 1 other saved this song"</string>
     <string name="corus_live_chat_retry">"Couldn’t send · Retry"</string>
+    <string name="corus_live_queue_move_to_top">"Move to top"</string>
+    <string name="corus_live_queue_remove">"Remove from queue"</string>
+    <string name="corus_live_queue_song_actions">"Song actions"</string>
+    <string name="corus_live_room_image">"Room image"</string>
+    <string name="corus_live_room_image_change">"Choose image"</string>
+    <string name="corus_live_room_image_remove">"Remove image"</string>
+    <string name="corus_live_host_exit_changed">"That DJ is no longer available to take over. You’re still hosting."</string>
+    <string name="corus_live_host_exit_end_all">"End room for everyone"</string>
+    <string name="corus_live_host_exit_end_failed">"Couldn’t end the room. Please try again."</string>
+    <string name="corus_live_host_exit_end_message">"Ending the room will stop it for everyone."</string>
+    <string name="corus_live_host_exit_failed">"Couldn’t transfer hosting. Please try again."</string>
+    <string name="corus_live_host_exit_join">"Another DJ will take over, and you’ll join the other room."</string>
+    <string name="corus_live_host_exit_keep">"Keep hosting"</string>
+    <string name="corus_live_host_exit_next_host">"%1$s will take over as host."</string>
+    <string name="corus_live_host_exit_play">"Another DJ will take over, and your song will play."</string>
+    <string name="corus_live_host_exit_stay">"Another DJ will take over, and you’ll stay as a listener."</string>
+    <string name="corus_live_host_exit_step_down">"Step down"</string>
+    <string name="corus_live_host_exit_title">"Stop hosting?"</string>
+    <string name="corus_live_host_exit_unavailable">"No other DJ is available to take over right now. You’re still hosting."</string>
+    <string name="corus_live_host_exit_working">"Please wait…"</string>
+    <string name="corus_live_host_options">"Host options"</string>
 </resources>

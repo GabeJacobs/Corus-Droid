@@ -372,7 +372,7 @@
     <string name="corus_live_like_song">"곡 좋아요"</string>
     <string name="corus_live_listeners">"청취자"</string>
     <string name="corus_live_live">"라이브"</string>
-    <string name="corus_live_live_now">"지금 라이브 중"</string>
+    <string name="corus_live_live_now">"라이브 룸"</string>
     <string name="corus_live_live_room_ended">"라이브 룸이 종료되었어요"</string>
     <string name="corus_live_live_setlist">"라이브 세트리스트"</string>
     <string name="corus_live_mic_is_on">"마이크 켜짐"</string>
@@ -464,7 +464,7 @@
     <string name="live_host_provider_body">"라이브를 시작하려면 Spotify Premium 또는 Apple Music 구독을 연결하세요. Corus가 연결한 서비스로 전환돼요."</string>
     <string name="live_host_provider_spotify_body">"라이브를 시작하려면 Spotify Premium을 연결하세요. Corus의 음악 서비스가 Spotify로 전환돼요."</string>
     <string name="live_host_provider_title">"음악 서비스 연결"</string>
-    <string name="live_import_playlist">"플레이리스트 또는 앨범 가져오기"</string>
+    <string name="live_import_playlist">"플레이리스트 가져오기"</string>
     <string name="live_invite_dj">"DJ 초대"</string>
     <string name="live_invite_djs">"DJ 초대"</string>
     <string name="live_invited">"초대됨"</string>
@@ -658,4 +658,25 @@
     <string name="corus_live_song_saved_by_many">"%1$s 님 외 %2$s명이 이 곡을 저장했어요"</string>
     <string name="corus_live_song_saved_by_two">"%1$s 님 외 1명이 이 곡을 저장했어요"</string>
     <string name="corus_live_chat_retry">"전송하지 못했어요 · 다시 시도"</string>
+    <string name="corus_live_queue_move_to_top">"맨 위로 이동"</string>
+    <string name="corus_live_queue_remove">"대기열에서 삭제"</string>
+    <string name="corus_live_queue_song_actions">"곡 작업"</string>
+    <string name="corus_live_room_image">"방 이미지"</string>
+    <string name="corus_live_room_image_change">"이미지 선택"</string>
+    <string name="corus_live_room_image_remove">"이미지 삭제"</string>
+    <string name="corus_live_host_exit_changed">"해당 DJ가 더 이상 호스트를 맡을 수 없어요. 회원님이 계속 호스트입니다."</string>
+    <string name="corus_live_host_exit_end_all">"모두에게 방 종료"</string>
+    <string name="corus_live_host_exit_end_failed">"방을 종료하지 못했어요. 다시 시도해 주세요."</string>
+    <string name="corus_live_host_exit_end_message">"방을 종료하면 모든 사람의 방송이 끝납니다."</string>
+    <string name="corus_live_host_exit_failed">"호스트를 넘기지 못했어요. 다시 시도해 주세요."</string>
+    <string name="corus_live_host_exit_join">"다른 DJ가 호스트를 맡고, 회원님은 다른 방에 참여하게 됩니다."</string>
+    <string name="corus_live_host_exit_keep">"계속 호스팅"</string>
+    <string name="corus_live_host_exit_next_host">"%1$s님이 호스트를 맡게 됩니다."</string>
+    <string name="corus_live_host_exit_play">"다른 DJ가 호스트를 맡고, 선택한 곡이 재생됩니다."</string>
+    <string name="corus_live_host_exit_stay">"다른 DJ가 호스트를 맡고, 회원님은 청취자로 남게 됩니다."</string>
+    <string name="corus_live_host_exit_step_down">"호스트 넘기기"</string>
+    <string name="corus_live_host_exit_title">"호스트를 그만할까요?"</string>
+    <string name="corus_live_host_exit_unavailable">"지금은 호스트를 맡을 수 있는 다른 DJ가 없어요. 회원님이 계속 호스트입니다."</string>
+    <string name="corus_live_host_exit_working">"잠시만 기다려 주세요…"</string>
+    <string name="corus_live_host_options">"호스트 옵션"</string>
 </resources>

@@ -32,6 +32,31 @@ class LiveChatReactionsTest {
     @get:Rule val compose = createComposeRule()
 
     @Test
+    fun listenerCanLikeAndOpenSongRequestOptions() {
+        val message = LiveMessage("request", mapOf(
+            "uid" to "host", "displayName" to "Isa", "kind" to "songRequest",
+            "text" to "Requested Song", "requestStatus" to "pending",
+            "requestedTrack" to mapOf("id" to "song", "title" to "Song", "artist" to "Artist", "source" to "spotify", "durationMs" to 180000L),
+            "chatReactions" to mapOf("🔥" to listOf("host")),
+        ))
+        val state = LiveUiState(uid = "listener", room = LiveRoom("room", emptyMap()))
+        val vm = mock<LiveViewModel>()
+        val opened = mutableListOf<Pair<String, Boolean>>()
+        compose.setContent {
+            RoomChat(listOf(message), state, vm, 0, {}, { row, picker -> opened.add(row.id to picker) }, Modifier)
+        }
+        compose.onNodeWithText("Song").performTouchInput { doubleClick() }
+        verify(vm).setChatReaction(message.id, "❤️", addOnly = true)
+        compose.onNodeWithText("Song").performTouchInput { longClick() }
+        assertEquals(listOf(message.id to false), opened)
+        compose.onNodeWithText("🔥").assertIsDisplayed().performTouchInput { click() }
+        verify(vm).setChatReaction(message.id, "🔥", addOnly = false)
+        compose.onNodeWithContentDescription("Reactions").performClick()
+        assertEquals(listOf(message.id to false, message.id to true), opened)
+        verifyNoMoreInteractions(vm)
+    }
+
+    @Test
     fun messageGesturesAndReactionChipsAreIndependent() {
         val message = LiveMessage("chat-message", mapOf(
             "uid" to "host", "displayName" to "Isa", "text" to "Play this one!",

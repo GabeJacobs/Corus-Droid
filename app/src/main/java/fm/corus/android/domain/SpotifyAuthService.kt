@@ -1,5 +1,6 @@
 package fm.corus.android.domain
 
+import fm.corus.android.BuildConfig
 import android.content.Context
 import android.content.SharedPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -87,8 +88,8 @@ class SpotifyAuthService @Inject constructor(
     }
 
     companion object {
-        const val CLIENT_ID = "6c95dc15990f43b0a3ed93f71f7d9689"
-        const val REDIRECT_URI = "corus://spotify-auth"
+        const val CLIENT_ID = BuildConfig.SPOTIFY_CLIENT_ID
+        const val REDIRECT_URI = BuildConfig.SPOTIFY_REDIRECT_URI
 
         /**
          * What let `UserApi.addToLibrary` write Liked Songs over IPC instead

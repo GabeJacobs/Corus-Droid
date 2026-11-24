@@ -35,7 +35,7 @@ object AppModule {
         if (TestEnvironment.isActive) {
             useEmulator(TestEnvironment.host, TestEnvironment.AUTH_PORT)
         } else {
-            setCustomAuthDomain("auth.corus.fm")
+            setCustomAuthDomain(if (fm.corus.android.BuildConfig.CORUS_STAGING) "cymbal-remake-staging.firebaseapp.com" else "auth.corus.fm")
         }
     }
 

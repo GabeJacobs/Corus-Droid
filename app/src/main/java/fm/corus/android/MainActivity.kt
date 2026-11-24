@@ -162,7 +162,7 @@ class MainActivity : ComponentActivity() {
 
     private fun handleSpotifyAuthRedirect(intent: Intent?) {
         val uri = intent?.data ?: return
-        if (uri.scheme == "corus" && uri.host == "spotify-auth") {
+        if (uri.scheme == BuildConfig.CORUS_URL_SCHEME && uri.host == "spotify-auth") {
             // Both the App Remote playback flow and the library-save Web API
             // flow share this same redirect URI (one registered Spotify
             // Developer app). The library-save flow is a `code` exchange

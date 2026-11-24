@@ -823,6 +823,8 @@ fun MessageThreadScreen(
     onNavigateToAlbum: (albumId: String, title: String?, artist: String?, coverUrl: String?, year: Int?) -> Unit = { _, _, _, _, _ -> },
     onNavigateToDirector: (directorId: String, name: String?, imageUrl: String?) -> Unit = { _, _, _ -> },
     onNavigateToHashtag: (String) -> Unit = {},
+    // Modal sheets resize their content for IME; the tab host needs its own lift.
+    parentHandlesIme: Boolean = false,
     viewModel: MessageThreadViewModel = hiltViewModel(),
 ) {
     // Inbox-miss compose: arm optimistic OPEN + header seed before we read
@@ -1198,7 +1200,9 @@ fun MessageThreadScreen(
     // bottom bar (mini player + tab bar). Lift the whole column above whichever is
     // taller: the on-screen keyboard, or that global bar when the keyboard is
     // closed. Without this the composer bar hides behind the global bottom bar.
-    val composerBottomInset = with(LocalDensity.current) {
+    // A modal sheet already resizes its content above the IME. Applying the
+    // tab-host lift there would subtract the keyboard height a second time.
+    val composerBottomInset = if (parentHandlesIme) 0.dp else with(LocalDensity.current) {
         liftAboveReservedChrome(WindowInsets.ime.getBottom(this).toDp(), LocalBottomBarHeight.current)
     }
     Column(

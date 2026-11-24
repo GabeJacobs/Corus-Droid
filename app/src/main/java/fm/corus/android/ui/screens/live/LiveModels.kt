@@ -107,6 +107,7 @@ internal data class LiveRoom(val id: String, private val fields: LiveFields) {
     val hostHandle = fields.text("hostUsername").trim().removePrefix("@")
         .takeUnless { it.isBlank() || it == "…" }?.let { "@$it" }
     val roomDescription = fields.text("roomDescription")
+    val roomImageURL = fields.text("roomImageURL").takeIf(String::isNotBlank)
     val customTitle = fields.text("title")
     val title = customTitle.ifBlank { "@${host.username.removePrefix("@")}" }
     val chatEnabled = fields["chatEnabled"] != false
@@ -236,7 +237,7 @@ internal data class LiveMessage(
     inline fun likeNoticeText(localized: (String?) -> String): String =
         if (fields.number("likeCount") > 1 && text.isNotEmpty()) text else localized(likeNoticeHandle)
     val gifUrl = fields["gifURL"] as? String
-    val supportsReactions get() = kind.isEmpty() && (text.isNotEmpty() || gifUrl != null)
+    val supportsReactions get() = kind == "songRequest" || (kind.isEmpty() && (text.isNotEmpty() || gifUrl != null))
     val chatReactionEmojis: Set<String>
         get() = fields["chatReactions"].liveFields()?.keys.orEmpty()
     fun reactionUsers(emoji: String): List<String> =
@@ -284,6 +285,7 @@ internal data class LiveSetup(
     val id: String,
     val title: String = "",
     val roomDescription: String = "",
+    val roomImageURL: String? = null,
     val queue: List<LiveTrack> = emptyList(),
     val invitees: List<LivePerson> = emptyList(),
     val notifyFollowers: Boolean = true,

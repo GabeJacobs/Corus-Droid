@@ -140,6 +140,7 @@ fun OtherProfileScreen(
     onNavigateToPost: (postId: String) -> Unit = {},
     onNavigateToArtist: ((ArtistPageRoute) -> Unit)? = null,
     suppressMapCityNavigation: Boolean = false,
+    dismissesSheet: Boolean = false,
 ) {
     // Match the 16pt horizontal inset in iOS ProfileHeaderView.
     val headerHPad = CorusSpacing.lg
@@ -319,8 +320,8 @@ fun OtherProfileScreen(
             UsernameWithFlair(
                 username = titleUsername,
                 isBot = profile?.isBot == true,
-                isVerified = profile?.isVerified == true,
-                isClubMember = profile?.isClubMember == true,
+                isVerified = (profile?.isVerified ?: initialIsVerified) == true,
+                isClubMember = (profile?.isClubMember ?: initialIsClubMember) == true,
                 flairStyle = profile?.flairStyle
                     ?: fm.corus.android.data.model.FlairStyle.NONE,
                 showAtPrefix = false,
@@ -554,7 +555,11 @@ fun OtherProfileScreen(
                     title = { otherProfileTitle() },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(fm.corus.android.localization.CorusStrings.common_back), tint = CorusColors.Text)
+                            Icon(
+                                imageVector = if (dismissesSheet) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(if (dismissesSheet) fm.corus.android.localization.CorusStrings.corus_live_close else fm.corus.android.localization.CorusStrings.common_back),
+                                tint = CorusColors.Text,
+                            )
                         }
                     },
                     actions = { if (!isBlocked && !profileUnavailable) profileActions() },
@@ -1552,6 +1557,7 @@ fun OtherProfileScreen(
                 onBack = onBack,
                 topInset = frost.statusBarPadding,
                 titleContent = otherProfileTitle,
+                dismissesSheet = dismissesSheet,
                 actions = { if (!isBlocked && !profileUnavailable) profileActions() },
             )
         }
