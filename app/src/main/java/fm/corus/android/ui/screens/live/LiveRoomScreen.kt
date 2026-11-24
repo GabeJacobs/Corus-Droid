@@ -2,6 +2,7 @@ package fm.corus.android.ui.screens.live
 
 import androidx.compose.ui.res.stringResource
 import fm.corus.android.localization.CorusStrings
+import fm.corus.android.ui.components.safeImeNestedScroll
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -1947,7 +1948,7 @@ internal fun RoomChat(
         if (rows.isNotEmpty()) list.scrollToItem(0)
     }
     val chatModifier = modifier.fillMaxWidth().then(
-        if (dismissKeyboardOnScroll) Modifier.imeNestedScroll() else Modifier,
+        if (dismissKeyboardOnScroll) Modifier.safeImeNestedScroll() else Modifier,
     )
     if (rows.isEmpty()) {
         val emptyChatModifier = if (dismissKeyboardOnScroll) {
