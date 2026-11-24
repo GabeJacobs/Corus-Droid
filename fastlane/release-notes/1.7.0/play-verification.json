@@ -1,0 +1,56 @@
+{
+  "verified_at": "2026-11-24T22:06:12Z",
+  "version_name": "1.7.0",
+  "version_code": 156,
+  "source_commit": "449480b7dd13b1ebf03e6d9988649cb90a3dc575",
+  "tracks": [
+    {
+      "releases": [
+        {
+          "name": "1.7.0",
+          "release_notes": [
+            {
+              "language": "en-US",
+              "text": "Meet Corus Live: listen together in live music rooms, take turns as DJ, and chat while the music plays. This update also improves queue editing, room navigation, and translations.\n"
+            },
+            {
+              "language": "pt-BR",
+              "text": "Conheça o Corus Live: ouça músicas em salas ao vivo, reveze como DJ e converse enquanto a música toca. Esta atualização também traz melhorias na edição da fila, na navegação pelas salas e nas traduções.\n"
+            }
+          ],
+          "status": "completed",
+          "version_codes": [
+            "156"
+          ]
+        }
+      ],
+      "track": "production"
+    },
+    {
+      "releases": [
+        {
+          "name": "1.7.0",
+          "release_notes": [
+            {
+              "language": "en-US",
+              "text": "Meet Corus Live: listen together in live music rooms, take turns as DJ, and chat while the music plays. This update also improves queue editing, room navigation, and translations.\n"
+            },
+            {
+              "language": "pt-BR",
+              "text": "Conheça o Corus Live: ouça músicas em salas ao vivo, reveze como DJ e converse enquanto a música toca. Esta atualização também traz melhorias na edição da fila, na navegação pelas salas e nas traduções.\n"
+            }
+          ],
+          "status": "completed",
+          "version_codes": [
+            "156"
+          ]
+        }
+      ],
+      "track": "internal"
+    }
+  ],
+  "managed_publishing": false,
+  "console_state": "Changes in review; running quick checks; Start full rollout",
+  "rollout_fraction": 1.0,
+  "bundle_sha256": "437e5733091dd842c32bc9976c5c96787dd2c96e70b22768196110c58809af6f"
+}
