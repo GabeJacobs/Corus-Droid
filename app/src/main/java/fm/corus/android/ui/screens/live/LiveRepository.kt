@@ -272,13 +272,13 @@ internal class LiveRepository @Inject constructor(
     }
 
     suspend fun playlist(link: LivePlaylistLink): Pair<String, List<LiveTrack>> = when (link) {
-        is LivePlaylistLink.Spotify -> spotifyPlaylist(link.id)
+        is LivePlaylistLink.Spotify -> spotifyPlaylist(link.id, link.isAlbum)
         is LivePlaylistLink.AppleMusic -> appleMusicPlaylists.load(link)
     }
 
-    private suspend fun spotifyPlaylist(id: String): Pair<String, List<LiveTrack>> {
+    private suspend fun spotifyPlaylist(id: String, isAlbum: Boolean): Pair<String, List<LiveTrack>> {
         val data = functions.getHttpsCallable("corusLiveSpotifyPlaylist").call(mapOf(
-            "playlistId" to id, "market" to Locale.getDefault().country.ifBlank { "US" },
+            (if (isAlbum) "albumId" else "playlistId") to id, "market" to Locale.getDefault().country.ifBlank { "US" },
         )).await().getData().liveFields().orEmpty()
         val tracks = data.rows("tracks").mapNotNull { row ->
             val duration = row.number("duration_ms").toInt()

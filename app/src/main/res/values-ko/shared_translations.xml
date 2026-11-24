@@ -464,7 +464,7 @@
     <string name="live_host_provider_body">"라이브를 시작하려면 Spotify Premium 또는 Apple Music 구독을 연결하세요. Corus가 연결한 서비스로 전환돼요."</string>
     <string name="live_host_provider_spotify_body">"라이브를 시작하려면 Spotify Premium을 연결하세요. Corus의 음악 서비스가 Spotify로 전환돼요."</string>
     <string name="live_host_provider_title">"음악 서비스 연결"</string>
-    <string name="live_import_playlist">"플레이리스트 가져오기"</string>
+    <string name="live_import_playlist">"플레이리스트 또는 앨범 가져오기"</string>
     <string name="live_invite_dj">"DJ 초대"</string>
     <string name="live_invite_djs">"DJ 초대"</string>
     <string name="live_invited">"초대됨"</string>
@@ -491,13 +491,13 @@
     <string name="live_playlist_add">"대기열에 추가"</string>
     <string name="live_playlist_add_count">"%1$d곡을 대기열에 추가"</string>
     <string name="live_playlist_clear_selection">"선택 해제"</string>
-    <string name="live_playlist_import_instructions">"Spotify 또는 Apple Music에서 플레이리스트를 열고 ‘공유’, ‘링크 복사’를 차례로 누르세요. 아래에 링크를 붙여넣으세요."</string>
-    <string name="live_playlist_invalid_link">"Spotify 또는 Apple Music 플레이리스트 링크를 붙여넣으세요."</string>
-    <string name="live_playlist_link">"플레이리스트 링크"</string>
-    <string name="live_playlist_load_failed">"이 플레이리스트를 불러오지 못했어요. 링크를 확인하고 다시 시도해 주세요."</string>
-    <string name="live_playlist_loading">"플레이리스트 불러오는 중…"</string>
-    <string name="live_playlist_no_new_songs">"이 플레이리스트에 새로 추가할 곡이 없어요."</string>
-    <string name="live_playlist_public_link_hint">"Spotify 또는 Apple Music에서 공개로 공유된 플레이리스트 링크를 사용하세요."</string>
+    <string name="live_playlist_import_instructions">"Spotify 또는 Apple Music에서 플레이리스트나 앨범을 열고 공유를 누른 다음 링크 복사를 선택하세요. 아래에 링크를 붙여넣으세요."</string>
+    <string name="live_playlist_invalid_link">"Spotify 또는 Apple Music의 플레이리스트나 앨범 링크를 붙여넣으세요."</string>
+    <string name="live_playlist_link">"플레이리스트 또는 앨범 링크"</string>
+    <string name="live_playlist_load_failed">"플레이리스트 또는 앨범을 불러오지 못했어요. 링크를 확인하고 다시 시도하세요."</string>
+    <string name="live_playlist_loading">"노래 불러오는 중…"</string>
+    <string name="live_playlist_no_new_songs">"추가할 새 노래가 없어요."</string>
+    <string name="live_playlist_public_link_hint">"Spotify 또는 Apple Music의 공개 플레이리스트나 앨범 링크를 사용하세요."</string>
     <string name="live_playlist_queue_full">"대기열이 꽉 찼어요."</string>
     <string name="live_playlist_select_all">"모두 선택"</string>
     <string name="live_ready_to_record">"녹음 준비 완료"</string>
@@ -657,4 +657,5 @@
     <string name="corus_live_song_saved_by">"%1$s 님이 이 곡을 저장했어요"</string>
     <string name="corus_live_song_saved_by_many">"%1$s 님 외 %2$s명이 이 곡을 저장했어요"</string>
     <string name="corus_live_song_saved_by_two">"%1$s 님 외 1명이 이 곡을 저장했어요"</string>
+    <string name="corus_live_chat_retry">"전송하지 못했어요 · 다시 시도"</string>
 </resources>

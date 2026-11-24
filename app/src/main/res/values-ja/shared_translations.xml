@@ -464,7 +464,7 @@
     <string name="live_host_provider_body">"ライブを始めるにはSpotify PremiumまたはApple Musicのサブスクリプションを接続してください。Corusは接続したサービスに切り替わります。"</string>
     <string name="live_host_provider_spotify_body">"ライブを始めるにはSpotify Premiumを接続してください。Corusの音楽サービスがSpotifyに切り替わります。"</string>
     <string name="live_host_provider_title">"音楽サービスを接続"</string>
-    <string name="live_import_playlist">"プレイリストをインポート"</string>
+    <string name="live_import_playlist">"プレイリスト・アルバムを取り込む"</string>
     <string name="live_invite_dj">"DJを招待"</string>
     <string name="live_invite_djs">"DJを招待"</string>
     <string name="live_invited">"招待済み"</string>
@@ -491,13 +491,13 @@
     <string name="live_playlist_add">"キューに追加"</string>
     <string name="live_playlist_add_count">"%1$d曲をキューに追加"</string>
     <string name="live_playlist_clear_selection">"選択を解除"</string>
-    <string name="live_playlist_import_instructions">"SpotifyまたはApple Musicでプレイリストを開き、「共有」、「リンクをコピー」の順にタップします。下にリンクを貼り付けてください。"</string>
-    <string name="live_playlist_invalid_link">"SpotifyまたはApple Musicのプレイリストのリンクを貼り付けてください。"</string>
-    <string name="live_playlist_link">"プレイリストのリンク"</string>
-    <string name="live_playlist_load_failed">"このプレイリストを読み込めませんでした。リンクを確認してもう一度お試しください。"</string>
-    <string name="live_playlist_loading">"プレイリストを読み込み中…"</string>
-    <string name="live_playlist_no_new_songs">"このプレイリストから追加できる新しい曲はありません。"</string>
-    <string name="live_playlist_public_link_hint">"SpotifyまたはApple Musicで公開されているプレイリストのリンクを使ってください。"</string>
+    <string name="live_playlist_import_instructions">"SpotifyまたはApple Musicでプレイリストやアルバムを開き、「共有」からリンクをコピーして、下に貼り付けてください。"</string>
+    <string name="live_playlist_invalid_link">"SpotifyまたはApple Musicのプレイリストやアルバムのリンクを貼り付けてください。"</string>
+    <string name="live_playlist_link">"プレイリスト・アルバムのリンク"</string>
+    <string name="live_playlist_load_failed">"プレイリストまたはアルバムを読み込めませんでした。リンクを確認して、もう一度お試しください。"</string>
+    <string name="live_playlist_loading">"曲を読み込み中…"</string>
+    <string name="live_playlist_no_new_songs">"追加できる新しい曲はありません。"</string>
+    <string name="live_playlist_public_link_hint">"SpotifyまたはApple Musicで公開されているプレイリストやアルバムのリンクを使ってください。"</string>
     <string name="live_playlist_queue_full">"キューがいっぱいです。"</string>
     <string name="live_playlist_select_all">"すべて選択"</string>
     <string name="live_ready_to_record">"録音できます"</string>
@@ -657,4 +657,5 @@
     <string name="corus_live_song_saved_by">"%1$sがこの曲を保存しました"</string>
     <string name="corus_live_song_saved_by_many">"%1$sと他%2$s人がこの曲を保存しました"</string>
     <string name="corus_live_song_saved_by_two">"%1$sと他1人がこの曲を保存しました"</string>
+    <string name="corus_live_chat_retry">"送信できませんでした · 再試行"</string>
 </resources>

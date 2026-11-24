@@ -464,7 +464,7 @@
     <string name="live_host_provider_body">"Connecte Spotify Premium ou un abonnement Apple Music pour lancer un direct. Corus utilisera le service connecté."</string>
     <string name="live_host_provider_spotify_body">"Connecte Spotify Premium pour lancer un direct. Corus utilisera Spotify comme service de musique."</string>
     <string name="live_host_provider_title">"Connecter un service de musique"</string>
-    <string name="live_import_playlist">"Importer une playlist"</string>
+    <string name="live_import_playlist">"Importer une playlist ou un album"</string>
     <string name="live_invite_dj">"Inviter un DJ"</string>
     <string name="live_invite_djs">"Inviter des DJ"</string>
     <string name="live_invited">"Invitation envoyée"</string>
@@ -491,13 +491,13 @@
     <string name="live_playlist_add">"Ajouter à la file d’attente"</string>
     <string name="live_playlist_add_count">"Ajouter %1$d à la file d’attente"</string>
     <string name="live_playlist_clear_selection">"Effacer la sélection"</string>
-    <string name="live_playlist_import_instructions">"Ouvre une playlist dans Spotify ou Apple Music, touche Partager, puis Copier le lien. Colle le lien ci-dessous."</string>
-    <string name="live_playlist_invalid_link">"Colle un lien de playlist Spotify ou Apple Music."</string>
-    <string name="live_playlist_link">"Lien de la playlist"</string>
-    <string name="live_playlist_load_failed">"Impossible de charger cette playlist. Vérifie le lien et réessaie."</string>
-    <string name="live_playlist_loading">"Chargement de la playlist…"</string>
-    <string name="live_playlist_no_new_songs">"Cette playlist ne contient aucun nouveau titre à ajouter."</string>
-    <string name="live_playlist_public_link_hint">"Utilise le lien public d’une playlist Spotify ou Apple Music."</string>
+    <string name="live_playlist_import_instructions">"Ouvrez une playlist ou un album dans Spotify ou Apple Music, appuyez sur Partager, puis sur Copier le lien. Collez le lien ci-dessous."</string>
+    <string name="live_playlist_invalid_link">"Collez le lien d’une playlist ou d’un album Spotify ou Apple Music."</string>
+    <string name="live_playlist_link">"Lien de playlist ou d’album"</string>
+    <string name="live_playlist_load_failed">"Impossible de charger cette playlist ou cet album. Vérifiez le lien et réessayez."</string>
+    <string name="live_playlist_loading">"Chargement des morceaux…"</string>
+    <string name="live_playlist_no_new_songs">"Aucun nouveau morceau à ajouter."</string>
+    <string name="live_playlist_public_link_hint">"Utilisez un lien public vers une playlist ou un album Spotify ou Apple Music."</string>
     <string name="live_playlist_queue_full">"Ta file d’attente est pleine."</string>
     <string name="live_playlist_select_all">"Tout sélectionner"</string>
     <string name="live_ready_to_record">"Prêt à enregistrer"</string>
@@ -657,4 +657,5 @@
     <string name="corus_live_song_saved_by">"%1$s a enregistré ce titre"</string>
     <string name="corus_live_song_saved_by_many">"%1$s et %2$s autres personnes ont enregistré ce titre"</string>
     <string name="corus_live_song_saved_by_two">"%1$s et 1 autre personne ont enregistré ce titre"</string>
+    <string name="corus_live_chat_retry">"Échec de l’envoi · Réessayer"</string>
 </resources>

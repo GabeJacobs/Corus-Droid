@@ -17,7 +17,8 @@ internal class LiveAppleMusicPlaylists @Inject constructor(
 ) {
     suspend fun load(link: LivePlaylistLink.AppleMusic): Pair<String, List<LiveTrack>> {
         val token = cloud.getAppleMusicDeveloperToken().token
-        val playlistPath = "/v1/catalog/${link.storefront}/playlists/${link.id}"
+        val collection = if (link.isAlbum) "albums" else "playlists"
+        val playlistPath = "/v1/catalog/${link.storefront}/$collection/${link.id}"
         val playlist = get<AppleMusicPlaylistResponse>("$playlistPath?include=tracks", token).data.firstOrNull()
             ?: error("Apple Music playlist is missing.")
         val tracksPath = "$playlistPath/tracks"

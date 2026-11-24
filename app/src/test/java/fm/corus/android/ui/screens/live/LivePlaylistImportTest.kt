@@ -28,17 +28,23 @@ class LivePlaylistImportTest {
             LivePlaylistLink.Spotify("2CKnioFobYQRK3EEMf9Jr6"),
             LivePlaylistLink.parse("https://open.spotify.com/intl-pt/playlist/2CKnioFobYQRK3EEMf9Jr6?si=abc"),
         )
-        assertNull(LivePlaylistLink.parse("https://music.apple.com/us/album/my-mix/1234"))
+        assertEquals(LivePlaylistLink.AppleMusic("1234", "us", true),
+            LivePlaylistLink.parse("https://music.apple.com/us/album/my-mix/1234?ls=1"))
+        assertEquals(LivePlaylistLink.Spotify("55RsHwEbtpdYtFqwdNdKki", true),
+            LivePlaylistLink.parse("https://open.spotify.com/album/55RsHwEbtpdYtFqwdNdKki?si=abc"))
+        assertNull(LivePlaylistLink.parse("https://music.apple.com/us/album/my-mix/pl.u-abc"))
         assertNull(LivePlaylistLink.parse("https://music.apple.com/us/playlist/my-mix/p.private"))
         assertNull(LivePlaylistLink.parse("https://music.apple.com.example/gb/playlist/my-mix/pl.u-abc123"))
     }
 
     @Test
     fun `catalog import reads all pages in order and only returns queueable songs`() = runTest {
+        for (isAlbum in listOf(false, true)) {
         val cloud = mock<CloudFunctionsDataSource>()
         whenever(cloud.getAppleMusicDeveloperToken())
             .thenReturn(CloudFunctionsDataSource.AppleMusicDeveloperToken("test-token", Long.MAX_VALUE))
-        val path = "/v1/catalog/gb/playlists/pl.u-abc123"
+        val id = if (isAlbum) "123456" else "pl.u-abc123"
+        val path = "/v1/catalog/gb/${if (isAlbum) "albums" else "playlists"}/$id"
         val requests = mutableListOf<String>()
         val engine = MockEngine { request ->
             assertEquals("api.music.apple.com", request.url.host)
@@ -69,7 +75,7 @@ class LivePlaylistImportTest {
             install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
         }.use { client ->
             val (title, tracks) = LiveAppleMusicPlaylists(cloud, client)
-                .load(LivePlaylistLink.AppleMusic("pl.u-abc123", "gb"))
+                .load(LivePlaylistLink.AppleMusic(id, "gb", isAlbum))
             assertEquals("My Mix", title)
             assertEquals(listOf("am:123", "am:125"), tracks.map { it.id })
             val song = tracks.first().song
@@ -81,5 +87,6 @@ class LivePlaylistImportTest {
             assertEquals("https://example.com/preview.m4a", song.previewUrl)
         }
         assertEquals(listOf("$path?include=tracks", "$path/tracks?offset=3"), requests)
+        }
     }
 }

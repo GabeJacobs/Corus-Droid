@@ -405,4 +405,5 @@
     <string name="corus_live_song_saved_by">"%1$s saved this song"</string>
     <string name="corus_live_song_saved_by_many">"%1$s and %2$s others saved this song"</string>
     <string name="corus_live_song_saved_by_two">"%1$s and 1 other saved this song"</string>
+    <string name="corus_live_chat_retry">"Couldn’t send · Retry"</string>
 </resources>
