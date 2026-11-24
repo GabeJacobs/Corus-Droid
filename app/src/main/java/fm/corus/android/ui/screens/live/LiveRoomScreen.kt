@@ -159,6 +159,7 @@ internal fun LiveRoomScreen(
     headerAlpha: Float,
     minimizeDrag: Modifier,
 ) {
+    val ownBlockedAuthors by vm.blockedAuthors.collectAsState()
     var panel by remember(room.id) { mutableStateOf<RoomPanel?>(null) }
     // Resolve the host as the room appears, so opening Info reuses the ready profile.
     val infoHostProfile by produceState(room.host.profile, room.host.uid, state.hosting) {
@@ -507,7 +508,7 @@ internal fun LiveRoomScreen(
             }
             if (canControl) {
                 val latestChat = chatRows.lastOrNull {
-                    it.author.uid != state.uid && it.kind != "listenerLeft" && !it.isSongLikeNotice
+                    it.author.uid !in ownBlockedAuthors && it.author.uid != state.uid && it.kind != "listenerLeft" && !it.isSongLikeNotice
                 }
                 var lastReadMessage by remember(room.id) { mutableStateOf<String?>(null) }
                 LaunchedEffect(pager.currentPage, latestChat?.id) {
@@ -1911,6 +1912,10 @@ internal fun RoomChat(
     inspectReaction: ((LiveMessage, String) -> Unit)? = null,
     dismissKeyboardOnScroll: Boolean = false,
 ) {
+    val blockedAuthors by vm.blockedAuthors.collectAsState()
+    val blockedReady by vm.blockedAuthorsReady.collectAsState()
+    var revealedBlockedMessages by remember(state.room?.id) { mutableStateOf(setOf<String>()) }
+    LaunchedEffect(blockedAuthors) { revealedBlockedMessages = emptySet() }
     val list = rememberLazyListState()
     val haptics = LocalHapticFeedback.current
     val hapticView = LocalView.current
@@ -1939,8 +1944,15 @@ internal fun RoomChat(
         contentPadding = PaddingValues(bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom),
     ) {
-        items(rows.asReversed(), key = { it.id }) { message ->
-            if (message.kind == "listenerJoined" || message.kind == "roomTitleChanged" || message.isSongLikeNotice || message.kind == "songSaved") {
+        items(if (blockedReady) rows.asReversed() else emptyList(), key = { it.id }) { message ->
+            if (message.author.uid in blockedAuthors && message.id !in revealedBlockedMessages) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    LiveText(stringResource(CorusStrings.messaging_blocked_message), CorusFont.caption, CorusColors.Secondary)
+                    TextButton(onClick = { revealedBlockedMessages = revealedBlockedMessages + message.id }) {
+                        Text(stringResource(CorusStrings.messaging_show_blocked_message))
+                    }
+                }
+            } else if (message.kind == "listenerJoined" || message.kind == "roomTitleChanged" || message.isSongLikeNotice || message.kind == "songSaved") {
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(

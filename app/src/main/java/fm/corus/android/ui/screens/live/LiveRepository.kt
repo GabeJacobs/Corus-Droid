@@ -41,6 +41,10 @@ internal class LiveRepository @Inject constructor(
     private val remoteConfig: RemoteConfigService,
     private val appleMusicPlaylists: LiveAppleMusicPlaylists,
 ) {
+    fun hostIsBlocked(uid: String) = users.isUserHidden(uid)
+    val blockedAuthors get() = users.blockedIds
+    val blockedAuthorsReady get() = users.blockedIdsLoaded
+
     private val rooms get() = database.collection("corusLiveRooms")
 
     suspend fun call(action: String, roomId: String? = null, fields: LiveFields = emptyMap()): LiveFields {

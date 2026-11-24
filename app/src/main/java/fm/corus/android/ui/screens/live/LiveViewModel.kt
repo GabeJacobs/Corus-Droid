@@ -299,6 +299,9 @@ internal class LiveViewModel @Inject constructor(
 ) : ViewModel(), DefaultLifecycleObserver {
     private val menuAccessPrefs = context.getSharedPreferences("corus_live_menu_access", Context.MODE_PRIVATE)
     private val welcomeHistory = context.getSharedPreferences("corus_live_welcome_history", Context.MODE_PRIVATE)
+    val blockedAuthors get() = repository.blockedAuthors
+    val blockedAuthorsReady get() = repository.blockedAuthorsReady
+
     private val accessLock = Mutex()
     private val discoveryRefreshLock = Mutex()
     private val _state = MutableStateFlow(
@@ -550,7 +553,7 @@ internal class LiveViewModel @Inject constructor(
         val roomSource = discoverySource
         val uid = state.value.uid
         fun eligible(room: LiveRoom) =
-            room.id !in hiddenRooms && room.active(now) && room.deadline > (room.pausedAt ?: now) && room.host.uid != uid
+            room.id !in hiddenRooms && !repository.hostIsBlocked(room.host.uid) && room.active(now) && room.deadline > (room.pausedAt ?: now) && room.host.uid != uid
         val rooms = roomSource.filter(::eligible)
         if (!state.value.access?.listenerCounts.orFalse() || rooms.isEmpty()) {
             update { copy(discovery = rooms, discoveryListenerCounts = emptyMap()) }
