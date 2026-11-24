@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="for_you_title">"나만의 믹스"</string>
-    <string name="for_you_title_compact">추천</string>
+    <string name="for_you_title_compact">"추천"</string>
     <string name="for_you_tune">"나만의 믹스 조정"</string>
     <string name="for_you_choose">"나만의 믹스를 어떻게 조정할지 선택하세요:"</string>
     <string name="for_you_eclectic">"다채롭게"</string>

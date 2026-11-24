@@ -679,4 +679,10 @@
     <string name="corus_live_host_exit_unavailable">"現在、引き継げるDJがいません。あなたは引き続きホストです。"</string>
     <string name="corus_live_host_exit_working">"お待ちください…"</string>
     <string name="corus_live_host_options">"ホストのオプション"</string>
+    <string name="corus_live_host_invitation_sent">"ホストへの招待を送信しました"</string>
+    <string name="for_you_title_compact">"For You"</string>
+    <string name="settings_apple_music_library_save_subtitle">"保存した曲はApple Musicライブラリに追加されます"</string>
+    <string name="settings_connect_apple_music_failed">"Apple Musicに接続できませんでした。もう一度お試しください。"</string>
+    <string name="settings_connecting_apple_music">"Apple Musicに接続中…"</string>
+    <string name="settings_disconnect_apple_music">"Apple Musicとの接続を解除"</string>
 </resources>

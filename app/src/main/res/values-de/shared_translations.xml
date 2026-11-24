@@ -679,4 +679,10 @@
     <string name="corus_live_host_exit_unavailable">"Gerade kann kein anderer DJ übernehmen. Du hostest weiterhin."</string>
     <string name="corus_live_host_exit_working">"Bitte warten…"</string>
     <string name="corus_live_host_options">"Host-Optionen"</string>
+    <string name="corus_live_host_invitation_sent">"Einladung zum Hosten gesendet"</string>
+    <string name="for_you_title_compact">"Für dich"</string>
+    <string name="settings_apple_music_library_save_subtitle">"Songs, die du speicherst, werden zu deiner Apple Music-Mediathek hinzugefügt"</string>
+    <string name="settings_connect_apple_music_failed">"Verbindung zu Apple Music fehlgeschlagen. Versuche es erneut."</string>
+    <string name="settings_connecting_apple_music">"Verbindung zu Apple Music wird hergestellt…"</string>
+    <string name="settings_disconnect_apple_music">"Apple Music trennen"</string>
 </resources>

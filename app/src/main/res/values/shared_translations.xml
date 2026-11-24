@@ -427,4 +427,5 @@
     <string name="corus_live_host_exit_unavailable">"No other DJ is available to take over right now. You’re still hosting."</string>
     <string name="corus_live_host_exit_working">"Please wait…"</string>
     <string name="corus_live_host_options">"Host options"</string>
+    <string name="corus_live_host_invitation_sent">"Host invitation sent"</string>
 </resources>

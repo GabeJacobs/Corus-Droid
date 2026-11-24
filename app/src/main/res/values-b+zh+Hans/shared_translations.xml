@@ -679,4 +679,10 @@
     <string name="corus_live_host_exit_unavailable">"目前没有其他 DJ 可以接任。你仍是主持人。"</string>
     <string name="corus_live_host_exit_working">"请稍候…"</string>
     <string name="corus_live_host_options">"主持人选项"</string>
+    <string name="corus_live_host_invitation_sent">"已发送主持邀请"</string>
+    <string name="for_you_title_compact">"为你推荐"</string>
+    <string name="settings_apple_music_library_save_subtitle">"你保存的歌曲会添加到你的 Apple Music 资料库"</string>
+    <string name="settings_connect_apple_music_failed">"无法连接 Apple Music。请重试。"</string>
+    <string name="settings_connecting_apple_music">"正在连接 Apple Music…"</string>
+    <string name="settings_disconnect_apple_music">"断开 Apple Music 连接"</string>
 </resources>

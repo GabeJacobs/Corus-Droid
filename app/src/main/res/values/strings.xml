@@ -85,9 +85,9 @@
     <string name="playback_mode_prompt_not_now">"Not Now"</string>
     <string name="playback_mode_prompt_link_footnote">"You can switch back to 30-second previews anytime."</string>
     <string name="settings_connect_apple_music">"Connect Apple Music"</string>
-    <string name="settings_connecting_apple_music">Connecting to Apple Music…</string>
-    <string name="settings_disconnect_apple_music">Disconnect Apple Music</string>
-    <string name="settings_connect_apple_music_failed">Couldn’t connect to Apple Music. Try again.</string>
+    <string name="settings_connecting_apple_music">"Connecting to Apple Music…"</string>
+    <string name="settings_disconnect_apple_music">"Disconnect Apple Music"</string>
+    <string name="settings_connect_apple_music_failed">"Couldn’t connect to Apple Music. Try again."</string>
     <string name="playback_mode_prompt_body_apple_music">"Full songs require an Apple Music subscription and the Apple Music app installed."</string>
     <string name="playback_mode_prompt_previews">"30-second previews"</string>
     <string name="playback_mode_prompt_full_songs">"Full Songs"</string>
@@ -1698,7 +1698,7 @@
     <string name="live_you_liked_song">"You liked this song"</string>
     <string name="live_switch_to_talk">"Switch to Talk"</string>
     <string name="live_decline_talk_request">"Decline"</string>
-    <string name="settings_apple_music_library_save_subtitle">Songs you save are added to your Apple Music library</string>
+    <string name="settings_apple_music_library_save_subtitle">"Songs you save are added to your Apple Music library"</string>
     <string name="live_welcome_message_from_host">"A message from the host"</string>
     <string name="live_welcome_message_from_user">"A message from %1$s"</string>
     <string name="live_dj_invitation_title">Invitation to DJ</string>

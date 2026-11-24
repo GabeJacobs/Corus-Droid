@@ -679,4 +679,10 @@
     <string name="corus_live_host_exit_unavailable">"Aucun autre DJ ne peut prendre le relais pour le moment. Vous restez l’hôte."</string>
     <string name="corus_live_host_exit_working">"Veuillez patienter…"</string>
     <string name="corus_live_host_options">"Options de l’hôte"</string>
+    <string name="corus_live_host_invitation_sent">"Invitation à animer envoyée"</string>
+    <string name="for_you_title_compact">"Pour toi"</string>
+    <string name="settings_apple_music_library_save_subtitle">"Les titres que tu enregistres sont ajoutés à ta bibliothèque Apple Music"</string>
+    <string name="settings_connect_apple_music_failed">"Impossible de se connecter à Apple Music. Réessaie."</string>
+    <string name="settings_connecting_apple_music">"Connexion à Apple Music…"</string>
+    <string name="settings_disconnect_apple_music">"Déconnecter Apple Music"</string>
 </resources>

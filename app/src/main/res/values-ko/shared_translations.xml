@@ -679,4 +679,9 @@
     <string name="corus_live_host_exit_unavailable">"지금은 호스트를 맡을 수 있는 다른 DJ가 없어요. 회원님이 계속 호스트입니다."</string>
     <string name="corus_live_host_exit_working">"잠시만 기다려 주세요…"</string>
     <string name="corus_live_host_options">"호스트 옵션"</string>
+    <string name="corus_live_host_invitation_sent">"호스트 초대를 보냈어요"</string>
+    <string name="settings_apple_music_library_save_subtitle">"저장한 곡은 Apple Music 라이브러리에 추가돼요"</string>
+    <string name="settings_connect_apple_music_failed">"Apple Music에 연결하지 못했어요. 다시 시도해주세요."</string>
+    <string name="settings_connecting_apple_music">"Apple Music에 연결 중…"</string>
+    <string name="settings_disconnect_apple_music">"Apple Music 연결 해제"</string>
 </resources>

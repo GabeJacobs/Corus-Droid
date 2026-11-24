@@ -679,4 +679,10 @@
     <string name="corus_live_host_exit_unavailable">"Nessun altro DJ può prendere il tuo posto al momento. Sei ancora tu l’host."</string>
     <string name="corus_live_host_exit_working">"Attendi…"</string>
     <string name="corus_live_host_options">"Opzioni host"</string>
+    <string name="corus_live_host_invitation_sent">"Invito a diventare host inviato"</string>
+    <string name="for_you_title_compact">"Per te"</string>
+    <string name="settings_apple_music_library_save_subtitle">"I brani che salvi vengono aggiunti alla tua libreria Apple Music"</string>
+    <string name="settings_connect_apple_music_failed">"Impossibile connettersi ad Apple Music. Riprova."</string>
+    <string name="settings_connecting_apple_music">"Connessione ad Apple Music…"</string>
+    <string name="settings_disconnect_apple_music">"Disconnetti Apple Music"</string>
 </resources>

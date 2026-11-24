@@ -413,6 +413,7 @@ object CorusStrings {
     @StringRes val corus_live_handoff_invite: Int = R.string.live_handoff_invite
     @StringRes val corus_live_hide_room: Int = R.string.live_hide_room
     @StringRes val corus_live_host: Int = R.string.live_host
+    @StringRes val corus_live_host_invitation_sent: Int = R.string.corus_live_host_invitation_sent
     @StringRes val corus_live_host_provider_body: Int = R.string.live_host_provider_body
     @StringRes val corus_live_host_provider_spotify_body: Int = R.string.live_host_provider_spotify_body
     @StringRes val corus_live_host_provider_title: Int = R.string.live_host_provider_title
@@ -1156,6 +1157,7 @@ object CorusStrings {
     @StringRes val native_165e9250b511: Int = R.string.share_profile_link_preview
     @StringRes val native_1fd9ae1607aa: Int = R.string.corus_native_1fd9ae1607aa
     @StringRes val native_400157a33bff: Int = R.string.corus_native_400157a33bff
+    @StringRes val native_63608864d52c: Int = R.string.settings_apple_music_library_save_subtitle
     @StringRes val native_84b771e51b43: Int = R.string.corus_native_84b771e51b43
     @StringRes val native_8e62480111b3: Int = R.string.for_you_unlock_club
     @StringRes val native_909cb81127c5: Int = R.string.corus_native_909cb81127c5
@@ -1842,6 +1844,8 @@ object CorusStrings {
     @StringRes val settings_appearance_theme_dark: Int = R.string.appearance_option_dark
     @StringRes val settings_appearance_theme_light: Int = R.string.appearance_option_light
     @StringRes val settings_appearance_theme_system: Int = R.string.appearance_option_system
+    @StringRes val settings_connect_apple_music_failed: Int = R.string.settings_connect_apple_music_failed
+    @StringRes val settings_connecting_apple_music: Int = R.string.settings_connecting_apple_music
     @StringRes val settings_dialog_delete_message: Int = R.string.settings_dialog_delete_message
     @StringRes val settings_dialog_delete_title: Int = R.string.settings_dialog_delete_title
     @StringRes val settings_dialog_deleting_message: Int = R.string.settings_dialog_deleting_message
@@ -1851,6 +1855,7 @@ object CorusStrings {
     @StringRes val settings_dialog_verify_email_title: Int = R.string.settings_dialog_verify_email_title
     @StringRes val settings_dialog_verify_message: Int = R.string.settings_dialog_verify_message
     @StringRes val settings_dialog_verify_title: Int = R.string.settings_dialog_verify_title
+    @StringRes val settings_disconnect_apple_music: Int = R.string.settings_disconnect_apple_music
     @StringRes val settings_message_my_followers: Int = R.string.settings_message_my_followers
     @StringRes val settings_message_nobody: Int = R.string.settings_message_nobody
     @StringRes val settings_message_people_i_follow: Int = R.string.settings_message_people_i_follow

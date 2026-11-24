@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="for_you_title">"Your Mix"</string>
-    <string name="for_you_title_compact">@string/concert_tab_for_you</string>
+    <string name="for_you_title_compact">"For You"</string>
     <string name="for_you_tune">"Tune Your Mix"</string>
     <string name="for_you_choose">"Choose how Your Mix is tuned:"</string>
     <string name="for_you_eclectic">"Eclectic"</string>
