@@ -181,10 +181,13 @@ internal data class LiveUiState(
                 it.pausedAt == null && it.pendingSkip == null && it.voiceMode != "talk"
         }?.revision
 
-    fun trendingRoom(minListeners: Int): LiveRoom? =
-        discovery.asSequence()
-            .filter { (discoveryListenerCounts[it.id] ?: 0) >= minListeners }
-            .minWithOrNull(compareByDescending<LiveRoom> { discoveryListenerCounts[it.id] }.thenBy { it.id })
+    fun trendingRoom(minListeners: Int): LiveRoom? {
+        // Ranked discovery counts exclude guest DJs and the host.
+        fun people(room: LiveRoom) = discoveryListenerCounts.getValue(room.id) + room.djs.size + 1
+        return discovery.asSequence()
+            .filter { discoveryListenerCounts[it.id] != null && people(it) >= minListeners }
+            .minWithOrNull(compareByDescending<LiveRoom> { people(it) }.thenBy { it.id })
+    }
 
     val coversFeed get() = room != null && !minimized || progress == LiveProgress.TUNING
     val presentedRoom get() = room?.takeUnless { progress == LiveProgress.TUNING }

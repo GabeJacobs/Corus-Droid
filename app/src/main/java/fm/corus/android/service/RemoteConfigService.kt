@@ -318,7 +318,7 @@ class RemoteConfigService @Inject constructor(
     val liveTrendingMinListeners: Int
         get() {
             val value = remoteConfig.getDouble("live_trending_min_listeners")
-            return if (value in 1.0..Int.MAX_VALUE.toDouble() && value % 1.0 == 0.0) value.toInt() else 5
+            return if (value in 1.0..Int.MAX_VALUE.toDouble() && value % 1.0 == 0.0) value.toInt() else 6
         }
 
     val trendingFeedEnabled: Boolean
@@ -1175,7 +1175,7 @@ class RemoteConfigService @Inject constructor(
             "style_pack_1_enabled" to true,
             "corus_flair_open" to false,
             "trending_hashtag_banner_enabled" to true,
-            "live_trending_min_listeners" to 5L,
+            "live_trending_min_listeners" to 6L,
             "trending_feed_enabled" to true,
             "favorites_enabled" to true,
             "favorites_push_enabled" to true,
