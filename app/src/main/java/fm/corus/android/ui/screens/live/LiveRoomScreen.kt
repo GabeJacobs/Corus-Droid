@@ -403,7 +403,7 @@ internal fun LiveRoomScreen(
                         }
                     }
                 }
-                RoomStatus(state.listenerCount, room.collaborative,
+                RoomStatus(state.peopleCount ?: (state.listenerCount + room.djs.size + 1), room.collaborative,
                     { show(RoomPanel.LISTENERS) }, { show(RoomPanel.LINEUP) },
                     if (state.hosting || room.roomImageURL != null || room.roomDescription.isNotBlank()) ({ show(RoomPanel.INFO) }) else null)
             }
@@ -1447,7 +1447,7 @@ private fun LivePill(text: String, action: () -> Unit, showPeople: Boolean = fal
             Modifier.border(1.dp, CorusColors.Divider, CircleShape).padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (showPeople) Icon(Icons.Default.People, stringResource(R.string.corus_live_listeners), tint = CorusColors.Secondary, modifier = Modifier.size(14.dp))
+            if (showPeople) Icon(Icons.Default.People, stringResource(CorusStrings.search_trending_people), tint = CorusColors.Secondary, modifier = Modifier.size(14.dp))
             LiveText(text, CorusFont.captionMedium, CorusColors.Secondary)
         }
     }

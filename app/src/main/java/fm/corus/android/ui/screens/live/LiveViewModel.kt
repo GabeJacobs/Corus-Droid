@@ -95,6 +95,7 @@ internal data class LiveUiState(
     val cachedMenuAccess: Boolean = false,
     val discovery: List<LiveRoom> = emptyList(),
     val discoveryListenerCounts: Map<String, Int> = emptyMap(),
+    val discoveryPeopleCounts: Map<String, Int> = emptyMap(),
     val discoveryCountsUpdatedAt: Long = 0,
     val discoveryRoomOrder: List<String> = emptyList(),
     val invites: List<LiveFields> = emptyList(),
@@ -127,6 +128,7 @@ internal data class LiveUiState(
     val joinReady: Boolean = false,
     val joiningNeedsSpotifyHandoff: Boolean = false,
     val listenerCount: Int = 0,
+    val peopleCount: Int? = null,
     val incomingHearts: Long = 0,
     val messages: List<LiveMessage> = emptyList(),
     val staffMessages: List<LiveMessage> = emptyList(),
@@ -181,10 +183,13 @@ internal data class LiveUiState(
                 it.pausedAt == null && it.pendingSkip == null && it.voiceMode != "talk"
         }?.revision
 
-    fun trendingRoom(minListeners: Int): LiveRoom? =
+    fun discoveryPeople(room: LiveRoom): Int? = livePeopleCount(
+        discoveryListenerCounts[room.id], room.djs.size, discoveryPeopleCounts[room.id])
+
+    fun trendingRoom(minPeople: Int): LiveRoom? =
         discovery.asSequence()
-            .filter { (discoveryListenerCounts[it.id] ?: 0) >= minListeners }
-            .minWithOrNull(compareByDescending<LiveRoom> { discoveryListenerCounts[it.id] }.thenBy { it.id })
+            .filter { (discoveryPeople(it) ?: 0) >= minPeople }
+            .minWithOrNull(compareByDescending<LiveRoom> { discoveryPeople(it) }.thenBy { it.id })
 
     val coversFeed get() = room != null && !minimized || progress == LiveProgress.TUNING
     val presentedRoom get() = room?.takeUnless { progress == LiveProgress.TUNING }
@@ -577,17 +582,20 @@ internal class LiveViewModel @Inject constructor(
             room.id !in hiddenRooms && !repository.hostIsBlocked(room.host.uid) && room.active(now) && room.deadline > (room.pausedAt ?: now) && room.host.uid != uid
         val rooms = roomSource.filter(::eligible)
         if (!state.value.access?.listenerCounts.orFalse() || rooms.isEmpty()) {
-            update { copy(discovery = rooms, discoveryListenerCounts = emptyMap()) }
+            update { copy(discovery = rooms, discoveryListenerCounts = emptyMap(), discoveryPeopleCounts = emptyMap()) }
             return@withLock
         }
         val counts = try {
             val result = repository.call("discoveryListenerCounts", fields = mapOf(
-                "roomIds" to rooms.map { it.id }, "rankDiscovery" to true,
+                "roomIds" to rooms.map { it.id }, "rankDiscovery" to true, "populationProtocol" to 1,
                 "previousRoomIds" to state.value.discoveryRoomOrder.takeIf { now - state.value.discoveryCountsUpdatedAt < 60_000L }.orEmpty(),
             ))
             val counts = result["counts"].liveFields().orEmpty().mapValues { (_, count) -> (count as? Number)?.toInt() ?: 0 }
             val order = (result["rankedRoomIds"] as? List<*>)?.filterIsInstance<String>().orEmpty()
-            counts to order
+            val people = result["peopleCounts"].liveFields().orEmpty().mapNotNull { (id, value) ->
+                (value as? Number)?.toInt()?.takeIf { it >= 1 }?.let { id to it }
+            }.toMap()
+            Triple(counts, order, people)
         } catch (error: CancellationException) {
             throw error
         } catch (_: Exception) {
@@ -605,6 +613,7 @@ internal class LiveViewModel @Inject constructor(
                     .sortedBy { positions[it.id] ?: Int.MAX_VALUE },
                 discoveryRoomOrder = order,
                 discoveryListenerCounts = readyCounts,
+                discoveryPeopleCounts = counts?.third ?: freshDiscoveryCounts(discoveryPeopleCounts, discoveryCountsUpdatedAt, now),
                 discoveryCountsUpdatedAt = if (counts != null) now else discoveryCountsUpdatedAt,
             )
         }
@@ -2245,7 +2254,7 @@ internal class LiveViewModel @Inject constructor(
             copy(
                 room = room, ended = null, minimized = false, pendingChatEnabled = null, pendingChatReactions = emptyMap(),
                 recoverableHostRoom = null, muted = false, chatOutbox = LiveChatOutbox(), messages = emptyList(), staffMessages = emptyList(),
-                listenerCount = 0, membership = emptyMap(), audioError = null, spotifyUnavailableRevision = null,
+                listenerCount = 0, peopleCount = null, membership = emptyMap(), audioError = null, spotifyUnavailableRevision = null,
                 queueUpdating = false, queuePreview = null, queuePreviewVersion = null,
                 welcomePlaying = welcome != null, welcomeProgress = null,
                 incomingHearts = 0, pendingLikeNotice = null, optimisticLikedRevision = null,
@@ -2512,7 +2521,9 @@ internal class LiveViewModel @Inject constructor(
         try {
             val result = command(action, room.id, fields)
             if (action == "presence" && state.value.room?.id == room.id) {
-                update { copy(listenerCount = result.number("listenerCount").toInt()) }
+                update { copy(listenerCount = result.number("listenerCount").toInt(),
+                    peopleCount = livePeopleCount((result["listenerCount"] as? Number)?.toInt(),
+                        room.djs.size, (result["people"] as? Number)?.toInt())) }
             }
         } catch (error: CancellationException) {
             throw error

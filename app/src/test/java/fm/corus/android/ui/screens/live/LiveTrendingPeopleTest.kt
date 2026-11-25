@@ -5,18 +5,24 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class LiveTrendingPeopleTest {
-    @Test fun trendingRequiresFiveListenersRegardlessOfDJs() {
-        val room = LiveRoom("room", mapOf("djs" to listOf(mapOf("uid" to "dj1"), mapOf("uid" to "dj2"))))
+    private val room = LiveRoom("room", mapOf("djs" to listOf(mapOf("uid" to "dj1"), mapOf("uid" to "dj2"))))
+    @Test fun trendingRequiresSixPeopleIncludingHostAndDJs() {
         val state = LiveUiState(discovery = listOf(room), discoveryListenerCounts = mapOf("room" to 3))
-        assertNull(state.trendingRoom(5))
-        assertEquals(room, state.copy(discoveryListenerCounts = mapOf("room" to 5)).trendingRoom(5))
-        assertNull(state.copy(discoveryListenerCounts = emptyMap()).trendingRoom(5))
+        assertEquals(room, state.trendingRoom(6))
+        assertNull(state.copy(discoveryListenerCounts = mapOf("room" to 2)).trendingRoom(6))
+        assertNull(state.copy(discoveryListenerCounts = emptyMap()).trendingRoom(6))
     }
-
-    @Test fun trendingRanksByListeners() {
+    @Test fun authoritativeTotalDoesNotAddDJsAgain() {
+        val state = LiveUiState(discovery = listOf(room), discoveryListenerCounts = mapOf("room" to 3),
+            discoveryPeopleCounts = mapOf("room" to 6))
+        assertEquals(6, state.discoveryPeople(room))
+        assertNull(state.copy(discoveryPeopleCounts = mapOf("room" to 5)).trendingRoom(6))
+        assertEquals(6, livePeopleCount(3, 3, 6))
+        assertEquals(1, livePeopleCount(0, 0))
+    }
+    @Test fun trendingRanksByEveryoneInTheRoom() {
         val solo = LiveRoom("solo", emptyMap())
-        val group = LiveRoom("group", mapOf("djs" to listOf(mapOf("uid" to "dj1"), mapOf("uid" to "dj2"))))
-        val state = LiveUiState(discovery = listOf(solo, group), discoveryListenerCounts = mapOf("solo" to 6, "group" to 5))
-        assertEquals(solo, state.trendingRoom(5))
+        val state = LiveUiState(discovery = listOf(solo, room), discoveryListenerCounts = mapOf("solo" to 5, "room" to 4))
+        assertEquals(room, state.trendingRoom(6))
     }
 }

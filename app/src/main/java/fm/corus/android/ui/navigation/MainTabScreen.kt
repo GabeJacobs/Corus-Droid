@@ -154,13 +154,14 @@ fun MainTabScreen(
     val remoteConfig = viewModel.remoteConfigService
     val remoteConfigRevision by remoteConfig.revision.collectAsState()
     val liveShowGoLiveOnLaunch = remember(remoteConfig, remoteConfigRevision) { remoteConfig.liveShowGoLiveOnLaunch }
-    val liveTrendingMinListeners = remember(remoteConfig, remoteConfigRevision) { remoteConfig.liveTrendingMinListeners }
+    val liveTrendingMinPeople = remember(remoteConfig, remoteConfigRevision) { remoteConfig.liveTrendingMinPeople }
     val liveNavigationState = LiveNavigationState(
         access = liveState.access,
         roomCoversFeed = liveState.coversFeed,
         discovery = liveState.discovery,
         discoveryListenerCounts = liveState.discoveryListenerCounts,
-        trendingRoom = liveState.trendingRoom(liveTrendingMinListeners),
+        discoveryPeopleCounts = liveState.discovery.mapNotNull { room -> liveState.discoveryPeople(room)?.let { room.id to it } }.toMap(),
+        trendingRoom = liveState.trendingRoom(liveTrendingMinPeople),
         showGoLive = liveState.uid != null && (liveShowGoLiveOnLaunch || liveState.cachedMenuAccess),
         canOpenSetup = liveState.setup == null && liveState.progress == null && (liveState.room == null || liveState.hosting),
         mixedSaves = liveState.mixedSaves,

@@ -114,6 +114,7 @@ internal data class LiveNavigationState(
     val roomCoversFeed: Boolean,
     val discovery: List<LiveRoom>,
     val discoveryListenerCounts: Map<String, Int>,
+    val discoveryPeopleCounts: Map<String, Int> = emptyMap(),
     val trendingRoom: LiveRoom?,
     val showGoLive: Boolean,
     val canOpenSetup: Boolean,
@@ -185,7 +186,7 @@ internal fun LiveDiscovery(
     val live = LocalLiveNavigation.current ?: return
     val candidates = if (source == "trending") listOfNotNull(live.state.trendingRoom)
     else live.state.discovery.filter { it.matchesFollowing(following) }
-    val rooms = roomsWithDiscoveryCounts(candidates, live.state.discoveryListenerCounts) +
+    val rooms = roomsWithDiscoveryCounts(candidates, live.state.discoveryPeopleCounts) +
         listOfNotNull(live.state.ownPrivateRoomPreview.takeIf { inSearch })
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val artworkUrls = if (lifecycle.isAtLeast(Lifecycle.State.RESUMED) && !live.state.roomCoversFeed) {
@@ -251,7 +252,7 @@ internal fun LiveDiscovery(
                 items(displayedRooms, key = { it.id }) { room ->
                     LiveDiscoveryPill(
                         room,
-                        listenerCount = live.state.discoveryListenerCounts[room.id],
+                        peopleCount = live.state.discoveryPeopleCounts[room.id],
                         showDJNames = showDJNames,
                         open = { live.viewModel.event("discovery_opened", source = source); live.viewModel.join(room.id) },
                         hide = { hide = room },
@@ -273,7 +274,7 @@ internal fun LiveDiscovery(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun LiveDiscoveryPill(room: LiveRoom, listenerCount: Int?, showDJNames: Boolean, open: () -> Unit, hide: () -> Unit) {
+private fun LiveDiscoveryPill(room: LiveRoom, peopleCount: Int?, showDJNames: Boolean, open: () -> Unit, hide: () -> Unit) {
     val djs = remember(room.djs) { room.djs.map(LivePerson::parse).filter { it.uid.isNotBlank() } }
     val customTitle = room.customTitle.trim()
     val handles = (listOf(room.host) + djs).map { "@${it.username.removePrefix("@")}" }
@@ -321,7 +322,7 @@ private fun LiveDiscoveryPill(room: LiveRoom, listenerCount: Int?, showDJNames: 
                     LiveText(subtitle, CorusFont.caption, CorusColors.Secondary, lines = 1)
                 }
             }
-            LiveDiscoveryPeopleCount(listenerCount?.let { it + 1 + djs.size })
+            LiveDiscoveryPeopleCount(peopleCount)
         }
     }
 }
