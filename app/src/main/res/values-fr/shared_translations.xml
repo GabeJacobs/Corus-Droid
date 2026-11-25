@@ -685,4 +685,19 @@
     <string name="settings_connect_apple_music_failed">"Impossible de se connecter à Apple Music. Réessaie."</string>
     <string name="settings_connecting_apple_music">"Connexion à Apple Music…"</string>
     <string name="settings_disconnect_apple_music">"Déconnecter Apple Music"</string>
+    <string name="corus_live_browse_error">"Impossible de charger les salons. Réessayez."</string>
+    <string name="corus_live_browse_no_matches">"Aucun salon ne correspond à votre recherche."</string>
+    <string name="corus_live_browse_no_past">"Les salons apparaîtront ici une fois terminés."</string>
+    <string name="corus_live_browse_no_yours">"Les salons que vous animez apparaîtront ici une fois terminés."</string>
+    <string name="corus_live_browse_now">"En direct"</string>
+    <string name="corus_live_browse_past">"Salons passés"</string>
+    <string name="corus_live_browse_played">"%1$s titres joués"</string>
+    <string name="corus_live_browse_popular">"Salons passés populaires"</string>
+    <string name="corus_live_browse_quiet">"Le prochain salon pourrait être le vôtre"</string>
+    <string name="corus_live_browse_quiet_body">"Aucun salon public n’est en direct pour le moment. Explorez les salons passés ou lancez le vôtre."</string>
+    <string name="corus_live_browse_search">"Rechercher salons, hôtes, artistes et titres"</string>
+    <string name="corus_live_browse_tab">"En direct"</string>
+    <string name="corus_live_browse_unavailable">"Live est indisponible pour le moment."</string>
+    <string name="corus_live_browse_visitors">"%1$s visiteurs uniques"</string>
+    <string name="corus_live_browse_yours">"Vos salons"</string>
 </resources>

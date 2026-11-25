@@ -685,4 +685,19 @@
     <string name="settings_connect_apple_music_failed">"No se pudo conectar con Apple Music. Inténtalo de nuevo."</string>
     <string name="settings_connecting_apple_music">"Conectando con Apple Music…"</string>
     <string name="settings_disconnect_apple_music">"Desconectar Apple Music"</string>
+    <string name="corus_live_browse_error">"No se pudieron cargar las salas. Inténtalo de nuevo."</string>
+    <string name="corus_live_browse_no_matches">"No hay salas que coincidan con tu búsqueda."</string>
+    <string name="corus_live_browse_no_past">"Las salas aparecerán aquí cuando terminen."</string>
+    <string name="corus_live_browse_no_yours">"Las salas que abras aparecerán aquí cuando terminen."</string>
+    <string name="corus_live_browse_now">"En directo ahora"</string>
+    <string name="corus_live_browse_past">"Salas anteriores"</string>
+    <string name="corus_live_browse_played">"%1$s canciones reproducidas"</string>
+    <string name="corus_live_browse_popular">"Salas anteriores populares"</string>
+    <string name="corus_live_browse_quiet">"La próxima sala podría ser la tuya"</string>
+    <string name="corus_live_browse_quiet_body">"No hay salas públicas en directo ahora. Explora salas anteriores o abre la tuya."</string>
+    <string name="corus_live_browse_search">"Busca salas, anfitriones, artistas y canciones"</string>
+    <string name="corus_live_browse_tab">"En directo"</string>
+    <string name="corus_live_browse_unavailable">"Live no está disponible en este momento."</string>
+    <string name="corus_live_browse_visitors">"%1$s visitantes únicos"</string>
+    <string name="corus_live_browse_yours">"Tus salas"</string>
 </resources>

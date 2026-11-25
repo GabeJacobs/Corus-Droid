@@ -685,4 +685,19 @@
     <string name="settings_connect_apple_music_failed">"Impossibile connettersi ad Apple Music. Riprova."</string>
     <string name="settings_connecting_apple_music">"Connessione ad Apple Music…"</string>
     <string name="settings_disconnect_apple_music">"Disconnetti Apple Music"</string>
+    <string name="corus_live_browse_error">"Impossibile caricare le stanze. Riprova."</string>
+    <string name="corus_live_browse_no_matches">"Nessuna stanza corrisponde alla ricerca."</string>
+    <string name="corus_live_browse_no_past">"Le stanze appariranno qui una volta terminate."</string>
+    <string name="corus_live_browse_no_yours">"Le stanze che ospiti appariranno qui una volta terminate."</string>
+    <string name="corus_live_browse_now">"In diretta ora"</string>
+    <string name="corus_live_browse_past">"Stanze passate"</string>
+    <string name="corus_live_browse_played">"%1$s brani riprodotti"</string>
+    <string name="corus_live_browse_popular">"Stanze passate più popolari"</string>
+    <string name="corus_live_browse_quiet">"La prossima stanza potrebbe essere la tua"</string>
+    <string name="corus_live_browse_quiet_body">"Al momento non ci sono stanze pubbliche in diretta. Esplora le stanze passate o aprine una tua."</string>
+    <string name="corus_live_browse_search">"Cerca stanze, host, artisti e brani"</string>
+    <string name="corus_live_browse_tab">"Live"</string>
+    <string name="corus_live_browse_unavailable">"Live non è al momento disponibile."</string>
+    <string name="corus_live_browse_visitors">"%1$s visitatori unici"</string>
+    <string name="corus_live_browse_yours">"Le tue stanze"</string>
 </resources>

@@ -685,4 +685,19 @@
     <string name="settings_connect_apple_music_failed">"Verbindung zu Apple Music fehlgeschlagen. Versuche es erneut."</string>
     <string name="settings_connecting_apple_music">"Verbindung zu Apple Music wird hergestellt…"</string>
     <string name="settings_disconnect_apple_music">"Apple Music trennen"</string>
+    <string name="corus_live_browse_error">"Räume konnten nicht geladen werden. Versuch es erneut."</string>
+    <string name="corus_live_browse_no_matches">"Keine Räume passen zu deiner Suche."</string>
+    <string name="corus_live_browse_no_past">"Beendete Räume erscheinen hier."</string>
+    <string name="corus_live_browse_no_yours">"Räume, die du hostest, erscheinen hier, sobald sie beendet sind."</string>
+    <string name="corus_live_browse_now">"Jetzt live"</string>
+    <string name="corus_live_browse_past">"Vergangene Räume"</string>
+    <string name="corus_live_browse_played">"%1$s gespielte Titel"</string>
+    <string name="corus_live_browse_popular">"Beliebte vergangene Räume"</string>
+    <string name="corus_live_browse_quiet">"Der nächste Raum könnte deiner sein"</string>
+    <string name="corus_live_browse_quiet_body">"Gerade sind keine öffentlichen Räume live. Entdecke vergangene Räume oder starte deinen eigenen."</string>
+    <string name="corus_live_browse_search">"Räume, Hosts, Künstler und Songs suchen"</string>
+    <string name="corus_live_browse_tab">"Live"</string>
+    <string name="corus_live_browse_unavailable">"Live ist derzeit nicht verfügbar."</string>
+    <string name="corus_live_browse_visitors">"%1$s einzelne Besucher"</string>
+    <string name="corus_live_browse_yours">"Deine Räume"</string>
 </resources>

@@ -428,4 +428,19 @@
     <string name="corus_live_host_exit_working">"Please wait…"</string>
     <string name="corus_live_host_options">"Host options"</string>
     <string name="corus_live_host_invitation_sent">"Host invitation sent"</string>
+    <string name="corus_live_browse_error">"Couldn’t load rooms. Try again."</string>
+    <string name="corus_live_browse_no_matches">"No rooms match your search."</string>
+    <string name="corus_live_browse_no_past">"Past rooms will appear here after they end."</string>
+    <string name="corus_live_browse_no_yours">"Rooms you host will appear here after they end."</string>
+    <string name="corus_live_browse_now">"Live now"</string>
+    <string name="corus_live_browse_past">"Past rooms"</string>
+    <string name="corus_live_browse_played">"%1$s tracks played"</string>
+    <string name="corus_live_browse_popular">"Popular past rooms"</string>
+    <string name="corus_live_browse_quiet">"The next room could be yours"</string>
+    <string name="corus_live_browse_quiet_body">"No public rooms are live right now. Explore past rooms or start your own."</string>
+    <string name="corus_live_browse_search">"Search rooms, hosts, artists, songs"</string>
+    <string name="corus_live_browse_tab">"Live"</string>
+    <string name="corus_live_browse_unavailable">"Live is currently unavailable."</string>
+    <string name="corus_live_browse_visitors">"%1$s unique visitors"</string>
+    <string name="corus_live_browse_yours">"Your rooms"</string>
 </resources>

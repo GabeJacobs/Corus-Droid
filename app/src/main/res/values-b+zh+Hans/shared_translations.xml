@@ -685,4 +685,19 @@
     <string name="settings_connect_apple_music_failed">"无法连接 Apple Music。请重试。"</string>
     <string name="settings_connecting_apple_music">"正在连接 Apple Music…"</string>
     <string name="settings_disconnect_apple_music">"断开 Apple Music 连接"</string>
+    <string name="corus_live_browse_error">"无法加载房间，请重试。"</string>
+    <string name="corus_live_browse_no_matches">"没有符合搜索条件的房间。"</string>
+    <string name="corus_live_browse_no_past">"房间结束后会显示在这里。"</string>
+    <string name="corus_live_browse_no_yours">"你主持的房间结束后会显示在这里。"</string>
+    <string name="corus_live_browse_now">"正在直播"</string>
+    <string name="corus_live_browse_past">"历史房间"</string>
+    <string name="corus_live_browse_played">"已播放 %1$s 首曲目"</string>
+    <string name="corus_live_browse_popular">"热门历史房间"</string>
+    <string name="corus_live_browse_quiet">"下一个房间，由你开启"</string>
+    <string name="corus_live_browse_quiet_body">"目前没有正在直播的公开房间。探索历史房间，或开启自己的房间。"</string>
+    <string name="corus_live_browse_search">"搜索房间、主持人、艺人和歌曲"</string>
+    <string name="corus_live_browse_tab">"直播"</string>
+    <string name="corus_live_browse_unavailable">"直播暂时不可用。"</string>
+    <string name="corus_live_browse_visitors">"%1$s 位独立访客"</string>
+    <string name="corus_live_browse_yours">"你的房间"</string>
 </resources>

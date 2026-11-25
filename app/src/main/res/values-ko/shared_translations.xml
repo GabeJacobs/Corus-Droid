@@ -684,4 +684,19 @@
     <string name="settings_connect_apple_music_failed">"Apple Music에 연결하지 못했어요. 다시 시도해주세요."</string>
     <string name="settings_connecting_apple_music">"Apple Music에 연결 중…"</string>
     <string name="settings_disconnect_apple_music">"Apple Music 연결 해제"</string>
+    <string name="corus_live_browse_error">"방을 불러오지 못했어요. 다시 시도해 주세요."</string>
+    <string name="corus_live_browse_no_matches">"검색과 일치하는 방이 없어요."</string>
+    <string name="corus_live_browse_no_past">"종료된 방이 여기에 표시돼요."</string>
+    <string name="corus_live_browse_no_yours">"내가 연 방이 종료되면 여기에 표시돼요."</string>
+    <string name="corus_live_browse_now">"지금 라이브"</string>
+    <string name="corus_live_browse_past">"지난 방"</string>
+    <string name="corus_live_browse_played">"재생한 곡 %1$s개"</string>
+    <string name="corus_live_browse_popular">"인기 지난 방"</string>
+    <string name="corus_live_browse_quiet">"다음 방은 내가 열어볼까요"</string>
+    <string name="corus_live_browse_quiet_body">"지금은 라이브 중인 공개 방이 없어요. 지난 방을 둘러보거나 직접 열어보세요."</string>
+    <string name="corus_live_browse_search">"방, 호스트, 아티스트, 곡 검색"</string>
+    <string name="corus_live_browse_tab">"라이브"</string>
+    <string name="corus_live_browse_unavailable">"현재 라이브를 이용할 수 없어요."</string>
+    <string name="corus_live_browse_visitors">"방문자 %1$s명"</string>
+    <string name="corus_live_browse_yours">"내 방"</string>
 </resources>

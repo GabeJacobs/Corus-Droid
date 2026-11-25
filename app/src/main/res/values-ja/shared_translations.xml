@@ -685,4 +685,19 @@
     <string name="settings_connect_apple_music_failed">"Apple Musicに接続できませんでした。もう一度お試しください。"</string>
     <string name="settings_connecting_apple_music">"Apple Musicに接続中…"</string>
     <string name="settings_disconnect_apple_music">"Apple Musicとの接続を解除"</string>
+    <string name="corus_live_browse_error">"ルームを読み込めませんでした。もう一度お試しください。"</string>
+    <string name="corus_live_browse_no_matches">"検索に一致するルームはありません。"</string>
+    <string name="corus_live_browse_no_past">"終了したルームがここに表示されます。"</string>
+    <string name="corus_live_browse_no_yours">"自分がホストしたルームは終了後にここに表示されます。"</string>
+    <string name="corus_live_browse_now">"配信中"</string>
+    <string name="corus_live_browse_past">"過去のルーム"</string>
+    <string name="corus_live_browse_played">"再生曲数：%1$s"</string>
+    <string name="corus_live_browse_popular">"人気の過去のルーム"</string>
+    <string name="corus_live_browse_quiet">"次のルームはあなたの番"</string>
+    <string name="corus_live_browse_quiet_body">"現在配信中の公開ルームはありません。過去のルームを見たり、自分で始めたりしてみましょう。"</string>
+    <string name="corus_live_browse_search">"ルーム・ホスト・アーティスト・曲を検索"</string>
+    <string name="corus_live_browse_tab">"ライブ"</string>
+    <string name="corus_live_browse_unavailable">"現在ライブを利用できません。"</string>
+    <string name="corus_live_browse_visitors">"訪問者 %1$s 人"</string>
+    <string name="corus_live_browse_yours">"自分のルーム"</string>
 </resources>
