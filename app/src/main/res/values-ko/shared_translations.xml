@@ -699,4 +699,8 @@
     <string name="corus_live_browse_unavailable">"현재 라이브를 이용할 수 없어요."</string>
     <string name="corus_live_browse_visitors">"방문자 %1$s명"</string>
     <string name="corus_live_browse_yours">"내 방"</string>
+    <string name="corus_live_room_created_by">"%1$s님이 개설"</string>
+    <string name="corus_live_room_hosted_by">"호스트: %1$s"</string>
+    <string name="corus_live_room_other_dj_many">"+%1$s명"</string>
+    <string name="corus_live_room_other_dj_one">"+%1$s명"</string>
 </resources>

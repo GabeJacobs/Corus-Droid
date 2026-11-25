@@ -443,4 +443,8 @@
     <string name="corus_live_browse_unavailable">"Live is currently unavailable."</string>
     <string name="corus_live_browse_visitors">"%1$s unique visitors"</string>
     <string name="corus_live_browse_yours">"Your rooms"</string>
+    <string name="corus_live_room_created_by">"Created by %1$s"</string>
+    <string name="corus_live_room_hosted_by">"Hosted by %1$s"</string>
+    <string name="corus_live_room_other_dj_many">"+%1$s others"</string>
+    <string name="corus_live_room_other_dj_one">"+%1$s other"</string>
 </resources>

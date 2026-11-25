@@ -1058,6 +1058,8 @@ object CorusStrings {
     @StringRes val live_queue_move_to_top: Int = R.string.corus_live_queue_move_to_top
     @StringRes val live_queue_remove: Int = R.string.corus_live_queue_remove
     @StringRes val live_queue_song_actions: Int = R.string.corus_live_queue_song_actions
+    @StringRes val live_room_created_by: Int = R.string.corus_live_room_created_by
+    @StringRes val live_room_hosted_by: Int = R.string.corus_live_room_hosted_by
     @StringRes val live_room_image: Int = R.string.corus_live_room_image
     @StringRes val live_room_image_change: Int = R.string.corus_live_room_image_change
     @StringRes val live_room_image_remove: Int = R.string.corus_live_room_image_remove
@@ -1077,6 +1079,8 @@ object CorusStrings {
     @StringRes val live_room_info_save_error: Int = R.string.live_room_info_save_error
     @StringRes val live_room_info_saving: Int = R.string.live_room_info_saving
     @StringRes val live_room_info_settings_detail: Int = R.string.live_room_info_settings_detail
+    @StringRes val live_room_other_dj_many: Int = R.string.corus_live_room_other_dj_many
+    @StringRes val live_room_other_dj_one: Int = R.string.corus_live_room_other_dj_one
     @StringRes val live_skip_to_talk: Int = R.string.live_skip_to_talk
     @StringRes val live_song_save_count: Int = R.string.corus_live_song_save_count
     @StringRes val live_song_saved_by: Int = R.string.corus_live_song_saved_by

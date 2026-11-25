@@ -700,4 +700,8 @@
     <string name="corus_live_browse_unavailable">"直播暂时不可用。"</string>
     <string name="corus_live_browse_visitors">"%1$s 位独立访客"</string>
     <string name="corus_live_browse_yours">"你的房间"</string>
+    <string name="corus_live_room_created_by">"由 %1$s 创建"</string>
+    <string name="corus_live_room_hosted_by">"主持人：%1$s"</string>
+    <string name="corus_live_room_other_dj_many">"另%1$s位DJ"</string>
+    <string name="corus_live_room_other_dj_one">"另%1$s位DJ"</string>
 </resources>

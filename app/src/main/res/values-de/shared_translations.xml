@@ -700,4 +700,8 @@
     <string name="corus_live_browse_unavailable">"Live ist derzeit nicht verfügbar."</string>
     <string name="corus_live_browse_visitors">"%1$s einzelne Besucher"</string>
     <string name="corus_live_browse_yours">"Deine Räume"</string>
+    <string name="corus_live_room_created_by">"Erstellt von %1$s"</string>
+    <string name="corus_live_room_hosted_by">"Gehostet von %1$s"</string>
+    <string name="corus_live_room_other_dj_many">"+%1$s weitere DJs"</string>
+    <string name="corus_live_room_other_dj_one">"+%1$s weiterer DJ"</string>
 </resources>

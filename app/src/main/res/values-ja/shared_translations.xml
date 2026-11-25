@@ -700,4 +700,8 @@
     <string name="corus_live_browse_unavailable">"現在ライブを利用できません。"</string>
     <string name="corus_live_browse_visitors">"訪問者 %1$s 人"</string>
     <string name="corus_live_browse_yours">"自分のルーム"</string>
+    <string name="corus_live_room_created_by">"%1$s が作成"</string>
+    <string name="corus_live_room_hosted_by">"ホスト：%1$s"</string>
+    <string name="corus_live_room_other_dj_many">"ほか%1$s人"</string>
+    <string name="corus_live_room_other_dj_one">"ほか%1$s人"</string>
 </resources>
