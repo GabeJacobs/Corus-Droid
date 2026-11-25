@@ -173,6 +173,113 @@ class SpotifyPlaybackConnectOrderTest {
     }
 
     @Test
+    fun `Live listener permits an early fresh Spotify playlist pick while backgrounded`() = runTest {
+        val service = service()
+        val remote = mock<SpotifyAppRemote>()
+        val player = mock<PlayerApi>()
+        whenever(remote.playerApi).thenReturn(player)
+        whenever(remote.isConnected).thenReturn(true)
+        whenever(player.pause()).thenReturn(mock<CallResult<Empty>>())
+        listOf("appRemote", "fastPathAppRemote").forEach { name ->
+            SpotifyPlaybackService::class.java.getDeclaredField(name).apply { isAccessible = true }.set(service, remote)
+        }
+        var previewPosition = 0L
+        whenever(player.getPlayerState()).thenAnswer {
+            previewPosition += 150
+            val result = mock<CallResult<PlayerState>>()
+            whenever(result.setResultCallback(any())).thenAnswer { call ->
+                call.getArgument<CallResult.ResultCallback<PlayerState>>(0).onResult(
+                    PlayerState(playingState("spotify:track:picked").track, false, 1f, previewPosition, null, null))
+                result
+            }
+            result
+        }
+        val room = "spotify:track:room"
+        service.followLiveListenerTrack(room, 1)
+        service.setLiveListenerPreviewEnvironment(backgrounded = true, allowed = true)
+        fun context(uri: String) {
+            val ctx = com.spotify.protocol.types.PlayerContext(uri, "Context", "", "playlist")
+            SpotifyPlaybackService::class.java.getDeclaredMethod(
+                "applyPlayerContext", com.spotify.protocol.types.PlayerContext::class.java,
+            ).apply { isAccessible = true }.invoke(service, ctx)
+        }
+        fun expected() = PlayerState(playingState(room).track, false, 1f, 21_000, null, null)
+        context(room)
+        service.pauseUnexpectedLiveTrack(remote, expected())
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofSeconds(9))
+        service.pauseUnexpectedLiveTrack(remote, expected())
+        context("spotify:playlist:chosen")
+        service.pauseUnexpectedLiveTrack(remote, playingState("spotify:track:picked"))
+        Mockito.verify(player, Mockito.never()).pause()
+        runCurrent()
+        advanceTimeBy(100)
+        runCurrent()
+        assertTrue(service.isLiveListenerPreviewSuspended)
+        assertFalse(service.isConnected)
+        appRemoteStatic.verify { SpotifyAppRemote.disconnect(remote) }
+    }
+
+    @Test
+    fun `Live listener resumes a guarded pick only after its delayed context confirms it`() = runTest {
+        val service = service()
+        val remote = mock<SpotifyAppRemote>()
+        val player = mock<PlayerApi>()
+        whenever(remote.playerApi).thenReturn(player)
+        whenever(remote.isConnected).thenReturn(true)
+        whenever(player.pause()).thenReturn(mock<CallResult<Empty>>())
+        var observed = playingState("spotify:track:picked")
+        whenever(player.getPlayerState()).thenAnswer {
+            val result = mock<CallResult<PlayerState>>()
+            whenever(result.setResultCallback(any())).thenAnswer { call ->
+                call.getArgument<CallResult.ResultCallback<PlayerState>>(0).onResult(observed)
+                result
+            }
+            result
+        }
+        val resumed = mock<CallResult<Empty>>()
+        whenever(player.resume()).thenReturn(resumed)
+        whenever(resumed.setResultCallback(any())).thenAnswer {
+            observed = PlayerState(observed.track, false, 1f, 200L, null, null)
+            it.getArgument<com.spotify.protocol.client.CallResult.ResultCallback<Empty>>(0).onResult(Empty())
+            resumed
+        }
+        listOf("appRemote", "fastPathAppRemote").forEach { name ->
+            SpotifyPlaybackService::class.java.getDeclaredField(name).apply { isAccessible = true }.set(service, remote)
+        }
+        val room = "spotify:track:room"
+        fun context(uri: String) {
+            SpotifyPlaybackService::class.java.getDeclaredMethod(
+                "applyPlayerContext", com.spotify.protocol.types.PlayerContext::class.java,
+            ).apply { isAccessible = true }.invoke(service,
+                com.spotify.protocol.types.PlayerContext(uri, "Context", "", "playlist"))
+        }
+        service.followLiveListenerTrack(room, 1)
+        service.setLiveListenerPreviewEnvironment(backgrounded = true, allowed = true)
+        context(room)
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofSeconds(9))
+        service.pauseUnexpectedLiveTrack(remote, PlayerState(playingState(room).track, false, 1f, 21_000, null, null))
+        service.pauseUnexpectedLiveTrack(remote, playingState("spotify:track:picked"))
+        Mockito.verify(player).pause()
+        Mockito.verify(player, Mockito.never()).resume()
+        context("spotify:playlist:chosen")
+        runCurrent()
+        // The command can be accepted before Spotify actually applies pause.
+        // Resuming here races that late pause and leaves the selection silent.
+        Mockito.verify(player, Mockito.never()).resume()
+        assertTrue(service.isConnected)
+        observed = PlayerState(observed.track, true, 1f, 0L, null, null)
+        advanceTimeBy(100)
+        runCurrent()
+        Mockito.verify(player).resume()
+        observed = PlayerState(observed.track, false, 1f, 400L, null, null)
+        advanceTimeBy(100)
+        runCurrent()
+        assertTrue(service.isLiveListenerPreviewSuspended)
+        assertFalse(service.isConnected)
+        appRemoteStatic.verify { SpotifyAppRemote.disconnect(remote) }
+    }
+
+    @Test
     fun `Live pauses Spotify queue playback and permits the room track`() {
         val service = service()
         val remote = mock<SpotifyAppRemote>()

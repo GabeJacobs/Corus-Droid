@@ -418,6 +418,7 @@ internal class LiveViewModel @Inject constructor(
             }
         }
 
+        spotify.setLiveListenerPreviewBackgrounded(!foreground)
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
         player.livePlaybackExit = ::requestPlaybackExit
         viewModelScope.launch {
@@ -2416,6 +2417,11 @@ internal class LiveViewModel @Inject constructor(
             while (state.value.room?.id == id) {
                 val room = state.value.room ?: break
                 val serverNow = now
+                if (!state.value.hosting && spotify.isLiveListenerPreviewSuspended) {
+                    if (!room.active(serverNow)) { closeRoom(room); break }
+                    delay(500)
+                    continue
+                }
                 val holdSpotify = room.pausedAt == null && expectedUri != null && holdingNextSongForTalk(room)
                 if (holdSpotify && room.deadline - serverNow <= 1_000 && pausedSpotifyForTalk != room.revision) {
                     spotify.pauseImmediately()
@@ -2625,6 +2631,8 @@ internal class LiveViewModel @Inject constructor(
     }
 
     private fun synchronize(room: LiveRoom, force: Boolean = false): Job? {
+        if (!state.value.hosting && spotify.isLiveListenerPreviewSuspended) return null
+        spotify.setLiveListenerPreviewEnvironment(!foreground, false)
         if (state.value.room?.id != room.id || (room.pendingSkip != null && state.value.hosting)) return null
         playbackJob?.cancel()
         playbackJob = viewModelScope.launch {
@@ -2806,6 +2814,7 @@ internal class LiveViewModel @Inject constructor(
                     }
                     confirmedRevision = room.revision
                     confirmListenerSong()
+                    spotify.setLiveListenerPreviewEnvironment(!foreground, uninterrupted && !hosting)
                     recordListenerPlayback(room.id, MusicService.SPOTIFY.value)
                     update { copy(audioReady = true, audioError = null, spotifyUnavailableRevision = null) }
                 }
@@ -2934,6 +2943,7 @@ internal class LiveViewModel @Inject constructor(
     }
 
     private suspend fun pauseLiveSpotify() {
+        if (spotify.isLiveListenerPreviewSuspended) return
         spotify.liveListenerTrackUri = null
         if (expectedUri == null) return
         val paused = spotify.pause()
@@ -3265,11 +3275,12 @@ internal class LiveViewModel @Inject constructor(
     }
 
     private fun releasePlayback() {
+        val previewing = spotify.isLiveListenerPreviewSuspended
         stopLiveListeningService()
         releaseSourcePlayer()
         releaseApplePlayer()
         if (ownsLivePlayback) {
-            playbackRelease = player.endLiveSpotifyPlayback(pauseSpotify = expectedUri != null)
+            playbackRelease = player.endLiveSpotifyPlayback(pauseSpotify = expectedUri != null && !previewing)
             ownsLivePlayback = false
         }
         liveProvider = null
@@ -3283,6 +3294,14 @@ internal class LiveViewModel @Inject constructor(
 
     override fun onStart(owner: LifecycleOwner) {
         foreground = true
+        spotify.setLiveListenerPreviewBackgrounded(false)
+        if (!state.value.hosting && spotify.isLiveListenerPreviewSuspended) {
+            spotify.liveListenerTrackUri = null
+            confirmedRevision = null
+            expectedUri = null
+            expiredRevision = null
+            Log.i("LiveSpotifyPlayback", "Returned from listener preview; syncing current room song")
+        }
         val room = state.value.room ?: return
         viewModelScope.launch {
             if (state.value.hosting) maintain(room, "tick", mapOf("hostActivity" to "foreground"))
@@ -3294,6 +3313,7 @@ internal class LiveViewModel @Inject constructor(
 
     override fun onStop(owner: LifecycleOwner) {
         foreground = false
+        spotify.setLiveListenerPreviewBackgrounded(true)
         hostTalkMicIntent = null
         val room = state.value.room ?: return
         viewModelScope.launch {

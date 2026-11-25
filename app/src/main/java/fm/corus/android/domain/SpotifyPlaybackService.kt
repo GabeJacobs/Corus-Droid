@@ -174,6 +174,29 @@ class SpotifyPlaybackService @Inject constructor(
 
     private val fastPathGuardLock = ReentrantLock()
     private val fastPathGuardState = FastPathGuardState()
+    private val livePreview = LiveSpotifyPreviewGuard()
+    private var livePreviewReleaseJob: Job? = null
+
+    internal val isLiveListenerPreviewSuspended: Boolean
+        get() = fastPathGuardLock.withLock { livePreview.suspended }
+
+    internal fun setLiveListenerPreviewEnvironment(backgrounded: Boolean, allowed: Boolean) {
+        fastPathGuardLock.withLock {
+            livePreview.backgrounded = backgrounded
+            livePreview.allowed = allowed
+        }
+    }
+
+    internal fun setLiveListenerPreviewBackgrounded(backgrounded: Boolean) {
+        fastPathGuardLock.withLock { livePreview.backgrounded = backgrounded }
+    }
+
+    private fun livePreviewDeviceUnlocked(): Boolean {
+        val keyguard = context.getSystemService(android.app.KeyguardManager::class.java)
+        val power = context.getSystemService(android.os.PowerManager::class.java)
+        return keyguard != null && power != null && !keyguard.isKeyguardLocked &&
+            !keyguard.isDeviceLocked && power.isInteractive
+    }
 
     /** Immutable for the player-state callback thread once connected. */
     @Volatile
@@ -182,7 +205,12 @@ class SpotifyPlaybackService @Inject constructor(
     @Volatile
     internal var liveListenerTrackUri: String? = null
         set(value) {
-            if (field != value) resetLiveEndPause()
+            if (field != value || value == null) {
+                resetLiveEndPause()
+                livePreviewReleaseJob?.cancel()
+                livePreviewReleaseJob = null
+                fastPathGuardLock.withLock { livePreview.clear() }
+            }
             field = value
         }
 
@@ -196,6 +224,9 @@ class SpotifyPlaybackService @Inject constructor(
         if (liveListenerRevision != revision) {
             resetLiveEndPause()
             liveListenerRevision = revision
+        }
+        fastPathGuardLock.withLock {
+            livePreview.follow(uri, revision, android.os.SystemClock.elapsedRealtime(), currentContextUri)
         }
     }
 
@@ -830,12 +861,25 @@ class SpotifyPlaybackService @Inject constructor(
         val remote = appRemote ?: return
         cancelSubscription(playerContextSubscription)
         playerContextSubscription = remote.playerApi.subscribeToPlayerContext().setEventCallback { ctx ->
-            scope.launch { applyPlayerContext(ctx) }
+            scope.launch {
+                if (fastPathAppRemote === remote) applyPlayerContext(ctx)
+            }
         }
     }
 
     private fun applyPlayerContext(ctx: PlayerContext) {
         val newUri = ctx.uri?.takeIf { it.isNotEmpty() } ?: return
+        if (liveListenerTrackUri != null && newUri != currentContextUri) {
+            android.util.Log.d("LiveSpotifyPlayback", "Live Spotify context uri=$newUri expected=$liveListenerTrackUri")
+        }
+        val preview = fastPathGuardLock.withLock {
+            livePreview.context(newUri, android.os.SystemClock.elapsedRealtime(), livePreviewDeviceUnlocked(), playInFlight)
+        }
+        if (preview != null) {
+            fastPathAppRemote?.let { releaseLiveListenerForPreview(it, preview) }
+            return
+        }
+        if (isLiveListenerPreviewSuspended) return
         val previousCurrent = currentContextUri
         val wasAwaitingContext = incomingContextAwaitingSinceMs != null
         if (wasAwaitingContext || incomingContextUri == null || incomingContextUri != newUri) {
@@ -881,9 +925,24 @@ class SpotifyPlaybackService @Inject constructor(
     }
 
     internal fun pauseUnexpectedLiveTrack(remote: SpotifyAppRemote, state: PlayerState): Boolean {
+        if (isLiveListenerPreviewSuspended) return true
         val expectedUri = liveListenerTrackUri ?: return false
         val uri = state.track?.uri?.takeIf(String::isNotBlank) ?: return false
-        if (spotifyURIsMatch(uri, expectedUri)) return false
+        if (spotifyURIsMatch(uri, expectedUri)) {
+            fastPathGuardLock.withLock {
+                livePreview.observe(state.playbackPosition, state.track.duration, state.isPaused,
+                    android.os.SystemClock.elapsedRealtime())
+            }
+            return false
+        }
+        val preview = fastPathGuardLock.withLock {
+            livePreview.mismatch(uri, state.isPaused, android.os.SystemClock.elapsedRealtime(),
+                livePreviewDeviceUnlocked(), playInFlight)
+        }
+        if (preview != null) {
+            releaseLiveListenerForPreview(remote, preview)
+            return true
+        }
         // Keep rejecting stale queue tracks throughout play/confirmation. A play
         // request can take time to replace Spotify's native queue playback.
         // Ignore its pause acknowledgement too: ingesting it can cancel the
@@ -894,6 +953,63 @@ class SpotifyPlaybackService @Inject constructor(
         }
         return true
     }
+
+    private fun releaseLiveListenerForPreview(remote: SpotifyAppRemote, selection: LiveSpotifyPreviewGuard.Selection) {
+        android.util.Log.i("LiveSpotifyPlayback", "Listener preview selected uri=${selection.uri} resume=${selection.resume}")
+        livePreviewReleaseJob?.cancel()
+        livePreviewReleaseJob = scope.launch {
+            if (!fastPathGuardLock.withLock { livePreview.isCurrent(selection) } || appRemote !== remote) return@launch
+            resetLiveEndPause()
+            if (selection.resume) {
+                // Spotify can acknowledge resume before the earlier protective
+                // pause actually takes effect. Observe that pause first, then
+                // resume the selected track and confirm it advances.
+                if (!awaitLivePreviewState(remote, selection, paused = true)) {
+                    android.util.Log.w("LiveSpotifyPlayback", "Preview pause was not confirmed; keeping Live suspended")
+                    return@launch
+                }
+                android.util.Log.i("LiveSpotifyPlayback", "Listener preview pause confirmed; resuming selection")
+                if (withTimeoutOrNull(1_500) { resume() } != true) {
+                    android.util.Log.w("LiveSpotifyPlayback", "Could not resume listener preview; keeping Live suspended")
+                    return@launch
+                }
+            }
+            if (!awaitLivePreviewState(remote, selection, paused = false)) {
+                android.util.Log.w("LiveSpotifyPlayback", "Preview playback was not confirmed; keeping Live suspended")
+                return@launch
+            }
+            android.util.Log.i("LiveSpotifyPlayback", "Listener preview playback confirmed advancing")
+            currentCoroutineContext().ensureActive()
+            if (!fastPathGuardLock.withLock { livePreview.isCurrent(selection) } || appRemote !== remote || playInFlight) return@launch
+            disconnectPreservingPlayback()
+            android.util.Log.i("LiveSpotifyPlayback", "Listener preview detached; room following suspended")
+        }
+    }
+
+    private suspend fun awaitLivePreviewState(
+        remote: SpotifyAppRemote,
+        selection: LiveSpotifyPreviewGuard.Selection,
+        paused: Boolean,
+    ): Boolean = withTimeoutOrNull(2_000) {
+        var previousPosition: Long? = null
+        while (appRemote === remote && !playInFlight &&
+            fastPathGuardLock.withLock { livePreview.isCurrent(selection) }
+        ) {
+            val state = try { refreshState(timeoutMs = 500) }
+            catch (error: CancellationException) { throw error }
+            catch (_: Exception) { null }
+            if (state?.track?.uri?.let { spotifyURIsMatch(it, selection.uri) } == true && state.isPaused == paused) {
+                if (paused) return@withTimeoutOrNull true
+                val previous = previousPosition
+                if (previous != null && state.playbackPosition - previous >= 100) return@withTimeoutOrNull true
+                previousPosition = state.playbackPosition
+            } else {
+                previousPosition = null
+            }
+            delay(100)
+        }
+        false
+    } ?: false
 
     /**
      * On the lock screen, pause a misrouted native skip on the App Remote
@@ -968,6 +1084,7 @@ class SpotifyPlaybackService @Inject constructor(
     }
 
     private fun applyPlayerState(state: PlayerState) {
+        if (isLiveListenerPreviewSuspended) return
         val track = state.track
         if (track == null) {
             scheduleLiveEndPause(state)
