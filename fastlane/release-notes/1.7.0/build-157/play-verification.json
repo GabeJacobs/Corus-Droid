@@ -50,6 +50,6 @@
   "version_code": 157,
   "source_commit": "53e44898",
   "rollout_fraction": 1.0,
-  "console_state": "Running quick checks; changes will be sent for review automatically when checks complete",
+  "console_state": "Changes in review; Your changes are now in review; Start full rollout",
   "managed_publishing": false
 }
