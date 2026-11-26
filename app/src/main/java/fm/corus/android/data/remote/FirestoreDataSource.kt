@@ -1604,34 +1604,34 @@ class FirestoreDataSource @Inject constructor(
      * purchase) and is preserved across renewals — only cleared on cancel —
      * so this orders by the *original* sign-up, not by renewal time.
      *
-     * Avoids needing a composite Firestore index by fetching all active
-     * members (`isClubMember == true`) and sorting client-side. The active
-     * set is small enough that a single bounded read is fine; we cap the
-     * underlying fetch at 500 documents.
+     * Pages in server order using the membership/date composite index,
+     * skipping gift-only access without starving the visible results.
      */
     suspend fun fetchClubMembers(limit: Int = 6, excludeIds: Set<String> = emptySet()): List<CymbalUser> {
-        // Order by clubMemberSince server-side and fetch only a small buffer
-        // beyond the requested count (to absorb client-side exclude/bot/hidden
-        // filtering) instead of pulling the entire club and sorting on-device.
-        // All active club members have clubMemberSince set, so newest-first
-        // order is preserved server-side. Requires the users_v2 composite index
-        // on (isClubMember ASC, clubMemberSince DESC).
-        val snapshot = firestore.collection("users_v2")
+        if (limit <= 0) return emptyList()
+        val pageSize = maxOf(30, limit + excludeIds.size + 10)
+        val baseQuery = firestore.collection("users_v2")
             .whereEqualTo("isClubMember", true)
             .orderBy("clubMemberSince", Query.Direction.DESCENDING)
-            .limit((limit + excludeIds.size + 10).toLong())
-            .get().await()
-        return snapshot.documents
-            .mapNotNull { doc ->
-                if (excludeIds.contains(doc.id)) return@mapNotNull null
-                if (cachedBannedSet.contains(doc.id)) return@mapNotNull null
-                val data = doc.data ?: return@mapNotNull null
+            .limit(pageSize.toLong())
+        var query = baseQuery
+        val users = mutableListOf<CymbalUser>()
+        while (users.size < limit) {
+            val snapshot = query.get().await()
+            for (doc in snapshot.documents) {
+                if (doc.getBoolean("clubDirectoryHidden") == true) continue
+                if (doc.id in excludeIds || doc.id in cachedBannedSet) continue
+                val data = doc.data ?: continue
                 val user = CymbalUser.fromMap(doc.id, data)
-                if (user.isBot) return@mapNotNull null
-                if (hiddenUsernames.contains(user.username)) return@mapNotNull null
-                user
+                if (user.isBot || user.username in hiddenUsernames) continue
+                users.add(user)
+                if (users.size == limit) break
             }
-            .take(limit)
+            if (snapshot.size() < pageSize) break
+            val last = snapshot.documents.lastOrNull() ?: break
+            query = baseQuery.startAfter(last)
+        }
+        return users
     }
 
     // ── Comment Likes ──
