@@ -3122,6 +3122,7 @@ internal class LiveViewModel @Inject constructor(
             try {
                 voice.connect(room.id, session, publish)
                 while (state.value.room?.voiceSession == session) {
+                    voice.checkReadiness()
                     val levels = voice.levels()
                     val microphones = voice.unmutedMicrophoneIDs(session)
                     val speaker = levels.entries.filter { it.key != state.value.uid && it.key in microphones && it.value > 0f }
