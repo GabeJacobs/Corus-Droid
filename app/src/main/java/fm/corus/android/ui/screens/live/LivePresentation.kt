@@ -274,7 +274,7 @@ internal fun LiveDiscovery(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun LiveDiscoveryPill(room: LiveRoom, peopleCount: Int?, showDJNames: Boolean, open: () -> Unit, hide: () -> Unit) {
+internal fun LiveDiscoveryPill(room: LiveRoom, peopleCount: Int?, showDJNames: Boolean, open: () -> Unit, hide: () -> Unit) {
     val djs = remember(room.djs) { room.djs.map(LivePerson::parse).filter { it.uid.isNotBlank() } }
     val customTitle = room.customTitle.trim()
     val handles = (listOf(room.host) + djs).map { "@${it.username.removePrefix("@")}" }
@@ -294,9 +294,9 @@ private fun LiveDiscoveryPill(room: LiveRoom, peopleCount: Int?, showDJNames: Bo
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(9.dp),
     ) {
-        LiveBadgedArtwork {
+        LiveBadgedArtwork(showBadge = room.roomImageURL != null) {
             if (room.roomImageURL != null) LiveAvatar(room.host.copy(avatar = room.roomImageURL), 28.dp, ring = true, ringPadding = 2.dp, ringWidth = 1.5.dp)
-            else LiveMiniAvatarStack(room.host, djs)
+            else LiveMiniAvatarStack(room)
         }
         Row(
             Modifier.weight(1f, fill = false),
@@ -377,10 +377,10 @@ private fun LiveDiscoveryDJNames(
 }
 
 @Composable
-private fun LiveBadgedArtwork(content: @Composable () -> Unit) {
+private fun LiveBadgedArtwork(showBadge: Boolean = true, content: @Composable () -> Unit) {
     Box(Modifier.clearAndSetSemantics {}, contentAlignment = Alignment.BottomCenter) {
         content()
-        LiveText(
+        if (showBadge) LiveText(
             stringResource(CorusStrings.corus_live_live).uppercase(),
             CorusFont.custom(weight = 900, size = 8).copy(letterSpacing = 0.3.sp), Color.White,
             Modifier.offset(y = 4.dp).clip(CircleShape).background(Color(0xFF4774CA))
@@ -391,11 +391,15 @@ private fun LiveBadgedArtwork(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun LiveMiniAvatarStack(host: LivePerson, djs: List<LivePerson>) {
-    Row(horizontalArrangement = Arrangement.spacedBy((-8).dp)) {
-        (listOf(host) + djs).forEachIndexed { index, person ->
-            Box(Modifier.zIndex(if (index == 0) 1f else 0f)) {
-                LiveAvatar(person, 28.dp, ring = true, ringPadding = 2.dp, ringWidth = 1.5.dp)
+private fun LiveMiniAvatarStack(room: LiveRoom) {
+    val current = liveBrowseDJ(room)
+    val people = (listOf(room.host) + room.djs.map(LivePerson::parse) + current).distinctBy { it.uid }
+    Row(horizontalArrangement = Arrangement.spacedBy((-9).dp)) {
+        people.forEachIndexed { index, person ->
+            Box(Modifier.zIndex((people.size - index).toFloat())) {
+                LiveBadgedArtwork(showBadge = person.uid == current.uid) {
+                    LiveAvatar(person, 28.dp, ring = true, ringPadding = 2.dp, ringWidth = 1.5.dp)
+                }
             }
         }
     }
@@ -510,10 +514,10 @@ internal fun LiveMiniPlayer(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                LiveBadgedArtwork {
+                LiveBadgedArtwork(showBadge = room.roomImageURL != null || (djs.isEmpty() && liveBrowseDJ(room).uid == room.host.uid)) {
                     if (room.roomImageURL != null) {
                         LiveAvatar(room.host.copy(avatar = room.roomImageURL), 30.dp, ring = true, ringPadding = 3.dp)
-                    } else if (djs.isEmpty()) {
+                    } else if (djs.isEmpty() && liveBrowseDJ(room).uid == room.host.uid) {
                         var showArtwork by remember(room.id, artwork, reducedMotion) { mutableStateOf(false) }
                         LaunchedEffect(room.id, artwork, reducedMotion) {
                             if (artwork == null || reducedMotion) return@LaunchedEffect
@@ -532,7 +536,7 @@ internal fun LiveMiniPlayer(
                                 modifier = Modifier.alpha(1f - artworkAlpha))
                             if (artwork != null) LiveArtwork(artwork, 34.dp, Modifier.alpha(artworkAlpha))
                         }
-                    } else LiveMiniAvatarStack(room.host, djs)
+                    } else LiveMiniAvatarStack(room)
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Box(Modifier.clearAndSetSemantics {

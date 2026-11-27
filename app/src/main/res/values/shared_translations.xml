@@ -447,4 +447,5 @@
     <string name="corus_live_room_hosted_by">"Hosted by %1$s"</string>
     <string name="corus_live_room_other_dj_many">"+%1$s others"</string>
     <string name="corus_live_room_other_dj_one">"+%1$s other"</string>
+    <string name="corus_live_dj_label">"DJ"</string>
 </resources>

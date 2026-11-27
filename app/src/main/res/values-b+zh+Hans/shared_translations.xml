@@ -704,4 +704,5 @@
     <string name="corus_live_room_hosted_by">"主持人：%1$s"</string>
     <string name="corus_live_room_other_dj_many">"另%1$s位DJ"</string>
     <string name="corus_live_room_other_dj_one">"另%1$s位DJ"</string>
+    <string name="corus_live_dj_label">"DJ"</string>
 </resources>

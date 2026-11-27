@@ -65,6 +65,7 @@ import javax.inject.Inject
  */
 enum class UnifiedSearchFilter(val value: String) {
     ALL("all"),
+    LIVE("live"),
     USERS("users"),
     MUSIC("songs"),
     FILM("films"),
@@ -101,7 +102,7 @@ class SearchViewModel @Inject constructor(
     val isConnected: StateFlow<Boolean> = networkMonitor.isConnected
 
     // Tab state
-    private val _activeTab = MutableStateFlow(0) // 0=Users, 1=Songs, 2=Films, 3=Hashtags
+    private val _activeTab = MutableStateFlow(4) // 4=Live, 0=Users, 1=Songs, 2=Films, 3=Hashtags
     val activeTab: StateFlow<Int> = _activeTab.asStateFlow()
 
     fun setActiveTab(tabIndex: Int) {
@@ -1043,6 +1044,7 @@ class SearchViewModel @Inject constructor(
 
     fun search(query: String, tab: Int) {
         searchJob?.cancel()
+        if (tab == 4 && !unifiedQueryMode) { _isSearching.value = false; return }
         if (query.isBlank()) {
             clearSearch()
             return
@@ -1156,7 +1158,7 @@ class SearchViewModel @Inject constructor(
                                 UnifiedSearchFilter.MUSIC -> searchMusicVertical(query)
                                 UnifiedSearchFilter.FILM -> searchFilmsVertical(query)
                                 UnifiedSearchFilter.HASHTAGS -> searchHashtagsVertical(query)
-                                UnifiedSearchFilter.ALL -> Unit
+                                UnifiedSearchFilter.ALL, UnifiedSearchFilter.LIVE -> Unit
                             }
                         } catch (e: kotlinx.coroutines.CancellationException) {
                             // Same reasoning as the classic path: a newer
@@ -1175,6 +1177,7 @@ class SearchViewModel @Inject constructor(
     }
 
     private fun verticalHasResults(vertical: UnifiedSearchFilter): Boolean = when (vertical) {
+        UnifiedSearchFilter.LIVE -> false
         UnifiedSearchFilter.USERS -> _userSearchResults.value.isNotEmpty()
         UnifiedSearchFilter.MUSIC ->
             _songSearchResults.value.isNotEmpty() || _artistSearchResults.value.isNotEmpty()

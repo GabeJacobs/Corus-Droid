@@ -85,7 +85,7 @@ internal class LiveRepository @Inject constructor(
     }
 
     fun discovery(privacyMetadataSupported: Boolean): Flow<List<LiveRoom>> {
-        val playing = rooms.whereEqualTo("status", "playing")
+        val playing = rooms.whereIn("status", listOf("playing", "waiting"))
         val query = if (privacyMetadataSupported) playing.whereEqualTo("isPrivate", false) else playing
         return query.limit(25).snapshots { documents ->
             documents.mapNotNull(DocumentSnapshot::toLiveRoom).filterNot { it.isPrivate }

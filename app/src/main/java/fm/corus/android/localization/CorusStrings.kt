@@ -1025,6 +1025,7 @@ object CorusStrings {
     @StringRes val live_confirm_delete_message: Int = R.string.corus_live_confirm_delete_message
     @StringRes val live_continue_anyway: Int = R.string.corus_live_continue_anyway
     @StringRes val live_delete_message_confirmation_body: Int = R.string.corus_live_delete_message_confirmation_body
+    @StringRes val live_dj_label: Int = R.string.corus_live_dj_label
     @StringRes val live_edit_message: Int = R.string.live_edit_message
     @StringRes val live_edit_message_placeholder: Int = R.string.corus_live_edit_message_placeholder
     @StringRes val live_emoji_activities: Int = R.string.corus_live_emoji_activities

@@ -160,6 +160,7 @@ import kotlin.math.roundToInt
 import androidx.compose.foundation.lazy.LazyRow
 
 enum class SearchTab(val labelRes: Int) {
+    LIVE(fm.corus.android.localization.CorusStrings.live_browse_tab),
     USERS(fm.corus.android.localization.CorusStrings.search_tab_users),
     SONGS(fm.corus.android.localization.CorusStrings.search_tab_songs),
     FILMS(fm.corus.android.localization.CorusStrings.search_tab_films),
@@ -345,13 +346,14 @@ fun SearchScreen(
     }
 
     val activeTabIndex by viewModel.activeTab.collectAsState()
-    val activeTab = SearchTab.entries[activeTabIndex]
+    val activeTab = if (activeTabIndex == 4) SearchTab.LIVE else SearchTab.entries[activeTabIndex + 1]
     val hasSearchQuery = searchQuery.isNotBlank()
     val searchHasError by viewModel.searchHasError.collectAsState()
     val isConnected by viewModel.isConnected.collectAsState()
     val currentTabIsEmpty = if (unifiedQueryMode) {
         // Unified: "empty" = nothing rendered by the active filter.
         when (unifiedFilter) {
+            UnifiedSearchFilter.LIVE -> false
             UnifiedSearchFilter.USERS -> userResults.isEmpty()
             UnifiedSearchFilter.MUSIC -> songSearchResults.isEmpty() && artistSearchResults.isEmpty()
             UnifiedSearchFilter.FILM -> filmSearchResults.isEmpty()
@@ -362,6 +364,7 @@ fun SearchScreen(
                     hashtagSearchResults.isEmpty()
         }
     } else when (activeTab) {
+        SearchTab.LIVE -> false
         SearchTab.USERS -> userResults.isEmpty()
         SearchTab.SONGS -> songSearchResults.isEmpty()
         SearchTab.FILMS -> filmSearchResults.isEmpty()
@@ -374,12 +377,8 @@ fun SearchScreen(
     val showRecentOverlay = isSearchFocused && !hasSearchQuery &&
         recentSearches.isNotEmpty() &&
         (unifiedQueryMode || activeTab == SearchTab.USERS)
-    val showBrowseTabs = if (segmentedSearchEnabled) {
-        !hasSearchQuery && !showRecentOverlay
-    } else {
-        !unifiedSearchEnabled
-    }
-    val keepsBrowsePager = segmentedSearchEnabled || !unifiedSearchEnabled
+    val showBrowseTabs = !unifiedQueryMode || (!hasSearchQuery && !showRecentOverlay)
+    val keepsBrowsePager = true
 
     // Dismiss the recent-searches overlay on back press
     BackHandler(enabled = showRecentOverlay) {
@@ -429,19 +428,21 @@ fun SearchScreen(
     // separate lists, so scroll-to-top needs their own hoisted states.
     val unifiedZeroListState = rememberLazyListState()
     val unifiedAllListState = rememberLazyListState()
-    val browsePagerState = rememberPagerState(initialPage = activeTabIndex) {
+    var liveRefreshID by remember { mutableIntStateOf(0) }
+    val liveListState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+    val browsePagerState = rememberPagerState(initialPage = activeTab.ordinal) {
         SearchTab.entries.size
     }
     val searchHaptics = LocalHapticManager.current
-    val pagerActiveTab = rememberUpdatedState(activeTabIndex)
+    val pagerActiveTab = rememberUpdatedState(activeTab.ordinal)
     LaunchedEffect(activeTabIndex) {
-        if (browsePagerState.settledPage != activeTabIndex && !browsePagerState.isScrollInProgress) {
-            browsePagerState.animateScrollToPage(activeTabIndex, animationSpec = tween(180))
+        if (browsePagerState.settledPage != activeTab.ordinal && !browsePagerState.isScrollInProgress) {
+            browsePagerState.animateScrollToPage(activeTab.ordinal, animationSpec = tween(180))
         }
     }
     LaunchedEffect(browsePagerState) {
         snapshotFlow { browsePagerState.settledPage }.collect { page ->
-            if (page != pagerActiveTab.value) viewModel.setActiveTab(page)
+            if (page != pagerActiveTab.value) viewModel.setActiveTab(if (page == 0) 4 else page - 1)
         }
     }
     val browsePagerOffset = browsePagerState.currentPage + browsePagerState.currentPageOffsetFraction
@@ -457,7 +458,9 @@ fun SearchScreen(
         if (scrollToTopTrigger > lastScrollTrigger) {
             if (unifiedQueryMode) {
                 when {
-                    !hasSearchQuery -> unifiedZeroListState.animateScrollToItem(0)
+                    !hasSearchQuery && activeTab == SearchTab.LIVE -> liveListState.animateScrollToItem(0)
+                    !hasSearchQuery -> usersListState.animateScrollToItem(0)
+                    unifiedFilter == UnifiedSearchFilter.LIVE -> liveListState.animateScrollToItem(0)
                     unifiedFilter == UnifiedSearchFilter.ALL -> unifiedAllListState.animateScrollToItem(0)
                     unifiedFilter == UnifiedSearchFilter.USERS -> usersListState.animateScrollToItem(0)
                     unifiedFilter == UnifiedSearchFilter.MUSIC -> songsListState.animateScrollToItem(0)
@@ -465,6 +468,7 @@ fun SearchScreen(
                     else -> hashtagsListState.animateScrollToItem(0)
                 }
             } else when (activeTab) {
+                SearchTab.LIVE -> liveListState.animateScrollToItem(0)
                 SearchTab.USERS -> usersListState.animateScrollToItem(0)
                 SearchTab.SONGS -> songsListState.animateScrollToItem(0)
                 SearchTab.FILMS -> filmsListState.animateScrollToItem(0)
@@ -487,7 +491,7 @@ fun SearchScreen(
 
     // Trigger search when query or tab changes
     LaunchedEffect(searchQuery, activeTab) {
-        viewModel.search(searchQuery, activeTab.ordinal)
+        viewModel.search(searchQuery, activeTabIndex)
     }
 
     val followingIds by viewModel.followingIds.collectAsState()
@@ -579,6 +583,7 @@ fun SearchScreen(
                     if (artistPagesEnabled) fm.corus.android.localization.CorusStrings.search_placeholder_film_952681e3
                     else fm.corus.android.localization.CorusStrings.compose_search_film
                 )
+                SearchTab.LIVE -> stringResource(fm.corus.android.localization.CorusStrings.live_browse_search)
                 SearchTab.USERS -> stringResource(fm.corus.android.localization.CorusStrings.search_placeholder_users_d2b4126f)
                 SearchTab.HASHTAGS -> stringResource(fm.corus.android.localization.CorusStrings.search_placeholder_hashtags_aec01a25)
             },
@@ -600,6 +605,7 @@ fun SearchScreen(
                     if (tab == activeTab) {
                         searchScope.launch {
                             when (tab) {
+                                SearchTab.LIVE -> liveListState.animateScrollToItem(0)
                                 SearchTab.USERS -> usersListState.animateScrollToItem(0)
                                 SearchTab.SONGS -> songsListState.animateScrollToItem(0)
                                 SearchTab.FILMS -> filmsListState.animateScrollToItem(0)
@@ -608,7 +614,7 @@ fun SearchScreen(
                         }
                     } else {
                         searchHaptics.impact(HapticManager.ImpactStyle.LIGHT)
-                        viewModel.setActiveTab(tab.ordinal)
+                        viewModel.setActiveTab(if (tab == SearchTab.LIVE) 4 else tab.ordinal - 1)
                         searchScope.launch {
                             browsePagerState.animateScrollToPage(tab.ordinal, animationSpec = tween(180))
                         }
@@ -627,6 +633,7 @@ fun SearchScreen(
                 onRefresh = {
                     // Mirrors iOS SearchView.refreshable haptic.
                     searchHaptics.impact(HapticManager.ImpactStyle.LIGHT)
+                    liveRefreshID++
                     viewModel.refresh()
                 },
                 modifier = Modifier.fillMaxSize(),
@@ -662,6 +669,9 @@ fun SearchScreen(
                         userScrollEnabled = showBrowseTabs,
                     ) { page ->
                     when (SearchTab.entries.getOrElse(page) { SearchTab.USERS }) {
+                    SearchTab.LIVE -> {
+                        fm.corus.android.ui.screens.live.LiveBrowseScreen(searchQuery, liveListState, isActive = showBrowseTabs && page == browsePagerState.settledPage, refreshID = liveRefreshID)
+                    }
                     SearchTab.USERS -> {
                         SuggestedUsersContent(
                             onNavigateToMap = onNavigateToMap,                            listState = usersListState,
@@ -842,6 +852,8 @@ fun SearchScreen(
                     if (!showBrowseTabs && unifiedQueryMode) {
                     if (hasSearchQuery) {
                         when (unifiedFilter) {
+                            UnifiedSearchFilter.LIVE -> fm.corus.android.ui.screens.live.LiveBrowseScreen(
+                                searchQuery, liveListState, isActive = true, refreshID = liveRefreshID)
                             UnifiedSearchFilter.ALL -> UnifiedAllResults(
                                 listState = unifiedAllListState,
                                 query = searchQuery,
@@ -1307,7 +1319,6 @@ private fun LazyListScope.searchBrowseHeader(onNavigateToMap: () -> Unit) {
         // Keep a measured first item so late Live results appear at the top instead
         // of being inserted above whichever item the list anchored to while loading.
         Column(Modifier.fillMaxWidth().heightIn(min = 1.dp)) {
-            LiveDiscovery("search_users", inSearch = true)
             fm.corus.android.ui.components.ReferralInviteBanner("search")
             fm.corus.android.ui.screens.map.MapPreviewEntry(onNavigateToMap)
         }
@@ -2630,6 +2641,7 @@ private fun UnifiedFilterChipRow(
         items(UnifiedSearchFilter.entries.toList(), key = { it.value }) { filter ->
             val isActive = filter == selected
             val label = when (filter) {
+                UnifiedSearchFilter.LIVE -> stringResource(fm.corus.android.localization.CorusStrings.live_browse_tab)
                 UnifiedSearchFilter.ALL -> stringResource(fm.corus.android.localization.CorusStrings.concert_tab_all)
                 UnifiedSearchFilter.USERS -> stringResource(fm.corus.android.localization.CorusStrings.search_tab_users)
                 UnifiedSearchFilter.MUSIC -> stringResource(

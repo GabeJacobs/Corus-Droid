@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="corus_live_delete_past_room_action">Elimina stanza</string>
+    <string name="corus_live_delete_past_room_title">Eliminare la stanza?</string>
+    <string name="corus_live_delete_past_room_message">Questa stanza e la sua scaletta verranno rimosse dalla cronologia delle stanze.</string>
+    <string name="corus_live_delete_past_room_failed">Impossibile eliminare la stanza. Riprova.</string>
+    <string name="corus_live_djing_now">DJ in diretta</string>
+</resources>

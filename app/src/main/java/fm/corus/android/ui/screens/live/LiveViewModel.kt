@@ -407,7 +407,7 @@ internal class LiveViewModel @Inject constructor(
         val current = state.value
         return current.miniPlayerRoom?.takeIf {
             it.isPrivate && it.host.uid == current.uid && it.status == "playing" &&
-                it.active(now) && it.deadline > (it.pausedAt ?: now)
+                liveDiscoveryVisible(it, now)
         }
     }
     fun serverTime(): Long = now
@@ -579,7 +579,7 @@ internal class LiveViewModel @Inject constructor(
         val roomSource = discoverySource
         val uid = state.value.uid
         fun eligible(room: LiveRoom) =
-            room.id !in hiddenRooms && !repository.hostIsBlocked(room.host.uid) && room.active(now) && room.deadline > (room.pausedAt ?: now) && room.host.uid != uid
+            room.id !in hiddenRooms && !repository.hostIsBlocked(room.host.uid) && liveDiscoveryVisible(room, now) && room.host.uid != uid
         val rooms = roomSource.filter(::eligible)
         if (!state.value.access?.listenerCounts.orFalse() || rooms.isEmpty()) {
             update { copy(discovery = rooms, discoveryListenerCounts = emptyMap(), discoveryPeopleCounts = emptyMap()) }
@@ -587,7 +587,7 @@ internal class LiveViewModel @Inject constructor(
         }
         val counts = try {
             val result = repository.call("discoveryListenerCounts", fields = mapOf(
-                "roomIds" to rooms.map { it.id }, "rankDiscovery" to true, "populationProtocol" to 1,
+                "roomIds" to rooms.map { it.id }, "rankDiscovery" to true, "populationProtocol" to 1, "allowTransitions" to true,
                 "previousRoomIds" to state.value.discoveryRoomOrder.takeIf { now - state.value.discoveryCountsUpdatedAt < 60_000L }.orEmpty(),
             ))
             val counts = result["counts"].liveFields().orEmpty().mapValues { (_, count) -> (count as? Number)?.toInt() ?: 0 }
@@ -2004,6 +2004,44 @@ internal class LiveViewModel @Inject constructor(
             }
         }
         return shelfLookup
+    }
+
+    private val discoverySnapshots = linkedMapOf<Pair<String?, String>, LiveDiscoverySnapshotState>()
+    private var discoverySnapshotAccount: String? = null
+    internal fun discoverySnapshotModel(accountID: String?, query: String): LiveDiscoverySnapshotState {
+        if (discoverySnapshotAccount != accountID) { discoverySnapshots.clear(); discoverySnapshotAccount = accountID }
+        val key = accountID to query
+        if (discoverySnapshots.size >= 16 && key !in discoverySnapshots) discoverySnapshots.remove(discoverySnapshots.keys.first())
+        return discoverySnapshots.getOrPut(key) { LiveDiscoverySnapshotState() }.also { it.expireOldCache() }
+    }
+    suspend fun loadDiscoverySnapshot(query: String): LiveFields = repository.call("discoverySnapshot", fields = mapOf("query" to query))
+
+    private val browseModels = linkedMapOf<Triple<String?, String, String>, LiveBrowsePageState>()
+    private var browseAccount: String? = null
+    internal fun browseModel(accountID: String?, scope: String, query: String): LiveBrowsePageState {
+        if (browseAccount != accountID) { browseModels.clear(); browseAccount = accountID }
+        val key = Triple(accountID, scope, query)
+        if (browseModels.size >= 16 && key !in browseModels) browseModels.remove(browseModels.keys.first())
+        return browseModels.getOrPut(key) { LiveBrowsePageState() }
+    }
+
+    suspend fun browseRooms(scope: String, query: String, after: LiveFields? = null): LiveFields =
+        repository.call("browseRooms", fields = buildMap {
+            put("scope", scope)
+            put("query", query)
+            after?.let { put("after", it) }
+        })
+
+    fun openPastRoom(room: LiveRoom) {
+        event("past_room_opened", source = "live_browse", roomId = room.id)
+        update { copy(openSavedSetlist = room) }
+    }
+
+    suspend fun deletePastRoom(room: LiveRoom) {
+        repository.call("deletePastRoom", room.id)
+        browseModels.values.forEach { model -> model.rooms = model.rooms.filterNot { it.room.id == room.id } }
+        event("past_room_deleted", "success", "setlist", room.id)
+        closeSavedSetlist()
     }
 
     fun closeSavedSetlist() = update { copy(openSavedSetlist = null) }

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="corus_live_delete_past_room_action">Excluir sala</string>
+    <string name="corus_live_delete_past_room_title">Excluir sala?</string>
+    <string name="corus_live_delete_past_room_message">Esta sala e sua lista de músicas serão removidas do histórico de salas.</string>
+    <string name="corus_live_delete_past_room_failed">Não foi possível excluir a sala. Tente novamente.</string>
+    <string name="corus_live_djing_now">DJ agora</string>
+</resources>

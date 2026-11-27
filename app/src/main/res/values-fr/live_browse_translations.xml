@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="corus_live_delete_past_room_action">Supprimer le salon</string>
+    <string name="corus_live_delete_past_room_title">Supprimer le salon ?</string>
+    <string name="corus_live_delete_past_room_message">Ce salon et sa liste de morceaux seront retirés de l’historique des salons.</string>
+    <string name="corus_live_delete_past_room_failed">Impossible de supprimer le salon. Réessayez.</string>
+    <string name="corus_live_djing_now">DJ en direct</string>
+</resources>
