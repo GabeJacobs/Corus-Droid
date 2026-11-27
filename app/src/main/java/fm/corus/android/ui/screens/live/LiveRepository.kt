@@ -355,7 +355,7 @@ internal class LiveRepository @Inject constructor(
     )
 
     suspend fun voiceToken(id: String, session: String): LiveFields =
-        functions.getHttpsCallable("corusLiveVoice").call(mapOf("roomId" to id, "voiceSession" to session))
+        functions.getHttpsCallable("corusLiveVoice").call(mapOf("roomId" to id, "voiceSession" to session, "readinessProtocol" to 1))
             .await().getData().liveFields().orEmpty()
 
     suspend fun gifs(query: String): List<String> =
