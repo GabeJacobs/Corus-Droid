@@ -35,10 +35,7 @@ internal class LiveDiscoverySnapshotState {
     var failed by mutableStateOf(false)
         private set
     private var pending = false
-    private var cachedAt = 0L
-    fun expireOldCache() {
-        if (snapshot != null && android.os.SystemClock.elapsedRealtime() - cachedAt > 30_000) snapshot = null
-    }
+    // Keep the last complete list during re-entry and refresh; the VM isolates accounts.
 
     suspend fun load(vm: LiveViewModel, query: String) {
         if (loading) { pending = true; return }
@@ -50,7 +47,6 @@ internal class LiveDiscoverySnapshotState {
                 try {
                     val complete = LiveDiscoverySnapshot.parse(vm.loadDiscoverySnapshot(query))
                     // One state assignment publishes metadata, counts and ranking together.
-                    cachedAt = android.os.SystemClock.elapsedRealtime()
                     snapshot = complete
                     failed = false
                     vm.event("discovery_snapshot_loaded", "success", "live_browse")

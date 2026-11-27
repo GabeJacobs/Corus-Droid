@@ -2012,7 +2012,7 @@ internal class LiveViewModel @Inject constructor(
         if (discoverySnapshotAccount != accountID) { discoverySnapshots.clear(); discoverySnapshotAccount = accountID }
         val key = accountID to query
         if (discoverySnapshots.size >= 16 && key !in discoverySnapshots) discoverySnapshots.remove(discoverySnapshots.keys.first())
-        return discoverySnapshots.getOrPut(key) { LiveDiscoverySnapshotState() }.also { it.expireOldCache() }
+        return discoverySnapshots.getOrPut(key) { LiveDiscoverySnapshotState() }
     }
     suspend fun loadDiscoverySnapshot(query: String): LiveFields = repository.call("discoverySnapshot", fields = mapOf("query" to query))
 

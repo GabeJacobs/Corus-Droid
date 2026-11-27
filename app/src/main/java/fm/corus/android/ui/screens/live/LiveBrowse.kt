@@ -168,7 +168,7 @@ internal fun LiveBrowseScreen(query: String, listState: LazyGridState, isActive:
                 }
             }
         } else if (completeSnapshot == null && !activeSnapshot.failed) {
-            items(2, key = { "active-loading-$it" }, span = { GridItemSpan(maxLineSpan) }) { LiveBrowseActiveSkeleton() }
+            item(key = "active-loading", span = { GridItemSpan(maxLineSpan) }) { LiveBrowseActiveSkeleton() }
         } else if (completeSnapshot == null && activeSnapshot.failed) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 TextButton(onClick = { coroutine.launch { activeSnapshot.load(vm, normalized) } }) {
@@ -264,7 +264,7 @@ internal fun LiveBrowseActiveCard(room: LiveRoom, people: Int?, previews: List<L
         Spacer(Modifier.height(6.dp))
         val dj = liveBrowseDJ(room)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy((-9).dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy((-11).dp)) {
                 liveBrowseLineup(room).take(3).forEachIndexed { index, person ->
                     Box(Modifier.padding(bottom = 6.dp)) {
                         LiveAvatar(person, 30.dp, ring = person.uid == dj.uid, ringPadding = 1.dp)
