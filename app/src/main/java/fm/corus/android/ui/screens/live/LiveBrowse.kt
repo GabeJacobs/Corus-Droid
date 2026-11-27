@@ -28,6 +28,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
+import androidx.compose.ui.platform.LocalContext
+import fm.corus.android.ui.components.LocalSkipImageRevealWhenCached
+import fm.corus.android.ui.components.ShimmerAsyncImage
 import com.valentinilk.shimmer.shimmer
 import fm.corus.android.R
 import fm.corus.android.localization.CorusStrings
@@ -286,21 +291,41 @@ internal fun LiveBrowseActiveCard(room: LiveRoom, people: Int?, previews: List<L
     }
 }
 
+/** Fade individual downloaded covers without animating the room or its layout. */
+@Composable
+private fun LiveBrowseRemoteArtwork(
+    model: String?, contentDescription: String?, modifier: Modifier,
+    contentScale: ContentScale = ContentScale.Crop,
+) {
+    if (rememberReducedMotion()) {
+        val context = LocalContext.current
+        val request = remember(context, model) {
+            ImageRequest.Builder(context).data(model).crossfade(false).build()
+        }
+        AsyncImage(request, contentDescription, modifier.background(CorusColors.Skeleton), contentScale = contentScale)
+    } else {
+        CompositionLocalProvider(LocalSkipImageRevealWhenCached provides true) {
+            ShimmerAsyncImage(model, contentDescription, modifier, contentScale = contentScale,
+                skipFadeOnMemoryCache = true)
+        }
+    }
+}
+
 @Composable
 internal fun LiveBrowseArtwork(room: LiveRoom, tracks: List<LiveTrack>, modifier: Modifier) {
     val urls = tracks.mapNotNull { it.song.liveDisplayArtwork }.distinct().take(4)
     Box(modifier.clip(RoundedCornerShape(10.dp)).background(CorusColors.Accent.copy(alpha = .07f))) {
         when {
-            room.roomImageURL != null -> AsyncImage(room.roomImageURL, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            room.roomImageURL != null -> LiveBrowseRemoteArtwork(room.roomImageURL, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             urls.size == 4 -> Column(Modifier.fillMaxSize()) {
                 urls.chunked(2).forEach { row -> Row(Modifier.weight(1f)) {
-                    row.forEach { AsyncImage(it, null, Modifier.weight(1f).fillMaxHeight(), contentScale = ContentScale.Fit) }
+                    row.forEach { LiveBrowseRemoteArtwork(it, null, Modifier.weight(1f).fillMaxHeight(), contentScale = ContentScale.Fit) }
                 } }
             }
             urls.isNotEmpty() -> {
-                AsyncImage(urls.first(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                LiveBrowseRemoteArtwork(urls.first(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
                 Row(Modifier.align(Alignment.BottomEnd).padding(3.dp)) {
-                    urls.drop(1).forEach { AsyncImage(it, null, Modifier.size(30.dp).background(CorusColors.CardBackground).padding(1.dp), contentScale = ContentScale.Fit) }
+                    urls.drop(1).forEach { LiveBrowseRemoteArtwork(it, null, Modifier.size(30.dp).background(CorusColors.CardBackground).padding(1.dp), contentScale = ContentScale.Fit) }
                 }
             }
             else -> Icon(Icons.Default.MusicNote, null, Modifier.size(28.dp).align(Alignment.Center), tint = CorusColors.Accent)
@@ -315,13 +340,13 @@ internal fun LiveBrowsePastCard(entry: LivePastRoom, open: () -> Unit) {
         val covers = entry.previews.mapNotNull { it.song.liveDisplayArtwork }.distinct().take(2)
         Box(Modifier.fillMaxWidth().height(104.dp).clip(RoundedCornerShape(12.dp)).background(CorusColors.Accent.copy(alpha = .07f))) {
             if (entry.room.roomImageURL != null) {
-                AsyncImage(entry.room.roomImageURL, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                LiveBrowseRemoteArtwork(entry.room.roomImageURL, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 covers.firstOrNull()?.let { url ->
-                    AsyncImage(url, null, Modifier.align(Alignment.BottomEnd).padding(8.dp).size(32.dp)
+                    LiveBrowseRemoteArtwork(url, null, Modifier.align(Alignment.BottomEnd).padding(8.dp).size(32.dp)
                         .clip(RoundedCornerShape(5.dp)), contentScale = ContentScale.Fit)
                 }
             } else if (covers.isNotEmpty()) Row(Modifier.fillMaxSize()) {
-                covers.forEach { AsyncImage(it, null, Modifier.weight(1f).fillMaxHeight(), contentScale = ContentScale.Crop) }
+                covers.forEach { LiveBrowseRemoteArtwork(it, null, Modifier.weight(1f).fillMaxHeight(), contentScale = ContentScale.Crop) }
             } else Icon(Icons.Default.MusicNote, null, Modifier.size(28.dp).align(Alignment.Center), tint = CorusColors.Accent)
         }
         Spacer(Modifier.height(5.dp))
