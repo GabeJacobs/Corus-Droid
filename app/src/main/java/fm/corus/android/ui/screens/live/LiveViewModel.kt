@@ -2192,6 +2192,19 @@ internal class LiveViewModel @Inject constructor(
         }
     }
 
+    fun playSetlist(tracks: List<LiveTrack>) {
+        val first = tracks.firstOrNull()?.song?.withLiveDisplayArtwork() ?: return
+        val queue = tracks.map { it.song.withLiveDisplayArtwork().toQueuedTrack() }
+        player.routePlayTap(track = first, queue = queue, onPreview = {
+            player.play(track = first.toQueuedTrack(), queue = queue)
+        })
+    }
+
+    suspend fun fullSetlist(id: String): Pair<List<LiveTrack>, Boolean> {
+        val data = repository.call("setlist", id)
+        return data.rows("tracks").mapNotNull(LiveTrack::parse) to data.flag("complete")
+    }
+
     suspend fun exportSetlist(id: String): String {
         try {
             return repository.exportSetlist(id).also { event("setlist_export_result", "success", "spotify", id) }

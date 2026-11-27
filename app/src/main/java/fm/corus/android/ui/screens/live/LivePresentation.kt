@@ -873,7 +873,23 @@ private fun LiveEndedSheets(
     var error by remember(room.id) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val tracks = room.setlist
+    var fullTracks by remember(room.id) { mutableStateOf<List<LiveTrack>?>(null) }
+    var fullHistoryComplete by remember(room.id) { mutableStateOf<Boolean?>(null) }
+    var historyFailed by remember(room.id) { mutableStateOf(false) }
+    var retryHistory by remember(room.id) { mutableIntStateOf(0) }
+    LaunchedEffect(room.id, retryHistory) {
+        historyFailed = false
+        try {
+            val result = vm.fullSetlist(room.id)
+            fullTracks = result.first
+            fullHistoryComplete = result.second
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            historyFailed = true
+        }
+    }
+    val tracks = if (showSetlist) fullTracks.orEmpty() else fullTracks ?: room.setlist
     val listState = rememberLazyListState()
     var returnEntry by remember { mutableStateOf<NavBackStackEntry?>(null) }
     val origin = returnEntry
@@ -909,43 +925,83 @@ private fun LiveEndedSheets(
             if (tracks.isNotEmpty()) LivePrimary(stringResource(CorusStrings.corus_live_view_setlist)) { showSetlist = true }
         }
     } else LiveSheet(stringResource(CorusStrings.corus_live_live_setlist), close, large = true) {
-        LiveText(room.title, CorusFont.songTitleLarge)
         val djs = tracks.mapNotNull { it.playedBy }.distinctBy { it.uid }
-        if (djs.size > 1) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                djs.forEach { dj -> LiveAvatar(dj, 28.dp) }
-            }
-        }
-        LiveText(java.text.DateFormat.getDateInstance(java.text.DateFormat.LONG).format(
-            java.util.Date(room.endedAt.takeIf { it > 0 } ?: System.currentTimeMillis()),
-        ), CorusFont.caption, CorusColors.Secondary)
-        if (room.recent.size == 30) LiveText(stringResource(CorusStrings.corus_live_showing_the_most_recent_songs), CorusFont.caption, CorusColors.Secondary)
-        LivePrimary(
-            title = stringResource(if (exporting) R.string.live_exporting else CorusStrings.corus_live_export_playlist),
-            enabled = !exporting,
-            leadingIcon = if (exporting) null else Icons.AutoMirrored.Filled.QueueMusic,
-        ) {
-            scope.launch {
-                exporting = true
-                try {
-                    val url = vm.exportSetlist(room.id)
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (failure: Exception) {
-                    val reason = (failure as? FirebaseFunctionsException)?.details.liveFields()?.text("reason")
-                    error = context.getString(if (reason == "no_spotify_tracks") R.string.live_no_spotify_tracks
-                        else R.string.live_couldnt_export_playlist)
-                } finally {
-                    exporting = false
+        LazyColumn(Modifier.weight(1f), state = listState, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            item(key = "room-${room.id}") {
+                LiveBrowseSetlistHeader(room, tracks, vm, close) { uid ->
+                    navController?.currentBackStackEntry?.let { entry ->
+                        returnEntry = entry
+                        navController.navigate(fm.corus.android.ui.navigation.OtherProfileRoute(uid))
+                    }
                 }
             }
-        }
-        LazyColumn(Modifier.weight(1f), state = listState) {
+            item(key = "export") {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)) {
+                    Button(
+                        onClick = { vm.playSetlist(tracks) },
+                        enabled = fullTracks != null && tracks.isNotEmpty(),
+                        shape = CircleShape,
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                        modifier = Modifier.heightIn(min = 36.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = CorusColors.Accent),
+                    ) {
+                        Icon(Icons.Default.PlayArrow, null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(CorusStrings.voice_note_cd_play), style = CorusFont.caption.copy(fontWeight = FontWeight.Bold))
+                    }
+                    Button(
+                        enabled = !exporting && fullTracks != null && tracks.isNotEmpty(),
+                        shape = CircleShape,
+                        modifier = Modifier.heightIn(min = 36.dp),
+                        border = androidx.compose.foundation.BorderStroke(0.5.dp, CorusColors.Accent.copy(alpha = .18f)),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = CorusColors.Accent.copy(alpha = .10f),
+                            contentColor = CorusColors.Accent,
+                            disabledContainerColor = CorusColors.Accent.copy(alpha = .05f),
+                        ),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                        onClick = {
+                            scope.launch {
+                                exporting = true
+                                try {
+                                    val url = vm.exportSetlist(room.id)
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (failure: Exception) {
+                                    val reason = (failure as? FirebaseFunctionsException)?.details.liveFields()?.text("reason")
+                                    error = context.getString(if (reason == "no_spotify_tracks") R.string.live_no_spotify_tracks
+                                        else R.string.live_couldnt_export_playlist)
+                                } finally {
+                                    exporting = false
+                                }
+                            }
+                        },
+                    ) {
+                        if (exporting) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = CorusColors.Accent)
+                        else Icon(Icons.AutoMirrored.Filled.QueueMusic, null, Modifier.size(16.dp), tint = CorusColors.Accent)
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(if (exporting) R.string.live_exporting else CorusStrings.corus_live_export_playlist),
+                            style = CorusFont.caption.copy(fontWeight = FontWeight.Bold), color = CorusColors.Accent)
+                    }
+                }
+            }
+            if (historyFailed) item {
+                TextButton(onClick = { retryHistory++ }) { Text(stringResource(CorusStrings.live_browse_error)) }
+            } else if (fullTracks == null) items(5) {
+                fm.corus.android.ui.components.SkeletonSongRow()
+            }
+            if (fullHistoryComplete == false) item {
+                LiveText(stringResource(CorusStrings.corus_live_showing_the_most_recent_songs), CorusFont.caption, CorusColors.Secondary)
+            }
             items(tracks) { track ->
-                LiveTrackRow(track, showLikes = true, saveCount = room.savesFor(track.playRevision), onTrack = {
+                LiveTrackRow(track, showLikes = true, saveCount = room.savesFor(track.playRevision),
+                    handle = if (djs.size > 1 && track.playedBy != null) ({ LiveAvatar(track.playedBy, 24.dp) }) else null,
+                    onTrack = {
                     val entry = navController?.currentBackStackEntry
                     if (entry != null && entry == currentEntry) {
+                        vm.event("setlist_song_opened", source = "setlist", roomId = room.id)
                         returnEntry = entry
                         navController.navigate(track.song.withLiveDisplayArtwork().toSongDetailRoute())
                     }

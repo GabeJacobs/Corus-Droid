@@ -10,6 +10,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.navigation.compose.NavHost
@@ -18,6 +19,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import fm.corus.android.ui.navigation.SongDetailRoute
 import fm.corus.android.ui.player.rememberPlayerExpansionState
+import kotlinx.coroutines.CompletableDeferred
+import org.mockito.kotlin.doSuspendableAnswer
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Rule
 import org.junit.Test
@@ -33,16 +36,65 @@ class LiveSetlistNavigationTest {
     @get:Rule
     val compose = createComposeRule()
 
+    @Test fun playPassesTheFullChronologicalSetlistToPlayback() {
+        val tracks = (1..45).map { index -> LiveTrack(fm.corus.android.data.model.CymbalTrack(
+            id = "song-$index", name = "Set song $index", artistName = "Artist", albumName = "Album",
+            durationMs = 180000)) }
+        val vm = mock<LiveViewModel> {
+            onBlocking { fullSetlist("play-room") } doSuspendableAnswer { tracks to true }
+        }
+        whenever(vm.profile).thenReturn(MutableStateFlow(null))
+        whenever(vm.state).thenReturn(MutableStateFlow(LiveUiState()))
+        val room = LiveRoom("play-room", mapOf("title" to "Full show", "status" to "ended"))
+        compose.setContent {
+            Box(Modifier.fillMaxSize()) {
+                LivePresentation(state = LiveUiState(openSavedSetlist = room), vm = vm,
+                    profileDetails = { _, _ -> }, openSong = {}, nowPlayingDetails = { _, _ -> },
+                    roomExpansion = rememberPlayerExpansionState(), parkInsetPx = 0f)
+            }
+        }
+        compose.onNodeWithText("Play").performScrollTo().performClick()
+        org.mockito.kotlin.verify(vm).playSetlist(tracks)
+    }
+
+    @Test
+    fun coldSetlistDoesNotFlashRecentWindowWhileFullHistoryLoads() {
+        val history = CompletableDeferred<Pair<List<LiveTrack>, Boolean>>()
+        val vm = mock<LiveViewModel> {
+            onBlocking { fullSetlist("cold-room") } doSuspendableAnswer { history.await() }
+        }
+        whenever(vm.profile).thenReturn(MutableStateFlow(null))
+        whenever(vm.state).thenReturn(MutableStateFlow(LiveUiState()))
+        val room = LiveRoom("cold-room", mapOf("title" to "Selected room", "recent" to listOf(
+            mapOf("id" to "recent", "title" to "Recent window song", "durationMs" to 180000),
+        )))
+        compose.setContent {
+            Box(Modifier.fillMaxSize()) {
+                LivePresentation(state = LiveUiState(openSavedSetlist = room), vm = vm,
+                    profileDetails = { _, _ -> }, openSong = {}, nowPlayingDetails = { _, _ -> },
+                    roomExpansion = rememberPlayerExpansionState(), parkInsetPx = 0f)
+            }
+        }
+        compose.onNodeWithText("Selected room").assertIsDisplayed()
+        compose.onNodeWithText("Recent window song").assertDoesNotExist()
+        history.complete(listOf(LiveTrack(fm.corus.android.data.model.CymbalTrack(
+            id = "oldest", name = "Oldest full-history song", artistName = "Artist", albumName = "Album", durationMs = 180000))) to true)
+        compose.waitForIdle()
+        compose.onNodeWithText("Oldest full-history song").assertIsDisplayed()
+    }
+
     @Test
     fun backFromSongRestoresSetlistScrollPosition() {
         val vm = mock<LiveViewModel>()
         whenever(vm.profile).thenReturn(MutableStateFlow(null))
+        whenever(vm.state).thenReturn(MutableStateFlow(LiveUiState()))
         val room = LiveRoom("room", mapOf(
             "title" to "Test Live Set",
             "recent" to (1..25).reversed().map { number ->
                 mapOf("id" to "track-$number", "title" to "Song $number", "durationMs" to 180_000)
             },
         ))
+        kotlinx.coroutines.runBlocking { whenever(vm.fullSetlist(room.id)).thenReturn(room.setlist to true) }
         compose.setContent {
             val navController = rememberNavController()
             Box(Modifier.fillMaxSize()) {
@@ -67,7 +119,7 @@ class LiveSetlistNavigationTest {
         }
 
         compose.onNodeWithText("View setlist", ignoreCase = true).performClick()
-        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(20)
+        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(21)
         compose.onNodeWithText("Song 21").performClick()
         compose.onNodeWithText("Live setlist").assertDoesNotExist()
         compose.onNodeWithText("Back from Song 21").assertIsDisplayed().performClick()

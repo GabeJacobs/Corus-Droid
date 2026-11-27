@@ -139,6 +139,7 @@ internal data class LiveRoom(val id: String, private val fields: LiveFields) {
         status == "playing" && current != null &&
             voiceMode != "talk" && pausedAt == null && pendingSkip == null
     }
+    val createdAt = fields.number("createdAt")
     val endedAt = fields.number("endedAt")
     val deadline = fields.number("deadline")
     val leaseUntil = fields.number("leaseUntil")
