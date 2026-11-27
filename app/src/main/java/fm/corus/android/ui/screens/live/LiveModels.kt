@@ -104,6 +104,7 @@ internal data class LiveRoom(val id: String, private val fields: LiveFields) {
         fields.text("hostUsername").ifBlank { fields.text("hostName") },
         fields["hostAvatar"] as? String,
     )
+    val creator = fields["creator"].liveFields()?.let(LivePerson::parse)?.takeIf { it.uid.isNotBlank() }
     val hostHandle = fields.text("hostUsername").trim().removePrefix("@")
         .takeUnless { it.isBlank() || it == "…" }?.let { "@$it" }
     val roomDescription = fields.text("roomDescription")
