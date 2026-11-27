@@ -15,6 +15,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -65,6 +66,23 @@ class NowPlayingManagerQueueReorderTest {
             mock(),
             bandcampPlaybackService = org.mockito.kotlin.mock(),
         )
+
+    @Test
+    fun `setlist queue replaces feed pagination and keeps Next until its last song`() = runTest(testDispatcher) {
+        val manager = newManager()
+        manager.fakeActiveTrack("feed", null)
+        manager.updateFeedQueue(listOf(track("feed")), hasMore = true, loadMore = { })
+        val setlist = (1..45).map { track("set-$it").copy(sourcePostId = null) }
+        manager.setQueueFromCoordinator(setlist, setlist.first().trackId, playingSourcePostId = null)
+        assertEquals(setlist.map { it.trackId }, manager.queueSnapshot().map { it.trackId })
+        assertTrue(manager.state.value.hasNext)
+        setlist.forEachIndexed { index, song ->
+            manager.setQueueFromCoordinator(setlist, song.trackId, playingSourcePostId = null)
+            assertEquals("Next at song ${index + 1}", index < setlist.lastIndex, manager.state.value.hasNext)
+        }
+        val loader = NowPlayingManager::class.java.getDeclaredField("loadMoreQueue").apply { isAccessible = true }
+        assertNull("Setlist playback must drop the old feed loader", loader.get(manager))
+    }
 
     @Before
     fun setUp() {

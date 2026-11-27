@@ -928,8 +928,11 @@ class NowPlayingManager @Inject constructor(
         queueOrderPinnedByUser = false
         val preserved = if (preserveUserQueue) snapshotUserQueuedUpNext() else emptyList()
         this.queue = queue
-        if (hasMore != null) queueHasMore = hasMore
-        if (loadMore != null) loadMoreQueue = loadMore
+        // Catalog/setlist queues are complete snapshots, without a feed post.
+        // Do not leave Next pointing at a previous feed's pagination callback.
+        val startsCatalogQueue = playingSourcePostId == null
+        if (hasMore != null || startsCatalogQueue) queueHasMore = hasMore ?: false
+        if (loadMore != null || startsCatalogQueue) loadMoreQueue = loadMore
         currentQueueIndex = queue.indexOfActive(playingTrackId, playingSourcePostId)
         restoreUserQueuedUpNext(preserved)
         publishHasNextIfChanged()
