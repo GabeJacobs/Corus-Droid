@@ -154,15 +154,19 @@ internal fun LiveBrowseScreen(query: String, listState: LazyGridState, isActive:
     val completeSnapshot = activeSnapshot.snapshot
     val active = completeSnapshot?.rooms.orEmpty()
     LazyVerticalGrid(columns = GridCells.Fixed(columns), state = listState,
-        contentPadding = PaddingValues(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp,
+            top = if (completeSnapshot?.rooms?.isEmpty() == true) 12.dp else 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (active.isNotEmpty()) {
+        if (active.isNotEmpty() || completeSnapshot == null) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     LiveBrowseDot(isActive)
                     LiveText(stringResource(CorusStrings.live_browse_now).uppercase(), CorusFont.sectionHeader, CorusColors.Secondary)
                 }
             }
+        }
+        if (active.isNotEmpty()) {
             items(active, key = { "active-${it.room.id}" }, span = { GridItemSpan(maxLineSpan) }) { entry ->
                 val room = entry.room
                 LiveBrowseActiveCard(room, entry.peopleCount, previews = entry.previews) {
@@ -176,13 +180,6 @@ internal fun LiveBrowseScreen(query: String, listState: LazyGridState, isActive:
             item(span = { GridItemSpan(maxLineSpan) }) {
                 TextButton(onClick = { coroutine.launch { activeSnapshot.load(vm, normalized) } }) {
                     Text(stringResource(CorusStrings.live_browse_error))
-                }
-            }
-        } else if (normalized.isBlank()) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                Column(Modifier.padding(vertical = 12.dp)) {
-                    LiveText(stringResource(CorusStrings.live_browse_quiet), CorusFont.songTitle)
-                    LiveText(stringResource(CorusStrings.live_browse_quiet_body), color = CorusColors.Secondary)
                 }
             }
         }
