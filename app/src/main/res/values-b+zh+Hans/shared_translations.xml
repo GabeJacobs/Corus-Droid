@@ -705,4 +705,6 @@
     <string name="corus_live_room_other_dj_many">"另%1$s位DJ"</string>
     <string name="corus_live_room_other_dj_one">"另%1$s位DJ"</string>
     <string name="corus_live_dj_label">"DJ"</string>
+    <string name="live_setlist_dj_prefix">"DJ："</string>
+    <string name="live_setlist_dj_count">"%1$s 位 DJ"</string>
 </resources>

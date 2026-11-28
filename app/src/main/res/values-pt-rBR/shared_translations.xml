@@ -636,4 +636,6 @@
     <string name="corus_live_room_other_dj_many">"+%1$s outros"</string>
     <string name="corus_live_room_other_dj_one">"+%1$s outro"</string>
     <string name="corus_live_dj_label">"DJ"</string>
+    <string name="live_setlist_dj_prefix">"DJ:"</string>
+    <string name="live_setlist_dj_count">"%1$s DJs"</string>
 </resources>

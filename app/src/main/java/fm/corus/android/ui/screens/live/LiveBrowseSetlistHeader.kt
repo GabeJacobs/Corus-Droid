@@ -3,6 +3,13 @@ package fm.corus.android.ui.screens.live
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import com.valentinilk.shimmer.shimmer
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -11,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.withStyle
@@ -26,7 +34,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @Composable
-internal fun LiveBrowseSetlistHeader(room: LiveRoom, tracks: List<LiveTrack>, vm: LiveViewModel, close: () -> Unit, onProfile: (String) -> Unit) {
+internal fun LiveBrowseSetlistHeader(room: LiveRoom, tracks: List<LiveTrack>, vm: LiveViewModel, close: () -> Unit, onProfile: (String) -> Unit, loading: Boolean = false) {
     val state by vm.state.collectAsState()
     val scope = rememberCoroutineScope()
     var menu by remember(room.id) { mutableStateOf(false) }
@@ -36,7 +44,7 @@ internal fun LiveBrowseSetlistHeader(room: LiveRoom, tracks: List<LiveTrack>, vm
     var showDJs by remember(room.id) { mutableStateOf(false) }
     val djs = tracks.mapNotNull { it.playedBy }.distinctBy { it.uid }
     val creator = room.creator ?: room.host
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.fillMaxWidth()) {
         if (room.status == "ended" && creator.uid == state.uid) Box(Modifier.align(Alignment.TopEnd)) {
             IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreHoriz, stringResource(CorusStrings.parity_see_more), tint = CorusColors.Accent) }
@@ -49,9 +57,9 @@ internal fun LiveBrowseSetlistHeader(room: LiveRoom, tracks: List<LiveTrack>, vm
             }
         }
         LiveArtwork(room.roomImageURL ?: room.setlist.firstOrNull()?.song?.liveDisplayArtwork ?: tracks.firstOrNull()?.song?.liveDisplayArtwork,
-            120.dp, Modifier.align(Alignment.Center))
+            120.dp, Modifier.align(Alignment.Center).clip(RoundedCornerShape(16.dp)))
         }
-        LiveText(room.title, CorusFont.songTitleLarge.copy(fontSize = 24.sp, textAlign = TextAlign.Center), modifier = Modifier.fillMaxWidth())
+        LiveText(room.title, CorusFont.songTitleLarge.copy(fontSize = 22.sp, textAlign = TextAlign.Center), modifier = Modifier.fillMaxWidth())
         LiveText(stringResource(CorusStrings.live_room_created_by, "@${creator.username.trimStart('@')}"), CorusFont.bodyMedium, CorusColors.Secondary)
         val date = java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM).format(java.util.Date(room.endedAt))
         val duration = ((room.endedAt - room.createdAt).coerceAtLeast(0) / 60000)
@@ -63,13 +71,33 @@ internal fun LiveBrowseSetlistHeader(room: LiveRoom, tracks: List<LiveTrack>, vm
         val formattedDuration = android.icu.text.MeasureFormat.getInstance(context.resources.configuration.locales[0], android.icu.text.MeasureFormat.FormatWidth.NARROW).formatMeasures(*measures.toTypedArray())
         LiveText(if (room.createdAt > 0) "$date · $formattedDuration" else date, CorusFont.caption, CorusColors.Secondary)
         if (room.roomDescription.isNotBlank()) LiveBrowseDescription(room, vm)
-        if (djs.isNotEmpty()) TextButton(onClick = { showDJs = true; vm.event("setlist_djs_opened", source = "setlist", roomId = room.id) }) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                LiveText(stringResource(CorusStrings.corus_live_djs), CorusFont.caption, CorusColors.Secondary)
-                Row(horizontalArrangement = Arrangement.spacedBy((-8).dp)) { djs.take(4).forEach { LiveAvatar(it, 30.dp) } }
-                Spacer(Modifier.weight(1f))
-                LiveText(stringResource(CorusStrings.rail_see_all), CorusFont.caption, CorusColors.Accent)
-                Icon(Icons.Default.ChevronRight, null, tint = CorusColors.Accent)
+        if (loading) LiveBrowseDJSummarySkeleton()
+        else if (djs.isEmpty()) {
+            Box(Modifier.fillMaxWidth().heightIn(min = 44.dp), contentAlignment = Alignment.Center) {
+                LiveText(pluralStringResource(R.plurals.live_songs_played, tracks.size, tracks.size), CorusFont.caption, CorusColors.Secondary)
+            }
+        } else TextButton(modifier = Modifier.heightIn(min = 44.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp), onClick = {
+            if (djs.size == 1) {
+                vm.event("setlist_dj_opened", source = "setlist", roomId = room.id)
+                onProfile(djs.first().uid)
+            } else {
+                showDJs = true
+                vm.event("setlist_djs_opened", source = "setlist", roomId = room.id)
+            }
+        }) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy((-8).dp)) { djs.take(3).forEach { LiveAvatar(it, 28.dp) } }
+                val count = java.text.NumberFormat.getIntegerInstance(context.resources.configuration.locales[0]).format(djs.size)
+                if (djs.size == 1) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        LiveText(stringResource(CorusStrings.live_setlist_dj_prefix), CorusFont.captionMedium, CorusColors.Secondary)
+                        LiveText("@${djs.first().username.trimStart('@')}", CorusFont.captionMedium, lines = 1)
+                    }
+                } else {
+                    LiveText(stringResource(CorusStrings.live_setlist_dj_count, count), CorusFont.captionMedium)
+                }
+                Icon(Icons.Default.ChevronRight, null, Modifier.size(12.dp), tint = CorusColors.Accent)
             }
         }
     }
@@ -104,23 +132,36 @@ internal fun LiveBrowseSetlistHeader(room: LiveRoom, tracks: List<LiveTrack>, vm
 }
 
 @Composable
+private fun LiveBrowseDJSummarySkeleton() {
+    val reduced = rememberReducedMotion()
+    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(horizontal = 12.dp)
+        .then(if (reduced) Modifier else Modifier.shimmer()).clearAndSetSemantics {
+            testTag = "live-setlist-djs-loading"
+        },
+        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(28.dp).background(CorusColors.Skeleton, CircleShape))
+        Box(Modifier.size(64.dp, 12.dp).background(CorusColors.Skeleton, RoundedCornerShape(3.dp)))
+    }
+}
+
+@Composable
 private fun LiveBrowseDescription(room: LiveRoom, vm: LiveViewModel) {
     var expanded by remember(room.id, room.roomDescription) { mutableStateOf(false) }
     var cut by remember(room.id, room.roomDescription) { mutableStateOf<Int?>(null) }
     val reduced = rememberReducedMotion()
     val more = stringResource(CorusStrings.parity_see_more)
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
-    val less = stringResource(CorusStrings.concert_show_less)
     val accent = CorusColors.Accent
     val body = room.roomDescription.trim()
     val text = buildAnnotatedString {
         append(if (!expanded && cut != null) body.take(cut!!).trimEnd() + "… " else body)
-        if (cut != null) withStyle(SpanStyle(color = accent)) { append(if (expanded) " $less" else more) }
+        if (!expanded && cut != null) withStyle(SpanStyle(color = accent)) { append(more) }
     }
     Text(text, modifier = Modifier.fillMaxWidth().animateContentSize(tween(if (reduced) 0 else 200), Alignment.TopCenter)
-        .then(if (cut != null) Modifier.clickable {
-            expanded = !expanded
-            vm.event("setlist_description_toggled", if (expanded) "expanded" else "collapsed", "setlist", room.id)
+        .then(if (!expanded && cut != null) Modifier.clickable {
+            expanded = true
+            vm.event("setlist_description_toggled", "expanded", "setlist", room.id)
         } else Modifier), style = CorusFont.body, color = CorusColors.Secondary, textAlign = TextAlign.Center,
         maxLines = if (expanded) Int.MAX_VALUE else 2,
         onTextLayout = { result ->

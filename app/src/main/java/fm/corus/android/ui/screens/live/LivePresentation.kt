@@ -928,12 +928,12 @@ private fun LiveEndedSheets(
         val djs = tracks.mapNotNull { it.playedBy }.distinctBy { it.uid }
         LazyColumn(Modifier.weight(1f), state = listState, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item(key = "room-${room.id}") {
-                LiveBrowseSetlistHeader(room, tracks, vm, close) { uid ->
+                LiveBrowseSetlistHeader(room, tracks, vm, close, onProfile = { uid ->
                     navController?.currentBackStackEntry?.let { entry ->
                         returnEntry = entry
                         navController.navigate(fm.corus.android.ui.navigation.OtherProfileRoute(uid))
                     }
-                }
+                }, loading = fullTracks == null && !historyFailed)
             }
             item(key = "export") {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,

@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -27,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
@@ -267,17 +269,21 @@ internal fun LiveBrowseActiveCard(room: LiveRoom, people: Int?, previews: List<L
         }
         Spacer(Modifier.height(6.dp))
         val dj = liveBrowseDJ(room)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy((-11).dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.height(38.dp), horizontalArrangement = Arrangement.spacedBy((-11).dp)) {
                 liveBrowseLineup(room).take(3).forEachIndexed { index, person ->
-                    Box(Modifier.padding(bottom = 6.dp)) {
-                        LiveAvatar(person, 30.dp, ring = person.uid == dj.uid, ringPadding = 1.dp)
+                    Box(Modifier.zIndex((10 - index).toFloat()).padding(bottom = 4.dp)) {
+                        LiveAvatar(person, 30.dp, ring = true, ringPadding = 2.dp,
+                            ringColor = if (person.uid == dj.uid) CorusColors.Accent else CorusColors.CardBackground)
                         if (person.uid == dj.uid) Text(stringResource(CorusStrings.corus_live_live),
                             Modifier.align(Alignment.BottomCenter).offset(y = 5.dp).background(CorusColors.Accent, RoundedCornerShape(4.dp)).padding(horizontal = 3.dp),
                             style = CorusFont.caption.copy(fontSize = 8.sp, fontWeight = FontWeight.ExtraBold), color = Color.White)
                     }
                 }
-                if (liveBrowseLineup(room).size > 3) LiveText("+${liveBrowseLineup(room).size - 3}", CorusFont.caption)
+                if (liveBrowseLineup(room).size > 3) Box(Modifier.padding(2.dp).size(30.dp)
+                    .background(CorusColors.CardBackground, CircleShape), contentAlignment = Alignment.Center) {
+                    LiveText("+${liveBrowseLineup(room).size - 3}", CorusFont.captionMedium, CorusColors.Secondary)
+                }
             }
             Column {
                 Text("@${dj.username.trimStart('@')}", style = CorusFont.body.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = CorusColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)

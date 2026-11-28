@@ -1082,6 +1082,8 @@ object CorusStrings {
     @StringRes val live_room_info_settings_detail: Int = R.string.live_room_info_settings_detail
     @StringRes val live_room_other_dj_many: Int = R.string.corus_live_room_other_dj_many
     @StringRes val live_room_other_dj_one: Int = R.string.corus_live_room_other_dj_one
+    @StringRes val live_setlist_dj_prefix: Int = R.string.live_setlist_dj_prefix
+    @StringRes val live_setlist_dj_count: Int = R.string.live_setlist_dj_count
     @StringRes val live_skip_to_talk: Int = R.string.live_skip_to_talk
     @StringRes val live_song_save_count: Int = R.string.corus_live_song_save_count
     @StringRes val live_song_saved_by: Int = R.string.corus_live_song_saved_by
