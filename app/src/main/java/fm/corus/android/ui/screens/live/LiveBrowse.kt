@@ -37,6 +37,7 @@ import com.valentinilk.shimmer.shimmer
 import fm.corus.android.R
 import fm.corus.android.localization.CorusStrings
 import fm.corus.android.ui.components.rememberReducedMotion
+import fm.corus.android.ui.theme.LocalCorusDarkTheme
 import fm.corus.android.ui.theme.CorusColors
 import fm.corus.android.ui.theme.CorusFont
 import kotlinx.coroutines.CancellationException
@@ -250,14 +251,17 @@ internal fun LiveBrowseActiveCard(room: LiveRoom, people: Int?, previews: List<L
     val artworkTracks = previews ?: (listOfNotNull(room.current) + room.recent)
     val peopleLabel = stringResource(R.string.search_trending_people)
     val loadingLabel = stringResource(CorusStrings.common_loading)
+    val dark = LocalCorusDarkTheme.current
+    val countForeground = if (dark) Color(0xFFB0B0B6) else Color(0xFF74747C)
     val details: @Composable ColumnScope.() -> Unit = {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Text(room.title, Modifier.weight(1f), color = CorusColors.Text,
                 style = CorusFont.songTitle.copy(fontSize = 16.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.width(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.widthIn(min = 26.dp).clearAndSetSemantics { contentDescription = people?.let { "${java.text.NumberFormat.getIntegerInstance().format(it)} $peopleLabel" } ?: loadingLabel }) {
-                Icon(Icons.Default.Person, null, tint = CorusColors.Secondary, modifier = Modifier.size(12.dp))
-                if (people != null) Text(java.text.NumberFormat.getIntegerInstance().format(people), style = CorusFont.caption, color = CorusColors.Secondary)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.background(CorusColors.Accent.copy(alpha = if (dark) .16f else .09f), RoundedCornerShape(50))
+                .padding(horizontal = 5.dp, vertical = 2.dp).widthIn(min = 26.dp).clearAndSetSemantics { contentDescription = people?.let { "${java.text.NumberFormat.getIntegerInstance().format(it)} $peopleLabel" } ?: loadingLabel }) {
+                Icon(Icons.Default.Person, null, tint = countForeground, modifier = Modifier.size(12.dp))
+                if (people != null) Text(java.text.NumberFormat.getIntegerInstance().format(people), style = CorusFont.caption.copy(fontWeight = FontWeight.Medium), color = countForeground)
                 else Box(Modifier.size(12.dp, 10.dp).background(CorusColors.Skeleton, RoundedCornerShape(3.dp)))
             }
         }
